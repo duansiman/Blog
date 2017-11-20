@@ -1,0 +1,373 @@
+
+
+<span style="color:rgb(85,85,85); font-family:'microsoft yahei'; font-size:15px; line-height:35px">一、定义（概念）</span><br style="color:rgb(85,85,85); font-family:'microsoft yahei'; font-size:15px; line-height:35px" />&#13;
+使多个对象都有机会处理请求，从而避免请求的发送者和接收者之间的耦合关系。<br />&#13;
+将这些对象连成一条链，并沿着这条链传递该请求，直到有一个对象处理它为止。<br style="color:rgb(85,85,85); font-family:'microsoft yahei'; font-size:15px; line-height:35px" />&#13;
+<p style="margin-top:0px; margin-bottom:0px; padding-top:0px; padding-bottom:0px; color:rgb(85,85,85); font-family:'microsoft yahei'; font-size:15px; line-height:35px">&#13;
+<br />&#13;
+</p>&#13;
+<p style="margin-top:0px; margin-bottom:0px; padding-top:0px; padding-bottom:0px; color:rgb(85,85,85); font-family:'microsoft yahei'; font-size:15px; line-height:35px">&#13;
+二、适用场景</p>&#13;
+<br style="color:rgb(85,85,85); font-family:'microsoft yahei'; font-size:15px; line-height:35px" />&#13;
+1 有多个的对象可以处理一个请求，哪个对象处理该请求运行时刻自动确定。<br />&#13;
+2 你想在不明确指定接受者的情况下，想过个对象中的一个提交一个请求。<br />&#13;
+3 可处理一个请求的对象集合应该被动态指定。<br style="color:rgb(85,85,85); font-family:'microsoft yahei'; font-size:15px; line-height:35px" />&#13;
+<span style="color:rgb(85,85,85); font-family:'microsoft yahei'; font-size:15px; line-height:35px">　　<br />&#13;
+</span><span style="color:rgb(85,85,85); font-family:'microsoft yahei'; font-size:15px; line-height:35px">涉及角色：</span><br style="color:rgb(85,85,85); font-family:'microsoft yahei'; font-size:15px; line-height:35px" />&#13;
+         ●　　抽象处理者(Handler)角色：定义出一个处理请求的接口。如果需要，接口可以定义 出一个方法以设定和返回对下家的引用。这个角色通常由一个Java抽象类或者Java接口实现。上图中Handler类的聚合关系给出了具体子类对下家的引用，抽象方法handleRequest()规范了子类处理请求的操作。<br />&#13;
+ 　　●　　具体处理者(ConcreteHandler)角色：具体处理者接到请求后，可以选择将请求处理掉，或者将请求传给下家。由于具体处理者持有对下家的引用，因此，如果需要，具体处理者可以访问下家。<br style="color:rgb(85,85,85); font-family:'microsoft yahei'; font-size:15px; line-height:35px" />&#13;
+<p><span style="color:rgb(85,85,85); font-family:'microsoft yahei'; font-size:15px; line-height:35px"><br />&#13;
+</span></p>&#13;
+<p><span style="color:rgb(85,85,85); font-family:'microsoft yahei'; font-size:15px; line-height:35px">三、UML</span></p>&#13;
+<p style="margin-top:0px; margin-bottom:0px; padding-top:0px; padding-bottom:0px; color:rgb(85,85,85); font-family:'microsoft yahei'; font-size:15px; line-height:35px">&#13;
+<img src="http://img0.tuicool.com/6rM7Vv.png!web" alt="" style="max-width:96%; height:auto; vertical-align:middle; border:0px none; margin:0px auto; text-align:center; color:rgb(51,51,51); font-family:'Helvetica Neue',Helvetica,Tahoma,Arial,STXihei,'Microsoft YaHei',微软雅黑,sans-serif; font-size:16px; line-height:27.2px; text-indent:16px; display:block; background-color:rgb(254,254,254)" /></p>&#13;
+<p style="margin-top:0px; margin-bottom:0px; padding-top:0px; padding-bottom:0px; color:rgb(85,85,85); font-family:'microsoft yahei'; font-size:15px; line-height:35px">&#13;
+四、代码</p>&#13;
+<h3 style="margin:10px 0px; padding:0px; color:rgb(85,85,85); font-size:16px; border-bottom-width:1px; border-bottom-style:dotted; border-bottom-color:rgb(214,214,214); line-height:1.5; font-family:'ms shell dlg'">&#13;
+<div style="font-size:16px; line-height:27.2px; color:rgb(51,51,51); font-family:'Helvetica Neue',Helvetica,Tahoma,Arial,STXihei,'Microsoft YaHei',微软雅黑,sans-serif; background-color:rgb(254,254,254)">&#13;
+<pre class="prettyprint hljs cs" style="padding:0.5em; font-family:Menlo,Monaco,Consolas,'Courier New',monospace; color:rgb(68,68,68); margin-top:0px; margin-bottom:1.5em; font-size:14px; line-height:1.5em; word-break:break-all; word-wrap:break-word; border:none; overflow-x:auto; background-color:rgb(246,246,246)">package chainOfResp;
+<span class="hljs-comment" style="color:rgb(136,136,136)">/**
+ * 
+ *作者：Singit
+ *时间：
+ *描述：抽象处理角色
+ */</span>
+<span class="hljs-keyword" style="color:rgb(51,51,51); font-weight:700">public</span> <span class="hljs-keyword" style="color:rgb(51,51,51); font-weight:700">abstract</span> <span class="hljs-keyword" style="color:rgb(51,51,51); font-weight:700">class</span> <span class="hljs-title" style="color:rgb(136,0,0); font-weight:bold">Handler</span> {
+
+	<span class="hljs-keyword" style="color:rgb(51,51,51); font-weight:700">protected</span> Handler successor;
+	<span class="hljs-comment" style="color:rgb(136,136,136)">/**
+	 * 
+	 *作者：Singit
+	 *时间：
+	 *描述：处理方法
+	 */</span>
+	<span class="hljs-function"><span class="hljs-keyword" style="color:rgb(51,51,51); font-weight:700">public</span> <span class="hljs-keyword" style="color:rgb(51,51,51); font-weight:700">abstract</span> <span class="hljs-keyword" style="color:rgb(51,51,51); font-weight:700">void</span> <span class="hljs-title" style="color:rgb(136,0,0); font-weight:bold">handlerRequest</span>(<span class="hljs-params">String condition</span>)</span>;
+	
+	
+	<span class="hljs-function"><span class="hljs-keyword" style="color:rgb(51,51,51); font-weight:700">public</span> Handler <span class="hljs-title" style="color:rgb(136,0,0); font-weight:bold">getSuccessor</span>(<span class="hljs-params"></span>) </span>{
+		<span class="hljs-keyword" style="color:rgb(51,51,51); font-weight:700">return</span> successor;
+	}
+	<span class="hljs-function"><span class="hljs-keyword" style="color:rgb(51,51,51); font-weight:700">public</span> <span class="hljs-keyword" style="color:rgb(51,51,51); font-weight:700">void</span> <span class="hljs-title" style="color:rgb(136,0,0); font-weight:bold">setSuccessor</span>(<span class="hljs-params">Handler successor</span>) </span>{
+		<span class="hljs-keyword" style="color:rgb(51,51,51); font-weight:700">this</span>.successor = successor;
+	}	
+	
+}</pre>&#13;
+ &#13;
+<pre class="prettyprint hljs scala" style="padding:0.5em; font-family:Menlo,Monaco,Consolas,'Courier New',monospace; color:rgb(68,68,68); margin-top:0px; margin-bottom:1.5em; font-size:14px; line-height:1.5em; word-break:break-all; word-wrap:break-word; border:none; overflow-x:auto; background-color:rgb(246,246,246)"><span class="hljs-keyword" style="color:rgb(51,51,51); font-weight:700">package</span> chainOfResp;
+<span class="hljs-comment" style="color:rgb(136,136,136)">/**
+ * 
+ *作者：Singit
+ *时间：
+ *描述：具体处理角色
+ */</span>
+public <span class="hljs-class"><span class="hljs-keyword" style="color:rgb(51,51,51); font-weight:700">class</span> <span class="hljs-title" style="color:rgb(136,0,0); font-weight:bold">ConcreteHandler1</span> <span class="hljs-keyword" style="color:rgb(51,51,51); font-weight:700">extends</span> <span class="hljs-title" style="color:rgb(136,0,0); font-weight:bold">Handler</span> </span>{
+
+	<span class="hljs-meta" style="color:rgb(31,113,153)">@Override</span>
+	public void handlerRequest(<span class="hljs-type" style="color:rgb(136,0,0)">String</span> condition) {
+		<span class="hljs-comment" style="color:rgb(136,136,136)">// 如果是自己的责任，就自己处理，负责传给下家处理</span>
+		<span class="hljs-keyword" style="color:rgb(51,51,51); font-weight:700">if</span>(condition.equals(<span class="hljs-string" style="color:rgb(136,0,0)">"ConcreteHandler1"</span>)){
+			<span class="hljs-type" style="color:rgb(136,0,0)">System</span>.out.println( <span class="hljs-string" style="color:rgb(136,0,0)">"ConcreteHandler1 handled "</span>);
+			<span class="hljs-keyword" style="color:rgb(51,51,51); font-weight:700">return</span> ;
+		}<span class="hljs-keyword" style="color:rgb(51,51,51); font-weight:700">else</span>{
+			<span class="hljs-type" style="color:rgb(136,0,0)">System</span>.out.println( <span class="hljs-string" style="color:rgb(136,0,0)">"ConcreteHandler1 passed "</span>);
+			getSuccessor().handlerRequest(condition);
+		}
+	}
+
+}</pre>&#13;
+ &#13;
+<pre class="prettyprint hljs scala" style="padding:0.5em; font-family:Menlo,Monaco,Consolas,'Courier New',monospace; color:rgb(68,68,68); margin-top:0px; margin-bottom:1.5em; font-size:14px; line-height:1.5em; word-break:break-all; word-wrap:break-word; border:none; overflow-x:auto; background-color:rgb(246,246,246)"><span class="hljs-keyword" style="color:rgb(51,51,51); font-weight:700">package</span> chainOfResp;
+<span class="hljs-comment" style="color:rgb(136,136,136)">/**
+ * 
+ *作者：Singit
+ *时间：
+ *描述：具体处理角色
+ */</span>
+public <span class="hljs-class"><span class="hljs-keyword" style="color:rgb(51,51,51); font-weight:700">class</span> <span class="hljs-title" style="color:rgb(136,0,0); font-weight:bold">ConcreteHandler2</span> <span class="hljs-keyword" style="color:rgb(51,51,51); font-weight:700">extends</span> <span class="hljs-title" style="color:rgb(136,0,0); font-weight:bold">Handler</span> </span>{
+	
+	<span class="hljs-meta" style="color:rgb(31,113,153)">@Override</span>
+	public void handlerRequest(<span class="hljs-type" style="color:rgb(136,0,0)">String</span> condition) {
+		<span class="hljs-comment" style="color:rgb(136,136,136)">// 如果是自己的责任，就自己处理，负责传给下家处理</span>
+		<span class="hljs-keyword" style="color:rgb(51,51,51); font-weight:700">if</span>(condition.equals(<span class="hljs-string" style="color:rgb(136,0,0)">"ConcreteHandler2"</span>)){
+			<span class="hljs-type" style="color:rgb(136,0,0)">System</span>.out.println( <span class="hljs-string" style="color:rgb(136,0,0)">"ConcreteHandler2 handled "</span>);
+			<span class="hljs-keyword" style="color:rgb(51,51,51); font-weight:700">return</span> ;
+		}<span class="hljs-keyword" style="color:rgb(51,51,51); font-weight:700">else</span>{
+			<span class="hljs-type" style="color:rgb(136,0,0)">System</span>.out.println( <span class="hljs-string" style="color:rgb(136,0,0)">"ConcreteHandler2 passed "</span>);
+			getSuccessor().handlerRequest(condition);
+		}
+	}
+
+}</pre>&#13;
+ &#13;
+<pre class="prettyprint hljs scala" style="padding:0.5em; font-family:Menlo,Monaco,Consolas,'Courier New',monospace; color:rgb(68,68,68); margin-top:0px; margin-bottom:1.5em; font-size:14px; line-height:1.5em; word-break:break-all; word-wrap:break-word; border:none; overflow-x:auto; background-color:rgb(246,246,246)"><span class="hljs-keyword" style="color:rgb(51,51,51); font-weight:700">package</span> chainOfResp;
+<span class="hljs-comment" style="color:rgb(136,136,136)">/**
+ * 
+ *作者：Singit
+ *时间：
+ *描述：具体处理角色
+ */</span>
+public <span class="hljs-class"><span class="hljs-keyword" style="color:rgb(51,51,51); font-weight:700">class</span> <span class="hljs-title" style="color:rgb(136,0,0); font-weight:bold">ConcreteHandlerN</span> <span class="hljs-keyword" style="color:rgb(51,51,51); font-weight:700">extends</span> <span class="hljs-title" style="color:rgb(136,0,0); font-weight:bold">Handler</span> </span>{
+
+	<span class="hljs-comment" style="color:rgb(136,136,136)">/**
+	 * 这里假设n是链的最后一个节点必须处理掉
+	 * 在实际情况下，可能出现环，或者是树形，
+	 * 这里并不一定是最后一个节点。
+	 * 
+	 */</span>
+	<span class="hljs-meta" style="color:rgb(31,113,153)">@Override</span>
+	public void handlerRequest(<span class="hljs-type" style="color:rgb(136,0,0)">String</span> condition) {
+
+		<span class="hljs-type" style="color:rgb(136,0,0)">System</span>.out.println( <span class="hljs-string" style="color:rgb(136,0,0)">"ConcreteHandlerN handled"</span>);
+		
+	}
+
+}</pre>&#13;
+ &#13;
+<pre class="prettyprint hljs cs" style="padding:0.5em; font-family:Menlo,Monaco,Consolas,'Courier New',monospace; color:rgb(68,68,68); margin-top:0px; margin-bottom:1.5em; font-size:14px; line-height:1.5em; word-break:break-all; word-wrap:break-word; border:none; overflow-x:auto; background-color:rgb(246,246,246)">package chainOfResp;
+<span class="hljs-comment" style="color:rgb(136,136,136)">/**
+ * 
+ *作者：Singit
+ *时间：
+ *描述：测试类
+ */</span>
+<span class="hljs-keyword" style="color:rgb(51,51,51); font-weight:700">public</span> <span class="hljs-keyword" style="color:rgb(51,51,51); font-weight:700">class</span> <span class="hljs-title" style="color:rgb(136,0,0); font-weight:bold">Client</span> {
+
+	<span class="hljs-comment" style="color:rgb(136,136,136)">/**
+	 *作者：Singit
+	 *时间：
+	 *描述：
+	 */</span>
+	<span class="hljs-function"><span class="hljs-keyword" style="color:rgb(51,51,51); font-weight:700">public</span> <span class="hljs-keyword" style="color:rgb(51,51,51); font-weight:700">static</span> <span class="hljs-keyword" style="color:rgb(51,51,51); font-weight:700">void</span> <span class="hljs-title" style="color:rgb(136,0,0); font-weight:bold">main</span>(<span class="hljs-params">String[] args</span>) </span>{
+	
+		Handler handler1 = <span class="hljs-keyword" style="color:rgb(51,51,51); font-weight:700">new</span> ConcreteHandler1();
+		Handler handler2 = <span class="hljs-keyword" style="color:rgb(51,51,51); font-weight:700">new</span> ConcreteHandler2();
+		Handler handlern = <span class="hljs-keyword" style="color:rgb(51,51,51); font-weight:700">new</span> ConcreteHandlerN();
+		
+		<span class="hljs-comment" style="color:rgb(136,136,136)">//链起来</span>
+		handler1.setSuccessor(handler2);
+		handler2.setSuccessor(handlern);
+		
+		<span class="hljs-comment" style="color:rgb(136,136,136)">//假设这个请求是ConcreteHandler2的责任</span>
+		handler1.handlerRequest(<span class="hljs-string" style="color:rgb(136,0,0)">"ConcreteHandler2"</span>);
+		
+		
+	}
+
+}</pre>&#13;
+ </div>&#13;
+<div style="font-size:16px; line-height:27.2px; color:rgb(51,51,51); font-family:'Helvetica Neue',Helvetica,Tahoma,Arial,STXihei,'Microsoft YaHei',微软雅黑,sans-serif; background-color:rgb(254,254,254)">&#13;
+<span style="font-weight:normal">举这样一个例子，在玩具工厂的生产车间，流水线就是一条责任链，假如一个玩具飞机有外壳装配员，引擎装配员，螺旋桨装配员，模型包装员组成。当这个物件飞机流到谁那里，谁就负责安装他负责的这一部分，这部分安装完成后流到下一个环节，知道所有环境完成。这个是一生成的责任链。还有一个质量检测链，质量检测也分多部，外壳检测，引擎检测，螺旋桨检测，包装检测。当产品留到检测员那里检测自己负责的那一块，如果有问题直接拎出来，如果没问题则传给下一个检测员，直到所有检测完成。这两个都是责任链，但是区别是，生成责任链每个人都会处理，并处理一部分；而质量检测责任链经过判断，要么处理掉，要么不处理流下去。这就是责任链的两种分类，后一种叫做纯的责任链，前一种叫做不纯的责任链，纯的责任链在实际应用中很少存在，常见的为不纯的责任链，上面的模型是模拟纯的责任链来处理的。</span></div>&#13;
+<div style="font-size:16px; line-height:27.2px; color:rgb(51,51,51); font-family:'Helvetica Neue',Helvetica,Tahoma,Arial,STXihei,'Microsoft YaHei',微软雅黑,sans-serif; background-color:rgb(254,254,254)">&#13;
+<span style="font-weight:normal"> </span></div>&#13;
+<div style="font-size:16px; line-height:27.2px; color:rgb(51,51,51); font-family:'Helvetica Neue',Helvetica,Tahoma,Arial,STXihei,'Microsoft YaHei',微软雅黑,sans-serif; background-color:rgb(254,254,254)">&#13;
+<span style="font-weight:normal">责任链模式在现实中使用的很多，常见的就是OA系统中的工作流。 在java中的实际应用有Servlet中的过滤器（Filter），Struts2的拦截器（Interceptor）。Struts2本身在Servlet中也是以Filter的形式出现的，所以Struts2的结构图中，也可以明显看出Filter和Interceptor这两条链的存在。</span></div>&#13;
+<div style="font-size:16px; line-height:27.2px; color:rgb(51,51,51); font-family:'Helvetica Neue',Helvetica,Tahoma,Arial,STXihei,'Microsoft YaHei',微软雅黑,sans-serif; background-color:rgb(254,254,254)">&#13;
+<img src="http://img2.tuicool.com/eUvQRr.png!web" alt="" style="max-width:96%; height:auto; vertical-align:middle; border:0px none; margin:0px auto; text-align:center; display:block" /><br />&#13;
+  可以看出它们每个节点都可以做一些事情，所以不算一个纯的责任链。&#13;
+<div style="line-height:1.7em">在上面提到了OA系统，那么我们再模拟一下OA系统中请假审批流程，假如员工直接上司为小组长，小组长直接上司项目经理，项目经理直接上司部门经理，部门经理直接上司总经理。公司规定请假审批如下：</div>&#13;
+<div style="line-height:1.7em">请假时间为t,时间单位day，简写d：</div>&#13;
+<div style="line-height:1.7em">t&lt;  0.5d，小组长审批；</div>&#13;
+<div style="line-height:1.7em">t&gt;=0.5d,t&lt;2,项目经理审批；</div>&#13;
+<div style="line-height:1.7em">t&gt;=2,t&lt;5部门经理审批；</div>&#13;
+<div style="line-height:1.7em">t&gt;=5总经理审批；</div>&#13;
+<div style="line-height:1.7em">审批时序图如下：</div>&#13;
+<div style="line-height:1.7em"><img src="http://img1.tuicool.com/biuuuy.png!web" alt="" style="max-width:96%; height:auto; vertical-align:middle; border:0px none; margin:0px auto; text-align:center; display:block" /></div>&#13;
+<div style="line-height:1.7em">用代码描述：  </div>&#13;
+<div style="line-height:1.7em">&#13;
+<pre class="prettyprint hljs java" style="padding:0.5em; font-family:Menlo,Monaco,Consolas,'Courier New',monospace; color:rgb(68,68,68); margin-top:0px; margin-bottom:1.5em; font-size:14px; line-height:1.5em; word-break:break-all; word-wrap:break-word; border:none; overflow-x:auto; background-color:rgb(246,246,246)"><span class="hljs-keyword" style="color:rgb(51,51,51); font-weight:700">package</span> chainOfResp.example;
+<span class="hljs-comment" style="color:rgb(136,136,136)">/**
+ * 
+ *作者：alaric
+ *时间：2013-8-17下午1:02:51
+ *描述：审批处理抽象类
+ */</span>
+<span class="hljs-keyword" style="color:rgb(51,51,51); font-weight:700">public</span> <span class="hljs-keyword" style="color:rgb(51,51,51); font-weight:700">abstract</span> <span class="hljs-class"><span class="hljs-keyword" style="color:rgb(51,51,51); font-weight:700">class</span> <span class="hljs-title" style="color:rgb(136,0,0); font-weight:bold">Handler</span> </span>{
+
+	<span class="hljs-keyword" style="color:rgb(51,51,51); font-weight:700">protected</span> Handler handler;
+
+	<span class="hljs-comment" style="color:rgb(136,136,136)">/**
+	 * 
+	 *作者：Singit
+	 *时间：
+	 *描述：审批
+	 */</span>
+	<span class="hljs-function"><span class="hljs-keyword" style="color:rgb(51,51,51); font-weight:700">public</span> <span class="hljs-keyword" style="color:rgb(51,51,51); font-weight:700">abstract</span> <span class="hljs-keyword" style="color:rgb(51,51,51); font-weight:700">boolean</span> <span class="hljs-title" style="color:rgb(136,0,0); font-weight:bold">approve</span><span class="hljs-params">(<span class="hljs-keyword" style="color:rgb(51,51,51); font-weight:700">double</span> day)</span></span>;
+	
+	<span class="hljs-function"><span class="hljs-keyword" style="color:rgb(51,51,51); font-weight:700">public</span> Handler <span class="hljs-title" style="color:rgb(136,0,0); font-weight:bold">getHandler</span><span class="hljs-params">()</span> </span>{
+		<span class="hljs-keyword" style="color:rgb(51,51,51); font-weight:700">return</span> handler;
+	}
+	<span class="hljs-function"><span class="hljs-keyword" style="color:rgb(51,51,51); font-weight:700">public</span> <span class="hljs-keyword" style="color:rgb(51,51,51); font-weight:700">void</span> <span class="hljs-title" style="color:rgb(136,0,0); font-weight:bold">setHandler</span><span class="hljs-params">(Handler handler)</span> </span>{
+		<span class="hljs-keyword" style="color:rgb(51,51,51); font-weight:700">this</span>.handler = handler;
+	}
+	
+}</pre>&#13;
+ &#13;
+<pre class="prettyprint hljs scala" style="padding:0.5em; font-family:Menlo,Monaco,Consolas,'Courier New',monospace; color:rgb(68,68,68); margin-top:0px; margin-bottom:1.5em; font-size:14px; line-height:1.5em; word-break:break-all; word-wrap:break-word; border:none; overflow-x:auto; background-color:rgb(246,246,246)"><span class="hljs-keyword" style="color:rgb(51,51,51); font-weight:700">package</span> chainOfResp.example;
+
+
+public <span class="hljs-class"><span class="hljs-keyword" style="color:rgb(51,51,51); font-weight:700">class</span> <span class="hljs-title" style="color:rgb(136,0,0); font-weight:bold">GroupLeader</span> <span class="hljs-keyword" style="color:rgb(51,51,51); font-weight:700">extends</span> <span class="hljs-title" style="color:rgb(136,0,0); font-weight:bold">Handler</span> </span>{
+
+	<span class="hljs-meta" style="color:rgb(31,113,153)">@Override</span>
+	public boolean approve(double day) {
+		<span class="hljs-keyword" style="color:rgb(51,51,51); font-weight:700">if</span>(day&lt;<span class="hljs-number" style="color:rgb(136,0,0)">0.5</span>){
+			<span class="hljs-type" style="color:rgb(136,0,0)">System</span>.out.println(<span class="hljs-string" style="color:rgb(136,0,0)">"小组长审批通过"</span>);
+			<span class="hljs-keyword" style="color:rgb(51,51,51); font-weight:700">return</span> <span class="hljs-literal" style="color:rgb(120,169,96)">true</span>;
+		}<span class="hljs-keyword" style="color:rgb(51,51,51); font-weight:700">else</span> {
+			<span class="hljs-type" style="color:rgb(136,0,0)">System</span>.out.println(<span class="hljs-string" style="color:rgb(136,0,0)">"小组长传给了他的上司"</span>);
+			<span class="hljs-keyword" style="color:rgb(51,51,51); font-weight:700">return</span> getHandler().approve(day);
+		}
+	}
+
+
+}</pre>&#13;
+ &#13;
+<pre class="prettyprint hljs scala" style="padding:0.5em; font-family:Menlo,Monaco,Consolas,'Courier New',monospace; color:rgb(68,68,68); margin-top:0px; margin-bottom:1.5em; font-size:14px; line-height:1.5em; word-break:break-all; word-wrap:break-word; border:none; overflow-x:auto; background-color:rgb(246,246,246)"><span class="hljs-keyword" style="color:rgb(51,51,51); font-weight:700">package</span> chainOfResp.example;
+
+
+public <span class="hljs-class"><span class="hljs-keyword" style="color:rgb(51,51,51); font-weight:700">class</span> <span class="hljs-title" style="color:rgb(136,0,0); font-weight:bold">ProjectManager</span> <span class="hljs-keyword" style="color:rgb(51,51,51); font-weight:700">extends</span> <span class="hljs-title" style="color:rgb(136,0,0); font-weight:bold">Handler</span> </span>{
+
+	<span class="hljs-meta" style="color:rgb(31,113,153)">@Override</span>
+	public boolean approve(double day) {
+		<span class="hljs-keyword" style="color:rgb(51,51,51); font-weight:700">if</span>(day&lt;<span class="hljs-number" style="color:rgb(136,0,0)">2</span>){
+			<span class="hljs-type" style="color:rgb(136,0,0)">System</span>.out.println(<span class="hljs-string" style="color:rgb(136,0,0)">"项目经理审批通过"</span>);
+			<span class="hljs-keyword" style="color:rgb(51,51,51); font-weight:700">return</span> <span class="hljs-literal" style="color:rgb(120,169,96)">true</span>;
+		}<span class="hljs-keyword" style="color:rgb(51,51,51); font-weight:700">else</span> {
+			<span class="hljs-type" style="color:rgb(136,0,0)">System</span>.out.println(<span class="hljs-string" style="color:rgb(136,0,0)">"项目经理传给了他的上司"</span>);
+			<span class="hljs-keyword" style="color:rgb(51,51,51); font-weight:700">return</span> getHandler().approve(day);
+		}
+	}
+
+
+}</pre>&#13;
+ &#13;
+<pre class="prettyprint hljs scala" style="padding:0.5em; font-family:Menlo,Monaco,Consolas,'Courier New',monospace; color:rgb(68,68,68); margin-top:0px; margin-bottom:1.5em; font-size:14px; line-height:1.5em; word-break:break-all; word-wrap:break-word; border:none; overflow-x:auto; background-color:rgb(246,246,246)"><span class="hljs-keyword" style="color:rgb(51,51,51); font-weight:700">package</span> chainOfResp.example;
+
+
+public <span class="hljs-class"><span class="hljs-keyword" style="color:rgb(51,51,51); font-weight:700">class</span> <span class="hljs-title" style="color:rgb(136,0,0); font-weight:bold">DepartmentManager</span> <span class="hljs-keyword" style="color:rgb(51,51,51); font-weight:700">extends</span> <span class="hljs-title" style="color:rgb(136,0,0); font-weight:bold">Handler</span> </span>{
+
+	<span class="hljs-meta" style="color:rgb(31,113,153)">@Override</span>
+	public boolean approve(double day) {
+		<span class="hljs-keyword" style="color:rgb(51,51,51); font-weight:700">if</span>(day&lt;<span class="hljs-number" style="color:rgb(136,0,0)">5</span>){
+			<span class="hljs-type" style="color:rgb(136,0,0)">System</span>.out.println(<span class="hljs-string" style="color:rgb(136,0,0)">"部门经理审批通过"</span>);
+			<span class="hljs-keyword" style="color:rgb(51,51,51); font-weight:700">return</span> <span class="hljs-literal" style="color:rgb(120,169,96)">true</span>;
+		}<span class="hljs-keyword" style="color:rgb(51,51,51); font-weight:700">else</span> {
+			<span class="hljs-type" style="color:rgb(136,0,0)">System</span>.out.println(<span class="hljs-string" style="color:rgb(136,0,0)">"部门经理传给了他的上司"</span>);
+			<span class="hljs-keyword" style="color:rgb(51,51,51); font-weight:700">return</span> getHandler().approve(day);
+		}
+	}
+
+
+}</pre>&#13;
+ &#13;
+<pre class="prettyprint hljs scala" style="padding:0.5em; font-family:Menlo,Monaco,Consolas,'Courier New',monospace; color:rgb(68,68,68); margin-top:0px; margin-bottom:1.5em; font-size:14px; line-height:1.5em; word-break:break-all; word-wrap:break-word; border:none; overflow-x:auto; background-color:rgb(246,246,246)"><span class="hljs-keyword" style="color:rgb(51,51,51); font-weight:700">package</span> chainOfResp.example;
+
+
+public <span class="hljs-class"><span class="hljs-keyword" style="color:rgb(51,51,51); font-weight:700">class</span> <span class="hljs-title" style="color:rgb(136,0,0); font-weight:bold">CEO</span> <span class="hljs-keyword" style="color:rgb(51,51,51); font-weight:700">extends</span> <span class="hljs-title" style="color:rgb(136,0,0); font-weight:bold">Handler</span> </span>{
+
+	<span class="hljs-meta" style="color:rgb(31,113,153)">@Override</span>
+	public boolean approve(double day) {
+			<span class="hljs-type" style="color:rgb(136,0,0)">System</span>.out.println(<span class="hljs-string" style="color:rgb(136,0,0)">"部门经理审批通过"</span>);
+			<span class="hljs-keyword" style="color:rgb(51,51,51); font-weight:700">return</span> <span class="hljs-literal" style="color:rgb(120,169,96)">true</span>;
+		
+	}
+
+}</pre>&#13;
+ &#13;
+<pre class="prettyprint hljs cs" style="padding:0.5em; font-family:Menlo,Monaco,Consolas,'Courier New',monospace; color:rgb(68,68,68); margin-top:0px; margin-bottom:1.5em; font-size:14px; line-height:1.5em; word-break:break-all; word-wrap:break-word; border:none; overflow-x:auto; background-color:rgb(246,246,246)">package chainOfResp.example;
+<span class="hljs-comment" style="color:rgb(136,136,136)">/**
+ * 
+ *作者：Singit
+ *时间：
+ *描述：测试类，首先来创建责任链，然后发出请求模拟员工来请假
+ */</span>
+<span class="hljs-keyword" style="color:rgb(51,51,51); font-weight:700">public</span> <span class="hljs-keyword" style="color:rgb(51,51,51); font-weight:700">class</span> <span class="hljs-title" style="color:rgb(136,0,0); font-weight:bold">Client</span> {
+
+	<span class="hljs-comment" style="color:rgb(136,136,136)">/**
+	 *作者：alaric
+	 *时间：2013-8-17下午12:54:44
+	 *描述：
+	 */</span>
+	<span class="hljs-function"><span class="hljs-keyword" style="color:rgb(51,51,51); font-weight:700">public</span> <span class="hljs-keyword" style="color:rgb(51,51,51); font-weight:700">static</span> <span class="hljs-keyword" style="color:rgb(51,51,51); font-weight:700">void</span> <span class="hljs-title" style="color:rgb(136,0,0); font-weight:bold">main</span>(<span class="hljs-params">String[] args</span>) </span>{
+
+		<span class="hljs-comment" style="color:rgb(136,136,136)">//创建节点</span>
+		GroupLeader gl = <span class="hljs-keyword" style="color:rgb(51,51,51); font-weight:700">new</span> GroupLeader();
+		ProjectManager pm = <span class="hljs-keyword" style="color:rgb(51,51,51); font-weight:700">new</span> ProjectManager();
+		DepartmentManager dm = <span class="hljs-keyword" style="color:rgb(51,51,51); font-weight:700">new</span> DepartmentManager();
+		CEO ceo = <span class="hljs-keyword" style="color:rgb(51,51,51); font-weight:700">new</span> CEO();
+		<span class="hljs-comment" style="color:rgb(136,136,136)">//建立责任链</span>
+		gl.setHandler(pm);
+		pm.setHandler(dm);
+		dm.setHandler(ceo);
+		
+		<span class="hljs-comment" style="color:rgb(136,136,136)">//向小组长发出申请，请求审批4天的假期</span>
+		gl.approve(<span class="hljs-number" style="color:rgb(136,0,0)">4</span>D);
+		
+
+	}
+
+}</pre>&#13;
+<span style="font-weight:normal">  运行结果：</span>&#13;
+<div style="line-height:1.7em">&#13;
+<div style="line-height:1.7em"><span style="font-weight:normal">小组长传给了他的上司</span></div>&#13;
+<div style="line-height:1.7em"><span style="font-weight:normal">项目经理传给了他的上司</span></div>&#13;
+<div style="line-height:1.7em"><span style="font-weight:normal">部门经理审批通过</span></div>&#13;
+</div>&#13;
+<div style="line-height:1.7em"><span style="font-weight:normal"> </span></div>&#13;
+<div style="line-height:1.7em"><span style="font-weight:normal">这里模拟的是一个理想的状态，所以是一个纯的责任链；在实际当中，可能小组长签字，项目经理签字...一堆的签字，而不是不参与请求的处理。</span></div>&#13;
+<div style="line-height:1.7em"><span style="font-weight:normal">责任链模式的优点是调用者不需知道具体谁来处理请求，也不知道链的具体结构，降低了节点域节点的耦合度；可在运行时动态修改链中的对象职责，增强了给对象指派职责的灵活性；缺点是没有明确的接收者，可能传到链的最后，也没得到正确的处理。</span></div>&#13;
+</div>&#13;
+</div>&#13;
+<br />&#13;
+</h3>&#13;
+<p style="margin-top:0px; margin-bottom:0px; padding-top:0px; padding-bottom:0px; color:rgb(85,85,85); font-family:'microsoft yahei'; font-size:15px; line-height:35px">&#13;
+<strong>五、小结（优点与缺点）</strong></p>&#13;
+<span style="color:rgb(85,85,85); font-family:'microsoft yahei'; font-size:15px; line-height:35px">优点：</span><br style="color:rgb(85,85,85); font-family:'microsoft yahei'; font-size:15px; line-height:35px" />&#13;
+<p style="margin:10px auto; padding-top:0px; padding-bottom:0px; color:rgb(85,85,85); word-wrap:break-word; font-family:'ms shell dlg'; font-size:14px; line-height:28px">&#13;
+因为无法预知来自外界（客户端）的请求是属于哪种类型，每个类如果碰到它不能处理的请求只要放弃就可以。<br />&#13;
+</p>&#13;
+<p style="margin:10px auto; padding-top:0px; padding-bottom:0px; color:rgb(85,85,85); word-wrap:break-word; font-family:'ms shell dlg'; font-size:14px; line-height:28px">&#13;
+</p>&#13;
+<div style="color:rgb(54,46,43); font-family:Arial; font-size:14px; line-height:26px">&#13;
+<span style="color:rgb(51,51,51)"><span style="font-family:Verdana,Arial,Helvetica,sans-serif"><span style="font-size:18px">职责链灵活在哪</span></span></span></div>&#13;
+<div style="color:rgb(54,46,43); font-family:Arial; font-size:14px; line-height:26px">&#13;
+<span style="color:rgb(51,51,51)"><span style="font-family:Verdana,Arial,Helvetica,sans-serif">1. 改变内部的传递规则</span></span></div>&#13;
+<div style="color:rgb(54,46,43); font-family:Arial; font-size:14px; line-height:26px">&#13;
+<span style="color:rgb(51,51,51); font-family:Verdana,Arial,Helvetica,sans-serif; font-size:13px">每个人都可以去动态地指定他的继任者。</span></div>&#13;
+<div style="color:rgb(54,46,43); font-family:Arial; font-size:14px; line-height:26px">&#13;
+<span style="font-family:Verdana,Arial,Helvetica,sans-serif"><span style="color:rgb(51,51,51)">2. 可以从职责链任何一关开始。</span></span></div>&#13;
+<div style="color:rgb(54,46,43); font-family:Arial; font-size:14px; line-height:26px">&#13;
+<br />&#13;
+</div>&#13;
+<div style="color:rgb(54,46,43); font-family:Arial; font-size:14px; line-height:26px">&#13;
+3.用与不用的区别</div>&#13;
+<div style="color:rgb(54,46,43); font-family:Arial; font-size:14px; line-height:26px">&#13;
+<span style="font-size:13px"><span style="font-family:Verdana,Arial,Helvetica,sans-serif"><span style="color:rgb(51,51,51)">不用职责链的结构，我们需要和公司中的每一个层级都发生耦合关系。</span></span></span></div>&#13;
+<div style="color:rgb(54,46,43); font-family:Arial; font-size:14px; line-height:26px">&#13;
+<span style="font-size:13px"><span style="font-family:Verdana,Arial,Helvetica,sans-serif"><span style="color:rgb(51,51,51)">如果反映在代码上即使我们需要在一个类中去写上很多丑陋的if….else语句。</span></span></span></div>&#13;
+<div style="color:rgb(54,46,43); font-family:Arial; font-size:14px; line-height:26px">&#13;
+<span style="font-size:13px"><span style="font-family:Verdana,Arial,Helvetica,sans-serif"><span style="color:rgb(51,51,51)">如果用了职责链，相当于我们面对的是一个黑箱，我们只需要认识其中的一个部门，然后让黑箱内部去负责传递就好了</span></span></span></div>&#13;
+<br />&#13;
+<p></p>&#13;
+<span style="color:rgb(85,85,85); font-family:'microsoft yahei'; font-size:15px; line-height:35px">缺点：</span><br style="color:rgb(85,85,85); font-family:'microsoft yahei'; font-size:15px; line-height:35px" />&#13;
+<p style="margin:10px auto; padding-top:0px; padding-bottom:0px; color:rgb(85,85,85); word-wrap:break-word; font-family:'ms shell dlg'; font-size:14px; line-height:28px">&#13;
+1、对于每一个请求都需要遍历职责链，性能是个问题；效率低，因为一个请求的完成可能要遍历到最后才可能完成;扩展性差，因为在COR中，一定要有一个统一的接口处理程序局限性就在这里。<br />&#13;
+2、抽象处理者 AbstractHandler 类中的 handleRequest() 方法中使用了递归，栈空间的大小也是个问题。<br />&#13;
+ 个人看法：<br />&#13;
+职责链模式对于请求的处理是不知道最终处理者是谁，所以是运行动态寻找并指定；而命令模式中对于命令的处理时在创建命令是已经显式或隐式绑定了接收者。<br />&#13;
+</p>&#13;
+<p style="margin-top:0px; margin-bottom:0px; padding-top:0px; padding-bottom:0px; color:rgb(85,85,85); font-family:'microsoft yahei'; font-size:15px; line-height:35px">&#13;
+<strong>六、总结：</strong></p>&#13;
+<p style="margin-top:0px; margin-bottom:0px; padding-top:0px; padding-bottom:0px; color:rgb(85,85,85); font-family:'microsoft yahei'; font-size:15px; line-height:35px">&#13;
+纯的与不纯的责任链模式<br />&#13;
+　　一个纯的责任链模式要求一个具体的处理者对象只能在两个行为中选择一个：一是承担责任，而是把责任推给下家。不允许出现某一个具体处理者对象在承担了一部分责任后又 把责任向下传的情况。<br />&#13;
+在一个纯的责任链模式里面，一个请求必须被某一个处理者对象所接收；在一个不纯的责任链模式里面，一个请求可以最终不被任何接收端对象所接收。</p>&#13;
+<p style="margin-top:0px; margin-bottom:0px; padding-top:0px; padding-bottom:0px; color:rgb(85,85,85); font-family:'microsoft yahei'; font-size:15px; line-height:35px">&#13;
+<br />&#13;
+<strong>　　</strong>纯的责任链模式的实际例子很难找到，一般看到的例子均是不纯的责任链模式的实现。有些人认为不纯的责任链根本不是责任链模式，这也许是有道理的。但是在实际的系统里，纯的责任链很难找到。如果坚持责任链不纯便不是责任链模式，那么责任链模式便不会有太大意义了。<br />&#13;
+责任链模式在Tomcat中的应用<br />&#13;
+众所周知Tomcat中的Filter就是使用了责任链模式，创建一个Filter除了要在web.xml文件中做相应配置外，还需要实现javax.servlet.Filter接口。<br />&#13;
+</p>&#13;
+<p style="margin-top:0px; margin-bottom:0px; padding-top:0px; padding-bottom:0px; color:rgb(85,85,85); font-family:'microsoft yahei'; font-size:15px; line-height:35px">&#13;
+<strong><br />&#13;
+</strong></p>&#13;
+   &#13;

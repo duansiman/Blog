@@ -1,0 +1,414 @@
+
+                <div class="markdown_views"><p/><div class="toc">
+<ul>
+<li><ul>
+<li><a href="http://blog.csdn.net/u014427391/article/details/70596636#前言">前言</a></li>
+<li><a href="http://blog.csdn.net/u014427391/article/details/70596636#中间件">中间件</a><ul>
+<li><a href="http://blog.csdn.net/u014427391/article/details/70596636#中间件概念">中间件概念</a></li>
+<li><a href="http://blog.csdn.net/u014427391/article/details/70596636#中间件分类">中间件分类</a></li>
+</ul>
+</li>
+<li><a href="http://blog.csdn.net/u014427391/article/details/70596636#esb">ESB</a></li>
+<li><a href="http://blog.csdn.net/u014427391/article/details/70596636#jms">JMS</a></li>
+</ul>
+</li>
+</ul>
+</div>
+
+
+
+
+<h2 id="前言">前言</h2>
+
+<p>本博客介绍Java中间件的一些知识，仅仅是一些知识储备。</p>
+
+
+
+<h2 id="中间件">中间件</h2>
+
+
+
+<h3 id="中间件概念">中间件概念</h3>
+
+<p>中间件：中间件是一种介于操作系统和应用软件之间的一种软件，它使用系统软件所提供的基础服务（功能），衔接网络上应用系统的各个部分或不同的应用，能够达到资源共享、功能共享的目的。 <br/>
+若是以新一代的中间件系列产品来组合应用，同时配合以可复用的商务对象构件，则应用开发费用可节省至80%。 </p>
+
+
+
+<h3 id="中间件分类">中间件分类</h3>
+
+<ol>
+<li>消息中间件 <br/>
+消息中间件适用与进行网络通讯的系统，建立网络通讯的通道，进行数据和文件的传送 <br/>
+产品：ActiveMQ、ZeroMQ、RabbitMQ、IBM webSphere MQ…</li>
+<li>交易中间件 <br/>
+交易中间件管理分布与不同操作系统的数据，实现数据一致性，保证系统的负载均衡 <br/>
+产品：IBM CICS,Bea tuxedo…</li>
+<li>对象中间件 <br/>
+保证不同厂家的软件之间的交互访问 <br/>
+产品：IBM componentbroker, iona orbix,borland visibroker…</li>
+<li>应用服务器 <br/>
+用来构造internet/intranet应用和其它分布式构件应用 <br/>
+产品：IBM Websphere,Bea weblogic…</li>
+<li>安全中间件 <br/>
+以公钥基础设施（pki）为核心的、建立在一系列相关国际安全标准之上的一个开放式应用开发平台 <br/>
+产品：entrust entrust…</li>
+<li>应用集成服务器 <br/>
+把工作流和应用开发技术如消息及分布式构件结合在一起，使处理能方便自动地和构件、script 应用、工作流行为结合在一起，同时集成文档和电子邮件 <br/>
+产品：lss flowman、ibm flowmark、vitria businessagiliti</li>
+</ol>
+
+
+
+<h2 id="esb">ESB</h2>
+
+<p>ESB，即企业服务总线 <br/>
+松散耦合一直是企业软件开发中的一个很重要的内容，而面向服务的SOA编程在随着ESB的应用得到了进一步的发展，ESB就像服务提供者和服务使用者之间的中间层 <br/>
+<img src="http://img.blog.csdn.net/20170424134902455?watermark/2/text/aHR0cDovL2Jsb2cuY3Nkbi5uZXQvdTAxNDQyNzM5MQ==/font/5a6L5L2T/fontsize/400/fill/I0JBQkFCMA==/dissolve/70/gravity/SouthEast" alt="这里写图片描述" title=""/></p>
+
+
+
+<h2 id="jms">JMS</h2>
+
+<p>JMS，即Java Message Service <br/>
+ESB仅仅是作为一个中间层，所以应用程序之间的消息通讯必须借助JMS，即通过JMS从服务使用者接收消息，并将其转发到相应的服务提供者。 <br/>
+而且，JMS 还定义了可发送的若干不同类型的消息。例如，Text 消息包含消息的字符串表示形式；Object 消息包含序列化的 Java 对象；Map 消息包含键/值对的映射，等等。</p>
+
+<p>附录： <br/>
+MQ DEMO：</p>
+
+
+
+<pre class="prettyprint"><code class=" hljs avrasm">package <span class="hljs-keyword">com</span><span class="hljs-preprocessor">.wms</span><span class="hljs-preprocessor">.batchMsg</span><span class="hljs-comment">;</span>
+
+import java<span class="hljs-preprocessor">.io</span><span class="hljs-preprocessor">.File</span><span class="hljs-comment">;</span>
+import java<span class="hljs-preprocessor">.io</span><span class="hljs-preprocessor">.IOException</span><span class="hljs-comment">;</span>
+import java<span class="hljs-preprocessor">.sql</span><span class="hljs-preprocessor">.Timestamp</span><span class="hljs-comment">;</span>
+import java<span class="hljs-preprocessor">.text</span><span class="hljs-preprocessor">.ParseException</span><span class="hljs-comment">;</span>
+import java<span class="hljs-preprocessor">.util</span><span class="hljs-preprocessor">.Date</span><span class="hljs-comment">;</span>
+
+import org<span class="hljs-preprocessor">.apache</span><span class="hljs-preprocessor">.log</span>4j<span class="hljs-preprocessor">.Logger</span><span class="hljs-comment">;</span>
+
+import <span class="hljs-keyword">com</span><span class="hljs-preprocessor">.ibm</span><span class="hljs-preprocessor">.mq</span><span class="hljs-preprocessor">.MQEnvironment</span><span class="hljs-comment">;</span>
+import <span class="hljs-keyword">com</span><span class="hljs-preprocessor">.ibm</span><span class="hljs-preprocessor">.mq</span><span class="hljs-preprocessor">.MQException</span><span class="hljs-comment">;</span>
+import <span class="hljs-keyword">com</span><span class="hljs-preprocessor">.ibm</span><span class="hljs-preprocessor">.mq</span><span class="hljs-preprocessor">.MQGetMessageOptions</span><span class="hljs-comment">;</span>
+import <span class="hljs-keyword">com</span><span class="hljs-preprocessor">.ibm</span><span class="hljs-preprocessor">.mq</span><span class="hljs-preprocessor">.MQMessage</span><span class="hljs-comment">;</span>
+import <span class="hljs-keyword">com</span><span class="hljs-preprocessor">.ibm</span><span class="hljs-preprocessor">.mq</span><span class="hljs-preprocessor">.MQPutMessageOptions</span><span class="hljs-comment">;</span>
+import <span class="hljs-keyword">com</span><span class="hljs-preprocessor">.ibm</span><span class="hljs-preprocessor">.mq</span><span class="hljs-preprocessor">.MQQueue</span><span class="hljs-comment">;</span>
+import <span class="hljs-keyword">com</span><span class="hljs-preprocessor">.ibm</span><span class="hljs-preprocessor">.mq</span><span class="hljs-preprocessor">.MQQueueManager</span><span class="hljs-comment">;</span>
+import <span class="hljs-keyword">com</span><span class="hljs-preprocessor">.ibm</span><span class="hljs-preprocessor">.mq</span><span class="hljs-preprocessor">.constants</span><span class="hljs-preprocessor">.MQConstants</span><span class="hljs-comment">;</span>
+
+public class MQUtil {
+
+    private static String qmName<span class="hljs-comment">;      </span>
+    private static MQQueueManager qMgr<span class="hljs-comment">;</span>
+
+    private static Logger logger = Logger<span class="hljs-preprocessor">.getLogger</span>(MQUtil<span class="hljs-preprocessor">.class</span>)<span class="hljs-comment">;</span>
+
+    static{
+        try{
+            MQEnvironment<span class="hljs-preprocessor">.hostname</span>=ConfigManager<span class="hljs-preprocessor">.getValue</span>(<span class="hljs-string">"MQ_MQHost"</span>)<span class="hljs-comment">;</span>
+            MQEnvironment<span class="hljs-preprocessor">.channel</span>=ConfigManager<span class="hljs-preprocessor">.getValue</span>(<span class="hljs-string">"MQ_Server_Channel"</span>)<span class="hljs-comment">;</span>
+            MQEnvironment<span class="hljs-preprocessor">.CCSID</span>=Integer<span class="hljs-preprocessor">.parseInt</span>(ConfigManager<span class="hljs-preprocessor">.getValue</span>(<span class="hljs-string">"MQ_CCSID"</span>))<span class="hljs-comment">;</span>
+            MQEnvironment<span class="hljs-preprocessor">.port</span>=Integer<span class="hljs-preprocessor">.parseInt</span>(ConfigManager<span class="hljs-preprocessor">.getValue</span>(<span class="hljs-string">"MQ_port"</span>))<span class="hljs-comment">;</span>
+            //MQEnvironment<span class="hljs-preprocessor">.userID</span> = ConfigManager<span class="hljs-preprocessor">.getValue</span>(<span class="hljs-string">"MQ_UserId"</span>)<span class="hljs-comment">;</span>
+            //MQEnvironment<span class="hljs-preprocessor">.password</span> = ConfigManager<span class="hljs-preprocessor">.getValue</span>(<span class="hljs-string">"MQ_pass"</span>)<span class="hljs-comment">;</span>
+            qmName = ConfigManager<span class="hljs-preprocessor">.getValue</span>(<span class="hljs-string">"MQ_QMname"</span>)<span class="hljs-comment">;</span>
+            MQEnvironment<span class="hljs-preprocessor">.properties</span><span class="hljs-preprocessor">.put</span>(MQConstants<span class="hljs-preprocessor">.TRANSPORT</span>_PROPERTY,MQConstants<span class="hljs-preprocessor">.TRANSPORT</span>_MQSERIES_CLIENT)<span class="hljs-comment">;</span>
+            qMgr = new MQQueueManager(qmName)<span class="hljs-comment">;</span>
+        }catch(MQException e){
+            e<span class="hljs-preprocessor">.printStackTrace</span>()<span class="hljs-comment">;</span>
+            logger<span class="hljs-preprocessor">.info</span>(<span class="hljs-string">"qManager failed: Completion code "</span> + e<span class="hljs-preprocessor">.completionCode</span> + <span class="hljs-string">" Reason Code is "</span>
+                    + e<span class="hljs-preprocessor">.reasonCode</span>)<span class="hljs-comment">;</span>
+        }
+    }
+
+    public static MQQueue getSendQueue(String queueName) {
+        MQQueue sQueue<span class="hljs-comment">;</span>
+        int openSendOptions = MQConstants<span class="hljs-preprocessor">.MQOO</span>_OUTPUT | MQConstants<span class="hljs-preprocessor">.MQOO</span>_FAIL_IF_QUIESCING
+                | MQConstants<span class="hljs-preprocessor">.MQOO</span>_SET_IDENTITY_CONTEXT<span class="hljs-comment">;</span>
+        try {
+            sQueue = qMgr<span class="hljs-preprocessor">.accessQueue</span>(queueName, openSendOptions)<span class="hljs-comment">;</span>
+        } catch (MQException e) {
+            e<span class="hljs-preprocessor">.printStackTrace</span>()<span class="hljs-comment">;</span>
+            return null<span class="hljs-comment">;</span>
+        }
+        return sQueue<span class="hljs-comment">;</span>
+    }
+
+    public static MQQueue getReceiveQueue(String revQueueName){
+        MQQueue rQueue <span class="hljs-comment">;</span>
+        int openRcvOptions = MQConstants<span class="hljs-preprocessor">.MQOO</span>_INPUT_AS_Q_DEF | MQConstants<span class="hljs-preprocessor">.MQOO</span>_FAIL_IF_QUIESCING<span class="hljs-comment">;</span>
+        try{
+            rQueue = qMgr<span class="hljs-preprocessor">.accessQueue</span>(revQueueName, openRcvOptions)<span class="hljs-comment">;</span>
+        }catch(MQException e){
+            e<span class="hljs-preprocessor">.printStackTrace</span>()<span class="hljs-comment">;</span>
+            return null<span class="hljs-comment">;</span>
+        }
+        return rQueue<span class="hljs-comment">;</span>
+    }
+
+    public static void sendMsg(MQMsgEntity entity,String queueName) {
+        MQQueue sendQ = null<span class="hljs-comment">;</span>
+        try {
+            MQMessage qMsg = new MQMessage()<span class="hljs-comment">;</span>
+            byte[] qByte = entity<span class="hljs-preprocessor">.getMsgStr</span>()<span class="hljs-preprocessor">.getBytes</span>(<span class="hljs-string">"UTF-8"</span>)<span class="hljs-comment">;</span>
+//            String message = entity<span class="hljs-preprocessor">.getMsgStr</span>()<span class="hljs-comment">;</span>
+            qMsg<span class="hljs-preprocessor">.messageId</span> = MQConstants<span class="hljs-preprocessor">.MQMI</span>_NONE<span class="hljs-comment">;</span>
+            //TODO send <span class="hljs-keyword">and</span> receive
+            if(entity<span class="hljs-preprocessor">.getCorrelId</span>()!=null){
+                qMsg<span class="hljs-preprocessor">.correlationId</span> = entity<span class="hljs-preprocessor">.getCorrelId</span>()<span class="hljs-comment">;</span>
+            }
+            qMsg<span class="hljs-preprocessor">.format</span> = MQConstants<span class="hljs-preprocessor">.MQFMT</span>_STRING<span class="hljs-comment">;</span>
+            qMsg<span class="hljs-preprocessor">.write</span>(qByte)<span class="hljs-comment">;</span>
+            MQPutMessageOptions pmo = new MQPutMessageOptions()<span class="hljs-comment">;</span>
+            pmo<span class="hljs-preprocessor">.options</span> = pmo<span class="hljs-preprocessor">.options</span> + MQConstants<span class="hljs-preprocessor">.MQPMO</span>_NEW_MSG_ID<span class="hljs-comment">;</span>
+            pmo<span class="hljs-preprocessor">.options</span> = pmo<span class="hljs-preprocessor">.options</span> + MQConstants<span class="hljs-preprocessor">.MQPMO</span>_NO_SYNCPOINT<span class="hljs-comment">;</span>
+            pmo<span class="hljs-preprocessor">.options</span> = pmo<span class="hljs-preprocessor">.options</span> + MQConstants<span class="hljs-preprocessor">.MQPMO</span>_SET_IDENTITY_CONTEXT<span class="hljs-comment">;</span>
+            sendQ = getSendQueue(queueName)<span class="hljs-comment">;</span>
+            sendQ<span class="hljs-preprocessor">.put</span>(qMsg, pmo)<span class="hljs-comment">;</span>
+            qMgr<span class="hljs-preprocessor">.commit</span>()<span class="hljs-comment">;</span>
+            //logger<span class="hljs-preprocessor">.info</span>(<span class="hljs-string">"The send message is: "</span> +new String(qByte,<span class="hljs-string">"UTF-8"</span>))<span class="hljs-comment">;</span>
+        } catch (MQException e) {
+            logger<span class="hljs-preprocessor">.info</span>(<span class="hljs-string">"A WebSphere MQ error occurred : Completion code "</span>
+                            + e<span class="hljs-preprocessor">.completionCode</span> + <span class="hljs-string">" Reason Code is "</span>
+                            + e<span class="hljs-preprocessor">.reasonCode</span>)<span class="hljs-comment">;</span>
+        } catch (java<span class="hljs-preprocessor">.io</span><span class="hljs-preprocessor">.IOException</span> e) {
+            logger<span class="hljs-preprocessor">.info</span>(<span class="hljs-string">"An error occurred whilst to the message buffer "</span>
+                            + e)<span class="hljs-comment">;</span>
+        }finally{
+            try{
+                if(sendQ!=null){
+                    sendQ<span class="hljs-preprocessor">.close</span>()<span class="hljs-comment">;</span>
+                }
+            }catch(MQException e){
+                // TODO Auto-generated catch block
+                e<span class="hljs-preprocessor">.printStackTrace</span>()<span class="hljs-comment">;</span>
+                logger<span class="hljs-preprocessor">.info</span>(<span class="hljs-string">"Error for MQ connection:"</span>+e<span class="hljs-preprocessor">.getMessage</span>())<span class="hljs-comment">;</span>
+            }
+        }
+
+    }
+
+//    public static void messageHandlerByQueueName(MQMsgEntity entity,String queueName) {
+//      try {
+//          if(queueName<span class="hljs-preprocessor">.equalsIgnoreCase</span>(<span class="hljs-string">"sap_OrdersQueue"</span>)){
+//              ECOrder order = new ECOrder()<span class="hljs-comment">;</span>
+//              order<span class="hljs-preprocessor">.CallOrderCURFC</span>(entity, <span class="hljs-string">"ZECI001"</span>)<span class="hljs-comment">;</span>
+//          }else if(queueName<span class="hljs-preprocessor">.equalsIgnoreCase</span>(<span class="hljs-string">"sap_OrderPendReqQueue"</span>)){
+//              ECOrderPending orderPending = new ECOrderPending()<span class="hljs-comment">;</span>
+//              orderPending<span class="hljs-preprocessor">.CallOrderPendRFC</span>(entity, <span class="hljs-string">"ZECI005"</span>)<span class="hljs-comment">;</span>
+//          }else if(queueName<span class="hljs-preprocessor">.equalsIgnoreCase</span>(<span class="hljs-string">"sap_OrderPendCancelQueue"</span>)){
+//              ECOrderPending orderPending = new ECOrderPending()<span class="hljs-comment">;</span>
+//              orderPending<span class="hljs-preprocessor">.CallCancelOrderPendRFC</span>(entity, <span class="hljs-string">"ZECI006"</span>)<span class="hljs-comment">;</span>
+//          }else if(queueName<span class="hljs-preprocessor">.equalsIgnoreCase</span>(<span class="hljs-string">"sap_ECReturnsQueue"</span>)){
+//              ECOrder order = new ECOrder()<span class="hljs-comment">;</span>
+//              order<span class="hljs-preprocessor">.callOrderCancelRFC</span>(entity, <span class="hljs-string">"ZECI001"</span>)<span class="hljs-comment">;</span>
+//          }else if(queueName<span class="hljs-preprocessor">.equalsIgnoreCase</span>(<span class="hljs-string">"sap_downpaymentQueue"</span>)){
+//              ECDownPayment downPayment = new ECDownPayment()<span class="hljs-comment">;</span>
+//              downPayment<span class="hljs-preprocessor">.callDownPaymentRFC</span>(entity, <span class="hljs-string">"ZECI007"</span>)<span class="hljs-comment">;</span>
+//          }else if(queueName<span class="hljs-preprocessor">.equalsIgnoreCase</span>(<span class="hljs-string">"sap_360LBPQueue"</span>)){
+//              EC360LBP lbp = new EC360LBP()<span class="hljs-comment">;</span>
+//              lbp<span class="hljs-preprocessor">.generateHtmlFromQueue</span>(entity<span class="hljs-preprocessor">.getMsgStr</span>())<span class="hljs-comment">;</span>
+//          }
+//      } catch (Exception e) {
+//          e<span class="hljs-preprocessor">.printStackTrace</span>()<span class="hljs-comment">;</span>
+//          logger<span class="hljs-preprocessor">.error</span>(e<span class="hljs-preprocessor">.getMessage</span>())<span class="hljs-comment">;</span>
+//      }
+//      
+//    }
+
+    public MQQueueManager generateNewMQQM(){
+        MQQueueManager qMgr = null<span class="hljs-comment">;</span>
+        try{
+
+            MQEnvironment<span class="hljs-preprocessor">.hostname</span>=ConfigManager<span class="hljs-preprocessor">.getValue</span>(<span class="hljs-string">"MQ_MQHost"</span>)<span class="hljs-comment">;</span>
+            MQEnvironment<span class="hljs-preprocessor">.channel</span>=ConfigManager<span class="hljs-preprocessor">.getValue</span>(<span class="hljs-string">"MQ_Server_Channel"</span>)<span class="hljs-comment">;</span>
+            MQEnvironment<span class="hljs-preprocessor">.CCSID</span>=Integer<span class="hljs-preprocessor">.parseInt</span>(ConfigManager<span class="hljs-preprocessor">.getValue</span>(<span class="hljs-string">"MQ_CCSID"</span>))<span class="hljs-comment">;</span>
+            MQEnvironment<span class="hljs-preprocessor">.port</span>=Integer<span class="hljs-preprocessor">.parseInt</span>(ConfigManager<span class="hljs-preprocessor">.getValue</span>(<span class="hljs-string">"MQ_port"</span>))<span class="hljs-comment">;   </span>
+            String qmName = ConfigManager<span class="hljs-preprocessor">.getValue</span>(<span class="hljs-string">"MQ_QMname"</span>)<span class="hljs-comment">;</span>
+            MQEnvironment<span class="hljs-preprocessor">.properties</span><span class="hljs-preprocessor">.put</span>(MQConstants<span class="hljs-preprocessor">.TRANSPORT</span>_PROPERTY,MQConstants<span class="hljs-preprocessor">.TRANSPORT</span>_MQSERIES_CLIENT)<span class="hljs-comment">;</span>
+            qMgr = new MQQueueManager(qmName)<span class="hljs-comment">;</span>
+
+        }catch(MQException e){
+            e<span class="hljs-preprocessor">.printStackTrace</span>()<span class="hljs-comment">;</span>
+            logger<span class="hljs-preprocessor">.info</span>(<span class="hljs-string">"qManager failed: Completion code "</span> + e<span class="hljs-preprocessor">.completionCode</span> + <span class="hljs-string">" Reason Code is "</span>
+                    + e<span class="hljs-preprocessor">.reasonCode</span>)<span class="hljs-comment">;</span>
+        }
+        return qMgr<span class="hljs-comment">;</span>
+    }
+
+    public void MultiThreadGetMqMessage(MQQueueManager qMgr,String queueName){
+        MQQueue revQ = null<span class="hljs-comment">;</span>
+        String mqString = null<span class="hljs-comment">;</span>
+        MQMsgEntity entity = new MQMsgEntity()<span class="hljs-comment">;</span>
+
+        int openRcvOptions = MQConstants<span class="hljs-preprocessor">.MQOO</span>_INPUT_AS_Q_DEF | MQConstants<span class="hljs-preprocessor">.MQOO</span>_FAIL_IF_QUIESCING<span class="hljs-comment">;</span>
+        try {
+            MQMessage retrievedMessage = new MQMessage()<span class="hljs-comment">;</span>
+            MQGetMessageOptions gmo = new MQGetMessageOptions()<span class="hljs-comment">;</span>
+            gmo<span class="hljs-preprocessor">.options</span> += MQConstants<span class="hljs-preprocessor">.MQPMO</span>_NO_SYNCPOINT<span class="hljs-comment">;// </span>
+            gmo<span class="hljs-preprocessor">.options</span> = gmo<span class="hljs-preprocessor">.options</span> + MQConstants<span class="hljs-preprocessor">.MQGMO</span>_WAIT<span class="hljs-comment">;//</span>
+            gmo<span class="hljs-preprocessor">.options</span> = gmo<span class="hljs-preprocessor">.options</span> + MQConstants<span class="hljs-preprocessor">.MQGMO</span>_FAIL_IF_QUIESCING<span class="hljs-comment">;// </span>
+            gmo<span class="hljs-preprocessor">.waitInterval</span> = MQConstants<span class="hljs-preprocessor">.MQWI</span>_UNLIMITED<span class="hljs-comment">;// </span>
+            gmo<span class="hljs-preprocessor">.matchOptions</span> = MQConstants<span class="hljs-preprocessor">.MQMO</span>_MATCH_MSG_ID<span class="hljs-comment">;</span>
+            retrievedMessage<span class="hljs-preprocessor">.format</span>=MQConstants<span class="hljs-preprocessor">.MQFMT</span>_STRING<span class="hljs-comment">;</span>
+            //  MQC<span class="hljs-preprocessor">.MQWI</span>_UNLIMITED<span class="hljs-comment">;</span>
+            revQ = qMgr<span class="hljs-preprocessor">.accessQueue</span>(queueName, openRcvOptions)<span class="hljs-comment">;</span>
+            revQ<span class="hljs-preprocessor">.get</span>(retrievedMessage, gmo)<span class="hljs-comment">;</span>
+            qMgr<span class="hljs-preprocessor">.commit</span>()<span class="hljs-comment">;</span>
+            int length = retrievedMessage<span class="hljs-preprocessor">.getDataLength</span>()<span class="hljs-comment">;</span>
+            if(length &gt;<span class="hljs-number">0</span>){
+                long startTime = System<span class="hljs-preprocessor">.currentTimeMillis</span>()<span class="hljs-comment">;</span>
+                byte[] msg = new byte[length]<span class="hljs-comment">;</span>
+                retrievedMessage<span class="hljs-preprocessor">.readFully</span>(msg)<span class="hljs-comment">;</span>
+                mqString = new String(msg, <span class="hljs-string">"UTF-8"</span>)<span class="hljs-comment">;</span>
+                if(queueName<span class="hljs-preprocessor">.equalsIgnoreCase</span>(<span class="hljs-string">"sap_360LBPQueue"</span>)){
+                    mqString = mqString<span class="hljs-preprocessor">.replace</span>(<span class="hljs-string">"'"</span>, <span class="hljs-string">"\""</span>)<span class="hljs-comment">;</span>
+                }
+                long timeuse = System<span class="hljs-preprocessor">.currentTimeMillis</span>() - startTime<span class="hljs-comment">;</span>
+                Date currentDate = new Date()<span class="hljs-comment">;</span>
+                Timestamp receiveTimestamp = new Timestamp(currentDate<span class="hljs-preprocessor">.getTime</span>())<span class="hljs-comment">;</span>
+                logger<span class="hljs-preprocessor">.info</span>(<span class="hljs-string">"=========mqString from "</span>+queueName+<span class="hljs-string">" :"</span>+mqString)<span class="hljs-comment">;</span>
+                DBUtil<span class="hljs-preprocessor">.insertIntoMQLog</span>(<span class="hljs-string">"Receive"</span>,queueName, mqString, timeuse, <span class="hljs-string">"success"</span>, <span class="hljs-string">""</span>, null, receiveTimestamp)<span class="hljs-comment">;</span>
+                entity<span class="hljs-preprocessor">.setMsgStr</span>(mqString)<span class="hljs-comment">;</span>
+                //messageHandlerByQueueName(entity,queueName)<span class="hljs-comment">;</span>
+
+
+            }else{
+                logger<span class="hljs-preprocessor">.info</span>(<span class="hljs-string">"Error MQ string Sent!"</span>)<span class="hljs-comment">;</span>
+            }
+        }
+        catch (MQException e) {
+            e<span class="hljs-preprocessor">.printStackTrace</span>()<span class="hljs-comment">;</span>
+            if (e<span class="hljs-preprocessor">.reasonCode</span> != <span class="hljs-number">2033</span>) 
+            {
+                logger<span class="hljs-preprocessor">.info</span>(e<span class="hljs-preprocessor">.getMessage</span>())<span class="hljs-comment">;</span>
+                logger<span class="hljs-preprocessor">.info</span>(<span class="hljs-string">"Completion code "</span>
+                        + e<span class="hljs-preprocessor">.completionCode</span> + <span class="hljs-string">" Reason Code is "</span> + e<span class="hljs-preprocessor">.reasonCode</span>)<span class="hljs-comment">;</span>
+            }
+        } catch (IOException e) {
+            logger<span class="hljs-preprocessor">.info</span>(<span class="hljs-string">"IO error:"</span> + e<span class="hljs-preprocessor">.getMessage</span>())<span class="hljs-comment">;</span>
+        } finally{
+            try{
+                if(revQ!=null){
+                    revQ<span class="hljs-preprocessor">.close</span>()<span class="hljs-comment">;</span>
+                }
+            }catch(MQException mqEx){
+                int rc = mqEx<span class="hljs-preprocessor">.reasonCode</span><span class="hljs-comment">;</span>
+                if (rc != MQException<span class="hljs-preprocessor">.MQRC</span>_NO_MSG_AVAILABLE)
+                {
+                    logger<span class="hljs-preprocessor">.info</span>(<span class="hljs-string">" PUT Message failed with rc = "</span> 
+                + rc)<span class="hljs-comment">;</span>
+                }
+
+            }
+        }
+    }
+
+    public static String getMQMessage(String queueName) throws ParseException {
+        MQQueue revQ = null<span class="hljs-comment">;</span>
+        String mqString = null<span class="hljs-comment">;</span>
+        MQMsgEntity entity = new MQMsgEntity()<span class="hljs-comment">;</span>
+        try {
+            MQMessage retrievedMessage = new MQMessage()<span class="hljs-comment">;</span>
+            MQGetMessageOptions gmo = new MQGetMessageOptions()<span class="hljs-comment">;</span>
+            gmo<span class="hljs-preprocessor">.options</span> += MQConstants<span class="hljs-preprocessor">.MQPMO</span>_NO_SYNCPOINT<span class="hljs-comment">;// </span>
+            gmo<span class="hljs-preprocessor">.options</span> = gmo<span class="hljs-preprocessor">.options</span> + MQConstants<span class="hljs-preprocessor">.MQGMO</span>_WAIT<span class="hljs-comment">;//</span>
+            gmo<span class="hljs-preprocessor">.options</span> = gmo<span class="hljs-preprocessor">.options</span> + MQConstants<span class="hljs-preprocessor">.MQGMO</span>_FAIL_IF_QUIESCING<span class="hljs-comment">;// </span>
+            gmo<span class="hljs-preprocessor">.waitInterval</span> = MQConstants<span class="hljs-preprocessor">.MQWI</span>_UNLIMITED<span class="hljs-comment">;// </span>
+            gmo<span class="hljs-preprocessor">.matchOptions</span> = MQConstants<span class="hljs-preprocessor">.MQMO</span>_MATCH_MSG_ID<span class="hljs-comment">;</span>
+            retrievedMessage<span class="hljs-preprocessor">.format</span>=MQConstants<span class="hljs-preprocessor">.MQFMT</span>_STRING<span class="hljs-comment">;</span>
+            //  MQC<span class="hljs-preprocessor">.MQWI</span>_UNLIMITED<span class="hljs-comment">;</span>
+            revQ = getReceiveQueue(queueName)<span class="hljs-comment">;</span>
+            revQ<span class="hljs-preprocessor">.get</span>(retrievedMessage, gmo)<span class="hljs-comment">;</span>
+            qMgr<span class="hljs-preprocessor">.commit</span>()<span class="hljs-comment">;</span>
+            int length = retrievedMessage<span class="hljs-preprocessor">.getDataLength</span>()<span class="hljs-comment">;</span>
+            if(length &gt;<span class="hljs-number">0</span>){
+                byte[] msg = new byte[length]<span class="hljs-comment">;</span>
+                retrievedMessage<span class="hljs-preprocessor">.readFully</span>(msg)<span class="hljs-comment">;</span>
+                mqString = new String(msg, <span class="hljs-string">"UTF-8"</span>)<span class="hljs-comment">;</span>
+                logger<span class="hljs-preprocessor">.info</span>(<span class="hljs-string">"=========getMQMessage===mqString from "</span>+queueName+<span class="hljs-string">" :"</span>+mqString)<span class="hljs-comment">;</span>
+                entity<span class="hljs-preprocessor">.setMsgStr</span>(mqString)<span class="hljs-comment">;</span>
+                //messageHandlerByQueueName(entity,queueName)<span class="hljs-comment">;</span>
+            }else{
+                logger<span class="hljs-preprocessor">.info</span>(<span class="hljs-string">"Error MQ string Sent!"</span>)<span class="hljs-comment">;</span>
+            }
+        }
+        catch (MQException e) {
+            e<span class="hljs-preprocessor">.printStackTrace</span>()<span class="hljs-comment">;</span>
+            if (e<span class="hljs-preprocessor">.reasonCode</span> != <span class="hljs-number">2033</span>) 
+            {
+                e<span class="hljs-preprocessor">.printStackTrace</span>()<span class="hljs-comment">;</span>
+                logger<span class="hljs-preprocessor">.info</span>(<span class="hljs-string">"Completion code "</span>
+                        + e<span class="hljs-preprocessor">.completionCode</span> + <span class="hljs-string">" Reason Code is "</span> + e<span class="hljs-preprocessor">.reasonCode</span>)<span class="hljs-comment">;</span>
+            }
+        } catch (java<span class="hljs-preprocessor">.io</span><span class="hljs-preprocessor">.IOException</span> e) {
+            System<span class="hljs-preprocessor">.out</span><span class="hljs-preprocessor">.println</span>(<span class="hljs-string">"error"</span> + e<span class="hljs-preprocessor">.getMessage</span>())<span class="hljs-comment">;</span>
+        }finally{
+            try{
+                if(revQ!=null){
+                    revQ<span class="hljs-preprocessor">.close</span>()<span class="hljs-comment">;</span>
+                }
+            }catch(MQException mqEx){
+                int rc = mqEx<span class="hljs-preprocessor">.reasonCode</span><span class="hljs-comment">;</span>
+                if (rc != MQException<span class="hljs-preprocessor">.MQRC</span>_NO_MSG_AVAILABLE)
+                {
+                System<span class="hljs-preprocessor">.out</span><span class="hljs-preprocessor">.println</span>(<span class="hljs-string">" PUT Message failed with rc = "</span> 
+                + rc)<span class="hljs-comment">;</span>
+                }
+
+            }
+        }
+        return mqString<span class="hljs-comment">;</span>
+    }
+
+    public void revAndSend(MQMsgEntity entity,String queueName){
+        //
+        sendMsg(entity,queueName)<span class="hljs-comment">;</span>
+    }
+
+    public void subscribeMessage() throws ParseException{
+        while(true){
+            logger<span class="hljs-preprocessor">.info</span>(<span class="hljs-string">"waiting to get message....."</span>)<span class="hljs-comment">;</span>
+            getMQMessage(<span class="hljs-string">"sap_OrdersQueue"</span>)<span class="hljs-comment">;</span>
+
+        }
+    }
+
+    public void subscribeOrderPendMessage() throws ParseException{
+        while(true){
+            logger<span class="hljs-preprocessor">.info</span>(<span class="hljs-string">"waiting to get message....."</span>)<span class="hljs-comment">;</span>
+            getMQMessage(<span class="hljs-string">"sap_ECReturnsQueue"</span>)<span class="hljs-comment">;</span>
+
+        }
+    }
+
+
+
+    public  static void main(String[] args) throws IOException, ParseException {
+        MQMsgEntity entity = new MQMsgEntity()<span class="hljs-comment">;</span>
+        String sendMsg = XMLBeanUtil<span class="hljs-preprocessor">.readFileToString</span>(new File(<span class="hljs-string">"D://batchXML0108.txt"</span>))<span class="hljs-comment">;</span>
+        int intPktCtlNbr = <span class="hljs-number">1</span><span class="hljs-comment">;</span>
+        String StrPkt = null<span class="hljs-comment">;</span>
+        String newPktCtlNbr =null<span class="hljs-comment">;</span>
+        for (int i = <span class="hljs-number">0</span><span class="hljs-comment">; i &lt; 20000; i++) {</span>
+            newPktCtlNbr = String<span class="hljs-preprocessor">.format</span>(<span class="hljs-string">"%09d"</span>, intPktCtlNbr+i)<span class="hljs-comment">;  </span>
+            StrPkt=<span class="hljs-string">"&lt;PktCtlNbr&gt;"</span>+<span class="hljs-string">"V"</span>+newPktCtlNbr+<span class="hljs-string">"&lt;/PktCtlNbr&gt;"</span><span class="hljs-comment">;</span>
+            String changeSendMsg = sendMsg<span class="hljs-preprocessor">.replaceAll</span>(<span class="hljs-string">"&lt;PktCtlNbr&gt;6001996171&lt;/PktCtlNbr&gt;"</span>, StrPkt)<span class="hljs-comment">;</span>
+            System<span class="hljs-preprocessor">.out</span><span class="hljs-preprocessor">.println</span>(StrPkt)<span class="hljs-comment">;</span>
+            entity<span class="hljs-preprocessor">.setMsgStr</span>(changeSendMsg)<span class="hljs-comment">;</span>
+            sendMsg(entity,<span class="hljs-string">"wms_SAPOrderQueue"</span>)<span class="hljs-comment">;</span>
+        }
+//      MQUtil util = new MQUtil()<span class="hljs-comment">;</span>
+//      util<span class="hljs-preprocessor">.subscribeMessage</span>()<span class="hljs-comment">;</span>
+//      util<span class="hljs-preprocessor">.subscribeOrderPendMessage</span>()<span class="hljs-comment">;</span>
+//      util<span class="hljs-preprocessor">.messageHandlerByQueueName</span>(entity, <span class="hljs-string">"sap_360LBPQueue"</span>)<span class="hljs-comment">;</span>
+//      getMQMessage(<span class="hljs-string">"sap_OrderPendCancelQueue"</span>)<span class="hljs-comment">;</span>
+//      System<span class="hljs-preprocessor">.out</span><span class="hljs-preprocessor">.println</span>(<span class="hljs-string">"rev message is:"</span>+message)<span class="hljs-comment">;</span>
+    }
+
+}
+
+</code></pre><link rel="stylesheet" href="http://static.blog.csdn.net/public/res-min/markdown_views.css?v=1.0"/></div><link rel="stylesheet" href="http://static.blog.csdn.net/public/res-min/markdown_views.css?v=1.0"/>&#13;
+            

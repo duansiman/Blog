@@ -1,0 +1,231 @@
+
+        <div class="markdown_views"><h2 id="1新程序的启动">1.新程序的启动</h2>
+
+<p>通过用新代码替换现存程序，即可启动新程序。在Linux下这是通过execve系统调用实现的。 <br />
+该系统调用的入口点是sys_execve函数，然后委托给do_execve函数。其原型如下:</p>
+
+<pre class="prettyprint"><code class=" hljs cs">kernel/exec.c
+<span class="hljs-keyword">int</span> do_execve(<span class="hljs-keyword">char</span> * filename,
+<span class="hljs-keyword">char</span> user * user *argv, <span class="hljs-keyword">char</span> user * user *envp, <span class="hljs-keyword">struct</span> pt_regs * regs)
+</code></pre>
+
+<pre><code>    do_execve的代码流程图：
+</code></pre>
+
+<p><img src="http://img.blog.csdn.net/20170818003353500?watermark/2/text/aHR0cDovL2Jsb2cuY3Nkbi5uZXQvcXFfMjExMjcxNTE=/font/5a6L5L2T/fontsize/400/fill/I0JBQkFCMA==/dissolve/70/gravity/SouthEast" alt="do_execve的代码流程图" title="" /></p>
+
+
+
+<pre class="prettyprint"><code class=" hljs cs">do_execve()的实现如下所示：
+<span class="hljs-keyword">int</span> do_execve(<span class="hljs-keyword">char</span> * filename, <span class="hljs-keyword">char</span> __user *__user *argv,
+        <span class="hljs-keyword">char</span> __user *__user *envp,     <span class="hljs-keyword">struct</span> pt_regs * regs)
+{
+    <span class="hljs-keyword">struct</span> linux_binprm *bprm;  <span class="hljs-comment">/* 保存要执行的文件相关的数据 */</span>
+    <span class="hljs-keyword">struct</span> file *file;
+    <span class="hljs-keyword">int</span> retval;
+    <span class="hljs-keyword">int</span> i;
+    retval = -ENOMEM;
+    bprm = kzalloc(<span class="hljs-keyword">sizeof</span>(*bprm), GFP_KERNEL);
+    <span class="hljs-keyword">if</span> (!bprm)
+        <span class="hljs-keyword">goto</span> out_ret;
+    file = open_exec(filename);     <span class="hljs-comment">/* 打开要执行的文件，并检查其有效性 */</span>
+    retval = PTR_ERR(file);
+    <span class="hljs-keyword">if</span> (IS_ERR(file))
+        <span class="hljs-keyword">goto</span> out_kfree;
+    <span class="hljs-comment">/* 在多处理器系统中才执行，用以分配负载最低的CPU来执行新程序
+    该函数在include/linux/sched.h文件中被定义如下：
+    #ifdef CONFIG_SMP
+   extern void sched_exec(void);
+  #else
+   #define sched_exec() {}
+  #endif
+   sched_exec();  */</span>
+    <span class="hljs-comment">/* 填充linux_binprm结构 */</span>
+    bprm-&gt;p = PAGE_SIZE*MAX_ARG_PAGES-<span class="hljs-keyword">sizeof</span>(<span class="hljs-keyword">void</span> *);
+    bprm-&gt;file = file;
+    bprm-&gt;filename = filename;
+    bprm-&gt;interp = filename;
+    bprm-&gt;mm = mm_alloc();
+    retval = -ENOMEM;
+    <span class="hljs-keyword">if</span> (!bprm-&gt;mm)
+        <span class="hljs-keyword">goto</span> out_file;
+    <span class="hljs-comment">/* 检查当前进程是否在使用LDT，如果是则给新进程分配一个LDT */</span>
+    retval = init_new_context(current, bprm-&gt;mm);
+    <span class="hljs-keyword">if</span> (retval  <span class="hljs-number">0</span>)
+        <span class="hljs-keyword">goto</span> out_mm;
+    <span class="hljs-comment">/* 继续填充linux_binprm结构 */</span>
+    bprm-&gt;argc = count(argv, bprm-&gt;p / <span class="hljs-keyword">sizeof</span>(<span class="hljs-keyword">void</span> *));
+    <span class="hljs-keyword">if</span> ((retval = bprm-&gt;argc)  <span class="hljs-number">0</span>)
+        <span class="hljs-keyword">goto</span> out_mm;
+    bprm-&gt;envc = count(envp, bprm-&gt;p / <span class="hljs-keyword">sizeof</span>(<span class="hljs-keyword">void</span> *));
+    <span class="hljs-keyword">if</span> ((retval = bprm-&gt;envc)  <span class="hljs-number">0</span>)
+        <span class="hljs-keyword">goto</span> out_mm;
+    retval = security_bprm_alloc(bprm);
+    <span class="hljs-keyword">if</span> (retval)
+        <span class="hljs-keyword">goto</span> <span class="hljs-keyword">out</span>;
+    <span class="hljs-comment">/* 检查文件是否可以被执行，填充linux_binprm结构中的e_uid和e_gid项
+   使用可执行文件的前128个字节来填充linux_binprm结构中的buf项 */</span>
+    retval = prepare_binprm(bprm);
+    <span class="hljs-keyword">if</span> (retval  <span class="hljs-number">0</span>)
+        <span class="hljs-keyword">goto</span> <span class="hljs-keyword">out</span>;
+    <span class="hljs-comment">/*　将文件名、环境变量和命令行参数拷贝到新分配的页面中 */</span>
+    retval = copy_strings_kernel(<span class="hljs-number">1</span>, &amp;bprm-&gt;filename, bprm);
+    <span class="hljs-keyword">if</span> (retval  <span class="hljs-number">0</span>)
+        <span class="hljs-keyword">goto</span> <span class="hljs-keyword">out</span>;
+    bprm-&gt;exec = bprm-&gt;p;
+    retval = copy_strings(bprm-&gt;envc, envp, bprm);
+    <span class="hljs-keyword">if</span> (retval  <span class="hljs-number">0</span>)
+        <span class="hljs-keyword">goto</span> <span class="hljs-keyword">out</span>;
+    retval = copy_strings(bprm-&gt;argc, argv, bprm);
+    <span class="hljs-keyword">if</span> (retval  <span class="hljs-number">0</span>)
+        <span class="hljs-keyword">goto</span> <span class="hljs-keyword">out</span>;
+    <span class="hljs-comment">//查询能够处理该可执行文件格式的处理函数，并调用相应的load_library方法进行处理</span>
+    retval = search_binary_handler(bprm,regs);
+    <span class="hljs-keyword">if</span> (retval &gt;= <span class="hljs-number">0</span>) {
+        free_arg_pages(bprm);
+        <span class="hljs-comment">//执行成功</span>
+        security_bprm_free(bprm);
+        acct_update_integrals(current);
+        kfree(bprm);
+        <span class="hljs-keyword">return</span> retval;
+    }
+<span class="hljs-keyword">out</span>:
+    <span class="hljs-comment">//发生错误，返回inode，并释放资源</span>
+    <span class="hljs-keyword">for</span> (i = <span class="hljs-number">0</span> ; i  MAX_ARG_PAGES ; i++) {
+        <span class="hljs-keyword">struct</span> page * page = bprm-&gt;page;
+        <span class="hljs-keyword">if</span> (page)
+            __free_page(page);
+    }
+    <span class="hljs-keyword">if</span> (bprm-&gt;security)
+        security_bprm_free(bprm);
+out_mm:
+    <span class="hljs-keyword">if</span> (bprm-&gt;mm)
+        mmdrop(bprm-&gt;mm);
+out_file:
+    <span class="hljs-keyword">if</span> (bprm-&gt;file) {
+        allow_write_access(bprm-&gt;file);
+        fput(bprm-&gt;file);
+    }
+out_kfree:
+    kfree(bprm);
+out_ret:
+    <span class="hljs-keyword">return</span> retval;
+}</code></pre>
+
+
+
+<pre class="prettyprint"><code class=" hljs d">sys_execve的实现如下所示：
+asmlinkage <span class="hljs-keyword">int</span> sys_execve(<span class="hljs-keyword">struct</span> pt_regs regs)
+{
+    <span class="hljs-keyword">int</span>  error;
+    <span class="hljs-built_in">char</span> * filename;
+    filename = getname((<span class="hljs-built_in">char</span> __user *) regs.ebx);  <span class="hljs-comment">/*将可执行文件的名称装入到一个新分配的页面中 */</span>
+    error = PTR_ERR(filename);
+    <span class="hljs-keyword">if</span> (IS_ERR(filename))
+        <span class="hljs-keyword">goto</span> <span class="hljs-keyword">out</span>;
+    <span class="hljs-comment">//执行可执行文件</span>
+    error = do_execve(filename,
+            (<span class="hljs-built_in">char</span> __user * __user *) regs.ecx,
+            (<span class="hljs-built_in">char</span> __user * __user *) regs.edx,
+            &amp;regs);
+    <span class="hljs-keyword">if</span> (error == <span class="hljs-number">0</span>) {
+        task_lock(current);
+        current-&gt;ptrace &amp;= ~PT_DTRACE;
+        task_unlock(current);
+
+        set_thread_flag(TIF_IRET);
+    }
+    putname(filename);
+<span class="hljs-keyword">out</span>:
+    <span class="hljs-keyword">return</span> error;
+}                            
+上述系统调用do_execve的参数在include/<span class="hljs-keyword">asm</span>-i386/ptrace.h中被定义。
+<span class="hljs-keyword">struct</span> pt_regs {
+    <span class="hljs-built_in">long</span> ebx;
+    <span class="hljs-built_in">long</span> ecx;
+    <span class="hljs-built_in">long</span> edx;
+    <span class="hljs-built_in">long</span> esi;
+    <span class="hljs-built_in">long</span> edi;
+    <span class="hljs-built_in">long</span> ebp;
+    <span class="hljs-built_in">long</span> eax;
+    <span class="hljs-keyword">int</span> xds;
+    <span class="hljs-keyword">int</span> xes;
+    <span class="hljs-built_in">long</span> orig_eax;
+    <span class="hljs-built_in">long</span> eip;
+    <span class="hljs-keyword">int</span> xcs;
+    <span class="hljs-built_in">long</span> eflags;
+    <span class="hljs-built_in">long</span> esp;
+    <span class="hljs-keyword">int</span> xss;
+};</code></pre>
+
+<p>Linux支持可执行文件的不同格式，标准格式是ELF，但是不同体系架构会使用许多不同的二进制格式，因此二进制格式程序不一定能够在多个架构上运行，二进制格式其实只是表示了可执行文件和内存中程序数据段、代码段等组织情况。 <br />
+search_binary_handler用于在do_execve结束时查找适当二进制格式，用于所要执行的特定文件，其通常根据文件起始的魔数来识别，二进制格式处理程序则将新程序加载到旧的地址空间中。</p>
+
+<p><strong>二进制格式处理程序执行的操作：</strong></p>
+
+<ol>
+<li>释放原进程使用的所有资源；</li>
+<li><p>将应用程序映射到虚拟地址空间。并对下列段进行处理： <br />
+a.text包含程序的可执行代码段，start_code和end_code指定该段地址空间中驻留区域；  <br />
+b.预先初始化的数据位于start_data和end_data，并映射成可执行的对应段； <br />
+c.堆用于动态内存分配，边界为start_brk和brk； <br />
+d栈由start_stack定义位置; <br />
+e.程序参数和环境变量也要映射如虚拟地址空间。</p></li>
+<li><p>列表内容设置进程的指令指针和寄存器。 <br />
+Linux下程序在内存中的段分布如下图 <br />
+<img src="http://img.blog.csdn.net/20170818004326292?watermark/2/text/aHR0cDovL2Jsb2cuY3Nkbi5uZXQvcXFfMjExMjcxNTE=/font/5a6L5L2T/fontsize/400/fill/I0JBQkFCMA==/dissolve/70/gravity/SouthEast" alt="**这里写图片描述**" title="" /></p></li>
+</ol>
+
+<p><strong>二进制格式的解释</strong> <br />
+在Linux内核中任何二进制格式都可用下面的结构体实例表示。</p>
+
+
+
+<pre class="prettyprint"><code class=" hljs d">&lt;binfmts.h&gt;
+<span class="hljs-keyword">struct</span> linux_binfmt {
+<span class="hljs-keyword">struct</span> linux_binfmt * next; <span class="hljs-keyword">struct</span> <span class="hljs-keyword">module</span> *<span class="hljs-keyword">module</span>;
+<span class="hljs-keyword">int</span> (*load_binary)(<span class="hljs-keyword">struct</span> linux_binprm *, <span class="hljs-keyword">struct</span> pt_regs * regs); <span class="hljs-keyword">int</span> (*load_shlib)(<span class="hljs-keyword">struct</span> file *);
+<span class="hljs-keyword">int</span> (*core_dump)(<span class="hljs-built_in">long</span> signr, <span class="hljs-keyword">struct</span> pt_regs * regs, <span class="hljs-keyword">struct</span> file * file); unsigned <span class="hljs-built_in">long</span> min_coredump;    <span class="hljs-comment">/* minimal dump size */</span>
+};
+
+其中
+<span class="hljs-number">1</span>）load_binary用于加载普通程序；
+<span class="hljs-number">2</span>）oad_shlib:用于加载共享库
+<span class="hljs-number">3</span>）core_dump:用于在程序错误情况下输出内存转储，随后可进行分析，以解决问题。
+每种二进制格式必须使用register_binfmt向内核注册，才能加载</code></pre>
+
+
+
+<pre class="prettyprint"><code class=" hljs objectivec">每种二进制格式必须使用register_binfmt向内核注册，才能加载。
+<span class="hljs-number">1.</span><span class="hljs-comment">//linux二进制程序的参数结构体  </span>
+<span class="hljs-number">2.</span><span class="hljs-keyword">struct</span> linux_binprm{  
+<span class="hljs-number">3.</span>  <span class="hljs-keyword">char</span> buf[<span class="hljs-number">128</span>];                        <span class="hljs-comment">//128位的缓存  </span>
+<span class="hljs-number">4.</span>  <span class="hljs-keyword">unsigned</span> <span class="hljs-keyword">long</span> page[MAX_ARG_PAGES];    <span class="hljs-comment">//页数组  </span>
+<span class="hljs-number">5.</span>  <span class="hljs-keyword">unsigned</span> <span class="hljs-keyword">long</span> p;                      <span class="hljs-comment">//               </span>
+<span class="hljs-number">6.</span>  <span class="hljs-keyword">int</span> sh_bang;                          <span class="hljs-comment">//sh   </span>
+<span class="hljs-number">7.</span>  <span class="hljs-keyword">struct</span> inode * inode;                 <span class="hljs-comment">//程序点机构体指针  </span>
+<span class="hljs-number">8.</span>  <span class="hljs-keyword">int</span> e_uid, e_gid;                     <span class="hljs-comment">//程序的uid,gid  </span>
+<span class="hljs-number">9.</span>  <span class="hljs-keyword">int</span> argc, envc;                       <span class="hljs-comment">//程序的输入参数数和环境参数数  </span>
+<span class="hljs-number">10.</span>  <span class="hljs-keyword">char</span> * filename;     <span class="hljs-comment">/* Name of binary */</span>  
+<span class="hljs-number">11.</span>}</code></pre>
+
+
+
+<h2 id="2进程的退出">2.进程的退出</h2>
+
+<p>进程必须使用exit()系统调用退出使得内核能够释放系统资源，该调用的入口点是sys_exit()，sys_exit()需要一个错误码以便退出进程，最后其将工作委托给do_exit()。 <br />
+该函数的实现主要是将各个引用计数器减1，若减为0无进程在调用，则上交其内存给内存管理模块。</p></div>&#13;
+        <script type="text/javascript">&#13;
+            $(function () {&#13;
+                $('pre.prettyprint code').each(function () {&#13;
+                    var lines = $(this).text().split('\n').length;&#13;
+                    var $numbering = $('&lt;ul/&gt;').addClass('pre-numbering').hide();&#13;
+                    $(this).addClass('has-numbering').parent().append($numbering);&#13;
+                    for (i = 1; i &lt;= lines; i++) {&#13;
+                        $numbering.append($('&lt;li/&gt;').text(i));&#13;
+                    };&#13;
+                    $numbering.fadeIn(1700);&#13;
+                });&#13;
+            });&#13;
+        </script>&#13;
+   &#13;

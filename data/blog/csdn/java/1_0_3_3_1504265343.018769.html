@@ -1,0 +1,674 @@
+
+        <div class="markdown_views"><p>这些都是连贯的学习笔记,所以有的地方因为之前都说过,所以也就没怎么写详细了,看不太明白的可以看看之前的笔记.</p>
+
+
+
+<h2 id="一高级查询">一.高级查询</h2>
+
+<p>高级查询主要是一对一查询,一对多查询,多对多查询</p>
+
+
+
+<h3 id="1一对一查询">1.一对一查询</h3>
+
+<p>有用户和订单两个表,用户对订单是1对1查询.也就是订单中有一个外键是指向用户的. <br />
+先创建实体类: <br />
+User.java</p>
+
+
+
+<pre class="prettyprint"><code class=" hljs cs"><span class="hljs-keyword">public</span> <span class="hljs-keyword">class</span> User {
+    <span class="hljs-keyword">private</span> <span class="hljs-keyword">int</span> id;
+    <span class="hljs-keyword">private</span> String username;
+    <span class="hljs-keyword">private</span> String password;
+    <span class="hljs-keyword">private</span> String nickname;
+    <span class="hljs-keyword">private</span> <span class="hljs-keyword">int</span> status;
+<span class="hljs-comment">//省略get和set方法</span>
+}</code></pre>
+
+<p>Orders.java</p>
+
+
+
+<pre class="prettyprint"><code class=" hljs cs"><span class="hljs-keyword">public</span> <span class="hljs-keyword">class</span> Orders {
+    <span class="hljs-keyword">private</span> <span class="hljs-keyword">int</span> id;
+    <span class="hljs-keyword">private</span> Date buy_date;
+    <span class="hljs-keyword">private</span> Date pay_date;
+    <span class="hljs-keyword">private</span> Date confirm_date;
+    <span class="hljs-keyword">private</span> <span class="hljs-keyword">int</span> status;
+    <span class="hljs-keyword">private</span> <span class="hljs-keyword">int</span> user_id;<span class="hljs-comment">//外键,指向用户</span>
+<span class="hljs-comment">//省略get和set方法</span>
+}</code></pre>
+
+
+
+<h4 id="1使用resulttype">1.使用resultType</h4>
+
+<p>这种方式映射的话,我们需要一个pojo的包装类,在包装类里面增加我们要关联的属性,这里增加用户名和昵称,把要关联的属性聚集在一起.具体如下, <br />
+OrdersCustorm.java</p>
+
+
+
+<pre class="prettyprint"><code class=" hljs java"><span class="hljs-keyword">public</span> <span class="hljs-class"><span class="hljs-keyword">class</span> <span class="hljs-title">OrdersCustorm</span> <span class="hljs-keyword">extends</span> <span class="hljs-title">Orders</span> {</span>
+    <span class="hljs-keyword">private</span> String username;
+    <span class="hljs-keyword">private</span> String nickname;
+
+    <span class="hljs-keyword">public</span> String <span class="hljs-title">getUsername</span>() {
+        <span class="hljs-keyword">return</span> username;
+    }
+
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">void</span> <span class="hljs-title">setUsername</span>(String username) {
+        <span class="hljs-keyword">this</span>.username = username;
+    }
+
+    <span class="hljs-keyword">public</span> String <span class="hljs-title">getNickname</span>() {
+        <span class="hljs-keyword">return</span> nickname;
+    }
+
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">void</span> <span class="hljs-title">setNickname</span>(String nickname) {
+        <span class="hljs-keyword">this</span>.nickname = nickname;
+    }
+}</code></pre>
+
+<p>接下来SQL语句就可以使用内连接查询.不过返回的类型是写好的pojo包装类,这样的方法使用起来省事</p>
+
+
+
+<pre class="prettyprint"><code class=" hljs xml"><span class="hljs-pi">&lt;?xml version="1.0" encoding="UTF-8" ?&gt;</span>
+<span class="hljs-doctype">&lt;!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd"&gt;</span>
+<span class="hljs-tag">&lt;<span class="hljs-title">mapper</span> <span class="hljs-attribute">namespace</span>=<span class="hljs-value">"orders"</span>&gt;</span>
+    <span class="hljs-tag">&lt;<span class="hljs-title">select</span> <span class="hljs-attribute">id</span>=<span class="hljs-value">"findOrderAndUser"</span> <span class="hljs-attribute">parameterType</span>=<span class="hljs-value">"int"</span> <span class="hljs-attribute">resultType</span>=<span class="hljs-value">"com.aust.model.OrdersCustorm"</span>&gt;</span>
+      SELECT t_orders.*,user.username,user.nickname 
+      FROM t_orders,user 
+      WHERE user_id = user.id AND user_id=#{id}
+    <span class="hljs-tag">&lt;/<span class="hljs-title">select</span>&gt;</span>
+
+<span class="hljs-tag">&lt;/<span class="hljs-title">mapper</span>&gt;</span></code></pre>
+
+<p>junit测试</p>
+
+
+
+<pre class="prettyprint"><code class=" hljs cs">    @Before
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">void</span> <span class="hljs-title">init</span>(){
+        InputStream <span class="hljs-keyword">is</span> = <span class="hljs-keyword">null</span>;
+        <span class="hljs-keyword">try</span> {
+            <span class="hljs-keyword">is</span> = Resources.getResourceAsStream(<span class="hljs-string">"SqlMapperConfig.xml"</span>);
+        } <span class="hljs-keyword">catch</span> (IOException e) {
+            e.printStackTrace();
+        }
+        factory = <span class="hljs-keyword">new</span> SqlSessionFactoryBuilder().build(<span class="hljs-keyword">is</span>);
+    }
+
+    <span class="hljs-comment">//测试取出单个</span>
+    @Test
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">void</span> <span class="hljs-title">findOrderAndUserTest</span>(){
+        <span class="hljs-comment">//获取sqlsession</span>
+        SqlSession session = factory.openSession();
+        OrdersCustorm custorm = session.selectOne(<span class="hljs-string">"orders.findOrderAndUser"</span>,<span class="hljs-number">18</span>);
+        session.close();
+        System.<span class="hljs-keyword">out</span>.println(custorm.toString());
+    }</code></pre>
+
+<p>测试结果 <br />
+<img src="http://img.blog.csdn.net/20160418084221246" alt="这里写图片描述" title="" /></p>
+
+<hr />
+
+
+
+<h4 id="2使用resultmap">2.使用resultMap</h4>
+
+<p>使用resultMap的话,就需要在Orders里面定义一个User属性,用于关联查询,具体如下: <br />
+Orders.java</p>
+
+
+
+<pre class="prettyprint"><code class=" hljs cs"><span class="hljs-keyword">public</span> <span class="hljs-keyword">class</span> Orders {
+    <span class="hljs-keyword">private</span> <span class="hljs-keyword">int</span> id;
+    <span class="hljs-keyword">private</span> Date buy_date;
+    <span class="hljs-keyword">private</span> Date pay_date;
+    <span class="hljs-keyword">private</span> Date confirm_date;
+    <span class="hljs-keyword">private</span> <span class="hljs-keyword">int</span> status;
+    <span class="hljs-keyword">private</span> <span class="hljs-keyword">int</span> user_id;<span class="hljs-comment">//外键,指向用户</span>
+    <span class="hljs-keyword">private</span> User user;<span class="hljs-comment">//用于关联查询</span>
+    }</code></pre>
+
+<p>然后定义resultMap</p>
+
+<p><strong>autoMapping=”true”</strong>这个是打开自动映射,不然只会映射你配置的那些属性 <br />
+<strong>association property=”user” javaType=”com.aust.model.User”</strong>这句话就是关联到属性user,也就是在Orders里面新增加的关联变量,映射类型为com.aust.model.User这个类.</p>
+
+
+
+<pre class="prettyprint"><code class=" hljs applescript">    &lt;resultMap <span class="hljs-property">id</span>=<span class="hljs-string">"OrderAndUserMap"</span> type=<span class="hljs-string">"com.aust.model.Orders"</span> autoMapping=<span class="hljs-string">"true"</span>&gt;
+        &lt;<span class="hljs-property">id</span> column=<span class="hljs-string">"id"</span> <span class="hljs-keyword">property</span>=<span class="hljs-string">"id"</span>/&gt;
+        &lt;association <span class="hljs-keyword">property</span>=<span class="hljs-string">"user"</span> javaType=<span class="hljs-string">"com.aust.model.User"</span>&gt;
+            &lt;<span class="hljs-property">id</span> column=<span class="hljs-string">"user_id"</span> <span class="hljs-keyword">property</span>=<span class="hljs-string">"id"</span>/&gt;
+            &lt;<span class="hljs-constant">result</span> column=<span class="hljs-string">"username"</span> <span class="hljs-keyword">property</span>=<span class="hljs-string">"username"</span>/&gt;
+            &lt;<span class="hljs-constant">result</span> column=<span class="hljs-string">"nickname"</span> <span class="hljs-keyword">property</span>=<span class="hljs-string">"nickname"</span>/&gt;
+        &lt;/association&gt;
+    &lt;/resultMap&gt;</code></pre>
+
+<p>junit测试</p>
+
+
+
+<pre class="prettyprint"><code class=" hljs cs">@Before
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">void</span> <span class="hljs-title">init</span>(){
+        InputStream <span class="hljs-keyword">is</span> = <span class="hljs-keyword">null</span>;
+        <span class="hljs-keyword">try</span> {
+            <span class="hljs-keyword">is</span> = Resources.getResourceAsStream(<span class="hljs-string">"SqlMapperConfig.xml"</span>);
+        } <span class="hljs-keyword">catch</span> (IOException e) {
+            e.printStackTrace();
+        }
+        factory = <span class="hljs-keyword">new</span> SqlSessionFactoryBuilder().build(<span class="hljs-keyword">is</span>);
+    }
+
+    <span class="hljs-comment">//测试取出单个</span>
+    @Test
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">void</span> <span class="hljs-title">findOrderAndUserTest</span>(){
+        <span class="hljs-comment">//获取sqlsession</span>
+        SqlSession session = factory.openSession();
+        Orders orders = session.selectOne(<span class="hljs-string">"orders.findOrderAndUserMap"</span>,<span class="hljs-number">18</span>);
+        session.close();
+        System.<span class="hljs-keyword">out</span>.println(orders.toString());
+    }</code></pre>
+
+<p><img src="http://img.blog.csdn.net/20160418085945878" alt="这里写图片描述" title="" /></p>
+
+<hr />
+
+
+
+<h3 id="2一对多查询">2.一对多查询</h3>
+
+<p>现在的需求是查询用户和地址,一个用户对应多个地址.一对多查询只能使用resultMap了,不然会出现很多重复数据.使用前,需要修改User实体类,增加一个集合存储多条地址信息 <br />
+User.java</p>
+
+
+
+<pre class="prettyprint"><code class=" hljs cs"><span class="hljs-keyword">public</span> <span class="hljs-keyword">class</span> User {
+    <span class="hljs-keyword">private</span> <span class="hljs-keyword">int</span> id;
+    <span class="hljs-keyword">private</span> String username;
+    <span class="hljs-keyword">private</span> String password;
+    <span class="hljs-keyword">private</span> String nickname;
+    <span class="hljs-keyword">private</span> <span class="hljs-keyword">int</span> status;
+    <span class="hljs-keyword">private</span> List&lt;Adress&gt; adresses;<span class="hljs-comment">//用于存储用户的多个地址信息</span>
+    }</code></pre>
+
+<p>然后定义resultMap <br />
+<strong>collection property=”adresses” ofType=”com.aust.model.Adress”</strong>: <br />
+collection标签用于映射到一个集合的信息,property要映射的属性,也就是user里面的List adresses,ofType要映射到集合里面的pojo类型,这里是com.aust.model.Adress</p>
+
+
+
+<pre class="prettyprint"><code class=" hljs xml"><span class="hljs-tag">&lt;<span class="hljs-title">resultMap</span> <span class="hljs-attribute">id</span>=<span class="hljs-value">"userMap"</span> <span class="hljs-attribute">type</span>=<span class="hljs-value">"com.aust.model.User"</span> <span class="hljs-attribute">autoMapping</span>=<span class="hljs-value">"true"</span>&gt;</span>
+        <span class="hljs-tag">&lt;<span class="hljs-title">id</span> <span class="hljs-attribute">column</span>=<span class="hljs-value">"userid"</span> <span class="hljs-attribute">property</span>=<span class="hljs-value">"id"</span>/&gt;</span>
+        <span class="hljs-tag">&lt;<span class="hljs-title">collection</span> <span class="hljs-attribute">property</span>=<span class="hljs-value">"adresses"</span> <span class="hljs-attribute">ofType</span>=<span class="hljs-value">"com.aust.model.Adress"</span> <span class="hljs-attribute">autoMapping</span>=<span class="hljs-value">"true"</span>&gt;</span>
+            <span class="hljs-tag">&lt;<span class="hljs-title">id</span> <span class="hljs-attribute">column</span>=<span class="hljs-value">"id"</span> <span class="hljs-attribute">property</span>=<span class="hljs-value">"id"</span>/&gt;</span>
+        <span class="hljs-tag">&lt;/<span class="hljs-title">collection</span>&gt;</span>
+    <span class="hljs-tag">&lt;/<span class="hljs-title">resultMap</span>&gt;</span></code></pre>
+
+<p>接着写sql语句,仍然使用内连接</p>
+
+
+
+<pre class="prettyprint"><code class=" hljs avrasm">    &lt;select id=<span class="hljs-string">"findUserAndAddress"</span> parameterType=<span class="hljs-string">"int"</span> resultMap=<span class="hljs-string">"userMap"</span>&gt;
+      SELECT user<span class="hljs-preprocessor">.id</span> userid,user<span class="hljs-preprocessor">.username</span>,user<span class="hljs-preprocessor">.nickname</span>,t_address.* 
+      from user,t_address 
+      WHERE t_address<span class="hljs-preprocessor">.user</span>_id = user<span class="hljs-preprocessor">.id</span> <span class="hljs-keyword">AND</span> user<span class="hljs-preprocessor">.id</span>=<span class="hljs-preprocessor">#{id};</span>
+    &lt;/select&gt;</code></pre>
+
+<p>junit测试</p>
+
+
+
+<pre class="prettyprint"><code class=" hljs cs">@Before
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">void</span> <span class="hljs-title">init</span>(){
+        InputStream <span class="hljs-keyword">is</span> = <span class="hljs-keyword">null</span>;
+        <span class="hljs-keyword">try</span> {
+            <span class="hljs-keyword">is</span> = Resources.getResourceAsStream(<span class="hljs-string">"SqlMapperConfig.xml"</span>);
+        } <span class="hljs-keyword">catch</span> (IOException e) {
+            e.printStackTrace();
+        }
+        factory = <span class="hljs-keyword">new</span> SqlSessionFactoryBuilder().build(<span class="hljs-keyword">is</span>);
+    }
+
+
+    @Test
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">void</span> <span class="hljs-title">findAddressAndUserTest</span>(){
+        <span class="hljs-comment">//获取sqlsession</span>
+        SqlSession session = factory.openSession();
+        User user = session.selectOne(<span class="hljs-string">"UserMapper.findUserAndAddress"</span>,<span class="hljs-number">18</span>);
+        session.close();
+        System.<span class="hljs-keyword">out</span>.println(user.toString());
+    }</code></pre>
+
+<p>测试结果,成功取出多条地址信息 <br />
+<img src="http://img.blog.csdn.net/20160418093831597" alt="这里写图片描述" title="" /></p>
+
+<hr />
+
+
+
+<h3 id="3多对多查询">3.多对多查询</h3>
+
+<p>手头上没有很好的例子,所以也就直接说说思路.通过上面的1对1和1对n两个可以看出,n对n无非就是collection,association的嵌套使用,每一个collection,association实际上就相当于一个局部的resultMap,只要明白这一点的话,多对多实现是也就很简单了.</p>
+
+
+
+<h3 id="4总结">4.总结</h3>
+
+<p>resultType： <br />
+作用： <br />
+    将查询结果按照sql列名pojo属性名一致性映射到pojo中。 <br />
+场合： <br />
+    常见一些明细记录的展示，比如用户购买商品明细，将关联查询信息全部展示在页面时，此时可直接使用resultType将每一条记录映射到pojo中，在前端页面遍历list（list中是pojo）即可。</p>
+
+<p>resultMap： <br />
+    使用association和collection完成一对一和一对多高级映射（对结果有特殊的映射要求）。</p>
+
+<p>association： <br />
+作用： <br />
+    将关联查询信息映射到一个pojo对象中。 <br />
+场合： <br />
+    为了方便查询关联信息可以使用association将关联订单信息映射为用户对象的pojo属性中，比如：查询订单及关联用户信息。 <br />
+    使用resultType无法将查询结果映射到pojo对象的pojo属性中，根据对结果集查询遍历的需要选择使用resultType还是resultMap。</p>
+
+<p>collection： <br />
+作用： <br />
+    将关联查询信息映射到一个list集合中。 <br />
+场合： <br />
+    为了方便查询遍历关联信息可以使用collection将关联信息映射到list集合中，比如：查询用户权限范围模块及模块下的菜单，可使用collection将模块映射到模块list中，将菜单列表映射到模块对象的菜单list属性中，这样的作的目的也是方便对查询结果集进行遍历查询。 <br />
+    如果使用resultType无法将查询结果映射到list集合中。</p>
+
+<hr />
+
+
+
+<h3 id="5补充例子javatype和oftype">5.补充例子(javaType和ofType)</h3>
+
+<p>最近做到一个联合查询,用户登录后要把其完成的题目一起查询出来,只需要查询题目的id,也就是映射出<code>private List&lt;Integer&gt; pro_ac;</code>这样的形式,</p>
+
+<p><strong>对应的映射就如下,利用javaType来映射,而不是ofType</strong></p>
+
+
+
+<pre class="prettyprint"><code class=" hljs xml"><span class="hljs-tag">&lt;<span class="hljs-title">resultMap</span> <span class="hljs-attribute">id</span>=<span class="hljs-value">"userMap"</span> <span class="hljs-attribute">type</span>=<span class="hljs-value">"com.aust.model.CumUser"</span> <span class="hljs-attribute">autoMapping</span>=<span class="hljs-value">"true"</span>&gt;</span>
+        <span class="hljs-tag">&lt;<span class="hljs-title">id</span> <span class="hljs-attribute">column</span>=<span class="hljs-value">"id"</span> <span class="hljs-attribute">property</span>=<span class="hljs-value">"id"</span>/&gt;</span>
+        <span class="hljs-tag">&lt;<span class="hljs-title">collection</span> <span class="hljs-attribute">property</span>=<span class="hljs-value">"pro_ac"</span> <span class="hljs-attribute">javaType</span>=<span class="hljs-value">"java.util.List"</span>  <span class="hljs-attribute">ofType</span>=<span class="hljs-value">"java.lang.Integer"</span> <span class="hljs-attribute">autoMapping</span>=<span class="hljs-value">"true"</span>&gt;</span>
+            <span class="hljs-tag">&lt;<span class="hljs-title">id</span> <span class="hljs-attribute">column</span>=<span class="hljs-value">"pro_id"</span> <span class="hljs-attribute">javaType</span>=<span class="hljs-value">"java.lang.Integer"</span>/&gt;</span>
+        <span class="hljs-tag">&lt;/<span class="hljs-title">collection</span>&gt;</span>
+    <span class="hljs-tag">&lt;/<span class="hljs-title">resultMap</span>&gt;</span></code></pre>
+
+<p>ofType 是对象的所属类型 javaType ：collection 的类型</p>
+
+<p>如:</p>
+
+
+
+<pre class="prettyprint"><code class=" hljs erlang">&lt;collection property=<span class="hljs-string">"questions"</span> <span class="hljs-keyword">of</span><span class="hljs-variable">Type</span>=<span class="hljs-string">"map"</span> java<span class="hljs-variable">Type</span>=<span class="hljs-string">"list"</span>&gt;</code></pre>
+
+<p>对应的java 形态为 ：<code>List&lt;Map&lt;String,Object&gt;&gt;</code></p>
+
+
+
+<h2 id="二-延迟加载">二 .延迟加载</h2>
+
+<p>关于延迟加载,百度搜了好多,但是都乱七八糟的信息.延迟加载解决的是N+1问题,所谓N+1问题举个例子, <br />
+mybatis不推荐使用嵌套的select查询,如下面所述, <br />
+<strong>select * from teacher</strong>此时可查询出多条（记为N）教师记录。为了进一步查询出教师指导的学生的信息，需要针对每一条教师记录，生成一条SQL语句 <br />
+<strong>select * from student where supervisor_id=?</strong> <br />
+      以上SQL语句中的“?”就代表了每个教师的id。显而易见，这样的语句被生成了N条（“N+1问题”中的N）。这样在整个过程中，就总共执行了N+1条SQL语句，即N+1次数据库查询。而数据库查询通常是应用程序性能的瓶颈，一般应尽量减少数据库查询的次数，那么这种方式就会大大降低系统的性能。</p>
+
+<pre><code>解决方案:
+第一种方法是使用一条SQL语句，把教师及其指导的学生的信息一次性地查询出来。
+第二种方法是使用MyBatis的延迟加载机制.
+</code></pre>
+
+
+
+<h3 id="1延迟加载的配置">1.延迟加载的配置</h3>
+
+<p>在SqlMapConfig.xml中配置</p>
+
+
+
+<pre class="prettyprint"><code class=" hljs cs"><span class="hljs-comment">//开启热部署</span>
+&lt;setting name=<span class="hljs-string">"lazyLoadingEnabled"</span> <span class="hljs-keyword">value</span>=<span class="hljs-string">"true"</span>/&gt;
+<span class="hljs-comment">//关闭积极加载,也就是设置为按需要加载</span>
+&lt;setting name=<span class="hljs-string">"aggressiveLazyLoading"</span> <span class="hljs-keyword">value</span>=<span class="hljs-string">"false"</span>/&gt;</code></pre>
+
+
+
+<h3 id="2写sql查询">2.写sql查询</h3>
+
+<p>还用的是用户和地址之间的查询</p>
+
+
+
+<pre class="prettyprint"><code class=" hljs cs">    <span class="hljs-comment">//根据用户id查询</span>
+    &lt;<span class="hljs-keyword">select</span> id=<span class="hljs-string">"findUser"</span> resultMap=<span class="hljs-string">"userMap"</span>&gt;
+        SELECT * FROM user;
+    &lt;/<span class="hljs-keyword">select</span>&gt;
+    <span class="hljs-comment">//根据用户id查询订单</span>
+    &lt;<span class="hljs-keyword">select</span> id=<span class="hljs-string">"findAddress"</span> parameterType=<span class="hljs-string">"int"</span> resultType=<span class="hljs-string">"com.aust.model.Adress"</span>&gt;
+        SELECT * FROM t_address WHERE t_address.user_id=<span class="hljs-preprocessor">#{id}</span>
+    &lt;/<span class="hljs-keyword">select</span>&gt;
+    <span class="hljs-comment">//resultMap映射</span>
+    &lt;resultMap id=<span class="hljs-string">"userMap"</span> type=<span class="hljs-string">"com.aust.model.User"</span> autoMapping=<span class="hljs-string">"true"</span>&gt;
+        &lt;id column=<span class="hljs-string">"id"</span> property=<span class="hljs-string">"id"</span>/&gt;
+        <span class="hljs-comment">//这里可以看到多了两个属性select表示要调用的那个statement的id</span>
+        <span class="hljs-comment">//column表示要传入的参数</span>
+        &lt;collection property=<span class="hljs-string">"adresses"</span> ofType=<span class="hljs-string">"com.aust.model.Adress"</span> autoMapping=<span class="hljs-string">"true"</span> <span class="hljs-keyword">select</span>=<span class="hljs-string">"findAddress"</span> column=<span class="hljs-string">"id"</span>&gt;
+        &lt;/collection&gt;
+    &lt;/resultMap&gt;</code></pre>
+
+<p>上面sql意思是,加入我们要取出全部用户,使用findUserById,然后当我们调用用户的user.getAdresses()取出地址的时候,mybatis就会把该用户的id传入findAddress作为输入参数,然后执行查询,也就是说假设我们没取出地址,则不会执行这个查询</p>
+
+<p>junit测试</p>
+
+
+
+<pre class="prettyprint"><code class=" hljs cs">    @Before
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">void</span> <span class="hljs-title">init</span>(){
+        InputStream <span class="hljs-keyword">is</span> = <span class="hljs-keyword">null</span>;
+        <span class="hljs-keyword">try</span> {
+            <span class="hljs-keyword">is</span> = Resources.getResourceAsStream(<span class="hljs-string">"SqlMapperConfig.xml"</span>);
+        } <span class="hljs-keyword">catch</span> (IOException e) {
+            e.printStackTrace();
+        }
+        factory = <span class="hljs-keyword">new</span> SqlSessionFactoryBuilder().build(<span class="hljs-keyword">is</span>);
+    }
+
+
+    @Test
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">void</span> <span class="hljs-title">findAddressAndUserTest</span>(){
+        <span class="hljs-comment">//获取sqlsession</span>
+        SqlSession session = factory.openSession();
+        List&lt;User&gt; users = session.selectList(<span class="hljs-string">"UserMapper.findUser"</span>);
+        <span class="hljs-comment">//循环取出地址.这个时候mybatis就会自动调用findAddress取出地址</span>
+        <span class="hljs-keyword">for</span> (User user:users) {
+            System.<span class="hljs-keyword">out</span>.println(user.getAdresses().toString());<span class="hljs-comment">//在这里打个断点测试</span>
+        }
+        session.close();
+    }</code></pre>
+
+<p>测试如下,可以看出,取出全部用户后如果遍历则会一条一条的执行取出地址的sql语句. <br />
+<font color="red">所以这里如果你使用延迟加载后,遍历一个有很多记录的表的话,反而会影响性能,因为每遍历一次就会执行一条sql,最终得不偿失. <br />
+那么延迟加载在什么时候用呢?我认为在很多记录中,你已经知道了要具体取出的用户的时候用,这个时候就只需要执行取出你指定用户的地址,就一条sql</font> <br />
+<img src="http://img.blog.csdn.net/20160418115743169" alt="这里写图片描述" title="" /></p>
+
+<hr />
+
+
+
+<h2 id="三查询缓存">三.查询缓存</h2>
+
+<p>缓存就是指把数据库取出的结果暂时存储起来,这个可以存储在内存或者硬盘再或者就是服务器,然后再次执行相同的sql语句的时候,就会先去缓存里面找,找到的话就避免了再次从数据库中取出,因为从数据库取出花费往往是巨大的.</p>
+
+
+
+<h3 id="1一级缓存">1.一级缓存</h3>
+
+<p>原理图如下,一级缓存是SqlSession级别的缓存,也就是说,SqlSession一旦关闭则一级缓存就会自动清空了.一级缓存是mybatis自动启用的,无需配置. <br />
+<img src="http://img.blog.csdn.net/20160418141813460" alt="这里写图片描述" title="" /> <br />
+<strong>一级缓存区域是根据SqlSession为单位划分的。</strong> <br />
+每次查询会先从缓存区域找，如果找不到从数据库查询，查询到数据将数据写入缓存。 <br />
+Mybatis内部存储缓存使用一个HashMap，key为hashCode+sqlId+Sql语句。value为从查询出来映射生成的java对象 <br />
+sqlSession执行insert、update、delete等操作commit提交后会清空缓存区域。</p>
+
+<p>junit测试一级缓存:</p>
+
+
+
+<pre class="prettyprint"><code class=" hljs java">    <span class="hljs-comment">//前面init代码省略</span>
+    <span class="hljs-annotation">@Test</span>
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">void</span> <span class="hljs-title">findUserByIdTest</span>(){
+        <span class="hljs-comment">//获取sqlsession</span>
+        SqlSession session = factory.openSession();
+        <span class="hljs-comment">//查询18号</span>
+        User user1 = session.selectOne(<span class="hljs-string">"UserMapper.findUserById"</span>,<span class="hljs-number">18</span>);
+        <span class="hljs-comment">//再次查询18号</span>
+        User user2 = session.selectOne(<span class="hljs-string">"UserMapper.findUserById"</span>,<span class="hljs-number">18</span>);
+        session.close();
+    }</code></pre>
+
+<p><strong>从测试可以看出两次查询实际上只发出了一条sql语句.</strong>说明第二次查询是从缓存中找的,当然也可以跟踪代码来看 <br />
+<img src="http://img.blog.csdn.net/20160418141456959" alt="这里写图片描述" title="" /></p>
+
+<hr />
+
+
+
+<h3 id="2二级缓存">2.二级缓存</h3>
+
+<p>原理图如下 <br />
+<img src="http://img.blog.csdn.net/20160418141900663" alt="这里写图片描述" title="" /></p>
+
+<p><strong>二级缓存区域</strong>是根据mapper的namespace划分的，相同namespace的mapper查询数据放在同一个区域，如果使用mapper代理方法每个mapper的namespace都不同，此时可以理解为二级缓存区域是根据mapper划分。 <br />
+每次查询会先从缓存区域找，如果找不到从数据库查询，查询到数据将数据写入缓存。 <br />
+Mybatis内部存储缓存使用一个HashMap，key为hashCode+sqlId+Sql语句。value为从查询出来映射生成的java对象 <br />
+sqlSession执行insert、update、delete等操作commit提交后会清空缓存区域。</p>
+
+
+
+<h4 id="1开启二级缓存">1.开启二级缓存</h4>
+
+<p>二级缓存的开启,不但要在SqlMapConfig.xml中配置,还需要在相应的Mapper.xml中配置</p>
+
+
+
+<pre class="prettyprint"><code class=" hljs xml"><span class="hljs-comment">&lt;!--开启二级缓存,默认也是开启状态的--&gt;</span>
+    <span class="hljs-tag">&lt;<span class="hljs-title">setting</span> <span class="hljs-attribute">name</span>=<span class="hljs-value">"cacheEnabled"</span> <span class="hljs-attribute">value</span>=<span class="hljs-value">"true"</span>/&gt;</span></code></pre>
+
+<p>在Mapper.xml中配置如下:</p>
+
+
+
+<pre class="prettyprint"><code class=" hljs xml"><span class="hljs-comment">&lt;!--设置该mapper使用二级缓存--&gt;</span>
+    <span class="hljs-tag">&lt;<span class="hljs-title">cache</span>/&gt;</span></code></pre>
+
+<p>除此之外二级缓存需要查询结果映射的pojo对象实现<strong>java.io.Serializable</strong>接口实现序列化和反序列化操作，注意如果存在父类、成员pojo都需要实现序列化接口。</p>
+
+
+
+<pre class="prettyprint"><code class=" hljs java"><span class="hljs-keyword">public</span> <span class="hljs-class"><span class="hljs-keyword">class</span> <span class="hljs-title">Orders</span> <span class="hljs-keyword">implements</span> <span class="hljs-title">Serializable</span>
+    <span class="hljs-title">public</span> <span class="hljs-title">class</span> <span class="hljs-title">User</span> <span class="hljs-keyword">implements</span> <span class="hljs-title">Serializable</span>
+    ....</span></code></pre>
+
+
+
+<h4 id="2二级缓存测试">2.二级缓存测试</h4>
+
+
+
+<pre class="prettyprint"><code class=" hljs java">    <span class="hljs-annotation">@Test</span>
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">void</span> <span class="hljs-title">findUserByIdTest</span>(){
+        <span class="hljs-comment">//获取sqlsession1</span>
+        SqlSession session1 = factory.openSession();
+        <span class="hljs-comment">//使用session1查询</span>
+        User user1 = session1.selectOne(<span class="hljs-string">"UserMapper.findUserById"</span>,<span class="hljs-number">18</span>);
+        session1.close();
+        <span class="hljs-comment">//获取session2</span>
+        SqlSession session2 = factory.openSession();
+        <span class="hljs-comment">//使用session2查询</span>
+        User user = session2.selectOne(<span class="hljs-string">"UserMapper.findUserById"</span>,<span class="hljs-number">18</span>);
+        session2.close();
+    }</code></pre>
+
+<p>从测试结果可以看出来,两次查询是不同的session,实际上只执行了一次sql语句,缓存命中率,第一次为0,因为缓存为空,第二次为0.5,因为在缓存中找了两次,找到了这个数据.</p>
+
+<p><img src="http://img.blog.csdn.net/20160418142522176" alt="这里写图片描述" title="" /></p>
+
+
+
+<h4 id="3禁用二级缓存">3.禁用二级缓存</h4>
+
+<p>在statement中设置useCache=false可以禁用当前select语句的二级缓存，即每次查询都会发出sql去查询，默认情况是true，即该sql使用二级缓存。</p>
+
+<pre><code>&lt;select id="findOrderListResultMap" resultMap="ordersUserMap" useCache="false"&gt;
+</code></pre>
+
+
+
+<h4 id="4刷新缓存">4.刷新缓存</h4>
+
+<p>在mapper的同一个namespace中，如果有其它insert、update、delete操作数据后需要刷新缓存，如果不执行刷新缓存会出现脏读。</p>
+
+<p>设置statement配置中的flushCache=”true” 属性，默认情况下为true即刷新缓存，如果改成false则不会刷新。使用缓存时如果手动修改数据库表中的查询数据会出现脏读。 <br />
+如下：</p>
+
+<pre><code>&lt;insert id="insertUser" parameterType="cn.itcast.mybatis.po.User" flushCache="true"&gt;
+</code></pre>
+
+
+
+<h4 id="5mybatis二级缓存参数">5.mybatis二级缓存参数</h4>
+
+<p><font color="red">不过一般都是整合第三方缓存框架来用</font> <br />
+flushInterval（刷新间隔）可以被设置为任意的正整数，而且它们代表一个合理的毫秒形式的时间段。默认情况是不设置，也就是没有刷新间隔，缓存仅仅调用语句时刷新。 <br />
+size（引用数目）可以被设置为任意正整数，要记住你缓存的对象数目和你运行环境的可用内存资源数目。默认值是1024。 <br />
+readOnly（只读）属性可以被设置为true或false。只读的缓存会给所有调用者返回缓存对象的相同实例。因此这些对象不能被修改。这提供了很重要的性能优势。可读写的缓存会返回缓存对象的拷贝（通过序列化）。这会慢一些，但是安全，因此默认是false。</p>
+
+<p>如下例子： <br />
+ <br />
+这个更高级的配置创建了一个 FIFO 缓存,并每隔 60 秒刷新,存数结果对象或列表的 512 个引用,而且返回的对象被认为是只读的,因此在不同线程中的调用者之间修改它们会导致冲突。可用的收回策略有, 默认的是 LRU: <br />
+1.LRU – 最近最少使用的:移除最长时间不被使用的对象。 <br />
+2.FIFO – 先进先出:按对象进入缓存的顺序来移除它们。 <br />
+3.SOFT – 软引用:移除基于垃圾回收器状态和软引用规则的对象。 <br />
+4.WEAK – 弱引用:更积极地移除基于垃圾收集器状态和弱引用规则的对象。</p>
+
+<hr />
+
+
+
+<h3 id="3整合ehcache">3.整合ehcache</h3>
+
+<p>mybatis对于缓存管理不是很好,一般都是用第三方缓存代替,这里使用ehcache,主要掌握整合缓存的方法.</p>
+
+<p>mybatis提供二级缓存Cache接口</p>
+
+
+
+<pre class="prettyprint"><code class=" hljs vala">
+package org.apache.ibatis.cache;
+
+import java.util.concurrent.locks.ReadWriteLock;
+
+<span class="hljs-keyword">public</span> <span class="hljs-class"><span class="hljs-keyword">interface</span> <span class="hljs-title">Cache</span> {</span>
+    String getId();
+
+    <span class="hljs-keyword">void</span> putObject(<span class="hljs-built_in">Object</span> var1, <span class="hljs-built_in">Object</span> var2);
+
+    <span class="hljs-built_in">Object</span> getObject(<span class="hljs-built_in">Object</span> var1);
+
+    <span class="hljs-built_in">Object</span> removeObject(<span class="hljs-built_in">Object</span> var1);
+
+    <span class="hljs-keyword">void</span> clear();
+
+    <span class="hljs-keyword">int</span> getSize();
+
+    ReadWriteLock getReadWriteLock();
+}</code></pre>
+
+<p>想要实现其他缓存的话,需要继承这个接口,当然第三方框架都帮我们写好了,我们只需要拿来使用即可 <br />
+首先导入包,第一个是核心包,第二个是整合包,这里面有实现了Cache接口的实现类,下面两个是日志包,ehcache依赖这个日志包 <br />
+<img src="http://img.blog.csdn.net/20160418151353974" alt="这里写图片描述" title="" /></p>
+
+<p>接下来在classpath下配置ehcache.xml</p>
+
+
+
+<pre class="prettyprint"><code class=" hljs xml"><span class="hljs-tag">&lt;<span class="hljs-title">ehcache</span> <span class="hljs-attribute">xmlns:xsi</span>=<span class="hljs-value">"http://www.w3.org/2001/XMLSchema-instance"</span>
+         <span class="hljs-attribute">xsi:noNamespaceSchemaLocation</span>=<span class="hljs-value">"http://ehcache.org/ehcache.xsd"</span>
+         &gt;</span>
+    <span class="hljs-tag">&lt;<span class="hljs-title">diskStore</span> <span class="hljs-attribute">path</span>=<span class="hljs-value">"F:\develop\ehcache"</span> /&gt;</span>
+    <span class="hljs-tag">&lt;<span class="hljs-title">defaultCache
+</span>            <span class="hljs-attribute">maxElementsInMemory</span>=<span class="hljs-value">"1000"</span>
+            <span class="hljs-attribute">maxElementsOnDisk</span>=<span class="hljs-value">"10000000"</span>
+            <span class="hljs-attribute">eternal</span>=<span class="hljs-value">"false"</span>
+            <span class="hljs-attribute">overflowToDisk</span>=<span class="hljs-value">"false"</span>
+            <span class="hljs-attribute">timeToIdleSeconds</span>=<span class="hljs-value">"120"</span>
+            <span class="hljs-attribute">timeToLiveSeconds</span>=<span class="hljs-value">"120"</span>
+            <span class="hljs-attribute">diskExpiryThreadIntervalSeconds</span>=<span class="hljs-value">"120"</span>
+            <span class="hljs-attribute">memoryStoreEvictionPolicy</span>=<span class="hljs-value">"LRU"</span>&gt;</span>
+    <span class="hljs-tag">&lt;/<span class="hljs-title">defaultCache</span>&gt;</span>
+<span class="hljs-tag">&lt;/<span class="hljs-title">ehcache</span>&gt;</span></code></pre>
+
+<p>属性说明： <br />
+1. diskStore：指定数据在磁盘中的存储位置。 <br />
+2. defaultCache：当借助CacheManager.add(“demoCache”)创建Cache时，EhCache便会采用指定的的管理策略 <br />
+以下属性是必须的： <br />
+3. maxElementsInMemory - 在内存中缓存的element的最大数目  <br />
+4. maxElementsOnDisk - 在磁盘上缓存的element的最大数目，若是0表示无穷大 <br />
+5. eternal - 设定缓存的elements是否永远不过期。如果为true，则缓存的数据始终有效，如果为false那么还要根据timeToIdleSeconds，timeToLiveSeconds判断 <br />
+6. overflowToDisk - 设定当内存缓存溢出的时候是否将过期的element缓存到磁盘上 <br />
+以下属性是可选的： <br />
+7. timeToIdleSeconds - 当缓存在EhCache中的数据前后两次访问的时间超过timeToIdleSeconds的属性取值时，这些数据便会删除，默认值是0,也就是可闲置时间无穷大 <br />
+8. timeToLiveSeconds - 缓存element的有效生命期，默认是0.,也就是element存活时间无穷大 <br />
+    diskSpoolBufferSizeMB 这个参数设置DiskStore(磁盘缓存)的缓存区大小.默认是30MB.每个Cache都应该有自己的一个缓冲区. <br />
+9. diskPersistent - 在VM重启的时候是否启用磁盘保存EhCache中的数据，默认是false。 <br />
+10. diskExpiryThreadIntervalSeconds - 磁盘缓存的清理线程运行间隔，默认是120秒。每个120s，相应的线程会进行一次EhCache中数据的清理工作 <br />
+11. memoryStoreEvictionPolicy - 当内存缓存达到最大，有新的element加入的时候， 移除缓存中element的策略。默认是LRU（最近最少使用），可选的有LFU（最不常使用）和FIFO（先进先出）</p>
+
+<p>最后只需要在mapper.xml里面设置缓存类</p>
+
+
+
+<pre class="prettyprint"><code class=" hljs xml"><span class="hljs-comment">&lt;!--设置该mapper使用ehcache二级缓存--&gt;</span>
+    <span class="hljs-tag">&lt;<span class="hljs-title">cache</span> <span class="hljs-attribute">type</span>=<span class="hljs-value">"org.mybatis.caches.ehcache.EhcacheCache"</span>/&gt;</span></code></pre>
+
+<p>junit测试</p>
+
+
+
+<pre class="prettyprint"><code class=" hljs java">    <span class="hljs-annotation">@Test</span>
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">void</span> <span class="hljs-title">findUserByIdTest</span>(){
+        <span class="hljs-comment">//获取sqlsession</span>
+        SqlSession session1 = factory.openSession();
+        User user1 = session1.selectOne(<span class="hljs-string">"UserMapper.findUserById"</span>,<span class="hljs-number">18</span>);
+        session1.close();
+        SqlSession session2 = factory.openSession();
+        User user = session2.selectOne(<span class="hljs-string">"UserMapper.findUserById"</span>,<span class="hljs-number">18</span>);
+        session2.close();
+    }</code></pre>
+
+<p><img src="http://img.blog.csdn.net/20160418152030282" alt="这里写图片描述" title="" /></p>
+
+
+
+<h3 id="4缓存应用场景">4.缓存应用场景</h3>
+
+<p>对于访问多的查询请求且用户对查询结果实时性要求不高，此时可采用mybatis二级缓存技术降低数据库访问量，提高访问速度，业务场景比如：耗时较高的统计分析sql、电话账单查询sql等。 <br />
+    实现方法如下：通过设置刷新间隔时间，由mybatis每隔一段时间自动清空缓存，根据数据变化频率设置缓存刷新间隔flushInterval，比如设置为30分钟、60分钟、24小时等，根据需求而定。</p>
+
+
+
+<h3 id="5缓存局限性">5.缓存局限性</h3>
+
+<p>mybatis二级缓存对细粒度的数据级别的缓存实现不好，比如如下需求：对商品信息进行缓存，由于商品信息查询访问量大，但是要求用户每次都能查询最新的商品信息，此时如果使用mybatis的二级缓存就无法实现当一个商品变化时只刷新该商品的缓存信息而不刷新其它商品的信息，因为mybaits的二级缓存区域以mapper为单位划分，当一个商品信息变化会将所有商品信息的缓存数据全部清空。解决此类问题需要在业务层根据需求对数据有针对性缓存。</p>
+
+<hr />
+
+<p>项目示例:</p>
+
+<p>SSM框架整合: <a href="https://github.com/nl101531/JavaWEB">https://github.com/nl101531/JavaWEB</a></p>
+
+<p>自己做的一个项目: <a href="https://github.com/nl101531/AUSTOJ">https://github.com/nl101531/AUSTOJ</a></p></div>&#13;
+        <script type="text/javascript">&#13;
+            $(function () {&#13;
+                $('pre.prettyprint code').each(function () {&#13;
+                    var lines = $(this).text().split('\n').length;&#13;
+                    var $numbering = $('&lt;ul/&gt;').addClass('pre-numbering').hide();&#13;
+                    $(this).addClass('has-numbering').parent().append($numbering);&#13;
+                    for (i = 1; i &lt;= lines; i++) {&#13;
+                        $numbering.append($('&lt;li/&gt;').text(i));&#13;
+                    };&#13;
+                    $numbering.fadeIn(1700);&#13;
+                });&#13;
+            });&#13;
+        </script>&#13;
+   &#13;

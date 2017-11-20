@@ -1,0 +1,210 @@
+
+        <div class="markdown_views"><p>Internet气象站例题： <br />
+    提供温度、气压和湿度的接口 <br />
+    测量数据更新时需时时通知给第三方 <br />
+    需要设计开放型API，便于其他第三方公司也能接入气象站获取数据</p>
+
+<p><img src="http://img.blog.csdn.net/20170616123109459?watermark/2/text/aHR0cDovL2Jsb2cuY3Nkbi5uZXQva2Fpa2FpX3Nr/font/5a6L5L2T/fontsize/400/fill/I0JBQkFCMA==/dissolve/70/gravity/SouthEast" alt="这里写图片描述" title="" /></p>
+
+
+
+<h2 id="观察者模式原理">观察者模式原理：</h2>
+
+<p>1、观察者模式就像定牛奶业务 <br />
+    1）奶站，Subject <br />
+    2）用户，Observer <br />
+2、Subject：登记注册、移除和通知 <br />
+<img src="http://img.blog.csdn.net/20170616123630157?watermark/2/text/aHR0cDovL2Jsb2cuY3Nkbi5uZXQva2Fpa2FpX3Nr/font/5a6L5L2T/fontsize/400/fill/I0JBQkFCMA==/dissolve/70/gravity/SouthEast" alt="这里写图片描述" title="" /> <br />
+3、Observer：接收输入 <br />
+<img src="http://img.blog.csdn.net/20170616123727580?watermark/2/text/aHR0cDovL2Jsb2cuY3Nkbi5uZXQva2Fpa2FpX3Nr/font/5a6L5L2T/fontsize/400/fill/I0JBQkFCMA==/dissolve/70/gravity/SouthEast" alt="这里写图片描述" title="" /> <br />
+4、观察者模式：    对象之间多对一依赖的一种设计方案，被依赖的对象为Subject，依赖的对象为Observer，Subject通知Observer变化</p>
+
+
+
+<h2 id="用观察者模式设计的例题方案">用观察者模式设计的例题方案</h2>
+
+<p><img src="http://img.blog.csdn.net/20170616124646370?watermark/2/text/aHR0cDovL2Jsb2cuY3Nkbi5uZXQva2Fpa2FpX3Nr/font/5a6L5L2T/fontsize/400/fill/I0JBQkFCMA==/dissolve/70/gravity/SouthEast" alt="这里写图片描述" title="" /></p>
+
+
+
+<pre class="prettyprint"><code class=" hljs java"><span class="hljs-number">1</span> 两个接口
+<span class="hljs-keyword">package</span> com.sk.superInterface;
+
+<span class="hljs-keyword">public</span> <span class="hljs-class"><span class="hljs-keyword">interface</span> <span class="hljs-title">Subject</span>
+{</span>
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">void</span> <span class="hljs-title">registerObserver</span>(Observer observer);
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">void</span> <span class="hljs-title">removeObserver</span>(Observer observer);
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">void</span> <span class="hljs-title">notifyObservers</span>();
+}
+<span class="hljs-keyword">package</span> com.sk.superInterface;
+
+<span class="hljs-keyword">public</span> <span class="hljs-class"><span class="hljs-keyword">interface</span> <span class="hljs-title">Observer</span>
+{</span>
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">void</span> <span class="hljs-title">update</span>(<span class="hljs-keyword">float</span> temprature,<span class="hljs-keyword">float</span> pressure,<span class="hljs-keyword">float</span> humidity);
+}
+<span class="hljs-number">2.</span> 继承接口
+<span class="hljs-keyword">package</span> com.sk.mode;
+
+<span class="hljs-keyword">import</span> java.util.ArrayList;
+
+<span class="hljs-keyword">import</span> com.sk.superInterface.Observer;
+<span class="hljs-keyword">import</span> com.sk.superInterface.Subject;
+
+<span class="hljs-keyword">public</span> <span class="hljs-class"><span class="hljs-keyword">class</span> <span class="hljs-title">WeatherData</span> <span class="hljs-keyword">implements</span> <span class="hljs-title">Subject</span>
+{</span>
+    <span class="hljs-keyword">private</span> <span class="hljs-keyword">float</span> m_temprature;
+    <span class="hljs-keyword">private</span> <span class="hljs-keyword">float</span> m_pressure;
+    <span class="hljs-keyword">private</span> <span class="hljs-keyword">float</span> m_humidity;
+
+    <span class="hljs-keyword">private</span> ArrayList&lt;Observer&gt; m_observers;
+
+    <span class="hljs-keyword">public</span> <span class="hljs-title">WeatherData</span>()
+    {
+        m_observers=<span class="hljs-keyword">new</span> ArrayList&lt;Observer&gt;();
+    }
+
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">void</span> <span class="hljs-title">setData</span>(<span class="hljs-keyword">float</span> m_temprature,<span class="hljs-keyword">float</span> m_pressure,<span class="hljs-keyword">float</span> m_humidity)
+    {
+        <span class="hljs-keyword">this</span>.m_temprature=m_temprature;
+        <span class="hljs-keyword">this</span>.m_pressure=m_pressure;
+        <span class="hljs-keyword">this</span>.m_humidity=m_humidity;
+        dataChange();
+    }
+
+    <span class="hljs-comment">//改变数据之后就要通知所有的观察者</span>
+    <span class="hljs-keyword">private</span> <span class="hljs-keyword">void</span> <span class="hljs-title">dataChange</span>()
+    {
+        notifyObservers();
+    }
+
+    <span class="hljs-annotation">@Override</span>
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">void</span> <span class="hljs-title">registerObserver</span>(Observer observer)
+    {
+        m_observers.add(observer);
+
+    }
+
+    <span class="hljs-annotation">@Override</span>
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">void</span> <span class="hljs-title">removeObserver</span>(Observer observer)
+    {
+        <span class="hljs-keyword">if</span>(m_observers.contains(observer))
+        {
+            m_observers.remove(observer);
+        }
+    }
+
+    <span class="hljs-annotation">@Override</span>
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">void</span> <span class="hljs-title">notifyObservers</span>()
+    {
+        <span class="hljs-keyword">for</span> (<span class="hljs-keyword">int</span> i = <span class="hljs-number">0</span>,len=m_observers.size(); i &lt; len; i++)
+        {
+            m_observers.get(i).update(getM_temprature(), getM_pressure(), getM_humidity());
+        }
+    }
+
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">float</span> <span class="hljs-title">getM_temprature</span>()
+    {
+        <span class="hljs-keyword">return</span> m_temprature;
+    }
+
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">float</span> <span class="hljs-title">getM_pressure</span>()
+    {
+        <span class="hljs-keyword">return</span> m_pressure;
+    }
+
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">float</span> <span class="hljs-title">getM_humidity</span>()
+    {
+        <span class="hljs-keyword">return</span> m_humidity;
+    }
+
+    <span class="hljs-keyword">public</span> ArrayList&lt;Observer&gt; <span class="hljs-title">getM_observers</span>()
+    {
+        <span class="hljs-keyword">return</span> m_observers;
+    }
+
+}
+<span class="hljs-keyword">package</span> com.sk.mode;
+
+<span class="hljs-keyword">import</span> java.awt.DisplayMode;
+
+<span class="hljs-keyword">import</span> com.sk.superInterface.Observer;
+
+<span class="hljs-keyword">public</span> <span class="hljs-class"><span class="hljs-keyword">class</span> <span class="hljs-title">CurrentConditions</span> <span class="hljs-keyword">implements</span> <span class="hljs-title">Observer</span>
+{</span>   
+    <span class="hljs-keyword">private</span> <span class="hljs-keyword">float</span> m_temprature;
+    <span class="hljs-keyword">private</span> <span class="hljs-keyword">float</span> m_pressure;
+    <span class="hljs-keyword">private</span> <span class="hljs-keyword">float</span> m_humidity;
+
+    <span class="hljs-annotation">@Override</span>
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">void</span> <span class="hljs-title">update</span>(<span class="hljs-keyword">float</span> temprature, <span class="hljs-keyword">float</span> pressure, <span class="hljs-keyword">float</span> humidity)
+    {
+        <span class="hljs-keyword">this</span>.m_humidity=humidity;
+        <span class="hljs-keyword">this</span>.m_pressure=pressure;
+        <span class="hljs-keyword">this</span>.m_temprature=temprature;
+        display();
+    }
+
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">void</span> <span class="hljs-title">display</span>()
+    {
+        System.out.println(<span class="hljs-string">"***Today's weather***"</span>);
+        System.out.println(<span class="hljs-string">"***temprature:***"</span>+m_temprature);
+        System.out.println(<span class="hljs-string">"***pressure***"</span>+m_pressure);
+        System.out.println(<span class="hljs-string">"***humidity***"</span>+m_humidity);
+    }
+
+}
+
+<span class="hljs-number">3.</span> 入口
+<span class="hljs-keyword">package</span> com.sk.main;
+
+<span class="hljs-keyword">import</span> com.sk.mode.CurrentConditions;
+<span class="hljs-keyword">import</span> com.sk.mode.ForecastConditions;
+<span class="hljs-keyword">import</span> com.sk.mode.WeatherData;
+
+<span class="hljs-keyword">public</span> <span class="hljs-class"><span class="hljs-keyword">class</span> <span class="hljs-title">InternetWeather</span>
+{</span>
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">static</span> <span class="hljs-keyword">void</span> <span class="hljs-title">main</span>(String[] args)
+    {
+        CurrentConditions conditions=<span class="hljs-keyword">new</span> CurrentConditions();
+        ForecastConditions forecastConditions=<span class="hljs-keyword">new</span> ForecastConditions();
+        WeatherData weatherData=<span class="hljs-keyword">new</span> WeatherData();
+
+        weatherData.registerObserver(conditions);
+        weatherData.registerObserver(forecastConditions);
+        weatherData.setData(<span class="hljs-number">35</span>, <span class="hljs-number">150</span>, <span class="hljs-number">40</span>);
+        weatherData.removeObserver(conditions);
+        weatherData.setData(<span class="hljs-number">45</span>, <span class="hljs-number">160</span>, <span class="hljs-number">50</span>);
+    }
+}</code></pre>
+
+
+
+<h2 id="java内置观察者">Java内置观察者</h2>
+
+<p>1、Java内置的观察者 <br />
+    Observable <br />
+    Observer</p>
+
+<p>2、用Java内置观察者重新设计该项目 <br />
+3、内置观察者的注意点 <br />
+    Observable是类而不是接口</p>
+
+
+
+<h2 id="code-地址">Code 地址</h2>
+
+<p><a href="http://download.csdn.net/detail/kaikai_sk/9872222">http://download.csdn.net/detail/kaikai_sk/9872222</a></p></div>&#13;
+        <script type="text/javascript">&#13;
+            $(function () {&#13;
+                $('pre.prettyprint code').each(function () {&#13;
+                    var lines = $(this).text().split('\n').length;&#13;
+                    var $numbering = $('&lt;ul/&gt;').addClass('pre-numbering').hide();&#13;
+                    $(this).addClass('has-numbering').parent().append($numbering);&#13;
+                    for (i = 1; i &lt;= lines; i++) {&#13;
+                        $numbering.append($('&lt;li/&gt;').text(i));&#13;
+                    };&#13;
+                    $numbering.fadeIn(1700);&#13;
+                });&#13;
+            });&#13;
+        </script>&#13;
+   &#13;

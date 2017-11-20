@@ -1,0 +1,125 @@
+
+
+<p>从网上找了很读取的方法但是没有那种简单方便易于理解的读取方式，今天本人将个人理解发表。</p>&#13;
+<p><span style="font-size:24px; color:#ff0000">提示：只读取项目中的文件</span></p>&#13;
+<p>为什么要读取文件：项目需要加载文件中的数据</p>&#13;
+<p><span style="font-size:24px; color:#ff6666">方法一：使用TestPath.class.getResourceAsStream(path)加载数据</span></p>&#13;
+<p><span style="font-size:14px">如下图中的main引用的方法，</span><span style="font-size:14px">该方法有二种读取方式（该Class文件是有目录的）：</span></p>&#13;
+<p><span style="font-size:14px">第一种：path="./文件名称";</span></p>&#13;
+<p><span style="font-size:14px">第二种：path="/com/zving/regularExpressionEx/test/json.txt";注意：com包前必须/</span></p>&#13;
+<p><span style="font-size:14px"><img src="http://img.blog.csdn.net/20161202114029991?watermark/2/text/aHR0cDovL2Jsb2cuY3Nkbi5uZXQv/font/5a6L5L2T/fontsize/400/fill/I0JBQkFCMA==/dissolve/70/gravity/Center" alt="" /><br />&#13;
+</span></p>&#13;
+<p><span style="font-size:14px"><img src="http://img.blog.csdn.net/20161202114034101?watermark/2/text/aHR0cDovL2Jsb2cuY3Nkbi5uZXQv/font/5a6L5L2T/fontsize/400/fill/I0JBQkFCMA==/dissolve/70/gravity/Center" alt="" /><br />&#13;
+</span></p>&#13;
+<p><span style="font-size:14px"><br />&#13;
+</span></p>&#13;
+<p><span style="font-size:24px; color:#ff6666">第二种方法：TestPath.class.getClassLoader().getResourceAsStream(path)</span></p>&#13;
+<p><span style="font-size:14px"><br />&#13;
+</span></p>&#13;
+<p><span style="font-size:14px">如下图中testMethod方法调用</span></p>&#13;
+<p><span style="font-size:14px">方法一：path="a.txt" = "./a.txt" 不能是"/a.txt"</span></p>&#13;
+<p><span style="font-size:14px">方法二：path="./com/zving/regularExpressionEx/test/json.txt"</span></p>&#13;
+<p><span style="font-size:14px"><span style="font-size:14px">path="</span><span style="font-size:14px">com/zving/regularExpressionEx/test/json.txt</span><span style="font-size:14px">"</span><br />&#13;
+</span></p>&#13;
+<p><span style="font-size:14px"><span style="font-size:14px"><span style="font-size:14px">不能是path="</span><span style="font-size:14px">/com/zving/regularExpressionEx/test/json.txt</span><span style="font-size:14px">"</span><br />&#13;
+</span></span></p>&#13;
+<p><img src="http://img.blog.csdn.net/20161202115449122?watermark/2/text/aHR0cDovL2Jsb2cuY3Nkbi5uZXQv/font/5a6L5L2T/fontsize/400/fill/I0JBQkFCMA==/dissolve/70/gravity/Center" alt="" /><br />&#13;
+</p>&#13;
+<p><span style="font-size:14px"><img src="http://img.blog.csdn.net/20161202114800244?watermark/2/text/aHR0cDovL2Jsb2cuY3Nkbi5uZXQv/font/5a6L5L2T/fontsize/400/fill/I0JBQkFCMA==/dissolve/70/gravity/Center" alt="" /><img src="http://img.blog.csdn.net/20161202114808166?watermark/2/text/aHR0cDovL2Jsb2cuY3Nkbi5uZXQv/font/5a6L5L2T/fontsize/400/fill/I0JBQkFCMA==/dissolve/70/gravity/Center" alt="" /><br />&#13;
+</span></p>&#13;
+<p><span style="font-size:14px"><br />&#13;
+</span></p>&#13;
+<p><span style="font-size:14px"><br />&#13;
+</span></p>&#13;
+<p><span style="font-size:14px"><br />&#13;
+</span></p>&#13;
+<p><span style="font-size:14px">总结：使用<span style="color:rgb(255,102,102); font-size:24px">getClassLoader()与不使用时要看路径最前面是否有/，</span></span></p>&#13;
+<p><span style="font-size:14px"><span style="color:rgb(255,102,102); font-size:24px">如果记不清楚可以测试。</span></span></p>&#13;
+<p><span style="font-size:24px; color:#ff6666"><br />&#13;
+</span></p>&#13;
+<p><span style="font-size:24px; color:#ff6666"><br />&#13;
+</span></p>&#13;
+<p></p><pre code_snippet_id="2022243" snippet_file_name="blog_20161202_1_4583465" name="code" class="java">package com.zving.regularExpressionEx.test;
+
+import java.io.BufferedReader;
+import java.io.IOException;
+import java.io.InputStreamReader;
+
+import org.junit.Test;
+
+public class TestPath {
+
+	@Test
+	public void testMethod() {
+		BufferedReader br = null;
+		//String path = "./a.txt";
+		String path = "./com/zving/regularExpressionEx/test/json.txt";
+		try {
+			br = new BufferedReader(new InputStreamReader(
+					TestPath.class.getClassLoader().getResourceAsStream(path)));
+			String line = br.readLine();
+			StringBuilder sb = new StringBuilder();
+			while (line != null) {
+				sb.append(line);
+				line = br.readLine();
+			}
+			System.out.println(sb.toString());
+		} catch (IOException e) {
+			e.printStackTrace();
+		}
+	}
+
+	public static void main(String[] args) {
+		TestPath t = new TestPath();
+		//String json = t.getJsonText("json.txt");
+		String json = t.getJsonText("/com/zving/regularExpressionEx/test/json.txt");//这个也可以
+		System.out.println(json);
+	}
+
+	public String getJsonText(String path) {
+		BufferedReader br = null;
+		try {
+			br = new BufferedReader(new InputStreamReader(
+					TestPath.class.getResourceAsStream(path)));
+			String line = br.readLine();
+			StringBuilder sb = new StringBuilder();
+			while (line != null) {
+				sb.append(line);
+				line = br.readLine();
+			}
+			return sb.toString();
+		} catch (IOException e) {
+			e.printStackTrace();
+		}
+		return null;
+	}
+}
+</pre><br />&#13;
+<br />&#13;
+&#13;
+<p><br />&#13;
+</p>&#13;
+<p><br />&#13;
+</p>&#13;
+<p><br />&#13;
+</p>&#13;
+<p><br />&#13;
+</p>&#13;
+<p>项目包路径：</p>&#13;
+<p><img src="http://img.blog.csdn.net/20161202113241676?watermark/2/text/aHR0cDovL2Jsb2cuY3Nkbi5uZXQv/font/5a6L5L2T/fontsize/400/fill/I0JBQkFCMA==/dissolve/70/gravity/Center" alt="" /><br />&#13;
+</p>&#13;
+<p><br />&#13;
+</p>&#13;
+<p><br />&#13;
+</p>&#13;
+<p><br />&#13;
+</p>&#13;
+<p><br />&#13;
+</p>&#13;
+<p><br />&#13;
+</p>&#13;
+<p><br />&#13;
+</p>&#13;
+<p><br />&#13;
+</p>&#13;
+   &#13;

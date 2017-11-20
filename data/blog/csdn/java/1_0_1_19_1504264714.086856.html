@@ -1,0 +1,188 @@
+
+        <div class="markdown_views"><p>java实现</p>
+
+<p>产品抽象类</p>
+
+<pre class="prettyprint"><code class=" hljs cs"><span class="hljs-keyword">public</span> <span class="hljs-keyword">abstract</span> <span class="hljs-keyword">class</span> Product {
+
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">void</span> <span class="hljs-title">method1</span>(){}
+
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">abstract</span> <span class="hljs-keyword">void</span> <span class="hljs-title">method2</span>();
+}</code></pre>
+
+<p>产品实现类</p>
+
+
+
+<pre class="prettyprint"><code class=" hljs java"><span class="hljs-keyword">public</span> <span class="hljs-class"><span class="hljs-keyword">class</span> <span class="hljs-title">CreateProduct1</span> <span class="hljs-keyword">extends</span> <span class="hljs-title">Product</span> {</span>
+    <span class="hljs-annotation">@Override</span>
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">void</span> <span class="hljs-title">method2</span>() {
+
+    }
+}</code></pre>
+
+
+
+<pre class="prettyprint"><code class=" hljs java"><span class="hljs-keyword">public</span> <span class="hljs-class"><span class="hljs-keyword">class</span> <span class="hljs-title">CreateProduct2</span> <span class="hljs-keyword">extends</span> <span class="hljs-title">Product</span> {</span>
+    <span class="hljs-annotation">@Override</span>
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">void</span> <span class="hljs-title">method2</span>() {
+
+    }
+}</code></pre>
+
+<p>工厂抽象类</p>
+
+
+
+<pre class="prettyprint"><code class=" hljs cs"><span class="hljs-keyword">public</span> <span class="hljs-keyword">abstract</span> <span class="hljs-keyword">class</span> AbstractFaculty  {
+
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">abstract</span> &lt;T extends Product&gt; T <span class="hljs-title">createProduct</span>(Class&lt;T&gt; clazz);
+}</code></pre>
+
+<p>工厂实现类</p>
+
+
+
+<pre class="prettyprint"><code class=" hljs java"><span class="hljs-keyword">public</span> <span class="hljs-class"><span class="hljs-keyword">class</span> <span class="hljs-title">ProduceFactory</span> <span class="hljs-keyword">extends</span> <span class="hljs-title">AbstractFaculty</span> {</span>
+    <span class="hljs-annotation">@Override</span>
+    <span class="hljs-keyword">public</span> &lt;T extends Product&gt; T <span class="hljs-title">createProduct</span>(Class&lt;T&gt; clazz) {
+        Product product = <span class="hljs-keyword">null</span>;
+        <span class="hljs-keyword">try</span>{
+            product = (Product) Class.forName(clazz.getName()).newInstance();
+        }<span class="hljs-keyword">catch</span> (Exception e){
+
+        }
+        <span class="hljs-keyword">return</span> (T) product;
+    }
+}</code></pre>
+
+<p>场景测试类</p>
+
+
+
+<pre class="prettyprint"><code class=" hljs cs"><span class="hljs-keyword">public</span> <span class="hljs-keyword">class</span> Client {
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">static</span> <span class="hljs-keyword">void</span> <span class="hljs-title">main</span>(String[] args){
+        AbstractFaculty faculty = <span class="hljs-keyword">new</span> ProduceFactory();
+        Product createProduct1 = faculty.createProduct(CreateProduct1.class);
+        Product createProduct2 = faculty.createProduct(CreateProduct2.class);
+
+    }
+}
+</code></pre>
+
+<p>以上是常规情形的工厂方法模式</p>
+
+<p>当对工厂类只需要一个不必抽象时，可以将工厂方法直接声明一个静态方法</p>
+
+
+
+<pre class="prettyprint"><code class=" hljs cs"><span class="hljs-keyword">public</span> <span class="hljs-keyword">class</span> ProductFacultyStatic {
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">static</span> &lt;T extends Product&gt; T <span class="hljs-title">createProduct</span>(Class&lt;T&gt; clazz) {
+        Product product = <span class="hljs-keyword">null</span>;
+        <span class="hljs-keyword">try</span>{
+            product = (Product) Class.forName(clazz.getName()).newInstance();
+        }<span class="hljs-keyword">catch</span> (Exception e){
+
+        }
+        <span class="hljs-keyword">return</span> (T) product;
+    }
+}</code></pre>
+
+<p>当每个产品对象的创建非常复杂时，可以为每个产品类分别对应一个工厂类，这样的优点是各个功能模块都隔离，我缺点是类的数量增加，不便于维护</p>
+
+
+
+<pre class="prettyprint"><code class=" hljs java"><span class="hljs-keyword">public</span> <span class="hljs-class"><span class="hljs-keyword">class</span> <span class="hljs-title">CreateProduct1Faculty</span> <span class="hljs-keyword">extends</span> <span class="hljs-title">AbstractFaculty</span> {</span>
+    <span class="hljs-annotation">@Override</span>
+    <span class="hljs-keyword">public</span> &lt;T extends Product&gt; T <span class="hljs-title">createProduct</span>(Class&lt;T&gt; clazz) {
+        <span class="hljs-keyword">return</span> (T) <span class="hljs-keyword">new</span> CreateProduct1();
+    }
+}</code></pre>
+
+<p>当一个对象的创建消耗很大资源时，需要重用，可以将其缓存到map中，当下次使用时，不必创建，使用上次创建的</p>
+
+
+
+<pre class="prettyprint"><code class=" hljs fsharp"><span class="hljs-keyword">public</span> <span class="hljs-keyword">class</span> ProductFacultyStatic {
+    <span class="hljs-keyword">private</span> <span class="hljs-keyword">static</span> Map&lt;String,Product&gt; productMap = <span class="hljs-keyword">new</span> HashMap&lt;&gt;();
+
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">static</span> synchronized Product createProduct(String <span class="hljs-class"><span class="hljs-keyword">type</span>){</span>
+        Product product = <span class="hljs-keyword">null</span>;
+        <span class="hljs-keyword">if</span>(productMap.containsKey(<span class="hljs-class"><span class="hljs-keyword">type</span>)){</span>
+            product = productMap.get(<span class="hljs-class"><span class="hljs-keyword">type</span>);</span>
+        }<span class="hljs-keyword">else</span>{
+            <span class="hljs-keyword">if</span>(<span class="hljs-string">"Product1"</span>.equals(<span class="hljs-class"><span class="hljs-keyword">type</span>)){</span>
+                product = <span class="hljs-keyword">new</span> CreateProduct1();
+            }<span class="hljs-keyword">else</span>{
+                product = <span class="hljs-keyword">new</span> CreateProduct2();
+            }
+        }
+        <span class="hljs-keyword">return</span> product;
+    }
+}</code></pre>
+
+<p>php实现</p>
+
+
+
+<pre class="prettyprint"><code class=" hljs php"><span class="hljs-keyword">abstract</span> <span class="hljs-class"><span class="hljs-keyword">class</span> <span class="hljs-title">Product</span>
+{</span>
+    <span class="hljs-keyword">public</span> <span class="hljs-function"><span class="hljs-keyword">function</span> <span class="hljs-title">method1</span><span class="hljs-params">()</span>{</span>}
+
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">abstract</span> <span class="hljs-function"><span class="hljs-keyword">function</span> <span class="hljs-title">method2</span><span class="hljs-params">()</span>;</span>
+}
+
+
+<span class="hljs-class"><span class="hljs-keyword">class</span> <span class="hljs-title">Product1</span> <span class="hljs-keyword">extends</span> <span class="hljs-title">Product</span>
+{</span>
+    <span class="hljs-keyword">public</span> <span class="hljs-function"><span class="hljs-keyword">function</span> <span class="hljs-title">method2</span><span class="hljs-params">()</span>
+    {</span>
+        <span class="hljs-keyword">echo</span> <span class="hljs-string">"product1 method2 \n"</span>;
+    }
+}
+
+
+<span class="hljs-class"><span class="hljs-keyword">class</span> <span class="hljs-title">Product2</span> <span class="hljs-keyword">extends</span> <span class="hljs-title">Product</span>
+{</span>
+    <span class="hljs-keyword">public</span> <span class="hljs-function"><span class="hljs-keyword">function</span> <span class="hljs-title">method2</span><span class="hljs-params">()</span>
+    {</span>
+        <span class="hljs-keyword">echo</span> <span class="hljs-string">"product2 method2 \n"</span>;
+    }
+}
+
+<span class="hljs-keyword">abstract</span> <span class="hljs-class"><span class="hljs-keyword">class</span> <span class="hljs-title">AbsFactory</span>
+{</span>
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">abstract</span> <span class="hljs-function"><span class="hljs-keyword">function</span> <span class="hljs-title">createProduct</span><span class="hljs-params">(<span class="hljs-variable">$productClassName</span>)</span>;</span>
+}
+
+
+<span class="hljs-class"><span class="hljs-keyword">class</span> <span class="hljs-title">ProductFactory</span> <span class="hljs-keyword">extends</span> <span class="hljs-title">AbsFactory</span>
+{</span>
+    <span class="hljs-keyword">public</span> <span class="hljs-function"><span class="hljs-keyword">function</span> <span class="hljs-title">createProduct</span><span class="hljs-params">(<span class="hljs-variable">$productClassName</span>)</span>
+    {</span>
+        <span class="hljs-keyword">return</span> <span class="hljs-keyword">new</span> <span class="hljs-variable">$productClassName</span>;
+    }
+}
+
+<span class="hljs-variable">$factory</span> = <span class="hljs-keyword">new</span> ProductFactory;
+
+<span class="hljs-variable">$product</span> = <span class="hljs-variable">$factory</span>-&gt;createProduct(<span class="hljs-string">'Product1'</span>);
+<span class="hljs-variable">$product</span>-&gt;method2();
+
+
+<span class="hljs-variable">$product</span> = <span class="hljs-variable">$factory</span>-&gt;createProduct(<span class="hljs-string">'Product2'</span>);
+<span class="hljs-variable">$product</span>-&gt;method2();</code></pre></div>&#13;
+        <script type="text/javascript">&#13;
+            $(function () {&#13;
+                $('pre.prettyprint code').each(function () {&#13;
+                    var lines = $(this).text().split('\n').length;&#13;
+                    var $numbering = $('&lt;ul/&gt;').addClass('pre-numbering').hide();&#13;
+                    $(this).addClass('has-numbering').parent().append($numbering);&#13;
+                    for (i = 1; i &lt;= lines; i++) {&#13;
+                        $numbering.append($('&lt;li/&gt;').text(i));&#13;
+                    };&#13;
+                    $numbering.fadeIn(1700);&#13;
+                });&#13;
+            });&#13;
+        </script>&#13;
+   &#13;

@@ -1,0 +1,181 @@
+
+        <div class="markdown_views"><h2 id="一介绍">一、介绍</h2>
+
+<hr />
+
+<p><strong>命令模式：</strong>将一个请求封装为对象，从而使我们可用不同的请求对客户进行参数化；对请求排队或者记录请求日志，以及支持可撤销的操作。也称为：动作(Action)模式、事务(transaction)模式。</p>
+
+
+
+<h2 id="二模式结构">二、模式结构</h2>
+
+<hr />
+
+<ul>
+<li><strong>Command抽象命令类</strong>: 声明执行操作的接口。</li>
+<li><strong>ConcreteComand具体命令类</strong>：通常持有 一个接收者对象并绑定于一个动作， 调用接收者相应的操作，以实现execute方法。</li>
+<li><p><strong>Invoker调用者/请求者</strong>： 请求的发送者，它通过命令对象来执行请求。一个调用者并不需要在设计时确定其接收者，因此它只与抽象命令类之间存在关联。在程序运行时，将调用命令对象的execute(),间接调用接收者的相关操作。</p></li>
+<li><p><strong>Receiver接收者</strong>：接收者执行与请求相关的操作，具体实现对请求的业务处理。</p></li>
+</ul>
+
+<p>结构图：</p>
+
+<p><img src="http://img.blog.csdn.net/20161112214714811" alt="这里写图片描述" title="" /></p>
+
+<p><strong><em>代码示例：</em></strong></p>
+
+<p><font color="#00f" size="3">Receiver接收者： </font></p>
+
+
+
+<pre class="prettyprint"><code class=" hljs java"><span class="hljs-javadoc">/**
+ * 真正的命令执行者
+ */</span>
+<span class="hljs-keyword">public</span> <span class="hljs-class"><span class="hljs-keyword">class</span> <span class="hljs-title">Receiver</span> {</span>
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">void</span> <span class="hljs-title">action</span>(){
+        System.out.println(<span class="hljs-string">"执行命令----"</span>);
+    }
+
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">void</span> <span class="hljs-title">unAction</span>(){
+        System.out.println(<span class="hljs-string">"撤销命令----"</span>);
+    }
+}</code></pre>
+
+<p><font color="#00f" size="3"> Command抽象命令类: </font></p>
+
+
+
+<pre class="prettyprint"><code class=" hljs java"><span class="hljs-javadoc">/**
+ * 抽象命令接口
+ */</span>
+<span class="hljs-keyword">public</span> <span class="hljs-class"><span class="hljs-keyword">interface</span> <span class="hljs-title">Command</span> {</span>
+     <span class="hljs-keyword">void</span>  execute();<span class="hljs-comment">//执行命令</span>
+     <span class="hljs-keyword">void</span>  cancel();<span class="hljs-comment">//取消命令 </span>
+ }   
+</code></pre>
+
+<p><font color="#00f" size="3"> ConcreteComand具体命令类: </font></p>
+
+
+
+<pre class="prettyprint"><code class=" hljs java"><span class="hljs-javadoc">/**
+ * 具体命令类
+ */</span>
+<span class="hljs-keyword">public</span> <span class="hljs-class"><span class="hljs-keyword">class</span> <span class="hljs-title">ConcreteCommand</span> <span class="hljs-keyword">implements</span> <span class="hljs-title">Command</span>{</span>
+    <span class="hljs-keyword">private</span> Receiver receiver;
+
+    <span class="hljs-keyword">public</span> <span class="hljs-title">ConcreteCommand</span>(Receiver receiver) {
+        <span class="hljs-keyword">super</span>();
+        <span class="hljs-keyword">this</span>.receiver = receiver;
+    }
+
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">void</span> <span class="hljs-title">execute</span>() {
+        <span class="hljs-comment">//可进行执行命令前相关操作</span>
+
+        receiver.action();<span class="hljs-comment">//执行命令</span>
+
+        <span class="hljs-comment">//可进行执行命令后相关操作</span>
+    }
+
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">void</span> <span class="hljs-title">cancel</span>() {
+        receiver.unAction();
+    }
+}
+</code></pre>
+
+<p><font color="#00f" size="3"> Invoker调用者/请求者: </font></p>
+
+
+
+<pre class="prettyprint"><code class=" hljs cs"><span class="hljs-keyword">public</span> <span class="hljs-keyword">class</span> Invoker {
+    <span class="hljs-keyword">private</span> Command command;
+
+    <span class="hljs-keyword">public</span> <span class="hljs-title">Invoker</span>(Command command) {
+        super();
+        <span class="hljs-keyword">this</span>.command = command;
+    }
+    <span class="hljs-comment">//执行命令</span>
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">void</span> <span class="hljs-title">runCommand</span>(){
+        command.execute();
+    }
+
+    <span class="hljs-comment">//取消命令</span>
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">void</span> <span class="hljs-title">cancelCommand</span>(){
+        command.cancel();
+    }
+
+}
+</code></pre>
+
+<p><font color="##00f" size="3">客户端：</font></p>
+
+
+
+<pre class="prettyprint"><code class=" hljs cs"><span class="hljs-keyword">public</span> <span class="hljs-keyword">class</span> Client {
+
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">static</span> <span class="hljs-keyword">void</span> <span class="hljs-title">main</span>(String[] args) {
+        <span class="hljs-comment">//创建接收者</span>
+        Receiver receiver=<span class="hljs-keyword">new</span> Receiver();
+        <span class="hljs-comment">//创建命令对象，并设置接收者</span>
+        Command command=<span class="hljs-keyword">new</span> ConcreteCommand(receiver);
+
+        <span class="hljs-comment">//创建调用者，设置命令</span>
+        Invoker invoker=<span class="hljs-keyword">new</span> Invoker(command);
+
+        invoker.runCommand();
+        invoker.cancelCommand();
+    }
+}
+
+
+<span class="hljs-comment">//输出结果</span>
+执行命令---- 
+撤销命令----   
+</code></pre>
+
+
+
+<h2 id="三命令模式的优缺点">三、命令模式的优缺点</h2>
+
+<hr />
+
+<p><strong>优点：</strong></p>
+
+<ul>
+<li>降低对象之间的耦合度。</li>
+<li>新的命令可以很容易地加入到系统中。</li>
+<li>可以比较容易地设计一个组合命令。</li>
+<li>调用同一方法实现不同的功能。</li>
+</ul>
+
+<p><strong>缺点：</strong></p>
+
+<ul>
+<li>使用命令模式可能会导致某些系统有过多的具体命令类。因为针对每一个命令都需要设计一个具体命令类，因此某些系统可能需要大量具体命令类，这将影响命令模式的使用。</li>
+</ul>
+
+
+
+<h2 id="四总结">四、总结</h2>
+
+<hr />
+
+<ul>
+<li>命令模式将发出请求的对象和执行请求的对象解耦， 在被解耦的两者之间是通过命令对象进行沟通的。命令对象封装了接收者和一个或一组动作。</li>
+<li>命令模式允许请求的一方和接收的一方独立开来，使得请求的一方不必知道接收请求的一方的接口，更不必知道请求是怎么被接收，以及操作是否被执行、何时被执行，以及是怎么被执行的。</li>
+<li>命令模式的关键在于引入了抽象命令接口，且发送者针对抽象命令接口编程，只有实现了抽象命令接口的具体命令才能与接收者相关联。</li>
+</ul></div>&#13;
+        <script type="text/javascript">&#13;
+            $(function () {&#13;
+                $('pre.prettyprint code').each(function () {&#13;
+                    var lines = $(this).text().split('\n').length;&#13;
+                    var $numbering = $('&lt;ul/&gt;').addClass('pre-numbering').hide();&#13;
+                    $(this).addClass('has-numbering').parent().append($numbering);&#13;
+                    for (i = 1; i &lt;= lines; i++) {&#13;
+                        $numbering.append($('&lt;li/&gt;').text(i));&#13;
+                    };&#13;
+                    $numbering.fadeIn(1700);&#13;
+                });&#13;
+            });&#13;
+        </script>&#13;
+   &#13;

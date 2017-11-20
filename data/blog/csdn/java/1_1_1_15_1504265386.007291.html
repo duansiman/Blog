@@ -1,0 +1,587 @@
+
+
+<h3>线程概念<br />&#13;
+</h3>&#13;
+<p>线程：线程是比进程更小的执行单位，它是在一个进程中独立的控制流，即程序内部的控制流。特点：线程不能独立运行，必须依赖于进程，在进程中运行。</p>&#13;
+<p><br />&#13;
+</p>&#13;
+<h3>Java实现线程</h3>&#13;
+<p>Java实现线程一般由Thread类和实现Runnable接口的类组成。可以看一个Java实现线程的例子。</p>&#13;
+<p>这里我们现实了Runnable接口的run方法，并且使用Thread类来实现了一个线程。Thread类会调用Runnable的run方法，并且运行在线程中。<br />&#13;
+</p>&#13;
+<p></p>&#13;
+<pre code_snippet_id="426429" snippet_file_name="blog_20140714_1_3362826" name="code" class="java">package com.test.www;
+
+
+public class mainTest {
+
+    public static void main(String[] args) {
+        //实现Runbale的run方法
+        class Test implements Runnable {
+
+            @Override
+            public void run() {
+                System.out.println("Hello World");
+                try {
+                    Thread.sleep(2000); //sleep 2秒
+                } catch (Exception e) {
+                }
+                System.out.println("Hello World2");
+            }
+
+        }
+        Test test = new Test(); 
+        Thread thread = new Thread(test); //线程类
+        thread.start(); //线程启动执行
+    }
+
+}
+</pre><br />&#13;
+输出：&#13;
+<p></p>&#13;
+<p>Hello World<br />&#13;
+Hello World2</p>&#13;
+<p><br />&#13;
+</p>&#13;
+<h3>Java线程的状态</h3>&#13;
+<p></p>&#13;
+<p align="left"><span style="font-family:Consolas"><span style="font-family:Consolas"><strong>NEW</strong>状态是指线程刚创建, 尚未启动</span></span></p>&#13;
+<p align="left"><strong>RUNNABLE</strong> 状态是线程正在正常运行中, 当然可能会有某种耗时计算/IO等待的操作/CPU时间片切换等, 这个状态下发生的等待一般是其他系统资源, 而不是锁, Sleep等</p>&#13;
+<div align="left"><strong>BLOCKED </strong> 这个状态下, 是在多个线程有同步操作的场景, 比如正在等待另一个线程的synchronized 块的执行释放, 或者可重入的 synchronized块里别人调用wait() 方法, 也就是这里是线程在等待进入临界区</div>&#13;
+<div align="left">&#13;
+<p><strong>WAITING </strong> 这个状态下是指线程拥有了某个锁之后, 调用了他的wait方法, 等待其他线程/锁拥有者调用 notify / notifyAll 一遍该线程可以继续下一步操作, 这里要区分 BLOCKED 和 WATING 的区别, 一个是在临界点外面等待进入, 一个是在理解点里面wait等待别人notify, 线程调用了join方法 join了另外的线程的时候, 也会进入WAITING状态, 等待被他join的线程执行结束</p>&#13;
+<p><strong>TIMED_WAITING </strong> 这个状态就是有限的(时间限制)的WAITING, 一般出现在调用wait(long), join(long)等情况下, 另外一个线程sleep后, 也会进入TIMED_WAITING状态</p>&#13;
+<p><strong>TERMINATED</strong> 这个状态下表示 该线程的run方法已经执行完毕了, 基本上就等于死亡了(当时如果线程被持久持有, 可能不会被回收)</p>&#13;
+<p><br />&#13;
+</p>&#13;
+</div>&#13;
+<h3>同步锁ReentrantLock</h3>&#13;
+<p>为什么在多线程环境下需要有锁，并且多线程下进行数据共享会造成不安全。主要是因为多个线程一起读取或者写入一个数据域的时候，会造成读写的竞争。Java是读取一个域的值的时候，是通过拷贝的方法。当多个线程同时进行读取或者写入的时候，有可能用户读取到的数据不是最新的，这就造成了数据的不准确。</p>&#13;
+<p>可以先看一个造成线程数据竞争的例子：</p>&#13;
+<p></p>&#13;
+<pre code_snippet_id="426429" snippet_file_name="blog_20140714_2_932574" name="code" class="java">package com.test.www;
+
+
+public class mainTest {
+
+    public static void main(String[] args) {
+
+        //卖票的例子
+        class Test implements Runnable {
+
+            private int ticket = 10; //10张火车票
+
+            @Override
+            public void run() {
+                int i = 10;
+                while (i &gt; 0) {
+                    i--;
+                    try {
+                        Thread.sleep(1000); //sleep 2秒
+                    } catch (Exception e) {
+                    }
+                    sale(); //卖一张票
+                }
+            }
+
+            private void sale() {
+                if (ticket &gt; 0) {
+                    System.out.println(Thread.currentThread().getName() + "卖出一张票，剩余：" + ticket--);
+                }
+            }
+
+        }
+        Test test = new Test();
+        new Thread(test, "A窗口").start();
+        new Thread(test, "B窗口").start();
+        new Thread(test, "C窗口").start();
+
+    }
+
+}
+</pre><br />&#13;
+结果：&#13;
+<p></p>&#13;
+<p>A窗口卖出一张票，剩余：10<br />&#13;
+B窗口卖出一张票，剩余：9<br />&#13;
+C窗口卖出一张票，剩余：10<br />&#13;
+B窗口卖出一张票，剩余：8<br />&#13;
+A窗口卖出一张票，剩余：7<br />&#13;
+C窗口卖出一张票，剩余：6<br />&#13;
+A窗口卖出一张票，剩余：5<br />&#13;
+B窗口卖出一张票，剩余：4<br />&#13;
+C窗口卖出一张票，剩余：3<br />&#13;
+C窗口卖出一张票，剩余：2<br />&#13;
+A窗口卖出一张票，剩余：1</p>&#13;
+<p><br />&#13;
+</p>&#13;
+<p>你会发现上面的例子中，一共10张票，最终因为线程的抢夺，造成了卖出了11张票，造成了数据的不一致，这种现象其实是很可怕的。</p>&#13;
+<p>Java提供了ReentrantLock同步锁，帮助我们解决数据的不安全问题。</p>&#13;
+<p>我们可以优化上面的例子：</p>&#13;
+<p></p>&#13;
+<pre code_snippet_id="426429" snippet_file_name="blog_20140714_3_2356106" name="code" class="java">package com.test.www;
+
+
+import java.util.concurrent.locks.Lock;
+import java.util.concurrent.locks.ReentrantLock;
+
+public class mainTest {
+
+    public static void main(String[] args) {
+
+        //卖票的例子
+        class Test implements Runnable {
+
+            private Lock myLock = new ReentrantLock(); //定义一个ReentrantLock
+
+            private int  ticket = 10;                 //10张火车票
+
+            @Override
+            public void run() {
+                int i = 10;
+                while (i &gt; 0) {
+                    i--;
+                    try {
+                        Thread.sleep(1000); //sleep 2秒
+                    } catch (Exception e) {
+                    }
+                    sale(); //卖一张票
+                }
+            }
+
+            private void sale() {
+                myLock.lock(); //同步锁，锁住
+                if (ticket &gt; 0) {
+                    System.out.println(Thread.currentThread().getName() + "卖出一张票，剩余：" + ticket--);
+                }
+                myLock.unlock(); //解锁
+            }
+
+        }
+        Test test = new Test();
+        new Thread(test, "A窗口").start();
+        new Thread(test, "B窗口").start();
+        new Thread(test, "C窗口").start();
+
+    }
+
+}
+</pre><br />&#13;
+结果：&#13;
+<p></p>&#13;
+<p>A窗口卖出一张票，剩余：10<br />&#13;
+B窗口卖出一张票，剩余：9<br />&#13;
+C窗口卖出一张票，剩余：8<br />&#13;
+A窗口卖出一张票，剩余：7<br />&#13;
+B窗口卖出一张票，剩余：6<br />&#13;
+C窗口卖出一张票，剩余：5<br />&#13;
+A窗口卖出一张票，剩余：4<br />&#13;
+B窗口卖出一张票，剩余：3<br />&#13;
+C窗口卖出一张票，剩余：2<br />&#13;
+A窗口卖出一张票，剩余：1<br />&#13;
+<br />&#13;
+上面的例子就很好的控制了线程间对资源的抢夺。</p>&#13;
+<p>ReentrantLock还可以具体细分为读锁和写锁。具体的使用在这边不展开了。</p>&#13;
+<p></p>&#13;
+<pre code_snippet_id="426429" snippet_file_name="blog_20140714_4_3779637" name="code" class="java">        ReentrantReadWriteLock rwl = new ReentrantReadWriteLock();
+        Lock readLock = rwl.readLock();
+        Lock writeLock = rwl.writeLock();</pre><br />&#13;
+<p></p>&#13;
+<h3>同步关键字<span id="Codehighlighter1_64_607_Open_Text"><span style="color:#000000">synchronized</span></span></h3>&#13;
+<p>使用ReentrantLock的时候，每次都要定义一个锁，然后在代码块中每次手动去解锁，这个过程其实是很繁琐的。关键字：<span style="color:#CC0000"><strong>synchronized</strong></span>很好的解决了这些问题，让一切变得更加简单。</p>&#13;
+<p>可以看一个上面具体例子修改后的结果：</p>&#13;
+<p></p>&#13;
+<pre code_snippet_id="426429" snippet_file_name="blog_20140714_5_427422" name="code" class="java">package com.test.www;
+
+
+
+public class mainTest {
+
+    public static void main(String[] args) {
+
+        //卖票的例子
+        class Test implements Runnable {
+
+            private int ticket = 10; //10张火车票
+
+            @Override
+            public void run() {
+                int i = 10;
+                while (i &gt; 0) {
+                    i--;
+                    try {
+                        Thread.sleep(1000); //sleep 2秒
+                    } catch (Exception e) {
+                    }
+                    sale(); //卖一张票
+                }
+            }
+
+            //使用了synchronized的效果和使用ReentrantLock的效果是一样的
+            //而且使用synchronized会更加简单
+            private synchronized void sale() {
+                if (ticket &gt; 0) {
+                    System.out.println(Thread.currentThread().getName() + "卖出一张票，剩余：" + ticket--);
+                }
+            }
+
+        }
+        Test test = new Test();
+        new Thread(test, "A窗口").start();
+        new Thread(test, "B窗口").start();
+        new Thread(test, "C窗口").start();
+
+    }
+
+}
+</pre><br />&#13;
+结果：&#13;
+<p></p>&#13;
+<p>A窗口卖出一张票，剩余：10<br />&#13;
+B窗口卖出一张票，剩余：9<br />&#13;
+C窗口卖出一张票，剩余：8<br />&#13;
+B窗口卖出一张票，剩余：7<br />&#13;
+C窗口卖出一张票，剩余：6<br />&#13;
+A窗口卖出一张票，剩余：5<br />&#13;
+B窗口卖出一张票，剩余：4<br />&#13;
+C窗口卖出一张票，剩余：3<br />&#13;
+A窗口卖出一张票，剩余：2<br />&#13;
+B窗口卖出一张票，剩余：1<br />&#13;
+<br />&#13;
+结果是一样的。<strong><span style="color:#CC0000">synchronized一般可以用在方法上面，当然也可以用在代码块中。</span></strong></p>&#13;
+<p></p>&#13;
+<pre code_snippet_id="426429" snippet_file_name="blog_20140714_6_1850954" name="code" class="java">  public static void main(String[] args) {
+
+        //卖票的例子  
+        class Test implements Runnable {
+
+            private int ticket = 10; //10张火车票  
+
+            @Override
+            public void run() {
+                int i = 10;
+                while (i &gt; 0) {
+                    i--;
+                    try {
+                        Thread.sleep(1000); //sleep 2秒  
+                    } catch (Exception e) {
+                    }
+                    sale(); //卖一张票  
+                }
+            }
+
+            private void sale() {
+                synchronized (this) {
+                    if (ticket &gt; 0) {
+
+                        System.out.println(Thread.currentThread().getName() + "卖出一张票，剩余："
+                                + ticket--);
+
+                    }
+                }
+            }
+
+        }
+        Test test = new Test();
+        new Thread(test, "A窗口").start();
+        new Thread(test, "B窗口").start();
+        new Thread(test, "C窗口").start();
+
+    }
+</pre>&#13;
+<p><br />&#13;
+</p>&#13;
+<h3>关键字Volatile</h3>&#13;
+<p>如果只是对对象的域进行同步访问，我们可以使用<strong><span style="color:#CC0000">volatile</span></strong>关键字。</p>&#13;
+<p>域的访问安全有两种：</p>&#13;
+<p>1. 标示为final的域。</p>&#13;
+<p>2.域是volatile</p>&#13;
+<p>3.对域的访问由公有的锁进行保护，例如<strong><span style="color:#CC0000">synchronized</span></strong>关键词保护的。<br />&#13;
+</p>&#13;
+<p></p>&#13;
+<pre code_snippet_id="426429" snippet_file_name="blog_20140714_7_9071705" name="code" class="java">package com.test.www;
+
+
+public class mainTest {
+
+    public static void main(String[] args) {
+
+        //卖票的例子
+        class Test implements Runnable {
+
+            //volatile 关键词，保证了该域的读写安全
+            private volatile int ticket = 10; //10张火车票
+
+            @Override
+            public void run() {
+                int i = 10;
+                while (i &gt; 0) {
+                    i--;
+                    try {
+                        Thread.sleep(1000); //sleep 2秒
+                    } catch (Exception e) {
+                    }
+                    sale(); //卖一张票
+                }
+            }
+
+            private void sale() {
+                if (ticket &gt; 0) {
+                    System.out.println(Thread.currentThread().getName() + "卖出一张票，剩余：" + ticket--);
+                }
+            }
+
+        }
+        Test test = new Test();
+        new Thread(test, "A窗口").start();
+        new Thread(test, "B窗口").start();
+        new Thread(test, "C窗口").start();
+
+    }
+
+}
+</pre><br />&#13;
+结果：&#13;
+<p></p>&#13;
+<p>A窗口卖出一张票，剩余：10<br />&#13;
+B窗口卖出一张票，剩余：9<br />&#13;
+C窗口卖出一张票，剩余：8<br />&#13;
+A窗口卖出一张票，剩余：7<br />&#13;
+B窗口卖出一张票，剩余：6<br />&#13;
+C窗口卖出一张票，剩余：5<br />&#13;
+A窗口卖出一张票，剩余：4<br />&#13;
+B窗口卖出一张票，剩余：3<br />&#13;
+C窗口卖出一张票，剩余：2<br />&#13;
+C窗口卖出一张票，剩余：1</p>&#13;
+<p><br />&#13;
+</p>&#13;
+<h3>关于死锁等</h3>&#13;
+<p>多个线程同时被阻塞，它们中的一个或者全部都在等待某个资源被释放。由于线程被无限期地阻塞，因此程序不可能正常终止。导致死锁的根源在于不适当地运用synchronized关键词来管理线程对特定对象的访问。synchronized关键词的作用是，确保在某个时刻只有一个线程被允许执行特定的代码块，因此，被允许执行的线程首先必须拥有对变量或对象的排他性的访问权。当线程访问对象时，线程会给对象加锁，而这个锁导致其它也想访问同一对象的线程被阻塞，直至第一个线程释放它加在对象上的锁。</p>&#13;
+<p><strong><span style="color:#CC0000">死锁，主要还是需要自己的程序代码中去防范。</span></strong></p>&#13;
+<p>多线程中，我们一般不使用stop和suspend方法。stop方法是终止所有未结束的方法，包括run方法。当线程被终止，立即释放被他锁住的所有对象的锁，这会导致对象处于不一致的状态。</p>&#13;
+<p><span style="color:#FF0000">c语言调试死锁一般使用pstack命令；Java调试死锁一般使用<a target="_blank" href="http://blog.csdn.net/initphp/article/details/31040349#t5">jstack</a></span><br />&#13;
+</p>&#13;
+<p><br />&#13;
+</p>&#13;
+<h3>Callable</h3>&#13;
+<p>Callable和Runnable不一样，Runnable运行了之后不会等待结果的返回，而Callable执行一个线程的时候，主线程会等待结果的返回。</p>&#13;
+<p></p>&#13;
+<pre code_snippet_id="426429" snippet_file_name="blog_20140714_8_2758391" name="code" class="java">package com.test.www;
+
+
+import java.util.concurrent.Callable;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.FutureTask;
+
+public class mainTest {
+
+    public static void main(String[] args) throws InterruptedException, ExecutionException {
+
+        //实现一个runable，返回字符串的结果
+        class Test implements Callable&lt;String&gt; {
+
+            //volatile 关键词，保证了该域的读写安全
+            private volatile int ticket = 10; //10张火车票
+
+            private void sale() {
+                if (ticket &gt; 0) {
+                    System.out.println(Thread.currentThread().getName() + "卖出一张票，剩余：" + ticket--);
+                }
+            }
+
+            @Override
+            public String call() throws Exception {
+                int i = 10;
+                while (i &gt; 0) {
+                    i--;
+                    try {
+                        Thread.sleep(1000); //sleep 2秒
+                    } catch (Exception e) {
+                    }
+                    sale(); //卖一张票
+                }
+                return Thread.currentThread().getName() + " 下班了";
+            }
+
+        }
+        Test test = new Test();
+        FutureTask&lt;String&gt; futrue = new FutureTask&lt;String&gt;(test); //使用futrue来接收异步的Callable
+        new Thread(futrue, "A窗口").start(); //这边是阻塞等待
+        System.out.println(futrue.get() + " "); //接收到Callable的返回值
+
+    }
+
+}
+</pre><br />&#13;
+结果：&#13;
+<p></p>&#13;
+<p>A窗口卖出一张票，剩余：10<br />&#13;
+A窗口卖出一张票，剩余：9<br />&#13;
+A窗口卖出一张票，剩余：8<br />&#13;
+A窗口卖出一张票，剩余：7<br />&#13;
+A窗口卖出一张票，剩余：6<br />&#13;
+A窗口卖出一张票，剩余：5<br />&#13;
+A窗口卖出一张票，剩余：4<br />&#13;
+A窗口卖出一张票，剩余：3<br />&#13;
+A窗口卖出一张票，剩余：2<br />&#13;
+A窗口卖出一张票，剩余：1<br />&#13;
+A窗口 下班了 </p>&#13;
+<p><br />&#13;
+</p>&#13;
+<h3>线程池</h3>&#13;
+<p>线程池的作用就是限制程序中线程的数量，并将空闲的线程有效的最大化利用起来。通过线程池，用户不需要关系线程创建和销毁的细节，只需关心实现业务的需求。</p>&#13;
+<p><span style="font-size:12px"><span style="">1.</span><span style="">减少了创建和销毁线程的次数，每个工作线程都可以被重复利用，可执行多个任务。</span></span></p>&#13;
+<p><span style="font-size:12px"><span style="">2.</span><span style="">可以根据系统的承受能力，调整线程池中工作线线程的数目，防止因为消耗过多的内存。</span></span></p>&#13;
+<p><span style="font-size:12px"><span style=""><span style="font-size:12px"><span style="">Java</span><span style="">里面线程池的顶级接口是</span><span style="">Executor</span><span style=""></span></span></span></span>，比较重要的几个类：</p>&#13;
+<p>&#13;
+</p><table border="1" cellpadding="0" cellspacing="0">&#13;
+<tbody>&#13;
+<tr>&#13;
+<td>&#13;
+<p>ExecutorService</p>&#13;
+</td>&#13;
+<td>&#13;
+<p>真正的线程池接口。</p>&#13;
+</td>&#13;
+</tr>&#13;
+<tr>&#13;
+<td>&#13;
+<p>ScheduledExecutorService</p>&#13;
+</td>&#13;
+<td>&#13;
+<p>能和Timer/TimerTask类似，解决那些需要任务重复执行的问题。</p>&#13;
+</td>&#13;
+</tr>&#13;
+<tr>&#13;
+<td>&#13;
+<p>ThreadPoolExecutor</p>&#13;
+</td>&#13;
+<td>&#13;
+<p>ExecutorService的默认实现。</p>&#13;
+</td>&#13;
+</tr>&#13;
+<tr>&#13;
+<td>&#13;
+<p>ScheduledThreadPoolExecutor</p>&#13;
+</td>&#13;
+<td>&#13;
+<p>继承ThreadPoolExecutor的ScheduledExecutorService接口实现，周期性任务调度的类实现。</p>&#13;
+</td>&#13;
+</tr>&#13;
+</tbody>&#13;
+</table>&#13;
+<br />&#13;
+&#13;
+<p>Java提供了四中创建线程池的方式：</p>&#13;
+<p>1. <span style="font-size:12px"><strong><span style="">newSingleThreadExecutor</span></strong></span></p>&#13;
+<p><span style="font-size:12px"><span style="">创建一个单线程的线程池。这个线程池只有一个线程在工作</span></span>。</p>&#13;
+<p><span style=""><span style="font-size:12px">2. <strong><span style="">newFixedThreadPool</span></strong></span></span></p>&#13;
+<p><span style="font-size:12px"><span style="">创建固定大小的线程池。每次提交一个任务就创建一个线程，直到线程达到线程池的最大大小</span></span>。</p>&#13;
+<p>3. <span style="font-size:12px"><strong><span style="">newCachedThreadPool</span></strong></span></p>&#13;
+<p></p>&#13;
+<p>创建一个可缓存的线程池。如果线程池的大小超过了处理任务所需要的线程，</p>&#13;
+那么就会回收部分空闲（60秒不执行任务）的线程，当任务数增加时，此线程池又可以智能的添加新线程来处理任务。&#13;
+<p>4. <span style=""><span style="font-size:12px"><strong><span style="">newScheduledThreadPool</span></strong></span></span></p>&#13;
+<p><span style="font-size:12px"><span style="">创建一个大小无限的线程池。此线程池支持定时以及周期性执行任务的需求。</span></span></p>&#13;
+<p><br />&#13;
+</p>&#13;
+<p>创建一个可伸缩大小的线程池<br />&#13;
+</p>&#13;
+<p></p>&#13;
+<pre code_snippet_id="426429" snippet_file_name="blog_20140714_9_4181923" name="code" class="java">package com.test.www;
+
+
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+
+public class mainTest {
+
+    public static void main(String[] args) throws InterruptedException, ExecutionException {
+
+        //runnable
+        class Test implements Runnable {
+
+            @Override
+            public void run() {
+                System.out.println("当前线程名称：" + Thread.currentThread().getName());
+            }
+
+        }
+        Test test = new Test();
+        Thread thread = new Thread(test);
+        ExecutorService pool = Executors.newCachedThreadPool(); //创建一个可伸缩的线程池
+        pool.submit(thread); //执行一个线程
+        pool.submit(thread);
+        pool.submit(thread);
+        pool.submit(thread);
+        pool.submit(thread);
+        pool.submit(thread);
+        pool.submit(thread);
+        pool.submit(thread);
+        pool.submit(thread);
+        pool.submit(thread);
+        pool.shutdown(); //关闭线程池
+
+    }
+}
+</pre><br />&#13;
+结果：&#13;
+<p></p>&#13;
+<p>当前线程名称：pool-1-thread-1<br />&#13;
+当前线程名称：pool-1-thread-3<br />&#13;
+当前线程名称：pool-1-thread-2<br />&#13;
+当前线程名称：pool-1-thread-1<br />&#13;
+当前线程名称：pool-1-thread-3<br />&#13;
+当前线程名称：pool-1-thread-6<br />&#13;
+当前线程名称：pool-1-thread-2<br />&#13;
+当前线程名称：pool-1-thread-4<br />&#13;
+当前线程名称：pool-1-thread-7<br />&#13;
+当前线程名称：pool-1-thread-5public class Test2 {<br />&#13;
+<br />&#13;
+</p>&#13;
+<p>创建一个固定大小的线程池</p>&#13;
+<p></p><pre code_snippet_id="426429" snippet_file_name="blog_20160318_10_3476726" name="code" class="java">public class Test2 {
+
+    public static void main(String[] args) throws InterruptedException, ExecutionException {
+
+        //runnable  
+        class Test implements Runnable {
+
+            @Override
+            public void run() {
+                System.out.println("当前线程名称：" + Thread.currentThread().getName());
+                try {
+                    Thread.sleep(2000);
+                } catch (Exception e) {
+                }
+            }
+
+        }
+        Test test = new Test();
+        Thread thread = new Thread(test);
+        ExecutorService pool = Executors.newFixedThreadPool(3);
+        for (int i = 0; i &lt; 100; i++) {
+            pool.submit(thread); //执行一个线程
+        }
+        pool.shutdown(); //关闭线程池  
+
+    }
+}</pre><br />&#13;
+结果：&#13;
+<p>当前线程名称：pool-1-thread-1<br />&#13;
+当前线程名称：pool-1-thread-2<br />&#13;
+当前线程名称：pool-1-thread-3<br />&#13;
+当前线程名称：pool-1-thread-1<br />&#13;
+当前线程名称：pool-1-thread-2<br />&#13;
+当前线程名称：pool-1-thread-3<br />&#13;
+<br />&#13;
+<br />&#13;
+</p>&#13;
+<p><br />&#13;
+</p>&#13;
+<p><br />&#13;
+</p>&#13;
+<p><br />&#13;
+</p>&#13;
+   &#13;

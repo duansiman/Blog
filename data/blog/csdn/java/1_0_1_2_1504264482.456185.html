@@ -1,0 +1,144 @@
+
+        <div class="markdown_views"><p>比如我们去奔驰4S店买车,一般4S店都会有销售人员,经理,总监,老板这样的层级,消费者肯定希望买车能给予一定的折扣,比如5%,20%甚至50%等,消费者提出不同比例的折扣,销售员不一定能直接同意,这时候就需要向经理请示(request),或许这个折扣经理也不能同意,经理有需要向总监请示,这个过程就是责任链(Handler Chain)传递的一个很好的例子,接下来,我们就来从具体来学习什么是责任链</p>
+
+<p><strong>什么是责任链模式?</strong></p>
+
+<p>将接收者对象连成一条链条,并在该链上传递请求,直到有一个接收者对象处理它,通过让更多对象有机会处理请求,避免了请求发送者和接收者之间的耦合</p>
+
+<p><strong>接下来通过例子的代码来学习责任链模式:</strong></p>
+
+<p>1.首先我们需要定义一个处理折扣的抽象类作为接口:</p>
+
+
+
+<pre class="prettyprint"><code class=" hljs cs"><span class="hljs-keyword">public</span> <span class="hljs-keyword">abstract</span> <span class="hljs-keyword">class</span> PriceHandler {<span class="hljs-comment">//价格处理人,负责处理客户折扣申请</span>
+
+    <span class="hljs-keyword">protected</span> PriceHandler successor;<span class="hljs-comment">//直接后继,用于传递请求</span>
+
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">void</span> <span class="hljs-title">setSuccessor</span>(PriceHandler successor) {
+        <span class="hljs-keyword">this</span>.successor = successor;
+    }
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">abstract</span> <span class="hljs-keyword">void</span> <span class="hljs-title">processDiscount</span>(<span class="hljs-keyword">float</span> discount);<span class="hljs-comment">//处理折扣的申请</span>
+}</code></pre>
+
+<p>2.然后,我们需要编写销售人员,经理,总监和老板的操作类(我们只列出销售人员和老板的源码,经理和总监的源码实现与销售人员类似):</p>
+
+
+
+<pre class="prettyprint"><code class=" hljs java"><span class="hljs-keyword">public</span> <span class="hljs-class"><span class="hljs-keyword">class</span> <span class="hljs-title">SalesMan</span> <span class="hljs-keyword">extends</span> <span class="hljs-title">PriceHandler</span> {</span><span class="hljs-comment">//销售人员,可以批准&lt;=5%的折扣</span>
+    <span class="hljs-annotation">@Override</span>
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">void</span> <span class="hljs-title">processDiscount</span>(<span class="hljs-keyword">float</span> discount) {
+          <span class="hljs-keyword">if</span>(discount&lt;=<span class="hljs-number">0.05</span>){
+                System.out.format(<span class="hljs-string">"%s批准了折扣：%.2f%n"</span>, <span class="hljs-keyword">this</span>.getClass().getName(),discount);
+          }<span class="hljs-keyword">else</span>{
+               successor.processDiscount(discount);
+          }
+    }
+}</code></pre>
+
+
+
+<pre class="prettyprint"><code class=" hljs java"><span class="hljs-keyword">public</span> <span class="hljs-class"><span class="hljs-keyword">class</span> <span class="hljs-title">Boss</span> <span class="hljs-keyword">extends</span> <span class="hljs-title">PriceHandler</span> {</span><span class="hljs-comment">//老板,可以批准50%以内的折扣,折扣超出50%,就拒绝申请</span>
+    <span class="hljs-annotation">@Override</span>
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">void</span> <span class="hljs-title">processDiscount</span>(<span class="hljs-keyword">float</span> discount) {
+          <span class="hljs-keyword">if</span>(discount&lt;=<span class="hljs-number">0.50</span>){
+                System.out.format(<span class="hljs-string">"%s批准了折扣：%.2f%n"</span>, <span class="hljs-keyword">this</span>.getClass().getName(), discount);
+          }<span class="hljs-keyword">else</span>{
+               System.out.format(<span class="hljs-string">"%s拒绝了折扣：%.2f%n"</span>, <span class="hljs-keyword">this</span>.getClass().getName(), discount);
+          }
+    }
+}</code></pre>
+
+<p>3.为了降低程序的耦合度,我们需要创建一个PriceHandler的创建工厂:</p>
+
+
+
+<pre class="prettyprint"><code class=" hljs cs"><span class="hljs-keyword">public</span> <span class="hljs-keyword">class</span> PriceHandlerFactory {
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">static</span> PriceHandler <span class="hljs-title">createPriceHandler</span>() {<span class="hljs-comment">//创建PriceHandler的工厂方法</span>
+        PriceHandler sales = <span class="hljs-keyword">new</span> SalesMan();
+        PriceHandler man = <span class="hljs-keyword">new</span> Manager();
+        PriceHandler dir = <span class="hljs-keyword">new</span> Director();
+        PriceHandler boss = <span class="hljs-keyword">new</span> Boss();
+
+        sales.setSuccessor(man);
+        man.setSuccessor(dir);
+        dir.setSuccessor(boss);
+        <span class="hljs-keyword">return</span> sales;
+    }
+}</code></pre>
+
+<p>4编写客户类,同时通过循环产生随机数,我们来模拟实现不同的折扣请求:</p>
+
+
+
+<pre class="prettyprint"><code class=" hljs cs"><span class="hljs-keyword">public</span> <span class="hljs-keyword">class</span> Customer {<span class="hljs-comment">//客户,请求折扣</span>
+
+    <span class="hljs-keyword">private</span> PriceHandler priceHandler;
+
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">void</span> <span class="hljs-title">setPriceHandler</span>(PriceHandler priceHandler) {<span class="hljs-comment">//set方法用于构造需要的对象</span>
+        <span class="hljs-keyword">this</span>.priceHandler=priceHandler;
+    }
+
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">void</span> <span class="hljs-title">requestDiscount</span>(<span class="hljs-keyword">float</span> discount) {
+        priceHandler.processDiscount(discount);
+    }
+
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">static</span> <span class="hljs-keyword">void</span> <span class="hljs-title">main</span>(String[] args) {<span class="hljs-comment">//测试方法</span>
+        Customer customer = <span class="hljs-keyword">new</span> Customer();
+        customer.setPriceHandler(PriceHandlerFactory.createPriceHanclder());
+        Random rand = <span class="hljs-keyword">new</span> Random();
+        <span class="hljs-keyword">for</span> (<span class="hljs-keyword">int</span> i = <span class="hljs-number">1</span>; i &lt;= <span class="hljs-number">20</span>; i++) {<span class="hljs-comment">//采用随机数模拟实现不同的折扣请求</span>
+            System.<span class="hljs-keyword">out</span>.print(i + <span class="hljs-string">""</span>);
+            customer.requestDiscount(rand.nextFloat());
+        }
+    }
+}</code></pre>
+
+<p><strong>简单的剖析一下责任链模式:</strong></p>
+
+<p>责任链条:除了<code>sales/leader/manager/seo/…</code>是priceHandler子类外,后继successor同样是priceHandler类,这样的好处在于客户端并不知道链条上的那个priceHandler子类会接受并处理这个请求,从而实现了客户端和接受者之间的解耦</p>
+
+<blockquote>
+  <p>责任链模式的优点和缺点的介绍:</p>
+</blockquote>
+
+<p>1.责任链模式是否符合开闭原则(由项目实际决定)(开闭原则是OO中的一个基本原则):对扩展开放,对变更关闭,即是如果有一个业务变更,希望新增一个类,而非修改原有代码来满足业务需求</p>
+
+<p>2.责任链模式的执行性能:当有请求到达时会从责任链头部开始遍历整条责任链,直到有一个处理器处理了请求,或者是整个链条遍历完成,在这过程中性能的损耗体现在两个方面(时间和内存):</p>
+
+
+
+<pre class="prettyprint"><code class=" hljs sql">第一是时间:相对于单个<span class="hljs-operator"><span class="hljs-keyword">Handler</span>处理请求的时间而言,整个链条的遍历过程会消耗更多的时间
+
+第二是内存:使用责任链模式创建了大量对象来表示处理器对象,但仅仅使用了其中的少部分,剩余的大部分处理器都仅仅作为一个过客</span></code></pre>
+
+<p><strong>责任链模式的的应用场景和责任链模式纯与不纯的简单介绍:</strong></p>
+
+<p>责任链模式在日常编码中可能不是经常用到的模式,但不管是前端还是后端工程师都可能天天接接触到责任链模式:</p>
+
+<blockquote>
+  <p>1.JAVA中的异常处理机制是使用责任链模式</p>
+  
+  <p>2.JavaScript的事件模式也是责任链模式</p>
+  
+  <p>3.JAVAEE中的Filter经常可以在请求到达核心代码之前对它进行拦截并作出一些操作,当多个Filter存在的时候就共同构成了一个FilterChain,FilterChain不是一个纯的责任链,责任链模式中只能有一个对象来处理请求,而FilterChain中可以有多个对象同时处理请求 <br />
+  ……………………………………………………………………………………………………………………..</p>
+</blockquote>
+
+<p>一个纯的责任链模式要求一个具体的处理者对象只能在两个行为中选择一个:一是承担责任,而是把责任推给下家,不允许出现某一个具体处理者对象在承担了一部分责任后又把责任向下传的情况</p>
+
+<p>在一个纯的责任链模式里面,一个请求必须被某一个处理者对象所接收,在一个不纯的责任链模式里面,一个请求可以最终不被任何接收端对象所接收,纯的责任链模式的实际例子很难找到,一般看到的例子均是不纯的责任链模式的实现</p></div>&#13;
+        <script type="text/javascript">&#13;
+            $(function () {&#13;
+                $('pre.prettyprint code').each(function () {&#13;
+                    var lines = $(this).text().split('\n').length;&#13;
+                    var $numbering = $('&lt;ul/&gt;').addClass('pre-numbering').hide();&#13;
+                    $(this).addClass('has-numbering').parent().append($numbering);&#13;
+                    for (i = 1; i &lt;= lines; i++) {&#13;
+                        $numbering.append($('&lt;li/&gt;').text(i));&#13;
+                    };&#13;
+                    $numbering.fadeIn(1700);&#13;
+                });&#13;
+            });&#13;
+        </script>&#13;
+   &#13;

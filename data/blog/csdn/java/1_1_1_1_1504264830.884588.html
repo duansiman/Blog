@@ -1,0 +1,319 @@
+
+
+<div id="art-body" style="margin-bottom:12px; line-height:1.6em; color:rgb(51,51,51); font-family:'Microsoft Yahei',Arial,Helvetica,sans-serif; font-size:14px; background-color:rgb(238,238,238)">&#13;
+理解并使用设计模式，能够培养我们良好的面向对象编程习惯，同时在实际应用中，可以如鱼得水，享受游刃有余的乐趣。<br />&#13;
+<br />&#13;
+Proxy是比较有用途的一种模式，而且变种较多，应用场合覆盖从小结构到整个系统的大结构，Proxy是代理的意思，我们也许有代理服务器等概念，代理概念可以解释为：在出发点到目的地之间有一道中间层，意为代理。<br />&#13;
+<br />&#13;
+设计模式中定义：为其他对象提供一种代理以控制对这个对象的访问。&#13;
+<h2 style="margin:15px auto; font-size:18px; line-height:18px">为什么要使用代理模式</h2>&#13;
+<ul style="margin-top:0px; margin-bottom:0px; list-style-position:initial; margin-left:0px; padding-left:20px">&#13;
+<li>授权机制 不同级别的用户对同一对象拥有不同的访问权利，如Jive论坛系统中，就使用Proxy进行授权机制控制，访问论坛有两种人：注册用户和游客(未注册用户)，Jive中就通过类似ForumProxy这样的代理来控制这两种用户对论坛的访问权限。</li><li>某个客户端不能直接操作到某个对象，但又必须和那个对象有所互动。</li></ul>&#13;
+<br />&#13;
+举例两个具体情况：&#13;
+<ul style="margin-top:0px; margin-bottom:0px; list-style-position:initial; margin-left:0px; padding-left:20px">&#13;
+<li>如果那个对象是一个是很大的图片，需要花费很长时间才能显示出来，那么当这个图片包含在文档中时，使用编辑器或浏览器打开这个文档，打开文档必须很迅速，不能等待大图片处理完成，这时需要做个图片Proxy来代替真正的图片。</li><li>如果那个对象在Internet的某个远端服务器上，直接操作这个对象因为网络速度原因可能比较慢，那我们可以先用Proxy来代替那个对象。</li></ul>&#13;
+<br />&#13;
+总之原则是，对于开销很大的对象，只有在使用它时才创建，这个原则可以为我们节省很多宝贵的Java内存。所以，有些人认为Java耗费资源内存，我以为这和程序编制思路也有一定的关系。&#13;
+<h2 style="margin:15px auto; font-size:18px; line-height:18px">如何使用代理模式</h2>&#13;
+以Jive论坛系统为例，访问论坛系统的用户有多种类型：注册普通用户、论坛管理者、系统管理者、游客。注册普通用户才能发言，论坛管理者可以管理他被授权的论坛，系统管理者可以管理所有事务等，这些权限划分和管理是使用Proxy完成的。<br />&#13;
+<br />&#13;
+Forum是Jive的核心接口，在Forum中陈列了有关论坛操作的主要行为，如论坛名称，论坛描述的获取和修改，帖子发表删除编辑等。<br />&#13;
+<br />&#13;
+在ForumPermissions中定义了各种级别权限的用户：&#13;
+<div class="code">public class ForumPermissions implements Cacheable {<br />&#13;
+/**<br />&#13;
+* Permission to read object.<br />&#13;
+*/<br />&#13;
+public static final int READ = 0;<br />&#13;
+<br />&#13;
+/**<br />&#13;
+* Permission to administer the entire sytem.<br />&#13;
+*/<br />&#13;
+public static final int SYSTEM_ADMIN = 1;<br />&#13;
+<br />&#13;
+/**<br />&#13;
+* Permission to administer a particular forum.<br />&#13;
+*/<br />&#13;
+public static final int FORUM_ADMIN = 2;<br />&#13;
+<br />&#13;
+/**<br />&#13;
+* Permission to administer a particular user.<br />&#13;
+*/<br />&#13;
+public static final int USER_ADMIN = 3;<br />&#13;
+<br />&#13;
+/**<br />&#13;
+* Permission to administer a particular group.<br />&#13;
+*/<br />&#13;
+public static final int GROUP_ADMIN = 4;<br />&#13;
+<br />&#13;
+/**<br />&#13;
+* Permission to moderate threads.<br />&#13;
+*/<br />&#13;
+public static final int MODERATE_THREADS = 5;<br />&#13;
+<br />&#13;
+/**<br />&#13;
+* Permission to create a new thread.<br />&#13;
+*/<br />&#13;
+public static final int CREATE_THREAD = 6;<br />&#13;
+<br />&#13;
+/**<br />&#13;
+* Permission to create a new message.<br />&#13;
+*/<br />&#13;
+public static final int CREATE_MESSAGE = 7;<br />&#13;
+<br />&#13;
+/**<br />&#13;
+* Permission to moderate messages.<br />&#13;
+*/<br />&#13;
+public static final int MODERATE_MESSAGES = 8;<br />&#13;
+<br />&#13;
+.....<br />&#13;
+<br />&#13;
+public boolean isSystemOrForumAdmin() {<br />&#13;
+　return (values[FORUM_ADMIN] || values[SYSTEM_ADMIN]);<br />&#13;
+}<br />&#13;
+<br />&#13;
+.....<br />&#13;
+<br />&#13;
+}</div>&#13;
+因此，Forum中各种操作权限是和ForumPermissions定义的用户级别有关系的，作为接口Forum的实现：ForumProxy正是将这种对应关系联系起来。比如，修改Forum的名称，只有论坛管理者或系统管理者可以修改，代码如下：&#13;
+<div class="code">public class ForumProxy implements Forum {<br />&#13;
+    private ForumPermissions permissions;<br />&#13;
+    private Forum forum;<br />&#13;
+    this.authorization = authorization;<br />&#13;
+<br />&#13;
+    public ForumProxy(Forum forum, Authorization authorization,<br />&#13;
+    ForumPermissions permissions){<br />&#13;
+        this.forum = forum;<br />&#13;
+        this.authorization = authorization;<br />&#13;
+        this.permissions = permissions;<br />&#13;
+    }<br />&#13;
+    .....<br />&#13;
+    public void setName(String name) throws UnauthorizedException,<br />&#13;
+        ForumAlreadyExistsException{<br />&#13;
+　　//只有是系统或论坛管理者才可以修改名称<br />&#13;
+　　if (permissions.isSystemOrForumAdmin()) {<br />&#13;
+　　　forum.setName(name);<br />&#13;
+　　}<br />&#13;
+　　else {<br />&#13;
+　　　throw new UnauthorizedException();<br />&#13;
+　　}<br />&#13;
+    }<br />&#13;
+    ...<br />&#13;
+<br />&#13;
+}</div>&#13;
+而DbForum才是接口Forum的真正实现，以修改论坛名称为例：&#13;
+<div class="code">public class DbForum implements Forum, Cacheable {<br />&#13;
+    ...<br />&#13;
+    public void setName(String name) throws ForumAlreadyExistsException {<br />&#13;
+　　....<br />&#13;
+　　this.name = name;<br />&#13;
+　　//这里真正将新名称保存到数据库中<br />&#13;
+　　saveToDb();<br />&#13;
+　　....<br />&#13;
+    }<br />&#13;
+    ...<br />&#13;
+}</div>&#13;
+凡是涉及到对论坛名称修改这一事件，其他程序都首先得和ForumProxy打交道，由ForumProxy决定是否有权限做某一样事情，ForumProxy是个名副其实的"网关"，"安全代理系统"。<br />&#13;
+<br />&#13;
+在平时应用中，无可避免总要涉及到系统的授权或安全体系，不管你有无意识的使用Proxy，实际你已经在使用Proxy了。<br />&#13;
+<br />&#13;
+我们继续结合Jive谈入深一点，下面要涉及到工厂模式了。<br />&#13;
+<br />&#13;
+我们已经知道，使用Forum需要通过ForumProxy，Jive中创建一个Forum是使用Factory模式，有一个总的抽象类ForumFactory，在这个抽象类中，调用ForumFactory是通过getInstance()方法实现，这里使用了Singleton(也是设计模式之一)，getInstance()返回的是ForumFactoryProxy。<br />&#13;
+<br />&#13;
+为什么不返回ForumFactory，而返回ForumFactory的实现ForumFactoryProxy？原因是明显的，需要通过代理确定是否有权限创建forum。<br />&#13;
+<br />&#13;
+在ForumFactoryProxy中我们看到代码如下：&#13;
+<div class="code">public class ForumFactoryProxy extends ForumFactory {<br />&#13;
+　protected ForumFactory factory;<br />&#13;
+　protected Authorization authorization;<br />&#13;
+　protected ForumPermissions permissions;<br />&#13;
+<br />&#13;
+　public ForumFactoryProxy(Authorization authorization, ForumFactory factory,ForumPermissions permissions){<br />&#13;
+　　this.factory = factory;<br />&#13;
+　　this.authorization = authorization;<br />&#13;
+　　this.permissions = permissions;<br />&#13;
+　}<br />&#13;
+<br />&#13;
+　public Forum createForum(String name, String description)<br />&#13;
+　　throws UnauthorizedException, ForumAlreadyExistsException{<br />&#13;
+　　//只有系统管理者才可以创建forum<br />&#13;
+　　if (permissions.get(ForumPermissions.SYSTEM_ADMIN)) {<br />&#13;
+　　　Forum newForum = factory.createForum(name, description);<br />&#13;
+　　　return new ForumProxy(newForum, authorization, permissions);<br />&#13;
+　　}<br />&#13;
+　　else {<br />&#13;
+　　　throw new UnauthorizedException();<br />&#13;
+　　}<br />&#13;
+    }<br />&#13;
+}</div>&#13;
+方法createForum返回的也是ForumProxy，Proxy就象一道墙，其他程序只能和Proxy交互操作。<br />&#13;
+<br />&#13;
+注意到这里有两个Proxy：ForumProxy和ForumFactoryProxy。代表两个不同的职责：使用Forum和创建Forum。至于为什么将使用对象和创建对象分开，这也是为什么使用Factory模式的原因所在：是为了"封装" "分派"。换句话说，尽可能功能单一化，方便维护修改。<br />&#13;
+<br />&#13;
+Jive论坛系统中其他如帖子的创建和使用，都是按照Forum这个思路而来的。<br />&#13;
+<br />&#13;
+以上我们讨论了如何使用Proxy进行授权机制的访问，Proxy还可以对用户隐藏另外一种称为copy-on-write的优化方式。拷贝一个庞大而复杂的对象是一个开销很大的操作，如果拷贝过程中，没有对原来的对象有所修改，那么这样的拷贝开销就没有必要。用代理延迟这一拷贝过程。<br />&#13;
+<br />&#13;
+比如：我们有一个很大的Collection，具体如hashtable，有很多客户端会并发同时访问它。其中一个特别的客户端要进行连续的数据获取，此时要求其他客户端不能再向hashtable中增加或删除 东东。<br />&#13;
+<br />&#13;
+最直接的解决方案是：使用collection的lock，让这特别的客户端获得这个lock,进行连续的数据获取，然后再释放lock。<br />&#13;
+public void foFetches(Hashtable ht){<br />&#13;
+　synchronized(ht){<br />&#13;
+　　//具体的连续数据获取动作..<br />&#13;
+　}<br />&#13;
+}<br />&#13;
+<br />&#13;
+但是这一办法可能锁住Collection会很长时间，这段时间，其他客户端就不能访问该Collection了。<br />&#13;
+<br />&#13;
+第二个解决方案是clone这个Collection，然后让连续的数据获取针对clone出来的那个Collection操作。这个方案前提是，这个Collection是可clone的，而且必须有提供深度clone的方法。Hashtable就提供了对自己的clone方法，但不是Key和value对象的clone。<br />&#13;
+public void foFetches(Hashtable ht){<br />&#13;
+　Hashttable newht=(Hashtable)ht.clone();<br />&#13;
+}<br />&#13;
+<br />&#13;
+问题又来了，由于是针对clone出来的对象操作，如果原来的母体被其他客户端操作修改了，那么对clone出来的对象操作就没有意义了。<br />&#13;
+<br />&#13;
+最后解决方案：我们可以等其他客户端修改完成后再进行clone，也就是说，这个特别的客户端先通过调用一个叫clone的方法来进行一系列数据获取操作。但实际上没有真正的进行对象拷贝，直至有其他客户端修改了这个对象Collection。<br />&#13;
+<br />&#13;
+使用Proxy实现这个方案，这就是copy-on-write操作。<br />&#13;
+<br />&#13;
+Proxy应用范围很广，现在流行的分布计算方式RMI和Corba等都是Proxy模式的应用。<br />&#13;
+</div>&#13;
+<div id="art-body" style="margin-bottom:12px; line-height:1.6em; color:rgb(51,51,51); font-family:'Microsoft Yahei',Arial,Helvetica,sans-serif; font-size:14px; background-color:rgb(238,238,238)">&#13;
+<br />&#13;
+</div>&#13;
+<div id="art-body" style="margin-bottom:12px; line-height:1.6em; color:rgb(51,51,51); font-family:'Microsoft Yahei',Arial,Helvetica,sans-serif; font-size:14px; background-color:rgb(238,238,238)">&#13;
+<br />&#13;
+</div>&#13;
+<div id="art-body" style="margin-bottom:12px; line-height:1.6em; color:rgb(51,51,51); font-family:'Microsoft Yahei',Arial,Helvetica,sans-serif; font-size:14px; background-color:rgb(238,238,238)">&#13;
+<div class="TITLE">代理模式</div>&#13;
+<div class="currency_area">&#13;
+<div class="theTitle">&#13;
+<h5><img src="http://blog.csdn.net/qq_27073205/article/details/45847953" alt="" /> <strong>概述</strong></h5>&#13;
+</div>&#13;
+<div class="theContent">&#13;
+<pre>    为其他对象提供一种代理以控制对这个对象的访问。
+</pre>&#13;
+</div>&#13;
+</div>&#13;
+<div class="currency_area">&#13;
+<div class="theTitle">&#13;
+<h5><img src="http://blog.csdn.net/qq_27073205/article/details/45847953" alt="" /> <strong>适用性</strong></h5>&#13;
+</div>&#13;
+<div class="theContent">&#13;
+<pre>    1.远程代理（RemoteProxy）为一个对象在不同的地址空间提供局部代表。
+
+    2.虚代理（VirtualProxy）根据需要创建开销很大的对象。
+
+    3.保护代理（ProtectionProxy）控制对原始对象的访问。
+
+    4.智能指引（SmartReference）取代了简单的指针，它在访问对象时执行一些附加操作。
+			</pre>&#13;
+</div>&#13;
+</div>&#13;
+<div class="currency_area">&#13;
+<div class="theTitle">&#13;
+<h5><img src="http://blog.csdn.net/qq_27073205/article/details/45847953" alt="" /> <strong>参与者</strong></h5>&#13;
+</div>&#13;
+<div class="theContent">&#13;
+<pre>    1.Proxy
+      保存一个引用使得代理可以访问实体。若RealSubject和Subject的接口相同，Proxy会引用Subject。
+      提供一个与Subject的接口相同的接口，这样代理就可以用来替代实体。
+      控制对实体的存取，并可能负责创建和删除它。
+      其他功能依赖于代理的类型：
+
+    2.RemoteProxy负责对请求及其参数进行编码，并向不同地址空间中的实体发送已编码的请求。
+
+    3.VirtualProxy可以缓存实体的附加信息，以便延迟对它的访问。
+
+    4.ProtectionProxy检查调用者是否具有实现一个请求所必需的访问权限。
+
+    5.Subject
+      定义RealSubject和Proxy的共用接口，这样就在任何使用RealSubject的地方都可以使用Proxy。
+
+    6.RealSubject
+      定义Proxy所代表的实体。
+</pre>&#13;
+</div>&#13;
+</div>&#13;
+<div class="currency_area">&#13;
+<div class="theTitle">&#13;
+<h5><img src="http://blog.csdn.net/qq_27073205/article/details/45847953" alt="" /> <strong>类图</strong></h5>&#13;
+</div>&#13;
+<div class="theContent"><img src="http://blog.csdn.net/qq_27073205/article/details/45847953" alt="" /> </div>&#13;
+</div>&#13;
+<div class="currency_area">&#13;
+<div class="theTitle">&#13;
+<h5><img src="http://blog.csdn.net/qq_27073205/article/details/45847953" alt="" /> <strong>例子</strong></h5>&#13;
+</div>&#13;
+<div class="theContent"><strong>Proxy</strong> </div>&#13;
+<div class="theContent2">&#13;
+<pre>public class ProxyObject implements Object {
+
+    Object obj;
+    
+    public ProxyObject() {
+        System.out.println("这是代理类");
+        obj = new ObjectImpl();
+    }
+    
+    public void action() {
+        System.out.println("代理开始");
+        obj.action();
+        System.out.println("代理结束");
+    }
+}
+</pre>&#13;
+</div>&#13;
+<div class="theContent"><strong>Subject</strong> </div>&#13;
+<div class="theContent2">&#13;
+<pre>public interface Object {
+
+    void action();
+}
+</pre>&#13;
+</div>&#13;
+<div class="theContent"><strong>RealSubject</strong> </div>&#13;
+<div class="theContent2">&#13;
+<pre>public class ObjectImpl implements Object {
+
+    public void action() {
+        System.out.println("========");
+        System.out.println("========");
+        System.out.println("这是被代理的类");
+        System.out.println("========");
+        System.out.println("========");
+    }
+}
+</pre>&#13;
+</div>&#13;
+<div class="theContent"><strong>Test</strong> </div>&#13;
+<div class="theContent2">&#13;
+<pre>public class Test {
+
+    public static void main() {
+    	Object obj = new ProxyObject();
+        obj.action();
+    }
+}
+</pre>&#13;
+</div>&#13;
+<div class="theContent"><strong>result</strong> </div>&#13;
+<div class="theContent2">&#13;
+<pre>这是代理类
+代理开始
+========
+========
+这是被代理的类
+========
+========
+代理结束
+</pre>&#13;
+</div>&#13;
+</div>&#13;
+<br />&#13;
+</div>&#13;
+<div id="ad-arc-bottom" class="clearfix" style="padding-bottom:12px; color:rgb(51,51,51); font-family:'Microsoft Yahei',Arial,Helvetica,sans-serif; font-size:14px; background-color:rgb(238,238,238)">&#13;
+</div>&#13;
+   &#13;

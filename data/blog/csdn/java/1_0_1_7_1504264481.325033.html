@@ -1,0 +1,120 @@
+
+        <div class="markdown_views"><p>生活中适配的例子到处都是,比如说,国内居民用电是220伏,而给手机充电只需要5伏左右,那么将220伏转化为手机的5伏,就需要适配器进行降压处理,某某公司招聘Android开发,而作为应聘者需要制作一份android开发相关的简历,这也是一种适配,如果去德国旅游,那么我们使用的手机充电器插头无法插到德国的插排中去,那就意味着我们无法给手机充电,怎样解决这个问题呢？只要使用一个电源转化器就行了</p>
+
+<p><strong>适配器模式的简单定义:</strong></p>
+
+<p>适配器模式定义:适配器模式将一个类的接口,转化成客户期望的另外一个接口,使得原本由于接口不兼容而不能一起工作的那些类可以在一起工作</p>
+
+<p>Adapter 设计模式主要目的组合两个不相干类,常用有两种方法,第一种解决方案是修改各自类的接口,但是如果没有源码,或者不愿意为了一个应用而修改各自的接口,则需要使用Adapter适配器,在两种接口之间创建一个混合接口</p>
+
+<p><img src="http://img.blog.csdn.net/20160317142842675?watermark/2/text/aHR0cDovL2Jsb2cuY3Nkbi5uZXQv/font/5a6L5L2T/fontsize/400/fill/I0JBQkFCMA==/dissolve/70/gravity/Center" alt="" title="" /></p>
+
+<p>如图所示是适配器模式的类图,Adapter适配器设计模式中有3个重要角色被适配者Adaptee,适配器Adapter和目标接口Target,其中两个现存的想要组合到一起的类分别是被适配者Adaptee和目标对象Target角色,按照类图所示,我们需要创建一个适配器Adapter将其组合在一起</p>
+
+<p><strong>适配器的简单分类介绍:</strong></p>
+
+<blockquote>
+  <p>1.组合:采用组合方式的适配器成为对象适配器,其特点:把”被适配者”作为一个对象组合到适配器类中,已修改目标接口包装适配者</p>
+  
+  <p>2.继承:采用继承方式的称为类适配器,其特点:通过多重继承不兼容接口,实现对目标接口的匹配,单一的为某个类而实现适配器</p>
+</blockquote>
+
+<p><strong>接下来我以充电适配的源码(以组合的方式实现插座适配器)进行说明:</strong></p>
+
+<p>比如我们国家的电器使用普通的扁平两项或三项插头,而去外国的话,使用的标准就不一样了,比如德国,使用的是德国标准,是两项圆头的插头</p>
+
+<p>定义客户端使用的目标接口(ThreePlugIf.java):</p>
+
+<pre class="prettyprint"><code class=" hljs cs"><span class="hljs-keyword">public</span> <span class="hljs-keyword">interface</span> ThreePlugIf {<span class="hljs-comment">//三相插座接口  </span>
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">void</span> <span class="hljs-title">powerWithThree</span>();<span class="hljs-comment">//使用三相电流供电</span>
+}</code></pre>
+
+<p>定义被适配的对象类(GBTwoPlug.java):</p>
+
+
+
+<pre class="prettyprint"><code class=" hljs cs"><span class="hljs-keyword">public</span> <span class="hljs-keyword">class</span> GBTwoPlug {<span class="hljs-comment">//国标两相插座类</span>
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">void</span> <span class="hljs-title">powerWithTwo</span>(){
+        System.<span class="hljs-keyword">out</span>.println(<span class="hljs-string">"使用两相电流供电"</span>);
+    }
+}</code></pre>
+
+<p>定义适配器实现类(TwoPlugAdapter.java):</p>
+
+
+
+<pre class="prettyprint"><code class=" hljs java"><span class="hljs-keyword">public</span> <span class="hljs-class"><span class="hljs-keyword">class</span> <span class="hljs-title">TwoPlugAdapter</span> <span class="hljs-keyword">implements</span> <span class="hljs-title">ThreePlugIf</span>{</span><span class="hljs-comment">//二相转三相的插座适配器类</span>
+
+    <span class="hljs-keyword">private</span> GBTwoPlug plug;
+
+    <span class="hljs-keyword">public</span> <span class="hljs-title">TwoPlugAdapter</span>(GBTwoPlug plug) {
+        <span class="hljs-keyword">this</span>.plug =plug;
+   }
+
+    <span class="hljs-annotation">@Override</span>
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">void</span> <span class="hljs-title">powerWithThree</span>() {
+        System.out.println(<span class="hljs-string">"二相转三相充电"</span>);
+        plug.powerWithTwo();
+    }
+}</code></pre>
+
+<p>定义客户端代码实现类(NoteBook.java):</p>
+
+
+
+<pre class="prettyprint"><code class=" hljs cs"><span class="hljs-keyword">public</span> <span class="hljs-keyword">class</span> NoteBook {<span class="hljs-comment">//客户端笔记本类</span>
+
+    <span class="hljs-keyword">private</span> ThreePlugIf plug;
+
+    <span class="hljs-keyword">public</span> <span class="hljs-title">NoteBook</span>(ThreePlugIf plug) {
+        <span class="hljs-keyword">this</span>.plug =plug;
+    }
+
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">void</span> <span class="hljs-title">charge</span>() {<span class="hljs-comment">//使用三相插座充电</span>
+        plug.powerWithThree();
+    }
+
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">static</span> <span class="hljs-keyword">void</span> <span class="hljs-title">main</span>(String[] args) {
+        GBTwoPlug two = <span class="hljs-keyword">new</span> GBTwoPlug();
+        ThreePlugIf three = <span class="hljs-keyword">new</span> TwoPlugAdapter(two);<span class="hljs-comment">//二相转三相的实现</span>
+        NoteBook nb = <span class="hljs-keyword">new</span> NoteBook(three);
+        nb.charge();<span class="hljs-comment">//开始使用三相插座充电</span>
+    }
+}</code></pre>
+
+<p><strong>使用继承方式的插座适配器类(TwoPlugAdapterExtends.java):</strong></p>
+
+
+
+<pre class="prettyprint"><code class=" hljs java"><span class="hljs-comment">/*使用继承方式的插座适配器*/</span>
+<span class="hljs-keyword">public</span> <span class="hljs-class"><span class="hljs-keyword">class</span> <span class="hljs-title">TwoPlugAdapterExtends</span> <span class="hljs-keyword">extends</span> <span class="hljs-title">GBTwoPlug</span> <span class="hljs-keyword">implements</span> <span class="hljs-title">ThreePlugIf</span>{</span>
+    <span class="hljs-annotation">@Override</span>
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">void</span> <span class="hljs-title">powerWithThree</span>() {
+        System.out.println(<span class="hljs-string">"借助继承适配器"</span>);
+        <span class="hljs-keyword">this</span>.powerWithTwo();
+    }
+}</code></pre>
+
+<p><strong>适配器模式的作用最后总结:</strong></p>
+
+<blockquote>
+  <p>1.透明:使用适配器,客户端可以调用同一接口,因而对客户端来说是透明的,这样做更简单,更直接,更紧凑</p>
+  
+  <p>2.重用:复用了现存的类,解决了现存类和复用环境要求不一致的问题</p>
+  
+  <p>3.低耦合:将目标类和适配者类解耦,通过引入一个适配器类重用现有的适配者类,而无需修改原有代码(遵循开闭原则)</p>
+</blockquote></div>&#13;
+        <script type="text/javascript">&#13;
+            $(function () {&#13;
+                $('pre.prettyprint code').each(function () {&#13;
+                    var lines = $(this).text().split('\n').length;&#13;
+                    var $numbering = $('&lt;ul/&gt;').addClass('pre-numbering').hide();&#13;
+                    $(this).addClass('has-numbering').parent().append($numbering);&#13;
+                    for (i = 1; i &lt;= lines; i++) {&#13;
+                        $numbering.append($('&lt;li/&gt;').text(i));&#13;
+                    };&#13;
+                    $numbering.fadeIn(1700);&#13;
+                });&#13;
+            });&#13;
+        </script>&#13;
+   &#13;

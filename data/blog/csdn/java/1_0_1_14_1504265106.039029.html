@@ -1,0 +1,302 @@
+
+
+<p>1. Java自带的实现</p>&#13;
+<p>类图</p>&#13;
+<p><img src="http://img.blog.csdn.net/20141010185621609?watermark/2/text/aHR0cDovL2Jsb2cuY3Nkbi5uZXQvamp3d21scDQ1Ng==/font/5a6L5L2T/fontsize/400/fill/I0JBQkFCMA==/dissolve/70/gravity/SouthEast" width="400" height="260" alt="" /><br />&#13;
+</p>&#13;
+<p></p><pre name="code" class="java">/**
+ * 观察目标 继承自 java.util.Observable
+ * @author stone
+ *
+ */
+public class UpdateObservable extends Observable {
+	
+	private int data;
+	
+	public UpdateObservable(Observer observer) {
+		addObserver(observer);
+		/*
+		 * add other observer
+		 */
+	}
+	
+	public int getData() {
+		return data;
+	}
+	
+	public void setData(int data) {
+		if (data != this.data) {
+			this.data = data;
+			setChanged(); //标记 改变, 只有标记后才能通知到
+			notifyObservers(); //通知
+		}
+		
+	}
+
+	@Override
+	public synchronized void addObserver(Observer o) {
+		super.addObserver(o);
+	}
+
+	@Override
+	public synchronized void deleteObserver(Observer o) {
+		super.deleteObserver(o);
+	}
+
+	@Override
+	public void notifyObservers() {
+		super.notifyObservers();
+	}
+
+	@Override
+	public void notifyObservers(Object arg) {
+		super.notifyObservers(arg);
+	}
+
+	@Override
+	public synchronized void deleteObservers() {
+		super.deleteObservers();
+	}
+
+	@Override
+	protected synchronized void setChanged() {
+		super.setChanged();
+	}
+
+	@Override
+	protected synchronized void clearChanged() {
+		super.clearChanged();
+	}
+
+	@Override
+	public synchronized boolean hasChanged() {
+		return super.hasChanged();
+	}
+
+	@Override
+	public synchronized int countObservers() {
+		return super.countObservers();
+	}
+	
+}
+</pre><br />&#13;
+<pre name="code" class="java">/**
+ * 观察者	实现 java.util.Observer接口
+ * @author stone
+ *
+ */
+public class UpdateObserver implements Observer {
+
+	@Override
+	public void update(Observable o, Object arg) {
+		System.out.println("接收到数据变化的通知:");
+		if (o instanceof UpdateObservable) {
+			UpdateObservable uo = (UpdateObservable) o;
+			System.out.print("数据变更为：" + uo.getData());
+		}
+	}
+
+}</pre><br />&#13;
+2. 自定义的观察模型&#13;
+<p>类图</p>&#13;
+<p><img src="http://img.blog.csdn.net/20141010190132154?watermark/2/text/aHR0cDovL2Jsb2cuY3Nkbi5uZXQvamp3d21scDQ1Ng==/font/5a6L5L2T/fontsize/400/fill/I0JBQkFCMA==/dissolve/70/gravity/SouthEast" width="480" height="340" alt="" /><br />&#13;
+</p>&#13;
+<p></p><pre name="code" class="java">/**
+ * 抽象观察者	Observer
+ * 观察 更新		
+ * @author stone
+ *
+ */
+public interface IWatcher {
+	/*
+	 * 通知接口：
+	 * 1. 简单通知
+	 * 2. 观察者需要目标的变化的数据，那么可以将目标用作参数, 见Java的Observer和Observable
+	 */
+//	void update(IWatched watched);
+	
+	void update();
+	
+}</pre><br />&#13;
+<pre name="code" class="java">/**
+ * 抽象目标	Subject
+ * 	提供注册和删除观察者对象的接口, 及通知观察者进行观察的接口
+ *  及目标 自身被观察的业务的接口
+ * @author stone
+ *
+ */
+public interface IWatchedSubject {
+	
+	public void add(IWatcher watch);
+
+	public void remove(IWatcher watch);
+	
+	public void notifyWhatchers();
+	
+	public void update();//被观察业务变化的接口
+}</pre><br />&#13;
+<pre name="code" class="java">/**
+ * 具体观察者		Concrete Observer
+ * 
+ * @author stone
+ *
+ */
+public class UpdateWatcher implements IWatcher {
+
+	@Override
+	public void update() {
+		System.out.println(this + "观察到：目标已经更新了");
+	}
+
+}</pre><br />&#13;
+<pre name="code" class="java">/**
+ * 具体目标角色	Concrete Subject
+ * @author stone
+ *
+ */
+public class UpdateWatchedSubject implements IWatchedSubject {
+	private List&lt;IWatcher&gt; list;
+	
+	public UpdateWatchedSubject() {
+		this.list = new ArrayList&lt;IWatcher&gt;();
+	}
+	
+	@Override
+	public void add(IWatcher watch) {
+		this.list.add(watch);
+	}
+
+	@Override
+	public void remove(IWatcher watch) {
+		this.list.remove(watch);
+	}
+
+	@Override
+	public void notifyWhatchers() {
+		for (IWatcher watcher : list) {
+			watcher.update();
+		}
+	}
+	
+	@Override
+	public void update() {
+		System.out.println("目标更新中....");
+		notifyWhatchers();
+	}
+
+}
+</pre><br />&#13;
+监听器是观察者的一种实现&#13;
+<p>类图</p>&#13;
+<p><img src="http://img.blog.csdn.net/20141010190626636?watermark/2/text/aHR0cDovL2Jsb2cuY3Nkbi5uZXQvamp3d21scDQ1Ng==/font/5a6L5L2T/fontsize/400/fill/I0JBQkFCMA==/dissolve/70/gravity/SouthEast" width="390" height="250" alt="" /><br />&#13;
+</p>&#13;
+<p></p><pre name="code" class="java">/**
+ * 监听 用户在注册后
+ * @author stone
+ *
+ */
+public interface IRegisterListener {
+	void onRegistered();
+}</pre>&#13;
+<p></p><pre name="code" class="java">/**
+ * 监听 当用户登录后
+ * @author stone
+ *
+ */
+public interface ILoginListener {
+	void onLogined();
+}
+</pre><br />&#13;
+<pre name="code" class="java">/*
+ * 监听器 是观察者模式的一种实现
+ * 一些需要监听的业务接口上添加 监听器，调用监听器的相应方法，实现监听
+ */
+public class User {
+	
+	public void register(IRegisterListener register) {
+		/*
+		 * do ... register
+		 */
+		System.out.println("正在注册中...");
+		//注册后
+		register.onRegistered();
+	}
+
+	public void login(ILoginListener login) {
+		/*
+		 * do ... login
+		 */
+		System.out.println("正在登录中...");
+		//登录后
+		login.onLogined();
+	}
+
+}</pre><br />&#13;
+<pre name="code" class="java">/**
+ * 观察者(Observer)模式	行为型模式
+ *   观察者模式定义了一种一对多的依赖关系，让多个观察者对象同时观察某一个目标对象。
+ *   这个目标对象在状态上发生变化时，会通知所有观察者对象，让它们能够自动更新自己
+ * 目标对象中需要有添加、移除、通知 观察者的接口
+ *   
+ * @author stone
+ */
+public class Test {
+	
+	public static void main(String[] args) {
+		/*
+		 * 使用Java自带的Observer接口和Observable类
+		 */
+		UpdateObservable observable = new UpdateObservable(new UpdateObserver());
+		observable.setData(99);
+		System.out.println("");
+		System.out.println("");
+		/*
+		 * 自定义的观察者模型
+		 */
+		IWatchedSubject watched = new UpdateWatchedSubject();
+		watched.add(new UpdateWatcher());
+		watched.add(new UpdateWatcher());
+		watched.update();
+		System.out.println("");
+		
+		/*
+		 * 子模式-监听器
+		 */
+		
+		User user = new User();
+		user.register(new IRegisterListener() {
+			
+			@Override
+			public void onRegistered() {
+				System.out.println("监听到注册后。。。");
+			}
+		});
+		user.login(new ILoginListener() {
+			
+			@Override
+			public void onLogined() {
+				System.out.println("监听到登录后。。。");
+			}
+		});
+		
+	}
+}</pre><br />&#13;
+打印&#13;
+<p></p><pre name="code" class="plain">接收到数据变化的通知:
+数据变更为：99
+
+目标更新中....
+observer.UpdateWatcher@457471e0观察到：目标已经更新了
+observer.UpdateWatcher@5fe04cbf观察到：目标已经更新了
+
+正在注册中...
+监听到注册后。。。
+正在登录中...
+监听到登录后。。。</pre><br />&#13;
+<br />&#13;
+&#13;
+<p><br />&#13;
+</p>&#13;
+<p><br />&#13;
+</p>&#13;
+   &#13;

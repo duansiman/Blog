@@ -1,0 +1,232 @@
+
+
+<p>本文从简单的例子入手，逐步演变成非常复杂的程序。</p>&#13;
+<p>在<a target="_blank" href="http://blog.csdn.net/yqj2065/article/details/39346303" style="color:rgb(51,51,51); text-decoration:none; font-family:Arial; line-height:30px; white-space:nowrap">简明 状态模式（5.8）</a>中，状态之间的变换由外界控制，或者说，多种状态是分割的、无关的。状态模式最有趣的地方正是讨论其状态的变迁。</p>&#13;
+<h3>1.引子</h3>&#13;
+<p>空调(air-condition)的遥控器有<strong><span style="color:#ff0000">两个按钮</span></strong>(更多的按钮<img alt="奋斗" src="http://static.blog.csdn.net/xheditor/xheditor_emot/default/struggle.gif" />在后面的例子中引入)，<strong><span style="color:#ff0000">power/电源键和cool/制冷键</span></strong>。空调的运行呈现<strong><span style="color:#ff0000">3个状态，停止/Off、仅送风/FanOnly、制冷/Cool。</span></strong>起始状态为Off，状态变化图如下所示。</p>&#13;
+<p>这是简化的有限状态机(Finite State Machine、FSM或者Finite State Automata)图形，使用了状态图的3个元素：①气泡，表示状态(<strong>state</strong>)；②连接状态的箭头表示转换（<strong>transition</strong>）；③箭头上的标记前者为事件(<strong>event</strong>)。</p>&#13;
+<p><img src="http://img.blog.csdn.net/20140918142951854?watermark/2/text/aHR0cDovL2Jsb2cuY3Nkbi5uZXQveXFqMjA2NQ==/font/5a6L5L2T/fontsize/400/fill/I0JBQkFCMA==/dissolve/70/gravity/SouthEast" alt="" /><br />&#13;
+</p>&#13;
+<p>状态的转换，看图说话。按power键，则Off→FanOnly、Cool→Off等；按cool，则Off→Off (没有画出来，喜欢全面一点就自己画吧)。<br />&#13;
+</p>&#13;
+<p>对于这种简单的状态的转换，yqj2065还是喜欢<strong>分支语句</strong>。<img alt="微笑" src="http://static.blog.csdn.net/xheditor/xheditor_emot/default/smile.gif" />，简洁明快。</p>&#13;
+<p></p>&#13;
+<pre name="code" class="java">例程 4-5 简洁明快
+package property.state.stateMachine;
+import static tool.Print.*;//pln
+/**
+ * 空调Aircon。简单的模型：
+ * 遥控器有两个按钮(更多的按钮在下面的例子中引入)，power电源键和cool制冷键。
+ * 空调的运行呈现3个状态，停止/Off、仅送风/FanOnly、制冷/Cool。
+ * 起始状态为Off
+ * @author (yqj2065) 
+ * @version 0.1
+ */
+public class Aircon0{
+    // off，FanOnly，AC
+    private int state=0;//起始状态为Off
+    public int getState(){return state;}
+    //两个Action
+    public void power(){//按power键
+        if(state==0){//off
+            state=1;
+            pln("start Fan"); 
+        }else if(state==1){//FanOnly
+            state=0;
+            pln("stop Fan"); 
+        }else{
+            state=0;
+            pln("stop Cool"); 
+        }
+    }
+
+    public void cool(){//按制冷键
+        if(state==0){//off
+            pln("nothing");
+        }else if(state==1){//FanOnly
+            state=2;
+            pln("start Cool"); 
+        }else{
+            state=1;
+            pln("stop Cool"); 
+        }
+    }
+}
+package property.state.stateMachine;
+public class ACCtrl{
+    public static void test(){
+        Aircon0 ac = new Aircon0();//power() cool()
+        System.out.println("Current State:" + ac.getState());
+        ac.cool();
+        ac.power();
+        ac.cool();
+        ac.cool();
+        ac.power();
+        ac.power();
+    }
+}
+</pre>测试代码的输出：&#13;
+<p></p>&#13;
+<p>Current State:0<br />&#13;
+nothing<br />&#13;
+start Fan<br />&#13;
+start Cool<br />&#13;
+stop Cool<br />&#13;
+stop Fan<br />&#13;
+start Fan</p>&#13;
+<p>在此基础上，可以花10分钟练习一下，采用<a target="_blank" href="http://blog.csdn.net/yqj2065/article/details/39346303">状态模式</a>修改上述代码。<span style="font-size:9pt; font-family:宋体; background-color:white">我们使用</span><span lang="EN-US" style="font-size:9pt; font-family:Arial; background-color:white" xml:lang="EN-US"><a target="_blank" href="http://blog.csdn.net/yqj2065/article/details/39347899">enum</a></span><span style="font-size:9pt; font-family:宋体; background-color:white"><a target="_blank" href="http://blog.csdn.net/yqj2065/article/details/39347899">编写状态类层次</a>。其结构如下：</span></p>&#13;
+<p><span style="font-size:9pt; font-family:宋体; background-color:white"></span></p>&#13;
+<pre name="code" class="java">例程 4 6 enum State
+
+enum State0{
+    OFF{
+        @Override void power(){            
+        }
+        @Override void power(){
+        }
+    },FANONLY{
+    },
+    COOL{ };
+    public abstract void power();
+    public abstract void cool();
+}
+</pre>&#13;
+<p>(本来是应该将State1作为Aircon1的内部类的。放在外边，power()等需要添加参数Aircon1，变为power(Aircon1 ac)).</p>&#13;
+<p>现在，丰富有限状态机的细节，增添④动作(action)，如事件(event)相应的动作和状态的动作。<br />&#13;
+</p>&#13;
+<p><img src="http://img.blog.csdn.net/20140918165708037?watermark/2/text/aHR0cDovL2Jsb2cuY3Nkbi5uZXQveXFqMjA2NQ==/font/5a6L5L2T/fontsize/400/fill/I0JBQkFCMA==/dissolve/70/gravity/SouthEast" alt="" /><br />&#13;
+</p>&#13;
+<p>为此，在enum State1中，除了状态模式 提取的接口外，添加了状态机的各种动作/action methode<br />&#13;
+    void entry(Aircon1 ac){pln("→"+ac.state.name());}<br />&#13;
+    void exit(Aircon1 ac){p(ac.state.name()+"→ ");}<br />&#13;
+    void startCool(){        p("start Cool");    }<br />&#13;
+    void stopCool(){        p("stop Cool");    }<br />&#13;
+    void startFan(){        p("start Fan");    }<br />&#13;
+    void stopFan(){        p("stop Fan");    }  </p>&#13;
+<p>每个power(Aircon1 ac)、cool(Aircon1 ac)的方法体结构都是：</p>&#13;
+<p>            this.exit(ac);<br />&#13;
+            //如果有的话，事件(event)相应的动作，如stopFan();<br />&#13;
+            ac.state =OFF; //下一个状态<br />&#13;
+            ac.state.entry(ac); <br />&#13;
+</p>&#13;
+<p></p>&#13;
+<p></p>&#13;
+<pre name="code" class="java">package property.state.stateMachine;
+import static tool.Print.*;//pln
+/**
+ * 本来是应该将State1作为Aircon1的内部类的。现在放在外边，
+ * power()等需要变为power(Aircon1 ac)
+ */
+public enum State1{
+    OFF{
+        @Override void exit(Aircon1 ac){super.exit(ac);startFan();}
+        @Override void power(Aircon1 ac){
+            this.exit(ac);
+            ac.state =FANONLY;            
+            ac.state.entry(ac); 
+        }
+        @Override void cool(Aircon1 ac){
+            pln("nothing");
+        }
+    },FANONLY{
+        @Override void power(Aircon1 ac){
+            this.exit(ac);
+            stopFan();
+            ac.state =OFF;
+            ac.state.entry(ac); 
+        }
+        @Override void cool(Aircon1 ac){
+            this.exit(ac);
+            ac.state =COOL;
+            ac.state.entry(ac);
+        }
+    },
+    COOL{
+        @Override void exit(Aircon1 ac){super.exit(ac);stopCool();}
+        @Override void entry(Aircon1 ac){startCool();super.entry(ac);}
+        @Override void power(Aircon1 ac){            
+            this.exit(ac);
+            stopFan();
+            ac.state =OFF;
+            ac.state.entry(ac); 
+        }
+        @Override void cool(Aircon1 ac){
+            this.exit(ac);
+            ac.state =FANONLY;
+            ac.state.entry(ac);  
+        }
+    };
+    //状态模式 提取的接口
+    abstract void power(Aircon1 ac);
+    abstract void cool(Aircon1 ac);
+    //状态机的各种动作action methode
+    void entry(Aircon1 ac){pln("→"+ac.state.name());}
+    void exit(Aircon1 ac){p(ac.state.name()+"→ ");}
+    void startCool(){        p("start Cool");    }
+    void stopCool(){        p("stop Cool");    }
+    void startFan(){        p("start Fan");    }
+    void stopFan(){        p("stop Fan");    }    
+}
+</pre>&#13;
+<p></p>&#13;
+<p>空调Aircon1的修改版本。<br />&#13;
+</p>&#13;
+<p></p>&#13;
+<pre name="code" class="java">package property.state.stateMachine;
+import static tool.Print.*;//pln
+/**
+ * 空调Aircon1。使用状态模式重构Aircon0，使用enum State1编写状态类层次。
+ * @author (yqj2065) 
+ * @version 0.1
+ */
+public class Aircon1{
+    State1 state= State1.OFF;//private改默认，删除getState()。
+    //两个Action
+    public void power(){//按power键
+        state.power(this);
+    }
+    public void cool(){//按制冷键
+        state.cool(this);
+    }
+    /**
+     * ACCtrl的代码。
+     */
+    public static void test(){
+        Aircon1 ac = new Aircon1();
+        System.out.println("Current State:" + ac.state.name());
+        ac.cool();
+        ac.power();
+        ac.cool();
+        ac.cool();
+        ac.power();
+        ac.power();
+        ac.power();
+        
+    }
+}
+</pre>对应测试操作的输出：“OFF→”表示离开OFF状态，而“→FANONLY”...&#13;
+<p></p>&#13;
+<p>Current State:OFF<br />&#13;
+nothing<br />&#13;
+OFF→ start Fan→FANONLY<br />&#13;
+FANONLY→ start Cool→COOL<br />&#13;
+COOL→ stop Cool→FANONLY<br />&#13;
+FANONLY→ stop Fan→OFF<br />&#13;
+OFF→ start Fan→FANONLY<br />&#13;
+FANONLY→ stop Fan→OFF<br />&#13;
+<br />&#13;
+</p>&#13;
+<p></p>&#13;
+<h3>2.分层状态机</h3>&#13;
+对于状态较多的状态机，通常将具有许多公共的特性的状态合并到一起。例如FANONLY和COOL构成的<strong>Running状态</strong>。&#13;
+<p></p>&#13;
+<p><img src="http://img.blog.csdn.net/20140918194358247?watermark/2/text/aHR0cDovL2Jsb2cuY3Nkbi5uZXQveXFqMjA2NQ==/font/5a6L5L2T/fontsize/400/fill/I0JBQkFCMA==/dissolve/70/gravity/SouthEast" alt="" /><br />&#13;
+</p>&#13;
+<p>状态机中的hierarchical states，我们可以使用<strong>组合模式</strong>处理。（还没有单独写组合模式，<img alt="尴尬" src="http://static.blog.csdn.net/xheditor/xheditor_emot/default/awkward.gif" />）。但是，又不一定能够完美地使用组合模式，例如Running到Off，所有的Running的内部状态在PoverEvent时都转化到OFF，很好；OFF到Running，不是所有Running的内部状态都要调用其entry。在使用enum(不好搞类层次)时，使用责任链吧。<br />&#13;
+</p>&#13;
+<p><br />&#13;
+</p>&#13;
+<p>楼主画图中、考虑更多按钮中....</p>&#13;
+<p><a target="_blank" href="http://blog.csdn.net/yqj2065/article/details/8592375" style="text-align:center"><img src="http://img.blog.csdn.net/20140919170809965?watermark/2/text/aHR0cDovL2Jsb2cuY3Nkbi5uZXQveXFqMjA2NQ==/font/5a6L5L2T/fontsize/400/fill/I0JBQkFCMA==/dissolve/70/gravity/SouthEast" alt="" /></a><br />&#13;
+</p>&#13;
+   &#13;

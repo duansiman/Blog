@@ -1,0 +1,49 @@
+
+
+<p>        在上篇blog中在屏幕上打印hello word是用中断的方式，这个方法是调用最原始也是最底层的例程打印出来的。这里分享下使用C库来打印字符串。直接看代码：</p>&#13;
+<p></p>&#13;
+<pre name="code" class="plain"> .section .data    #框架之一  数据段
+     output:       #标号，记住代表的是地址
+         .asciz "This number is %d\n" #字符串，和ascii不一样，asciz在字符串最后会自动添加结束符0
+ 
+ .section .bss     #框架之一 未初始化数据区
+     .lcomm buffer 3 #本地通用类型的数据，定义了一个数组
+ 
+ .section .text    #框架之一 代码段 
+ #.global _start   #全局变量标签_start
+ #   _start:       #程序开始位置，注释的这一套_start是由as编译  ld链接
+ .global main      #这功能和_start那一套一样，由gcc直接编译链接
+     main:
+ 
+     movl $buffer, %edi #把buffer数组的基地址传送给edi
+     movl $1, (%edi)    #把1传送到第一个数组元素地址中
+     movl $2, 4(%edi)   #把2传送到第二个xxx
+     movl $3, 8(%edi)   #把3传送到第三个xxx
+ 
+     movl $3, %ecx      #把3传送到ecx中作为循环次数
+ loop1:                 #循环开始标号
+     pushl %ecx         #让ecx值压栈，因为后面会用到ecx寄存器
+     dec %ecx           #ecx寄存器内容自减一
+     movl (%edi,%ecx,4), %eax #把edi+ 4*ecx地址上的内容传送到eax中
+ 
+     pushl %eax         #把eax值压栈，也就是字符串中 %d 的实际数字
+     pushl $output      #把output地址压栈
+     call printf        #调用C库中的printf打印字符串
+     addl $8, %esp      #让堆栈上移8个字节，把调用printf函数时压入的两个参数释放掉
+     popl %ecx          #弹出ecx内容 让循环继续
+     loop loop1
+ 
+     pushl $0           #压入参数0&lt;span style="white-space:pre"&gt;	&lt;/span&gt;
+     call exit          #调用exit退出函数</pre>&#13;
+<p>        编译方法和命令，若用_start作为入口标签，<span style="background-color:rgb(102,255,153)">编译时：as -o test.o test.c</span>；<span style="background-color:rgb(102,255,153)">链接时： ld -dynamic-linker  /lib/ld-linux.so.2 -o test -lc  test.o</span>；其中链接是用 -dynamic-linker链接器，后面接跟着是32位系统的C库，指定源文件时需要用&#13;
+ -lc；若用main作为入口标签，编译和链接可以只用gcc -o test test.s；</p>&#13;
+<p>        as汇编的内存访问，先来回顾下Intel风格下的汇编内存访问：<span style="background-color:rgb(255,255,51)">mov eax , [ebx] （默认把 ds×16 + ebx 中内存地址上值赋值给eax）</span>；<span style="background-color:rgb(102,255,153)">mov eax,[es:ebx+ecx]（把 es×16 + ebx + ecx中内存地址上的值赋值给eax）；</span></p>&#13;
+<p>        再来看看as汇编中的内存访问：<span style="background-color:rgb(255,255,51)">movl (%ebx), eax（把ebx寄存器指向的地址上的值传送给eax）</span>；<span style="background-color:rgb(102,255,153)">movl 4(%ebx), eax（把ebx指向的地址的位置往上偏移4字节的地址上的值传送给eax中）</span>；<span style="background-color:rgb(255,255,51)">movl&#13;
+ -4(%ebx),eax（把ebx执行的地址位置往下偏移4个字节的地址上的值传送给eax）</span>；<span style="background-color:rgb(102,255,153)">movl 4(%ebx, %ecx, 4), eax （把 ebx+4*ecx+4地址上的数据传送给eax）</span>；这样一解释，上面的movl $2, 4(%edi)，movl (%edi, %ecx, 4), %eax等内存访问就很好理解了。</p>&#13;
+<p>        as汇编调用C库，如果要用中断号来调用内核例程，那么要把中断子系统号存放到eax中。如果直接调用C库那么就可以和C语言中那样传入所需要的参数，比如上面的：pushl %eax；pushl $output；然后直接调用printf；弹出栈时顺序刚好，output,eax；就这么简单。但是别忘记了让堆栈平衡，因为所有的函数中都不会弹出压入栈的参数，而是用ebp寄存器来获取栈中的参数（具体的到函数参数传递问题到后面分析），所以调用返回后记得把参数释放掉（addl $8, %esp）；</p>&#13;
+<p>        转载请注明作者和原文出处，原文地址：<a target="_blank" href="http://blog.csdn.net/yuzhihui_no1/article/details/42556233">http://blog.csdn.net/yuzhihui_no1/article/details/42556233</a></p>&#13;
+<p><br />&#13;
+</p>&#13;
+<br />&#13;
+<p></p>&#13;
+   &#13;

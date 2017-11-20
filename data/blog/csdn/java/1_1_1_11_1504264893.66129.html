@@ -1,0 +1,328 @@
+
+        <div class="markdown_views"><p><strong>分页具体实现类</strong></p>
+
+
+
+<pre class="prettyprint"><code class=" hljs java">
+<span class="hljs-keyword">import</span> java.util.ArrayList;
+<span class="hljs-keyword">import</span> java.util.List;
+
+<span class="hljs-keyword">public</span> <span class="hljs-class"><span class="hljs-keyword">class</span> <span class="hljs-title">NavPageInfo</span> {</span>
+    <span class="hljs-keyword">private</span> <span class="hljs-keyword">static</span> <span class="hljs-keyword">final</span> Integer DEAFULT_PAGE_SIZE = <span class="hljs-number">10</span>; <span class="hljs-comment">//每页默认记录数</span>
+    <span class="hljs-keyword">private</span> <span class="hljs-keyword">static</span> <span class="hljs-keyword">final</span> Integer DEAFULT_PAGENO_STEP = <span class="hljs-number">3</span>; <span class="hljs-comment">//默认页码步长长度</span>
+
+    <span class="hljs-keyword">private</span> Integer pageNoStep; <span class="hljs-comment">//页码步长长度</span>
+    <span class="hljs-keyword">private</span> Integer reqeustPage; <span class="hljs-comment">//请求页号，临时变量</span>
+
+    <span class="hljs-keyword">private</span> Integer limitCount = <span class="hljs-number">0</span>; <span class="hljs-comment">//最多多少条</span>
+    <span class="hljs-keyword">private</span> Integer realCount; <span class="hljs-comment">//记录总数(实际)</span>
+    <span class="hljs-keyword">private</span> Integer recordCount; <span class="hljs-comment">//记录总数</span>
+    <span class="hljs-keyword">private</span> Integer pageSize; <span class="hljs-comment">//每页记录数</span>
+    <span class="hljs-keyword">private</span> Integer pageNum; <span class="hljs-comment">//页数</span>
+    <span class="hljs-keyword">private</span> Integer curPage; <span class="hljs-comment">//当前页号，从1开始</span>
+
+    <span class="hljs-keyword">private</span> Integer showPreNo; <span class="hljs-comment">//ui显示：上一页</span>
+    <span class="hljs-keyword">private</span> Integer showNextNo; <span class="hljs-comment">//ui显示：下一页</span>
+    <span class="hljs-keyword">private</span> Integer showFirstNo; <span class="hljs-comment">//ui显示：第一页</span>
+    <span class="hljs-keyword">private</span> Integer showLastNo; <span class="hljs-comment">//ui显示：最后一页</span>
+    <span class="hljs-keyword">private</span> List&lt;Integer&gt; showPnoLst; <span class="hljs-comment">//页码列表，如"1, 2, 3, 4, 5"</span>
+
+    <span class="hljs-keyword">public</span> Integer <span class="hljs-title">getPageNoStep</span>() {
+        <span class="hljs-keyword">return</span> pageNoStep;
+    }
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">void</span> <span class="hljs-title">setPageNoStep</span>(Integer pageNoStep) {
+        <span class="hljs-keyword">this</span>.pageNoStep = pageNoStep;
+    }
+    <span class="hljs-keyword">public</span> Integer <span class="hljs-title">getReqeustPage</span>() {
+        <span class="hljs-keyword">return</span> reqeustPage;
+    }
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">void</span> <span class="hljs-title">setReqeustPage</span>(Integer reqeustPage) {
+        <span class="hljs-keyword">this</span>.reqeustPage = reqeustPage;
+    }
+    <span class="hljs-keyword">public</span> Integer <span class="hljs-title">getLimitCount</span>() {
+        <span class="hljs-keyword">return</span> limitCount;
+    }
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">void</span> <span class="hljs-title">setLimitCount</span>(Integer limitCount) {
+        <span class="hljs-keyword">this</span>.limitCount = limitCount;
+    }
+    <span class="hljs-keyword">public</span> Integer <span class="hljs-title">getRealCount</span>() {
+        <span class="hljs-keyword">return</span> realCount;
+    }
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">void</span> <span class="hljs-title">setRealCount</span>(Integer realCount) {
+        <span class="hljs-keyword">this</span>.realCount = realCount;
+    }   
+    <span class="hljs-keyword">public</span> Integer <span class="hljs-title">getRecordCount</span>() {
+        <span class="hljs-keyword">return</span> recordCount;
+    }
+    <span class="hljs-keyword">public</span> Integer <span class="hljs-title">getPageSize</span>() {
+        <span class="hljs-keyword">return</span> pageSize;
+    }
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">void</span> <span class="hljs-title">setPageSize</span>(Integer pageSize) {
+        <span class="hljs-keyword">this</span>.pageSize = pageSize;
+    }
+    <span class="hljs-keyword">public</span> Integer <span class="hljs-title">getPageNum</span>() {
+        <span class="hljs-keyword">return</span> pageNum;
+    }
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">void</span> <span class="hljs-title">setPageNum</span>(Integer pageNum) {
+        <span class="hljs-keyword">this</span>.pageNum = pageNum;
+    }
+    <span class="hljs-keyword">public</span> Integer <span class="hljs-title">getCurPage</span>() {
+        <span class="hljs-keyword">return</span> curPage;
+    }
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">void</span> <span class="hljs-title">setCurPage</span>(Integer curPage) {
+        <span class="hljs-keyword">this</span>.curPage = curPage;
+    }
+    <span class="hljs-keyword">public</span> Integer <span class="hljs-title">getShowPreNo</span>() {
+        <span class="hljs-keyword">return</span> showPreNo;
+    }
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">void</span> <span class="hljs-title">setShowPreNo</span>(Integer showPreNo) {
+        <span class="hljs-keyword">this</span>.showPreNo = showPreNo;
+    }
+    <span class="hljs-keyword">public</span> Integer <span class="hljs-title">getShowNextNo</span>() {
+        <span class="hljs-keyword">return</span> showNextNo;
+    }
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">void</span> <span class="hljs-title">setShowNextNo</span>(Integer showNextNo) {
+        <span class="hljs-keyword">this</span>.showNextNo = showNextNo;
+    }
+    <span class="hljs-keyword">public</span> Integer <span class="hljs-title">getShowFirstNo</span>() {
+        <span class="hljs-keyword">return</span> showFirstNo;
+    }
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">void</span> <span class="hljs-title">setShowFirstNo</span>(Integer showFirstNo) {
+        <span class="hljs-keyword">this</span>.showFirstNo = showFirstNo;
+    }
+    <span class="hljs-keyword">public</span> Integer <span class="hljs-title">getShowLastNo</span>() {
+        <span class="hljs-keyword">return</span> showLastNo;
+    }
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">void</span> <span class="hljs-title">setShowLastNo</span>(Integer showLastNo) {
+        <span class="hljs-keyword">this</span>.showLastNo = showLastNo;
+    }
+    <span class="hljs-keyword">public</span> List&lt;Integer&gt; <span class="hljs-title">getShowPnoLst</span>() {
+        <span class="hljs-keyword">return</span> showPnoLst;
+    }
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">void</span> <span class="hljs-title">setShowPnoLst</span>(List&lt;Integer&gt; showPnoLst) {
+        <span class="hljs-keyword">this</span>.showPnoLst = showPnoLst;
+    }
+
+    <span class="hljs-comment">//构造函数</span>
+    <span class="hljs-keyword">public</span> <span class="hljs-title">NavPageInfo</span>() {
+        initPageInfo(<span class="hljs-number">0</span>, DEAFULT_PAGE_SIZE, DEAFULT_PAGENO_STEP, <span class="hljs-number">0</span>);
+    }
+    <span class="hljs-keyword">public</span> <span class="hljs-title">NavPageInfo</span>(Integer reqeustPage) {
+        initPageInfo(reqeustPage, DEAFULT_PAGE_SIZE, DEAFULT_PAGENO_STEP, <span class="hljs-number">0</span>);
+    }
+    <span class="hljs-keyword">public</span> <span class="hljs-title">NavPageInfo</span>(Integer reqeustPage, Integer pageSize) {
+        initPageInfo(reqeustPage, pageSize, DEAFULT_PAGENO_STEP, <span class="hljs-number">0</span>);
+    }
+    <span class="hljs-keyword">public</span> <span class="hljs-title">NavPageInfo</span>(Integer reqeustPage, Integer pageSize, Integer limitPageNum) {
+        initPageInfo(reqeustPage, pageSize, DEAFULT_PAGENO_STEP, limitPageNum);
+    }   
+    <span class="hljs-keyword">public</span> <span class="hljs-title">NavPageInfo</span>(Integer reqeustPage, Integer pageSize, Integer pageNoStep, Integer limitPageNum) {
+        initPageInfo(reqeustPage, pageSize, pageNoStep, limitPageNum);
+    }
+    <span class="hljs-keyword">private</span> <span class="hljs-keyword">void</span> <span class="hljs-title">initPageInfo</span>(Integer reqeustPage, Integer pageSize, Integer pageNoStep, Integer limitPageNum) {
+        <span class="hljs-keyword">this</span>.reqeustPage = reqeustPage;
+        <span class="hljs-keyword">this</span>.pageSize = pageSize;
+        <span class="hljs-keyword">this</span>.pageNoStep = pageNoStep;
+        <span class="hljs-keyword">this</span>.limitCount = pageSize * limitPageNum;
+    }
+
+    <span class="hljs-comment">//获取偏移</span>
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">int</span> <span class="hljs-title">getOffset</span>() {
+        <span class="hljs-keyword">int</span> offset = (curPage - <span class="hljs-number">1</span>) * pageSize;
+        <span class="hljs-keyword">if</span>(offset &lt; <span class="hljs-number">0</span>) {
+            offset = <span class="hljs-number">0</span>;
+        }
+        <span class="hljs-keyword">return</span> offset;
+    }
+
+    <span class="hljs-comment">//设置记录个数，并且设置导航信息</span>
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">void</span> <span class="hljs-title">setRecordCount</span>(Integer recordCount) {
+        <span class="hljs-keyword">if</span>(recordCount == <span class="hljs-keyword">null</span>) {
+            recordCount = <span class="hljs-number">0</span>;
+            reqeustPage = <span class="hljs-number">0</span>; <span class="hljs-comment">//非法时，默认请求第一页</span>
+        }
+        <span class="hljs-keyword">this</span>.realCount = recordCount;
+        <span class="hljs-keyword">if</span>(limitCount &gt; <span class="hljs-number">0</span> &amp;&amp; recordCount &gt; limitCount) {
+            recordCount = limitCount;
+        }
+        <span class="hljs-keyword">this</span>.recordCount = recordCount;
+        pageNum = (recordCount + pageSize - <span class="hljs-number">1</span>) / pageSize; <span class="hljs-comment">//页数</span>
+        <span class="hljs-keyword">if</span>(reqeustPage &lt; <span class="hljs-number">1</span>) { <span class="hljs-comment">//零结果</span>
+            curPage = <span class="hljs-number">1</span>;
+        } <span class="hljs-keyword">else</span> <span class="hljs-keyword">if</span>(reqeustPage &gt; pageNum) { <span class="hljs-comment">//非法请求</span>
+            curPage = pageNum;
+        } <span class="hljs-keyword">else</span> {
+            curPage = reqeustPage;
+        }
+        setPageNavigation();
+    }
+
+    <span class="hljs-keyword">private</span> <span class="hljs-keyword">void</span> <span class="hljs-title">setPageNavigation</span>() {
+        <span class="hljs-keyword">if</span>(curPage &lt;= <span class="hljs-number">1</span>) { <span class="hljs-comment">//上一页</span>
+            showPreNo = <span class="hljs-keyword">null</span>;
+        } <span class="hljs-keyword">else</span> {
+            showPreNo = curPage - <span class="hljs-number">1</span>;
+        }
+
+        <span class="hljs-keyword">if</span>(curPage &gt;= pageNum) { <span class="hljs-comment">//下一页</span>
+            showNextNo = <span class="hljs-keyword">null</span>;
+        } <span class="hljs-keyword">else</span> {
+            showNextNo = curPage + <span class="hljs-number">1</span>;
+        }
+
+        <span class="hljs-keyword">if</span>(pageNum &gt; <span class="hljs-number">0</span>) { <span class="hljs-comment">//首尾页=1,8</span>
+            showFirstNo = <span class="hljs-number">1</span>;
+            showLastNo = pageNum;
+        } <span class="hljs-keyword">else</span> {
+            showFirstNo = <span class="hljs-keyword">null</span>;
+            showLastNo = <span class="hljs-keyword">null</span>;
+        }
+
+        showPnoLst = <span class="hljs-keyword">new</span> ArrayList&lt;Integer&gt;(); <span class="hljs-comment">//(1, pageNum)</span>
+        <span class="hljs-keyword">for</span>(<span class="hljs-keyword">int</span> i = pageNoStep; i &gt; <span class="hljs-number">0</span>; i--) { <span class="hljs-comment">//左边导航=2,3,4</span>
+            <span class="hljs-keyword">if</span>(curPage - i &gt; <span class="hljs-number">1</span>) {
+                showPnoLst.add(curPage - i);
+            }
+        }
+
+        <span class="hljs-keyword">if</span>(curPage &gt; <span class="hljs-number">1</span> &amp;&amp; curPage &lt; pageNum) { <span class="hljs-comment">//当前页=5</span>
+            showPnoLst.add(curPage);
+        }
+
+        <span class="hljs-keyword">for</span>(<span class="hljs-keyword">int</span> i = <span class="hljs-number">1</span>; i &lt; pageNoStep; i++) { <span class="hljs-comment">//右边导航=6,7</span>
+            <span class="hljs-keyword">if</span>(curPage + i &lt; pageNum) {
+                showPnoLst.add(curPage + i);
+            }
+        }
+    }
+}
+</code></pre>
+
+<p><strong>分页数据集成</strong></p>
+
+
+
+<pre class="prettyprint"><code class=" hljs cs">
+import java.util.List;
+
+<span class="hljs-keyword">public</span> <span class="hljs-keyword">class</span> DataNavPage &lt;T&gt; {
+    <span class="hljs-keyword">private</span> NavPageInfo pageInfo;
+    <span class="hljs-keyword">private</span> List&lt;T&gt; data;
+
+    <span class="hljs-keyword">public</span> NavPageInfo <span class="hljs-title">getPageInfo</span>() {
+        <span class="hljs-keyword">return</span> pageInfo;
+    }
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">void</span> <span class="hljs-title">setPageInfo</span>(NavPageInfo pageInfo) {
+        <span class="hljs-keyword">this</span>.pageInfo = pageInfo;
+    }
+    <span class="hljs-keyword">public</span> List&lt;T&gt; <span class="hljs-title">getData</span>() {
+        <span class="hljs-keyword">return</span> data;
+    }
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">void</span> <span class="hljs-title">setData</span>(List&lt;T&gt; data) {
+        <span class="hljs-keyword">this</span>.data = data;
+    }
+}
+</code></pre>
+
+<p><strong>具体实现工具类</strong></p>
+
+
+
+<pre class="prettyprint"><code class=" hljs avrasm">
+import java<span class="hljs-preprocessor">.lang</span><span class="hljs-preprocessor">.reflect</span><span class="hljs-preprocessor">.Method</span><span class="hljs-comment">;</span>
+import java<span class="hljs-preprocessor">.util</span><span class="hljs-preprocessor">.List</span><span class="hljs-comment">;</span>
+
+import org<span class="hljs-preprocessor">.apache</span><span class="hljs-preprocessor">.commons</span><span class="hljs-preprocessor">.logging</span><span class="hljs-preprocessor">.Log</span><span class="hljs-comment">;</span>
+import org<span class="hljs-preprocessor">.apache</span><span class="hljs-preprocessor">.commons</span><span class="hljs-preprocessor">.logging</span><span class="hljs-preprocessor">.LogFactory</span><span class="hljs-comment">;</span>
+
+import <span class="hljs-keyword">com</span><span class="hljs-preprocessor">.lyt</span><span class="hljs-preprocessor">.base</span><span class="hljs-preprocessor">.constant</span><span class="hljs-preprocessor">.WebConst</span><span class="hljs-comment">;</span>
+import <span class="hljs-keyword">com</span><span class="hljs-preprocessor">.lyt</span><span class="hljs-preprocessor">.base</span><span class="hljs-preprocessor">.model</span><span class="hljs-preprocessor">.DataNavPage</span><span class="hljs-comment">;</span>
+import <span class="hljs-keyword">com</span><span class="hljs-preprocessor">.lyt</span><span class="hljs-preprocessor">.base</span><span class="hljs-preprocessor">.model</span><span class="hljs-preprocessor">.NavPageInfo</span><span class="hljs-comment">;</span>
+import <span class="hljs-keyword">com</span><span class="hljs-preprocessor">.lyt</span><span class="hljs-preprocessor">.base</span><span class="hljs-preprocessor">.parameter</span><span class="hljs-preprocessor">.BaseParameter</span><span class="hljs-comment">;</span>
+
+public class NavPagination &lt;TData, TParm extends BaseParameter&gt; {
+    private Log log = LogFactory<span class="hljs-preprocessor">.getLog</span>(NavPagination<span class="hljs-preprocessor">.class</span>)<span class="hljs-comment">;</span>
+
+    @SuppressWarnings(<span class="hljs-string">"unchecked"</span>)
+    public DataNavPage&lt;TData&gt; getDataLst(Object dao, TParm tParm, String mtdCount, String mtdData) {
+        if(tParm<span class="hljs-preprocessor">.getNavPageNo</span>() == null) {
+            tParm<span class="hljs-preprocessor">.setNavPageNo</span>(<span class="hljs-number">1</span>)<span class="hljs-comment">; //默认请求第一页</span>
+        }
+        Integer pageSize = tParm<span class="hljs-preprocessor">.getNavPageSize</span>()<span class="hljs-comment">;</span>
+        if(pageSize == null) {
+            pageSize = WebConst<span class="hljs-preprocessor">.PAGE</span>_SIZE<span class="hljs-comment">;</span>
+        }
+        NavPageInfo pageInfo = new NavPageInfo(tParm<span class="hljs-preprocessor">.getNavPageNo</span>(), pageSize)<span class="hljs-comment">;</span>
+
+        Method methodCount = null<span class="hljs-comment">;</span>
+        try {
+            methodCount = dao<span class="hljs-preprocessor">.getClass</span>()<span class="hljs-preprocessor">.getMethod</span>(mtdCount, tParm<span class="hljs-preprocessor">.getClass</span>())<span class="hljs-comment">;</span>
+            log<span class="hljs-preprocessor">.info</span>(methodCount<span class="hljs-preprocessor">.getName</span>())<span class="hljs-comment">;</span>
+        } catch (Exception e) {
+            log<span class="hljs-preprocessor">.error</span>(e<span class="hljs-preprocessor">.getMessage</span>())<span class="hljs-comment">;</span>
+            return null<span class="hljs-comment">;</span>
+        }
+
+        Object obj = null<span class="hljs-comment">;</span>
+        try {
+            obj = methodCount<span class="hljs-preprocessor">.invoke</span>(dao, tParm)<span class="hljs-comment">; //记录个数</span>
+        } catch (Exception e) {
+            log<span class="hljs-preprocessor">.error</span>(e<span class="hljs-preprocessor">.getMessage</span>())<span class="hljs-comment">;</span>
+            return null<span class="hljs-comment">;</span>
+        }
+        Integer recordCount = (Integer)obj<span class="hljs-comment">;</span>
+        pageInfo<span class="hljs-preprocessor">.setRecordCount</span>(recordCount)<span class="hljs-comment">;</span>
+        log<span class="hljs-preprocessor">.info</span>(recordCount)<span class="hljs-comment">;</span>
+
+        Method methodData = null<span class="hljs-comment">;</span>
+        try {
+            methodData = dao<span class="hljs-preprocessor">.getClass</span>()<span class="hljs-preprocessor">.getMethod</span>(mtdData, tParm<span class="hljs-preprocessor">.getClass</span>())<span class="hljs-comment">;</span>
+            log<span class="hljs-preprocessor">.info</span>(methodData<span class="hljs-preprocessor">.getName</span>())<span class="hljs-comment">;</span>
+        }  catch (Exception e) {
+            log<span class="hljs-preprocessor">.error</span>(e<span class="hljs-preprocessor">.getMessage</span>())<span class="hljs-comment">;</span>
+            return null<span class="hljs-comment">;</span>
+        }
+        tParm<span class="hljs-preprocessor">.setNavPageSize</span>(pageSize)<span class="hljs-comment">;</span>
+        tParm<span class="hljs-preprocessor">.setNavOffset</span>(pageInfo<span class="hljs-preprocessor">.getOffset</span>())<span class="hljs-comment">; //设置偏移</span>
+        try {
+            obj = methodData<span class="hljs-preprocessor">.invoke</span>(dao, tParm)<span class="hljs-comment">; //获取分页列表数据</span>
+        } catch (Exception e) {
+            log<span class="hljs-preprocessor">.error</span>(e<span class="hljs-preprocessor">.getMessage</span>())<span class="hljs-comment">;</span>
+            return null<span class="hljs-comment">;</span>
+        }
+        List&lt;TData&gt; dataLst = (List&lt;TData&gt;)obj<span class="hljs-comment">;</span>
+
+        DataNavPage&lt;TData&gt; dataPage = new DataNavPage&lt;TData&gt;()<span class="hljs-comment">;</span>
+        dataPage<span class="hljs-preprocessor">.setData</span>(dataLst)<span class="hljs-comment">;</span>
+        dataPage<span class="hljs-preprocessor">.setPageInfo</span>(pageInfo)<span class="hljs-comment">;</span>
+        return dataPage<span class="hljs-comment">;</span>
+    }
+}
+</code></pre>
+
+<p><strong>基本用法</strong></p>
+
+
+
+<pre class="prettyprint"><code class=" hljs java">    <span class="hljs-annotation">@Override</span>
+    <span class="hljs-keyword">public</span> DataNavPage&lt;SitUser&gt; <span class="hljs-title">getUserLst</span>(SitUserParm sitUserParm) {
+        NavPagination&lt;SitUser, SitUserParm&gt; page = <span class="hljs-keyword">new</span> NavPagination&lt;&gt;();
+        DataNavPage&lt;SitUser&gt; dataPage = page.getDataLst(sitUserDao, sitUserParm,        <span class="hljs-string">"getUserCount"</span>, <span class="hljs-string">"getUserLst"</span>);
+        <span class="hljs-keyword">return</span> dataPage;
+    }</code></pre>
+
+<p>底层其实用到的就是反射机制。通过你传过来的参数去找方法名，方法执行具体对象。</p></div>&#13;
+        <script type="text/javascript">&#13;
+            $(function () {&#13;
+                $('pre.prettyprint code').each(function () {&#13;
+                    var lines = $(this).text().split('\n').length;&#13;
+                    var $numbering = $('&lt;ul/&gt;').addClass('pre-numbering').hide();&#13;
+                    $(this).addClass('has-numbering').parent().append($numbering);&#13;
+                    for (i = 1; i &lt;= lines; i++) {&#13;
+                        $numbering.append($('&lt;li/&gt;').text(i));&#13;
+                    };&#13;
+                    $numbering.fadeIn(1700);&#13;
+                });&#13;
+            });&#13;
+        </script>&#13;
+   &#13;

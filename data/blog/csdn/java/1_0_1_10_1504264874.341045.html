@@ -1,0 +1,216 @@
+
+<p>第一个小例子：</p><pre code_snippet_id="563683" snippet_file_name="blog_20141226_1_2713249" name="code" class="java">public class Apple {
+	/*
+	 * 采集
+	 */
+	public void get(){
+		System.out.println("采集苹果");
+	}
+}</pre><pre code_snippet_id="563683" snippet_file_name="blog_20141226_2_5381714" name="code" class="java">public class Banana {
+	/*
+	 * 采集
+	 */
+	public void get(){
+		System.out.println("采集香蕉");
+	}
+}</pre><pre code_snippet_id="563683" snippet_file_name="blog_20141226_3_9972329" name="code" class="java">public class MainClass {
+	
+	public static void main(String[] args) {
+		/*
+		 * 实例化一个Apple
+		 */
+		Apple apple = new Apple();
+		/*
+		 * 实例化一个Banana
+		 */
+		Banana banana = new Banana();
+		
+		apple.get();
+		banana.get();
+	}	
+}</pre>运行结果：<p></p><p>采集苹果<br />采集香蕉<br /></p><p>Apple和Banana都是水果，都有”采集“这个方法，所以这个采集方法可以抽象出来。</p><p>再写一个Fruit接口</p><p></p><pre code_snippet_id="563683" snippet_file_name="blog_20141226_4_1814710" name="code" class="java">public interface Fruit {
+
+	/*
+	 * 采集
+	 */
+	public void get();
+}
+</pre>现在Apple和Banana实例化Fruit<br /><pre code_snippet_id="563683" snippet_file_name="blog_20141226_5_8881343" name="code" class="java">public class Apple implements Fruit{
+	/*
+	 * 采集
+	 */
+	public void get(){
+		System.out.println("采集苹果");
+	}
+}</pre><pre code_snippet_id="563683" snippet_file_name="blog_20141226_6_5914958" name="code" class="java">public class Banana implements Fruit{
+	/*
+	 * 采集
+	 */
+	public void get(){
+		System.out.println("采集香蕉");
+	}
+}</pre>现在可以通过多态（面向对象的特征之一）实例化<br /><p></p><pre code_snippet_id="563683" snippet_file_name="blog_20141226_7_8313745" name="code" class="java">public class MainClass {
+	
+	public static void main(String[] args) {
+		/*
+		 * 实例化一个Apple
+		 */
+		Fruit apple = new Apple();
+		/*
+		 * 实例化一个Banana
+		 */
+		Fruit banana = new Banana();
+		
+		apple.get();
+		banana.get();
+	}	
+}</pre>现在我们来创建一个工厂，来专门实例化Fruit的实现。<br /><pre code_snippet_id="563683" snippet_file_name="blog_20141226_8_6044688" name="code" class="java">public class FruitFactory {
+
+	/**
+	 * 获得Apple实例
+	 */
+	public Fruit getApple(){
+		return new Apple();
+	}
+	/**
+	 * 获得Banana实例
+	 */
+	public Fruit getBanana(){
+		return new Banana();
+	}
+}</pre>现在我们可以通过FruitFactory工厂实例化<br /><pre code_snippet_id="563683" snippet_file_name="blog_20141226_9_1475119" name="code" class="java">public class MainClass {
+	
+	public static void main(String[] args) {
+		//创建工厂
+		FruitFactory factory = new FruitFactory();
+		//得到Apple实例
+		Fruit apple = factory.getApple();
+		//得到Banana实例
+		Fruit banana = factory.getBanana();
+		//采集
+		apple.get();
+		banana.get();
+	}	
+}</pre>由于FruitFactory只是一个工具类，并不需要什么属性，所以我们可以将它的方法静态化。<br /><pre code_snippet_id="563683" snippet_file_name="blog_20141226_10_5477090" name="code" class="java">public class FruitFactory {
+
+	/**
+	 * 获得Apple实例
+	 */
+	public static Fruit getApple(){
+		return new Apple();
+	}
+	/**
+	 * 获得Banana实例
+	 */
+	public static Fruit getBanana(){
+		return new Banana();
+	}
+}</pre>所以实例可以这样得到<br /><pre code_snippet_id="563683" snippet_file_name="blog_20141226_11_3939164" name="code" class="java">public class MainClass {
+	
+	public static void main(String[] args) {
+		//得到Apple实例
+		Fruit apple = FruitFactory.getApple();
+		//得到Banana实例
+		Fruit banana = FruitFactory.getBanana();
+		//采集
+		apple.get();
+		banana.get();
+	}	
+}</pre>可以看出简单工厂模式中主要有三个角色：<br />工厂角色：简单工厂模式的核心，它负责实现创建所有实例的内部逻辑。工厂类可以被外部直接调用，创建所需的产品对象。<br />抽象角色：简单工厂模式所创建的所有对象的父类，它负责描述所有实例所共有的公共接口。<br />具体产品角色：简单工厂模式所创建的具体实例对象。<br /><p><br /></p><p>下面我们来讲该工厂方法改进一下</p><pre code_snippet_id="563683" snippet_file_name="blog_20141226_12_4353084" name="code" class="java">public class FruitFactory {
+	
+	/**
+	 * get方法，获得所有产品对象
+	 * @throws IllegalAccessException 
+	 * @throws Exception 
+	 */
+	public static Fruit getFruit(String type) throws Exception{
+		if(type.equalsIgnoreCase("apple")){
+			return (Fruit)Apple.class.newInstance();
+		}else if(type.equalsIgnoreCase("banana")){
+			return (Fruit)Banana.class.newInstance();
+		}else{
+			System.out.println("找不到相应的类");
+			return null;
+		}
+	}
+}</pre><pre code_snippet_id="563683" snippet_file_name="blog_20141226_13_7831667" name="code" class="java">public class MainClass {
+	
+	public static void main(String[] args) throws Exception {
+		//得到Apple实例
+		Fruit apple = FruitFactory.getFruit("apple");
+		//得到Banana实例
+		Fruit banana = FruitFactory.getFruit("banana");
+		//采集
+		apple.get();
+		banana.get();
+	}	
+}</pre>还可以再改进<br /><pre code_snippet_id="563683" snippet_file_name="blog_20141226_14_9532344" name="code" class="java">public class FruitFactory {
+	
+	/**
+	 * get方法，获得所有产品对象
+	 * @throws IllegalAccessException 
+	 * @throws Exception 
+	 */
+	public static Fruit getFruit(String type) throws Exception{
+		return (Fruit)Class.forName(type).newInstance();
+	}
+}</pre><pre code_snippet_id="563683" snippet_file_name="blog_20141226_15_7471030" name="code" class="java">public class MainClass {
+	
+	public static void main(String[] args) throws Exception {
+		//得到Apple实例
+		Fruit apple = FruitFactory.getFruit("Apple");
+		//得到Banana实例
+		Fruit banana = FruitFactory.getFruit("Banana");
+		//采集
+		apple.get();
+		banana.get();
+	}	
+}</pre>虽然对上面的有所改进，但还是缺乏灵活性，因为还需要指定类名,可以通过配置文件配置然后读取。<br />下面我们将.java文件先放到com.meritit包下，并建立一个fruit.properties文件和ConfigUtil.java工具类。<br /><p>fruit.properties文件内容如下：</p><p><img src="http://img.blog.csdn.net/20130810144152640?watermark/2/text/aHR0cDovL2Jsb2cuY3Nkbi5uZXQvZGF3YW5nYW5iYW4=/font/5a6L5L2T/fontsize/400/fill/I0JBQkFCMA==/dissolve/70/gravity/SouthEast" alt="" style="font-family: monospace; white-space: pre; background-color: rgb(240, 240, 240);" /></p><p>apple = com.meritit.Apple<br />banana = com.meritit.Banana<br />ConfigUtil是读取配置文件的一个工具类：<br /></p><pre code_snippet_id="563683" snippet_file_name="blog_20141226_16_2552797" name="code" class="java">package com.meritit;
+
+import java.io.IOException;
+import java.io.InputStream;
+import java.util.Properties;
+public class ConfigUtil {
+	/**
+	 * 
+	 * @param key
+	 * @return value
+	 */
+	public static String getConfig(String style){
+		Properties pro = new Properties();
+		InputStream inStream = ConfigUtil.class.getClassLoader()
+				.getResourceAsStream("fruit.properties");
+		try {
+			pro.load(inStream);
+		} catch (IOException e) {
+			e.printStackTrace();
+		}
+		return pro.getProperty(style);
+	}
+}</pre>现在工厂方法可以写成这样：<br /><pre code_snippet_id="563683" snippet_file_name="blog_20141226_17_1014870" name="code" class="java">package com.meritit;
+
+public class FruitFactory {
+	
+	/**
+	 * get方法，获得所有产品对象
+	 * @throws IllegalAccessException 
+	 * @throws Exception 
+	 */
+	public static Fruit getFruit(String type) throws Exception{
+		String fruittype = ConfigUtil.getConfig(type);
+		return (Fruit)Class.forName(fruittype).newInstance();
+	}
+}</pre>获得实例：<br /><pre code_snippet_id="563683" snippet_file_name="blog_20141226_18_2333863" name="code" class="java">package com.meritit;
+
+public class MainClass {
+	
+	public static void main(String[] args) throws Exception {
+		//得到Apple实例
+		Fruit apple = FruitFactory.getFruit("apple");
+		//得到Banana实例
+		Fruit banana = FruitFactory.getFruit("banana");
+		//采集
+		apple.get();
+		banana.get();
+	}	
+}</pre>在这个模式中，工厂类是整个模式的关键。它包含必要的判断逻辑，能够根据外界给定的信息知道创建那个类的实例，外部无需了解该对象是如何被创建和组织的。有利于软件体系结构化。<br />但是不难发现，简单工厂模式的缺点也体现在工厂类上，由于工厂类集中了所有实例的创建逻辑，所以“高内聚”方面做的并不好。另外，当系统中具体产品不断增多时，可能会出现要求工厂类也要做出相应的修改，扩展性并不好。<br />举一个应用的例子：<p></p><p><img src="http://img.blog.csdn.net/20130810145317421?watermark/2/text/aHR0cDovL2Jsb2cuY3Nkbi5uZXQvZGF3YW5nYW5iYW4=/font/5a6L5L2T/fontsize/400/fill/I0JBQkFCMA==/dissolve/70/gravity/SouthEast" alt="" /></p><p>源代码下载：<a target="_blank" href="http://download.csdn.net/detail/lxq_xsyu/5903699">http://download.csdn.net/detail/lxq_xsyu/5903699</a><br /></p>   &#13;

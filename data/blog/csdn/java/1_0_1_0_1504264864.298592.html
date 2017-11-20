@@ -1,0 +1,118 @@
+
+<p>代理模式的作用是控制和管理访问</p><p>转载请说明出处：<a target="_blank" href="http://blog.csdn.net/dawanganban">http://blog.csdn.net/dawanganban</a></p><p>先看一段代码：</p><p></p><pre name="code" class="java">package com.test;
+/**
+ * 抽象角色
+ * @author Administrator
+ *
+ */
+abstract public class Subject {
+	abstract public void request();
+}</pre><p></p><p></p><pre code_snippet_id="563322" snippet_file_name="blog_20141226_2_5023477" name="code" class="java">package com.test;
+/**
+ * 真实角色
+ * @author 阳光小强
+ *
+ */
+public class RealSubject extends Subject{
+	public RealSubject(){
+		
+	}
+	
+	public void request(){
+		System.out.println("From real subject");
+	}
+}</pre><pre code_snippet_id="563322" snippet_file_name="blog_20141226_3_7662245" name="code" class="java">package com.test;
+/**
+ * 客户端调用
+ * @author 阳光小强
+ *
+ */
+public class Main {
+	public static void main(String[] args) {
+		Subject sub = new RealSubject();
+		sub.request();
+	}
+}
+</pre>上面代码应该很容易看懂，下面我们使用代理模式（新增一个ProxySubject类）<p></p><p></p><pre code_snippet_id="563322" snippet_file_name="blog_20141226_4_4728096" name="code" class="java">package com.test;
+
+/**
+ * 
+ * @author 阳光小强
+ *
+ */
+public class ProxySubject extends Subject{
+	private RealSubject realSubject; //以真实角色作为代理角色的属性
+	
+	public ProxySubject(){
+		
+	}
+
+	@Override
+	public void request() {
+		preRequest();
+		
+		if(realSubject == null){
+			realSubject = new RealSubject();
+		}
+		realSubject.request();
+		
+		postRequest();
+	}
+	
+	private void preRequest(){
+		//something you want to do before requesting 
+	}
+	
+	private void postRequest(){
+		//something you want to do after requesting 
+	}
+
+}
+</pre><p>客户实际需要调用的是RealSubject类的request()方法，现在用ProxySubject来代理RealSubject类，同样达到目的，同时还封装了其他方法(preRequest(),postRequest())，可以处理一些其他问题。</p><p><img src="http://img.blog.csdn.net/20141226140329291?watermark/2/text/aHR0cDovL2Jsb2cuY3Nkbi5uZXQvZGF3YW5nYW5iYW4=/font/5a6L5L2T/fontsize/400/fill/I0JBQkFCMA==/dissolve/70/gravity/Center" alt="" /> </p><p>有时候我们需要代理的对象不确定，所以就需要动态代理，Java中的动态代理模式实现如下：</p><p></p><pre code_snippet_id="563322" snippet_file_name="blog_20141226_5_8380620" name="code" class="java">package com.test;
+
+import java.lang.reflect.InvocationHandler;
+import java.lang.reflect.Method;
+
+public class DynamicSubject implements InvocationHandler {  
+      
+    private Object dele;  
+      
+    public DynamicSubject(Object obj) {  
+        this.dele = obj;  
+    }  
+      
+    public Object invoke(Object proxy, Method method, Object[] args) throws Throwable {  
+        doBefore();  
+        //在这里完全可以把下面这句注释掉，而做一些其它的事情  
+        Object result = method.invoke(dele, args);  
+        after();  
+        return result;  
+    }  
+      
+    private void doBefore() {  
+        System.out.println("before....");  
+    }  
+      
+    private void after() {  
+        System.out.println("after....");  
+    }  
+}  </pre><pre code_snippet_id="563322" snippet_file_name="blog_20141226_6_3669347" name="code" class="java">package com.test;
+
+import java.lang.reflect.InvocationHandler;
+import java.lang.reflect.Proxy;
+
+/**
+ * 客户端调用
+ * @author 阳光小强
+ *
+ */
+public class Main {
+	public static void main(String[] args) throws Exception {
+		RealSubject rs = new RealSubject(); //被代理的类
+		InvocationHandler ds = new DynamicSubject(rs); //初始化代理类
+		
+		Subject subject = (Subject) Proxy.newProxyInstance(rs.getClass().getClassLoader(), rs.getClass().getInterfaces(), ds);
+		subject.request();
+
+	}
+}</pre><p></p>   &#13;

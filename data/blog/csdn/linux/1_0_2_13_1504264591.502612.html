@@ -1,0 +1,22 @@
+
+        <div class="markdown_views"><p>    linux从unix和posix那里继承了最基本的安全机制：用户、文件权限、进程capabilities。但是仅有这些是不够的，很多第三方实现了新的机制，通过补丁的形式提供。如安全增强Linux（SELinux），域和类型增强（DTE），以及Linux入侵检测系统（LIDS）等，但是没有哪个完全胜出，所以都没有进入主内核代码。 <br />
+    Linux内核的创始人Linus Torvalds同意Linux内核确实需要一个通用的安全访问控制框架，但他指出最好是通过可加载内核模块的方法，这样可以支持现存的各种不同的安全访问控制系统。因此，Linux安全模块（LSM）应运而生。selinux、dte、lids、AppArmor, SELinux, Smack、 TOMOYO Linux、Openwall等都是通过LSM框架提供了自己的服务。 <br />
+    LSM框架的最大优点是对内核的改变少，类似netfilter的hook机制，将安全点做成hook，各种安全机制对安全的限制策略都通过hook点去实现。如此兼容大部分的安全方案。这样如果你发现某个安全模式不好用，你可以换其他的内核模块来提供内核安全防护。 <br />
+    我们知道安全防护有保护和审计两个维度，LSM模块大部分的作用是保护，控制是否允许访问，而审计则是交给了具体的安全模块去完成。 <br />
+    Linux安全模块（LSM）提供了一个通用的安全系统调用，允许安全模块为安全相关的应用编写新的系统调用，其风格类似于原有的Linux系统调用socketcall()，是一个多路的系统调用。这个系统调用为security()，其参数为(unsigned int id, unsigned int call, unsigned long *args)，其中id代表模块描述符，call代表调用描述符，args代表参数列表。这个系统调用缺省的提供了一个sys_security()入口函数：其简单的以参数调用sys_security()钩子函数。如果安全模块不提供新的系统调用，就可以定义返回-ENOSYS的sys_security()钩子函数，但是大多数安全模块都可以自己定义这个系统调用的实现。 <br />
+    安全机制开发者在LSM定义的钩子位置，在内核内部直接定义安全机制，或者是通过security()系统调用让用户端程序可以控制内核端实现模块的行为。这类钩子有任务钩子（例如任务间通信，例如kill调用等），程序装载钩子（可以改变程序的特权、文件描述符控制等），文件系统钩子可以对文件系统挂载，打开文件甚至socket等做额外的检查，还有网络钩子（这个钩子主要是控制什么进程允许socket到哪里），还有模块钩子和顶层系统钩子（例如访问端口，设置主机名）。 <br />
+    对于民用安全软件，我们前几年最常见到的是selinux，现在随着ubuntu这第一大发行版使用apparmor，apparmor的装机量就越来越大了。</p></div>&#13;
+        <script type="text/javascript">&#13;
+            $(function () {&#13;
+                $('pre.prettyprint code').each(function () {&#13;
+                    var lines = $(this).text().split('\n').length;&#13;
+                    var $numbering = $('&lt;ul/&gt;').addClass('pre-numbering').hide();&#13;
+                    $(this).addClass('has-numbering').parent().append($numbering);&#13;
+                    for (i = 1; i &lt;= lines; i++) {&#13;
+                        $numbering.append($('&lt;li/&gt;').text(i));&#13;
+                    };&#13;
+                    $numbering.fadeIn(1700);&#13;
+                });&#13;
+            });&#13;
+        </script>&#13;
+   &#13;

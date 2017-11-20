@@ -1,0 +1,94 @@
+
+        <div class="markdown_views"><p>内容包括，并发与并行，并发约束，并发下的集合类性能分析，并发相关包的概述，并发场景，并发总结 <br />
+转载请注明出处：<a href="http://blog.csdn.net/supera_li/article/details/45198341">http://blog.csdn.net/supera_li/article/details/45198341</a></p>
+
+<p>Effective java系列 <br />
+<a href="http://blog.csdn.net/supera_li/article/details/44940277" title="打开连接">1.Effective java经验之谈，创建和销毁对象</a> <br />
+<a href="http://blog.csdn.net/supera_li/article/details/45064081" title="打开连接">2.Effective java经验之谈，泛型 </a> <br />
+<a href="http://blog.csdn.net/supera_li/article/details/44940563" title="打开连接">3.Effective java经验之谈，类与接口</a> <br />
+<a href="http://blog.csdn.net/supera_li/article/details/45034203" title="打开连接">4.Effective java经验之谈，通用方法 </a> <br />
+<a href="http://blog.csdn.net/supera_li/article/details/45155857" title="打开连接">5.Effective java经验之谈，枚举，注解，方法，通用设计，异常  </a> <br />
+<a href="http://blog.csdn.net/supera_li/article/details/45198341" title="打开连接">6.Effective java经验之谈，并发编程</a></p>
+
+
+
+<h2 id="集合包">集合包</h2>
+
+<p>关于集合类的并发实现： <br />
+<a href="http://blog.csdn.net/supera_li/article/details/39371087">http://blog.csdn.net/supera_li/article/details/39371087</a> <br />
+下面是接口关系 <br />
+1.<strong>接口Collection</strong>-&gt;List,Set <br />
+List–&gt;&gt;ArrayList,LinkedList,Vector(线程安全,实现同ArrayList),Stack(继承Vector实现的LIFO) <br />
+Set–&gt;&gt;HashSet(基于HashMap实现),TreeSet(基于TreeMap实现)</p>
+
+<p>对性能影响的2个方法:add(E),remove(E),get(int index),contains(E)</p>
+
+<p>2.<strong>接口Map</strong>-&gt;HashMap(可添加null的key与values),TreeMap(红黑树实现，comparator实现的k可实现排序) </p>
+
+<p>3.性能结论 <br />
+<strong>单线程测试场景性能结论</strong>：List的实现随着元素数量的上升，查找和删除元素的性能下降较为严重，Set,Map影响不大。如果对于查找和删除频繁，且元素数量较多(&gt;10^4)的应用，Set或Map是更好的选择。 <br />
+<strong>多线程测试场景性能结论</strong>：相对于单线程性能都大幅度下降，元素数量级在10^3次方的时候，影响性能的因素主要取决于线程数，线程数越多，性能下降越多。</p>
+
+
+
+<h2 id="并发包">并发包</h2>
+
+<p>1.ConcurrentHashMap(类HashMap的并发类) <br />
+2.CopyOnWriteArrayList(在读多写少的并发场景下，比ArrayList是更好的选择) <br />
+3.CopyOnWriteArraySet(类ArraySet的并发类) <br />
+4.ArrayBlockingQueue(并发队列) <br />
+5.AtomicInteger(cpu的CAS原语实现，获得递增id并发场景使用这个) <br />
+6.ThreadPoolEXecutor(线程池对象，执行任务用的，有各种执行策略可选) <br />
+7.Executors(提供不同类型策略的ThreadPoolEXecutor创建方法) <br />
+8.FutureTask(用于调用多次只执行一次任务的连接池场景中) <br />
+9.Semaphore(控制某资源同时被访问的个数的类) <br />
+10.CountDownLatch(控制多个线程同时开始某动作的类) <br />
+11.CyclicBarrier(await数量到达的设定值后，才继续往下执行) <br />
+12.ReentrantLock(控制并发资源的类，与synchronized语法到达的效果一致) <br />
+13.Condition(并发接口，实现类有ReentrantLock，以便用户在同一个锁的情况下可以根据不同的情况执行等待或唤醒动作) <br />
+14.ReentrantReadWriteLock(该类读，写锁分离。不同于ReentrantLock一把锁)</p>
+
+
+
+<h2 id="并发约束">并发约束</h2>
+
+<ol>
+<li>同步访问共享的可变数据。同步的范围应当是读与写。</li>
+<li>避免过度同步。同步会带来性能开销</li>
+<li>Executor和task优先于线程</li>
+<li>并发工具优先于wait和notify</li>
+<li>线程安全性的文档化。</li>
+<li>慎用延迟初始化。</li>
+<li>不要依赖于线程调用器。不然程序的移植性会很差。</li>
+<li>避免使用线程组</li>
+</ol>
+
+<p>参考资料： <br />
+[1]并发框架Executor框架资料可参考这位博主写的： <br />
+<a href="http://www.iteye.com/topic/366591">http://www.iteye.com/topic/366591</a></p>
+
+<p>[2]Parallelism and concurrency need different tools[并行与并发需要不同的工具] <br />
+ 并发（名词）：指竞争或对抗。 <br />
+并行：指两条直线永不相交的状态。  <br />
+<a href="http://www.oschina.net/translate/parallelism-and-concurrency-need-different-tools">http://www.oschina.net/translate/parallelism-and-concurrency-need-different-tools</a></p>
+
+<p>[3]分布式java应用 基础与实践 sun SDK库章节</p>
+
+<p>[4]effective java 并发章节</p>
+
+<p>[5]并发编程学习总结 引用 <br />
+<a href="http://www.cnblogs.com/chgaowei/archive/2012/06/06/2538074.html">http://www.cnblogs.com/chgaowei/archive/2012/06/06/2538074.html</a></p></div>&#13;
+        <script type="text/javascript">&#13;
+            $(function () {&#13;
+                $('pre.prettyprint code').each(function () {&#13;
+                    var lines = $(this).text().split('\n').length;&#13;
+                    var $numbering = $('&lt;ul/&gt;').addClass('pre-numbering').hide();&#13;
+                    $(this).addClass('has-numbering').parent().append($numbering);&#13;
+                    for (i = 1; i &lt;= lines; i++) {&#13;
+                        $numbering.append($('&lt;li/&gt;').text(i));&#13;
+                    };&#13;
+                    $numbering.fadeIn(1700);&#13;
+                });&#13;
+            });&#13;
+        </script>&#13;
+   &#13;

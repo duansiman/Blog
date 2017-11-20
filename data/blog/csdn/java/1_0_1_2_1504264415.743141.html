@@ -1,0 +1,260 @@
+
+        <div class="markdown_views"><h1 id="责任链模式"><center> 责任链模式</center></h1>
+
+<p>标签 ： Java与设计模式</p>
+
+<hr />
+
+<blockquote>
+  <p>责任链模式: 将能够处理某一类请求的对象串成<strong>一条链</strong>, 请求沿链传递, 链上的对象逐个判断是否有能力处理该请求. <strong><em>使多个对象都有机会处理请求</em></strong>, 从而避免请求发送者和接收者之间的耦合关系.  <br />
+  <img src="http://7xrgh9.com1.z0.glb.clouddn.com/16-8-24/95733663.jpg" alt="" title="" /> <br />
+  (图片来源: <a href="https://book.douban.com/subject/1052241/">设计模式: 可复用面向对象软件的基础</a>) <br />
+  优势: 发出请求的客户端并不知道链上的哪个对象最终处理该请求, 这使得系统可以在不影响客户端的前提下<strong>动态地重新组织和分配责任</strong>.</p>
+</blockquote>
+
+<hr />
+
+
+
+<h2 id="模式实现">模式实现</h2>
+
+<pre><code>案例: 雇员要求 (请假 &amp; 涨薪), 要经过总监Director -&gt; 经理Manager -&gt; 总经理GeneralManager的层层审批.
+</code></pre>
+
+<p><img src="http://7xrgh9.com1.z0.glb.clouddn.com/16-9-9/99717312.jpg" alt="" title="" /></p>
+
+<hr />
+
+
+
+<h3 id="handler">Handler:</h3>
+
+<p>定义一个处理请求的接口, 内持继任者(可选):</p>
+
+
+
+<pre class="prettyprint"><code class=" hljs cs"><span class="hljs-keyword">public</span> <span class="hljs-keyword">abstract</span> <span class="hljs-keyword">class</span> Leader {
+
+    <span class="hljs-keyword">protected</span> Leader superior;
+
+    <span class="hljs-keyword">protected</span> String name;
+
+    <span class="hljs-keyword">protected</span> <span class="hljs-title">Leader</span>(Leader superior, String name) {
+        <span class="hljs-keyword">this</span>.superior = superior;
+        <span class="hljs-keyword">this</span>.name = name;
+    }
+
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">abstract</span> <span class="hljs-keyword">void</span> <span class="hljs-title">handle</span>(Request request);
+}</code></pre>
+
+<hr />
+
+
+
+<h3 id="concretehandler">ConcreteHandler</h3>
+
+<ul>
+<li>处理它所负责的请求, 可访问它的后继者;</li>
+<li>如果可处理该请求, 处理之, 否则将请求转发:</li>
+</ul>
+
+
+
+<pre class="prettyprint"><code class=" hljs axapta"><span class="hljs-comment">// 总监</span>
+<span class="hljs-class"><span class="hljs-keyword">class</span> <span class="hljs-title">Director</span> <span class="hljs-inheritance"><span class="hljs-keyword">extends</span></span> <span class="hljs-title">Leader</span> {</span>
+
+    <span class="hljs-keyword">public</span> Director(Leader superior, String name) {
+        <span class="hljs-keyword">super</span>(superior, name);
+    }
+
+    @Override
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">void</span> handle(Request request) {
+        <span class="hljs-keyword">if</span> (request.getType().equals(<span class="hljs-string">"请假"</span>) &amp;&amp; request.getCount() &lt;= <span class="hljs-number">10</span>) {
+            System.out.println(<span class="hljs-string">"[ "</span> + request.getContent() + <span class="hljs-string">"] 请假 ["</span> + request.getCount() + <span class="hljs-string">"]天, 总监 ["</span> + name + <span class="hljs-string">"] 审批通过"</span>);
+        } <span class="hljs-keyword">else</span> {
+            <span class="hljs-keyword">if</span> (superior != <span class="hljs-keyword">null</span>) {
+                superior.handle(request);
+            }
+        }
+    }
+}
+
+<span class="hljs-comment">// 经理</span>
+<span class="hljs-class"><span class="hljs-keyword">class</span> <span class="hljs-title">Manager</span> <span class="hljs-inheritance"><span class="hljs-keyword">extends</span></span> <span class="hljs-title">Leader</span> {</span>
+
+    <span class="hljs-keyword">public</span> Manager(Leader superior, String name) {
+        <span class="hljs-keyword">super</span>(superior, name);
+    }
+
+    @Override
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">void</span> handle(Request request) {
+        <span class="hljs-keyword">if</span> (request.getType().equals(<span class="hljs-string">"请假"</span>) &amp;&amp; request.getCount() &lt;= <span class="hljs-number">20</span>) {
+            System.out.println(<span class="hljs-string">"[ "</span> + request.getContent() + <span class="hljs-string">"] 请假 ["</span> + request.getCount() + <span class="hljs-string">"]天, 经理 ["</span> + name + <span class="hljs-string">"] 审批通过"</span>);
+        } <span class="hljs-keyword">else</span> <span class="hljs-keyword">if</span> (request.getType().equals(<span class="hljs-string">"涨薪"</span>) &amp;&amp; request.getCount() &lt;= <span class="hljs-number">1000</span>) {
+            System.out.println(<span class="hljs-string">"[ "</span> + request.getContent() + <span class="hljs-string">"]  涨薪 ["</span> + request.getCount() + <span class="hljs-string">"]RMB, 经理 ["</span> + name + <span class="hljs-string">"] 审批通过"</span>);
+        } <span class="hljs-keyword">else</span> {
+            <span class="hljs-keyword">if</span> (superior != <span class="hljs-keyword">null</span>) {
+                superior.handle(request);
+            }
+        }
+    }
+}
+
+<span class="hljs-comment">// 总经理</span>
+<span class="hljs-class"><span class="hljs-keyword">class</span> <span class="hljs-title">GeneralManager</span> <span class="hljs-inheritance"><span class="hljs-keyword">extends</span></span> <span class="hljs-title">Leader</span> {</span>
+
+    <span class="hljs-keyword">public</span> GeneralManager(Leader superior, String name) {
+        <span class="hljs-keyword">super</span>(superior, name);
+    }
+
+    @Override
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">void</span> handle(Request request) {
+        <span class="hljs-keyword">if</span> (request.getType().equals(<span class="hljs-string">"请假"</span>)) {
+            <span class="hljs-keyword">if</span> (request.getCount() &lt;= <span class="hljs-number">30</span>) {
+                System.out.println(<span class="hljs-string">"[ "</span> + request.getContent() + <span class="hljs-string">"] 请假 ["</span> + request.getCount() + <span class="hljs-string">"]天, 总经理 ["</span> + name + <span class="hljs-string">"] 审批通过"</span>);
+            } <span class="hljs-keyword">else</span> {
+                System.out.println(<span class="hljs-string">"[ "</span> + request.getContent() + <span class="hljs-string">"] 你干脆辞职算了"</span>);
+            }
+        } <span class="hljs-keyword">else</span> <span class="hljs-keyword">if</span> (request.getType().equals(<span class="hljs-string">"涨薪"</span>)) {
+            <span class="hljs-keyword">if</span> (request.getCount() &lt;= <span class="hljs-number">10</span>_000) {
+                System.out.println(<span class="hljs-string">"[ "</span> + request.getContent() + <span class="hljs-string">"]  涨薪 ["</span> + request.getCount() + <span class="hljs-string">"]RMB, 总经理 ["</span> + name + <span class="hljs-string">"] 审批通过"</span>);
+            } <span class="hljs-keyword">else</span> {
+                System.out.println(<span class="hljs-string">"你咋不上天呢"</span>);
+            }
+        }
+    }
+}</code></pre>
+
+<hr />
+
+
+
+<h3 id="client">Client</h3>
+
+<p>向链上的具体处理者对象提交请求:</p>
+
+
+
+<pre class="prettyprint"><code class=" hljs cs"><span class="hljs-keyword">public</span> <span class="hljs-keyword">class</span> Client {
+
+    @Test
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">void</span> <span class="hljs-title">client</span>() {
+        Leader generalManger = <span class="hljs-keyword">new</span> GeneralManager(<span class="hljs-keyword">null</span>, <span class="hljs-string">"刘备"</span>);
+        Leader manager = <span class="hljs-keyword">new</span> Manager(generalManger, <span class="hljs-string">"诸葛亮"</span>);
+        Leader director = <span class="hljs-keyword">new</span> Director(manager, <span class="hljs-string">"赵云"</span>);
+
+        director.handle(<span class="hljs-keyword">new</span> Request(<span class="hljs-string">"请假"</span>, <span class="hljs-string">"翡青"</span>, <span class="hljs-number">32</span>));
+        director.handle(<span class="hljs-keyword">new</span> Request(<span class="hljs-string">"涨薪"</span>, <span class="hljs-string">"zjf"</span>, <span class="hljs-number">1500</span>));
+    }
+}</code></pre>
+
+
+
+<pre class="prettyprint"><code class=" hljs cs"><span class="hljs-keyword">public</span> <span class="hljs-keyword">class</span> Request {
+
+    <span class="hljs-keyword">private</span> String type;
+
+    <span class="hljs-keyword">private</span> String content;
+
+    <span class="hljs-keyword">private</span> <span class="hljs-keyword">int</span> count;
+
+    <span class="hljs-keyword">public</span> <span class="hljs-title">Request</span>() {
+    }
+
+    <span class="hljs-keyword">public</span> <span class="hljs-title">Request</span>(String type, String content, <span class="hljs-keyword">int</span> count) {
+        <span class="hljs-keyword">this</span>.type = type;
+        <span class="hljs-keyword">this</span>.content = content;
+        <span class="hljs-keyword">this</span>.count = count;
+    }
+
+    <span class="hljs-keyword">public</span> String <span class="hljs-title">getType</span>() {
+        <span class="hljs-keyword">return</span> type;
+    }
+
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">void</span> <span class="hljs-title">setType</span>(String type) {
+        <span class="hljs-keyword">this</span>.type = type;
+    }
+
+    <span class="hljs-keyword">public</span> String <span class="hljs-title">getContent</span>() {
+        <span class="hljs-keyword">return</span> content;
+    }
+
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">void</span> <span class="hljs-title">setContent</span>(String content) {
+        <span class="hljs-keyword">this</span>.content = content;
+    }
+
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">int</span> <span class="hljs-title">getCount</span>() {
+        <span class="hljs-keyword">return</span> count;
+    }
+
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">void</span> <span class="hljs-title">setCount</span>(<span class="hljs-keyword">int</span> count) {
+        <span class="hljs-keyword">this</span>.count = count;
+    }
+}</code></pre>
+
+<blockquote>
+  <p>注: <strong>非链表实现责任链</strong> - 还可通过<strong>集合</strong>、<strong>数组</strong>等形式存储责任链, 很多项目中, 每个具体的<strong>Handler</strong>并不是开发团队定义的, 而是项目上线后又外部单位追加的, 此时使用链表方式定义<strong>chain of responsibility</strong>就很困难, 此时可选择使用集合存储.</p>
+</blockquote>
+
+<hr />
+
+
+
+<h2 id="小结">小结</h2>
+
+<ul>
+<li><p>优缺点</p>
+
+<ul><li>降低耦合度: 客户提交一个请求, 请求沿链传递直至一个<strong>ConcreteHandler</strong>最终处理, <strong>接收者和发送者都没有对方的明确信息</strong>, 便于接受者与发送者的解耦.</li>
+<li>增强给对象指派职责的灵活性: 链中对象自己并<strong>不清楚链结构</strong>,他们仅保持一个<strong>后继者指针</strong>, 因此责任链可<strong>简化对象的相互连接</strong>, 且可以随时增加或修改处理请求的对象, 增强了<strong>给对象指派职责的灵活性</strong>.</li>
+<li>缺陷: 不保证被接受: 既然一个请求没有明确的接收者, 那么就不能保证它能一定被正确处理, 即一个请求有可能到了链的末端也得不到处理, 或因为没有正确配置链顺序而得不到<strong>“正确”</strong>处理.</li></ul></li>
+<li><p>场景</p>
+
+<ul><li>有多个对象可以处理一类请求, 且哪个对象处理由运行时刻自动确定;</li>
+<li>在不明确指定接收者的情况下, 向多个对象中提交同一个请求;</li>
+<li>处理一个请求的对象集合被动态指定; <br />
+<ul><li>Java异常机制: 一个<code>try</code>对应多个<code>catch</code>;</li>
+<li>Servlet: <code>Filter</code>链式处理;</li>
+<li>Spring MVC : 拦截器链(详见: <a href="http://blog.csdn.net/zjf280441589/article/details/51831979#t2">Spring MVC 实践</a>);</li></ul></li></ul></li>
+<li><p>相关模式 <br />
+<a href="http://blog.csdn.net/zjf280441589/article/details/52410509">Composite(组合)模式</a>: 这种情况下, 一个构件的父构件可作为它的后继者.</p></li>
+</ul>
+
+<hr />
+
+<dl>
+<dt>参考</dt>
+<dd><a href="https://book.douban.com/subject/1052241/">设计模式: 可复用面向对象软件的基础</a></dd>
+
+<dd><a href="http://blog.csdn.net/zhouyong0/article/details/7909456">《JAVA与模式》之责任链模式</a></dd>
+
+<dd><a href="http://haolloyin.blog.51cto.com/1177454/342166/">职责链模式（Chain of Responsibility）的Java实现</a></dd>
+
+<dd><a href="https://www.douban.com/link2/?url=https://book.douban.com/subject/2334288/&amp;query=%E5%A4%A7%E8%AF%9D%E8%AE%BE%E8%AE%A1%E6%A8%A1%E5%BC%8F&amp;cat_id=1001&amp;type=search&amp;pos=0">大话设计模式</a></dd>
+
+<dd><a href="http://www.bjsxt.com/2014/down_0425/34.html">高淇讲设计模式</a></dd>
+</dl>
+
+<hr />
+
+<ul>
+<li><em>by</em> 翡青 <br />
+<ul><li>博客: <a href="http://blog.csdn.net/zjf280441589">翡青的技术周刊</a> - <a href="http://blog.csdn.net/zjf280441589">http://blog.csdn.net/zjf280441589</a></li>
+<li>微博: <a href="http://weibo.com/u/3319050953">翡青jf</a> - <a href="http://weibo.com/u/3319050953">http://weibo.com/u/3319050953</a></li></ul></li>
+</ul>
+
+<hr /></div>&#13;
+        <script type="text/javascript">&#13;
+            $(function () {&#13;
+                $('pre.prettyprint code').each(function () {&#13;
+                    var lines = $(this).text().split('\n').length;&#13;
+                    var $numbering = $('&lt;ul/&gt;').addClass('pre-numbering').hide();&#13;
+                    $(this).addClass('has-numbering').parent().append($numbering);&#13;
+                    for (i = 1; i &lt;= lines; i++) {&#13;
+                        $numbering.append($('&lt;li/&gt;').text(i));&#13;
+                    };&#13;
+                    $numbering.fadeIn(1700);&#13;
+                });&#13;
+            });&#13;
+        </script>&#13;
+   &#13;

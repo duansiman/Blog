@@ -1,0 +1,327 @@
+
+        <div class="markdown_views"><h1 id="springdatajpa学习记录二增删改查">SpringDataJPA学习记录(二)–增删改查</h1>
+
+<p>标签（空格分隔）： springJPA</p>
+
+<hr />
+
+<p>环境配置后,开始增删改查,查是用的最多的,放在最后.</p>
+
+
+
+<h2 id="1增加">1.增加</h2>
+
+<p>增加可以使用JpaRepository接口里面的save方法.查看源码可以发现实际上是使用了<code>em.persist(entity)</code>来使对象进入持久化状态,最后提交事务的时候再一起更新到数据库.</p>
+
+
+
+<pre class="prettyprint"><code class=" hljs avrasm">        User user = new User()<span class="hljs-comment">;</span>
+        user<span class="hljs-preprocessor">.setId</span>(<span class="hljs-number">99</span>)<span class="hljs-comment">;</span>
+        user<span class="hljs-preprocessor">.setAddress</span>(<span class="hljs-string">"上海"</span>)<span class="hljs-comment">;</span>
+        user<span class="hljs-preprocessor">.setName</span>(<span class="hljs-string">"张三"</span>)<span class="hljs-comment">;</span>
+        user<span class="hljs-preprocessor">.setPhone</span>(<span class="hljs-string">"110"</span>)<span class="hljs-comment">;</span>
+
+        //保存单个
+        userRepository<span class="hljs-preprocessor">.save</span>(user)<span class="hljs-comment">;</span>
+        //保存或更新
+        userRepository<span class="hljs-preprocessor">.saveAndFlush</span>(user)<span class="hljs-comment">;</span>
+
+        List&lt;User&gt; users = new ArrayList&lt;&gt;()<span class="hljs-comment">;</span>
+        users<span class="hljs-preprocessor">.add</span>(user)<span class="hljs-comment">;</span>
+        //保存多个
+        userRepository<span class="hljs-preprocessor">.save</span>(users)<span class="hljs-comment">;</span></code></pre>
+
+<p>这里还可以批量插入,对于mysql支持<code>INSERT user VALUES (20,'王二','111','111'),(21,'王二','111','111');</code>类似这样的sql语句,具体实现就需要自己去写实现了,这样可以一次插入多条记录,效率很高.至于一次插入多少条就可以根据你的业务量来自己制定.</p>
+
+<hr />
+
+
+
+<h2 id="2删除">2.删除</h2>
+
+<p>删除都是根据主键来删除的,区别就是多条sql和单条sql</p>
+
+
+
+<pre class="prettyprint"><code class=" hljs java">        User user = <span class="hljs-keyword">new</span> User();
+        user.setId(<span class="hljs-number">21</span>);
+        user.setName(<span class="hljs-string">"王二"</span>);
+
+        <span class="hljs-javadoc">/**
+         * 删除都是根据主键删除
+         */</span>
+        <span class="hljs-comment">//删除单条,根据主键值</span>
+        userRepository.delete(<span class="hljs-number">20</span>);
+        <span class="hljs-comment">//删除全部,先findALL查找出来,再一条一条删除,最后提交事务</span>
+        userRepository.deleteAll();
+        <span class="hljs-comment">//删除全部,一条sql</span>
+        userRepository.deleteAllInBatch();
+
+        List&lt;User&gt; users = <span class="hljs-keyword">new</span> ArrayList&lt;&gt;();
+        users.add(user);
+        <span class="hljs-comment">//删除集合,一条一条删除</span>
+        userRepository.delete(users);
+        <span class="hljs-comment">//删除集合,一条sql,拼接or语句  如 id=1 or id=2</span>
+        userRepository.deleteInBatch(users);</code></pre>
+
+<hr />
+
+
+
+<h2 id="3修改">3.修改</h2>
+
+<p>修改也是根据主键来更新的</p>
+
+
+
+<pre class="prettyprint"><code class=" hljs java">        User user = <span class="hljs-keyword">new</span> User();
+        user.setId(<span class="hljs-number">1</span>);
+        user.setName(<span class="hljs-string">"张三"</span>);
+        <span class="hljs-javadoc">/**
+         * 更新也是根据主键来更新  update XX  xx where id=1
+         */</span>
+        userRepository.saveAndFlush(user);</code></pre>
+
+<p>批量更新的话,就调用entityManager的merge函数来更新.</p>
+
+<p>首先在service层获取持久化管理器:</p>
+
+
+
+<pre class="prettyprint"><code class=" hljs java">    <span class="hljs-annotation">@PersistenceContext</span>
+    <span class="hljs-keyword">private</span> EntityManager em;</code></pre>
+
+<p>批量更新方法,同理插入,删除也都可以如此做.</p>
+
+
+
+<pre class="prettyprint"><code class=" hljs cs">    @Transactional
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">void</span> <span class="hljs-title">batchUpateCustom</span>(List&lt;User&gt; users) {
+        <span class="hljs-comment">// TODO Auto-generated method stub</span>
+        <span class="hljs-keyword">for</span>(<span class="hljs-keyword">int</span> i = <span class="hljs-number">0</span>; i &lt; users.size(); i++) {  
+            em.merge(users.<span class="hljs-keyword">get</span>(i));  
+            <span class="hljs-keyword">if</span>(i % <span class="hljs-number">30</span>== <span class="hljs-number">0</span>) {  
+                em.flush();  
+                em.clear();  
+            }  
+        }
+    }</code></pre>
+
+<hr />
+
+
+
+<h2 id="4查询">4.查询</h2>
+
+<p>单表查询,大部分都可以使用下面三种方法解决,多表联合查询的话,下面方法就不是很实用,下一节分析多表查询.</p>
+
+
+
+<h3 id="1使用jparepository方法">1.使用JpaRepository方法</h3>
+
+
+
+<pre class="prettyprint"><code class=" hljs avrasm">        //查找全部
+        userRepository<span class="hljs-preprocessor">.findAll</span>()<span class="hljs-comment">;</span>
+        //分页查询全部,返回封装了分页信息
+        Page&lt;User&gt; pageInfo = userRepository<span class="hljs-preprocessor">.findAll</span>(new PageRequest(<span class="hljs-number">1</span>, <span class="hljs-number">3</span>, Sort<span class="hljs-preprocessor">.Direction</span><span class="hljs-preprocessor">.ASC</span>,<span class="hljs-string">"id"</span>))<span class="hljs-comment">;</span>
+        //查找全部,并排序
+        userRepository<span class="hljs-preprocessor">.findAll</span>(new Sort(new Sort<span class="hljs-preprocessor">.Order</span>(Sort<span class="hljs-preprocessor">.Direction</span><span class="hljs-preprocessor">.ASC</span>,<span class="hljs-string">"id"</span>)))<span class="hljs-comment">;</span>
+
+        User user = new User()<span class="hljs-comment">;</span>
+        user<span class="hljs-preprocessor">.setName</span>(<span class="hljs-string">"小红"</span>)<span class="hljs-comment">;</span>
+        //条件查询,可以联合分页,排序
+        userRepository<span class="hljs-preprocessor">.findAll</span>(Example<span class="hljs-preprocessor">.of</span>(user))<span class="hljs-comment">;</span>
+        //查询单个
+        userRepository<span class="hljs-preprocessor">.findOne</span>(<span class="hljs-number">1</span>)<span class="hljs-comment">;</span></code></pre>
+
+
+
+<h3 id="2解析方法名创建查询">2.解析方法名创建查询</h3>
+
+<p>规则: <br />
+find+全局修饰+By+实体的属性名称+限定词+连接词+ …(其它实体属性)+OrderBy+排序属性+排序方向</p>
+
+<p>例如：</p>
+
+
+
+<pre class="prettyprint"><code class=" hljs cs">    <span class="hljs-comment">//分页查询出符合姓名的记录,同理Sort也可以直接加上</span>
+    <span class="hljs-keyword">public</span> List&lt;User&gt; <span class="hljs-title">findByName</span>(String name, Pageable pageable);</code></pre>
+
+<blockquote>
+  <p>全局修饰： Distinct， Top， First <br />
+  关键词： IsNull， IsNotNull， Like， NotLike， Containing， In， NotIn， <br />
+  IgnoreCase， Between， Equals， LessThan， GreaterThan， After， Before… <br />
+  排序方向： Asc， Desc <br />
+  连接词： And， Or</p>
+  
+  <p>And — 等价于 SQL 中的 and 关键字，比如 findByUsernameAndPassword(String user, Striang pwd)； <br />
+  Or — 等价于 SQL 中的 or 关键字，比如 findByUsernameOrAddress(String user, String addr)； <br />
+  Between — 等价于 SQL 中的 between 关键字，比如 findBySalaryBetween(int max, int min)； <br />
+  LessThan — 等价于 SQL 中的 “&lt;”，比如 findBySalaryLessThan(int max)； <br />
+  GreaterThan — 等价于 SQL 中的”&gt;”，比如 findBySalaryGreaterThan(int min)； <br />
+  IsNull — 等价于 SQL 中的 “is null”，比如 findByUsernameIsNull()； <br />
+  IsNotNull — 等价于 SQL 中的 “is not null”，比如 findByUsernameIsNotNull()； <br />
+  NotNull — 与 IsNotNull 等价； <br />
+  Like — 等价于 SQL 中的 “like”，比如 findByUsernameLike(String user)； <br />
+  NotLike — 等价于 SQL 中的 “not like”，比如 findByUsernameNotLike(String user)； <br />
+  OrderBy — 等价于 SQL 中的 “order by”，比如 findByUsernameOrderBySalaryAsc(String user)； <br />
+  Not — 等价于 SQL 中的 “！ =”，比如 findByUsernameNot(String user)； <br />
+  In — 等价于 SQL 中的 “in”，比如 findByUsernameIn(Collection userList) ，方法的参数可以是 Collection 类型，也可以是数组或者不定长参数； <br />
+  NotIn — 等价于 SQL 中的 “not in”，比如 findByUsernameNotIn(Collection userList) ，方法的参数可以是 Collection 类型，也可以是数组或者不定长参数；</p>
+</blockquote>
+
+<p>嵌套实体:</p>
+
+<blockquote>
+  <p>主实体中子实体的名称+ _ +子实体的属性名称 <br />
+  List findByAddress_ZipCode(ZipCode zipCode) <br />
+  表示查询所有 Address（地址）的zipCode（邮编）为指定值的所有Person(人员)</p>
+</blockquote>
+
+<hr />
+
+
+
+<h3 id="3jpql查询">3.JPQL查询</h3>
+
+<p>一个类似HQL的语法,在接口上使用@Query标识</p>
+
+
+
+<pre class="prettyprint"><code class=" hljs java"> <span class="hljs-annotation">@Query</span>(<span class="hljs-string">"select a from user a where a.id = ?1"</span>) 
+ <span class="hljs-keyword">public</span> User <span class="hljs-title">findById</span>(Long id); </code></pre>
+
+<p>使用@Modifying标识修改</p>
+
+
+
+<pre class="prettyprint"><code class=" hljs java"> <span class="hljs-annotation">@Modifying</span> 
+ <span class="hljs-annotation">@Query</span>(<span class="hljs-string">"update User a set a.name = ?1 where a.id &lt; ?2"</span>) 
+ <span class="hljs-keyword">public</span> <span class="hljs-keyword">int</span> <span class="hljs-title">updateName</span>(String name, Long id);</code></pre>
+
+<p>携带分页信息:</p>
+
+
+
+<pre class="prettyprint"><code class=" hljs java">    <span class="hljs-annotation">@Query</span>(<span class="hljs-string">"select u from User u where u.name=?1"</span>)
+    <span class="hljs-keyword">public</span> List&lt;User&gt; <span class="hljs-title">findByName</span>(String name, Pageable pageable);</code></pre>
+
+<p>除此之外也可以使用原生sql,只需要<code>@Query(nativeQuery=true)</code>标识即可.</p>
+
+<p>创建查询顺序:</p>
+
+<blockquote>
+  <p>创建查询的顺序 <br />
+  Spring Data JPA 在为接口创建代理对象时，如果发现同时存在多种上述情况可用，它该优先采用哪种策略呢？为此， 提供了 query-lookup-strategy 属性，用以指定查找的顺序。它有如下三个取值： <br />
+  create — 通过解析方法名字来创建查询。即使有符合的命名查询，或者方法通过 @Query 指定的查询语句，都将会被忽略。 <br />
+  create-if-not-found — 如果方法通过 @Query 指定了查询语句，则使用该语句实现查询；如果没有，则查找是否定义了符合条件的命名查询，如果找到，则使用该命名查询；如果两者都没有找到，则通过解析方法名字来创建查询。这是 query-lookup-strategy 属性的默认值。 <br />
+  use-declared-query — 如果方法通过 @Query 指定了查询语句，则使用该语句实现查询；如果没有，则查找是否定义了符合条件的命名查询，如果找到，则使用该命名查询；如果两者都没有找到，则抛出异常。</p>
+</blockquote>
+
+
+
+<h2 id="5计数">5.计数</h2>
+
+<p>计数就直接使用JpaRepository的count方法</p>
+
+
+
+<pre class="prettyprint"><code class=" hljs axapta">        <span class="hljs-comment">//查找总数量</span>
+        userRepository.<span class="hljs-keyword">count</span>();
+
+        User user = <span class="hljs-keyword">new</span> User();
+        user.setName(<span class="hljs-string">"小红"</span>);
+        <span class="hljs-comment">//条件计数</span>
+        userRepository.<span class="hljs-keyword">count</span>(Example.of(user));</code></pre>
+
+
+
+<h2 id="6判断是否存在">6.判断是否存在</h2>
+
+<p>计数就直接使用JpaRepository的exists方法</p>
+
+
+
+<pre class="prettyprint"><code class=" hljs fsharp">        <span class="hljs-comment">//根据主键判断是否存在</span>
+        userRepository.exists(<span class="hljs-number">1</span>);
+
+        User user = <span class="hljs-keyword">new</span> User();
+        user.setName(<span class="hljs-string">"小红"</span>);
+        <span class="hljs-comment">//根据条件判断是否存在</span>
+        userRepository.exists(Example.<span class="hljs-keyword">of</span>(user));</code></pre>
+
+<hr />
+
+
+
+<h2 id="7自定义查询">7.自定义查询</h2>
+
+<p>首先自定义一个接口,用于定义自定义方法,如<code>UserRepositoryCustom</code></p>
+
+<p>然后让<code>UserRepository</code>实现该接口,这样的话就可以使用其中的方法.</p>
+
+<p>然后写<code>UserRepositoryImpl</code>实现<code>UserRepositoryCustom</code>接口</p>
+
+<p>最后设置<code>jpa:repositories</code>的<code>repository-impl-postfix="Impl"</code>,这样的话JPA会查找自定义实现类命名规则,这样的话JPA在相应<code>UserRepository</code>包下面查找实现类,找到则会使用其中的实现方法,而不去自己实现.</p>
+
+<p>具体可以看项目demo,或者下一节的复杂查询</p>
+
+
+
+<h2 id="8备注">8.备注</h2>
+
+
+
+<h3 id="1尽量避免getsingleresult">1.尽量避免getSingleResult</h3>
+
+<p>下面是该方法的部分源码,可以看出,如果查询出来的个数为0或者大于1都抛出异常,一般来说我们希望查找不到就返回null,而抛异常则是不想看到的,如果要使用,则需要try一下该代码块,在catch里面返回null.</p>
+
+
+
+<pre class="prettyprint"><code class=" hljs cs">        <span class="hljs-keyword">try</span> {
+            List he = <span class="hljs-keyword">this</span>.query.list();
+            <span class="hljs-keyword">if</span>(he.size() == <span class="hljs-number">0</span>) {
+                NoResultException uniqueResult1 = <span class="hljs-keyword">new</span> NoResultException(<span class="hljs-string">"No entity found for query"</span>);
+                <span class="hljs-keyword">this</span>.getEntityManager().handlePersistenceException(uniqueResult1);
+                <span class="hljs-keyword">throw</span> uniqueResult1;
+            } <span class="hljs-keyword">else</span> <span class="hljs-keyword">if</span>(he.size() &gt; <span class="hljs-number">1</span>) {
+                HashSet uniqueResult = <span class="hljs-keyword">new</span> HashSet(he);
+                <span class="hljs-keyword">if</span>(uniqueResult.size() &gt; <span class="hljs-number">1</span>) {
+                    NonUniqueResultException nure = <span class="hljs-keyword">new</span> NonUniqueResultException(<span class="hljs-string">"result returns more than one elements"</span>);
+                    <span class="hljs-keyword">this</span>.getEntityManager().handlePersistenceException(nure);
+                    <span class="hljs-keyword">throw</span> nure;
+                } <span class="hljs-keyword">else</span> {
+                    <span class="hljs-keyword">return</span> uniqueResult.iterator().next();
+                }
+            } <span class="hljs-keyword">else</span> {
+                <span class="hljs-keyword">return</span> he.<span class="hljs-keyword">get</span>(<span class="hljs-number">0</span>);
+            }
+        } <span class="hljs-keyword">catch</span> (QueryExecutionRequestException var4) {
+            <span class="hljs-keyword">throw</span> <span class="hljs-keyword">new</span> IllegalStateException(var4);
+        } <span class="hljs-keyword">catch</span> (TypeMismatchException var5) {
+            <span class="hljs-keyword">throw</span> <span class="hljs-keyword">new</span> IllegalArgumentException(var5);
+        } <span class="hljs-keyword">catch</span> (HibernateException var6) {
+            <span class="hljs-keyword">throw</span> <span class="hljs-keyword">this</span>.getEntityManager().convert(var6);
+        }</code></pre>
+
+<p>基本增删改查就是以上这些,都很容易上手,个人感觉比mybatis方便多了.初学该框架,借鉴了很多博客,更多使用技巧还要在实战中发现,如果问题,请留言交流.</p>
+
+<p>代码地址:</p>
+
+<p>github地址:   <a href="https://github.com/nl101531/JavaWEB">https://github.com/nl101531/JavaWEB</a>       JPA-Demo</p></div>&#13;
+        <script type="text/javascript">&#13;
+            $(function () {&#13;
+                $('pre.prettyprint code').each(function () {&#13;
+                    var lines = $(this).text().split('\n').length;&#13;
+                    var $numbering = $('&lt;ul/&gt;').addClass('pre-numbering').hide();&#13;
+                    $(this).addClass('has-numbering').parent().append($numbering);&#13;
+                    for (i = 1; i &lt;= lines; i++) {&#13;
+                        $numbering.append($('&lt;li/&gt;').text(i));&#13;
+                    };&#13;
+                    $numbering.fadeIn(1700);&#13;
+                });&#13;
+            });&#13;
+        </script>&#13;
+   &#13;

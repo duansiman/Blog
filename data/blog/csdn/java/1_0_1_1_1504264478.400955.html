@@ -1,0 +1,161 @@
+
+        <div class="markdown_views"><p><strong>模板方法概念的简单介绍:</strong></p>
+
+<p>在抽象基类定义final修饰的方法封装算法骨架,并实现其中的共性的步骤,某些没有共性的步骤(可定义为protected或默认的abstract方法)延迟到子类实现,这样做可以在不改变算法骨架的同时,又能在后期实现算法骨架中的非共性步骤</p>
+
+
+
+<h2 id="模板方法模式例子的代码实现">模板方法模式例子的代码实现</h2>
+
+<p>生活中,有些操作的具备相似的过程,比如:泡茶和冲调咖啡,看似是两件事,其实我们可以简单总结一些流程,然后总结出一套通用的流程:</p>
+
+<p><img src="http://img.blog.csdn.net/20160724160957765?watermark/2/text/aHR0cDovL2Jsb2cuY3Nkbi5uZXQv/font/5a6L5L2T/fontsize/400/fill/I0JBQkFCMA==/dissolve/70/gravity/SouthEast" alt="" title="" /></p>
+
+<p>通过上图我们可以发现,虫咖啡和泡茶有一样的流程,只是中间的某些具体操作不同,所以我们可以将这两件事的流程归纳为下面这个流程:</p>
+
+<p><img src="http://img.blog.csdn.net/20160724161131013?watermark/2/text/aHR0cDovL2Jsb2cuY3Nkbi5uZXQv/font/5a6L5L2T/fontsize/400/fill/I0JBQkFCMA==/dissolve/70/gravity/SouthEast" alt="" title="" /></p>
+
+<p><strong>接下来代码实现:首先定义抽象基类,为子类提供一个算法框架:</strong></p>
+
+
+
+<pre class="prettyprint"><code class=" hljs cs"><span class="hljs-keyword">public</span> <span class="hljs-keyword">abstract</span> <span class="hljs-keyword">class</span> RefreshBeverage {<span class="hljs-comment">//定义抽象基类,为子类提供一个算法框架</span>
+
+    <span class="hljs-keyword">public</span> final <span class="hljs-keyword">void</span> <span class="hljs-title">prepareBeverageTemplate</span>(){<span class="hljs-comment">//制备饮料的模板方法封装了所有子类共同遵循的算法框架</span>
+
+         boilWater();<span class="hljs-comment">//1.将水煮沸</span>
+
+         brew();<span class="hljs-comment">//2.冲调饮料</span>
+
+         pourIntoCup();<span class="hljs-comment">//3.将饮料导入杯中</span>
+
+         <span class="hljs-keyword">if</span>(isNeeded){
+             addCondiments();<span class="hljs-comment">//4.加入调味料</span>
+         }
+    }
+
+    <span class="hljs-keyword">private</span> <span class="hljs-keyword">void</span> <span class="hljs-title">boilWater</span>() {<span class="hljs-comment">//基本方法,将水煮沸</span>
+        System.<span class="hljs-keyword">out</span>.println(<span class="hljs-string">"将水煮沸"</span>);
+    }
+
+    <span class="hljs-keyword">protected</span> <span class="hljs-keyword">abstract</span> <span class="hljs-keyword">void</span> <span class="hljs-title">brew</span>();<span class="hljs-comment">//抽象方法,用于泡制饮料</span>
+
+    <span class="hljs-keyword">private</span> <span class="hljs-keyword">void</span> <span class="hljs-title">pourIntoCup</span>() {
+        System.<span class="hljs-keyword">out</span>.println(<span class="hljs-string">"将水倒入杯中"</span>);
+    }
+
+    <span class="hljs-keyword">protected</span> <span class="hljs-keyword">abstract</span> <span class="hljs-keyword">void</span> <span class="hljs-title">addCondiments</span>();
+
+    <span class="hljs-comment">/*
+    * Hook,钩子函数,提供一个默认或空的实现
+    * 具体的子类可以,自行决定是否挂钩以及如何挂钩
+    * 询问顾客是否加入调理
+    */</span>
+    <span class="hljs-keyword">protected</span> boolean <span class="hljs-title">isNeeded</span>() {
+        <span class="hljs-keyword">return</span> <span class="hljs-keyword">true</span>;
+    }
+}</code></pre>
+
+<p>我们提供了一个钩子方法,为了让子类决定有些步骤是否需要,比如,泡茶的时候,有些人是不会添加调剂品的,所以我们通过提过钩子方法,让子类决定是否挂载以及如何挂载</p>
+
+<p><strong>具体子类1(Coffee.java),提供了咖啡具备的具体实现:</strong></p>
+
+
+
+<pre class="prettyprint"><code class=" hljs java"><span class="hljs-keyword">public</span> <span class="hljs-class"><span class="hljs-keyword">class</span> <span class="hljs-title">Coffee</span> <span class="hljs-keyword">extends</span> <span class="hljs-title">RefreshBeverage</span> {</span><span class="hljs-comment">//具体子类,提供了咖啡具备的具体实现</span>
+
+    <span class="hljs-annotation">@Override</span>
+    <span class="hljs-keyword">protected</span> <span class="hljs-keyword">void</span> <span class="hljs-title">brew</span>() {
+        System.out.println(<span class="hljs-string">"用沸水冲泡咖啡"</span>);
+    }
+
+    <span class="hljs-annotation">@Override</span>
+    <span class="hljs-keyword">protected</span> <span class="hljs-keyword">void</span> <span class="hljs-title">addCondiments</span>() {
+        System.out.println(<span class="hljs-string">"加入咖啡伴侣"</span>);
+    }
+}</code></pre>
+
+<p><strong>具体子类2(Tea.java),提供了咖啡具备的具体实现:</strong></p>
+
+
+
+<pre class="prettyprint"><code class=" hljs java"><span class="hljs-keyword">public</span> <span class="hljs-class"><span class="hljs-keyword">class</span> <span class="hljs-title">Tea</span> <span class="hljs-keyword">extends</span> <span class="hljs-title">RefreshBeverage</span> {</span><span class="hljs-comment">//具体子类,提供了制备茶的具体实现</span>
+
+    <span class="hljs-annotation">@Override</span>
+    <span class="hljs-keyword">protected</span> <span class="hljs-keyword">void</span> <span class="hljs-title">addCondiments</span>() {
+        System.out.println(<span class="hljs-string">"加入蜂蜜"</span>);
+    }
+
+    <span class="hljs-annotation">@Override</span>
+    <span class="hljs-keyword">protected</span> <span class="hljs-keyword">void</span> <span class="hljs-title">brew</span>() {
+        System.out.println(<span class="hljs-string">"用80度热水泡茶"</span>);
+    }
+
+    <span class="hljs-annotation">@Override</span>
+    <span class="hljs-keyword">protected</span> <span class="hljs-keyword">boolean</span> <span class="hljs-title">isNeeded</span>() {<span class="hljs-comment">//子类通过覆盖的形式选择挂钩</span>
+        <span class="hljs-keyword">return</span> <span class="hljs-keyword">false</span>;
+    }
+}</code></pre>
+
+<p><strong>最后是代码的测试类(RefreshBeverageTest.java):</strong></p>
+
+
+
+<pre class="prettyprint"><code class=" hljs cs"><span class="hljs-keyword">public</span> <span class="hljs-keyword">class</span> RefreshBeverageTest {
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">static</span> <span class="hljs-keyword">void</span> <span class="hljs-title">main</span>(String[] args) {
+
+        System.<span class="hljs-keyword">out</span>.println(<span class="hljs-string">"制备咖啡..."</span>);  
+        RefreshBeverage b1=<span class="hljs-keyword">new</span> Coffee();
+        b1.prepareBeverageTemplate();
+        System.<span class="hljs-keyword">out</span>.println(<span class="hljs-string">"咖啡好了..."</span>);
+
+        System.<span class="hljs-keyword">out</span>.println(<span class="hljs-string">"制备茶..."</span>);
+        RefreshBeverage b2=<span class="hljs-keyword">new</span> Tea();
+        b2.prepareBeverageTemplate();
+        System.<span class="hljs-keyword">out</span>.println(<span class="hljs-string">"茶好了..."</span>);
+    }
+}</code></pre>
+
+
+
+<h2 id="模板方法模式的最后总结">模板方法模式的最后总结</h2>
+
+<p><strong>一.模板方法模式的实现要素:</strong></p>
+
+<p>准备一个抽象类,将部分逻辑以具体方法的形式实现,然后声明一些抽象方法交由子类实现剩余逻辑,用钩子方法给予子类更大的灵活性,最后将方法汇总构成一个不可改变的模板方法</p>
+
+<p><strong>二.从类的角度看模板方法模式:</strong></p>
+
+
+
+<pre class="prettyprint"><code class=" hljs haml"><span class="hljs-comment">//抽象基类:</span>
+-<span class="ruby">----<span class="hljs-number">1</span>.基本方法
+</span>-<span class="ruby">----<span class="hljs-number">2</span>.抽象方法(只知道具体原则,而不知道实现细节,需要将其延迟到子类中实现的一些步骤)
+</span>-<span class="ruby">----<span class="hljs-number">3</span>.可选钩子(<span class="hljs-constant">Hook</span>,钩子函数,提供一个默认或空的实现,具体的子类可以自行决定是否挂钩以及如何挂钩)
+</span>-<span class="ruby">----<span class="hljs-number">4</span>.<span class="hljs-constant">Template</span>方法(final使其不能被子类所覆写,模板方法模式要遵循的原则<span class="hljs-symbol">:</span>子类可以替换掉父类中的可变逻辑,但不能改变整体逻辑结构)
+</span><span class="hljs-comment">
+//具体子类:</span>
+-<span class="ruby">-----<span class="hljs-number">1</span>.实现基类中的抽象方法
+</span>-<span class="ruby">-----<span class="hljs-number">2</span>.覆盖钩子方法</span></code></pre>
+
+<p><strong>三.模板方法模式的适用场景和缺点:</strong></p>
+
+<pre class="prettyprint"><code class=" hljs cs"><span class="hljs-number">1.</span>算法或操作遵循相似的逻辑
+<span class="hljs-number">2.</span>重构时(把相同的代码抽取到父类中)
+<span class="hljs-number">3.</span>重要,复杂的算法,核心算法设计为模板方法算法
+
+<span class="hljs-comment">//缺点:继承限制(Java语言是单继承语言),单继承会使得更多情况不可用,新类引入困难</span></code></pre></div>&#13;
+        <script type="text/javascript">&#13;
+            $(function () {&#13;
+                $('pre.prettyprint code').each(function () {&#13;
+                    var lines = $(this).text().split('\n').length;&#13;
+                    var $numbering = $('&lt;ul/&gt;').addClass('pre-numbering').hide();&#13;
+                    $(this).addClass('has-numbering').parent().append($numbering);&#13;
+                    for (i = 1; i &lt;= lines; i++) {&#13;
+                        $numbering.append($('&lt;li/&gt;').text(i));&#13;
+                    };&#13;
+                    $numbering.fadeIn(1700);&#13;
+                });&#13;
+            });&#13;
+        </script>&#13;
+   &#13;

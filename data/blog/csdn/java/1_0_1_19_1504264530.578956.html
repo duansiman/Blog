@@ -1,0 +1,321 @@
+
+        <div class="markdown_views"><p><strong>★ 场景和问题</strong></p>
+
+<p>在不对原有对象类进行修改的基础上，如何给一个或多个已有的类对象提供增强额外的功能？</p>
+
+<p><strong>★ 引例</strong> <br />
+写一个MyBufferedReader类，使它能够对字符流(如FileReader、InputStreamReader和PipedReader等)进行功能增强： <br />
+(1) 提供带缓冲的myRead()方法，对原有的read()方法进行增速； <br />
+(2)提供一个能够每次读取一行字符的myReadLine()方法。</p>
+
+<p>实现对FileReader的功能加强：</p>
+
+
+
+<pre class="prettyprint"><code class=" hljs java"><span class="hljs-keyword">package</span> cn.hncu.pattern.decorator.v1;
+
+<span class="hljs-keyword">import</span> java.io.FileReader;
+<span class="hljs-keyword">import</span> java.io.IOException;
+
+<span class="hljs-keyword">public</span> <span class="hljs-class"><span class="hljs-keyword">class</span> <span class="hljs-title">MyBufferedReader</span> {</span>
+    <span class="hljs-keyword">private</span> FileReader fr;<span class="hljs-comment">//封装</span>
+    <span class="hljs-keyword">private</span> <span class="hljs-keyword">char</span> buf[] = <span class="hljs-keyword">new</span> <span class="hljs-keyword">char</span>[<span class="hljs-number">1024</span>];
+    <span class="hljs-keyword">private</span> <span class="hljs-keyword">int</span> count = <span class="hljs-number">0</span>;<span class="hljs-comment">// 记录当前缓冲区中的字符个数</span>
+    <span class="hljs-keyword">private</span> <span class="hljs-keyword">int</span> pos = <span class="hljs-number">0</span>;<span class="hljs-comment">// 游标，数组下标，当前读取的是数组中的哪个元素</span>
+
+
+    <span class="hljs-keyword">public</span> <span class="hljs-title">MyBufferedReader</span>(FileReader fr){
+        <span class="hljs-keyword">this</span>.fr=fr;
+    }
+
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">int</span> <span class="hljs-title">MyRead</span>() <span class="hljs-keyword">throws</span> IOException{
+        <span class="hljs-comment">// 当缓冲区为空时，用fr对象到文件中去读取一组数据到缓冲区中</span>
+        <span class="hljs-keyword">if</span>(count==<span class="hljs-number">0</span>){
+            count = fr.read(buf);
+            <span class="hljs-keyword">if</span>(count==-<span class="hljs-number">1</span>){
+                <span class="hljs-keyword">return</span> -<span class="hljs-number">1</span>;
+            }
+            pos=<span class="hljs-number">0</span>;;
+        }
+
+        <span class="hljs-comment">// 从缓冲区中取一个字符出去</span>
+        <span class="hljs-keyword">char</span> ch = buf[pos];
+        pos++;
+        count--;
+        <span class="hljs-comment">//返回那个字符</span>
+        <span class="hljs-keyword">return</span> ch;
+    }
+
+    <span class="hljs-keyword">public</span> String <span class="hljs-title">MyReadLine</span>() <span class="hljs-keyword">throws</span> IOException{
+        StringBuffer strBuffer = <span class="hljs-keyword">new</span> StringBuffer();
+        <span class="hljs-keyword">int</span> ch=<span class="hljs-number">0</span>;
+        <span class="hljs-keyword">while</span>(((ch=MyRead())!=-<span class="hljs-number">1</span>)){
+            <span class="hljs-keyword">if</span>(ch==<span class="hljs-string">'\r'</span>){
+                <span class="hljs-keyword">continue</span>;
+            }
+            <span class="hljs-keyword">if</span>(ch==<span class="hljs-string">'\n'</span>){
+                <span class="hljs-keyword">return</span> strBuffer.toString();
+            }
+
+            strBuffer.append(ch);
+        }
+
+        <span class="hljs-keyword">if</span>(strBuffer.length()!=<span class="hljs-number">0</span>){
+            <span class="hljs-keyword">return</span> strBuffer.toString();
+        }
+        <span class="hljs-keyword">return</span> <span class="hljs-keyword">null</span>;
+    }
+
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">void</span> <span class="hljs-title">MyClose</span>() <span class="hljs-keyword">throws</span> IOException{
+        fr.close();
+    }
+
+}
+</code></pre>
+
+<p>测试类：</p>
+
+
+
+<pre class="prettyprint"><code class=" hljs java"><span class="hljs-keyword">package</span> cn.hncu.pattern.decorator;
+
+<span class="hljs-keyword">import</span> java.io.BufferedReader;
+<span class="hljs-keyword">import</span> java.io.FileNotFoundException;
+<span class="hljs-keyword">import</span> java.io.FileReader;
+<span class="hljs-keyword">import</span> java.io.IOException;
+<span class="hljs-keyword">import</span> java.io.InputStream;
+
+<span class="hljs-keyword">import</span> cn.hncu.pattern.decorator.v1.MyBufferedReader;
+
+<span class="hljs-keyword">public</span> <span class="hljs-class"><span class="hljs-keyword">class</span> <span class="hljs-title">TestMyBufferReader</span> {</span>
+
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">static</span> <span class="hljs-keyword">void</span> <span class="hljs-title">main</span>(String[] args) <span class="hljs-keyword">throws</span> IOException {
+        <span class="hljs-comment">//testMyBufferedReader();//测试自己写的缓存流</span>
+
+        testBufferedReader();<span class="hljs-comment">//看看系统的缓存流读取的是不是和自己读取的相同</span>
+    }
+
+    <span class="hljs-comment">//测试JavaAPI中的BufferedReader类</span>
+    <span class="hljs-keyword">private</span> <span class="hljs-keyword">static</span> <span class="hljs-keyword">void</span> <span class="hljs-title">testBufferedReader</span>() <span class="hljs-keyword">throws</span> IOException {
+        FileReader in = <span class="hljs-keyword">new</span> FileReader(<span class="hljs-string">"chx.txt"</span>);
+        BufferedReader bf = <span class="hljs-keyword">new</span> BufferedReader(in);
+        <span class="hljs-keyword">int</span> ch=<span class="hljs-number">0</span>;
+        <span class="hljs-keyword">while</span>((ch=bf.read())!=-<span class="hljs-number">1</span>){
+            System.out.print((<span class="hljs-keyword">char</span>)ch);
+        }
+        bf.close();
+
+    }
+
+    <span class="hljs-comment">//测试自己写的MyBufferedReader类</span>
+    <span class="hljs-keyword">private</span> <span class="hljs-keyword">static</span> <span class="hljs-keyword">void</span> <span class="hljs-title">testMyBufferedReader</span>() <span class="hljs-keyword">throws</span> IOException {
+        FileReader fr = <span class="hljs-keyword">new</span> FileReader(<span class="hljs-string">"chx.txt"</span>);
+        MyBufferedReader mbf = <span class="hljs-keyword">new</span> MyBufferedReader(fr);
+        <span class="hljs-keyword">int</span> ch=<span class="hljs-number">0</span>;
+        <span class="hljs-keyword">while</span>((ch=mbf.MyRead())!=-<span class="hljs-number">1</span>){
+            System.out.print((<span class="hljs-keyword">char</span>)ch);
+        }
+
+        mbf.MyClose();
+    }
+
+
+
+}
+</code></pre>
+
+<p>文件chx.txt:</p>
+
+<pre class="prettyprint"><code class=" hljs erlang-repl">写一个<span class="hljs-variable">MyBufferedReader</span>类，使它能够对字符流
+(如<span class="hljs-variable">FileReader</span>、<span class="hljs-variable">InputStreamReader</span>和<span class="hljs-variable">PipedReader</span>等)进行功能增强：
+(<span class="hljs-number">1</span>) 提供带缓冲的<span class="hljs-function_or_atom">myRead</span>()方法，对原有的<span class="hljs-function_or_atom">read</span>()方法进行增速；
+(<span class="hljs-number">2</span>)提供一个能够每次读取一行字符的<span class="hljs-function_or_atom">myReadLine</span>()方法。
+<span class="hljs-function_or_atom">chx</span><span class="hljs-exclamation_mark">!</span><span class="hljs-exclamation_mark">!</span><span class="hljs-exclamation_mark">!</span>
+<span class="hljs-variable">OK</span>.</code></pre>
+
+<p>测试类中testMyBufferedReader()方法的输出结果:</p>
+
+<pre class="prettyprint"><code class=" hljs erlang-repl">写一个<span class="hljs-variable">MyBufferedReader</span>类，使它能够对字符流
+(如<span class="hljs-variable">FileReader</span>、<span class="hljs-variable">InputStreamReader</span>和<span class="hljs-variable">PipedReader</span>等)进行功能增强：
+(<span class="hljs-number">1</span>) 提供带缓冲的<span class="hljs-function_or_atom">myRead</span>()方法，对原有的<span class="hljs-function_or_atom">read</span>()方法进行增速；
+(<span class="hljs-number">2</span>)提供一个能够每次读取一行字符的<span class="hljs-function_or_atom">myReadLine</span>()方法。
+<span class="hljs-function_or_atom">chx</span><span class="hljs-exclamation_mark">!</span><span class="hljs-exclamation_mark">!</span><span class="hljs-exclamation_mark">!</span>
+<span class="hljs-variable">OK</span>.</code></pre>
+
+<p>测试类中testBufferReader()方法的输出结果:</p>
+
+
+
+<pre class="prettyprint"><code class=" hljs erlang-repl">写一个<span class="hljs-variable">MyBufferedReader</span>类，使它能够对字符流
+(如<span class="hljs-variable">FileReader</span>、<span class="hljs-variable">InputStreamReader</span>和<span class="hljs-variable">PipedReader</span>等)进行功能增强：
+(<span class="hljs-number">1</span>) 提供带缓冲的<span class="hljs-function_or_atom">myRead</span>()方法，对原有的<span class="hljs-function_or_atom">read</span>()方法进行增速；
+(<span class="hljs-number">2</span>)提供一个能够每次读取一行字符的<span class="hljs-function_or_atom">myReadLine</span>()方法。
+<span class="hljs-function_or_atom">chx</span><span class="hljs-exclamation_mark">!</span><span class="hljs-exclamation_mark">!</span><span class="hljs-exclamation_mark">!</span>
+<span class="hljs-variable">OK</span>.</code></pre>
+
+<p>可以看到，输出的结果是一样的！</p>
+
+<p>下面实现对多个类的缓存增强支持：</p>
+
+
+
+<pre class="prettyprint"><code class=" hljs java"><span class="hljs-keyword">package</span> cn.hncu.pattern.decorator.v3;
+
+<span class="hljs-keyword">import</span> java.io.IOException;
+<span class="hljs-keyword">import</span> java.io.Reader;
+
+<span class="hljs-keyword">public</span> <span class="hljs-class"><span class="hljs-keyword">class</span> <span class="hljs-title">MyReader</span> <span class="hljs-keyword">extends</span> <span class="hljs-title">Reader</span>{</span>
+    <span class="hljs-comment">//如果不写继承，就没有融入体系中去，所以要继承Reader类</span>
+    <span class="hljs-keyword">private</span> Reader r;
+    <span class="hljs-keyword">private</span> <span class="hljs-keyword">char</span>[] buf = <span class="hljs-keyword">new</span> <span class="hljs-keyword">char</span>[<span class="hljs-number">1024</span>];
+    <span class="hljs-keyword">private</span> <span class="hljs-keyword">int</span> count = <span class="hljs-number">0</span>;<span class="hljs-comment">// 记录当前缓冲区中的字符个数</span>
+    <span class="hljs-keyword">private</span> <span class="hljs-keyword">int</span> pos = <span class="hljs-number">0</span>;<span class="hljs-comment">// 游标，数组下标，当前读取的是数组中的哪个元素</span>
+
+    <span class="hljs-keyword">public</span>  <span class="hljs-title">MyReader</span>(Reader r){
+        <span class="hljs-keyword">this</span>.r=r;
+    }
+
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">int</span> <span class="hljs-title">MyReader</span>() <span class="hljs-keyword">throws</span> IOException{
+        <span class="hljs-comment">// 当缓冲区为空时，用r对象到文件中去读取一组数据到缓冲区中</span>
+        <span class="hljs-keyword">if</span>(count&lt;=<span class="hljs-number">0</span>){
+            count=<span class="hljs-number">0</span>;
+        }
+        <span class="hljs-keyword">if</span>(count==<span class="hljs-number">0</span>){
+            count=r.read(buf);
+            <span class="hljs-keyword">if</span>(count==-<span class="hljs-number">1</span>){
+                <span class="hljs-keyword">return</span> -<span class="hljs-number">1</span>;
+            }
+            pos=<span class="hljs-number">0</span>;
+        }
+
+
+        <span class="hljs-comment">// 从缓冲区中取一个字符出去</span>
+        <span class="hljs-keyword">int</span> ch = buf[pos];
+        pos++;
+        count--;
+
+
+        <span class="hljs-keyword">return</span> ch;
+    }
+
+    <span class="hljs-keyword">public</span> String <span class="hljs-title">MyReaderLine</span>() <span class="hljs-keyword">throws</span> IOException{
+        StringBuffer strBuffer = <span class="hljs-keyword">new</span> StringBuffer();
+        <span class="hljs-keyword">int</span> ch=<span class="hljs-number">0</span>;
+        <span class="hljs-keyword">while</span>((ch=MyReader())!=-<span class="hljs-number">1</span>){
+            <span class="hljs-keyword">if</span>(ch==<span class="hljs-string">'\r'</span>){<span class="hljs-comment">//回车</span>
+                <span class="hljs-keyword">continue</span>;
+            }
+            <span class="hljs-keyword">if</span>(ch==<span class="hljs-string">'\n'</span>){<span class="hljs-comment">//换行</span>
+                <span class="hljs-keyword">return</span> strBuffer.toString();
+            }
+            <span class="hljs-keyword">char</span> s = (<span class="hljs-keyword">char</span>)ch;
+            strBuffer.append(s);
+        }
+
+        <span class="hljs-keyword">if</span>(strBuffer.length()!=<span class="hljs-number">0</span>){
+            <span class="hljs-keyword">return</span> strBuffer.toString();
+        }
+        <span class="hljs-keyword">return</span> <span class="hljs-keyword">null</span>;
+    }
+
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">void</span> <span class="hljs-title">MyClose</span>() <span class="hljs-keyword">throws</span> IOException {
+        r.close();
+    }
+
+    <span class="hljs-annotation">@Override</span>
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">int</span> <span class="hljs-title">read</span>(<span class="hljs-keyword">char</span>[] cbuf, <span class="hljs-keyword">int</span> off, <span class="hljs-keyword">int</span> len) <span class="hljs-keyword">throws</span> IOException {
+        <span class="hljs-keyword">return</span> read(cbuf, off, len);
+    }
+
+    <span class="hljs-annotation">@Override</span>
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">void</span> <span class="hljs-title">close</span>() <span class="hljs-keyword">throws</span> IOException {
+        r.close();
+    }
+
+}
+</code></pre>
+
+<p>测试类：</p>
+
+
+
+<pre class="prettyprint"><code class=" hljs java"><span class="hljs-keyword">package</span> cn.hncu.pattern.decorator;
+
+<span class="hljs-keyword">import</span> java.io.FileReader;
+<span class="hljs-keyword">import</span> java.io.IOException;
+<span class="hljs-keyword">import</span> java.io.InputStreamReader;
+
+<span class="hljs-keyword">import</span> cn.hncu.pattern.decorator.v3.MyReader;
+
+<span class="hljs-keyword">public</span> <span class="hljs-class"><span class="hljs-keyword">class</span> <span class="hljs-title">TestMyReader</span> {</span>
+
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">static</span> <span class="hljs-keyword">void</span> <span class="hljs-title">main</span>(String[] args) <span class="hljs-keyword">throws</span> IOException {
+        testMyReaderLine();<span class="hljs-comment">//测试自己写的缓存流</span>
+        System.out.println(<span class="hljs-string">"-------------"</span>);
+        testMyReader();
+    }
+
+    <span class="hljs-comment">//测试自己写的MyReader类的MyReader()</span>
+    <span class="hljs-keyword">private</span> <span class="hljs-keyword">static</span> <span class="hljs-keyword">void</span> <span class="hljs-title">testMyReader</span>() <span class="hljs-keyword">throws</span> IOException {
+        InputStreamReader in = <span class="hljs-keyword">new</span> FileReader(<span class="hljs-string">"chx.txt"</span>);
+        MyReader mr = <span class="hljs-keyword">new</span> MyReader(in);
+        <span class="hljs-keyword">int</span> ch=<span class="hljs-number">0</span>;
+        <span class="hljs-keyword">while</span>((ch=mr.MyReader())!=-<span class="hljs-number">1</span>){
+            System.out.print((<span class="hljs-keyword">char</span>)ch);
+        }
+        mr.close();
+
+    }
+
+    <span class="hljs-comment">//测试自己写的MyReader类的MyReaderLine()</span>
+    <span class="hljs-keyword">private</span> <span class="hljs-keyword">static</span> <span class="hljs-keyword">void</span> <span class="hljs-title">testMyReaderLine</span>() <span class="hljs-keyword">throws</span> IOException {
+        FileReader fr = <span class="hljs-keyword">new</span> FileReader(<span class="hljs-string">"chx.txt"</span>);
+        MyReader mbf = <span class="hljs-keyword">new</span> MyReader(fr);
+        String ch=<span class="hljs-keyword">null</span>;
+        <span class="hljs-keyword">while</span>((ch=mbf.MyReaderLine())!=<span class="hljs-keyword">null</span>){
+            System.out.print(ch);
+            System.out.println();
+        }
+
+        mbf.MyClose();
+    }
+
+
+
+}
+</code></pre>
+
+<p>文件和上面的文件是一样的，下面看输出结果：</p>
+
+
+
+<pre class="prettyprint"><code class=" hljs asciidoc">写一个MyBufferedReader类，使它能够对字符流
+(如FileReader、InputStreamReader和PipedReader等)进行功能增强：
+(1) 提供带缓冲的myRead()方法，对原有的read()方法进行增速；
+(2)提供一个能够每次读取一行字符的myReadLine()方法。
+chx!!!
+<span class="hljs-header">OK.
+-------------</span>
+写一个MyBufferedReader类，使它能够对字符流
+(如FileReader、InputStreamReader和PipedReader等)进行功能增强：
+(1) 提供带缓冲的myRead()方法，对原有的read()方法进行增速；
+(2)提供一个能够每次读取一行字符的myReadLine()方法。
+chx!!!
+OK.</code></pre>
+
+<p><strong>装饰比继承更灵活，避免了继承造成的体系臃肿问题。</strong> <br />
+<img src="http://img.blog.csdn.net/20160404005810699" alt="" title="" /></p></div>&#13;
+        <script type="text/javascript">&#13;
+            $(function () {&#13;
+                $('pre.prettyprint code').each(function () {&#13;
+                    var lines = $(this).text().split('\n').length;&#13;
+                    var $numbering = $('&lt;ul/&gt;').addClass('pre-numbering').hide();&#13;
+                    $(this).addClass('has-numbering').parent().append($numbering);&#13;
+                    for (i = 1; i &lt;= lines; i++) {&#13;
+                        $numbering.append($('&lt;li/&gt;').text(i));&#13;
+                    };&#13;
+                    $numbering.fadeIn(1700);&#13;
+                });&#13;
+            });&#13;
+        </script>&#13;
+   &#13;

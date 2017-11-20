@@ -1,0 +1,601 @@
+
+
+<div style="text-align:center"><span style="font-size:18px"><strong>mini2440驱动分析之LCD</strong></span></div>&#13;
+        mini2440集成了lcd控制器的接口，板子上接的lcd硬件是统宝240*320，TFT型lcd。lcd驱动对应的文件为s3c2410fb.c。要读懂这个驱动必须了解linux platform子系统的知识。因为这个驱动是以platform驱动的形式注册到内核。而且还需要frambuffer驱动的知识，因为这个驱动还是frambuffer接口的。lcd驱动在模块初始化的时候，调用platform注册函数将自己注册到内核，利用linux设备模型核心的机制调用platform_bus总线的match函数找到相应的设备，然后由linux设备模型核心调用s3c2410fb.c中的s3c2410fb_probe&#13;
+ ，进行硬件相关初始化，并初始化frambuffer结构。然后注册到frambuffer核心。lcd的功能实现通过frambuffer核心来完成。s3c2410fb.c的功能实现都是配合frambuffer核心的。下面详细分析lcd驱动的实现。<br />&#13;
+<span style="font-size:16px">程序基本结构</span><br />&#13;
+ 1.模块初始化--&gt;向platform核心注册自己<br />&#13;
+ 2.实现linux设备模型必须的probe函数--&gt;向frambuffer核心注册自己（最重要）<br />&#13;
+                       resume函数--&gt;系统在由挂起恢复的时候调用<br />&#13;
+                       suspand--&gt;系统在挂起的时候调用 <br />&#13;
+                       remove--&gt; 驱动程序注销自己的时候调用                  <br />&#13;
+ 3.frambuffer驱动模型fb_ops各函数的实现--&gt;实现fb驱动的ioctl命令需要的函数<br />&#13;
+<p> 4.其他函数--&gt;由2.3.中的函数调用，帮助其实现功能。</p>&#13;
+<span style="font-size:16px">一. 相关数据结构</span><br />&#13;
+  1. struct fb_info 结构<br />&#13;
+<pre name="code" class="cpp">struct fb_info {
+	int node;
+	int flags;
+	struct mutex lock;		/* Lock for open/release/ioctl funcs */
+	struct mutex mm_lock;		/* Lock for fb_mmap and smem_* fields */
+	struct fb_var_screeninfo var;	/* Current var */
+	struct fb_fix_screeninfo fix;	/* Current fix */
+	struct fb_monspecs monspecs;	/* Current Monitor specs */
+	struct work_struct queue;	/* Framebuffer event queue */
+	struct fb_pixmap pixmap;	/* Image hardware mapper */
+	struct fb_pixmap sprite;	/* Cursor hardware mapper */
+	struct fb_cmap cmap;		/* Current cmap */
+	struct list_head modelist;      /* mode list */
+	struct fb_videomode *mode;	/* current mode */
+
+#ifdef CONFIG_FB_BACKLIGHT
+	/* assigned backlight device */
+	/* set before framebuffer registration, 
+	   remove after unregister */
+	struct backlight_device *bl_dev;
+
+	/* Backlight level curve */
+	struct mutex bl_curve_mutex;	
+	u8 bl_curve[FB_BACKLIGHT_LEVELS];
+#endif
+#ifdef CONFIG_FB_DEFERRED_IO
+	struct delayed_work deferred_work;
+	struct fb_deferred_io *fbdefio;
+#endif
+
+	struct fb_ops *fbops;
+	struct device *device;		/* This is the parent */
+	struct device *dev;		/* This is this fb device */   
+	int class_flag;                    /* private sysfs flags */
+#ifdef CONFIG_FB_TILEBLITTING
+	struct fb_tile_ops *tileops;    /* Tile Blitting */
+#endif
+	char __iomem *screen_base;	/* Virtual address */
+	unsigned long screen_size;	/* Amount of ioremapped VRAM or 0 */ 
+	void *pseudo_palette;		/* Fake palette of 16 colors */ 
+#define FBINFO_STATE_RUNNING	0
+#define FBINFO_STATE_SUSPENDED	1
+	u32 state;			/* Hardware state i.e suspend */
+	void *fbcon_par;                /* fbcon use-only private area */
+	/* From here on everything is device dependent */
+	void *par;
+	/* we need the PCI or similiar aperture base/size not
+	   smem_start/size as smem_start may just be an object
+	   allocated inside the aperture so may not actually overlap */
+	resource_size_t aperture_base;
+	resource_size_t aperture_size;
+};</pre>    这个结构是frambuffer驱动的基本数据结构，里面包含了帧缓存设备的所有信息，每一个注册成frambuffer接口的设备都应该声明并初始化这样一个结构。register_framebuffer 函数的参数就是这样一个结构，fb_info在mini2440lcd驱动中是在s3c24xxfb_probe函数中分配并初始化的。其中struct fb_var_screeninfo结构包含了lcd显示中可以改变的信息，结构如下：<br />&#13;
+<pre name="code" class="cpp">struct fb_var_screeninfo {
+	__u32 xres;			/* 视口水平分辨率		*/
+	__u32 yres;
+	__u32 xres_virtual;		/* 虚拟屏幕水平分辨率		*/
+	__u32 yres_virtual;
+	__u32 xoffset;			/* 视口与虚拟屏幕水平分辨率偏移 */
+	__u32 yoffset;			
+
+
+	__u32 bits_per_pixel;		/* 像素的位数			*/
+	__u32 grayscale;		/* 灰度标志，如果为1代表是灰度 */
+
+
+	struct fb_bitfield red;		/* 如果是真彩色，这个是颜色位，如果不是那么只有结构的大小重要，其他表示的信息无关紧要 */
+	struct fb_bitfield green;	
+	struct fb_bitfield blue;
+	struct fb_bitfield transp;	/* 透明度		*/	
+
+
+	__u32 nonstd;			/* 非标准颜色表示标志位 */
+	__u32 activate;			/* 参照 FB_ACTIVATE_*		*/
+	__u32 height;			/* 在内存地址空间的长度    */
+	__u32 width;			/* 在内存地址空间的宽度     */
+
+
+	__u32 accel_flags;		/* (不用了) 参照 fb_info.flags */
+
+
+	/* 时序: 以下所有的值单位都是pixclock, 当然除了pixclock */
+	__u32 pixclock;			/* 每秒像素值 */
+	__u32 left_margin;		/* 从sync信号到显示真正的像素的时钟个数	*/
+	__u32 right_margin;		/* 从真正显示像素到sync信号的时钟个数	*/
+	__u32 upper_margin;		/* 上面两个是针对列像素的，这个针对行的	*/
+	__u32 lower_margin;
+	__u32 hsync_len;		/* 水平sync信号的长度	*/
+	__u32 vsync_len;		/* 垂直sync信号的长度	*/
+	__u32 sync;			/* 参照 FB_SYNC_*		*/
+	__u32 vmode;			/* 参照 FB_VMODE_*		*/
+	__u32 rotate;			/* angle we rotate counter clockwise */ 
+	__u32 reserved[5];		/* 保留 */
+};</pre>  fb_fix_screeninfo包含了lcd显示中不可改变的信息，结构如下：<br />&#13;
+<pre name="code" class="cpp">struct fb_fix_screeninfo {
+	char id[16];			/* 身份表示符，例如 "TT Builtin" */
+	unsigned long smem_start;	/* frame buffer内存的开始地址 */
+					/* (物理地址) */
+	__u32 smem_len;			/* frame buffer内存地址的长度 */
+	__u32 type;			/* 参照 FB_TYPE_*		*/
+	__u32 type_aux;			/* Interleave for interleaved Planes */
+	__u32 visual;			/* 参照 FB_VISUAL_*		*/ 
+	__u16 xpanstep;			/* zero if no hardware panning  */
+	__u16 ypanstep;			/* zero if no hardware panning  */
+	__u16 ywrapstep;		/* zero if no hardware ywrap    */
+	__u32 line_length;		/* 每行的长度，单位字节    */
+	unsigned long mmio_start;	/* I/O 内存的开始地址   */
+					/* (物理地址) */
+	__u32 mmio_len;			/* I/O内存的长度  */
+	__u32 accel;			/* 对驱动程序的标示：是哪个设备*/
+	__u16 reserved[3];		/* 保留 */
+};</pre>  其中倒数第三个成员par是设备自定义数据结构。在mini2440lcd驱动中为s3c2410fb_info，结构如下：<br />&#13;
+<pre name="code" class="cpp">struct s3c2410fb_info {
+	struct device		*dev;
+	struct clk		*clk;
+
+	struct resource		*mem; //io内存物理地址也就是寄存器的地址
+	void __iomem		*io;  //用ioremap映射的io虚拟地址
+	void __iomem		*irq_base; //中断控制器寄存器对应的虚拟地址
+
+	enum s3c_drv_type	drv_type;
+	struct s3c2410fb_hw	regs;
+
+	unsigned long		clk_rate;
+	unsigned int		palette_ready;
+
+#ifdef CONFIG_CPU_FREQ
+	struct notifier_block	freq_transition;
+#endif
+
+	/* keep these registers in case we need to re-write palette */
+	u32			palette_buffer[256];
+	u32			pseudo_pal[16];
+};</pre>  这个结构是和硬件相关的，包括寄存器的物理地址，虚拟地址和调色板的一些信息。这个结构也是在s3c24xxfb_probe中分配并初始化。<br />&#13;
+  2. static struct fb_ops 结构<br />&#13;
+  在mini2440lcd驱动中，fb_ops的初始化代码如下：<br />&#13;
+<pre name="code" class="cpp">static struct fb_ops s3c2410fb_ops = {
+	.owner		= THIS_MODULE,
+	.fb_check_var	= s3c2410fb_check_var,
+	.fb_set_par	= s3c2410fb_set_par,
+	.fb_blank	= s3c2410fb_blank,
+	.fb_setcolreg	= s3c2410fb_setcolreg,
+	.fb_fillrect	= cfb_fillrect,
+	.fb_copyarea	= cfb_copyarea,
+	.fb_imageblit	= cfb_imageblit,
+};</pre>  这些函数是驱动程序必须实现的，他们实现的功能对应frambuffer核心的Ioctl系统调用，当应用程序调用ioctl系统调用的时候，他们会被直接或间接的调用。其中：<br />&#13;
+<p>s3c2410fb_check_var 和s3c2410fb_set_par会由fb_set_var调用，对应Ioctl的FBIOPUT_VSCREENINFO命令</p>&#13;
+<p>s3c2410fb_blank ，对应ioctl的FBIOBLANK命令，其他几个函数也是类似。</p>&#13;
+  3. struct s3c2410fb_mach_info 结构<br />&#13;
+<pre name="code" class="cpp">struct s3c2410fb_mach_info {
+	struct s3c2410fb_display *displays;	/* attached diplays info */
+	unsigned num_displays;			/* number of defined displays */
+	unsigned default_display;
+	/* GPIOs */
+	unsigned long	gpcup;
+	unsigned long	gpcup_mask;
+	unsigned long	gpccon;
+	unsigned long	gpccon_mask;
+	unsigned long	gpdup;
+	unsigned long	gpdup_mask;
+	unsigned long	gpdcon;
+	unsigned long	gpdcon_mask;
+
+	/* lpc3600 control register */
+	unsigned long	lpcsel;
+};</pre>  这个结构包括一个s3c2410fb_display结构体，其他的域是GPIO寄存器的信息。mini2440lcd驱动中定义并初始化了这样一个结构体：<br />&#13;
+<pre name="code" class="cpp">static struct s3c2410fb_mach_info mini2440_fb_info __initdata = {
+	.displays	= &amp;mini2440_lcd_cfg,
+	.num_displays	= 1,
+	.default_display = 0,
+
+	.gpccon =       0xaa955699,
+	.gpccon_mask =  0xffc003cc,
+	.gpcup =        0x0000ffff,
+	.gpcup_mask =   0xffffffff,
+
+	.gpdcon =       0xaa95aaa1,
+	.gpdcon_mask =  0xffc0fff0,
+	.gpdup =        0x0000faff,
+	.gpdup_mask =   0xffffffff,
+
+	.lpcsel		= 0xf82,
+};</pre>  这里初始化了结构中的所有成员，s3c2410fb_display结构初始化成mini2440_lcd_cfg，这个结构的初始化是在/arch/arm/mach-s3c2440/mach-mini2440.c这个文件中。这里设置了s3c2440 lcd控制器对应的GPIO寄存器的初始值，在s3c2410fb_init_registers函数中将这些值写到相应的寄存器中。<br />&#13;
+  4. s3c2410fb_display 结构<br />&#13;
+<pre name="code" class="cpp">struct s3c2410fb_display {
+	/* LCD type */
+	unsigned type;
+
+	/* Screen size */
+	unsigned short width;
+	unsigned short height;
+
+	/* Screen info */
+	unsigned short xres;
+	unsigned short yres;
+	unsigned short bpp;
+
+	unsigned pixclock;		/* pixclock in picoseconds */
+	unsigned short left_margin;  /* value in pixels (TFT) or HCLKs (STN) */
+	unsigned short right_margin; /* value in pixels (TFT) or HCLKs (STN) */
+	unsigned short hsync_len;    /* value in pixels (TFT) or HCLKs (STN) */
+	unsigned short upper_margin;	/* value in lines (TFT) or 0 (STN) */
+	unsigned short lower_margin;	/* value in lines (TFT) or 0 (STN) */
+	unsigned short vsync_len;	/* value in lines (TFT) or 0 (STN) */
+
+	/* lcd configuration registers */
+	unsigned long	lcdcon5;
+};</pre>  这个结构体非常重要，他包括了一个lcd显示的所有必须的配置信息。程序就是用这个结构体初始化fb_info结构中的fb_var_screeninfo相关成员的。最后这些值都会写进lcd控制器的相应寄存器中。如上分析，这个结构在mini2440lcd驱动中被初始化成了mini2440_lcd_cfg，他定义在/arch/arm/mach-s3c2440/mach-mini2440.c，如下所示：<br />&#13;
+<pre name="code" class="cpp">static struct s3c2410fb_display mini2440_lcd_cfg __initdata = {
+
+#if !defined (LCD_CON5)
+	.lcdcon5	= S3C2410_LCDCON5_FRM565 |
+			  S3C2410_LCDCON5_INVVLINE |
+			  S3C2410_LCDCON5_INVVFRAME |
+			  S3C2410_LCDCON5_PWREN |
+			  S3C2410_LCDCON5_HWSWP,
+#else
+	.lcdcon5	= LCD_CON5,
+#endif
+	.type		= S3C2410_LCDCON1_TFT,
+	.width		= LCD_WIDTH,
+	.height		= LCD_HEIGHT,
+	.pixclock	= LCD_PIXCLOCK,
+	.xres		= LCD_WIDTH,
+	.yres		= LCD_HEIGHT,
+	.bpp		= 16,
+	.left_margin	= LCD_LEFT_MARGIN + 1,
+	.right_margin	= LCD_RIGHT_MARGIN + 1,
+	.hsync_len	= LCD_HSYNC_LEN + 1,
+	.upper_margin	= LCD_UPPER_MARGIN + 1,
+	.lower_margin	= LCD_LOWER_MARGIN + 1,
+	.vsync_len	= LCD_VSYNC_LEN + 1,
+};</pre><span style="font-size:16px">二. 模块初始化</span><br />&#13;
+  1.s3c2410fb.c是内核的一个模块，在模块初始化函数中只是简单的调用了platform_driver_register把自己注册成为platform驱动。初始化函数如下：<br />&#13;
+<pre name="code" class="cpp">int __init s3c2410fb_init(void)
+{
+	int ret = platform_driver_register(&amp;s3c2410fb_driver);
+
+	if (ret == 0)
+		ret = platform_driver_register(&amp;s3c2412fb_driver);
+
+	return ret;
+}</pre>  platform_driver_register是platform类型驱动的注册函数，他传入一个platform_driver结构体。mini2440lcd驱动初始化了这样一个结构体。如下：<br />&#13;
+<pre name="code" class="cpp">static struct platform_driver s3c2410fb_driver = {
+	.probe		= s3c2410fb_probe,
+	.remove		= s3c2410fb_remove,
+	.suspend	= s3c2410fb_suspend,
+	.resume		= s3c2410fb_resume,
+	.driver		= {
+		.name	= "s3c2410-lcd",
+		.owner	= THIS_MODULE,
+	},
+};</pre>  可以看出这里初始化了相应的函数，以及设备名称和拥有模块。其中 name="s3c2410-lcd"这个很重要，他是platform核心寻找相应platform设备的的依据。初始化的各个函数都需要lcd驱动程序编写。<br />&#13;
+<span style="font-size:16px">三. linux设备模型相关函数</span><br />&#13;
+  1. 对应上面的platform_driver初始化用的函数：<br />&#13;
+s3c2410fb_probe      <br />&#13;
+s3c2410fb_remove<br />&#13;
+s3c2410fb_suspend,<br />&#13;
+s3c2410fb_resume,<br />&#13;
+    其中s3c2410fb_probe函数是调用platform_driver_register时，由platform_bus的match函数找到合适的lcd设备成功后调用的函数，完成初始化工作。下面重点分析这个函数。<br />&#13;
+  2. s3c2410fb_probe 函数分析<br />&#13;
+    这个函数只有一条语句就是调用s3c24xxfb_probe，下面是s3c24xxfb_probe函数，这个是lcd驱动最关键的函数。<br />&#13;
+<pre name="code" class="cpp">static int __init s3c24xxfb_probe(struct platform_device *pdev,
+				  enum s3c_drv_type drv_type)
+{
+	struct s3c2410fb_info *info;
+	struct s3c2410fb_display *display;
+	struct fb_info *fbinfo;
+	struct s3c2410fb_mach_info *mach_info;
+	struct resource *res;
+	int ret;
+	int irq;
+	int i;
+	int size;
+	u32 lcdcon1;
+
+	mach_info = pdev-&gt;dev.platform_data;
+        //在/arch/arm/mach-s3c2440/mach-mini2440.c的mini2440_machine_init函数中，调用s3c24xx_fb_set_platdata(&amp;mini2440_fb_info)
+        //将mini2440_fb_info赋值给pdev-&gt;dev.paltform_data,所以这里得到的是mini2440_fb_info
+	if (mach_info == NULL) {
+		dev_err(&amp;pdev-&gt;dev,
+			"no platform data for lcd, cannot attach\n");
+		return -EINVAL;
+	}
+
+	if (mach_info-&gt;default_display &gt;= mach_info-&gt;num_displays) {
+		dev_err(&amp;pdev-&gt;dev, "default is %d but only %d displays\n",
+			mach_info-&gt;default_display, mach_info-&gt;num_displays);
+		return -EINVAL;
+	}
+
+	display = mach_info-&gt;displays + mach_info-&gt;default_display;
+        //mach_info-&gt;displays = 0,mach_info-&gt;default_display = mini2440_lcd_cfg
+        //所以display = mini2440_lcd_cfg
+	irq = platform_get_irq(pdev, 0);
+        //pdev是platfoem_device结构，这个函数是从platform_device占用的资源里取出irq号
+	if (irq &lt; 0) {
+		dev_err(&amp;pdev-&gt;dev, "no irq for device\n");
+		return -ENOENT;
+	}
+
+	fbinfo = framebuffer_alloc(sizeof(struct s3c2410fb_info), &amp;pdev-&gt;dev);
+        //framebuffer_alloc所做的事就是分配一个fb_info结构体，因为这个结构体最后有个通用指针*par,这个是设备自定义结构，在这里是s3c24fb_info
+        //所以分配内存的时候在fb_info结构的大小基础上必须加上s3c2410fb_info结构的大小，这样才是这里的fb_info真正的大小
+	if (!fbinfo)
+		return -ENOMEM;
+
+	platform_set_drvdata(pdev, fbinfo);
+
+	info = fbinfo-&gt;par; //将info(s3c2410fb_info结构)指向新分配的fbinfo的par位置
+	info-&gt;dev = &amp;pdev-&gt;dev;
+	info-&gt;drv_type = drv_type;
+
+	res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
+        //得到lcd控制器io内存的物理地址
+	if (res == NULL) {
+		dev_err(&amp;pdev-&gt;dev, "failed to get memory registers\n");
+		ret = -ENXIO;
+		goto dealloc_fb;
+	}
+
+	size = (res-&gt;end - res-&gt;start) + 1;
+	info-&gt;mem = request_mem_region(res-&gt;start, size, pdev-&gt;name);
+        //向内核请求所用的io内存，这里主要防止其他模块竞争，如果其他模块占用这块内存,函数就会返回NULL
+	if (info-&gt;mem == NULL) {
+		dev_err(&amp;pdev-&gt;dev, "failed to get memory region\n");
+		ret = -ENOENT;
+		goto dealloc_fb;
+	}
+
+	info-&gt;io = ioremap(res-&gt;start, size);
+        //将物理内存映射成虚拟地址，以供内核使用
+	if (info-&gt;io == NULL) {
+		dev_err(&amp;pdev-&gt;dev, "ioremap() of registers failed\n");
+		ret = -ENXIO;
+		goto release_mem;
+	}
+
+	info-&gt;irq_base = info-&gt;io + ((drv_type == DRV_S3C2412) ? S3C2412_LCDINTBASE : S3C2410_LCDINTBASE);
+        // irq_base是lcd中断控制器寄存器对应的虚拟地址
+	dprintk("devinit\n");
+
+	strcpy(fbinfo-&gt;fix.id, driver_name);
+
+	/* Stop the video */
+	lcdcon1 = readl(info-&gt;io + S3C2410_LCDCON1);
+	writel(lcdcon1 &amp; ~S3C2410_LCDCON1_ENVID, info-&gt;io + S3C2410_LCDCON1);
+
+	fbinfo-&gt;fix.type	    = FB_TYPE_PACKED_PIXELS;
+	fbinfo-&gt;fix.type_aux	    = 0;
+	fbinfo-&gt;fix.xpanstep	    = 0;
+	fbinfo-&gt;fix.ypanstep	    = 0;
+	fbinfo-&gt;fix.ywrapstep	    = 0;
+	fbinfo-&gt;fix.accel	    = FB_ACCEL_NONE;
+        //以上初始化fb_fix_screeninfo结构
+	fbinfo-&gt;var.nonstd	    = 0;
+	fbinfo-&gt;var.activate	    = FB_ACTIVATE_NOW;
+	fbinfo-&gt;var.accel_flags     = 0;
+	fbinfo-&gt;var.vmode	    = FB_VMODE_NONINTERLACED;
+        //以上初始化fb_var_screeninfo结构
+	fbinfo-&gt;fbops		    = &amp;s3c2410fb_ops;
+        // 这里将我们实现的函数与frambuffer核心的操作联系上
+	fbinfo-&gt;flags		    = FBINFO_FLAG_DEFAULT;
+	fbinfo-&gt;pseudo_palette      = &amp;info-&gt;pseudo_pal;
+
+	for (i = 0; i &lt; 256; i++)
+		info-&gt;palette_buffer[i] = PALETTE_BUFF_CLEAR;
+
+	ret = request_irq(irq, s3c2410fb_irq, IRQF_DISABLED, pdev-&gt;name, info);
+        //注册中断处理函数，一般的lcd操作基本不需要中断
+	if (ret) {
+		dev_err(&amp;pdev-&gt;dev, "cannot get irq %d - err %d\n", irq, ret);
+		ret = -EBUSY;
+		goto release_regs;
+	}
+
+	info-&gt;clk = clk_get(NULL, "lcd");
+	if (!info-&gt;clk || IS_ERR(info-&gt;clk)) {
+		printk(KERN_ERR "failed to get lcd clock source\n");
+		ret = -ENOENT;
+		goto release_irq;
+	}
+
+	clk_enable(info-&gt;clk);
+        //以上操作使能lcd时钟
+	dprintk("got and enabled clock\n");
+
+	msleep(1);
+
+	info-&gt;clk_rate = clk_get_rate(info-&gt;clk);
+	/* find maximum required memory size for display */
+	for (i = 0; i &lt; mach_info-&gt;num_displays; i++) {
+		unsigned long smem_len = mach_info-&gt;displays[i].xres; // = 240
+
+		smem_len *= mach_info-&gt;displays[i].yres; // = 320
+		smem_len *= mach_info-&gt;displays[i].bpp;  // = 16
+		smem_len &gt;&gt;= 3;                          //将位的个数转换成字节个数
+		if (fbinfo-&gt;fix.smem_len &lt; smem_len)
+			fbinfo-&gt;fix.smem_len = smem_len;
+	}
+
+	/* Initialize video memory */
+	ret = s3c2410fb_map_video_memory(fbinfo);
+        //这个函数主要功能就是分配一块内存，大小为上面计算的smem_len，并且将分配的内存的物理地址赋值给fbinfo-&gt;fix.smem_start
+        //将虚拟地址赋值给fbinfo-&gt;screen_base
+	if (ret) {
+		printk(KERN_ERR "Failed to allocate video RAM: %d\n", ret);
+		ret = -ENOMEM;
+		goto release_clock;
+	}
+
+	dprintk("got video memory\n");
+
+	fbinfo-&gt;var.xres = display-&gt;xres;
+	fbinfo-&gt;var.yres = display-&gt;yres;
+	fbinfo-&gt;var.bits_per_pixel = display-&gt;bpp;
+        //这三个初始化很重要，对于下面的s3c2410fb_check_var尤其重要
+	s3c2410fb_init_registers(fbinfo);
+        //初始化lcd控制器的GPIO接口控制寄存器
+
+	s3c2410fb_check_var(&amp;fbinfo-&gt;var, fbinfo);
+        //这个函数根据fbinfo-&gt;var的xres，yres和bits_per_pixel选择相应的s3c2410fb_display结构，并将这个结构的各个域的值赋值给
+        //fbinfo-&gt;var的相应成员。因为mini2440lcd驱动只有一个s3c2410fb_display结构就是mini2440_lcd_cfg，所以赋值的就是mini2440_lcd_cfg
+	ret = s3c2410fb_cpufreq_register(info);
+	if (ret &lt; 0) {
+		dev_err(&amp;pdev-&gt;dev, "Failed to register cpufreq\n");
+		goto free_video_memory;
+	}
+
+	ret = register_framebuffer(fbinfo);
+        //将fbinfo结构注册到frambuffer核心
+	if (ret &lt; 0) {
+		printk(KERN_ERR "Failed to register framebuffer device: %d\n",
+			ret);
+		goto free_cpufreq;
+	}
+
+	/* create device files */
+	ret = device_create_file(&amp;pdev-&gt;dev, &amp;dev_attr_debug);
+	if (ret) {
+		printk(KERN_ERR "failed to add debug attribute\n");
+	}
+
+	printk(KERN_INFO "fb%d: %s frame buffer device\n",
+		fbinfo-&gt;node, fbinfo-&gt;fix.id);
+
+	return 0;
+
+free_cpufreq:
+	s3c2410fb_cpufreq_deregister(info);
+free_video_memory:
+	s3c2410fb_unmap_video_memory(fbinfo);
+release_clock:
+	clk_disable(info-&gt;clk);
+	clk_put(info-&gt;clk);
+release_irq:
+	free_irq(irq, info);
+release_regs:
+	iounmap(info-&gt;io);
+release_mem:
+	release_resource(info-&gt;mem);
+	kfree(info-&gt;mem);
+dealloc_fb:
+	platform_set_drvdata(pdev, NULL);
+	framebuffer_release(fbinfo);
+	return ret;
+} </pre>  从上面分析可以看出，这个函数主要做了下面几件事：<br />&#13;
+  （1） 从platform_device中获得s3c2410fb_mach_info结构体赋值给mach_info。这就得到了lcd控制器的所有初始配置。<br />&#13;
+  （2） 从mach_info中获得s3c2410fb_display结构体赋值给display。这样就得到了显示相关的初始配置。<br />&#13;
+  （3） 分配一个fb_info结构体fbinfo和一个s3c2410fb_info结构体info,并且将info指向fbinfo-&gt;par<br />&#13;
+  （4） 由pdev中所用的资源初始化info结构，主要初始化io内存，并映射虚拟地址。<br />&#13;
+  （5） 关闭lcd显示<br />&#13;
+  （6） 初始化fbinfo-&gt;fix，fbinfo-&gt;var 的部分域（不依赖配置信息的部分）<br />&#13;
+  （7） 初始化fbinfo-&gt;fbops为s3c2410fb_ops<br />&#13;
+  （8） 注册中断处理程序s3c2410fb_irq<br />&#13;
+  （9） 使能lcd时钟<br />&#13;
+  （10）为lcd设备分配显存，显存开始地址赋值给fbinfo-&gt;screen_base<br />&#13;
+  （11）初始化lcd控制器的io接口控制寄存器<br />&#13;
+  （12）用display中的值初始化fbinfo-&gt;var中相应的值（与显示配置相关的部分）<br />&#13;
+  （13）将fbinfo结构注册到frambuffer核心<br />&#13;
+<span style="font-size:16px">四. frambuffer驱动模型fb_ops各函数的实现</span><br />&#13;
+  由s3c2410fb_ops结构可以看出，mini2440lcd驱动主要实现了下面几个函数：<br />&#13;
+s3c2410fb_check_var<br />&#13;
+s3c2410fb_set_par<br />&#13;
+s3c2410fb_blank<br />&#13;
+s3c2410fb_setcolreg<br />&#13;
+cfb_fillrect<br />&#13;
+cfb_copyarea<br />&#13;
+cfb_imageblit<br />&#13;
+  其中最重要的是s3c2410fb_set_par，这个函数根据fbinfo的值初始化了底层的lcd控制器，重点分析这个函数。他由fb_set_var调用，对应则frambufer核心ioctl中的FBIOPUT_VSCREENINFO命令。其他的函数也是为了完成lcd的相关功能而编写的，与具体实现的功能有关。s3c2410fb_set_par函数定义如下:<br />&#13;
+<pre name="code" class="cpp">static int s3c2410fb_set_par(struct fb_info *info)
+{
+	struct fb_var_screeninfo *var = &amp;info-&gt;var;
+
+	switch (var-&gt;bits_per_pixel) {
+	case 32:
+	case 16:
+	case 12:
+		info-&gt;fix.visual = FB_VISUAL_TRUECOLOR;
+		break;
+	case 1:
+		info-&gt;fix.visual = FB_VISUAL_MONO01;
+		break;
+	default:
+		info-&gt;fix.visual = FB_VISUAL_PSEUDOCOLOR;
+		break;
+	}
+
+	info-&gt;fix.line_length = (var-&gt;xres_virtual * var-&gt;bits_per_pixel) / 8;
+	/* activate this new configuration */
+	s3c2410fb_activate_var(info);
+	return 0;
+}</pre>  可以看出，这个函数除了根据fbinfo的像素位来赋值fix.visual外，主要是调用了s3c2410fb_activate_var函数：<br />&#13;
+<pre name="code" class="cpp">static void s3c2410fb_activate_var(struct fb_info *info)
+{
+	struct s3c2410fb_info *fbi = info-&gt;par;
+	void __iomem *regs = fbi-&gt;io;
+	int type = fbi-&gt;regs.lcdcon1 &amp; S3C2410_LCDCON1_TFT;
+	struct fb_var_screeninfo *var = &amp;info-&gt;var;
+	int clkdiv;
+
+	clkdiv = DIV_ROUND_UP(s3c2410fb_calc_pixclk(fbi, var-&gt;pixclock), 2);
+
+	dprintk("%s: var-&gt;xres  = %d\n", __func__, var-&gt;xres);
+	dprintk("%s: var-&gt;yres  = %d\n", __func__, var-&gt;yres);
+	dprintk("%s: var-&gt;bpp   = %d\n", __func__, var-&gt;bits_per_pixel);
+
+	if (type == S3C2410_LCDCON1_TFT) {
+        //判断lcd型号，我们的lcd是TFT型lcd，所以下面语句执行
+		s3c2410fb_calculate_tft_lcd_regs(info, &amp;fbi-&gt;regs);
+                //这个函数主要的功能就是将info中的lcd配置相关的值赋值给s3c2410fb_info结构的regs成员
+                //这个regs是一个s3c2410fb_hw结构，这个结构就是定义了5个lcd控制寄存器lcdcon1~5
+		--clkdiv;
+		if (clkdiv &lt; 0)
+			clkdiv = 0;
+	} else {
+        //如果是STN型的lcd，那么执行下面的函数。因为s3c2440的lcd控制器由有几个专门用于控制STN型lcd的寄存器，所以要单独设置
+		s3c2410fb_calculate_stn_lcd_regs(info, &amp;fbi-&gt;regs);
+		if (clkdiv &lt; 2)
+			clkdiv = 2;
+	}
+
+	fbi-&gt;regs.lcdcon1 |=  S3C2410_LCDCON1_CLKVAL(clkdiv);
+	/* write new registers */
+	dprintk("new register set:\n");
+	dprintk("lcdcon[1] = 0x%08lx\n", fbi-&gt;regs.lcdcon1);
+	dprintk("lcdcon[2] = 0x%08lx\n", fbi-&gt;regs.lcdcon2);
+	dprintk("lcdcon[3] = 0x%08lx\n", fbi-&gt;regs.lcdcon3);
+	dprintk("lcdcon[4] = 0x%08lx\n", fbi-&gt;regs.lcdcon4);
+	dprintk("lcdcon[5] = 0x%08lx\n", fbi-&gt;regs.lcdcon5);
+
+	writel(fbi-&gt;regs.lcdcon1 &amp; ~S3C2410_LCDCON1_ENVID,
+		regs + S3C2410_LCDCON1);
+	writel(fbi-&gt;regs.lcdcon2, regs + S3C2410_LCDCON2);
+	writel(fbi-&gt;regs.lcdcon3, regs + S3C2410_LCDCON3);
+	writel(fbi-&gt;regs.lcdcon4, regs + S3C2410_LCDCON4);
+	writel(fbi-&gt;regs.lcdcon5, regs + S3C2410_LCDCON5);
+        //将配置值写入五个寄存器
+	/* set lcd address pointers */
+	s3c2410fb_set_lcdaddr(info);
+        //设置显存地址寄存器，设置为我们分配的那块内存，设置之后，lcd控制器就会在这块内存取数据送往lcd显示
+
+	fbi-&gt;regs.lcdcon1 |= S3C2410_LCDCON1_ENVID,
+        //打开视频显示，这样lcd就可以正确显示了
+	writel(fbi-&gt;regs.lcdcon1, regs + S3C2410_LCDCON1);
+}</pre><span style="font-size:16px">五. 总结</span><br />&#13;
+      mini2440lcd驱动分别涉及到了platform和frambuffer核心，利用这两个核心实现其功能。刚开始分析这个驱动的时候，总是感觉很乱没有重点。我想这个主要是和自己对frambuffer和lcd显示还不熟悉的原因。看了几天过后才逐渐有点眉目。最让人迷惑的就是如何设置lcd控制器的寄存器问题。我以前认为这个应该在probe函数中设置，一般来说这个函数检测设备状态，初始化设备，然后设备就绪，应用程序就可以操作了。但是在s3c2410fb_probe中只是设置了相关的GPIO接口寄存器，根本没有设置lcd控制寄存器。后来发现是在s3c2410fb_set_par函数中设置的。这个函数对应用户空间ioctl的FBIOPUT_VSCREENINFO。也就是说应用程序必须调用ioctl（fd，FBIOPUT_VSCREENINFO，struct&#13;
+ fb_var_screeninfo *var）才能设置正确的lcd状态，但是这个命令有一个参数是fb_var_screeninfo结构，也就意味这应用程序必须填充这样一个结构，才可以调用ioctl。这样一来内核初始化的默认配置信息就没用了。唯一的办法是先调用ioctl（fd，FBIOGET_VSCREENINFO，struct fb_var_screeninfo *var）获得这个结构，然后修改之后在调用ioctl（fd，FBIOPUT_VSCREENINFO，struct fb_var_screeninfo&#13;
+ *var）将修改的值写入。我在MiniGUI的源码中验证了这个推论，在MiniGUI的fbcon图形引擎中的FB_SetVideoMode函数中，有如下的调用<br />&#13;
+<pre name="code" class="cpp">if ( ioctl(console_fd, FBIOGET_VSCREENINFO, &amp;vinfo) &lt; 0 ) {
+     GAL_SetError("NEWGAL&gt;FBCON: Couldn't get console pixel format\n");
+     FB_VideoQuit(this);
+     return(-1);
+}</pre>然后就是设置finfo中需要改变的值，最后有下面的代码来设置lcd控制寄存器器<br />&#13;
+<pre name="code" class="cpp">if ( ioctl(console_fd, FBIOPUT_VSCREENINFO, &amp;vinfo) &lt; 0 ) {
+      vinfo.yres_virtual = height;
+      if ( ioctl(console_fd, FBIOPUT_VSCREENINFO, &amp;vinfo) &lt; 0 ) {
+           GAL_SetError("NEWGAL&gt;FBCON: Couldn't set console screen info");
+           return(NULL);
+      }
+}</pre>        关于lcd驱动还有好多知识要学，比如mmap操作。mmap是一般lcd应用程序运行的模式，他将显存映射到用户空间，提高系统的性能。因为自己只是为了熟悉一下这个驱动，所以没有深入看下去。<br />&#13;
+<br />&#13;
+<br />&#13;
+<br />&#13;
+<br />&#13;
+  &#13;
+   &#13;

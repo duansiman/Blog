@@ -1,0 +1,440 @@
+
+
+<strong><span style="font-size:18px">select系统调用<br />&#13;
+        用于多路监控，当没有一个文件满足要求时，select调用将引起进程阻塞<br />&#13;
+设备轮询操作，对应select系统调用<br />&#13;
+        unsigned int(*poll)(struct file *filp, struct poll_table_struct *wait);<br />&#13;
+        unsigned int(*poll)(struct file *filp, poll_table *wait);<br />&#13;
+              filp:文件指针<br />&#13;
+              wait:轮询表指针<br />&#13;
+poll设备操作的任务<br />&#13;
+      调用poll_wait()函数将等待队列添加到poll_table轮询表<br />&#13;
+</span></strong>&#13;
+<p><strong><span style="font-size:18px">      返回描述设备是否可读或可写的掩码</span></strong></p>&#13;
+<p><span style="color:#cc0000">poll_table数据类型定义</span><br />&#13;
+在&lt;linux/poll.h&gt;中<br />&#13;
+</p><pre code_snippet_id="169758" snippet_file_name="blog_20140124_1_7328968" name="code" class="objc">typedef struct poll_table_struct{
+	poll_queue_proc qproc;
+}poll_table;
+typedef void(*poll_queue_proc)(struct file *, wait_queue_head_t *, struct poll_table_struct *);</pre><br />&#13;
+<span style="color:#cc0000">poll_wait()函数</span><br />&#13;
+在&lt;linux/poll.h&gt;中<br />&#13;
+<pre code_snippet_id="169758" snippet_file_name="blog_20140124_2_4918990" name="code" class="objc">void poll_wait(struct file *filp, wait_queue_head_t *wait_address, poll_table *p);
+filp:执行操作的设备文件指针
+wait_address:设备驱动的等待队列头
+p:内核传递的轮询表指针</pre>poll_wait()函数调用不会引起阻塞，它仅仅将当前进程添加到wait参数指定的等待队列数据链中<br />&#13;
+&#13;
+<p><span style="font-size:18px"><span style="color:#ff0000">poll操作返回值</span><br />&#13;
+通常返回下列定义“或”的结果<br />&#13;
+POLLIN<span style="white-space:pre"> </span>设备可无阻塞读<br />&#13;
+POLLOUT<span style="white-space:pre"> </span>设别可无阻塞写<br />&#13;
+POLLRDNORM<span style="white-space:pre"> </span>数据可读<br />&#13;
+POLLWRNORM<span style="white-space:pre"> </span>数据可写<br />&#13;
+设备可读通常返回： POLLIN | POLLRDNORM<br />&#13;
+设备可写通常返回： POLLOUT | POLLWRNORM<br />&#13;
+</span></p>&#13;
+<p><span style="font-size:18px"><br />&#13;
+</span></p>&#13;
+<p><span style="font-size:18px"><span style="color:#cc0000">poll操作一般结构</span></span></p>&#13;
+<p><span style="font-size:18px">xxx_poll()<br />&#13;
+{<br />&#13;
+<span style="white-space:pre"></span>unsigned int mask = 0;//定义返回值<br />&#13;
+<span style="white-space:pre"></span>...<br />&#13;
+<span style="white-space:pre"></span>//调用poll_wait()把进程添加到轮询表<br />&#13;
+<span style="white-space:pre"></span>...<br />&#13;
+<span style="white-space:pre"></span>if(device is ready for read){<br />&#13;
+<span style="white-space:pre"></span>mask = POLLIN | POLLRDNORM;<br />&#13;
+<span style="white-space:pre"></span>}<br />&#13;
+<span style="white-space:pre"></span>...<br />&#13;
+<span style="white-space:pre"></span>return mask;<br />&#13;
+}</span><br />&#13;
+</p>&#13;
+<p></p><pre code_snippet_id="169758" snippet_file_name="blog_20140124_3_1189236" name="code" class="objc">/**
+*Copyright (c) 2013.TianYuan
+*All rights reserved.
+*
+*文件名称: cdd_poll.c
+*文件标识: 按键1的中断
+*
+*当前版本：1.0
+*作者：wuyq 
+*
+*取代版本：xxx
+*原作者：xxx
+*完成日期：2013-12-05
+*/
+#include &lt;linux/init.h&gt;
+#include &lt;linux/module.h&gt;
+#include &lt;linux/fs.h&gt;
+#include &lt;linux/cdev.h&gt;
+#include &lt;linux/device.h&gt;
+#include &lt;linux/slab.h&gt;
+#include &lt;asm/uaccess.h&gt;
+
+#include &lt;asm/gpio.h&gt;
+#include &lt;plat/gpio-cfg.h&gt;
+#include &lt;linux/spinlock_types.h&gt;
+#include &lt;linux/sched.h&gt;
+#include &lt;linux/poll.h&gt;
+
+
+
+MODULE_LICENSE("GPL");
+#define CDD_MAJOR	200//cat /proc/devices找一个尚未使用的
+#define CDD_MINOR	0
+#define CDD_COUNT	10
+dev_t dev = 0;
+u32 cdd_major = 0;
+u32 cdd_minor = 0;
+
+struct class *dev_class = NULL;
+#define BUF_SIZE	100
+struct cdd_cdev{
+	struct cdev cdev;
+	struct device *dev_device;
+	u8 led;
+	
+	char kbuf[BUF_SIZE];
+	
+	u32 data_len;//记录缓冲区中已经写入数据的长度
+	//定义等待队列头
+	wait_quue_head_t wqh;
+};
+
+struct cdd_cdev *cdd_cdevp = NULL;
+
+unsigned long led_gpio_table[2] = {
+	S5PV210_GPC1(3),//数字
+	S5PV210_GPC1(4),
+};
+
+int cdd_open(struct inode* inode, struct file *filp)
+{
+	struct cdd_cdev *pcdevp = NULL;
+	printk("enter cdd_open!\n");
+
+	pcdevp = container_of(inode-&gt;i_cdev, struct cdd_cdev, cdev);
+	printk("led = %d\n", pcdevp-&gt;led);
+	
+	/*获取信号量*/
+	//down获取信号量不成功，会导致进程睡眠（第3个进程的时候）
+	//down(&amp;pcdevp-&gt;sem_open);
+	if(down_interruptible(&amp;pcdevp-&gt;sem_open)&lt;0){
+		return -1;
+	}
+	filp-&gt;private_data = pcdevp;
+	//申请gpio管脚
+	gpio_request(led_gpio_table[0], "GPC1_3");
+	gpio_request(led_gpio_table[1], "GPC1_4");
+	
+	return 0;
+}
+
+int cdd_read(struct file *filp, char __user *buf, size_t count, loff_t *offset)
+{
+	int ret = 0;
+	u32 pos = *offset;
+	u32 cnt = count;
+	
+	struct cdd_cdev *cdevp = filp-&gt;private_data;
+#if 0
+	//定义并初始化一个等待队列
+	DECLARE_WAITQUEUE(wq, current);
+	//将等待队列添加到wqh指向的链表
+	add_wait_queue(&amp;pcdevp-&gt;wqh, &amp;wq);
+	//判断设备有没有数据供用户空间读,假设led不为0，表示有数据供用户空间读取
+	if(pcdevp-&gt;led == 0){
+		printk("no data for reading! sleep...\n");
+		//设置当前线程为睡眠状态
+		set_current_state(TASK_INTERRUPTIBLE);
+		schedule();//内核调度cpu的算法
+		printk("have data for reading!\n");
+	}
+	//从指定的链表中删除等待队列
+	remove_wait_queue(&amp;pcdevp-&gt;wqh, &amp;wq);
+#endif
+	wait_event_interruptible(pcdevp-&gt;wqh, pcdevp-&gt;led != 0); 
+	
+	//printk("enter cdd_read!\n");
+	if(cnt &gt; (cdevp-&gt;data_len-pos) ){
+		cnt = cdevp-&gt;data_len - pos;
+	}
+	
+	ret = copy_to_user(buf, cdevp-&gt;kbuf+pos, cnt);
+	//printk("kernel kbuf content:%s\n", cdevp-&gt;kbuf);
+	*offset += cnt;
+	
+	pcdevp-&gt;led = 0;
+	
+	return ret;
+}
+
+int cdd_write(struct file *filp, const char __user *buf, size_t count, loff_t *offset)
+{
+	int ret = 0;
+	struct cdd_cdev *cdevp = filp-&gt;private_data;
+	u32 pos = *offset;
+	u32 cnt = count;
+	
+	//printk("enter cdd_write!\n");
+	if(cnt &gt; (BUF_SIZE - pos) ){
+		cnt = BUF_SIZE - pos;
+	}
+	ret = copy_from_user(cdevp-&gt;kbuf+pos, buf, cnt);
+	*offset += cnt;
+	if(*offset &gt; cdevp-&gt;data_len){
+		cdevp-&gt;data_len = *offset;
+	}
+	pcdevp-&gt;led = 1;
+	//唤醒等待队列头中的一个等待队列
+	wake_up_interruptible(&amp;pcdevp-&gt;wqh);
+	
+	
+	return ret;
+}
+
+int cdd_ioctl(struct inode *inode, struct file *filp, unsigned int cmd, unsigned long data)
+{
+	//printk("enter cdd_ioctl!\n");
+	switch(cmd){
+		case 1://点亮灯
+			//设置管脚为输出功能
+			//参数：1.要设置的管脚编号2.默认的输出值 0低电平1高电平
+			gpio_direction_output(led_gpio_table[data], 0);
+			//禁止内部上拉
+			s3c_gpio_setpull(led_gpio_table[data], SEC_GPIO_PULL_NONE);
+			//设置输出值
+			gpio_set_value(led_gpio_table[data], 1);
+			
+			break;
+		case 0://熄灭灯
+			
+			//设置管脚为输出功能
+			//参数：1.要设置的管脚编号2.默认的输出值 0低电平1高电平
+			gpio_direction_output(led_gpio_table[data], 0);
+			//禁止内部上拉
+			s3c_gpio_setpull(led_gpio_table[data], SEC_GPIO_PULL_NONE);
+			//设置输出值
+			gpio_set_value(led_gpio_table[data], 0);
+			
+			break;
+		default:
+			return -EINVAL;
+	}
+	
+	
+	return 0;
+}
+
+int cdd_release(struct inode *inode, struct file *filp)
+{
+	struct cdd_cdev *pcdevp = filp-&gt;private_data;
+	printk("enter cdd_release!\n");
+	
+	gpio_free(led_gpio_table[0]);
+	gpio_free(led_gpio_table[1]);
+	up(&amp;pcdevp-&gt;sem_open);
+	return 0;
+}
+
+loff_t cdd_llseek(struct file *filp, loff_t offset, int whence)
+{
+	struct cdd_cdev *pcdevp = filp-&gt;private_data;
+	loff_t newpos = 0;
+	switch(whence){
+		case SEEK_SET:
+			newpos = offset;
+			break;
+		case SEEK_CUR:
+			newpos = filp-&gt;f_pos + offset;
+			break;
+		case SEEK_END:
+			newpos = pcdevp-&gt;data_len + offset;
+			break;
+		default:
+			return -EINVAL;//无效的参数
+	}
+	
+	if( newpos&lt;0 || newpos&gt;= BUF_SIZE ){
+		return -EINVAL;
+	}
+	filp-&gt;f_pos = newpos;
+	return newpos;
+}
+
+unsigned int cdd_poll(struct file *filp, struct poll_table_struct *wait)
+{
+	unsigned int mask = 0;
+	struct cdd_cdev pcdevp = filp-&gt;private_data;
+	printk("enter cdd_poll!\n");
+	poll_wait(filp, &amp;pcdep-&gt;wqh, wait);
+	//led不为0即可读
+	if(pcdevp-&gt;led){
+		mask = POLLIN | POLLRDNORM;
+	}
+	return mask;
+}
+
+struct file_operations cdd_fops = {
+	.owner = THIS_MODULE,
+	.open = cdd_open,
+	.read = cdd_read,
+	.write = cdd_write,
+	.ioctl = cdd_ioctl,
+	.release = cdd_release,
+	.llseek = cdd_llseek,
+	.poll = cdd_poll,
+};
+
+irqreturn_t cdd_isr(int irq, void *dev_id)
+{
+	printk("occur up key press or release!\n");
+	return IRQ_HANDLED;
+}
+
+int __init cdd_init(void)
+{
+	int ret = 0;
+	int i = 0;
+	
+	if(cdd_major){
+		dev = MKDEV(CDD_MAJOR, CDD_MINOR);//生成设备号
+		//注册设备号;1、要注册的起始设备号2、连续注册的设备号个数3、名字
+		ret = register_chrdev_region(dev, CDD_COUNT, "cdd_demo");
+	}else{
+		// 动态分配设备号
+		ret = alloc_chrdev_region(&amp;dev, cdd_minor, CDD_COUNT, "cdd_demo02");
+	}
+	
+	if(ret &lt; 0){
+		printk("register_chrdev_region failed!\n");
+		goto failure_register_chrdev;
+	}
+	//获取主设备号
+	cdd_major = MAJOR(dev);
+	printk("cdd_major = %d\n", cdd_major);
+	
+	cdd_cdevp = kzalloc(sizeof(struct cdd_cdev)*CDD_COUNT, GFP_KERNEL);
+	if(IS_ERR(cdd_cdevp)){
+		printk("kzalloc failed!\n");
+		goto failure_kzalloc;
+	}
+	/*创建设备类*/
+	dev_class = class_create(THIS_MODULE, "cdd_class");
+	if(IS_ERR(dev_class)){
+		printk("class_create failed!\n");
+		goto failure_dev_class;
+	}
+	for(i=0; i&lt;CDD_COUNT; i++){
+		/*初始化cdev*/
+		cdev_init(&amp;(cdd_cdevp[i].cdev), &amp;cdd_fops);
+		/*添加cdev到内核*/
+		cdev_add(&amp;(cdd_cdevp[i].cdev), dev+i, 1);
+		
+		/* “/dev/xxx” */
+		device_create(dev_class, NULL, dev+i, NULL, "cdd%d", i);
+		
+		cdd_cdevp[i].led = i;
+		//初始化等待队列头
+		init_waitqueue_head(&amp;cdd_cdevp[i].wqh);
+	}
+	
+	//注册中断
+	request_irq(IRQ_EINT0, cdd_isr, IRQF_TRIGGER_FALLING  | IRQF_TRIGGER_RISING, "interrupt_demo", NULL);
+	
+	return 0;
+failure_dev_class:
+	kfree(cdd_cdevp);
+failure_kzalloc:
+	unregister_chrdev_region(dev, CDD_COUNT);
+failure_register_chrdev:
+	return ret;
+}
+
+void __exit cdd_exit(void)
+{
+/*逆序消除*/
+	int i = 0;
+	for(; i &lt; CDD_COUNT; i++){
+		device_destroy(dev_class, dev+i);
+		cdev_del(&amp;(cdd_cdevp[i].cdev));
+		//cdev_del(&amp;((cdd_cdevp+i)-&gt;cdev));
+	}
+	class_destroy(dev_class);
+	kfree(cdd_cdevp);
+	unregister_chrdev_region(dev, CDD_COUNT);
+	
+}	
+
+module_init(cdd_init);
+module_exit(cdd_exit);
+</pre><br />&#13;
+<pre code_snippet_id="169758" snippet_file_name="blog_20140124_4_872808" name="code" class="objc">/**
+*Copyright (c) 2013.TianYuan
+*All rights reserved.
+*
+*文件名称: test_select.c
+*文件标识: select
+*
+*当前版本：1.0
+*作者：wuyq 
+*
+*取代版本：xxx
+*原作者：xxx
+*完成日期：2013-12-05
+*/
+#include &lt;stdio.h&gt;
+#include &lt;stdlib.h&gt;
+#include &lt;fcntl.h&gt;
+
+int fd0 = 0;
+int fd1 = 0;
+int fd2 = 0 ;
+fd_set rfds;// 读文件描述符集合
+int ret = 0;
+struct timeval tv;
+
+int main()
+{
+	fd0 = open("/dev/cdd0", O_RDWR);
+	fd1 = open("/dev/cdd1", O_RDWR);
+	fd2 = open("/dev/cdd2", O_RDWR);
+	while(1){
+		//清空rfds
+		FD_ZERO(&amp;rfds);
+		//将fdn加入到frds集合
+		FD_SET(fd0, &amp;rfds);
+		FD_SET(fd1, &amp;rfds);
+		FD_SET(fd2, &amp;rfds);
+		
+		//超时时间5s
+		tv.tv_sec = 5;
+		tv.tv_usec = 0;
+		
+		ret = select(fd2+1, &amp;rfds, NULL, NULL, &amp;tv);
+		if(ret &lt; 0){
+			printf("select failed!\n");
+			return -1
+		}else if(ret = 0){
+			printf("select timeout!\n");
+		}else{
+			if(FD_ISSET(fd0, &amp;rfds)){
+				printf("/dev/cdd0 is ready for reading!\n");
+			}
+			if(FD_ISSET(fd1, &amp;rfds)){
+				printf("/dev/cdd1 is ready for reading!\n");
+			}
+			if(FD_ISSET(fd2, &amp;rfds)){
+				printf("/dev/cdd2 is ready for reading!\n");
+			}
+		}
+		sleep(1);
+	}
+	
+	return 0;
+}</pre><br />&#13;
+<br />&#13;
+&#13;
+<p><br />&#13;
+</p>&#13;
+   &#13;

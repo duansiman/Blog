@@ -1,0 +1,514 @@
+
+                <p><br/></p><p><span style="font-size:18px;">POI框架是Apache开源的可以导出导入Excel表的，本博客介绍在SSM(Spring+SpringMVC+Mybatis)项目里，如何使用POI框架，导出Excel表</span></p><p><span style="font-size:18px;">这里我们先要去Apache官网下载jar</span></p><p><span style="font-size:18px;"><img src="http://img.blog.csdn.net/20160913155053459?watermark/2/text/aHR0cDovL2Jsb2cuY3Nkbi5uZXQv/font/5a6L5L2T/fontsize/400/fill/I0JBQkFCMA==/dissolve/70/gravity/Center" alt=""/><br/></span></p><p><span style="font-size:18px;"><br/></span></p><p><span style="font-size:18px;">然后，就可以先编程了</span></p><p><span style="font-size:18px;">先提供一个封装的httpservlet请求和添加数据的类</span></p><p><span style="font-size:18px;"/></p><pre code_snippet_id="1879196" snippet_file_name="blog_20160913_1_6882168" name="code" class="java">public class PageData extends HashMap implements Map{
+	
+	private static final long serialVersionUID = 1L;
+	
+	Map map = null;
+	HttpServletRequest request;
+	
+	public PageData(HttpServletRequest request){
+		this.request = request;
+		Map properties = request.getParameterMap();
+		Map returnMap = new HashMap(); 
+		Iterator entries = properties.entrySet().iterator(); 
+		Map.Entry entry; 
+		String name = "";  
+		String value = "";  
+		while (entries.hasNext()) {
+			entry = (Map.Entry) entries.next(); 
+			name = (String) entry.getKey(); 
+			Object valueObj = entry.getValue(); 
+			if(null == valueObj){ 
+				value = ""; 
+			}else if(valueObj instanceof String[]){ 
+				String[] values = (String[])valueObj;
+				for(int i=0;i&lt;values.length;i++){ 
+					 value = values[i] + ",";
+				}
+				value = value.substring(0, value.length()-1); 
+			}else{
+				value = valueObj.toString(); 
+			}
+			returnMap.put(name, value); 
+		}
+		map = returnMap;
+	}
+	
+	public PageData() {
+		map = new HashMap();
+	}
+	
+	@Override
+	public Object get(Object key) {
+		Object obj = null;
+		if(map.get(key) instanceof Object[]) {
+			Object[] arr = (Object[])map.get(key);
+			obj = request == null ? arr:(request.getParameter((String)key) == null ? arr:arr[0]);
+		} else {
+			obj = map.get(key);
+		}
+		return obj;
+	}
+	
+	public String getString(Object key) {
+		return (String)get(key);
+	}
+	
+	@SuppressWarnings("unchecked")
+	@Override
+	public Object put(Object key, Object value) {
+		return map.put(key, value);
+	}
+	
+	@Override
+	public Object remove(Object key) {
+		return map.remove(key);
+	}
+
+	public void clear() {
+		map.clear();
+	}
+
+	public boolean containsKey(Object key) {
+		// TODO Auto-generated method stub
+		return map.containsKey(key);
+	}
+
+	public boolean containsValue(Object value) {
+		// TODO Auto-generated method stub
+		return map.containsValue(value);
+	}
+
+	public Set entrySet() {
+		// TODO Auto-generated method stub
+		return map.entrySet();
+	}
+
+	public boolean isEmpty() {
+		// TODO Auto-generated method stub
+		return map.isEmpty();
+	}
+
+	public Set keySet() {
+		// TODO Auto-generated method stub
+		return map.keySet();
+	}
+
+	@SuppressWarnings("unchecked")
+	public void putAll(Map t) {
+		// TODO Auto-generated method stub
+		map.putAll(t);
+	}
+
+	public int size() {
+		// TODO Auto-generated method stub
+		return map.size();
+	}
+
+	public Collection values() {
+		// TODO Auto-generated method stub
+		return map.values();
+	}
+	
+}
+</pre><br/><br/><p/><p><span style="font-size:18px;">写个实体类：</span></p><p><span style="font-size:18px;">会员类</span></p><p><span style="font-size:18px;"/></p><pre code_snippet_id="1879196" snippet_file_name="blog_20160913_2_4483380" name="code" class="java">public class Member {
+	
+	/**
+	 * 会员账号
+	 */
+	private String memberID;
+	
+	/**
+	 * 会员密码
+	 */
+	private String password;
+	
+	/**
+	 * 会员级别
+	 */
+	private String rank;
+	
+	/**
+	 * 会员积分
+	 */
+	private int credit;
+	
+	/**
+	 * 会员手机号
+	 */
+	private String phone;
+	
+	/**
+	 * 会员皮肤
+	 */
+	private String imgPath;
+	
+	private List&lt;GroupPost&gt; postes;
+
+	public List&lt;GroupPost&gt; getPostes() {
+		return postes;
+	}
+
+	public void setPostes(List&lt;GroupPost&gt; postes) {
+		this.postes = postes;
+	}
+
+	public String getMemberID() {
+		return memberID;
+	}
+
+	public void setMemberID(String memberID) {
+		this.memberID = memberID;
+	}
+
+	public String getPassword() {
+		return password;
+	}
+
+	public void setPassword(String password) {
+		this.password = password;
+	}
+
+	public String getRank() {
+		return rank;
+	}
+
+	public void setRank(String rank) {
+		this.rank = rank;
+	}
+
+	public int getCredit() {
+		return credit;
+	}
+
+	public void setCredit(int credit) {
+		this.credit = credit;
+	}
+
+	public String getPhone() {
+		return phone;
+	}
+
+	public void setPhone(String phone) {
+		this.phone = phone;
+	}
+
+	public String getImgPath() {
+		return imgPath;
+	}
+
+	public void setImgPath(String imgPath) {
+		this.imgPath = imgPath;
+	}
+	
+}
+</pre><p/><p><span style="font-size:18px;"><br/></span></p><p><span style="font-size:18px;">DAO.java</span></p><pre code_snippet_id="1879196" snippet_file_name="blog_20160913_3_9259909" name="code" class="java">package com.appweb.core.dao;
+
+public interface DAO {
+	
+	/**
+	 * 保存对象
+	 * @param str
+	 * @param obj
+	 * @return
+	 * @throws Exception
+	 */
+	public Object save(String str, Object obj) throws Exception;
+	
+	/**
+	 * 修改对象
+	 * @param str
+	 * @param obj
+	 * @return
+	 * @throws Exception
+	 */
+	public Object update(String str, Object obj) throws Exception;
+	
+	/**
+	 * 删除对象 
+	 * @param str
+	 * @param obj
+	 * @return
+	 * @throws Exception
+	 */
+	public Object delete(String str, Object obj) throws Exception;
+
+	/**
+	 * 查找对象
+	 * @param str
+	 * @param obj
+	 * @return
+	 * @throws Exception
+	 */
+	public Object findForObject(String str, Object obj) throws Exception;
+
+	/**
+	 * 查找对象
+	 * @param str
+	 * @param obj
+	 * @return
+	 * @throws Exception
+	 */
+	public Object findForList(String str, Object obj) throws Exception;
+	
+	/**
+	 * 查找对象封装成Map
+	 * @param s
+	 * @param obj
+	 * @return
+	 * @throws Exception
+	 */
+	public Object findForMap(String sql, Object obj, String key , String value) throws Exception;
+	
+}
+</pre><br/><br/>DAOSupport类：<p><span style="font-size:18px;"/></p><pre code_snippet_id="1879196" snippet_file_name="blog_20160913_4_5464899" name="code" class="java">package com.appweb.core.dao;
+
+import java.util.List;
+
+import javax.annotation.Resource;
+
+import org.apache.ibatis.session.ExecutorType;
+import org.apache.ibatis.session.SqlSession;
+import org.apache.ibatis.session.SqlSessionFactory;
+import org.mybatis.spring.SqlSessionTemplate;
+import org.springframework.stereotype.Repository;
+
+@Repository("daoSupport")
+public class DaoSupport implements DAO {
+
+	@Resource(name = "sqlSessionTemplate")
+	private SqlSessionTemplate sqlSessionTemplate;
+	
+	/**
+	 * 保存对象
+	 * @param str
+	 * @param obj
+	 * @return
+	 * @throws Exception
+	 */
+	public Object save(String str, Object obj) throws Exception {
+		return sqlSessionTemplate.insert(str, obj);
+	}
+	
+	/**
+	 * 批量更新
+	 * @param str
+	 * @param obj
+	 * @return
+	 * @throws Exception
+	 */
+	public Object batchSave(String str, List objs )throws Exception{
+		return sqlSessionTemplate.insert(str, objs);
+	}
+	
+	/**
+	 * 修改对象
+	 * @param str
+	 * @param obj
+	 * @return
+	 * @throws Exception
+	 */
+	public Object update(String str, Object obj) throws Exception {
+		return sqlSessionTemplate.update(str, obj);
+	}
+
+	/**
+	 * 批量更新
+	 * @param str
+	 * @param obj
+	 * @return
+	 * @throws Exception
+	 */
+	public void batchUpdate(String str, List objs )throws Exception{
+		SqlSessionFactory sqlSessionFactory = sqlSessionTemplate.getSqlSessionFactory();
+		//批量执行器
+		SqlSession sqlSession = sqlSessionFactory.openSession(ExecutorType.BATCH,false);
+		try{
+			if(objs!=null){
+				for(int i=0,size=objs.size();i&lt;size;i++){
+					sqlSession.update(str, objs.get(i));
+				}
+				sqlSession.flushStatements();
+				sqlSession.commit();
+				sqlSession.clearCache();
+			}
+		}finally{
+			sqlSession.close();
+		}
+	}
+	
+	/**
+	 * 批量更新
+	 * @param str
+	 * @param obj
+	 * @return
+	 * @throws Exception
+	 */
+	public Object batchDelete(String str, List objs )throws Exception{
+		return sqlSessionTemplate.delete(str, objs);
+	}
+	
+	/**
+	 * 删除对象 
+	 * @param str
+	 * @param obj
+	 * @return
+	 * @throws Exception
+	 */
+	public Object delete(String str, Object obj) throws Exception {
+		return sqlSessionTemplate.delete(str, obj);
+	}
+	 
+	/**
+	 * 查找对象
+	 * @param str
+	 * @param obj
+	 * @return
+	 * @throws Exception
+	 */
+	public Object findForObject(String str, Object obj) throws Exception {
+		return sqlSessionTemplate.selectOne(str, obj);
+	}
+
+	/**
+	 * 查找对象
+	 * @param str
+	 * @param obj
+	 * @return
+	 * @throws Exception
+	 */
+	public Object findForList(String str, Object obj) throws Exception {
+		return sqlSessionTemplate.selectList(str, obj);
+	}
+	
+	public Object findForMap(String str, Object obj, String key, String value) throws Exception {
+		return sqlSessionTemplate.selectMap(str, obj, key);
+	}
+	
+}
+
+</pre><br/><br/><p/><p><span style="font-size:18px;"><br/></span></p><p><span style="font-size:18px;">写个Service类:</span></p><p><span style="font-size:18px;"/></p><pre code_snippet_id="1879196" snippet_file_name="blog_20160913_5_6861121" name="code" class="java">/**
+	 * 会员信息列表
+	 * @param pd
+	 * @return
+	 * @throws Exception
+	 */
+	public List&lt;PageData&gt; listM(PageData pd)throws Exception{
+		return (List&lt;PageData&gt;)dao.findForList("MemberMapper.memberList", pd);
+	}</pre><br/><br/><p/><p><span style="font-size:18px;">ObjectExcelView.java:</span></p><p><span style="font-size:18px;"/></p><pre code_snippet_id="1879196" snippet_file_name="blog_20160913_6_6621141" name="code" class="java">package com.appweb.core.view;
+
+import java.util.Date;
+import java.util.List;
+import java.util.Map;
+
+import javax.servlet.http.HttpServletRequest;
+import javax.servlet.http.HttpServletResponse;
+
+import org.apache.poi.hssf.usermodel.HSSFCell;
+import org.apache.poi.hssf.usermodel.HSSFCellStyle;
+import org.apache.poi.hssf.usermodel.HSSFFont;
+import org.apache.poi.hssf.usermodel.HSSFSheet;
+import org.apache.poi.hssf.usermodel.HSSFWorkbook;
+import org.springframework.web.servlet.view.document.AbstractExcelView;
+
+import com.appweb.core.entity.PageData;
+import com.appweb.core.utils.Tools;
+
+/**
+* 导入到EXCEL
+* 类名称：ObjectExcelView.java
+* 类描述： 
+ */
+public class ObjectExcelView extends AbstractExcelView{
+
+	@Override
+	protected void buildExcelDocument(Map&lt;String, Object&gt; model,
+			HSSFWorkbook workbook, HttpServletRequest request,
+			HttpServletResponse response) throws Exception {
+		// TODO Auto-generated method stub
+		Date date = new Date();
+		String filename = Tools.date2Str(date, "yyyyMMddHHmmss");
+		HSSFSheet sheet;
+		HSSFCell cell;
+		response.setContentType("application/octet-stream");
+		response.setHeader("Content-Disposition", "attachment;filename="+filename+".xls");
+		sheet = workbook.createSheet("sheet1");
+		
+		List&lt;String&gt; titles = (List&lt;String&gt;) model.get("titles");
+		int len = titles.size();
+		HSSFCellStyle headerStyle = workbook.createCellStyle(); //标题样式
+		headerStyle.setAlignment(HSSFCellStyle.ALIGN_CENTER);
+		headerStyle.setVerticalAlignment(HSSFCellStyle.VERTICAL_CENTER);
+		HSSFFont headerFont = workbook.createFont();	//标题字体
+		headerFont.setBoldweight(HSSFFont.BOLDWEIGHT_BOLD);
+		headerFont.setFontHeightInPoints((short)11);
+		headerStyle.setFont(headerFont);
+		short width = 20,height=25*20;
+		sheet.setDefaultColumnWidth(width);
+		for(int i=0; i&lt;len; i++){ //设置标题
+			String title = titles.get(i);
+			cell = getCell(sheet, 0, i);
+			cell.setCellStyle(headerStyle);
+			setText(cell,title);
+		}
+		sheet.getRow(0).setHeight(height);
+		
+		HSSFCellStyle contentStyle = workbook.createCellStyle(); //内容样式
+		contentStyle.setAlignment(HSSFCellStyle.ALIGN_CENTER);
+		List&lt;PageData&gt; varList = (List&lt;PageData&gt;) model.get("varList");
+		int varCount = varList.size();
+		for(int i=0; i&lt;varCount; i++){
+			PageData vpd = varList.get(i);
+			for(int j=0;j&lt;len;j++){
+				String varstr = vpd.getString("var"+(j+1)) != null ? vpd.getString("var"+(j+1)) : "";
+				cell = getCell(sheet, i+1, j);
+				cell.setCellStyle(contentStyle);
+				setText(cell,varstr);
+			}
+			
+		}
+		
+	}
+
+}
+</pre><br/>控制类导出Excel表：<p/><p><span style="font-size:18px;"/></p><pre code_snippet_id="1879196" snippet_file_name="blog_20160913_7_5542129" name="code" class="java">/**
+	 * 导出Excel
+	 * @return
+	 * @throws Exception
+	 */
+	@RequestMapping("/exportExcel")
+	public ModelAndView exportExcel()throws Exception{
+		ModelAndView mv = this.getModelAndView();
+		PageData pd = new PageData();
+		pd = this.getPageData();
+		//检索条件
+		Map&lt;String,Object&gt; dataMap = new HashMap&lt;String,Object&gt;();
+		List&lt;String&gt; titles = new ArrayList&lt;String&gt;();
+		
+		titles.add("用户名");
+		titles.add("密码");
+		titles.add("级别");
+		titles.add("积分");
+		titles.add("手机号");
+		
+		dataMap.put("titles", titles);
+		
+		List&lt;PageData&gt; memberList = memberService.listM(pd);
+		List&lt;PageData&gt; varList = new ArrayList&lt;PageData&gt;();
+		for(int i=0;i&lt;memberList.size();i++){
+			PageData vpd = new PageData();
+			vpd.put("var1", memberList.get(i).getString("memberID"));
+			vpd.put("var2", memberList.get(i).getString("password"));
+			vpd.put("var3", memberList.get(i).getString("rank"));
+			vpd.put("var4", memberList.get(i).get("credit").toString());
+			vpd.put("var5", memberList.get(i).getString("phone"));
+			varList.add(vpd);
+		}
+		dataMap.put("varList", varList);
+		ObjectExcelView erv = new ObjectExcelView();
+		mv = new ModelAndView(erv,dataMap);
+		
+		return mv;
+	}
+	</pre><br/><br/><p/><p><span style="font-size:18px;"><img src="http://img.blog.csdn.net/20160913155827274?watermark/2/text/aHR0cDovL2Jsb2cuY3Nkbi5uZXQv/font/5a6L5L2T/fontsize/400/fill/I0JBQkFCMA==/dissolve/70/gravity/Center" alt=""/><br/></span></p><p><span style="font-size:18px;"><br/></span></p><p><img src="http://img.blog.csdn.net/20160913155846801?watermark/2/text/aHR0cDovL2Jsb2cuY3Nkbi5uZXQv/font/5a6L5L2T/fontsize/400/fill/I0JBQkFCMA==/dissolve/70/gravity/Center" alt=""/><br/></p><link rel="stylesheet" href="http://static.blog.csdn.net/public/res-min/markdown_views.css?v=1.0"/>&#13;
+            

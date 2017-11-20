@@ -1,0 +1,121 @@
+
+
+<p>桌面上太多东西，会显得杂乱，于是人们使用各种容器将东西加以整理。将一系列基本对象(叶子对象)组合到一个容器中，容器又可以进一步放到另一个容器中。</p>&#13;
+<p><img src="http://img.blog.csdn.net/20140921095903982?watermark/2/text/aHR0cDovL2Jsb2cuY3Nkbi5uZXQveXFqMjA2NQ==/font/5a6L5L2T/fontsize/400/fill/I0JBQkFCMA==/dissolve/70/gravity/SouthEast" alt="" /><br />&#13;
+</p>&#13;
+<p></p>&#13;
+<p><strong>组合模式（Composite Pattern）</strong>通过组合将构件最终构成一个<strong><span style="color:#ff0000">树形结构</span></strong>。在计算机领域，树形结构广泛存在，如文件系统、菜单系统、GUI、Java(数据结构)容器、XML文件等等。组合模式的要点是：<strong><span style="color:#ff0000">叶子对象和各种容器能够统一地处理</span></strong>。封装容器和叶子对象的通用操作的概念，通常称为构件/组件/Component。</p>&#13;
+<p>程序员通常喜欢用树形结构的词汇介绍组合模式，如Component的通用替代词是Node，composite/合成物称为中间结点或branch，基本对象称为树叶等。</p>&#13;
+<h3>两种树形结构</h3>&#13;
+<p>假设Client复制/ copy()文件系统的元素，此时不论是文件夹还是文件，可以使用抽象类型Node封装对容器Folder和叶子File的通用操作copy()，Node是Folder和File父类型。容器Folder需要存储和管理它所保存的Node(可以是文件夹或文件)。组合模式下，Client完全不用关心将要处理的文件系统元素是否叶子，“对组合对象的操作与对单一对象的操作具有一致性”。<br />&#13;
+</p>&#13;
+<p></p>&#13;
+<pre code_snippet_id="472353" snippet_file_name="blog_20140921_1_8530727" name="code" class="java">例程 6-2容器
+package structure.composite;
+public interface Node{   
+    public void copy();  //定义统一的接口  
+}
+package structure.composite;
+import java.util.ArrayList;
+public class Folder implements Node{
+    private String folderName;
+    //用于存储本Folder下的文件夹或文件   
+    private ArrayList&lt;Node&gt; nodeList = new ArrayList&lt;&gt;();
+  
+    public Folder(String folderName){   
+        this.folderName = folderName;   
+    }  
+    public void add(Node node){  //增加文件或文件夹   
+        nodeList.add(node);   
+    }
+    /**
+     * 递归的复制自己和所有子元素
+     */  
+    @Override public void copy(){
+        System.out.println("复制文件夹：" + folderName); 
+        for(Node x : nodeList){
+            x.copy(); 
+        }   
+    }   
+}
+</pre>标准的组合模式结构图如图所示。包括3个角色：构件Component如Node、叶子结点Leaf和中间结点Composite。通常使用ArrayList容纳其他构件，管理子结点需要增加(add)和删除等操作。&#13;
+<p></p>&#13;
+<p>再看一个例子。在日常的组织结构中，员工/Employee组成部门，部门组成公司。假设需要统计公司的全部薪水，此时，并不需要位置等同Node的公司类、等同Folder的部门类。<strong>所有元素都是Employee对象</strong>，而公司CEO、部门经理的属性ArrayList&lt;Employee&gt;容纳其下属/subordinates。在此结构中，Employee可以有一个指向父结点的引用，以便于操作。<br />&#13;
+</p>&#13;
+<pre code_snippet_id="472353" snippet_file_name="blog_20140921_2_8083786" name="code" class="java">例程 6-3三位一体
+package structure.composite;
+import java.util.ArrayList;
+public class Employee {
+    String name;
+    int salary;
+    ArrayList&lt;Employee&gt; subordinates;
+    boolean isLeaf;
+    private Employee parent = null;
+
+    public Employee(String name, int salary) {
+        this(null,name,salary);
+    }
+    public Employee(Employee parent, String name, int salary) {
+        this.parent = parent;
+        this.name = name;
+        this.salary = salary;
+        subordinates = new ArrayList&lt;&gt;();        
+    }
+
+    public void setLeaf(boolean b) {
+        isLeaf = b; //if true, do not allow children
+    }
+
+    public int getSalary() {        return salary;    }
+    public String getName() {        return name;  }
+
+    /************************************************/
+    public boolean add(Employee e) {
+        if (!isLeaf)   subordinates.add(e);
+        return isLeaf;
+    }
+
+    public void remove(Employee e) {
+        if (!isLeaf) subordinates.remove(e);
+    }
+    //树的查找
+    public Employee getChild(String name) {
+        Employee newEmp = null;
+        if (this.getName().equals(name)){
+            return this;
+        }
+        for(Employee x :subordinates){            
+            newEmp = x.getChild(name);
+            if(newEmp!=null)break;
+        }
+        return newEmp;     
+    }
+
+    public int getSalaries() {
+        int sum = salary;
+        for(Employee x :subordinates){
+            sum += x.getSalaries();
+        }
+        return sum;
+    }
+}
+</pre>&#13;
+<p></p>&#13;
+<p>使用组合模式时，一个费事的工作是将各种组件构成一个树形结构。正如GUI编程(一个组合模式的众所周知的应用)时所做的，大量的编写parent.add(child)。构建数据树的代码可以放在客户代码中，也可以封装到一个单独的类如Model中。客户代码中通常保存一个数据树的根元素。</p>&#13;
+<h3>构件Component的接口</h3>&#13;
+<p></p>&#13;
+<p></p>&#13;
+<p>大接口和小接口组合模式的权衡，在于选择<span style="color:#ff0000"><strong>叶子的退化继承</strong></span>还是<span style="color:#ff0000"><strong>容器的扩展继承</strong></span>。</p>&#13;
+<p>构件/Component是仅包含容器/Composite和叶子共同的操作——基本操作，还是包含容器用于管理其子元素的各种操作如add()，getChildren()？</p>&#13;
+<p>如果构件仅包含基本操作，容器需要对Component扩展继承，当客户以Component声明元素时，容器扩展的方法不能够直接使用，必须将Component向下造型为Composite。换言之，客户将所有构件对象视为叶子。</p>&#13;
+<p>另一方面，如果构件包含了容器所需的管理方法如add()，则叶子对象此的继承成为了限制继承/退化继承。客户以Component声明元素时，客户将所有构件对象视为容器。而叶子对象替代到应用环境中后，可能出现异常。这一种实现方式在[GoF]中称为<strong>透明性——“你可以一致地使用所有的组件”</strong>。事实上，它和前者在“透明性”上没有本质区别，<strong><span style="color:#ff0000">前者将所有构件对象视为叶子，后者将所有构件对象视为容器。前者避免了退化继承从而使整个系统符合LSP。后者避免了向下造型或强制类型转换</span></strong>。这一方式，我们称之为大接口组合模式。</p>&#13;
+<p>大接口组合模式以容器看待所有构件，在实际编程中提供了更多的方便，例程6-4较为典型。其适用场合是程序员有合理的理由将所有构件视为容器，并在Component中为叶子定义<strong>合理的add()、getChild()的默认代码以避免退化继承。</strong>叶子改写Component的方法，不管是空实现还是抛出异常，通常是不可取的。而且Java中子类的override方法不能够抛出比父类型更大的异常。换言之，如果父类型的getChild()没有抛出异常，子类的代码也不得抛出检查性异常。</p>&#13;
+<p><br />&#13;
+</p>&#13;
+<p>扩展继承通常需要向下造型，程序员需要注意向下造型的类型安全。例如在程序中使用instanceof或者设置一个标志isLeaf。<br />&#13;
+</p>&#13;
+<p><a target="_blank" href="http://blog.csdn.net/yqj2065/article/details/8592375" style="text-align:center"><img src="http://img.blog.csdn.net/20140919170809965?watermark/2/text/aHR0cDovL2Jsb2cuY3Nkbi5uZXQveXFqMjA2NQ==/font/5a6L5L2T/fontsize/400/fill/I0JBQkFCMA==/dissolve/70/gravity/SouthEast" alt="" /></a><br />&#13;
+</p>&#13;
+<p><br />&#13;
+</p>&#13;
+   &#13;

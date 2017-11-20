@@ -1,0 +1,136 @@
+
+
+<p>1、内核定时器</p>&#13;
+<p>时钟中断：由系统的定时硬件以周期性的时间间隔发生，这个间隔（也就是频率）由内核根据常数HZ来确定。<br />&#13;
+HZ常数：她是一个与体系结构无关的常数，可以配置50-1200之间，可以在内核中配置<br />&#13;
+tick：她是HZ的倒数，也就是每发生一次硬件定时器中断的事件间隔。如HZ为200，tick为5毫秒。<br />&#13;
+jiffies核心变数：它是linux核心变数（32位变数，unsigned long），它被用记录自开机以来，已经过多少个tick。每发生一次硬件定时器中断，jiffies变数会被加1。<br />&#13;
+</p>&#13;
+<p>定时器的作用：<br />&#13;
+内核定时器由用户控制某个函数（定时器函数）来特定的在未来某个时刻执行。<br />&#13;
+内核定时器注册的处理函数只执行一次（不是循环执行的）。<br />&#13;
+</p>&#13;
+<p>内核定时器定义：<br />&#13;
+在&lt;linux/timer.h&gt;中定义<br />&#13;
+</p><pre code_snippet_id="129101" snippet_file_name="blog_20131226_1_8548705" name="code" class="objc">struct timer_list
+{
+	struct list_head entry;//内核使用
+	unsigned long expires;//超时时间jiffies的值
+	void (*function)(unsigned long);//超时处理函数
+	unsigned long data;//内核调用超时处理函数时传递给它的参数
+	struct tvec_base *base;//内核使用
+};</pre><br />&#13;
+内核定时器操作：<br />&#13;
+静态初始化<br />&#13;
+TIMER_INITIALIZER(_function, _expires, _data)<br />&#13;
+<span style="white-space:pre"></span>_function:定时器处理函数<br />&#13;
+<span style="white-space:pre"></span>_expires:定时器超时jiffies值<br />&#13;
+<span style="white-space:pre"></span>_data:传递给定时器处理函数的参数<br />&#13;
+&#13;
+<p>定义定时器<br />&#13;
+DEFINE_TIMER(_name, _function, _expires, _data);<br />&#13;
+<span style="white-space:pre"></span>_name:待定义的内核定时器变量名称<br />&#13;
+<span style="white-space:pre"></span>_function:定时器处理函数<br />&#13;
+<span style="white-space:pre"></span>_expires:定时器超时jiffies值<br />&#13;
+<span style="white-space:pre"></span>_data:传递给定时器处理函数的参数<br />&#13;
+</p>&#13;
+<p>动态初始化<br />&#13;
+void init_timer(struct timer_list *timer);<br />&#13;
+<span style="white-space:pre"></span>timer:待初始化的内核定时器<br />&#13;
+添加定时器<br />&#13;
+void add_timer(struct timer_list *timer);<br />&#13;
+<span style="white-space:pre"></span>timer:待初始化的内核定时器<br />&#13;
+删除定时器<br />&#13;
+该函数是在定时器超时前将定时器删除<br />&#13;
+实际上，在定时器超时后，系统会自动将其删除<br />&#13;
+void del_timer(struct timer_list *timer);<br />&#13;
+<span style="white-space:pre"></span>timer:待初始化的内核定时器<br />&#13;
+</p>&#13;
+<p>修改定时器<br />&#13;
+该函数实际相当于del_timer(), timer-&gt;expires=expires, add_timer()三个步骤<br />&#13;
+int mod_timer(struct timer_list *timer, unsigned long expires);<br />&#13;
+<span style="white-space:pre"></span>timer:待修改的内核定时器<br />&#13;
+<span style="white-space:pre"></span>expires:待修改内核定时器的新超时值<br />&#13;
+<span style="white-space:pre"></span>返回:返回0表示定时器处于不活动状态，返回1表示定时器处于活动状态<br />&#13;
+</p>&#13;
+<p>2、实例代码：</p>&#13;
+<p></p><pre code_snippet_id="129101" snippet_file_name="blog_20131226_2_3499959" name="code" class="objc">/**
+*Copyright (c) 2013.TianYuan
+*All rights reserved.
+*
+*文件名称: kerneltimer.c
+*文件标识: 内核定时器 
+*
+*当前版本：1.0
+*作者：wuyq 
+*
+*取代版本：xxx
+*原作者：xxx
+*完成日期：2013-11-25
+*/
+#include &lt;linux/init.h&gt;
+#include &lt;linux/module.h&gt;
+#include &lt;linux/timer.h&gt;
+
+MODULE_LICENSE("GPL");
+
+/*定时器变量*/
+struct timer_list bigdog_timer;
+
+#define BARK_TIMER	5/*定时器时间间隔*/
+#define BARK_COUNTS	10/*次数*/
+void bigdog_timer_handler(unsigned long data)
+{
+	/*记录该函数被调用的次数*/
+	static int bark_count = 0;
+	
+	printk("wangwang~~~~~~~~~%ld!\n", data);
+	if(bark_count &lt; BARK_COUNTS){
+		bigdog_timer.expires = jiffies+HZ*BARK_TIMER;
+		bigdog_timer.data++;
+		add_timer(&amp;bigdog_timer);
+		
+		bark_count++;
+	}
+}
+
+int __init kerneltimer_init(void)
+{
+	/*初始化定时器变量*/
+	init_timer(&amp;bigdog_timer);
+	bigdog_timer.expires = jiffies+HZ*BARK_TIMER;//超时时间.安装模块时间之后5秒
+	bigdog_timer.function = bigdog_timer_handler;//处理函数；函数指针:void (*fun)(unsigned long)
+	bigdog_timer.data = 100;
+	
+	/*添加定时器到内核中去*/
+	add_timer(&amp;bigdog_timer);
+	printk("add_timer() Done!\n");
+	
+	return 0;
+}
+
+void __exit kerneltimer_exit(void)
+{
+	/*从内核中删除指定的定时器*/
+	del_timer(&amp;bigdog_timer);
+	printk("del_timer() done!\n");
+}
+
+module_init(kerneltimer_init);
+module_exit(kerneltimer_exit);
+</pre><br />&#13;
+<pre code_snippet_id="129101" snippet_file_name="blog_20131226_3_8101765" name="code" class="plain">KERNELDIR ?=/root/Desktop/work/ldd3/linux-2.6.31_TX2440A
+PWD := $(shell pwd)
+obj-m += kerneltimer.o
+
+default:
+	$(MAKE) -C $(KERNELDIR) M=$(PWD) modules
+
+clean:
+	@rm -f *.o *.ord* *.sy* *.mod.* *.ko
+</pre><br />&#13;
+<br />&#13;
+&#13;
+<p><br />&#13;
+</p>&#13;
+   &#13;

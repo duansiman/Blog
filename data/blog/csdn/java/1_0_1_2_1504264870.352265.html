@@ -1,0 +1,129 @@
+
+<p><span style="color:#003366">装饰（ </span><span style="color:#003366">Decorator</span><span style="color:#003366">）模式又叫做包装模式。通</span><span style="color:rgb(0,51,102)">过一种对客户端透明的方式来扩展对象的功能，</span><span style="color:rgb(0,51,102)">是继承关系的一个替换方案。</span></p><p><span style="color:rgb(0,51,102)">转载请说明出处：<a target="_blank" href="http://blog.csdn.net/dawanganban">http://blog.csdn.net/dawanganban</a></span></p><p><span style="color:rgb(0,51,102)">假如现在要一个会跑的车，我们会这样做：</span></p><p><span style="color:rgb(0,51,102)"></span></p><pre code_snippet_id="563558" snippet_file_name="blog_20141226_5_4346091" name="code" class="java">package com.meritit;
+
+public interface Car {	
+	public void show();
+	public void run();
+}
+</pre><br /><pre code_snippet_id="563558" snippet_file_name="blog_20141226_6_178238" name="code" class="java">package com.meritit;
+
+public class RunCar implements Car{
+
+	public void run(){
+		System.out.println("可以跑");
+	}
+
+	@Override
+	public void show() {
+		this.run();
+	}
+}
+</pre><br />假如又要一个会跑又会飞的车，我们这样做<p></p><p><span style="color:rgb(0,51,102)"></span></p><pre code_snippet_id="563558" snippet_file_name="blog_20141226_3_9042259" name="code" class="java">package com.meritit;
+
+public class FlyCar implements Car{
+
+	public void run(){
+		System.out.println("可以跑");
+	}
+	
+	public void fly(){
+		System.out.println("可以飞");
+	}
+
+	@Override
+	public void show() {
+		this.run();
+		this.fly();
+		
+	}
+}
+</pre><br />假如还要一个会跑会游的车<p></p><p><span style="color:rgb(0,51,102)"></span></p><pre code_snippet_id="563558" snippet_file_name="blog_20141226_4_2135014" name="code" class="java">package com.meritit;
+
+public class SwimCar implements Car{
+
+	@Override
+	public void show() {
+		this.run();
+		this.swim();
+	}
+
+	@Override
+	public void run() {
+		System.out.println("可以跑");
+		
+	}
+	
+	public void swim(){
+		System.out.println("可以游");
+	}
+
+}
+</pre><br />像这样的要根据不同的需要给对象添加功能，我们可以用装饰模式，装饰模式的结构如图：<p></p><p><span style="color:rgb(0,51,102)"><img src="http://img.blog.csdn.net/20130816223921890?watermark/2/text/aHR0cDovL2Jsb2cuY3Nkbi5uZXQvZGF3YW5nYW5iYW4=/font/5a6L5L2T/fontsize/400/fill/I0JBQkFCMA==/dissolve/70/gravity/SouthEast" alt="" /></span></p><p><br /></p><p>现在我们使用装饰模式来实现对汽车的装饰：</p><p></p><pre code_snippet_id="563558" snippet_file_name="blog_20141226_5_4346091" name="code" class="java">package com.meritit;
+
+public interface Car {	
+	public void show();
+	public void run();
+}
+</pre><br /><pre code_snippet_id="563558" snippet_file_name="blog_20141226_6_178238" name="code" class="java">package com.meritit;
+
+public class RunCar implements Car{
+
+	public void run(){
+		System.out.println("可以跑");
+	}
+
+	@Override
+	public void show() {
+		this.run();
+	}
+}
+</pre><br />创建一个抽象的装饰器，持有要装饰的对象<p></p><p></p><pre code_snippet_id="563558" snippet_file_name="blog_20141226_7_4374183" name="code" class="java">package com.meritit;
+
+public abstract class CarDecorator {
+	private Car car;
+	
+	public CarDecorator(Car car){
+		this.car = car;
+	}
+	
+	public abstract void show();
+
+	public Car getCar() {
+		return car;
+	}
+
+	public void setCar(Car car) {
+		this.car = car;
+	}
+	
+	
+}
+</pre><br />具体的装饰<p></p><p></p><pre code_snippet_id="563558" snippet_file_name="blog_20141226_8_1634790" name="code" class="java">package com.meritit;
+
+public class FlyCarDecorator extends CarDecorator{
+
+	public FlyCarDecorator(Car car) {
+		super(car);
+	}
+
+	@Override
+	public void show() {
+		this.getCar().run();
+		this.fly();
+	}
+	
+	public void fly(){
+		System.out.println("可以飞");
+	}
+
+}
+</pre><br />最后的结果<p></p><p></p><pre code_snippet_id="563558" snippet_file_name="blog_20141226_9_2667013" name="code" class="java">package com.meritit;
+
+public class MainClass {
+	public static void main(String[] args) {
+		Car car = new RunCar();
+		CarDecorator decorator = new FlyCarDecorator(car);
+		decorator.show();
+	}
+}
+</pre><p>装饰模式的作用：动态的给一个对象添加一些额外的职责，就增加功能来说，装饰模式相比生成子类更灵活。</p><p>设计原则：</p><p>1、多用组合、少用继承。</p><p>利用继承设计子类的行为，是在编译时静态决定的，而且所有的子类都会继承到相同的行为。然而，如果能够利用组合的做法扩展对象的行为，就可以在运行时动态地进行扩展。<br /></p><p>2、类应该设计的对<span style="color:#ff0000;">扩展开放</span>，对<span style="color:#ff0000;">修改关闭</span>。</p><p>要点：</p><p>1． 装饰者和被装饰对象有相同的超类型。</p><p></p><p style="margin: 10px auto;">2． 可以用一个或多个装饰者包装一个对象。</p><p style="margin: 10px auto;">3． 装饰者可以在所委托被装饰者的行为之前或之后，加上自己的行为，以达到特定的目的。</p><p style="margin: 10px auto;">4． 对象可以在任何时候被装饰，所以可以在运行时动态的，不限量的用你喜欢的装饰者来装饰对象。</p><p style="margin: 10px auto;">5． 装饰模式中使用继承的关键是想达到装饰者和被装饰对象的<span style="color:#ff0000;">类型匹配</span>，而不是获得其行为。</p><p style="margin: 10px auto;">6． 装饰者一般对组件的客户是透明的，除非客户程序依赖于组件的具体类型。在实际项目中可以根据需要为装饰者添加新的行为，做到“半透明”装饰者。</p><p style="margin: 10px auto;">7． 适配器模式的用意是改变对象的接口而不一定改变对象的性能，而装饰模式的用意是保持接口并增加对象的职责。</p><p></p>   &#13;

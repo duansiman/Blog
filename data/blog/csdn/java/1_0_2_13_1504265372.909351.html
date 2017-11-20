@@ -1,0 +1,152 @@
+
+        <div class="markdown_views"><p>有一段时间没写博客了,因为接了几个项目,并且临近期末,还要准备考试,比较忙.最近项目上线,项目主要是微信智能硬件管理,所以需要两个服务器,一个用来处理微信上传的消息,一个用来处理智能设备上传的消息,所以就搞了两个tomcat,然而微信的URL接口配置只能使用80端口,两个tomcat不能同时占用80端口,搜了下资料发现nginx可以转发到指定端口,故学习一番.</p>
+
+
+
+<h2 id="1下载">1.下载</h2>
+
+<p><a href="http://nginx.org/en/download.html">nginx官网下载</a>(这里使用的是windows版本)</p>
+
+<p>版本: <br />
+ 1. Mainline version:nginx目前主力做的版本,可以理解为开发者版本 <br />
+ 2. Stable version:顾名思义,稳定版本,建议使用 <br />
+ 3. Legacy versions:之前的稳定版本</p>
+
+
+
+<h2 id="2安装">2.安装</h2>
+
+<p>直接解压到c盘 <br />
+<img src="http://img.blog.csdn.net/20160621123700651" alt="这里写图片描述" title="" /></p>
+
+
+
+<h2 id="3测试">3.测试</h2>
+
+<ol>
+<li>启动,双击nginx.exe,这里要注意,nginx默认监听80端口,所以你要保证80端口没被占用才可以启动</li>
+<li>在浏览器访问     <a href="http://localhost/">http://localhost</a></li>
+<li>看到如下显示即代表成功 <br />
+<img src="http://img.blog.csdn.net/20160621124125666" alt="这里写图片描述" title="" /></li>
+</ol>
+
+
+
+<h2 id="4常用命令">4.常用命令</h2>
+
+<ol>
+<li>nginx -s stop //停止nginx</li>
+<li>nginx -s quit //退出nginx</li>
+<li>nginx -s reload //修改配置后重新加载nginx</li>
+<li>nginx -t //检查配置文件是否正确</li>
+</ol>
+
+
+
+<h2 id="5配置转发到tomcat地址">5.配置转发到tomcat地址</h2>
+
+<p>配置文件在安装目录/conf/nginx.conf,进去后主要看server,每一个server相当于一个代理服务器,当然可以配置多个</p>
+
+
+
+<pre class="prettyprint"><code class=" hljs axapta"><span class="hljs-keyword">server</span> {
+        listen       <span class="hljs-number">80</span>; <span class="hljs-preprocessor">#表示此server监听的端口</span>
+        server_name  localhost; <span class="hljs-preprocessor">#表示监听到之后需要转到哪里去，这时我们直接转到本地，这时是直接到nginx文件夹内</span>
+        <span class="hljs-preprocessor">#表示匹配的路径，这时配置了/表示所有请求都被匹配到这里</span>
+        location / {
+            root   html; <span class="hljs-preprocessor">#面配置了root这时表示当匹配这个请求的路径时，将会在这个文件夹内寻找相应的文件</span>
+            <span class="hljs-keyword">index</span>  <span class="hljs-keyword">index</span>.html <span class="hljs-keyword">index</span>.htm; <span class="hljs-preprocessor">#默认主页,挨个匹配,找到为止</span>
+        }
+        <span class="hljs-preprocessor">#暂时先了解这么多,其他的我没粘贴进来</span>
+    }</code></pre>
+
+<p>从配置文件中可以看出来,location决定着访问的链接会匹配到哪里,所以只需要修改为tomcat地址即可</p>
+
+
+
+<pre class="prettyprint"><code class=" hljs livecodeserver">location / {  
+    proxy_pass <span class="hljs-keyword">http</span>://localhost:<span class="hljs-number">8888</span>; <span class="hljs-comment">#转发到tomcat地址  </span>
+}</code></pre>
+
+<p>使用命令 nginx -t检测配置文件是否正确,显示正确即可 <br />
+<img src="http://img.blog.csdn.net/20160621125756438" alt="这里写图片描述" title="" /></p>
+
+
+
+<h2 id="6测试">6.测试</h2>
+
+<ol>
+<li>启动tomcat</li>
+<li>启动nginx</li>
+<li>在浏览器访问     <a href="http://localhost/">http://localhost</a>,显示出来是tomcat页面,则成功</li>
+</ol>
+
+
+
+<h2 id="7location优先级问题">7.location优先级问题</h2>
+
+<p>如上配置,你可以在server中配置多个location,比如:</p>
+
+
+
+<pre class="prettyprint"><code class=" hljs cs">            location / { <span class="hljs-preprocessor">#空匹配</span>
+            proxy_pass   http:<span class="hljs-comment">//localhost:8888;</span>
+            }
+            location =/device/device.<span class="hljs-keyword">do</span> { <span class="hljs-preprocessor">#等于匹配</span>
+            proxy_pass   http:<span class="hljs-comment">//localhost:8080;</span>
+            }</code></pre>
+
+<p>但是这样就会有个问题,假设我请求的为<a href="http://XXXX.com/device/device.do">http://XXXX.com/device/device.do</a>,那么这两个location都可以匹配,具体使用哪个呢?这就涉及到优先级问题.</p>
+
+<ol>
+<li><p>匹配符</p>
+
+<ol><li>等于匹配符：= <br />
+等于匹配符就是等号，特点可以概括为两点： <br />
+精确匹配 <br />
+不支持正则表达式</li>
+<li>空匹配符 <br />
+空匹配符的特点是： <br />
+匹配以指定模式开始的 URI <br />
+不支持正则表达式</li>
+<li>正则匹配符：~ <br />
+正则匹配符是可以使用正则表达式的匹配符。不过这里要强调的是，一般来说~是指： <br />
+区分大小写的正则匹配 <br />
+而~*表示： <br />
+不区分大小写的正则匹配 <br />
+但是对于一些对大小写不敏感的操作系统，这两者没有区别。另外一个就是^~，其表示以指定模式开始的正则匹配。</li>
+<li>内部访问符：@ <br />
+一般用于错误页面等，这个暂不讨论。</li></ol></li>
+<li><p>优先级</p>
+
+<ol><li>=</li>
+<li>空匹配符，满足精确匹配时</li>
+<li>^~</li>
+<li>~或~*</li>
+<li>空匹配符，满足以指定模式开始时的匹配时</li></ol></li>
+</ol>
+
+<p>由上可知访问<a href="http://XXXX.com/device/device.do">http://XXXX.com/device/device.do</a>时,应该会使用等于匹配的location.</p>
+
+<ul>
+<li>总结 <br />
+<em>*(location =) &gt; (location 完整路径 &gt;) &gt;(location ^~ 路径) &gt;(location ~</em> 正则) &gt;(location 路径) <br />
+只要匹配到，其它的都会忽略，然后返回到改匹配。** <br />
+具体怎么使用配置,还是遇到了再去学习使用比较好</li>
+</ul>
+
+<hr /></div>&#13;
+        <script type="text/javascript">&#13;
+            $(function () {&#13;
+                $('pre.prettyprint code').each(function () {&#13;
+                    var lines = $(this).text().split('\n').length;&#13;
+                    var $numbering = $('&lt;ul/&gt;').addClass('pre-numbering').hide();&#13;
+                    $(this).addClass('has-numbering').parent().append($numbering);&#13;
+                    for (i = 1; i &lt;= lines; i++) {&#13;
+                        $numbering.append($('&lt;li/&gt;').text(i));&#13;
+                    };&#13;
+                    $numbering.fadeIn(1700);&#13;
+                });&#13;
+            });&#13;
+        </script>&#13;
+   &#13;

@@ -1,0 +1,199 @@
+
+
+<p>后头看例程2-4，客户类TestSortor依赖抽象类型IntSort，但是TestSortor赖皮地不考虑创建IntSort的对象，而且有两种形式：</p>&#13;
+<p><span style="white-space:pre"> </span>等待注入。<br />&#13;
+<span style="white-space:pre"> </span>参数传递。<br />&#13;
+</p>&#13;
+<p></p>&#13;
+<pre code_snippet_id="2365769" snippet_file_name="blog_20170501_1_1817415" name="code" class="java">public class TestSortor {    
+    public static void test(int[] array,IntSort s){//IntSort作为参数
+        array = s.sort(array);
+        pln(array);
+    } 
+    //或者，依赖注入
+    private static IntSort s;    
+    public static void setSortor(IntSort s){
+        TestSortor.s =s;
+    }
+    public static void test(int[] array){
+        array = s.sort(array);
+        pln(array);
+    }
+}</pre>&#13;
+<p></p>&#13;
+<h2>2.2.3 依赖注入模式<br />&#13;
+</h2>&#13;
+<p></p>&#13;
+<p>对于Client依赖于IServer，Client可以赖皮地不考虑创建IServer的对象，而将IServer初始化的工作交给依赖注入容器。</p>&#13;
+<p>站在Client的角度，依赖注入(Dependency Injection、DI) 的概念很简单，简言之：<strong><span style="font-size:18px; color:#ff0000">伸手-等待</span></strong>。</p>&#13;
+<p>(1) Client的类体中没有初始化IServer变量的代码，它不想自己创建IServer对象，而是提供public构造器Client(IServer)或设置方法setIServer (IServer)等。是为伸手；</p>&#13;
+<p>(2) 坐等外界为其初始化IServer对象。是为等待。</p>&#13;
+<p>值得注意的是，“伸手”代码如setIServer (IServer)，虽然看起来很平常，但这些代码不是给Client的用户常规调用的，而是为依赖注入容器如Spring准备的。</p>&#13;
+先将如何使用Spring的细节按下不表，仅看Client及其用户Main的代码。<br />&#13;
+<p></p>&#13;
+<pre code_snippet_id="2365769" snippet_file_name="blog_20170528_2_7801058" name="code" class="java">package init;
+public class Client {
+    private IServer s;
+    //////////////////依赖注入-伸手////////////////
+    public void setIServer(IServer s) {
+        this.s = s;
+    }
+    public void testSpring() {
+        s.doSth();
+    }
+    public static void main(String[] args) {       
+         new Client().testSpring();//如期获得 NullPointerException
+    }
+}
+
+package init;
+import org.springframework.context.ApplicationContext;
+import org.springframework.context.support.FileSystemXmlApplicationContext;
+public class Main {
+    public static void main(String[] args) {
+        ApplicationContext ctx = new FileSystemXmlApplicationContext("Client.xml");
+        Client c = (Client)ctx.getBean("cli"); 
+        c.testSpring();
+    }
+}
+</pre>&#13;
+<p></p>&#13;
+<p>Main中通过调用Spring的ApplicationContext.getBean("someKey")获得的Client对象，其成员变量s完成了初始化；神奇地，s的初始化没有在源代码中使用赋值语句。</p>&#13;
+如果使用God，假设Main不操心Client依赖对象的初始化，则&#13;
+<p></p>&#13;
+<pre code_snippet_id="2365769" snippet_file_name="blog_20170528_3_4039067" name="code" class="java">例程 2 9 Spring Vs. God
+package init;
+public class Client {
+    private IServer s;
+    public static void <span style="font-family: Arial, Helvetica, sans-serif;">testGod()</span>{       
+        s  = (IServer) yqj2065.util.God.create("IServer");
+        s.doSth();
+    }
+}
+package init;
+public class Main {
+    public static void main(String[] args) {        
+        Client c1 = new Client(); 
+        c1.testGod();
+    }
+}
+</pre><br />&#13;
+<p></p>&#13;
+<p>Main不操心Client所依赖对象的初始化的情况下，Spring Vs. God</p>&#13;
+<p>(1)Main的代码，使用Spring时，import Spring相关包，调用相关方法获得Client对象，而这个过程就是Client所"等待"的；使用God时，Main不需要God参与。</p>&#13;
+<p>(2) Client的代码，使用Spring时，需要伸手方法——可以写成setIiiServer(IServers)；使用God时，需要赋值语句。</p>&#13;
+(3) 使用Spring时，反射获得(Client)；使用God时，反射获得(IServer)；&#13;
+<p>现在说明使用Spring的细节，Spring可以按照XML配置文件或源代码中的Annotation自动装配。例程2-8中Main显式调用Spring，而Spring的自动装配按照XML配置文件。本例程依赖的配置文件为netbeans 中&lt;项目文件夹&gt;下的client.xml。<br />&#13;
+</p>&#13;
+<pre code_snippet_id="2365769" snippet_file_name="blog_20170528_4_1116109" name="code" class="html">&lt;?xml version="1.0" encoding="UTF-8" ?&gt; 
+&lt;beans &gt; 
+    &lt;!--public void setIiiServer(IServer s) --&gt;
+    &lt;bean id="cli" class="init.Client"&gt; 
+        &lt;property name="iiiServer" ref="sv" /&gt; 
+    &lt;/bean&gt; 
+    &lt;bean id="sv" class="init.Server"&gt; 
+    &lt;/bean&gt; 
+&lt;/beans&gt;
+</pre>&#13;
+<p></p>&#13;
+<p>其中，&lt;bean id="cli" class="init.Client"&gt;描述一个“键-值对”，例程2-10中getBean("cli")使用了键"cli"。&lt;bean id="sv"class="init.Server"&gt;也描述一个“键-值对”，而键"sv"则在本xml文件中用于自动装配。注意，</p>&#13;
+<p><strong><span style="color:#ff0000">&lt;propertyname="iiiServer" ref="sv" /&gt;</span></strong></p>&#13;
+<p>当使用"iiiServer"为name时，Spring要求init.Client中有一个“伸手”方法setIiiServer(IServer s)，也就是说，<strong><span style="color:#ff0000">忽略大小写，iiiServer前面加set的方法</span></strong>。</p>&#13;
+<p></p>&#13;
+<p>对于Spring的使用，可以归纳成一句话：<strong><span style="color:rgb(255,0,0)">Main显式调用、Client隐式关联</span></strong>。</p>&#13;
+<p>如果使用God，要求在Client中完成s的初始化，则可以归纳成一句话：<strong><span style="color:rgb(255,0,0)">Main无需调用(God)、Client显式关联</span></strong>。</p>&#13;
+<p><span style="font-size:18px">★</span>单就学习设计模式而言，<a target="_blank" href="http://blog.csdn.net/yqj2065/article/details/8539977"><strong><span style="color:rgb(255,0,0)"><span style="font-size:18px">工具类God</span></span></strong></a>已经足够。</p>&#13;
+<p>在上面的例子中，Spring与God一样，仅仅是一个<span style="color:#ff0000">被调的工具库</span>。按照框架的定义即一个骨架式方案，应用程序员按照自己的需求填入自己的东西，这里Spring不是骨架式方案而是完整的方案，应用程序员使用时也没有编写某个@Override方法，因此，yqj2065并<strong><span style="color:#ff0000">不同意Martin Fowler的观点</span></strong>, 而是认为：</p>&#13;
+<p><span style="font-family:Arial Black; font-size:18px; color:#000099">DI完全和框架、控制反转/IoC，一点关系都没有，它完全是一个自行车，只有两个轮子。</span></p>&#13;
+<p>God能够完成Spring目前的工作(Spring作为庞大的框架，有其他用途)，然而，God和Spring的软肋在于，它们在配置文件中需要一个能够绑定的子类型的名字，如果IServer的实现类是匿名类或lambda表达式——这也意味着Main不在意Client的成员变量s是否完成了初始化，Main自己将创建IServer的实现并传递给Client。</p>&#13;
+<p>此外，对于SortTest拥有的static成员IntSort，Spring的注入，显得难看。</p>&#13;
+<p>因此，很多时候可以选择参数传递方式。特别是Java8后，函数接口的实参用lambda表达式。</p>&#13;
+<br />&#13;
+<p></p>&#13;
+<hr />&#13;
+<p></p>&#13;
+<p>&lt;遗留文字&gt;</p>&#13;
+<p><br />&#13;
+</p>&#13;
+<p><strong><span style="font-size:18px; background-color:rgb(255,255,204)">依赖注入的意义</span></strong>，在于保证<span style="color:#ff0000"><strong>Client仅仅与(通常是接口或抽象类)IServer耦合</strong></span>，而不与IServer的子类型耦合，使得程序符合OCP或依赖于抽象类型原则。</p>&#13;
+<p><br />&#13;
+</p>&#13;
+<h3>1.2.1 注入的方式</h3>&#13;
+<p>站在Client的角度，Client<span style="color:#FF0000"><strong>接受注入</strong></span>有3种的方式。</p>&#13;
+<p></p>&#13;
+<pre code_snippet_id="2365769" snippet_file_name="blog_20170501_2_1228771" name="code" class="java">package principle;
+public class Client{ 
+    private IServer s; 
+    public Client(IServer s){         this.s = s;    }
+    public void set IServer(IServer s){        this.s = s;    }    
+}
+</pre><br />&#13;
+<p></p>&#13;
+<p>1. <strong>构造器注入(Constructor Injection)</strong>：Client提供构造器public  Client (IServer s)，等待外界创建IServer的(实现类的)对象后将其引用传递进来/注入。</p>&#13;
+2. <strong>Setter注入(Setter Injection)</strong>：Client提供设置方法如setIServer (IServers)，等待注入。&#13;
+<p><strong>3.接口注入，</strong>相当于将Setter注入的setIServer (IServer s) 方法封装到一个专用的接口如InjectIServer中，而Client实现InjectIServer并给出如下的方法体。</p>&#13;
+<p>    @Override public void setIServer (IServer s){</p>&#13;
+<p>        this.s=s;</p>&#13;
+<p>    }</p>&#13;
+<p>接口注入针对的场景是，有大量Client、Client1等都需要依赖于IServer。</p>&#13;
+<p>public interface InjectIServer{</p>&#13;
+<p>    public void setIServer (IServer s);</p>&#13;
+<p>}</p>&#13;
+<p>代码中使用了[4.1虚域模式]。然而这一方式并不一定被各种依赖注入容器所支持。</p>&#13;
+<p>1.2.2 设计注射器</p>&#13;
+<p></p>&#13;
+<p>Client伸手-等待，注入器如何设计呢？</p>&#13;
+<p>注射器不应该是应用系统中的某个类。整个应用系统(不仅仅指Client) 仅仅依赖于抽象类型IServer，这是使用依赖注入的目标。如果注射器依赖于具体类Server，而注射器又在应用系统中，则应用系统依赖于Server。</p>&#13;
+<p>注入器可以设计为下层包中的一个工具类如tool.God，或者更为强大的依赖注入容器，如Spring、PicoContainer等。</p>&#13;
+<p>任何应用程序App都可以用God作为注射器。因而，依赖注入通常意味着某注射器使用反射机制创建对象。换言之，<span style="color:rgb(255,0,0)"><strong>注射器</strong></span><span style="color:rgb(255,0,0)"><strong>通常</strong></span><span style="color:rgb(255,0,0)"><strong>使用反射机制创建对象，以作为通用工具。</strong></span></p>&#13;
+<p>代码中，IServer对象的创建使用了tool.God的静态方法create()， create()不过是一个使用反射+属性配置文件(.properties文件)创建对象的静态工厂。</p>&#13;
+<p></p>&#13;
+<pre code_snippet_id="2365769" snippet_file_name="blog_20170501_5_4402900" name="code" class="java">package creational.di;
+import tool.God
+public class App{ //Injection
+    public static void test(){
+         IServer s = (IServer) God.create("1-6"); //1-6 = creational.di.Server
+         Client c = new Client();
+         c.setIServer(s);//注入         
+         c.show();
+    }
+}
+</pre>&#13;
+<p></p>&#13;
+<p>站在Client的角度，<strong><span style="color:#ff0000">依赖注入模式等待外界创建并传入对象</span></strong>。</p>&#13;
+<hr />&#13;
+3. 但是，比工具类God更为强大的<strong><span style="color:#ff0000">依赖注入容器</span></strong>，如Spring、PicoContainer等，它们认为<strong>使用/依赖关系</strong>是面向对象编程的最基本的程序结构，各种各样的使用关系如Client与IServer、C与S等等广泛存在，作为一个依赖注入的工具或框架，希望程序员<strong><span style="color:#ff0000">不再</span></strong>编写如下代码：<br />&#13;
+<p></p>&#13;
+<p>      各种用于依赖注入的专用框架被开发出来如Spring等，它们被称为依赖注入或<del>控制反转</del>容器<strong>(DI/IoC Container）</strong>。</p>&#13;
+<p><br />&#13;
+</p>&#13;
+<p><strong>依赖注入模式</strong>和<strong>依赖注入容器</strong>、设计依赖注入容器所使用的<strong>技术(回调机制或控制反转)</strong>是3个东西，虽然密切相关——像爸爸、妈妈和孩子一样密切。</p>&#13;
+<p><span style="font-size:12px">/*请注意，至少到目前为止，我们不需要任何特别的术语——<strong><del><span style="color:#33033">依赖倒置原则DIP</span></del></strong>和<strong><span style="color:#33033"><del>控制反转IoC</del></span></strong>，而此时，我会将<span style="color:#9900">依赖注入（Dependency Injection）</span>作为一种设计模式。(也就是说，依赖注入与IoC不是同一个概念)*/<br />&#13;
+</span></p>&#13;
+<p><br />&#13;
+</p>&#13;
+<p>/*[吐槽]在我眼里，目前常见的两个术语<strong><span style="color:#330033"><del>依赖倒置原则DIP</del></span></strong>和<strong><span style="color:#330033"><del>控制反转IoC</del></span></strong>，基本上是没有价值的术语。（<span style="color:#990000"><strong>因为有回调这个术语足以</strong></span>），我把作为依赖注入模式和设计依赖注入容器所使用的技术区别开来。更重要的原因，设计依赖注入容器所使用的技术，或者说，<strong>设计任一框架所使用的技术就是回调</strong>。凭什么要把依赖注入容器称为回调容器或控制反转容器。<span style="font-size:12px">既然回调是一个常用术语，控制反转作为回调机制的同义词就没有什么价值*/</span></p>&#13;
+<p>下面说明<a target="_blank" href="http://blog.csdn.net/yqj2065/article/details/48562687"><span style="font-size:18px"><strong>spring</strong></span>的两个用法</a>：</p>&#13;
+<p>1.如同God，仅仅作为一个利用反射+配置文件来创建对象的工具类。</p>&#13;
+<p>2.按照XML配置文件自动装配——反映出依赖注入容器比God牛x之处。</p>&#13;
+<p>……</p>&#13;
+<p>/**<br />&#13;
+</p>&#13;
+<p>早期网络文章【Ioc容器的革命性优点】写道：“我们知道，在Java基本教程中有一个定律告诉我们：所有的对象都必须创建；或者说：使用对象之前必须创建，但是现在我们可以不必一定遵循这个定律了，我们可以从Ioc容器中直接获得一个对象然后直接使用，无需事先创建它们”。</p>&#13;
+<p>这是什么话？使用对象之前必须创建，现在我们<strong>仍然遵循这个定律</strong>！<br />&#13;
+</p>&#13;
+<p>*/</p>&#13;
+<p>链接：</p>&#13;
+<ol>&#13;
+<li>Martin Fowler <a target="_blank" href="http://www.martinfowler.com/articles/injection.html">&#13;
+Inversion of Control Containers and the Dependency Injection pattern</a>  <a target="_blank" href="http://insights.thoughtworkers.org/injection/">中文</a></li><li><a target="_blank" href="http://martinfowler.com/bliki/InversionOfControl.html">InversionOfControl</a></li><li>Shivprasad koirala, 12 Jun 2010 <a target="_blank" href="http://www.codeproject.com/Articles/29271/Design-pattern-Inversion-of-control-and-Dependency">&#13;
+Design pattern – Inversion of control and Dependency injection</a> 好多图。</li></ol>&#13;
+<div><a target="_blank" href="http://blog.csdn.net/yqj2065/article/details/8592375" style="text-align:center"><img src="http://img.blog.csdn.net/20140919170809965?watermark/2/text/aHR0cDovL2Jsb2cuY3Nkbi5uZXQveXFqMjA2NQ==/font/5a6L5L2T/fontsize/400/fill/I0JBQkFCMA==/dissolve/70/gravity/SouthEast" alt="" /></a><br />&#13;
+</div>&#13;
+<div style="top:1550px">&#13;
+<p></p>&#13;
+<hr />&#13;
+<p></p>&#13;
+<p>&lt;遗留文字&gt;</p>&#13;
+</div>&#13;
+   &#13;

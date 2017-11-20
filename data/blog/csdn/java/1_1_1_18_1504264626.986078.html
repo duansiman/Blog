@@ -1,0 +1,206 @@
+
+
+<p>重写命令模式的例子。2017.5.7</p>&#13;
+<p><br />&#13;
+</p>&#13;
+<h2>1.傻乎乎的幸福</h2>&#13;
+<p>面向对象技术中的<strong><span style="color:#ff0000">使用关系</span></strong>，通常被称为Client/Server(C/S) 结构。当Client需要调用IServer的方法，通常使用消息传递或方法调用表达式。例如<br />&#13;
+s = new Server();<br />&#13;
+s.method();<br />&#13;
+然而，Client(特别是在框架设计中，假设设计一个按钮/MyButton类)，在设计MyButton的时候，框架的设计者显然不知道点击按钮后应该调用<strong><span style="color:#ff0000">什么(消息接收者)对象</span></strong>，也不知道让<strong><span style="color:#ff0000">该对象能够做什么</span></strong>。于是，MyButton不管不顾地调用<strong><span style="color:#ff0000">X的doSth()方法</span></strong>，而框架的使用者定义X的子类型并指定消息接收者对象并调用它的某个方法。<br />&#13;
+</p>&#13;
+<p>方便起见，框架中MyButton和X类和应用程序中的其他类放在一个包中。<br />&#13;
+</p>&#13;
+<p><img src="http://img.blog.csdn.net/20161208033252463?watermark/2/text/aHR0cDovL2Jsb2cuY3Nkbi5uZXQveXFqMjA2NQ==/font/5a6L5L2T/fontsize/400/fill/I0JBQkFCMA==/dissolve/70/gravity/Center" alt="" /><br />&#13;
+</p>&#13;
+<p>框架中的类</p>&#13;
+<p></p>&#13;
+<pre code_snippet_id="460745" snippet_file_name="blog_20161208_1_5540033" name="code" class="java">package method.command;
+public class MyButton{
+    public static void click(X x){
+        x. doSth();
+    } 
+}
+package method.command;
+public interface X{
+   public void doSth();
+}
+</pre>&#13;
+<p>应用程序中编写X的子类型，其中X1指定消息接收者为XDialog并调用它的foo()方法，而XSystem指定消息接收者为System，并调用它的exit ()方法。</p>&#13;
+<p></p>&#13;
+<pre name="code" class="java">package command.app;
+import command.framework.MyDialog;
+import command.framework.X;
+public class XSave implements X {
+    @Override public void doSth() {
+        new MyDialog().foo();
+    }
+}</pre>&#13;
+<p></p>&#13;
+<p>main</p>&#13;
+<pre code_snippet_id="460745" snippet_file_name="blog_20161208_3_4416027" name="code" class="java">package command.app;&#13;
+import command.framework.MyButton;&#13;
+import command.framework.X;&#13;
+import static yqj2065.util.Print.*;&#13;
+public class Main {&#13;
+    public static void main(String[] args) {&#13;
+        pln();&#13;
+        X save = new XSave();&#13;
+        MyButton btn = new MyButton();&#13;
+        pln(save.getClass().getSimpleName()+" click");&#13;
+        btn.click(save);&#13;
+        X exit = () -&gt; {&#13;
+            System.exit(0);&#13;
+        };&#13;
+        pln(MyButton.class.getSimpleName()+" click");        &#13;
+        btn.click(exit);        &#13;
+    }&#13;
+}</pre>&#13;
+<p>命令模式的关键，在于设计MyButton的click()方法时，它作为调用者/Invoker，傻乎乎地不知道消息接收者是谁，消息接收者有什么方法可以调用</p>&#13;
+<p><span style="color:rgb(255,0,0); font-size:18px">Command模式 = 单身狗的幸福</span>。</p>&#13;
+<p>从结果上看，Command模式将Invoker和Receiver解耦。我一直也是这样看Command模式的，但是我在编程中才体会到，我们并不是希望将Invoker和Receiver解耦，而是Invoker先天性地不知道谁是Receiver。换言之，<strong><span style="color:rgb(255,0,0)">不是希望Invoker和Receiver离婚，而是只有8岁的Invoker，完全就不知道它老婆将是谁。</span></strong>耦都没有，咋解。<br />&#13;
+</p>&#13;
+<br />&#13;
+<p></p>&#13;
+<h2>2.万能适配目标？通用策略？</h2>&#13;
+<p></p>&#13;
+<p>站在X的角度，它有方法doSth()，而消息接收者千奇百怪，有System、有客户自定义的XDialog，我们是否可以将X1视为XDialog的某个(被调用)方法适配器，XSystem视为System.exit(0的适配器呢？</p>&#13;
+<p>不管消息接收者有什么方法，通通适配成doSth()。</p>&#13;
+<p>单纯从类图/结构上看（不管意图），MyButton-X-X1-XDialog 与<strong><span style="color:#ff0000">对象适配器</span></strong>的类图完全一样。</p>&#13;
+<p>命令模式的角色：</p>&#13;
+<p></p>&#13;
+<ul>&#13;
+<li>Command：例子中为X，定义一个通用的接口。</li><li>Invoker：例子中为MyButton，它只会调用Command的接口。</li><li>ConcreteCommand：例子中为X1、XSystem，改写Command接口时，调用某个消息接收者的某个方法。</li><li>Receiver：任何类都可能成为一个接收者。</li><li>Client：创建各种具体的命令对象，还可能使用Receiver或Invoker。</li></ul>&#13;
+<p></p>&#13;
+<p>《设计模式》中，有一句话：“<del><span style="color:#ff0000">命令模式正是回调机制的一个面向对象的替代品</span></del>”。这句话很不合适。<strong><a target="_blank" href="http://blog.csdn.net/yqj2065/article/details/52957176">什么是回调机制(Call back)</a></strong>中说明，更一般地，回调机制可以理解为：在设计框架时使用高阶函数。在面向对象中，<strong><span style="color:#ff0000">回调机制&#13;
+ = 框架中使用多态</span></strong>，也可以说使用策略模式。所以，我们说“策略模式是C语言回调机制的一个面向对象的替代品”也好过《设计模式》的说法。换言之，单纯看X与其子类型的关系，我们可以说这里使用了<strong><span style="color:#ff0000">策略模式</span></strong>。</p>&#13;
+<h2><span style="font-size:12px">4.Invoker与Client角色</span></h2>&#13;
+<p>在简单的介绍Command模式的程序中，可能出现Client使用Invoker(如上面例子中的App使用了MyButton)，甚至可能直接将调用者与客户类合二为一。<br />&#13;
+</p>&#13;
+<p>如果底层框架能够调用btn.click(x)从而底层框架能够调用x.doSth()，程序员编写的程序通常就是客户类Client，而Client不依赖Invoker。</p>&#13;
+<p>为了演示Client不依赖Invoker，我们借助GUI框架，其中<strong><span style="color:#ff0000">java.awt.event.ActionListener就是抽象命令角色</span></strong>。</p>&#13;
+<p></p>&#13;
+<pre name="code" class="java">package java.awt.event;
+import java.util.EventListener;
+public interface ActionListener extends EventListener {//<span style="font-family: Arial, Helvetica, sans-serif;">EventListener 是一个标记接口</span>
+    public void actionPerformed(ActionEvent e);
+
+}
+</pre>在GUI中有1个Button，2个MenuItem——"Open..."和"Exit"，先设计一个ActionListener的独立子类型&#13;
+<p></p>&#13;
+<p></p>&#13;
+<pre name="code" class="java">package cmd;
+import java.awt.event.ActionEvent;
+import java.awt.event.ActionListener;
+public class Exit implements ActionListener {
+    @Override    public void actionPerformed(ActionEvent e) {
+      System.exit(0);
+    }
+  }</pre>而在图形界面中，定义了ActionListener的匿名类和lamdba表达式。&#13;
+<p></p>&#13;
+<p></p>&#13;
+<pre name="code" class="java">package cmd;
+import java.awt.Button;
+import java.awt.Color;
+import java.awt.FileDialog;
+import java.awt.Frame;
+import java.awt.Menu;
+import java.awt.MenuBar;
+import java.awt.MenuItem;
+import java.awt.Panel;
+import java.awt.event.ActionEvent;
+import java.awt.event.ActionListener;
+
+public class ActionCommandDemo extends Frame {
+    public ActionCommandDemo() {
+        super("Command");
+        MenuBar mbar = new MenuBar();
+        setMenuBar(mbar);
+        Menu mnuFile = new Menu("File", true);
+        mbar.add(mnuFile);
+        MenuItem mnuOpen = new MenuItem("Open...");
+        mnuFile.add(mnuOpen);
+        MenuItem mnuExit = new MenuItem("Exit");
+        mnuFile.add(mnuExit);
+
+        mnuOpen.addActionListener(new ActionListener() {
+            @Override public void actionPerformed(ActionEvent e) {
+                FileDialog fDlg = new FileDialog(ActionCommandDemo.this, "Open a file", FileDialog.LOAD);
+                fDlg.setVisible(true);
+            }
+        });
+        mnuExit.addActionListener(new Exit());
+
+        Button btnRed = new Button("Red");
+        Panel p = new Panel();
+        add(p);
+        p.add(btnRed);
+
+        btnRed.addActionListener( e -&gt; p.setBackground(Color.red));
+        setBounds(100, 100, 200, 100);
+        setVisible(true);
+    }
+
+    static public void main(String argv[]) {
+        new ActionCommandDemo();
+    }
+}
+</pre>ActionCommandDemo是Client角色，Exit、匿名类和lamdba表达式是ConcreteCommand，Receiver则是System、FileDialog和Panel。Invoker是谁？先不管它。<br />&#13;
+<p></p>&#13;
+<p><br />&#13;
+<br />&#13;
+<br />&#13;
+</p>&#13;
+<h3>2. 命令与执行</h3>&#13;
+<p>先直接给出命令模式的例子吧。</p>&#13;
+<p>既然有了Command，按照多态也好，难度系数为0的策略模式也罢，<strong><u>tv的open()演变成Command的子类OpenCommand</u></strong>。</p>&#13;
+<p>OpenCommand有私有成员TV tv，而OpenCommand的exe()干什么？显然只需要一条语句tv.open()。代码自己随手写吧。</p>&#13;
+<p>因为我们拥有<a target="_blank" href="http://blog.csdn.net/yqj2065/article/details/8539977">依赖注入工具tool.God</a>，(注意：在我的博客的很多的文章中，都使用了该工具，但是类名用过FromPropertyFile、IoC、God，所在包也有所变化，懒得逐一修改相关博文了。代码的意思很清楚，读者自己对应修改一下)，因而代码<br />&#13;
+</p>&#13;
+<p></p>&#13;
+<pre code_snippet_id="460745" snippet_file_name="blog_20140830_3_2883963" name="code" class="java">package method.command; 
+import tool.God;
+public class Controller{
+	public static void test()	{
+	    Command c1 = (Command)God.create("open");
+	    c1.exe();
+	}
+}</pre>Controller仅仅知道Command对象，Controller下的命令为字符串"open"，God根据字符串"open"创建method.command.OpenCommand对象。&#13;
+<p></p>&#13;
+<p>忽略一切细节，<strong>Controller仅依赖Command</strong>，对照的，<strong>Controller1依赖TV，和TV的现有操作/方法名</strong>。</p>&#13;
+<p style="text-align:center">①命令模式的核心，是<strong><span style="color:#ff0000">封装普适方法exe ()的Command</span></strong>。通过它及其子类，将如图3-3所示的通常的服务请求中的请求发送者和接收者完全解耦，或者说将通常的C/S结构的C与S解耦。</p>&#13;
+<p>C仅仅依赖于Command。而OpenCommand依赖于Command和S。</p>&#13;
+<p>所以，我们常常说<strong>Command采用了命令模式</strong>。或许应该说 以Command同志为核心的<span style="text-align:center">命令模式？</span></p>&#13;
+<p>②依赖于Command的各种类(不包括其子类)，在《设计模式》中称为<strong>调用者(Invoker)</strong>，它们是命令的发出者。借助反射机制或依赖注入模式或依赖注入工具类tool.God，调用者可以发出Command的各种子类封装的命令，而且不需要知道最终调用的是什么方法名、不需要知道最终谁执行。<br />&#13;
+如果调用者突发奇想地发出(需要)新的命令，可以编写Command的新子类以及执行者。</p>&#13;
+<p></p>&#13;
+<pre code_snippet_id="460745" snippet_file_name="blog_20140830_4_1460431" name="code" class="java">package method.command;
+public class EatCommand implements Command{
+    @Override public void exe()	{
+        new Chowhound().eat();
+    }
+    private class Chowhound{//吃货
+        public void eat(){System.out.println("好吃");}
+    }
+}</pre>&#13;
+<p></p>&#13;
+<p>在配置文件中添加<span style="color:#3333ff">eat =method.command.EatCommand</span></p>&#13;
+则修改Controller的"open"，即c1 =(Command)God.create("eat");就ok。<br />&#13;
+<br />&#13;
+③具体命令类是封装的命令的Command的各种子类，如OpenCommand。在override/改写exe ()时，将命令的<strong>执行者</strong>与某一操作绑定如tv.open()。虽然简单起见，OpenCommand中通过成员变量如电视/TV设定了执行者，事实上，可以通过依赖注入模式，按照配置文件方便地指定消息接收者的类型例如OpenHandler。<br />&#13;
+<h3>3.吐槽 《设计模式·5.2》</h3>&#13;
+<p>《设计模式》中，给命令模式(Command Pattern)的定义/意图比较繁琐。正如刀可以砍人，你把刀玩出花样来——来个回马刀都可以，刀的基本作用还是砍人。</p>&#13;
+<p><textarea style="margin: 2px; height: 51px; width: 918px; ">命令模式(Command Pattern)：将一个请求封装为一个对象，从而让我们可用不同的请求对客户进行参数化；对请求排队或者记录请求日志，以及支持可撤销的操作。命令模式是一种对象行为型模式，其别名为动作(Action)模式或事务(Transaction)模式。
+</textarea></p>&#13;
+<p>既然命令模式使得<strong>C仅仅依赖于Command，它不知道S为何物，也不知道S的接口</strong>，<strong><span style="color:#ff0000">所以</span></strong>，</p>&#13;
+<p>C下达的一系列命令，你可以组合成一个队列、可以组合成一个批命令；也可以反之，将C下达的一个命令分解成若干具体的命令；</p>&#13;
+<p>对于命令执行前后的变化加以监控，你可以实现undo或redo；如果命令只是改变一个页面的颜色，你很容易undo/取消操作；如果命令导致手榴弹炸了一个房屋，omg，你undo就很麻烦。</p>&#13;
+<p>你可以玩出其他花样。比如C下达的一个命令open，对于接收者为TV，就打开电视；如果配置的接收者为一个连长，他就打开/攻占一座城门。</p>&#13;
+<p>你可以玩出更多的花样……<br />&#13;
+</p>&#13;
+<p><br />&#13;
+</p>&#13;
+<p>续 </p>&#13;
+<p><a target="_blank" href="http://blog.csdn.net/yqj2065/article/details/8592375" style="text-align:center"><img src="http://img.blog.csdn.net/20140919170809965?watermark/2/text/aHR0cDovL2Jsb2cuY3Nkbi5uZXQveXFqMjA2NQ==/font/5a6L5L2T/fontsize/400/fill/I0JBQkFCMA==/dissolve/70/gravity/SouthEast" alt="" /></a><br />&#13;
+</p>&#13;
+   &#13;

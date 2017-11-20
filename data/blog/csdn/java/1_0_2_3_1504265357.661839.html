@@ -1,0 +1,345 @@
+
+        <div class="markdown_views"><h1 id="spring-boot学习记录二thymeleaf模板">Spring Boot学习记录(二)–thymeleaf模板</h1>
+
+<p>标签（空格分隔）： spring-boot</p>
+
+<hr />
+
+<p>自从来公司后都没用过jsp当界面渲染了,因为前后端分离不是很好,反而模板引擎用的比较多,thymeleaf最大的优势后缀为html,就是只需要浏览器就可以展现页面了,还有就是thymeleaf可以很好的和spring集成.下面开始学习.</p>
+
+
+
+<h2 id="1引入依赖">1.引入依赖</h2>
+
+<p>maven中直接引入</p>
+
+
+
+<pre class="prettyprint"><code class=" hljs xml">    <span class="hljs-tag">&lt;<span class="hljs-title">dependency</span>&gt;</span>
+      <span class="hljs-tag">&lt;<span class="hljs-title">groupId</span>&gt;</span>org.springframework.boot<span class="hljs-tag">&lt;/<span class="hljs-title">groupId</span>&gt;</span>
+      <span class="hljs-tag">&lt;<span class="hljs-title">artifactId</span>&gt;</span>spring-boot-starter-thymeleaf<span class="hljs-tag">&lt;/<span class="hljs-title">artifactId</span>&gt;</span>
+    <span class="hljs-tag">&lt;/<span class="hljs-title">dependency</span>&gt;</span></code></pre>
+
+<p>可以查看依赖关系,发现spring-boot-starter-thymeleaf下面已经包括了spring-boot-starter-web,所以可以把spring-boot-starter-web的依赖去掉.</p>
+
+
+
+<h2 id="2配置视图解析器">2.配置视图解析器</h2>
+
+<p>spring-boot很多配置都有默认配置,比如默认页面映射路径为 <br />
+classpath:/templates/*.html <br />
+同样静态文件路径为 <br />
+classpath:/static/</p>
+
+<p>在application.properties中可以配置thymeleaf模板解析器属性.就像使用springMVC的JSP解析器配置一样</p>
+
+
+
+<pre class="prettyprint"><code class=" hljs avrasm"><span class="hljs-preprocessor">#thymeleaf start</span>
+spring<span class="hljs-preprocessor">.thymeleaf</span><span class="hljs-preprocessor">.mode</span>=HTML5
+spring<span class="hljs-preprocessor">.thymeleaf</span><span class="hljs-preprocessor">.encoding</span>=UTF-<span class="hljs-number">8</span>
+spring<span class="hljs-preprocessor">.thymeleaf</span><span class="hljs-preprocessor">.content</span>-type=text/html
+<span class="hljs-preprocessor">#开发时关闭缓存,不然没法看到实时页面</span>
+spring<span class="hljs-preprocessor">.thymeleaf</span><span class="hljs-preprocessor">.cache</span>=false
+<span class="hljs-preprocessor">#thymeleaf end</span></code></pre>
+
+<p>具体可以配置的参数可以查看 <br />
+<code>org.springframework.boot.autoconfigure.thymeleaf.ThymeleafProperties</code>这个类,上面的配置实际上就是注入到该类中的属性值.</p>
+
+<p>3.编写DEMO</p>
+
+<p>1.控制器</p>
+
+
+
+<pre class="prettyprint"><code class=" hljs java">    <span class="hljs-annotation">@Controller</span>
+    <span class="hljs-keyword">public</span> <span class="hljs-class"><span class="hljs-keyword">class</span> <span class="hljs-title">HelloController</span> {</span>
+
+        <span class="hljs-keyword">private</span> Logger logger = LoggerFactory.getLogger(HelloController.class);
+        <span class="hljs-javadoc">/**
+         * 测试hello
+         *<span class="hljs-javadoctag"> @return</span>
+         */</span>
+        <span class="hljs-annotation">@RequestMapping</span>(value = <span class="hljs-string">"/hello"</span>,method = RequestMethod.GET)
+        <span class="hljs-keyword">public</span> String <span class="hljs-title">hello</span>(Model model) {
+            model.addAttribute(<span class="hljs-string">"name"</span>, <span class="hljs-string">"Dear"</span>);
+            <span class="hljs-keyword">return</span> <span class="hljs-string">"hello"</span>;
+        }
+
+    }</code></pre>
+
+<p>2.view(注释为IDEA生成的索引,便于IDEA补全)</p>
+
+
+
+<pre class="prettyprint"><code class=" hljs xml"><span class="hljs-doctype">&lt;!DOCTYPE HTML&gt;</span>
+<span class="hljs-tag">&lt;<span class="hljs-title">html</span> <span class="hljs-attribute">xmlns:th</span>=<span class="hljs-value">"http://www.thymeleaf.org"</span>&gt;</span>
+<span class="hljs-tag">&lt;<span class="hljs-title">head</span>&gt;</span>
+    <span class="hljs-tag">&lt;<span class="hljs-title">title</span>&gt;</span>hello<span class="hljs-tag">&lt;/<span class="hljs-title">title</span>&gt;</span>
+    <span class="hljs-tag">&lt;<span class="hljs-title">meta</span> <span class="hljs-attribute">http-equiv</span>=<span class="hljs-value">"Content-Type"</span> <span class="hljs-attribute">content</span>=<span class="hljs-value">"text/html; charset=UTF-8"</span> /&gt;</span>
+<span class="hljs-tag">&lt;/<span class="hljs-title">head</span>&gt;</span>
+<span class="hljs-tag">&lt;<span class="hljs-title">body</span>&gt;</span>
+<span class="hljs-comment">&lt;!--/*@thymesVar id="name" type="java.lang.String"*/--&gt;</span>
+<span class="hljs-tag">&lt;<span class="hljs-title">p</span> <span class="hljs-attribute">th:text</span>=<span class="hljs-value">"'Hello！, ' + ${name} + '!'"</span> &gt;</span>3333<span class="hljs-tag">&lt;/<span class="hljs-title">p</span>&gt;</span>
+<span class="hljs-tag">&lt;/<span class="hljs-title">body</span>&gt;</span>
+<span class="hljs-tag">&lt;/<span class="hljs-title">html</span>&gt;</span></code></pre>
+
+<p>3.效果</p>
+
+<p><img src="http://img.blog.csdn.net/20160811155753466" alt="这里写图片描述" title="" /></p>
+
+
+
+<h2 id="4基础语法">4.基础语法</h2>
+
+<p>回味上面的DEMO,可以看出来首先要在改写html标签</p>
+
+<pre><code>&lt;html xmlns:th="http://www.thymeleaf.org"&gt;
+</code></pre>
+
+<p>这样的话才可以在其他标签里面使用<code>th:*</code>这样的语法.这是下面语法的前提.</p>
+
+
+
+<h3 id="1获取变量值">1.获取变量值</h3>
+
+<pre><code>&lt;p th:text="'Hello！, ' + ${name} + '!'" &gt;3333&lt;/p&gt;
+</code></pre>
+
+<p>可以看出获取变量值用<code>$</code>符号,对于javaBean的话使用<code>变量名.属性名</code>方式获取,这点和EL表达式一样.</p>
+
+<p>另外<code>$</code>表达式只能写在th标签内部,不然不会生效,上面例子就是使用<code>th:text</code>标签的值替换<code>p</code>标签里面的值,至于p里面的原有的值只是为了给前端开发时做展示用的.这样的话很好的做到了前后端分离.</p>
+
+<h3 id="2引入url">2.引入URL</h3>
+
+<p>Thymeleaf对于URL的处理是通过语法@{…}来处理的</p>
+
+
+
+<pre class="prettyprint"><code class=" hljs xml"><span class="hljs-tag">&lt;<span class="hljs-title">a</span> <span class="hljs-attribute">th:href</span>=<span class="hljs-value">"@{http://blog.csdn.net/u012706811}"</span>&gt;</span>绝对路径<span class="hljs-tag">&lt;/<span class="hljs-title">a</span>&gt;</span>
+<span class="hljs-tag">&lt;<span class="hljs-title">a</span> <span class="hljs-attribute">th:href</span>=<span class="hljs-value">"@{/}"</span>&gt;</span>相对路径<span class="hljs-tag">&lt;/<span class="hljs-title">a</span>&gt;</span>
+<span class="hljs-tag">&lt;<span class="hljs-title">a</span> <span class="hljs-attribute">th:href</span>=<span class="hljs-value">"@{css/bootstrap.min.css}"</span>&gt;</span>Content路径,默认访问static下的css文件夹<span class="hljs-tag">&lt;/<span class="hljs-title">a</span>&gt;</span></code></pre>
+
+<p>类似的标签有:<code>th:href</code>和<code>th:src</code></p>
+
+
+
+<h3 id="3字符串替换">3.字符串替换</h3>
+
+<p>很多时候可能我们只需要对一大段文字中的某一处地方进行替换，可以通过字符串拼接操作完成：</p>
+
+<pre><code>&lt;span th:text="'Welcome to our application, ' + ${user.name} + '!'"&gt;
+</code></pre>
+
+<p>一种更简洁的方式是：</p>
+
+<pre><code>&lt;span th:text="|Welcome to our application, ${user.name}!|"&gt;
+</code></pre>
+
+<p>当然这种形式限制比较多，|…|中只能包含变量表达式${…}，不能包含其他常量、条件表达式等。</p>
+
+
+
+<h3 id="4运算符">4.运算符</h3>
+
+<p>在表达式中可以使用各类算术运算符，例如+, -, *, /, %</p>
+
+<pre><code>th:with="isEven=(${prodStat.count} % 2 == 0)"
+</code></pre>
+
+<p>逻辑运算符&gt;, &lt;, &lt;=,&gt;=，==,!=都可以使用，<strong>唯一需要注意的是使用&lt;,&gt;时需要用它的HTML转义符</strong>：</p>
+
+
+
+<pre class="prettyprint"><code class=" hljs scilab">    th:<span class="hljs-keyword">if</span>=<span class="hljs-string">"${prodStat.count} &amp;gt; 1"</span>
+    th:text=<span class="hljs-string">"'</span>Execution mode is <span class="hljs-string">' + ( (${execMode} == '</span><span class="hljs-transposed_variable">dev'</span>)? <span class="hljs-string">'Development'</span> : <span class="hljs-string">'Production'</span>)<span class="hljs-string">"</span></code></pre>
+
+
+
+<h3 id="5条件">5.条件</h3>
+
+<p><strong>if/unless</strong></p>
+
+<p>Thymeleaf中使用th:if和th:unless属性进行条件判断，下面的例子中，<a>标签只有在th:if中条件成立时才显示：</a></p>
+
+<pre><code>&lt;a th:href="@{/login}" th:unless=${session.user != null}&gt;Login&lt;/a&gt;
+</code></pre>
+
+<p>th:unless于th:if恰好相反，只有表达式中的条件不成立，才会显示其内容。</p>
+
+<p><strong>Switch</strong></p>
+
+<p>Thymeleaf同样支持多路选择Switch结构：</p>
+
+
+
+<pre class="prettyprint"><code class=" hljs livecodeserver">&lt;<span class="hljs-operator">div</span> th:<span class="hljs-keyword">switch</span>=<span class="hljs-string">"${user.role}"</span>&gt;
+  &lt;p th:<span class="hljs-keyword">case</span>=<span class="hljs-string">"'admin'"</span>&gt;User is <span class="hljs-operator">an</span> administrator&lt;/p&gt;
+  &lt;p th:<span class="hljs-keyword">case</span>=<span class="hljs-string">"#{roles.manager}"</span>&gt;User is <span class="hljs-operator">a</span> manager&lt;/p&gt;
+&lt;/<span class="hljs-operator">div</span>&gt;</code></pre>
+
+<p>默认属性default可以用*表示：</p>
+
+
+
+<pre class="prettyprint"><code class=" hljs xml"><span class="hljs-tag">&lt;<span class="hljs-title">div</span> <span class="hljs-attribute">th:switch</span>=<span class="hljs-value">"${user.role}"</span>&gt;</span>
+  <span class="hljs-tag">&lt;<span class="hljs-title">p</span> <span class="hljs-attribute">th:case</span>=<span class="hljs-value">"'admin'"</span>&gt;</span>User is an administrator<span class="hljs-tag">&lt;/<span class="hljs-title">p</span>&gt;</span>
+  <span class="hljs-tag">&lt;<span class="hljs-title">p</span> <span class="hljs-attribute">th:case</span>=<span class="hljs-value">"#{roles.manager}"</span>&gt;</span>User is a manager<span class="hljs-tag">&lt;/<span class="hljs-title">p</span>&gt;</span>
+  <span class="hljs-tag">&lt;<span class="hljs-title">p</span> <span class="hljs-attribute">th:case</span>=<span class="hljs-value">"*"</span>&gt;</span>User is some other thing<span class="hljs-tag">&lt;/<span class="hljs-title">p</span>&gt;</span>
+<span class="hljs-tag">&lt;/<span class="hljs-title">div</span>&gt;</span></code></pre>
+
+
+
+<h3 id="6循环">6.循环</h3>
+
+<p>渲染列表数据是一种非常常见的场景，例如现在有n条记录需要渲染成一个表格</p>，该数据集合必须是可以遍历的，使用th:each标签：<table></table><p></p>
+
+
+
+<pre class="prettyprint"><code class=" hljs xml"><span class="hljs-tag">&lt;<span class="hljs-title">body</span>&gt;</span>
+  <span class="hljs-tag">&lt;<span class="hljs-title">h1</span>&gt;</span>Product list<span class="hljs-tag">&lt;/<span class="hljs-title">h1</span>&gt;</span>
+
+  <span class="hljs-tag">&lt;<span class="hljs-title">table</span>&gt;</span>
+    <span class="hljs-tag">&lt;<span class="hljs-title">tr</span>&gt;</span>
+      <span class="hljs-tag">&lt;<span class="hljs-title">th</span>&gt;</span>NAME<span class="hljs-tag">&lt;/<span class="hljs-title">th</span>&gt;</span>
+      <span class="hljs-tag">&lt;<span class="hljs-title">th</span>&gt;</span>PRICE<span class="hljs-tag">&lt;/<span class="hljs-title">th</span>&gt;</span>
+      <span class="hljs-tag">&lt;<span class="hljs-title">th</span>&gt;</span>IN STOCK<span class="hljs-tag">&lt;/<span class="hljs-title">th</span>&gt;</span>
+    <span class="hljs-tag">&lt;/<span class="hljs-title">tr</span>&gt;</span>
+    <span class="hljs-tag">&lt;<span class="hljs-title">tr</span> <span class="hljs-attribute">th:each</span>=<span class="hljs-value">"prod : ${prods}"</span>&gt;</span>
+      <span class="hljs-tag">&lt;<span class="hljs-title">td</span> <span class="hljs-attribute">th:text</span>=<span class="hljs-value">"${prod.name}"</span>&gt;</span>Onions<span class="hljs-tag">&lt;/<span class="hljs-title">td</span>&gt;</span>
+      <span class="hljs-tag">&lt;<span class="hljs-title">td</span> <span class="hljs-attribute">th:text</span>=<span class="hljs-value">"${prod.price}"</span>&gt;</span>2.41<span class="hljs-tag">&lt;/<span class="hljs-title">td</span>&gt;</span>
+      <span class="hljs-tag">&lt;<span class="hljs-title">td</span> <span class="hljs-attribute">th:text</span>=<span class="hljs-value">"${prod.inStock}? #{true} : #{false}"</span>&gt;</span>yes<span class="hljs-tag">&lt;/<span class="hljs-title">td</span>&gt;</span>
+    <span class="hljs-tag">&lt;/<span class="hljs-title">tr</span>&gt;</span>
+  <span class="hljs-tag">&lt;/<span class="hljs-title">table</span>&gt;</span>
+
+  <span class="hljs-tag">&lt;<span class="hljs-title">p</span>&gt;</span>
+    <span class="hljs-tag">&lt;<span class="hljs-title">a</span> <span class="hljs-attribute">href</span>=<span class="hljs-value">"../home.html"</span> <span class="hljs-attribute">th:href</span>=<span class="hljs-value">"@{/}"</span>&gt;</span>Return to home<span class="hljs-tag">&lt;/<span class="hljs-title">a</span>&gt;</span>
+  <span class="hljs-tag">&lt;/<span class="hljs-title">p</span>&gt;</span>
+<span class="hljs-tag">&lt;/<span class="hljs-title">body</span>&gt;</span></code></pre>
+
+<p>可以看到，需要在被循环渲染的元素（这里是）中加入th:each标签，其中th:each=”prod : ${prods}”意味着对集合变量prods进行遍历，循环变量是prod在循环体中可以通过表达式访问。</p>
+
+
+
+<h3 id="7utilities">7.Utilities</h3>
+
+<p>为了模板更加易用，Thymeleaf还提供了一系列Utility对象（内置于Context中），可以通过#直接访问：</p>
+
+<ul>
+<li>#dates</li>
+<li>#calendars</li>
+<li>#numbers</li>
+<li>#strings</li>
+<li>arrays</li>
+<li>lists</li>
+<li>sets</li>
+<li>maps</li>
+<li>… <br />
+下面用一段代码来举例一些常用的方法：</li>
+</ul>
+
+<p>date</p>
+
+
+
+<pre class="prettyprint"><code class=" hljs applescript">/*
+ * Format <span class="hljs-type">date</span> <span class="hljs-keyword">with</span> <span class="hljs-keyword">the</span> specified pattern
+ * Also works <span class="hljs-keyword">with</span> arrays, lists <span class="hljs-keyword">or</span> sets
+ */
+${<span class="hljs-comment">#dates.format(date, 'dd/MMM/yyyy HH:mm')}</span>
+${<span class="hljs-comment">#dates.arrayFormat(datesArray, 'dd/MMM/yyyy HH:mm')}</span>
+${<span class="hljs-comment">#dates.listFormat(datesList, 'dd/MMM/yyyy HH:mm')}</span>
+${<span class="hljs-comment">#dates.setFormat(datesSet, 'dd/MMM/yyyy HH:mm')}</span>
+
+/*
+ * Create a <span class="hljs-type">date</span> (java.util.Date) object <span class="hljs-keyword">for</span> <span class="hljs-keyword">the</span> <span class="hljs-command">current date</span> <span class="hljs-keyword">and</span> <span class="hljs-property">time</span>
+ */
+${<span class="hljs-comment">#dates.createNow()}</span>
+
+/*
+ * Create a <span class="hljs-type">date</span> (java.util.Date) object <span class="hljs-keyword">for</span> <span class="hljs-keyword">the</span> <span class="hljs-command">current date</span> (<span class="hljs-property">time</span> <span class="hljs-keyword">set</span> <span class="hljs-keyword">to</span> <span class="hljs-number">00</span>:<span class="hljs-number">00</span>)
+ */
+${<span class="hljs-comment">#dates.createToday()}</span></code></pre>
+
+<p>string</p>
+
+
+
+<pre class="prettyprint"><code class=" hljs smalltalk">/*
+ * <span class="hljs-class">Check</span> whether a <span class="hljs-class">String</span> is empty (or null). <span class="hljs-class">Performs</span> a trim() operation before check
+ * <span class="hljs-class">Also</span> works with arrays, lists or sets
+ */
+<span class="hljs-char">${</span><span class="hljs-symbol">#strings</span>.isEmpty(name)}
+<span class="hljs-char">${</span><span class="hljs-symbol">#strings</span>.arrayIsEmpty(nameArr)}
+<span class="hljs-char">${</span><span class="hljs-symbol">#strings</span>.listIsEmpty(nameList)}
+<span class="hljs-char">${</span><span class="hljs-symbol">#strings</span>.setIsEmpty(nameSet)}
+
+/*
+ * <span class="hljs-class">Check</span> whether a <span class="hljs-class">String</span> starts or ends with a fragment
+ * <span class="hljs-class">Also</span> works with arrays, lists or sets
+ */
+<span class="hljs-char">${</span><span class="hljs-symbol">#strings</span>.startsWith(name,<span class="hljs-string">'Don'</span>)}                  // also array*, list* and set*
+<span class="hljs-char">${</span><span class="hljs-symbol">#strings</span>.endsWith(name,endingFragment)}           // also array*, list* and set*
+
+/*
+ * <span class="hljs-class">Compute</span> length
+ * <span class="hljs-class">Also</span> works with arrays, lists or sets
+ */
+<span class="hljs-char">${</span><span class="hljs-symbol">#strings</span>.length(str)}
+
+/*
+ * <span class="hljs-class">Null</span>-safe comparison and concatenation
+ */
+<span class="hljs-char">${</span><span class="hljs-symbol">#strings</span>.equals(str)}
+<span class="hljs-char">${</span><span class="hljs-symbol">#strings</span>.equalsIgnoreCase(str)}
+<span class="hljs-char">${</span><span class="hljs-symbol">#strings</span>.concat(str)}
+<span class="hljs-char">${</span><span class="hljs-symbol">#strings</span>.concatReplaceNulls(str)}
+
+/*
+ * <span class="hljs-class">Random</span>
+ */
+<span class="hljs-char">${</span><span class="hljs-symbol">#strings</span>.randomAlphanumeric(count)}</code></pre>
+
+<p>快速的学习还是直接写例子最快,后期写Demo遇到问题再加上去</p>
+
+<hr />
+
+<p>参考链接: <a href="http://www.tianmaying.com/tutorial/using-thymeleaf">http://www.tianmaying.com/tutorial/using-thymeleaf</a></p>
+
+<hr />
+
+<p>整合项目地址:</p>
+
+<p><a href="https://github.com/nl101531/JavaWEB">https://github.com/nl101531/JavaWEB</a></p>
+
+
+
+<h2 id="补充">补充</h2>
+
+<p>在spring-boot1.4之后,支持thymeleaf3,可以更改版本号来进行修改支持. <br />
+3相比2极大的提高了效率,并且不需要标签闭合,类似的link,img等都有了很好的支持,按照如下配置即可</p>
+
+
+
+<pre class="prettyprint"><code class=" hljs xml">  <span class="hljs-tag">&lt;<span class="hljs-title">properties</span>&gt;</span>
+    <span class="hljs-tag">&lt;<span class="hljs-title">project.build.sourceEncoding</span>&gt;</span>UTF-8<span class="hljs-tag">&lt;/<span class="hljs-title">project.build.sourceEncoding</span>&gt;</span>
+    <span class="hljs-comment">&lt;!-- set thymeleaf version --&gt;</span>
+    <span class="hljs-tag">&lt;<span class="hljs-title">thymeleaf.version</span>&gt;</span>3.0.0.RELEASE<span class="hljs-tag">&lt;/<span class="hljs-title">thymeleaf.version</span>&gt;</span>
+    <span class="hljs-tag">&lt;<span class="hljs-title">thymeleaf-layout-dialect.version</span>&gt;</span>2.0.0<span class="hljs-tag">&lt;/<span class="hljs-title">thymeleaf-layout-dialect.version</span>&gt;</span>
+    <span class="hljs-comment">&lt;!--set java version--&gt;</span>
+    <span class="hljs-tag">&lt;<span class="hljs-title">java.version</span>&gt;</span>1.8<span class="hljs-tag">&lt;/<span class="hljs-title">java.version</span>&gt;</span>
+  <span class="hljs-tag">&lt;/<span class="hljs-title">properties</span>&gt;</span></code></pre></div>&#13;
+        <script type="text/javascript">&#13;
+            $(function () {&#13;
+                $('pre.prettyprint code').each(function () {&#13;
+                    var lines = $(this).text().split('\n').length;&#13;
+                    var $numbering = $('&lt;ul/&gt;').addClass('pre-numbering').hide();&#13;
+                    $(this).addClass('has-numbering').parent().append($numbering);&#13;
+                    for (i = 1; i &lt;= lines; i++) {&#13;
+                        $numbering.append($('&lt;li/&gt;').text(i));&#13;
+                    };&#13;
+                    $numbering.fadeIn(1700);&#13;
+                });&#13;
+            });&#13;
+        </script>&#13;
+   &#13;

@@ -1,0 +1,423 @@
+
+        <div class="markdown_views"><h1 id="书店管理系统"><strong>书店管理系统：</strong></h1>
+
+<p><strong>项目练习目标 ：</strong> <br />
+1、Java应用程序基本分析 <br />
+2、培养面向对象编程的基本思想 <br />
+3、Java基本设计模式综合应用 <br />
+4、掌握分层和接口的基本设计 <br />
+5、构建合理的Java应用程序包结构 <br />
+6、综合应用JSE所学习的知识 <br />
+7、在应用中合理使用集合框架 <br />
+8、在应用中综合使用swing的常用组件 <br />
+9、基本的表现层的实现机制 <br />
+10、IO流和文件的基本操作 <br />
+11、培养良好的Java编程习惯 <br />
+12、培养调试Java程序的能力，培养改错的能力</p>
+
+<p><strong>项目功能需求 ：</strong> <br />
+1、能进行操作用户的注册，修改基本信息，删除和查询。 <br />
+2、能对图书的基本信息进行增加、删除、修改和查询操作。 <br />
+3、能填写进货单，一张进货单带有多条具体的进货信息，进货的书籍必须是图书管理里面已经有的；进货的同时修改库存对应书籍的存货量。 <br />
+4、能填写销售单，一张销售单带有多条具体的销售信息，销售的书籍必须是图书管理里面已经有的，而且销售的数量不能超过当前库存的数量；销售的同时修改库存对应书籍的存货量。 <br />
+5、可以查看库存的明细，可以按照条件进行查找具体的图书的库存值。 <br />
+6、权限方面进行简化，做固定的权限控制。把用户按照模块分成不同操作权限的人员，特设一个admin的用户，可以操作全部的功能。 </p>
+
+<p><strong>项目基本设计 ：</strong> <br />
+★ 架构设计 <br />
+整体框架、模块划分 <br />
+模块划分：用户、图书、进货、销售和库存5个模块 </p>
+
+<p>★ 系统功能结构设计 <br />
+每个功能模块的具体功能子模块 </p>
+
+<p>★ 数据库设计 <br />
+项目框架实现：分模块、分层、分包、构建应用程序 </p>
+
+<p><strong>1、用户管理（User.txt）</strong>  <br />
+<img src="http://img.blog.csdn.net/20160406114112557" alt="" title="" /> <br />
+说明：其中的type为int类型，用来表示操作用户的类型。 <br />
+1——表示为admin，可以进行全部操作 <br />
+2——表示为能操作图书模块的人员 <br />
+3——表示为能操作进货模块的人员 <br />
+4——表示为能操作销售模块的人员 <br />
+5——表示为能操作库存模块的人员</p>
+
+<p><strong>2、图书管理（Book.txt）</strong>  <br />
+<img src="http://img.blog.csdn.net/20160406114156198" alt="" title="" /></p>
+
+<p><strong>3、进货管理（InMain.txt）</strong>  <br />
+<img src="http://img.blog.csdn.net/20160406114304932" alt="" title="" /></p>
+
+<p><strong>4、进货明细管理（InDetail.txt）</strong>  <br />
+<img src="http://img.blog.csdn.net/20160406114324558" alt="" title="" /></p>
+
+<p><strong>5、销售管理（OutMain.txt）</strong>  <br />
+<img src="http://img.blog.csdn.net/20160406114338933" alt="" title="" /></p>
+
+<p><strong>6、销售明细管理（OutDetail.txt）</strong> <br />
+<img src="http://img.blog.csdn.net/20160406114349777" alt="" title="" /></p>
+
+<p><strong>7、库存管理（Stock.txt）</strong>  <br />
+<img src="http://img.blog.csdn.net/20160406114357777" alt="" title="" /></p>
+
+<p><strong>项目分包</strong> </p>
+
+<p>第一层：按照模块分 <br />
+用户模块(user)、 <br />
+图书(book)、 <br />
+进货(in)、 <br />
+销售(out)、  <br />
+库存(store)</p>
+
+<p>第二层：按照三层模式分 <br />
+表现层(ui)、逻辑层(business) 和 数据层(dao) <br />
+通常还要增加一个值对象层(vo)</p>
+
+<p>第三层：按照层内划分去分 <br />
+视具体情况而定，如business和dao内还要再采用铁三角的形式建子包，而ui和vo则不需要再划分子包)。 </p>
+
+<p>项目分层思想： <br />
+<img src="http://img.blog.csdn.net/20160406134414778" alt="" title="" /> <br />
+未完善，请继续关注本系列（二）</p>
+
+<p>下面为部分代码：（util里面的一个公共类） <br />
+cn.hncu.bookStore.util <br />
+FileIoUtil.java：</p>
+
+
+
+<pre class="prettyprint"><code class=" hljs java"><span class="hljs-keyword">package</span> cn.hncu.bookStore.util;
+
+<span class="hljs-keyword">import</span> java.io.File;
+<span class="hljs-keyword">import</span> java.io.FileInputStream;
+<span class="hljs-keyword">import</span> java.io.FileNotFoundException;
+<span class="hljs-keyword">import</span> java.io.FileOutputStream;
+<span class="hljs-keyword">import</span> java.io.IOException;
+<span class="hljs-keyword">import</span> java.io.ObjectInputStream;
+<span class="hljs-keyword">import</span> java.io.ObjectOutputStream;
+<span class="hljs-keyword">import</span> java.util.ArrayList;
+<span class="hljs-keyword">import</span> java.util.List;
+<span class="hljs-keyword">import</span> javax.swing.JOptionPane;
+
+<span class="hljs-javadoc">/**
+ * 用户的公用数据读取写入类
+ *<span class="hljs-javadoctag"> @author</span> 陈浩翔
+ *
+ *<span class="hljs-javadoctag"> @version</span> 1.0
+ */</span>
+<span class="hljs-keyword">public</span> <span class="hljs-class"><span class="hljs-keyword">class</span> <span class="hljs-title">FileIoUtil</span> {</span>
+
+    <span class="hljs-keyword">public</span> <span class="hljs-title">FileIoUtil</span>() {
+    }
+
+    <span class="hljs-javadoc">/**
+     * 从数据库中读取所有的数据并返回出来
+     * 
+     *<span class="hljs-javadoctag"> @param</span> fileName(数据表对应的文件名字)
+     *<span class="hljs-javadoctag"> @param</span> ee(传递过来的泛型的类型！)
+     *<span class="hljs-javadoctag"> @return</span> 所有表的记录！
+     */</span>
+    <span class="hljs-annotation">@SuppressWarnings</span>(<span class="hljs-string">"unchecked"</span>)<span class="hljs-comment">//压警告</span>
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">static</span>&lt;E&gt; List&lt;E&gt; <span class="hljs-title">readFormFile</span>(String fileName,E ee){
+        List&lt;E&gt; list = <span class="hljs-keyword">new</span> ArrayList&lt;E&gt;();
+        <span class="hljs-keyword">final</span> File file = <span class="hljs-keyword">new</span> File(fileName);
+
+        ObjectInputStream in =<span class="hljs-keyword">null</span>;
+        <span class="hljs-keyword">if</span>(!file.exists()){
+            JOptionPane.showMessageDialog(<span class="hljs-keyword">null</span>, <span class="hljs-string">"数据表不存在！"</span>);
+            <span class="hljs-keyword">return</span> list;
+        }
+        <span class="hljs-keyword">try</span> {
+            in = <span class="hljs-keyword">new</span> ObjectInputStream(<span class="hljs-keyword">new</span> FileInputStream(fileName));
+            <span class="hljs-keyword">try</span> {
+                list = (List&lt;E&gt;) in.readObject();
+
+            } <span class="hljs-keyword">catch</span> (ClassNotFoundException e) {
+                e.printStackTrace();
+            }
+        } <span class="hljs-keyword">catch</span> (FileNotFoundException e) {
+            e.printStackTrace();
+        } <span class="hljs-keyword">catch</span> (IOException e) {
+            e.printStackTrace();
+        }<span class="hljs-keyword">finally</span>{
+            <span class="hljs-keyword">if</span>(in!=<span class="hljs-keyword">null</span>){
+                <span class="hljs-keyword">try</span> {
+                    in.close();
+                } <span class="hljs-keyword">catch</span> (IOException e) {
+                    <span class="hljs-keyword">throw</span> <span class="hljs-keyword">new</span> RuntimeException(<span class="hljs-string">"数据库关闭失败"</span>);
+                }
+            }
+        }
+        <span class="hljs-keyword">return</span> list;
+    }
+
+
+    <span class="hljs-javadoc">/**
+     * 写入一个list集合进入数据文件fileName
+     * 
+     *<span class="hljs-javadoctag"> @param</span> list(需要存储的数据集合)
+     *<span class="hljs-javadoctag"> @param</span> fileName(写入到哪个文件的文件名字)
+     */</span>
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">static</span> <span class="hljs-keyword">void</span> <span class="hljs-title">write2file</span>(List&lt;Object&gt; list, String fileName){
+        ObjectOutputStream out = <span class="hljs-keyword">null</span>;
+
+        <span class="hljs-keyword">try</span> {
+            out = <span class="hljs-keyword">new</span> ObjectOutputStream(<span class="hljs-keyword">new</span> FileOutputStream(fileName));
+            out.writeObject(list);
+        } <span class="hljs-keyword">catch</span> (FileNotFoundException e) {
+            e.printStackTrace();
+        } <span class="hljs-keyword">catch</span> (IOException e) {
+            e.printStackTrace();
+        }<span class="hljs-keyword">finally</span>{
+            <span class="hljs-keyword">if</span>(out!=<span class="hljs-keyword">null</span>){
+                <span class="hljs-keyword">try</span> {
+                    out.close();
+                } <span class="hljs-keyword">catch</span> (IOException e) {
+                    <span class="hljs-keyword">throw</span> <span class="hljs-keyword">new</span> RuntimeException(<span class="hljs-string">"数据库关闭失败!"</span>);
+                }
+            }
+        }
+    }
+
+}
+</code></pre>
+
+<p><strong>封装的用户数据：</strong></p>
+
+<p>cn.hncu.bookStore.user.vo; <br />
+UserModel.java</p>
+
+
+
+<pre class="prettyprint"><code class=" hljs java"><span class="hljs-keyword">package</span> cn.hncu.bookStore.user.vo;
+
+<span class="hljs-javadoc">/**
+ *<span class="hljs-javadoctag"> @author</span> 陈浩翔
+ *<span class="hljs-javadoctag"> @version</span> 1.0
+ * 
+ * &lt;br/&gt;
+ * 用于保存用户信息的值对象&lt;br/&gt;
+ * 1、可序列化&lt;br/&gt;
+ * 2、私有化所有变量成员，补setter-getters方法&lt;br/&gt;
+ * 3、写equals和hashCode方法----用主键(uuid)唯一标识码&lt;br/&gt;
+ * 4、toString方法&lt;br/&gt;
+ * 5,空参构造方法&lt;br/&gt;
+ */</span>
+
+<span class="hljs-keyword">public</span> <span class="hljs-class"><span class="hljs-keyword">class</span> <span class="hljs-title">UserModel</span> {</span>
+    <span class="hljs-keyword">private</span> String uuid;<span class="hljs-comment">//用户唯一标识码</span>
+    <span class="hljs-keyword">private</span> String name;<span class="hljs-comment">//用户名</span>
+    <span class="hljs-keyword">private</span> <span class="hljs-keyword">int</span> type;<span class="hljs-comment">//用户类型</span>
+    <span class="hljs-keyword">private</span> String pwd;<span class="hljs-comment">//用户密码</span>
+    <span class="hljs-keyword">public</span> <span class="hljs-title">UserModel</span>() {
+    }
+
+    <span class="hljs-javadoc">/**
+     * 功能：得到uuid-用户唯一的标识码
+     * 
+     *<span class="hljs-javadoctag"> @return</span> 返回uuid-用户唯一的标识码
+     */</span>
+    <span class="hljs-keyword">public</span> String <span class="hljs-title">getUuid</span>() {
+        <span class="hljs-keyword">return</span> uuid;
+    }
+
+    <span class="hljs-javadoc">/**
+     * 功能：设置uuid-用户唯一的标识码
+     *<span class="hljs-javadoctag"> @param</span> uuid-用户唯一的标识码-String型参数
+     */</span>
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">void</span> <span class="hljs-title">setUuid</span>(String uuid) {
+        <span class="hljs-keyword">this</span>.uuid = uuid;
+    }
+
+    <span class="hljs-javadoc">/**
+     * 功能：得到用户的用户名
+     *<span class="hljs-javadoctag"> @return</span>---name-用户名
+     */</span>
+    <span class="hljs-keyword">public</span> String <span class="hljs-title">getName</span>() {
+        <span class="hljs-keyword">return</span> name;
+    }
+
+    <span class="hljs-javadoc">/**
+     * 功能：设置用户的用户名
+     * 
+     *<span class="hljs-javadoctag"> @param</span> name--用户设置的用户名，String型参数
+     */</span>
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">void</span> <span class="hljs-title">setName</span>(String name) {
+        <span class="hljs-keyword">this</span>.name = name;
+    }
+
+    <span class="hljs-javadoc">/**
+     * 功能：得到用户的类型：
+     *  1——表示为admin，可以进行全部操作
+     *  2——表示为能操作图书模块的人员
+     *  3——表示为能操作进货模块的人员
+     *  4——表示为能操作销售模块的人员
+     *  5——表示为能操作库存模块的人员
+     *<span class="hljs-javadoctag"> @return</span> 用户的类型
+     */</span>
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">int</span> <span class="hljs-title">getType</span>() {
+        <span class="hljs-keyword">return</span> type;
+    }
+
+    <span class="hljs-javadoc">/**
+     *  功能：设置用户的类型：
+     *  1——表示为admin，可以进行全部操作
+     *  2——表示为能操作图书模块的人员
+     *  3——表示为能操作进货模块的人员
+     *  4——表示为能操作销售模块的人员
+     *  5——表示为能操作库存模块的人员
+     *<span class="hljs-javadoctag"> @param</span> type--用户的类型-int型参数
+     */</span>
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">void</span> <span class="hljs-title">setType</span>(<span class="hljs-keyword">int</span> type) {
+        <span class="hljs-keyword">this</span>.type = type;
+    }
+
+    <span class="hljs-javadoc">/**
+     *功能：得到用户的密码
+     *<span class="hljs-javadoctag"> @return</span> String型，用户的密码
+     */</span>
+    <span class="hljs-keyword">public</span> String <span class="hljs-title">getPwd</span>() {
+        <span class="hljs-keyword">return</span> pwd;
+    }
+
+    <span class="hljs-javadoc">/**
+     * 功能：设置用户的密码
+     *<span class="hljs-javadoctag"> @param</span> pwd--String型参数
+     */</span>
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">void</span> <span class="hljs-title">setPwd</span>(String pwd) {
+        <span class="hljs-keyword">this</span>.pwd = pwd;
+    }
+
+
+    <span class="hljs-annotation">@Override</span>
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">int</span> <span class="hljs-title">hashCode</span>() {
+        <span class="hljs-keyword">final</span> <span class="hljs-keyword">int</span> prime = <span class="hljs-number">31</span>;
+        <span class="hljs-keyword">int</span> result = <span class="hljs-number">1</span>;
+        result = prime * result + ((uuid == <span class="hljs-keyword">null</span>) ? <span class="hljs-number">0</span> : uuid.hashCode());
+        <span class="hljs-keyword">return</span> result;
+    }
+    <span class="hljs-annotation">@Override</span>
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">boolean</span> <span class="hljs-title">equals</span>(Object obj) {
+        <span class="hljs-keyword">if</span> (<span class="hljs-keyword">this</span> == obj)
+            <span class="hljs-keyword">return</span> <span class="hljs-keyword">true</span>;
+        <span class="hljs-keyword">if</span> (obj == <span class="hljs-keyword">null</span>)
+            <span class="hljs-keyword">return</span> <span class="hljs-keyword">false</span>;
+        <span class="hljs-keyword">if</span> (getClass() != obj.getClass())
+            <span class="hljs-keyword">return</span> <span class="hljs-keyword">false</span>;
+        UserModel other = (UserModel) obj;
+        <span class="hljs-keyword">if</span> (uuid == <span class="hljs-keyword">null</span>) {
+            <span class="hljs-keyword">if</span> (other.uuid != <span class="hljs-keyword">null</span>)
+                <span class="hljs-keyword">return</span> <span class="hljs-keyword">false</span>;
+        } <span class="hljs-keyword">else</span> <span class="hljs-keyword">if</span> (!uuid.equals(other.uuid))
+            <span class="hljs-keyword">return</span> <span class="hljs-keyword">false</span>;
+        <span class="hljs-keyword">return</span> <span class="hljs-keyword">true</span>;
+    }
+    <span class="hljs-annotation">@Override</span>
+    <span class="hljs-keyword">public</span> String <span class="hljs-title">toString</span>() {
+        <span class="hljs-keyword">return</span> <span class="hljs-string">"UserModel [uuid="</span> + uuid + <span class="hljs-string">", name="</span> + name + <span class="hljs-string">", type="</span> + type
+                + <span class="hljs-string">", pwd="</span> + pwd + <span class="hljs-string">"]"</span>;
+    }
+
+}
+</code></pre>
+
+<p>封装的用户查询数据： <br />
+cn.hncu.bookStore.user.vo; <br />
+UserQueryModel.java</p>
+
+
+
+<pre class="prettyprint"><code class=" hljs java"><span class="hljs-keyword">package</span> cn.hncu.bookStore.user.vo;
+
+<span class="hljs-keyword">public</span> <span class="hljs-class"><span class="hljs-keyword">class</span> <span class="hljs-title">UserQueryModel</span> <span class="hljs-keyword">extends</span> <span class="hljs-title">UserModel</span>{</span>  
+}</code></pre>
+
+<p>虽然这个类什么都没有，就只是继承了UserModel，但还是必须写，这是大家都遵守的java编写规范！</p>
+
+<p>用户Dao(数据层)：（接口） <br />
+cn.hncu.bookStore.user.dao.dao; <br />
+UserDao.java</p>
+
+
+
+<pre class="prettyprint"><code class=" hljs java"><span class="hljs-keyword">package</span> cn.hncu.bookStore.user.dao.dao;
+
+<span class="hljs-keyword">import</span> java.util.List;
+
+<span class="hljs-keyword">import</span> cn.hncu.bookStore.user.vo.UserModel;
+<span class="hljs-keyword">import</span> cn.hncu.bookStore.user.vo.UserQueryModel;
+
+<span class="hljs-javadoc">/**
+ * 
+ *<span class="hljs-javadoctag"> @author</span> 陈浩翔
+ *
+ *<span class="hljs-javadoctag"> @version</span> 1.0
+ * 用户模块的数据层接口
+ */</span>
+<span class="hljs-keyword">public</span> <span class="hljs-class"><span class="hljs-keyword">interface</span> <span class="hljs-title">UserDao</span> {</span>
+    <span class="hljs-javadoc">/**
+     * 功能：创建一个用户
+     * 
+     *<span class="hljs-javadoctag"> @param</span> userModel---将要创建的用户数据
+     *<span class="hljs-javadoctag"> @return</span>---true表示创建成功，false表示创建失败
+     */</span>
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">boolean</span> <span class="hljs-title">create</span>(UserModel user);
+
+    <span class="hljs-javadoc">/**
+     * 功能：删除一个用户
+     * 
+     *<span class="hljs-javadoctag"> @param</span> uuid---用户唯一的标识码，每个用户都不会相同
+     *<span class="hljs-javadoctag"> @return</span>---true表示删除成功，false表示删除失败
+     */</span>
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">boolean</span> <span class="hljs-title">delete</span>(String uuid);
+
+    <span class="hljs-javadoc">/**
+     * 功能：修改用户数据资料
+     * 
+     *<span class="hljs-javadoctag"> @param</span> user---需要修改的用户数据参数名
+     *<span class="hljs-javadoctag"> @return</span> 返回true-表示修改成功了，返回false-表示修改失败
+     */</span>
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">boolean</span> <span class="hljs-title">update</span>(UserModel user);
+
+    <span class="hljs-javadoc">/**
+     * 功能：得到所有的用户数据
+     * 
+     *<span class="hljs-javadoctag"> @return</span>---一个UserModel集合，也就是用户的数据
+     */</span>
+    <span class="hljs-keyword">public</span> List&lt;UserModel&gt; <span class="hljs-title">getAll</span>();
+
+    <span class="hljs-javadoc">/**
+     * 功能：按照一定的查找条件进行查找，
+     * &lt;br/&gt;
+     * 把满足查找条件的用户数据返回。
+     * 
+     *<span class="hljs-javadoctag"> @param</span> uqm---被封装的查找条件
+     *<span class="hljs-javadoctag"> @return</span>---满足查找条件的用户数据集合
+     */</span>
+    <span class="hljs-keyword">public</span> List&lt;UserModel&gt; <span class="hljs-title">getbyCondition</span>(UserQueryModel uqm);
+
+    <span class="hljs-javadoc">/**
+     * 功能：得到一个确定的用户的数据资料
+     * 
+     *<span class="hljs-javadoctag"> @param</span> uuid---用户唯一标识码
+     *<span class="hljs-javadoctag"> @return</span> ---返回按这个唯一标识码找到的用户数据
+     */</span>
+    <span class="hljs-keyword">public</span> UserModel <span class="hljs-title">getSingle</span>(String uuid);
+
+}
+</code></pre></div>&#13;
+        <script type="text/javascript">&#13;
+            $(function () {&#13;
+                $('pre.prettyprint code').each(function () {&#13;
+                    var lines = $(this).text().split('\n').length;&#13;
+                    var $numbering = $('&lt;ul/&gt;').addClass('pre-numbering').hide();&#13;
+                    $(this).addClass('has-numbering').parent().append($numbering);&#13;
+                    for (i = 1; i &lt;= lines; i++) {&#13;
+                        $numbering.append($('&lt;li/&gt;').text(i));&#13;
+                    };&#13;
+                    $numbering.fadeIn(1700);&#13;
+                });&#13;
+            });&#13;
+        </script>&#13;
+   &#13;

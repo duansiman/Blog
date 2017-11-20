@@ -1,0 +1,386 @@
+
+
+<strong><u>自旋锁的使用</u></strong><br />&#13;
+<p><span style="white-space:pre"></span>自旋锁（spin lock）是一种对临界资源进行互斥访问的典型手段，其名称来源于它的工作方式。为了获得自旋锁，在某cpu上运行的代码需要先执行一个院子操作，该操作测试并设置某个内存变量，由于它是原子操作，所以在该操作完成之前其他执行单元不可能访问这个内存变量。</p>&#13;
+<p><span style="white-space:pre"></span>如果测试结果表明锁已经空闲，则程序获得这个自旋锁并继续执行；如果测试结果表明锁被占用，程序将在一个小循环内重复这个“测试并设置”操作，即金星所谓的“自旋”。当自旋锁的持有者通过重置该变量释放这个自旋锁后，某个等待的“测试并设置”操作向其调用者报告锁已释放。<br />&#13;
+</p>&#13;
+<p><u><strong>Linux系统中与自旋锁相关的操作如下：</strong></u><br />&#13;
+1、定义自旋锁 spinlock_t spin;<br />&#13;
+2、初始化自旋锁 spin_lock_init(lock);<br />&#13;
+3、获得自旋锁 spin_lock(lock);该宏用于获得自旋锁lock，如果能够立即获得锁，它就马上返回，否则，它将自旋在哪里，直到该自旋锁的保持者释放。spin_trylock(lock);该宏尝试获得自旋锁lock，如果能立即获得锁，它获得锁并返回真，否则立即返回假，实际上不再“在原地打转”。<br />&#13;
+4、释放锁spin_unlock(lock);该宏释放自旋锁lock，它与spin_trylock或spin_lock配对使用。<br />&#13;
+</p>&#13;
+<p><strong><u>自旋锁的一般使用方式：</u></strong><br />&#13;
+</p><pre code_snippet_id="159292" snippet_file_name="blog_20140116_1_8564644" name="code" class="objc">spinlock_t lock;
+spin_lock_init(&amp;lock);
+spin_lock(&amp;lock);//获得自旋锁，包含临界区
+....//临界区
+spin_unlock(&amp;lock);//解锁</pre><br />&#13;
+<span style="white-space:pre"></span>自旋锁主要针对smp或单cpu但内核可抢占的情况，对于单cpu和内核不支持抢占的系统，自旋锁退化为空操作。在单cpu和内核可抢占的系统中，自选锁持有期间内核的抢占将被禁止。由于内核抢占的单cpu系统的行为实际很类似于smp系统，因此在这样的单cpu系统中使用自旋锁扔十分必要。<br />&#13;
+&#13;
+<p><strong><u>在使用自旋锁中还要特别注意如下问题：</u></strong><br />&#13;
+<span style="white-space:pre"></span>自旋锁实际上是忙等锁，当锁不可用时，cpu一直循环执行“测试并设置”该锁直到可用而取得该锁，cpu在等待自旋锁时不做任何有用的工作，仅仅是等待。因此只有在占用锁的事件极短的情况下，使用自旋锁才是合理的。当临界区很大或有共享设备的时候，需要较长事件占用锁，使用自旋锁会降低系统的性能。<br />&#13;
+</p>&#13;
+<p><span style="white-space:pre">自旋锁可能导致系统死锁。引发这个问题最常见的情况是递归使用一个自旋锁，即如果一个已经拥有某个自旋锁的cpu想第二次获得这个自旋锁，则该cpu将死锁。此外，如果进程获得自旋锁后再阻塞，也可能导致死锁的发生。copy_from_user()/copy_to_user()和kmalloc()等函数都有可能引起阻塞，因此自旋锁的占用期间不能调用这些函数。</span></p>&#13;
+<p></p><pre code_snippet_id="159292" snippet_file_name="blog_20140116_2_25341" name="code" class="objc">/**
+*Copyright (c) 2013.TianYuan
+*All rights reserved.
+*
+*文件名称: char_device_driver11.c
+*文件标识: 自旋锁
+*
+*当前版本：1.0
+*作者：wuyq 
+*
+*取代版本：xxx
+*原作者：xxx
+*完成日期：2013-11-29
+*/
+#include &lt;linux/init.h&gt;
+#include &lt;linux/module.h&gt;
+#include &lt;linux/fs.h&gt;
+#include &lt;linux/cdev.h&gt;
+#include &lt;linux/device.h&gt;
+#include &lt;linux/slab.h&gt;
+#include &lt;asm/uaccess.h&gt;
+
+#include &lt;asm/gpio.h&gt;
+#include &lt;plat/gpio-cfg.h&gt;
+#include &lt;linux/spinlock_types.h&gt;
+
+
+
+MODULE_LICENSE("GPL");
+#define CDD_MAJOR	200//cat /proc/devices找一个尚未使用的
+#define CDD_MINOR	0
+#define CDD_COUNT	1//一个cdev控制两个led
+dev_t dev = 0;
+u32 cdd_major = 0;
+u32 cdd_minor = 0;
+
+struct class *dev_class = NULL;
+#define BUF_SIZE	100
+struct cdd_cdev{
+	struct cdev cdev;
+	struct device *dev_device;
+	u8 led;
+	
+	char kbuf[BUF_SIZE];
+	
+	u32 data_len;//记录缓冲区中已经写入数据的长度
+	//定义自旋锁
+	spinlock_t lock;
+	
+	int opentimes;//打开计数
+};
+
+struct cdd_cdev *cdd_cdevp = NULL;
+
+unsigned long led_gpio_table[2] = {
+	S5PV210_GPC1(3),//数字
+	S5PV210_GPC1(4),
+};
+
+int cdd_open(struct inode* inode, struct file *filp)
+{
+	struct cdd_cdev *pcdevp = NULL;
+	printk("enter cdd_open!\n");
+
+	pcdevp = container_of(inode-&gt;i_cdev, struct cdd_cdev, cdev);
+	printk("led = %d\n", pcdevp-&gt;led);
+	
+	/*获取自旋锁*/
+	spin_lock(&amp;pcdevp-&gt;lock);
+	if(!(--(pcdevp-&gt;opentimes) == 0)){
+		printk("cdev is already open!\n");
+		pcdevp-&gt;opentimes++;
+		spin_unlock(&amp;pcdevp-&gt;lock);
+		return -EBUSY;
+	}
+	/*释放锁*/
+	spin_unlock(&amp;pcdevp-&gt;lock);
+	
+	filp-&gt;private_data = pcdevp;
+	
+	return 0;
+}
+
+int cdd_read(struct file *filp, char __user *buf, size_t count, loff_t *offset)
+{
+	int ret = 0;
+	u32 pos = *offset;
+	u32 cnt = count;
+	
+	struct cdd_cdev *cdevp = filp-&gt;private_data;
+	//printk("enter cdd_read!\n");
+	if(cnt &gt; (cdevp-&gt;data_len-pos) ){
+		cnt = cdevp-&gt;data_len - pos;
+	}
+	
+	ret = copy_to_user(buf, cdevp-&gt;kbuf+pos, cnt);
+	//printk("kernel kbuf content:%s\n", cdevp-&gt;kbuf);
+	*offset += cnt;
+	
+	return ret;
+}
+
+int cdd_write(struct file *filp, const char __user *buf, size_t count, loff_t *offset)
+{
+	int ret = 0;
+	struct cdd_cdev *cdevp = filp-&gt;private_data;
+	u32 pos = *offset;
+	u32 cnt = count;
+	
+	//printk("enter cdd_write!\n");
+	if(cnt &gt; (BUF_SIZE - pos) ){
+		cnt = BUF_SIZE - pos;
+	}
+	ret = copy_from_user(cdevp-&gt;kbuf+pos, buf, cnt);
+	*offset += cnt;
+	if(*offset &gt; cdevp-&gt;data_len){
+		cdevp-&gt;data_len = *offset;
+	}
+	return ret;
+}
+
+int cdd_ioctl(struct inode *inode, struct file *filp, unsigned int cmd, unsigned long data)
+{
+	//printk("enter cdd_ioctl!\n");
+	switch(cmd){
+		case 1://点亮灯
+			//设置管脚为输出功能
+			//参数：1.要设置的管脚编号2.默认的输出值 0低电平1高电平
+			gpio_direction_output(led_gpio_table[data], 0);
+			//禁止内部上拉
+			s3c_gpio_setpull(led_gpio_table[data], SEC_GPIO_PULL_NONE);
+			//设置输出值
+			gpio_set_value(led_gpio_table[data], 1);
+			
+			break;
+		case 0://熄灭灯
+			
+			//设置管脚为输出功能
+			//参数：1.要设置的管脚编号2.默认的输出值 0低电平1高电平
+			gpio_direction_output(led_gpio_table[data], 0);
+			//禁止内部上拉
+			s3c_gpio_setpull(led_gpio_table[data], SEC_GPIO_PULL_NONE);
+			//设置输出值
+			gpio_set_value(led_gpio_table[data], 0);
+			
+			break;
+		default:
+			return -EINVAL;
+	}
+	
+	
+	return 0;
+}
+
+int cdd_release(struct inode *inode, struct file *filp)
+{
+	struct cdd_cdev *pcdevp = filp-&gt;private_data;
+	printk("enter cdd_release!\n");
+	//加锁
+	spin_lock(&amp;pcdevp-&gt;lock);
+	pcdevp-&gt;opentimes++;
+	spin_unlock(&amp;pcdevp-&gt;lock);
+	
+	return 0;
+}
+
+loff_t cdd_llseek(struct file *filp, loff_t offset, int whence)
+{
+	struct cdd_cdev *pcdevp = filp-&gt;private_data;
+	loff_t newpos = 0;
+	switch(whence){
+		case SEEK_SET:
+			newpos = offset;
+			break;
+		case SEEK_CUR:
+			newpos = filp-&gt;f_pos + offset;
+			break;
+		case SEEK_END:
+			newpos = pcdevp-&gt;data_len + offset;
+			break;
+		default:
+			return -EINVAL;//无效的参数
+	}
+	
+	if( newpos&lt;0 || newpos&gt;= BUF_SIZE ){
+		return -EINVAL;
+	}
+	filp-&gt;f_pos = newpos;
+	return newpos;
+}
+
+struct file_operations cdd_fops = {
+	.owner = THIS_MODULE,
+	.open = cdd_open,
+	.read = cdd_read,
+	.write = cdd_write,
+	.ioctl = cdd_ioctl,
+	.release = cdd_release,
+	.llseek = cdd_llseek,
+	};
+
+int __init cdd_init(void)
+{
+	int ret = 0;
+	int i = 0;
+	
+	if(cdd_major){
+		dev = MKDEV(CDD_MAJOR, CDD_MINOR);//生成设备号
+		//注册设备号;1、要注册的起始设备号2、连续注册的设备号个数3、名字
+		ret = register_chrdev_region(dev, CDD_COUNT, "cdd_demo");
+	}else{
+		// 动态分配设备号
+		ret = alloc_chrdev_region(&amp;dev, cdd_minor, CDD_COUNT, "cdd_demo02");
+	}
+	
+	if(ret &lt; 0){
+		printk("register_chrdev_region failed!\n");
+		goto failure_register_chrdev;
+	}
+	//获取主设备号
+	cdd_major = MAJOR(dev);
+	printk("cdd_major = %d\n", cdd_major);
+	
+	cdd_cdevp = kzalloc(sizeof(struct cdd_cdev)*CDD_COUNT, GFP_KERNEL);
+	if(IS_ERR(cdd_cdevp)){
+		printk("kzalloc failed!\n");
+		goto failure_kzalloc;
+	}
+	/*创建设备类*/
+	dev_class = class_create(THIS_MODULE, "cdd_class");
+	if(IS_ERR(dev_class)){
+		printk("class_create failed!\n");
+		goto failure_dev_class;
+	}
+	for(i=0; i&lt;CDD_COUNT; i++){
+		/*初始化cdev*/
+		cdev_init(&amp;(cdd_cdevp[i].cdev), &amp;cdd_fops);
+		/*添加cdev到内核*/
+		cdev_add(&amp;(cdd_cdevp[i].cdev), dev+i, 1);
+		
+		/* “/dev/xxx” */
+		device_create(dev_class, NULL, dev+i, NULL, "cdd%d", i);
+		
+		cdd_cdevp[i].led = i;
+		//初始化自旋锁
+		spin_lock_init(&amp;(cdd_cdevp[i].lock));
+		
+		cdd_cdevp[i].opentimes = 1;
+		
+	}
+	
+	return 0;
+failure_dev_class:
+	kfree(cdd_cdevp);
+failure_kzalloc:
+	unregister_chrdev_region(dev, CDD_COUNT);
+failure_register_chrdev:
+	return ret;
+}
+
+void __exit cdd_exit(void)
+{
+/*逆序消除*/
+	int i = 0;
+	for(; i &lt; CDD_COUNT; i++){
+		device_destroy(dev_class, dev+i);
+		cdev_del(&amp;(cdd_cdevp[i].cdev));
+		//cdev_del(&amp;((cdd_cdevp+i)-&gt;cdev));
+	}
+	class_destroy(dev_class);
+	kfree(cdd_cdevp);
+	unregister_chrdev_region(dev, CDD_COUNT);
+	
+}	
+
+module_init(cdd_init);
+module_exit(cdd_exit);
+</pre><br />&#13;
+<pre code_snippet_id="159292" snippet_file_name="blog_20140116_3_2915280" name="code" class="objc">/**
+*Copyright (c) 2013.TianYuan
+*All rights reserved.
+*
+*文件名称: char_device_driver11_test.c
+*文件标识: 测试程序：telnet 连接上板子，执行一次。 板子本身再执行一次
+*	
+*当前版本：1.0
+*作者：wuyq 
+*
+*取代版本：xxx
+*原作者：xxx
+*完成日期：2013-11-29
+*/
+#include &lt;stdio.h&gt;
+#include &lt;fcntl.h&gt;
+#include &lt;stdlib.h&gt;
+#include &lt;string.h&gt;
+
+/*手工创建设备节点文件
+mknod /dev/cdd c 248 0
+*/
+int fd = 0;
+char rbuf[100];
+char wbuf[100] = "nihao!\n";
+
+
+int main()
+{
+	char ch;
+	
+	fd = open("/dev/led0", O_RDWR);
+	if(fd &lt; 0){
+		printf("open failed!\n");
+		return -1;
+	}
+	printf("open successed fd = %d\n", fd);
+	while(1)
+	{
+		printf("starting to test /dev/cdd...\n");
+		ch = getchar();
+		getchar();//取走回车
+		if(ch == 'q'){
+			break;
+		}
+		switch(ch){
+			case 'r':
+				memset(rbuf, 0, 100);//清空
+				read(fd, rbuf, 3);
+				printf("user space from kernel: %s\n", rbuf);
+				break;
+			case 'w':
+				write(fd, wbuf, strlen(wbuf) );
+				break;
+			case 'o':
+				ioctl(fd, 0, 0);
+				break;
+			case 'O':
+				ioctl(fd, 1, 0);
+				break;
+			case 'p':
+				ioctl(fd, 0, 1);
+				break;
+			case 'P':
+				ioctl(fd, 1, 1);
+				break;
+			case 'l':
+				lseek(fd, 0, SEEK_SET);//移动的文件的开头
+				break;
+				
+			default:
+				break;
+		}
+		sleep(1);
+	}
+	
+	close(fd);
+	return 0;
+}</pre><br />&#13;
+<br />&#13;
+&#13;
+<p><br />&#13;
+</p>&#13;
+   &#13;

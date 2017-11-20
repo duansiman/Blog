@@ -1,0 +1,255 @@
+
+                <div class="markdown_views"><h1 id="意图">意图</h1>
+
+<p>运用共享技术有效的支持大量细粒度的对象。采用一个共享来避免大量拥有相同内容的“小类”的开销。在Java中可以使用类变量、缓存技术共享相同的部分。 <br/>
+享元模式分为：单纯享元模式和复合享元模式。 <br/>
+内蕴（内部）状态：共享的信息 <br/>
+外蕴（外部）状态：特有的信息</p>
+
+
+
+<h1 id="适用性">适用性</h1>
+
+<p>Flyweight模式的有效性很大程度上取决于如何使用它以及在何处使用它。当一下情况都成立时使用Flyweight模式： <br/>
+1.  一个应用程序使用了大量的对象 <br/>
+2.  完全由于使用大量的对象，造成很大的存储开销 <br/>
+3.  对象的大多数状态都可变为外部状态 <br/>
+4.  如果删除对象的外部状态，那么可以用相对较少的共享对象取代很多组对象 <br/>
+5.  应用程序不依赖于对象标识。由于Flyweight对象可以被共享，对于概念上明显有别的对象，标识测试将返回真值。</p>
+
+
+
+<h1 id="结构">结构</h1>
+
+<p><img title="" alt="这里写图片描述" src="http://img.blog.csdn.net/20170503081559714?watermark/2/text/aHR0cDovL2Jsb2cuY3Nkbi5uZXQvc2xkODgwMzEx/font/5a6L5L2T/fontsize/400/fill/I0JBQkFCMA==/dissolve/70/gravity/SouthEast"/></p>
+
+
+
+<h1 id="参与者">参与者</h1>
+
+
+
+<h2 id="flyweight">Flyweight</h2>
+
+<p>描述一个接口，通过这个接口Flyweight可以接受并作用于外部状态。</p>
+
+
+
+<h2 id="concreteflyweight">ConcreteFlyweight</h2>
+
+<p>实现了Flyweight接口，并为内部状态（如果有的话）增加了存储空间。ConcreteFlyweight对象必须是可共享的。它所存储的状态必须是内部的；即，它必须独立于ConcreteFlyweight对象的场景。</p>
+
+
+
+<h2 id="unsharedconcreteflyweight">UnsharedConcreteFlyweight</h2>
+
+<p>并非所有的Flyweight的子类都需要被共享。Flyweight接口使共享成为可能，但它并不强制共享。在Flyweight对象接口的某些层次，UnsharedConcreteFlyweight对象通常将ConcreteFlyweight对象作为子节点。</p>
+
+
+
+<h2 id="flyweightfactory">FlyweightFactory</h2>
+
+<p>创建并管理Flyweight对象。确保合理地共享Flyweight。当用户请求一个Flyweight时，FlyweightFactory对象提供一个已创建的实例或者创建一个（如果不存在的话）。</p>
+
+
+
+<h2 id="client">Client</h2>
+
+<p>维持一个对Flyweight的引用。计算或存储一个（多个）Flyweight的外部状态。</p>
+
+
+
+<h1 id="代码">代码</h1>
+
+
+
+<h2 id="flyweight-1">Flyweight</h2>
+
+
+
+<pre class="prettyprint"><code class="language-java hljs "><span class="hljs-keyword">public</span> <span class="hljs-class"><span class="hljs-keyword">interface</span> <span class="hljs-title">Flyweight</span> {</span>
+    <span class="hljs-comment">//传入的外部状态</span>
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">void</span> <span class="hljs-title">operation</span>(String outState);
+    <span class="hljs-keyword">public</span> Flyweight <span class="hljs-title">get</span>(String flyweightKey);
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">void</span> <span class="hljs-title">put</span>(String flyweightKey,Flyweight flyweightValue);
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">boolean</span> <span class="hljs-title">remove</span>(String flyweightKey);
+}</code></pre>
+
+
+
+<h2 id="concreteflyweight-1">ConcreteFlyweight</h2>
+
+
+
+<pre class="prettyprint"><code class="language-java hljs "><span class="hljs-keyword">public</span> <span class="hljs-class"><span class="hljs-keyword">class</span> <span class="hljs-title">ConcreteFlyweight</span> <span class="hljs-keyword">implements</span> <span class="hljs-title">Flyweight</span>{</span>
+    <span class="hljs-comment">//内部状态</span>
+    <span class="hljs-keyword">private</span> String inState;
+    <span class="hljs-keyword">public</span> <span class="hljs-title">ConcreteFlyweight</span>(String inState){
+        <span class="hljs-keyword">this</span>.inState = inState;
+    }
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">void</span> <span class="hljs-title">operation</span>(String outState) {
+        System.out.println(<span class="hljs-string">"inState:"</span>+inState+<span class="hljs-string">" outState:"</span>+outState);
+    }
+    <span class="hljs-keyword">public</span> Flyweight <span class="hljs-title">get</span>(String flyweightKey) {
+        <span class="hljs-keyword">throw</span> <span class="hljs-keyword">new</span> IllegalArgumentException(<span class="hljs-string">"子节点不能执行：get（）操作"</span>);
+    }
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">void</span> <span class="hljs-title">put</span>(String flyweightKey,Flyweight flyweightValue) {
+        <span class="hljs-keyword">throw</span> <span class="hljs-keyword">new</span> IllegalArgumentException(<span class="hljs-string">"子节点不能执行：put（）操作"</span>);
+    }
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">boolean</span> <span class="hljs-title">remove</span>(String flyweightKey) {
+        <span class="hljs-keyword">throw</span> <span class="hljs-keyword">new</span> IllegalArgumentException(<span class="hljs-string">"子节点不能执行：remove（）操作"</span>);
+    }
+}</code></pre>
+
+
+
+<h2 id="unsharedconcreteflyweight-1">UnsharedConcreteFlyweight</h2>
+
+
+
+<pre class="prettyprint"><code class="language-java hljs "><span class="hljs-keyword">public</span> <span class="hljs-class"><span class="hljs-keyword">class</span> <span class="hljs-title">UnsharedConcreteFlyweight</span> <span class="hljs-keyword">implements</span> <span class="hljs-title">Flyweight</span>{</span>
+    <span class="hljs-keyword">private</span> Map&lt;String,Flyweight&gt; flyweightMap = <span class="hljs-keyword">new</span> HashMap&lt;String,Flyweight&gt;();
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">void</span> <span class="hljs-title">operation</span>(String outState) {
+        <span class="hljs-keyword">for</span>(Map.Entry&lt;String, Flyweight&gt; map: flyweightMap.entrySet()){
+            Flyweight f = map.getValue();
+            f.operation(outState);
+        }
+    }
+    <span class="hljs-keyword">public</span> Flyweight <span class="hljs-title">get</span>(String flyweightKey) {
+        <span class="hljs-keyword">return</span> flyweightMap.get(flyweightKey);
+    }
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">void</span> <span class="hljs-title">put</span>(String flyweightKey,Flyweight flyweightValue) {
+        flyweightMap.put(flyweightKey,flyweightValue);
+    }
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">boolean</span> <span class="hljs-title">remove</span>(String flyweightKey) {
+        <span class="hljs-keyword">return</span> flyweightMap.remove(flyweightKey)==<span class="hljs-keyword">null</span>?<span class="hljs-keyword">false</span>:<span class="hljs-keyword">true</span>;
+    }
+}</code></pre>
+
+
+
+<h2 id="flyweightfactory-1">FlyweightFactory</h2>
+
+
+
+<pre class="prettyprint"><code class="language-java hljs "><span class="hljs-keyword">public</span> <span class="hljs-class"><span class="hljs-keyword">class</span> <span class="hljs-title">FlyweightFactory</span> {</span>
+    <span class="hljs-keyword">private</span> <span class="hljs-keyword">static</span> Map&lt;String,Flyweight&gt; flyweightMap = <span class="hljs-keyword">new</span> HashMap&lt;String,Flyweight&gt;();
+
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">static</span> Flyweight <span class="hljs-title">getFlyweight</span>(List&lt;String&gt; flyweightKeyList){
+        Flyweight unsharedConcreteFlyweight = <span class="hljs-keyword">new</span> UnsharedConcreteFlyweight();
+        <span class="hljs-keyword">for</span>(String flyweightKey : flyweightKeyList){
+            <span class="hljs-keyword">if</span>(unsharedConcreteFlyweight.get(flyweightKey)==<span class="hljs-keyword">null</span>){
+                unsharedConcreteFlyweight.put(flyweightKey, <span class="hljs-keyword">new</span> ConcreteFlyweight(flyweightKey));
+            }
+        }
+        <span class="hljs-keyword">return</span> unsharedConcreteFlyweight;
+    } 
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">static</span> Flyweight <span class="hljs-title">getFlyweight</span>(String flyweightKey){
+        <span class="hljs-keyword">if</span>(flyweightMap.containsKey(flyweightKey)){
+            <span class="hljs-keyword">return</span> flyweightMap.get(flyweightKey);
+        }<span class="hljs-keyword">else</span>{
+            Flyweight concreteFlyweight = <span class="hljs-keyword">new</span> ConcreteFlyweight(flyweightKey);
+            flyweightMap.put(flyweightKey, concreteFlyweight);
+            <span class="hljs-keyword">return</span> concreteFlyweight;
+        }
+    }
+}</code></pre>
+
+
+
+<h2 id="client-1">Client</h2>
+
+
+
+<pre class="prettyprint"><code class="language-java hljs "><span class="hljs-keyword">public</span> <span class="hljs-class"><span class="hljs-keyword">class</span> <span class="hljs-title">Client</span> {</span>
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">static</span> <span class="hljs-keyword">void</span> <span class="hljs-title">main</span>(String[] args) {
+        Flyweight f = FlyweightFactory.getFlyweight(<span class="hljs-string">"123"</span>);
+        f.operation(<span class="hljs-string">"246"</span>);
+    }
+}</code></pre>
+
+
+
+<h1 id="协作">协作</h1>
+
+<p>Flyweight执行时所需要的状态必定是内部的或外部的。内部状态存储于ConcreteFlyweight对象之中；而外部对象则由Client对象存储或计算。当用户调用Flyweight对象的操作时，将该状态传递给它。 <br/>
+用户不应直接对ConcreteFlyweight类进行实例化，而只能从FlyweightFactory对象得到ConcreteFlyweight对象，这可以保证对它们适当地进行共享。</p>
+
+
+
+<h1 id="效果">效果</h1>
+
+
+
+<h2 id="优点">优点</h2>
+
+<ol>
+<li>减少运行时对象实例的个数，节省内存 </li>
+<li>将许多“虚拟”对象的状态集中管理  <br/>
+共享的Flyweight越多，节省的空间就越多。存储节约由以下几个因素决定：</li>
+<li>因为共享，实例总数减少的数目</li>
+<li>对象内部状态的平均数据</li>
+<li>外部状态是计算的还是存储的 <br/>
+共享的Flyweight越多，存储节约也就越多。节约量随着共享状态的增加而增大。当对象使用大量的内部及外部状态，并且外部状态是计算出来的而非存储的时候，节约量将达到最大。所以，可以用两种方法来节约存储：用共享减少内部状态的消耗，用计算时间换取对外部状态的存储。 <br/>
+Flyweight模式经常和Composite模式结合起来表示一个层次式结构，这一层次式结构是一个共享叶节点的图。共享的结果是，Flyweight的叶节点不能存储指向父节点的指针。而父节点的指针传给Flyweight作为它的外部状态的一部分。者对于该层次结构中对象之间相互通讯的方式将产生很大的影响。</li>
+</ol>
+
+
+
+<h2 id="缺点">缺点</h2>
+
+<p>系统逻辑复杂化，一定层度是外蕴状态影响系统速度</p>
+
+
+
+<h1 id="经典例子">经典例子</h1>
+
+<p>方法：静态属性、缓冲池 <br/>
+具体场景：  缓存技术的使用 <br/>
+Java String的实现方式</p>
+
+
+
+<h1 id="实现">实现</h1>
+
+
+
+<h2 id="删除外部状态">删除外部状态</h2>
+
+<p>该模式的可用性很大程度上取决于是否容易识别外部状态并将它从共享对象中删除。如果不同种类的外部状态和共享前对象的数目相同的话，删除外部状态不会降低存储消耗。理想的状况是，外部状态可以由一个单独的对象结构计算得到，且该结构的存储要求非常小。</p>
+
+
+
+<h2 id="管理共享对象">管理共享对象</h2>
+
+<p>因为对象是共享的，用户不能直接对它进行实例化，因此FlyweightFactory可以帮助用户查找某个特定的Flyweight对象。FlyweightFactory对象经常使用关联存储（Map）帮助用户查找感兴趣的Flyweight对象。 <br/>
+共享还意味着某种形式的引用计数和垃圾回收，这样当一个Flyweight不再使用时，可以回收它的存储空间，然而，当Flyweight的数目固定而且很小的时候，这两种操作都不必要。在这种情况下，Flyweight完全可以永久保存。</p>
+
+
+
+<h1 id="相关模式">相关模式</h1>
+
+
+
+<h2 id="proxy-pattern">Proxy Pattern</h2>
+
+<p>Flyweight如果入到创建对象实例费时时利用对象实例共享可以提高处理速度；Proxy Pattern则是利用创建代理人的方式提高处理速度。</p>
+
+
+
+<h2 id="composite-pattern">Composite Pattern</h2>
+
+<p>有时可以利用Flyweight Pattern让Composite Pattern中的Leaf参与者实现共享。</p>
+
+
+
+<h2 id="singleton-pattern">Singleton Pattern</h2>
+
+<p>FlyweightFactory使用单例模式实现，此外单例模式本身只能创建一个实例，所以在使用该实例对象的地方都变成共享，单利模式的参与者只有intrinsic型信息。</p>
+
+
+
+<h1 id="总结">总结</h1>
+
+<p>享元模式可以使你共享地访问那些大量出现的细粒度对象，例如字符、化学药品以及边界等。享元对象必须是不可变的，可以将那些需要共享访问，并且不变的部分提取出来。为了确保你的享元对象能够被共享，需要提供并强制客户对象使用享元工厂来检查享元对象。访问修饰符对其他开发进行了一定的限制，但是内部类的使用限制更进一步，完全限制了该类仅能由其外部容器访问。在确保客户对象正确地使用享元工厂后，你就可以提供对大量细粒度对象得安全共享访问了。</p><link rel="stylesheet" href="http://static.blog.csdn.net/public/res-min/markdown_views.css?v=2.0"/></div><link rel="stylesheet" href="http://static.blog.csdn.net/public/res-min/markdown_views.css?v=2.0"/>&#13;
+            

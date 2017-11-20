@@ -1,0 +1,287 @@
+
+        <div class="markdown_views"><p>jersey的webservice开发基本上都是使用注解,接下来学习常用注解.</p>
+
+
+
+<h1 id="一根资源类">一.根资源类</h1>
+
+
+
+<h2 id="1path注解">1.@PATH注解</h2>
+
+
+
+<pre class="prettyprint"><code class=" hljs java"><span class="hljs-annotation">@Path</span>(<span class="hljs-string">"/hello"</span>)
+<span class="hljs-keyword">public</span> <span class="hljs-class"><span class="hljs-keyword">class</span> <span class="hljs-title">HelloWorldController</span> {</span>
+
+    <span class="hljs-annotation">@GET</span>
+    <span class="hljs-annotation">@Path</span>(<span class="hljs-string">"{username}"</span>)
+    <span class="hljs-annotation">@Produces</span>(MediaType.TEXT_PLAIN)
+    <span class="hljs-keyword">public</span> String <span class="hljs-title">helloWorld</span>(@<span class="hljs-title">PathParam</span>("username") String username){
+
+        <span class="hljs-keyword">return</span> <span class="hljs-string">"hello world! "</span>+username;
+    }
+}</code></pre>
+
+<p>对应访问链接:  <a href="http://localhost:8888/hello/niuli">http://localhost:8888/hello/niuli</a></p>
+
+<ol>
+<li><p><code>@PathParam</code>可以从链接中取出相应的值自动赋值给相应变量.</p></li>
+<li><p>同时还支持正则表达式:例如:</p>
+
+<p>@Path(“users/{username: [a-zA-Z][a-zA-Z_0-9]*}”)</p></li>
+<li><p>这个正则表达式匹配由大小写字符、横杠和数字组成的字符串，如果正则校验不通过，则返回404（没有找到资源）。</p></li>
+<li><p>一个 @Path的内容是否以”/”开头都没有区别，同样是否以”/”结尾也没有什么区别</p></li>
+</ol>
+
+
+
+<h2 id="2get-put-post-delete-http-方法">2.@GET, @PUT, @POST, @DELETE, … (HTTP 方法)</h2>
+
+<p>一般下面方法有如下用途: <br />
+• GET - 提供资源的只读访问。 <br />
+• PUT - 用于创建一个新资源。 <br />
+• DELETE - 用于移除一个资源。 <br />
+• POST - 用于更新现有资源或者创建一个新资源。 <br />
+• OPTIONS - 用于获取资源上支持的操作。</p>
+
+<p>下面是设计 URI 时要考虑的要点： <br />
+• 使用复数名词 - 使用复数名词定义资源。比如，我们使用 users 标识用户资源。 <br />
+• 避免使用空格 - 处理长资源名时使用下划线（_）或者连字符（-），比如，用 authorized_users 而不是 a <br />
+uthorized%20users。 <br />
+• 使用小写字母 - 尽管 URI 不区分带小写，但是在 url 中使用小写字母是一种很好的做法。 <br />
+• 保持向后兼容 - 由于 Web 服务是一种公共服务，URI 一旦公开之后应该始终可用。这种情况下，要更新 U <br />
+RI，请使用 HTTP 状态码 - 300 重定向老的 URI 到新的 URI。 <br />
+• 使用 HTTP Verb - 始终使用 HTTP Verb，比如 GET，PUT 以及 DELETE 处理资源操作。在 URL 中使 <br />
+用操作名并不好。</p>
+
+<p>例如: <br />
+<img src="http://img.blog.csdn.net/20160724113405436" alt="这里写图片描述" title="" /></p>
+
+
+
+<h2 id="3produces">3.@Produces</h2>
+
+<p>@Produces是定义返回值给客户端的 MIME 媒体类型。在下面这个例子里面，将会返回一个text/plainMIME 媒体类型的相应。@Produces既可以应用在类的水平上，也可以作用与方法的水平。也就是说定义在类上的这个注解会被其里面方法上的该注解覆盖掉.</p>
+
+<p>另外<code>@Produces({"application/xml", "application/json"})</code>可以像这样支持多个返回类型,这样匹配是匹配到先检测到的那个,同时还可以利用qs指定匹配品质,自动选择品质高的那个</p>
+
+
+
+<h2 id="4-consumes">4. @Consumes</h2>
+
+<p>@Consumes注释与@Produces相反,是用来指定表示可由资源消耗的 MIME 媒体类型。,一般用于post和put接收客户端参数,取出使用@FormParam <br />
+例如 <code>@Consumes("text/plain")</code>,该注解明确表示将消耗表示确定的 MIME 媒体类型text/plain </p>
+
+
+
+<h1 id="二xxparam">二.@XXParam</h1>
+
+
+
+<h2 id="1pathparam">1.@PathParam</h2>
+
+<p>从URL中匹配给定的参数,上面例子已经用到了</p>
+
+
+
+<h2 id="2queryparam">2.@QueryParam</h2>
+
+<p><strong>对于get请求参数使用</strong></p>
+
+
+
+<pre class="prettyprint"><code class=" hljs d"><span class="hljs-keyword">public</span> Response smooth(
+    <span class="hljs-keyword">@DefaultValue</span>(<span class="hljs-string">"2"</span>) <span class="hljs-keyword">@QueryParam</span>(<span class="hljs-string">"step"</span>) <span class="hljs-keyword">int</span> step,
+    <span class="hljs-keyword">@DefaultValue</span>(<span class="hljs-string">"true"</span>) <span class="hljs-keyword">@QueryParam</span>(<span class="hljs-string">"min-m"</span>) boolean hasMin,
+    <span class="hljs-keyword">@DefaultValue</span>(<span class="hljs-string">"true"</span>) <span class="hljs-keyword">@QueryParam</span>(<span class="hljs-string">"max-m"</span>) boolean hasMax,
+    <span class="hljs-keyword">@DefaultValue</span>(<span class="hljs-string">"true"</span>) <span class="hljs-keyword">@QueryParam</span>(<span class="hljs-string">"last-m"</span>) boolean hasLast,
+    <span class="hljs-keyword">@DefaultValue</span>(<span class="hljs-string">"blue"</span>) <span class="hljs-keyword">@QueryParam</span>(<span class="hljs-string">"min-color"</span>) ColorParam minColor,
+    <span class="hljs-keyword">@DefaultValue</span>(<span class="hljs-string">"green"</span>) <span class="hljs-keyword">@QueryParam</span>(<span class="hljs-string">"max-color"</span>) ColorParam maxColor,
+    <span class="hljs-keyword">@DefaultValue</span>(<span class="hljs-string">"red"</span>) <span class="hljs-keyword">@QueryParam</span>(<span class="hljs-string">"last-color"</span>) ColorParam lastColor) {
+    ...
+}</code></pre>
+
+<p>如果step的参数存在的话，那么附值给它，否则默认是 @DefaultValue定义的值 2。如果step的内容不是 32位 整型，那么会返回404错误。</p>
+
+
+
+<h2 id="3类似注解">3.类似注解</h2>
+
+<p>@PathParam 和其他参数注解 @MatrixParam, @HeaderParam,@CookieParam, @FormParam 遵循与 @QueryParam一样的规则。 @MatrixParam 从 URL 路径提取信息. @HeaderParam 从 HTTP 头部提取信息。 @CookieParam从关联在 HTTP 头部的 cookies 里提取信息。</p>
+
+
+
+<h2 id="4formparam">4.@FormParam</h2>
+
+<p><strong>对于POST请求参数取出使用</strong> <br />
+ 表单请求是非常有用的，例如从发布的表单数据中提取名称是 name 的参数信息：</p>
+
+
+
+<pre class="prettyprint"><code class=" hljs java"><span class="hljs-annotation">@POST</span>
+<span class="hljs-annotation">@Consumes</span>(<span class="hljs-string">"application/x-www-form-urlencoded"</span>)
+<span class="hljs-keyword">public</span> <span class="hljs-keyword">void</span> <span class="hljs-title">post</span>(@<span class="hljs-title">FormParam</span>("name") String name) {
+    <span class="hljs-comment">// Store the message</span>
+}</code></pre>
+
+
+
+<h2 id="5beanparam">5.@BeanParam</h2>
+
+<p>允许注入上述参数到一个 bean 。 <br />
+该方法需要指明Bean里面的参数需要提前指定,也就相当于把参数都封装了一下,例如:</p>
+
+<p>定义bean:</p>
+
+
+
+<pre class="prettyprint"><code class=" hljs java"><span class="hljs-keyword">import</span> javax.ws.rs.QueryParam;
+<span class="hljs-keyword">import</span> javax.xml.bind.annotation.XmlRootElement;
+<span class="hljs-keyword">import</span> java.io.Serializable;
+
+<span class="hljs-annotation">@XmlRootElement</span>(name = <span class="hljs-string">"user"</span>)
+<span class="hljs-keyword">public</span> <span class="hljs-class"><span class="hljs-keyword">class</span> <span class="hljs-title">User</span> <span class="hljs-keyword">implements</span> <span class="hljs-title">Serializable</span> {</span>
+
+    <span class="hljs-keyword">private</span> <span class="hljs-keyword">static</span> <span class="hljs-keyword">final</span> <span class="hljs-keyword">long</span> serialVersionUID = <span class="hljs-number">1</span>L;
+    <span class="hljs-annotation">@QueryParam</span>(<span class="hljs-string">"name"</span>)
+    <span class="hljs-keyword">private</span> String name;
+    <span class="hljs-annotation">@QueryParam</span>(<span class="hljs-string">"password"</span>)
+    <span class="hljs-keyword">private</span> String password;
+
+    <span class="hljs-keyword">public</span> String <span class="hljs-title">getPassword</span>() {
+        <span class="hljs-keyword">return</span> password;
+    }
+
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">void</span> <span class="hljs-title">setPassword</span>(String password) {
+        <span class="hljs-keyword">this</span>.password = password;
+    }
+
+    <span class="hljs-keyword">public</span> String <span class="hljs-title">getName</span>() {
+        <span class="hljs-keyword">return</span> name;
+    }
+
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">void</span> <span class="hljs-title">setName</span>(String name) {
+        <span class="hljs-keyword">this</span>.name = name;
+    }
+
+    <span class="hljs-annotation">@Override</span>
+    <span class="hljs-keyword">public</span> String <span class="hljs-title">toString</span>() {
+        <span class="hljs-keyword">return</span> <span class="hljs-string">"User{"</span> +
+                <span class="hljs-string">"name='"</span> + name + <span class="hljs-string">'\''</span> +
+                <span class="hljs-string">", password='"</span> + password + <span class="hljs-string">'\''</span> +
+                <span class="hljs-string">'}'</span>;
+    }
+}</code></pre>
+
+<p>构造控制器</p>
+
+
+
+<pre class="prettyprint"><code class=" hljs java"><span class="hljs-annotation">@Path</span>(<span class="hljs-string">"/hello"</span>)
+<span class="hljs-keyword">public</span> <span class="hljs-class"><span class="hljs-keyword">class</span> <span class="hljs-title">HelloWorldController</span> {</span>
+
+    <span class="hljs-annotation">@GET</span>
+    <span class="hljs-annotation">@Produces</span>(MediaType.TEXT_PLAIN)
+    <span class="hljs-keyword">public</span> String <span class="hljs-title">helloWorld</span>(@BeanParam User user){
+
+        System.out.println(user.toString());
+        <span class="hljs-keyword">return</span> <span class="hljs-string">"hello world! "</span>;
+    }
+}</code></pre>
+
+<p>访问链接: <br />
+<a href="http://localhost:8888/hello?name=niuli&amp;password=123456">http://localhost:8888/hello?name=niuli&amp;password=123456</a></p>
+
+<p>参数值就会自动映射到User中</p>
+
+
+
+<h2 id="6直接获取map">6.直接获取map</h2>
+
+<p><strong>@Context可以可以获取诸如 ServletConfig 、ServletContext 、HttpServletRequest 和 HttpServletResponse这些参数</strong></p>
+
+
+
+<pre class="prettyprint"><code class=" hljs vbscript">@<span class="hljs-keyword">GET</span>
+<span class="hljs-keyword">public</span> <span class="hljs-built_in">String</span> <span class="hljs-keyword">get</span>(@Context UriInfo ui) {
+    MultivaluedMap&lt;<span class="hljs-built_in">String</span>, <span class="hljs-built_in">String</span>&gt; queryParams = ui.getQueryParameters();
+    MultivaluedMap&lt;<span class="hljs-built_in">String</span>, <span class="hljs-built_in">String</span>&gt; pathParams = ui.getPathParameters();
+}</code></pre>
+
+<p>或者还可以从头部参数获取</p>
+
+
+
+<pre class="prettyprint"><code class=" hljs vbscript">@<span class="hljs-keyword">GET</span>
+<span class="hljs-keyword">public</span> <span class="hljs-built_in">String</span> <span class="hljs-keyword">get</span>(@Context HttpHeaders hh) {
+    MultivaluedMap&lt;<span class="hljs-built_in">String</span>, <span class="hljs-built_in">String</span>&gt; headerParams = hh.getRequestHeaders();
+    Map&lt;<span class="hljs-built_in">String</span>, Cookie&gt; pathParams = hh.getCookies();
+}</code></pre>
+
+<p>最后还可以直接使用该变量</p>
+
+
+
+<pre class="prettyprint"><code class=" hljs java"><span class="hljs-annotation">@POST</span>
+<span class="hljs-annotation">@Consumes</span>(<span class="hljs-string">"application/x-www-form-urlencoded"</span>)
+<span class="hljs-keyword">public</span> <span class="hljs-keyword">void</span> <span class="hljs-title">post</span>(MultivaluedMap&lt;String, String&gt; formParams) {
+    <span class="hljs-comment">// Store the message</span>
+}</code></pre>
+
+
+
+<h2 id="7返回json数据">7.返回json数据</h2>
+
+<p>首先maven中加入</p>
+
+
+
+<pre class="prettyprint"><code class=" hljs xml">        <span class="hljs-comment">&lt;!--json转换器--&gt;</span>
+        <span class="hljs-tag">&lt;<span class="hljs-title">dependency</span>&gt;</span>
+            <span class="hljs-tag">&lt;<span class="hljs-title">groupId</span>&gt;</span>com.fasterxml.jackson.jaxrs<span class="hljs-tag">&lt;/<span class="hljs-title">groupId</span>&gt;</span>
+            <span class="hljs-tag">&lt;<span class="hljs-title">artifactId</span>&gt;</span>jackson-jaxrs-json-provider<span class="hljs-tag">&lt;/<span class="hljs-title">artifactId</span>&gt;</span>
+            <span class="hljs-tag">&lt;<span class="hljs-title">version</span>&gt;</span>2.3.3<span class="hljs-tag">&lt;/<span class="hljs-title">version</span>&gt;</span>
+        <span class="hljs-tag">&lt;/<span class="hljs-title">dependency</span>&gt;</span></code></pre>
+
+<p>然后@Produces要设置为json类型,这样就完成了转换,xml配置同样类似</p>
+
+
+
+<pre class="prettyprint"><code class=" hljs java">    <span class="hljs-annotation">@GET</span>
+    <span class="hljs-annotation">@Produces</span>(MediaType.APPLICATION_JSON)
+    <span class="hljs-keyword">public</span> User <span class="hljs-title">helloWorld</span>(@BeanParam User user){
+
+        System.out.println(user.toString());
+        <span class="hljs-keyword">return</span> user;
+    }</code></pre>
+
+<p>接收数据直接formparam即可</p>
+
+<hr />
+
+<p>开发webservice感觉这些就够用了,其他没有去学习,毕竟用jerseyMVC的还是很少的吧,感觉springMVC更加好用.</p>
+
+<p>参考资料: <br />
+<a href="https://waylau.gitbooks.io/jersey-2-user-guide/content/">https://waylau.gitbooks.io/jersey-2-user-guide/content/</a> <br />
+<a href="https://jersey.java.net/documentation/latest/">https://jersey.java.net/documentation/latest/</a></p>
+
+<hr />
+
+<p>项目示例:</p>
+
+<p>SJM框架整合: <a href="https://github.com/nl101531/JavaWEB">https://github.com/nl101531/JavaWEB</a></p></div>&#13;
+        <script type="text/javascript">&#13;
+            $(function () {&#13;
+                $('pre.prettyprint code').each(function () {&#13;
+                    var lines = $(this).text().split('\n').length;&#13;
+                    var $numbering = $('&lt;ul/&gt;').addClass('pre-numbering').hide();&#13;
+                    $(this).addClass('has-numbering').parent().append($numbering);&#13;
+                    for (i = 1; i &lt;= lines; i++) {&#13;
+                        $numbering.append($('&lt;li/&gt;').text(i));&#13;
+                    };&#13;
+                    $numbering.fadeIn(1700);&#13;
+                });&#13;
+            });&#13;
+        </script>&#13;
+   &#13;

@@ -1,0 +1,76 @@
+
+<p><span style="white-space:pre">	</span><span style="font-size:18px;">今天用Spring Boot访问一下数据库，并且把数据返回到页面中，进行增删改查操作。<span style="color: rgb(63, 63, 63); font-family: 'microsoft yahei'; line-height: 35px;">主要介绍springboot通过jdbc访问关系型</span><a target="_blank" href="http://lib.csdn.net/base/mysql" class="replace_word" title="MySQL知识库" style="text-decoration: none; box-sizing: border-box; color: rgb(223, 52, 52); font-family: 'microsoft yahei'; line-height: 35px; font-weight: bold;">MySQL</a><span style="color: rgb(63, 63, 63); font-family: 'microsoft yahei'; line-height: 35px;">,通过</span><a target="_blank" href="http://lib.csdn.net/base/javaee" class="replace_word" title="Java EE知识库" style="text-decoration: none; box-sizing: border-box; color: rgb(223, 52, 52); font-family: 'microsoft yahei'; line-height: 35px; font-weight: bold;">spring</a><span style="color: rgb(63, 63, 63); font-family: 'microsoft yahei'; line-height: 35px;">的JdbcTemplate去访问。</span></span></p><p><span style="white-space:pre">	</span><span style="font-size:18px;">创建mysql:</span></p><p><span style="font-size:18px;"></span></p><pre code_snippet_id="2525556" snippet_file_name="blog_20170809_1_9650031" name="code" class="sql">CREATE TABLE `users` (
+  `id` INT(11) NOT NULL AUTO_INCREMENT,
+  `name` VARCHAR(20) NOT NULL,
+  `age` INT,
+  PRIMARY KEY (`id`)
+) ENGINE=INNODB AUTO_INCREMENT=4 DEFAULT CHARSET=utf8;
+INSERT INTO `users` VALUES ('1', 'aaa', 18);
+INSERT INTO `users` VALUES ('2', 'bbb', 19);</pre><br /><h2 id="&#x6570;&#x636E;&#x6E90;&#x914D;&#x7F6E;" style="margin: 1.3em 0px; padding: 0px; border: 0px; outline: 0px; font-family: 'open sans', 'Helvetica Neue', 'Microsoft Yahei', Helvetica, Arial, sans-serif; vertical-align: baseline; line-height: 1.3em; color: rgb(86, 90, 95);">数据源配置</h2><p style="margin-top: 1.6em; margin-bottom: 1.6em; padding-top: 0px; padding-bottom: 0px; border: 0px; outline: 0px; font-family: 'open sans', 'Helvetica Neue', 'Microsoft Yahei', Helvetica, Arial, sans-serif; font-size: 16px; vertical-align: baseline; line-height: 1.6em; color: rgb(86, 90, 95);">在我们访问数据库的时候，需要先配置一个数据源，下面分别介绍一下几种不同的数据库配置方式。</p><p style="margin-top: 1.6em; margin-bottom: 1.6em; padding-top: 0px; padding-bottom: 0px; border: 0px; outline: 0px; font-family: 'open sans', 'Helvetica Neue', 'Microsoft Yahei', Helvetica, Arial, sans-serif; font-size: 16px; vertical-align: baseline; line-height: 1.6em; color: rgb(86, 90, 95);">首先，为了连接数据库需要引入jdbc支持，在<code style="margin: 0px 2px; padding: 3px 5px; border: 0px; outline: 0px; font-weight: inherit; font-style: inherit; font-family: 'Source Code Pro', Consolas, Monaco, Menlo, Consolas, monospace; font-size: 1em; vertical-align: baseline; color: rgb(233, 105, 0); border-radius: 2px; background-color: rgb(248, 248, 248);">pom.xml</code>中引入如下配置：</p><p style="margin-top: 1.6em; margin-bottom: 1.6em; padding-top: 0px; padding-bottom: 0px; border: 0px; outline: 0px; font-family: 'open sans', 'Helvetica Neue', 'Microsoft Yahei', Helvetica, Arial, sans-serif; font-size: 16px; vertical-align: baseline; line-height: 1.6em; color: rgb(86, 90, 95);"></p><pre code_snippet_id="2525556" snippet_file_name="blog_20170809_2_6301961" name="code" class="java">&lt;dependency&gt;
+    &lt;groupId&gt;org.springframework.boot&lt;/groupId&gt;
+    &lt;artifactId&gt;spring-boot-starter-jdbc&lt;/artifactId&gt;
+&lt;/dependency&gt;</pre><br /><h4 id="&#x8FDE;&#x63A5;&#x751F;&#x4EA7;&#x6570;&#x636E;&#x6E90;" style="margin: 1.3em 0px; padding: 0px; border: 0px; outline: 0px; font-family: 'open sans', 'Helvetica Neue', 'Microsoft Yahei', Helvetica, Arial, sans-serif; font-size: 1.2em; vertical-align: baseline; line-height: 1.3em; color: rgb(86, 90, 95);">连接生产数据源</h4><p style="margin-top: 1.6em; margin-bottom: 1.6em; padding-top: 0px; padding-bottom: 0px; border: 0px; outline: 0px; font-family: 'open sans', 'Helvetica Neue', 'Microsoft Yahei', Helvetica, Arial, sans-serif; font-size: 16px; vertical-align: baseline; line-height: 1.6em; color: rgb(86, 90, 95);">以MySQL数据库为例，先引入MySQL连接的依赖包，在<code style="margin: 0px 2px; padding: 3px 5px; border: 0px; outline: 0px; font-weight: inherit; font-style: inherit; font-family: 'Source Code Pro', Consolas, Monaco, Menlo, Consolas, monospace; font-size: 1em; vertical-align: baseline; color: rgb(233, 105, 0); border-radius: 2px; background-color: rgb(248, 248, 248);">pom.xml</code>中加入：</p><pre code_snippet_id="2525556" snippet_file_name="blog_20170809_3_271696" name="code" class="java">&lt;dependency&gt;
+    &lt;groupId&gt;mysql&lt;/groupId&gt;
+    &lt;artifactId&gt;mysql-connector-java&lt;/artifactId&gt;
+    &lt;version&gt;5.1.21&lt;/version&gt;
+&lt;/dependency&gt;</pre><span style="color: rgb(86, 90, 95); font-family: 'open sans', 'Helvetica Neue', 'Microsoft Yahei', Helvetica, Arial, sans-serif; font-size: 16px; line-height: 25.6px;">在</span><code style="margin: 0px 2px; padding: 3px 5px; border: 0px; outline: 0px; font-family: 'Source Code Pro', Consolas, Monaco, Menlo, Consolas, monospace; font-size: 16px; vertical-align: baseline; color: rgb(233, 105, 0); border-radius: 2px; line-height: 25.6px; background-color: rgb(248, 248, 248);">src/main/resources/application.properties</code><span style="color: rgb(86, 90, 95); font-family: 'open sans', 'Helvetica Neue', 'Microsoft Yahei', Helvetica, Arial, sans-serif; font-size: 16px; line-height: 25.6px;">中配置数据源信息</span><br />创建实体类<p style="margin-top: 1.6em; margin-bottom: 1.6em; padding-top: 0px; padding-bottom: 0px; border: 0px; outline: 0px; font-family: 'open sans', 'Helvetica Neue', 'Microsoft Yahei', Helvetica, Arial, sans-serif; font-size: 16px; vertical-align: baseline; line-height: 1.6em; color: rgb(86, 90, 95);"></p><pre code_snippet_id="2525556" snippet_file_name="blog_20170809_4_5429127" name="code" class="java">public class Users {
+	private Integer id;
+	private String name;
+	private Integer age;</pre>创建service接口<p style="margin-top: 1.6em; margin-bottom: 1.6em; padding-top: 0px; padding-bottom: 0px; border: 0px; outline: 0px; font-family: 'open sans', 'Helvetica Neue', 'Microsoft Yahei', Helvetica, Arial, sans-serif; font-size: 16px; vertical-align: baseline; line-height: 1.6em; color: rgb(86, 90, 95);"></p><pre code_snippet_id="2525556" snippet_file_name="blog_20170809_5_8875473" name="code" class="java">public interface UserServices {
+	int add(Users users);
+
+	int update(Users users);
+
+	int delete(int id);
+
+	Users findUsersById(int id);
+
+	List&lt;Users&gt; findAccountList();
+
+}
+</pre>创建dao实现<p style="margin-top: 1.6em; margin-bottom: 1.6em; padding-top: 0px; padding-bottom: 0px; border: 0px; outline: 0px; font-family: 'open sans', 'Helvetica Neue', 'Microsoft Yahei', Helvetica, Arial, sans-serif; font-size: 16px; vertical-align: baseline; line-height: 1.6em; color: rgb(86, 90, 95);"></p><pre code_snippet_id="2525556" snippet_file_name="blog_20170809_6_2081057" name="code" class="java">@Repository
+public class UserDao implements UserServices{
+	@Autowired
+    <span style="white-space:pre">	</span>private JdbcTemplate jdbcTemplate;
+	@Autowired
+	private NamedParameterJdbcTemplate namedParameterJdbcTemplate_love;
+	@Override
+	public int add(Users users) {
+		return jdbcTemplate.update("insert into users(name, age) values(?, ?)",users.getName(),users.getAge());
+	}
+
+	@Override
+	public int update(Users users) {
+		return jdbcTemplate.update(" update users set name=?,age=? where id=?",users.getName(),users.getAge(),users.getId());
+	}
+
+	@Override
+	public int delete(int id) {
+		// TODO Auto-generated method stub
+		return 0;
+	}
+
+	@Override
+	public Users findUsersById(int id) {
+		// TODO Auto-generated method stub
+		return null;
+	}
+
+	@Override
+	public List&lt;Users&gt; findAccountList() {
+		return namedParameterJdbcTemplate_love.query("select *from users",new BeanPropertyRowMapper(Users.class));
+	}
+	
+
+}</pre>创建controller<p style="margin-top: 1.6em; margin-bottom: 1.6em; padding-top: 0px; padding-bottom: 0px; border: 0px; outline: 0px; font-family: 'open sans', 'Helvetica Neue', 'Microsoft Yahei', Helvetica, Arial, sans-serif; font-size: 16px; vertical-align: baseline; line-height: 1.6em; color: rgb(86, 90, 95);"></p><pre code_snippet_id="2525556" snippet_file_name="blog_20170809_7_9431097" name="code" class="java">@RestController
+@RequestMapping("/users")
+public class UsersController {
+	@Autowired
+	UserServices userServices;
+	
+	@RequestMapping(value = "/list",method = RequestMethod.GET)
+    public  List&lt;Users&gt; getUsers(){
+       return userServices.findAccountList();
+    }
+	
+}</pre><br />最后访问一下，看页面效果<br /><br /><img src="http://img.blog.csdn.net/20170809152319261?watermark/2/text/aHR0cDovL2Jsb2cuY3Nkbi5uZXQvbGlhb2RlaG9uZw==/font/5a6L5L2T/fontsize/400/fill/I0JBQkFCMA==/dissolve/70/gravity/Center" alt="" /><br /><p style="margin-top: 1.6em; margin-bottom: 1.6em; padding-top: 0px; padding-bottom: 0px; border: 0px; outline: 0px; font-family: 'open sans', 'Helvetica Neue', 'Microsoft Yahei', Helvetica, Arial, sans-serif; font-size: 16px; vertical-align: baseline; line-height: 1.6em; color: rgb(86, 90, 95);"><br /><br /></p><p style="margin-top: 1.6em; margin-bottom: 1.6em; padding-top: 0px; padding-bottom: 0px; border: 0px; outline: 0px; font-family: 'open sans', 'Helvetica Neue', 'Microsoft Yahei', Helvetica, Arial, sans-serif; font-size: 16px; vertical-align: baseline; line-height: 1.6em; color: rgb(86, 90, 95);"><br /></p><p><span style="font-size:18px;"><br /></span></p><p><span style="font-size:18px;"><span style="white-space: pre;">	</span></span></p><p><br /></p>   &#13;

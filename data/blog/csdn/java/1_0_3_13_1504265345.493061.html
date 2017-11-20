@@ -1,0 +1,277 @@
+
+        <div class="markdown_views"><p>对于SpringMVC来说,controller由两个部分构成,分别是分发器和控制器,分发器<strong>DispatcherServlet</strong>决定着请求使用哪个控制器,并且决定着控制器返回哪个视图,整体结构如下. <br />
+<img src="http://img.blog.csdn.net/20160404153729232" alt="这里写图片描述" title="" /></p>
+
+<hr />
+
+
+
+<h2 id="1创建一个controller">1.创建一个controller</h2>
+
+<p>对于<strong>DispatcherServlet</strong>这个是springMVC框架自动实现,而我们只需要写相应的控制器即可,就拿上一个helloworld例子来说,创建一个控制器,只需要给其加上<strong>@controller</strong>的注解</p>
+
+
+
+<pre class="prettyprint"><code class=" hljs java"><span class="hljs-javadoc">/**
+ * 加上@Controller决定这个类是一个控制器
+ */</span>
+<span class="hljs-annotation">@Controller</span>
+<span class="hljs-keyword">public</span> <span class="hljs-class"><span class="hljs-keyword">class</span> <span class="hljs-title">HelloController</span> {</span>
+
+    <span class="hljs-annotation">@RequestMapping</span>(value = <span class="hljs-string">"/hello"</span>,method = RequestMethod.GET)
+    <span class="hljs-keyword">public</span> String <span class="hljs-title">hello</span>(){
+
+        <span class="hljs-keyword">return</span> <span class="hljs-string">"hello"</span>;
+    }
+}</code></pre>
+
+<p><strong>@Controller</strong> 用于标记在一个类上，使用它标记的类就是一个SpringMVC Controller 对象。分发处理器将会扫描使用了该注解的类的方法，并检测该方法是否使用了<strong>@RequestMapping</strong> 注解。<strong>@Controller</strong> 只是定义了一个控制器类，而使用<strong>@RequestMapping</strong> 注解的方法才是真正处理请求的处理器，这个接下来就会讲到。 <br />
+让控制器起作用,则需要在springMVC.xml配置文件中配置,也就是上一篇搭建基本环境中的配置 <br />
+<img src="http://img.blog.csdn.net/20160404154209312" alt="这里写图片描述" title="" /></p>
+
+<hr />
+
+
+
+<h2 id="2让controller返回一个jsp视图">2.让controller返回一个jsp视图</h2>
+
+<p><strong>@RequestMapping</strong> 注解决定着返回的jsp视图,对于这个属性先简单来说一般配置value和method两个值,value决定着请求的路径,method决定着请求的方法</p>
+
+
+
+<pre class="prettyprint"><code class=" hljs cs">@Controller
+<span class="hljs-keyword">public</span> <span class="hljs-keyword">class</span> HelloController {
+
+    @RequestMapping(<span class="hljs-keyword">value</span> = <span class="hljs-string">"/hello"</span>,method = RequestMethod.GET)
+    <span class="hljs-keyword">public</span> String <span class="hljs-title">hello</span>(){
+
+        <span class="hljs-keyword">return</span> <span class="hljs-string">"hello"</span>;
+    }
+}</code></pre>
+
+<p>拿上面例子来说,直接在浏览器访问localhost:8888/hello即可访问到这个控制器,对应的请求为GET请求,此方法返回一个hello字符串,说明对应的视图为hello.jsp,这是最简单的访问形式,<strong>如果我们想要传值的话,该怎么做呢?</strong></p>
+
+<ul>
+<li>方法1:在参数中加一个model,直接把值放进去就可以了</li>
+</ul>
+
+
+
+<pre class="prettyprint"><code class=" hljs cs">  @RequestMapping(<span class="hljs-keyword">value</span> = <span class="hljs-string">"/hello"</span>,method = RequestMethod.GET)
+    <span class="hljs-keyword">public</span> String <span class="hljs-title">hello</span>(Model model){
+<span class="hljs-comment">//        这样放参数的话,在jsp中直接用EL访问hello即可</span>
+        model.addAttribute(<span class="hljs-string">"hello"</span>,<span class="hljs-string">"world1"</span>);
+<span class="hljs-comment">//        这样方参数的话,默认的key是参数类型</span>
+        model.addAttribute(<span class="hljs-string">"world2"</span>);
+        <span class="hljs-keyword">return</span> <span class="hljs-string">"hello"</span>;
+    }</code></pre>
+
+<p>在对应的jsp中可以如下获取</p>
+
+
+
+<pre class="prettyprint"><code class=" hljs xml"><span class="vbscript">&lt;%@ page contentType=<span class="hljs-string">"text/html;charset=UTF-8"</span> language=<span class="hljs-string">"java"</span> %&gt;</span>
+<span class="hljs-tag">&lt;<span class="hljs-title">html</span>&gt;</span>
+<span class="hljs-tag">&lt;<span class="hljs-title">head</span>&gt;</span>
+    <span class="hljs-tag">&lt;<span class="hljs-title">title</span>&gt;</span>Title<span class="hljs-tag">&lt;/<span class="hljs-title">title</span>&gt;</span>
+<span class="hljs-tag">&lt;/<span class="hljs-title">head</span>&gt;</span>
+<span class="hljs-tag">&lt;<span class="hljs-title">body</span>&gt;</span>
+    <span class="hljs-tag">&lt;<span class="hljs-title">h1</span> <span class="hljs-attribute">style</span>=<span class="hljs-value">"text-align: center"</span>&gt;</span>Hello World!${hello}----${string}<span class="hljs-tag">&lt;/<span class="hljs-title">h1</span>&gt;</span>
+<span class="hljs-tag">&lt;/<span class="hljs-title">body</span>&gt;</span>
+<span class="hljs-tag">&lt;/<span class="hljs-title">html</span>&gt;</span></code></pre>
+
+<p><img src="http://img.blog.csdn.net/20160404155355004" alt="这里写图片描述" title="" /></p>
+
+<ul>
+<li>方法2;使用ModelAndView </li>
+</ul>
+
+
+
+<pre class="prettyprint"><code class=" hljs cs">    @RequestMapping(<span class="hljs-keyword">value</span> = <span class="hljs-string">"/hello"</span>,method = RequestMethod.GET)
+    <span class="hljs-keyword">public</span> ModelAndView <span class="hljs-title">hello</span>(){
+        ModelAndView model = <span class="hljs-keyword">new</span> ModelAndView();
+        <span class="hljs-comment">//设置返回视图名称</span>
+        model.setViewName(<span class="hljs-string">"hello"</span>);
+        <span class="hljs-comment">//传值,规则同上</span>
+        model.addObject(<span class="hljs-string">"hello"</span>,<span class="hljs-string">"world1"</span>);
+        <span class="hljs-comment">//传值,规则同上</span>
+        model.addObject(<span class="hljs-string">"world2"</span>);
+        <span class="hljs-keyword">return</span> model;
+    }</code></pre>
+
+<p>两种方法几乎没区别,根据爱好使用. <br />
+<img src="http://img.blog.csdn.net/20160404155355004" alt="这里写图片描述" title="" /></p>
+
+<hr />
+
+
+
+<h2 id="3使用uri模板">3.使用URI模板</h2>
+
+<p>URI模板是用来获取url中的值,看下面小例子</p>
+
+
+
+<pre class="prettyprint"><code class=" hljs cs">@RequestMapping(<span class="hljs-keyword">value</span> = <span class="hljs-string">"/hello/{id}"</span>,method = RequestMethod.GET)
+    <span class="hljs-keyword">public</span> String <span class="hljs-title">hello</span>(@<span class="hljs-title">PathVariable</span>("id") String id, Model model){
+<span class="hljs-comment">//        这样放参数的话,在jsp中直接用EL访问hello即可</span>
+        model.addAttribute(<span class="hljs-string">"hello"</span>,id);
+        <span class="hljs-keyword">return</span> <span class="hljs-string">"hello"</span>;
+    }</code></pre>
+
+<p>上面在value = “/hello/{id}”,说明访问的url必须为/hello/XX这样的链接,@PathVariable(“id”) String id,的作用就是把这个XX放入id中,然后jsp页面就可以获取这个值了 <br />
+<img src="http://img.blog.csdn.net/20160404160748619" alt="这里写图片描述" title="" /></p>
+
+<p>除此之外还支持*通配符访问</p>
+
+
+
+<pre class="prettyprint"><code class=" hljs java"><span class="hljs-annotation">@Controller</span>
+<span class="hljs-annotation">@RequestMapping</span> ( <span class="hljs-string">"/myTest"</span> )
+<span class="hljs-keyword">public</span> <span class="hljs-class"><span class="hljs-keyword">class</span> <span class="hljs-title">MyController</span> {</span>
+    <span class="hljs-annotation">@RequestMapping</span> ( <span class="hljs-string">"*/wildcard"</span> )
+    <span class="hljs-keyword">public</span> String <span class="hljs-title">testWildcard</span>() {
+       System. out .println( <span class="hljs-string">"wildcard------------"</span> );
+       <span class="hljs-keyword">return</span> <span class="hljs-string">"wildcard"</span> ;
+    }  
+} </code></pre>
+
+<p>那么此时的访问路径只要为/mytest/**/wildcard都可以访问当前连接</p>
+
+<hr />
+
+
+
+<h2 id="4requestparam-绑定-httpservletrequest-请求参数">4.@RequestParam 绑定 HttpServletRequest 请求参数</h2>
+
+<p><font color="red">对于请求名和属性名一致的,springmvc会默认自动绑定,对于不一致的需要使用RequestParam 来进行映射</font></p>
+
+
+
+<pre class="prettyprint"><code class=" hljs java">    <span class="hljs-annotation">@RequestMapping</span> ( <span class="hljs-string">"requestParam"</span> )
+   <span class="hljs-keyword">public</span> String <span class="hljs-title">testRequestParam</span>( @<span class="hljs-title">RequestParam</span>(required=<span class="hljs-keyword">false</span>) String name, <span class="hljs-annotation">@RequestParam</span> ( <span class="hljs-string">"age"</span> ) <span class="hljs-keyword">int</span> age) {
+       <span class="hljs-keyword">return</span> <span class="hljs-string">"requestParam"</span> ;
+    } </code></pre>
+
+<p>required=false代表name是非必须值,可以不存在HttpServletRequest 之中,而后面的age则不同,要求必须在HttpServletRequest 之中,否则会报错. <br />
+值得注意的是和@PathVariable 一样，当你没有明确指定从request 中取哪个参数时，Spring 在代码是debug 编译的情况下会默认取更方法参数同名的参数，如果不是debug 编译的就会报错。此外，当需要从request 中绑定的参数和方法的参数名不相同的时候，也需要在@RequestParam 中明确指出是要绑定哪个参数。 <br />
+类似的还有@CookieValue,@RequestHeader都类似用法,不过一般不用这种方法,接着看下面RequestMapping 的高级用法.</p>
+
+<hr />
+
+
+
+<h2 id="5requestmapping-的高级用法">5.RequestMapping 的高级用法</h2>
+
+
+
+<h3 id="1支持的方法参数类型">1.支持的方法参数类型</h3>
+
+<ol>
+<li>HttpServlet 对象，主要包括HttpServletRequest 、HttpServletResponse 和HttpSession 对象。 这些参数Spring 在调用处理器方法的时候会自动给它们赋值，所以当在处理器方法中需要使用到这些对象的时候，可以直接在方法上给定一个方法参数的申明，然后在方法体里面直接用就可以了。但是有一点需要注意的是在使用HttpSession 对象的时候，如果此时HttpSession 对象还没有建立起来的话就会有问题。</li>
+<li>Spring 自己的WebRequest 对象。 使用该对象可以访问到存放在HttpServletRequest 和HttpSession 中的属性值。</li>
+<li>InputStream 、OutputStream 、Reader 和Writer 。 InputStream 和Reader 是针对HttpServletRequest 而言的，可以从里面取数据；OutputStream 和Writer 是针对HttpServletResponse 而言的，可以往里面写数据。</li>
+<li>使用@PathVariable 、@RequestParam 、@CookieValue 和@RequestHeader 标记的参数。</li>
+<li>使用@ModelAttribute 标记的参数。</li>
+<li>java.util.Map 、Spring 封装的Model 和ModelMap 。 这些都可以用来封装模型数据，用来给视图做展示。</li>
+<li>实体类。 可以用来接收上传的参数。</li>
+<li>Spring 封装的MultipartFile 。 用来接收上传文件的。</li>
+<li>Spring 封装的Errors 和BindingResult 对象。 这两个对象参数必须紧接在需要验证的实体对象参数之后，它里面包含了实体对象的验证结果。</li>
+</ol>
+
+
+
+<h3 id="2支持的返回类型">2.支持的返回类型</h3>
+
+<ol>
+<li>一个包含模型和视图的ModelAndView 对象。</li>
+<li>一个模型对象，这主要包括Spring 封装好的Model 和ModelMap ，以及java.util.Map ，当没有视图返回的时候视图名称将由RequestToViewNameTranslator 来决定。</li>
+<li>一个View 对象。这个时候如果在渲染视图的过程中模型的话就可以给处理器方法定义一个模型参数，然后在方法体里面往模型中添加值。</li>
+<li>一个String 字符串。这往往代表的是一个视图名称。这个时候如果需要在渲染视图的过程中需要模型的话就可以给处理器方法一个模型参数，然后在方法体里面往模型中添加值就可以了。</li>
+<li>返回值是void 。这种情况一般是我们直接把返回结果写到HttpServletResponse 中了，如果没有写的话，那么Spring 将会利用RequestToViewNameTranslator 来返回一个对应的视图名称。如果视图中需要模型的话，处理方法与返回字符串的情况相同。</li>
+<li>如果处理器方法被注解@ResponseBody 标记的话，那么处理器方法的任何返回类型都会通过HttpMessageConverters 转换之后写到HttpServletResponse 中，而不会像上面的那些情况一样当做视图或者模型来处理。</li>
+<li>除以上几种情况之外的其他任何返回类型都会被当做模型中的一个属性来处理，而返回的视图还是由RequestToViewNameTranslator 来决定，添加到模型中的属性名称可以在该方法上用@ModelAttribute(“attributeName”) 来定义，否则将使用返回类型的类名称的首字母小写形式来表示。使用@ModelAttribute 标记的方法会在@RequestMapping 标记的方法执行之前执行。</li>
+</ol>
+
+<p>对于方法参数,就像使用Model传值一样,可以直接在参数中加入req,resp,session等,然后就像servlet那样使用就可以了</p>
+
+
+
+<pre class="prettyprint"><code class=" hljs cs"> @RequestMapping(<span class="hljs-keyword">value</span> = <span class="hljs-string">"/hello"</span>,method = RequestMethod.GET)
+    <span class="hljs-keyword">public</span> String <span class="hljs-title">hello</span>(Model model, HttpServletRequest request, HttpServletResponse response, HttpSession session){
+<span class="hljs-comment">//        这样放参数的话,在jsp中直接用EL访问hello即可</span>
+        <span class="hljs-keyword">return</span> <span class="hljs-string">"hello"</span>;
+    }</code></pre>
+
+<hr />
+
+
+
+<h2 id="6定义自己的转换器">6.定义自己的转换器</h2>
+
+<p>在通过处理器方法参数接收 request 请求参数绑定数据的时候，对于一些简单的数据类型 Spring 会帮我们自动进行类型转换，而对于一些复杂的类型由于 Spring 没法识别，所以也就不能帮助我们进行自动转换了，这个时候如果我们需要 Spring 来帮我们自动转换的话就需要我们给 Spring 注册一个对特定类型的识别转换器。 Spring 允许我们提供两种类型的识别转换器，一种是注册在 Controller 中的，一种是注册在 SpringMVC 的配置文件中。聪明的读者看到这里应该可以想到它们的区别了，定义在 Controller 中的是局部的，只在当前 Controller 中有效，而放在 SpringMVC 配置文件中的是全局的，所有 Controller 都可以拿来使用。</p>
+
+<ul>
+<li>局部转换器</li>
+</ul>
+
+
+
+<pre class="prettyprint"><code class=" hljs java">    <span class="hljs-annotation">@InitBinder</span>
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">void</span> <span class="hljs-title">initBinder</span>(WebDataBinder binder){
+        DateFormat format = <span class="hljs-keyword">new</span> SimpleDateFormat(<span class="hljs-string">"yyyy-MM-dd"</span>);
+        PropertyEditor propertyEditor = <span class="hljs-keyword">new</span> CustomDateEditor(format, <span class="hljs-keyword">true</span> ); <span class="hljs-comment">// 第二个参数表示是否允许为空  </span>
+        binder.registerCustomEditor(Date.class, propertyEditor);
+    }</code></pre>
+
+<p><img src="http://img.blog.csdn.net/20160404164908400" alt="这里写图片描述" title="" /></p>
+
+<ul>
+<li>全局转换器</li>
+</ul>
+
+
+
+<pre class="prettyprint"><code class=" hljs java"><span class="hljs-keyword">public</span> <span class="hljs-class"><span class="hljs-keyword">class</span> <span class="hljs-title">MyWebBindingInitializer</span> <span class="hljs-keyword">implements</span> <span class="hljs-title">WebBindingInitializer</span> {</span>
+
+    <span class="hljs-annotation">@Override</span>
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">void</span> <span class="hljs-title">initBinder</span>(WebDataBinder binder, WebRequest request) {
+       <span class="hljs-comment">// TODO Auto-generated method stub</span>
+       DateFormat dateFormat = <span class="hljs-keyword">new</span> SimpleDateFormat( <span class="hljs-string">"yyyyMMdd"</span> );
+       PropertyEditor propertyEditor = <span class="hljs-keyword">new</span> CustomDateEditor(dateFormat, <span class="hljs-keyword">true</span> );
+       binder.registerCustomEditor(Date. class , propertyEditor);
+    }
+
+} </code></pre>
+
+<p>需要在springMVC.xml中引入这个转换器</p>
+
+
+
+<pre class="prettyprint"><code class=" hljs applescript">    &lt; bean <span class="hljs-type">class</span> = <span class="hljs-string">"org.springframework.web.servlet.mvc.annotation.AnnotationMethodHandlerAdapter"</span> &gt;
+       &lt; <span class="hljs-keyword">property</span> <span class="hljs-property">name</span> = <span class="hljs-string">"webBindingInitializer"</span> &gt;
+           &lt; bean <span class="hljs-type">class</span> = <span class="hljs-string">"com.host.app.web.util.MyWebBindingInitializer"</span> /&gt;
+       &lt;/ <span class="hljs-keyword">property</span> &gt;
+    &lt;/ bean &gt; </code></pre>
+
+<p>剩下的用法没区别了</p>
+
+<hr />
+
+<p>项目示例可以参考: <br />
+SSM框架整合:    <a href="https://github.com/nl101531/JavaWEB">https://github.com/nl101531/JavaWEB</a></p></div>&#13;
+        <script type="text/javascript">&#13;
+            $(function () {&#13;
+                $('pre.prettyprint code').each(function () {&#13;
+                    var lines = $(this).text().split('\n').length;&#13;
+                    var $numbering = $('&lt;ul/&gt;').addClass('pre-numbering').hide();&#13;
+                    $(this).addClass('has-numbering').parent().append($numbering);&#13;
+                    for (i = 1; i &lt;= lines; i++) {&#13;
+                        $numbering.append($('&lt;li/&gt;').text(i));&#13;
+                    };&#13;
+                    $numbering.fadeIn(1700);&#13;
+                });&#13;
+            });&#13;
+        </script>&#13;
+   &#13;

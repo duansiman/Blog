@@ -1,0 +1,198 @@
+
+                
+<p><span style="font-family:'Comic Sans MS'; font-size:14px; color:rgb(11,0,128)">一、Proxy—程序中的代理使用</span></p>&#13;
+<p><span style="font-family:Comic Sans MS; font-size:14px">     试想如何为已经存在的类添加一些新的功能，例如日志、事务处理；这些类已经编写好，数量庞大，且实现相同接口；如果工程允许可能比较粗暴的就是直接向类中添加需要新增的代码逻辑，但现实时：添加这些功能要修改的不是一个两个类。</span></p>&#13;
+<p><span style="font-family:Comic Sans MS; font-size:14px"><span style="font-family:'Comic Sans MS'; font-size:14px">     </span>机智的java君采用代理解决这类繁琐的问题：</span></p>&#13;
+<p><span style="font-family:Comic Sans MS; font-size:14px; background-color:rgb(255,204,153)">1、创建一个与目标类实现相同接口的代理类，代理类的每个方法调用目标类的相同方法</span></p>&#13;
+<p><span style="font-family:Comic Sans MS; font-size:14px; background-color:rgb(255,204,153)">2、在调用目标类的相同方法前后，添加需要新增的功能代码。</span></p>&#13;
+<p><span style="font-family:Comic Sans MS; font-size:14px; background-color:rgb(255,204,153)">3、客户端直接调用代理类。</span></p>&#13;
+<p><span style="font-family:Comic Sans MS; font-size:14px"><span style="font-family:'Comic Sans MS'; font-size:14px">     <img src="http://img.blog.csdn.net/20160502170211468?watermark/2/text/aHR0cDovL2Jsb2cuY3Nkbi5uZXQv/font/5a6L5L2T/fontsize/400/fill/I0JBQkFCMA==/dissolve/70/gravity/Center" alt=""/></span></span></p>&#13;
+<p><span style="font-family:Comic Sans MS; font-size:14px">     这样的做的好处是，<span style="background-color:rgb(255,204,153)">既不用对原目标类进行修改便满足了添加新功能的需求，更重要的是，它解决的是一个量级的困扰。</span></span></p>&#13;
+<p><span style="font-family:Comic Sans MS; font-size:14px"><span style="color:rgb(11,0,128)">二、</span><span style="color:rgb(11,0,128)">动态代理技术</span></span></p>&#13;
+<p><span style="font-family:Comic Sans MS; font-size:14px"><span style="font-family:'Comic Sans MS'; font-size:14px">     </span>那么问题又来了，是不是没出现一次这样的需求，我就要编写一个代理类呢？？久而久之，我的写多少代理类来应对这种情况？你遇到的问题java君都给你出主意了。动态代理就是应对这种情况，<span style="background-color:rgb(153,255,153)">JVM可以在运行期动态生成类的字节码，使用类加载器生成一个类用作代理类，这就是动态代理。</span></span><span style="font-family:'Comic Sans MS'; font-size:14px"> <span style="font-family:'Comic Sans MS'; font-size:14px">说着有点玄乎，其实就几行代码如下：</span></span></p>&#13;
+<p><span style="font-family:'Comic Sans MS'; font-size:14px; background-color:rgb(255,204,153)">注：使用JVM动态创建类的步骤不外乎这么几步：</span></p>&#13;
+<p><span style="font-family:'Comic Sans MS'; font-size:14px; background-color:rgb(255,204,153)">1、传入类的全称或者使用类加载器获取类的字节码</span></p>&#13;
+<p><span style="font-family:Comic Sans MS; font-size:14px"><span style="background-color:rgb(255,204,153)">2、根据字节码获取构造器方法，调用newInstance方法创建对象。</span>下面代码同此思路</span></p>&#13;
+<p><span style="font-family:Comic Sans MS; font-size:14px"/></p>&#13;
+<pre code_snippet_id="1669265" snippet_file_name="blog_20160502_1_8100593" name="code" class="html">public class ProxyTest {
+	public static void main(String[] args) throws Exception {
+		// 根据Proxy类获取类加载器、创建动态类
+		Class clazzProxy1 = Proxy.getProxyClass(Collection.class.getClassLoader(), Collection.class);
+		System.out.println(clazzProxy1.getName()); // com.sun.proxy.$Proxy0
+		
+		// 查看该类的所有构造方法
+		System.out.println("-----------------Constructor para--------------");
+		Constructor[] cs = clazzProxy1.getConstructors();
+		for (Constructor c : cs) {
+			String name = c.getName();
+			StringBuilder sBuilder = new StringBuilder(name);
+			sBuilder.append('(');
+			// 获取构造方法的参数类型
+			Class[] classTypes = c.getParameterTypes();
+			for (Class clazzPara : classTypes) {
+				sBuilder.append(clazzPara.getName()).append(',');
+			}
+			if (classTypes.length != 0 &amp;&amp; classTypes != null)
+				sBuilder.deleteCharAt(sBuilder.length() - 1);// 去掉最后一个‘,’
+			sBuilder.append(')');
+			System.out.println(sBuilder.toString());
+			// com.sun.proxy.$Proxy0(java.lang.reflect.InvocationHandler)
+			// 只有一个构造方法，接收一个InvocationHandler参数
+		}
+
+		// 获取方法
+		System.out.println("-----------------Method para--------------");
+		Method[] methods = clazzProxy1.getMethods();
+		for (Method c : methods) {
+			String name = c.getName();
+			StringBuilder sBuilder = new StringBuilder(name);
+			sBuilder.append('(');
+			// 获取构造方法的参数类型
+			Class[] classTypes = c.getParameterTypes();
+			for (Class clazzPara : classTypes) {
+				sBuilder.append(clazzPara.getName()).append(',');
+			}
+			if (classTypes.length != 0 &amp;&amp; classTypes != null)
+
+				sBuilder.deleteCharAt(sBuilder.length() - 1);// 去掉最后一个‘,’
+			sBuilder.append(')');
+			System.out.println(sBuilder.toString());
+		}</pre>获取到Collection类的构造方法发现，<span style="background-color:rgb(255,204,153)">该构造方法是带有参数的</span>，形如：com.sun.proxy.$Proxy0(java.lang.reflect.InvocationHandler)，<span style="background-color:rgb(255,204,153)">直接使用newInstance方法无法创建对象。</span>这里介绍两种方式创建&#13;
+<p/>&#13;
+<p><span style="font-family:Comic Sans MS; font-size:14px">1、构造一个<span style="font-family:'Comic Sans MS'; font-size:14px">InvocationHandler对象作为参数传入构造器，再调用<span style="font-family:'Comic Sans MS'; font-size:14px">newInstance方法创建对象</span></span></span></p>&#13;
+<p><span style="font-family:Comic Sans MS; font-size:14px"><span style="font-family:'Comic Sans MS'; font-size:14px"><span style="font-family:'Comic Sans MS'; font-size:14px"/></span></span></p>&#13;
+<pre code_snippet_id="1669265" snippet_file_name="blog_20160502_2_5908766" name="code" class="html">Constructor constructor = clazzProxy1.getConstructor(InvocationHandler.class);// 参数类型
+		// 构造一个InvocationHandler参数
+		class MyInvocationHandler implements InvocationHandler {
+			@Override
+			public Object invoke(Object proxy, Method method, Object[] args)
+					throws Throwable {
+				return null;
+			}
+		}
+
+		Collection myProxy = (Collection) constructor
+				.newInstance(new MyInvocationHandler());// 传入一个具体的InvocationHandler参数
+		System.out.println(myProxy.toString());</pre><span style="font-family:'Comic Sans MS'; font-size:14px"/>&#13;
+<p/>&#13;
+<p>另一种写法：</p>&#13;
+<p/>&#13;
+<pre code_snippet_id="1669265" snippet_file_name="blog_20160502_3_1590368" name="code" class="html" style="color: rgb(11, 0, 128);">// 跟先new一个对象再传入是一个效果。
+		Collection myProxy2 = (Collection) constructor
+				.newInstance(new InvocationHandler() {
+					@Override
+					public Object invoke(Object proxy, Method method,
+							Object[] args) throws Throwable {
+						return null;
+					}
+
+				});</pre>2、直接调用newProxyInstance方法，传入目标对象创建<br/>&#13;
+<pre code_snippet_id="1669265" snippet_file_name="blog_20160502_4_6748581" name="code" class="html" style="color: rgb(11, 0, 128);">		// 第三种直接一步到位，newProxyInstance
+		final ArrayList target = new ArrayList();
+		Collection myProxy3 = (Collection) getProxy(target,new AdviseImpl());//这里调用的target 传入，就很专业了，不仅针对集合，任何对象传入都ok
+		myProxy3.add("df"); //分别调用新的invokehandler对象 ，又new一个array 所以最后就是0 
+		myProxy3.add("kd");
+		myProxy3.add("dkj");
+		System.out.println(myProxy3.size());
+	}
+
+	private static Object getProxy(final Object target,final Advice advise) {
+		Collection myProxy3 = (Collection) Proxy.newProxyInstance(
+				target.getClass().getClassLoader(),//目标类的构造器，传什么目标类，就实现什么接口
+				target.getClass().getInterfaces(),//改成实现目标的接口
+				new InvocationHandler() {
+					@Override
+					public Object invoke(Object proxy, Method method,
+							Object[] args) throws Throwable {				
+						advise.beforeMethod(method);
+						Object retVal=method.invoke(target, args);
+						advise.afterMethod(method);
+						return retVal;
+					}
+				});
+		return myProxy3;
+	}</pre><span style="color:#0b0080">    </span> <span style="background-color:rgb(255,204,153)">这里的<span style="font-family:'Comic Sans MS'; font-size:14px">newProxyInstance分别传入目标类的构造器、实现接口和<span style="font-family:'Comic Sans MS'; font-size:14px">InvocationHandler三个参数，同时在调用invoke方法，调用新增的beforeMethod&#13;
+ 和afterMethod方法，中间执行目标类方法，实现在调用目标对象前后均添加新的功能实现，且根据传入的目标类和接口的不同，放之四海皆为准，任何类的需要这两个方法（如日志、事务处理功能），直接调用getProxy方法，传入目标类和实现接口即可享用<span style="font-family:'Comic Sans MS'; font-size:14px">beforeMethod 和afterMethod方法</span>。这就是典型的AOP编程思想。</span></span></span>&#13;
+<p/>&#13;
+<p><span style="font-family:'Comic Sans MS'; font-size:14px"><span style="font-family:'Comic Sans MS'; font-size:14px">     下面是advice接口类代码。</span></span></p>&#13;
+<p style="color:rgb(11,0,128)"/>&#13;
+<pre code_snippet_id="1669265" snippet_file_name="blog_20160502_5_4938437" name="code" class="html">public interface Advice {
+	public void beforeMethod(Method method);
+	public void afterMethod(Method method);
+}</pre>三、实现Spring AOP的封装和配置&#13;
+<p/>&#13;
+<p>1、创建一个BeanFactory，根据beanName创建对应java对象；（Spring通过配置文件加载创建具体对象）<span style="font-family:'Comic Sans MS'; font-size:14px">提供getBean方法，如果为普通java类则直接创建，如果为代理类，则返回该代理类。</span></p>&#13;
+<p/>&#13;
+<pre code_snippet_id="1669265" snippet_file_name="blog_20160502_6_9747986" name="code" class="html">public class BeanFactory {
+	//加载配置文件，获取props属性
+	Properties props=new Properties();
+	public BeanFactory(InputStream input) throws IOException
+	{
+		props.load(input);
+	}
+	
+	//
+	public Object getBean(String name) throws InstantiationException, IllegalAccessException, ClassNotFoundException
+	{
+		String className=props.getProperty(name);
+		Object bean=new Object();
+		try {
+			bean=Class.forName(className).newInstance();
+		} catch (InstantiationException | IllegalAccessException
+				| ClassNotFoundException e) {
+			e.printStackTrace();
+		}
+		if(bean instanceof ProxyFactoryBean)//如果是代理类-领导--弄到代理类
+		{
+			ProxyFactoryBean proxyFactoryBean=(ProxyFactoryBean)bean;
+			Advice advice=(Advice) Class.forName(props.get(name)+".advise").newInstance();
+			Object target=Class.forName(props.get(name)+".target").newInstance();
+			proxyFactoryBean.setAdvise(advice);
+			proxyFactoryBean.setTarget(target);
+			Object proxy=proxyFactoryBean.getProxy();
+			return proxy;
+		}
+		return bean;
+	}</pre>配置文件：&#13;
+<p/>&#13;
+<p/>&#13;
+<pre code_snippet_id="1669265" snippet_file_name="blog_20160502_7_7381435" name="code" class="html">#xxx=java.util.ArrayList
+xxx=it.max.ProxyFactoryBean
+xxx.advise=it.max.Advice
+xxx.target=java.util.ArrayList</pre>2、创建代理beanFactory，用于接收目标类和目标接口，实现调用目标类方法前后调用新增系统功能。&#13;
+<p/>&#13;
+<p/>&#13;
+<pre code_snippet_id="1669265" snippet_file_name="blog_20160502_8_1111190" name="code" class="html">public class ProxyFactoryBean {
+	private Advice advise;
+	private Object target;
+	 
+	public Object getProxy() {//不传参了，直接顶一个一私有变量
+		Collection myProxy3 = (Collection) Proxy.newProxyInstance(
+				target.getClass().getClassLoader(),//目标类的构造器，传什么目标类，就实现什么就扣
+				target.getClass().getInterfaces(),//改成实现目标的接口
+				new InvocationHandler() {
+					@Override
+					public Object invoke(Object proxy, Method method,
+							Object[] args) throws Throwable {						
+						advise.beforeMethod(method);
+						Object retVal=method.invoke(target, args);
+						advise.afterMethod(method);
+						return retVal;
+					}
+				});
+		return myProxy3;
+		}
+}</pre>3、客户端测试类，用于加载配置文件，调用beanFactory创建对象实例，输出实例名。&#13;
+<p/>&#13;
+<p/>&#13;
+<pre code_snippet_id="1669265" snippet_file_name="blog_20160502_9_2365709" name="code" class="html">public class AOPtest {
+	public static void main(String[] args) throws InstantiationException, IllegalAccessException, ClassNotFoundException, IOException {
+		InputStream input=AOPtest.class.getResourceAsStream("config.properties");//相对路径
+		
+		Object bean=new BeanFactory(input).getBean("xxx");
+		System.out.println(bean.getClass().getName());
+	}
+}</pre>      麻雀虽小，五脏俱全。这篇博客需要结合代码体会Proxy.&#13;
+<p/>&#13;
+<link rel="stylesheet" href="http://static.blog.csdn.net/public/res-min/markdown_views.css?v=1.0"/>&#13;
+            

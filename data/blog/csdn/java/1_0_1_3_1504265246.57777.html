@@ -1,0 +1,507 @@
+
+                
+<h1/>&#13;
+<h1>前言</h1>&#13;
+<p><span style="white-space:pre">Spring3+Hibernate4+SpringMVC整合Ext：项目架构搭建</span>中已经介绍了Spring3、Hibernate4和SpringMVC的整合，下面介绍的是开发一个典型的Ext后台管理界面：</p>&#13;
+<p style="text-align:center"><img src="http://img.my.csdn.net/uploads/201210/06/1349499358_2605.jpg" width="900" height="450" alt=""/><br/>&#13;
+</p>&#13;
+<p style="text-align:center"><br/>&#13;
+</p>&#13;
+<p>        开发这个界面使用了Ext MVC，好多人都叫我用MVC方法去实现，其实MVC不是每个场景都适合。就我现在这个界面的场景而言并不适合用MVC开发，本来一个js文件就可以处理硬生生的分成了好几个文件，效果不是很好。代码是通过MVC实现的，MVC具体怎么样用大家可以去参考下官方的例子，在这里就不在赘述。下面的代码通过mvc的方式进行分层展示：</p>&#13;
+<h1>前台界面</h1>&#13;
+<div><br/>&#13;
+</div>&#13;
+<h2><span style="white-space:pre"/>页面</h2>&#13;
+<div><pre name="code" class="java">&lt;%@ page language="java" pageEncoding="UTF-8"%&gt;
+&lt;%
+	String extLibPath = request.getScheme()+"://"+request.getServerName()+":"+request.getServerPort()+"/ext4";
+	String ctx = request.getContextPath();
+	pageContext.setAttribute("extLibPath", extLibPath);
+	pageContext.setAttribute("ctx", ctx);
+%&gt;
+&lt;html&gt;
+	&lt;head&gt;
+		&lt;title&gt;业务基础平台&lt;/title&gt;
+		
+	&lt;/head&gt;
+	&lt;body&gt;
+		&lt;div id="loading-tip" style="border-radius:3px;position: absolute;z-index: 1;border: solid 1px #ccc;background-color: #fff;padding: 10px;"&gt;
+			&lt;div class="loading-indicator" style="color: #444;font: bold 13px tahoma, arial, helvetica;padding: 10px;height: auto;"&gt;
+				&lt;img src="${ctx}/images/loading32.gif" width="31" height="31"
+					style="margin-right: 8px; float: left; vertical-align: top;" /&gt;
+				业务基础平台V1.0
+				&lt;br /&gt;
+				&lt;span id="loading-msg" style="font: normal 10px arial, tahoma, sans-serif;"&gt;加载样式和图片...&lt;/span&gt;
+			&lt;/div&gt;
+		&lt;/div&gt;
+		&lt;script type="text/javascript"&gt;
+			var extLibPath = "${extLibPath}";
+			var ctx = "${ctx}";
+			var tip = document.getElementById("loading-tip");
+			tip.style.top = (document.body.scrollHeight - tip.style.top - 100) / 2;
+			tip.style.left = (document.body.scrollWidth - 200) / 2;
+		&lt;/script&gt;
+		&lt;link rel="stylesheet" type="text/css" href="${extLibPath}/resources/css/ext-all.css" /&gt;
+		&lt;link rel="stylesheet" type="text/css" href="icon.css" /&gt;
+		&lt;script type="text/javascript"&gt;
+			document.getElementById("loading-msg").innerHTML = "加载核心组件...";
+		&lt;/script&gt;
+		&lt;script type="text/javascript" src="${extLibPath}/ext-all-debug.js"&gt;&lt;/script&gt;
+		&lt;script type="text/javascript" src="${extLibPath}/locale/ext-lang-zh_CN.js"&gt;&lt;/script&gt;
+		&lt;script type="text/javascript" src="app.js"&gt;&lt;/script&gt;
+	&lt;/body&gt;
+&lt;/html&gt;
+</pre><span style="white-space:pre"/>这个是index.jsp页面，整个界面的代码就在app.js里面：</div>&#13;
+<div><pre name="code" class="javascript">Ext.Loader.setConfig({
+			enabled : true
+		});
+
+Ext.Loader.setPath({
+			'Ext.ux' : extLibPath + '/examples/ux',
+			'Ext.app' : extLibPath + '/examples/app',
+			'Fes' : 'module'
+		});
+
+Ext.require(['Fes.MsgBox']);
+
+Ext.Ajax.on('requestexception', function(conn, response, options) {
+			var msg = '访问系统资源时发生异常&lt;br/&gt;' + '异常状态:' + response.status + '('
+					+ response.statusText + ')&lt;br/&gt;' + '异常信息:'
+					+ response.responseText
+			Ext.Msg.show({
+						title : '系统异常',
+						msg : msg,
+						width : 400,
+						icon : Ext.MessageBox.ERROR,
+						buttonText : {
+							ok : '  提交错误报告  '
+						},
+						buttons : Ext.MessageBox.OKCANCEL
+					});
+		});
+Ext.get('loading-msg').update('加载系统组件...');
+Ext.create('Fes.desktop.Desktop');</pre><span style="white-space:pre"/>在app.js的文件中主要是做了一些全局的配置，配置了ext的动态加载和ajax访问时异常的处理，最后创建“Fes.desktop.Desktop”组件开始初始化界面</div>&#13;
+<div><br/>&#13;
+</div>&#13;
+<h2><span style="white-space:pre"/>控制层</h2>&#13;
+<div><br/>&#13;
+</div>&#13;
+<div><span style="white-space:pre"/>控制层的作用是对界面的行为进行控制、逻辑判断和事件响应</div>&#13;
+<div>module/desktop/Desktop.js<br/>&#13;
+</div>&#13;
+<div><pre name="code" class="javascript">Ext.define('Fes.desktop.Desktop', {
+			extend : 'Ext.app.Application',
+			appFolder : 'module/desktop',
+
+			name : 'Desktop',
+
+			controllers : ['Desktop'],
+			
+			enableQuickTips : true,
+			
+    		autoCreateViewport: true
+
+		});
+</pre>Fes.desktop.Desktop继承Ext.app.Application，这个是Ext MVC中规定要继承的父类。配置了autoCreateViewport为true时Ext会自动创建一个Desktop.view.Viewport的组件，这个规则是appname+view .Viewport。</div>&#13;
+<div><br/>&#13;
+</div>&#13;
+<div>module/desktop/controller/Desktop.js<br/>&#13;
+</div>&#13;
+<div><pre name="code" class="javascript">Ext.define('Desktop.controller.Desktop', {
+	extend : 'Ext.app.Controller',
+
+	models : ['Node'],
+
+	refs : [{
+				ref : 'navigation',
+				selector : 'navigation'
+			}, {
+				ref : 'container',
+				selector : 'fescontainer'
+			}],
+
+	init : function() {
+		var me = this;
+		this.control({
+					'viewport' : {
+						render : me.onRender
+					},
+					scope : me
+				});
+	},
+
+	onRender : function() {
+		var me = this;
+		Ext.get('loading-msg').update('正在加载菜单...');
+		Ext.Ajax.request({
+					url : 'resource/root',// 获取面板的地址
+					method : 'GET',
+					callback : function(options, success, response) {
+						me.createTree(Ext.JSON.decode(response.responseText));
+					}
+				});
+	},
+
+	createTree : function(datas) {
+		var me = this;
+		Ext.each(datas, function(data) {
+					var tree = Ext.create("Ext.tree.Panel", {
+								title : data.text,
+								iconCls : data.iconCls,
+								useArrows : true,
+								autoScroll : true,
+								rootVisible : false,
+								viewConfig : {
+									loadingText : "正在加载..."
+								},
+								store : me.createTreeStore(data.id)
+							});
+					tree.on('itemclick', me.onTreeItemClick, me);
+					me.getNavigation().add(tree);
+				});
+		Ext.get('loading-msg').update('加载完成.');
+		Ext.Function.defer(function() {
+					Ext.get('loading-tip').remove();
+				}, 1000);
+	},
+
+	onTreeItemClick : function(view, node) {
+		console.log(node.data.component);
+		var tab = this.getContainer();
+		if (node.isLeaf()) { // 判断是否是根节点
+			if (node.data.type === 'URL') { // 判断资源类型
+				var panel = Ext.create('Ext.panel.Panel', {
+					title : node.data.text,
+					closable : true,
+					iconCls : 'icon-activity',
+					html : '&lt;iframe width="100%" height="100%" frameborder="0" src="http://www.baidu.com"&gt;&lt;/iframe&gt;'
+				});
+				tab.add(panel);
+				tab.setActiveTab(panel);
+			} else if (node.data.type === 'COMPONENT') {
+				var panel = Ext.create(node.data.component, {
+							title : node.data.text,
+							closable : true,
+							iconCls : 'icon-activity'
+						});
+				tab.add(panel);
+				tab.setActiveTab(panel);
+			}
+		}
+	},
+
+	createTreeStore : function(id) {
+		var me = this;
+		return Ext.create("Ext.data.TreeStore", {
+					defaultRootId : id, // 默认的根节点id
+					model : this.getNodeModel().$className,
+					proxy : {
+						type : 'ajax', // 获取方式
+						url : 'resource/child' // 获取树节点的地址
+					},
+					clearOnLoad : true,
+					nodeParam : 'id'// 设置传递给后台的参数名,值是树节点的id属性
+				});
+	}
+});</pre>这个是整个界面的控制层，在init的方法中为viewport添加了一个render事件，在整个界面渲染完成后开始加载菜单。在菜单加载完成之后添加菜单的点击事件。</div>&#13;
+<div><br/>&#13;
+</div>&#13;
+<h2>视图层</h2>&#13;
+<div><br/>&#13;
+</div>&#13;
+<div>视图层只页面的展示，不做任务的逻辑操作和事件处理</div>&#13;
+<div>module/desktop/view/Viewport.js<br/>&#13;
+</div>&#13;
+<div><pre name="code" class="javascript">Ext.define('Desktop.view.Viewport', {
+			extend : 'Ext.container.Viewport',
+			requires : ['Desktop.view.Container', 'Desktop.view.Header',
+					'Desktop.view.Navigation'],
+
+			layout : 'border',
+			initComponent : function() {
+				var me = this;
+				Ext.apply(me, {
+							items : [Ext.create('Desktop.view.Container'),
+									Ext.create('Desktop.view.Header'),
+									Ext.create('Desktop.view.Navigation')]
+						});
+				this.callParent(arguments);
+			}
+		});</pre>&#13;
+<div>定义Desktop.view.Viewport组件，这个组件会在控制器中被创建。viewport中定义了整个界面的布局，包含了Desktop.view.Container，Desktop.view.HeaderDesktop.view.</div>&#13;
+</div>&#13;
+<div>Navigation3个组件。</div>&#13;
+<div><br/>&#13;
+</div>&#13;
+<div>module/desktop/view/Container.js<br/>&#13;
+</div>&#13;
+<div><pre name="code" class="javascript">Ext.define('Desktop.view.Container', {
+		   	alias: 'widget.fescontainer',
+			extend : 'Ext.tab.Panel',
+			requires : ['Ext.app.Portlet', 'Ext.app.PortalColumn', 'Ext.app.PortalPanel',
+					   'Ext.app.PortalDropZone', 'Ext.ux.TabReorderer','Ext.ux.TabCloseMenu'],
+			activeTab : 0,
+			enableTabScroll : true,
+			animScroll : true,
+			border : true,
+			autoScroll : true,
+			region : 'center',
+			split : true,
+			plugins : [
+				Ext.create('Ext.ux.TabReorderer'),
+				Ext.create('Ext.ux.TabCloseMenu',{
+		        		  	closeTabText: '关闭面板',
+		        		  	closeOthersTabsText: '关闭其他',
+		        		  	closeAllTabsText: '关闭所有'
+		        		  })
+			],
+			items : [{
+						iconCls : 'icon-activity',
+						title : '平台首页',
+						xtype : 'portalpanel',
+						layout : 'column',
+						items : [{
+									xtype : 'portalcolumn',
+									columnWidth : 0.7,
+									items : [{
+												title : '新闻动态',
+												height : 150,
+												iconCls : 'icon-news'
+											}, {
+												title : '最新通知',
+												height : 150,
+												iconCls : 'icon-notice'
+											}, {
+												title : '业绩报表',
+												height : 150,
+												iconCls : 'icon-chart'
+											}, {
+												title : '邮件列表',
+												height : 150,
+												iconCls : 'icon-email-list'
+											}]
+								}, {
+									xtype : 'portalcolumn',
+									columnWidth : 0.3,
+									items : [{
+												title : '功能链接',
+												height : 150,
+												iconCls : 'icon-link'
+											}, {
+												title : '待办事项',
+												height : 150,
+												iconCls : 'icon-note'
+											}, {
+												title : '邮件列表',
+												height : 150,
+												iconCls : 'icon-email-list'
+											}, {
+												title : '邮件列表',
+												height : 150,
+												iconCls : 'icon-email-list'
+											}]
+								}]
+					}]
+		});</pre>Desktop.view.Container是一个标签页集合的面板，是整个界面的操作区域。</div>&#13;
+<div><br/>&#13;
+</div>&#13;
+<div>module/desktop/view/Header.js<br/>&#13;
+</div>&#13;
+<div><pre name="code" class="javascript">Ext.define('Desktop.view.Header', {
+	extend : 'Ext.panel.Panel',
+	height : 80,
+	html : '业务基础平台',
+	region : 'north',
+	split : true,
+	bbar : [{
+				iconCls : 'icon-user',
+				text : '管理员'
+			}, '-', {
+				text : Ext.Date.format(new Date(), 'Y年m月d日')
+			}, '-&gt;', {
+				text : '退出',
+				iconCls : 'icon-logout'
+			}],
+	bodyStyle : 'backgroud-color:#99bbe8;line-height : 50px;padding-left:20px;' +
+			'font-size:22px;color:#000000;font-family:黑体;font-weight:bolder;'+ 
+			'background: -webkit-gradient(linear, left top, left bottom, ' +
+			'color-stop(0%, rgba(153,187, 232, 0.4) ),' +
+			'color-stop(50%, rgba(153, 187, 232, 0.8) ),' +
+			'color-stop(0%, rgba(153, 187, 232, 0.4) ) );' ,
+	initComponent : function(){
+		this.callParent();
+	}
+});</pre>Desktop.view.Header是界面的头部</div>&#13;
+<div><br/>&#13;
+</div>&#13;
+<div>module/desktop/view/Navigation.js<br/>&#13;
+</div>&#13;
+<div><pre name="code" class="javascript">Ext.define('Desktop.view.Navigation', {
+	   	    alias: 'widget.navigation',
+			extend : 'Ext.panel.Panel',
+			region : 'west',
+			title : '系统菜单',
+			width : 250,
+			iconCls : "icon-tree",
+			autoScroll : false,
+			layout : 'accordion',
+			collapsible : true,
+			layoutConfig : {
+				animate : true
+			},
+			id : 'navigation',
+			split : true,
+			initComponent : function(){
+				this.callParent();
+			}
+		});</pre>Desktop.view.Navigation是界面的导航部分，树形菜单的展示区域</div>&#13;
+<div><br/>&#13;
+<h2>模型层</h2>&#13;
+</div>&#13;
+<div><br/>&#13;
+</div>&#13;
+<div>模型层主要是定义了前后台数据交互的模型</div>&#13;
+<div>module/desktop/model/Node.js<br/>&#13;
+</div>&#13;
+<div><pre name="code" class="javascript">Ext.define('Desktop.model.Node', { 
+    extend: 'Ext.data.Model',
+	fields : [{name : "id",type : "string"},
+			{name : "text",type : "string"},
+			{name : "iconCls",type : "string"},
+			{name : "leaf",type : "boolean"},
+			{name : 'type'},
+			{name : 'component'}]
+});</pre>Desktop.model.Node定义了菜单数据模型</div>&#13;
+<div><br/>&#13;
+</div>&#13;
+<h1>后台处理</h1>&#13;
+<div><br/>&#13;
+</div>&#13;
+<div>整个界面的数据交互个入口在module/desktop/controller/Desktop.js文件中的对定义了viewport进行的事件响应：</div>&#13;
+<div><pre name="code" class="javascript">init : function() {
+		var me = this;
+		this.control({
+					'viewport' : {
+						render : me.onRender
+					},
+					scope : me
+				});
+	},
+
+	onRender : function() {
+		var me = this;
+		Ext.get('loading-msg').update('正在加载菜单...');
+		Ext.Ajax.request({
+					url : 'resource/root',// 获取面板的地址
+					method : 'GET',
+					callback : function(options, success, response) {
+						me.createTree(Ext.JSON.decode(response.responseText));
+					}
+				});
+	},
+
+	createTree : function(datas) {
+		var me = this;
+		Ext.each(datas, function(data) {
+					var tree = Ext.create("Ext.tree.Panel", {
+								title : data.text,
+								iconCls : data.iconCls,
+								useArrows : true,
+								autoScroll : true,
+								rootVisible : false,
+								viewConfig : {
+									loadingText : "正在加载..."
+								},
+								store : me.createTreeStore(data.id)
+							});
+					tree.on('itemclick', me.onTreeItemClick, me);
+					me.getNavigation().add(tree);
+				});
+		Ext.get('loading-msg').update('加载完成.');
+		Ext.Function.defer(function() {
+					Ext.get('loading-tip').remove();
+				}, 1000);
+	},</pre>在viewport渲染完成后发送到resource/root请求获取菜单的根目录，后台java代码：</div>&#13;
+<div>ResourceController.java<br/>&#13;
+</div>&#13;
+<div><pre name="code" class="java">package com.avicit.fes.system.resource.controller;
+
+import java.util.List;
+
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Controller;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestMethod;
+import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.bind.annotation.ResponseBody;
+
+import com.avicit.fes.system.resource.service.ResourceService;
+import com.avicit.fes.system.resource.vo.ResourceNode;
+
+@Controller
+@RequestMapping("/resource")
+public class ResourceController {
+
+	@Autowired
+	private ResourceService resourceService;
+	
+	@RequestMapping(value="root",method=RequestMethod.GET)
+	public @ResponseBody List&lt;ResourceNode&gt; root() throws Exception{
+		return this.resourceService.getRoot();
+	}
+	
+	@RequestMapping(value="child",method=RequestMethod.GET)
+	public @ResponseBody List&lt;ResourceNode&gt; child(@RequestParam("id") Integer id) throws Exception{
+		return this.resourceService.getChildren(id);
+	}
+}
+</pre>在ResourceController类中定义了root方法拦截resource/root请求，在resourceService中获取菜单的根目录发送到页面中，下面看ResourceServiceImpl中的代码：</div>&#13;
+<div><pre name="code" class="java">package com.avicit.fes.system.resource.service.impl;
+
+import java.util.List;
+
+import org.apache.commons.logging.Log;
+import org.apache.commons.logging.LogFactory;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Service;
+
+import com.avicit.fes.system.resource.dao.ResourceDAO;
+import com.avicit.fes.system.resource.entity.Resource;
+import com.avicit.fes.system.resource.service.ResourceService;
+import com.avicit.fes.system.resource.vo.ResourceNode;
+import com.avicit.framework.util.ListUtils;
+
+@Service("resourceService")
+public class ResourceServiceImpl implements ResourceService {
+
+	protected Log logger = LogFactory.getLog(this.getClass());
+
+	@Autowired
+	protected ResourceDAO&lt;Resource, Integer&gt; resourceDAO;
+
+	@Override
+	public List&lt;ResourceNode&gt; getRoot() throws Exception {
+		return ListUtils.transform(this.resourceDAO.getRootResource(),ResourceNode.class);
+	}
+	
+	public List&lt;ResourceNode&gt; getChildren(Integer id) throws Exception{
+		return ListUtils.transform(this.resourceDAO.getChildrenByParent(id),ResourceNode.class);
+	}
+
+}
+</pre>在ResourceServiceImpl类中getRoot方法中从后台数据库中获取到跟目录的数据返回给ResourceController，这样就完成了数据的交互。</div>&#13;
+<div>在获取根目录之后创建树组件，并通过父节点获取子节点，从而完成了界面菜单的交互。</div>&#13;
+<div><br/>&#13;
+</div>&#13;
+<div>后续还会介绍@ResponseBody的用法、Ext分页的处理以及通过RESTful方式完成CURD，敬请期待</div>&#13;
+<div><br/>&#13;
+</div>&#13;
+<h1>实例下载</h1>&#13;
+<div><br/>&#13;
+</div>&#13;
+<div><a href="http://download.csdn.net/detail/leecho571/4619860">http://download.csdn.net/detail/leecho571/4619860</a></div>&#13;
+<br/>&#13;
+<div><a href="http://download.csdn.net/detail/leecho571/4619860"/><br/>&#13;
+</div>&#13;
+<link rel="stylesheet" href="http://static.blog.csdn.net/public/res-min/markdown_views.css?v=1.0"/>&#13;
+            

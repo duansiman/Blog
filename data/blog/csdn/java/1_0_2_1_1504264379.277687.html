@@ -1,0 +1,919 @@
+
+        <div class="markdown_views"><h1 id="spring-实践"><center> Spring 实践</center></h1>
+
+<p>标签： Java与设计模式</p>
+
+<hr />
+
+<h2 id="aop引介">AOP引介</h2>
+
+<p>AOP(<em>Aspect Oriented Programing</em>)<strong>面向切面编程</strong>采用<strong>横向抽取机制</strong>,以取代传统的<strong>纵向继承体系</strong>的重复性代码(如性能监控/事务管理/安全检查/缓存实现等).</p>
+
+<blockquote>
+  <p>横向抽取代码复用: 基于代理技术,在不修改原来代码的前提下,对原有方法进行增强.</p>
+</blockquote>
+
+<hr />
+
+
+
+<h3 id="spring-aop-历史">Spring AOP 历史</h3>
+
+<ul>
+<li>1.2开始, Spring开始支持AOP技术(Spring AOP) <br />
+Spring AOP使用纯Java实现,不需要专门的编译过程和类加载器,在运行期通过代理方式向目标类<strong>织入</strong>增强代码.</li>
+<li>2.0之后, 为了简化AOP开发, Spring开始支持AspectJ(一个基于Java的AOP框架)框架.</li>
+</ul>
+
+<hr />
+
+
+
+<h3 id="aop相关术语">AOP相关术语</h3>
+
+<table>
+<thead>
+<tr>
+  <th align="center">术语</th>
+  <th align="center">中文</th>
+  <th align="left">描述</th>
+</tr>
+</thead>
+<tbody><tr>
+  <td align="center"><em>Joinpoint</em></td>
+  <td align="center">连接点</td>
+  <td align="left">指那些被拦截到的点.在Spring中,这些点指方法(因为Spring只支持方法类型的连接点).</td>
+</tr>
+<tr>
+  <td align="center"><em>Pointcut</em></td>
+  <td align="center">切入点</td>
+  <td align="left">指需要(配置)被增强的<em>Joinpoint</em>.</td>
+</tr>
+<tr>
+  <td align="center"><em>Advice</em></td>
+  <td align="center">通知/增强</td>
+  <td align="left">指拦截到<em>Joinpoint</em>后要做的<strong>操作</strong>.通知分为<em>前置通知/后置通知/异常通知/最终通知/环绕通知</em>等.</td>
+</tr>
+<tr>
+  <td align="center"><em>Aspect</em></td>
+  <td align="center">切面</td>
+  <td align="left">切入点和通知的结合.</td>
+</tr>
+<tr>
+  <td align="center"><em>Target</em></td>
+  <td align="center">目标对象</td>
+  <td align="left">需要被代理(增强)的对象.</td>
+</tr>
+<tr>
+  <td align="center"><em>Proxy</em></td>
+  <td align="center">代理对象</td>
+  <td align="left">目标对象被AOP <strong>织入</strong> 增强/通知后,产生的对象.</td>
+</tr>
+<tr>
+  <td align="center"><em>Weaving</em></td>
+  <td align="center">织入</td>
+  <td align="left">指把<strong>增强/通知</strong>应用到<strong>目标对象</strong>来创建<strong>代理对象</strong>的<code>过程</code>(Spring采用动态代理织入,AspectJ采用编译期织入和类装载期织入).</td>
+</tr>
+<tr>
+  <td align="center"><em>Introduction</em></td>
+  <td align="center">引介</td>
+  <td align="left">一种特殊通知,在不修改类代码的前提下,可以在运行期为类动态地添加一些Method/Field(不常用).</td>
+</tr>
+</tbody></table>
+
+
+<blockquote>
+  <p>其他关于AOP理论知识可参考<a href="http://www.cnblogs.com/wayfarer/archive/2005/09/21/241038.html">AOP技术研究</a>.</p>
+</blockquote>
+
+<hr />
+
+
+
+<h3 id="aop实现">AOP实现</h3>
+
+<p>Spring AOP代理实现有两种:<strong>JDK动态代理</strong>和<strong>Cglib框架动态代理</strong>, JDK动态代理可以参考博客<a href="http://blog.csdn.net/zjf280441589/article/details/50411737#t3">代理模式</a>的动态代理部分, 在这里仅介绍CGLib框架实现.</p>
+
+
+
+<h3 id="cglib-动态代理">cglib 动态代理</h3>
+
+<p>cglib(Code Generation Library)是一个开源/高性能/高质量的Code生成类库,可以在运行期动态扩展Java类与实现Java接口. <br />
+cglib比<code>java.lang.reflect.Proxy</code>更强的在于它<strong>不仅可以接管接口类的方法,还可以接管普通类的方法</strong>(cglib<a href="https://github.com/cglib/cglib">项目</a>).从3.2开始, spring-core包中内置cglib类,因此可以不用添加额外依赖.</p>
+
+<ul>
+<li>UserDAO(并没有实现接口)</li>
+</ul>
+
+
+
+<pre class="prettyprint"><code class=" hljs java"><span class="hljs-javadoc">/**
+ *<span class="hljs-javadoctag"> @author</span> jifang
+ *<span class="hljs-javadoctag"> @since</span> 16/3/3 上午11:16.
+ */</span>
+<span class="hljs-keyword">public</span> <span class="hljs-class"><span class="hljs-keyword">class</span> <span class="hljs-title">UserDAO</span> {</span>
+
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">void</span> <span class="hljs-title">add</span>(Object o) {
+        System.out.println(<span class="hljs-string">"UserDAO -&gt; Add: "</span> + o.toString());
+    }
+
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">void</span> <span class="hljs-title">get</span>(Object o) {
+        System.out.println(<span class="hljs-string">"UserDAO -&gt; Get: "</span> + o.toString());
+    }
+}</code></pre>
+
+<ul>
+<li>CGLibProxyFactory</li>
+</ul>
+
+
+
+<pre class="prettyprint"><code class=" hljs java"><span class="hljs-keyword">public</span> <span class="hljs-class"><span class="hljs-keyword">class</span> <span class="hljs-title">CGLibProxyFactory</span> {</span>
+
+    <span class="hljs-keyword">private</span> Object target;
+
+    <span class="hljs-keyword">public</span> <span class="hljs-title">CGLibProxyFactory</span>(Object target) {
+        <span class="hljs-keyword">this</span>.target = target;
+    }
+
+
+    <span class="hljs-keyword">private</span> Callback callback = <span class="hljs-keyword">new</span> MethodInterceptor() {
+
+        <span class="hljs-javadoc">/**
+         *
+         *<span class="hljs-javadoctag"> @param</span> obj   代理对象
+         *<span class="hljs-javadoctag"> @param</span> method    当期调用方法
+         *<span class="hljs-javadoctag"> @param</span> args  方法参数
+         *<span class="hljs-javadoctag"> @param</span> proxy 被调用方法的代理对象(用于执行父类的方法)
+         *<span class="hljs-javadoctag"> @return</span>
+         *<span class="hljs-javadoctag"> @throws</span> Throwable
+         */</span>
+        <span class="hljs-annotation">@Override</span>
+        <span class="hljs-keyword">public</span> Object <span class="hljs-title">intercept</span>(Object obj, Method method, Object[] args, MethodProxy proxy) <span class="hljs-keyword">throws</span> Throwable {
+
+            <span class="hljs-comment">// 前置增强</span>
+            System.out.println(<span class="hljs-string">"+ Before Advice ..."</span>);
+
+            <span class="hljs-comment">// 执行目标方法</span>
+            <span class="hljs-comment">//Object result = method.invoke(target, args);</span>
+            Object result = proxy.invoke(target, args);
+
+            <span class="hljs-comment">// 后置增强</span>
+            System.out.println(<span class="hljs-string">"+ After Advice ..."</span>);
+
+            <span class="hljs-keyword">return</span> result;
+        }
+    };
+
+    <span class="hljs-keyword">public</span> Object <span class="hljs-title">createProxy</span>() {
+
+        <span class="hljs-comment">// 1. 创建Enhancer对象</span>
+        Enhancer enhancer = <span class="hljs-keyword">new</span> Enhancer();
+
+        <span class="hljs-comment">// 2. cglib创建代理, 对目标对象创建子对象</span>
+        enhancer.setSuperclass(target.getClass());
+
+        <span class="hljs-comment">// 3. 传入回调接口, 对目标增强</span>
+        enhancer.setCallback(callback);
+
+        <span class="hljs-keyword">return</span> enhancer.create();
+    }
+
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">static</span> <span class="hljs-keyword">void</span> <span class="hljs-title">main</span>(String[] args) {
+        UserDAO proxy = (UserDAO) <span class="hljs-keyword">new</span> CGLibProxyFactory(<span class="hljs-keyword">new</span> UserDAO()).createProxy();
+        proxy.get(<span class="hljs-string">"hello"</span>);
+        proxy.add(<span class="hljs-string">"world"</span>);
+    }
+}</code></pre>
+
+<hr />
+
+
+
+<h3 id="aop小结">AOP小结</h3>
+
+<ul>
+<li>Spring AOP的底层通过JDK/cglib动态代理为目标对象进行横向织入: <br />
+1) 若目标对象实现了接口,则Spring使用JDK的<code>java.lang.reflect.Proxy</code>代理. <br />
+2) 若目标对象没有实现接口,则Spring使用cglib库生成目标对象的子类.</li>
+<li>Spring只支持方法连接点,不提供属性连接.</li>
+<li>标记为<code>final</code>的方法不能被代理,因为无法进行覆盖.</li>
+<li>程序应优先对针对接口代理,这样便于程序解耦/维护.</li>
+</ul>
+
+<hr />
+
+
+
+<h2 id="spring-aop">Spring AOP</h2>
+
+<p>AOP联盟为通知<code>Advice</code>定义了<code>org.aopalliance.aop.Advice</code>接口, Spring在<code>Advice</code>的基础上,根据通知在目标方法的连接点位置,扩充为以下五类:</p>
+
+<table>
+<thead>
+<tr>
+  <th align="center">通知</th>
+  <th align="center">接口</th>
+  <th align="left">描述</th>
+</tr>
+</thead>
+<tbody><tr>
+  <td align="center">前置通知</td>
+  <td align="center"><code>MethodBeforeAdvice</code></td>
+  <td align="left">在目标方法执行<strong><em>前</em></strong>实施增强</td>
+</tr>
+<tr>
+  <td align="center">后置通知</td>
+  <td align="center"><code>AfterReturningAdvice</code></td>
+  <td align="left">…执行<strong><em>后</em></strong>实施增强</td>
+</tr>
+<tr>
+  <td align="center">环绕通知</td>
+  <td align="center"><code>MethodInterceptor</code></td>
+  <td align="left">..执行<strong><em>前后</em></strong>实施增强</td>
+</tr>
+<tr>
+  <td align="center">异常抛出通知</td>
+  <td align="center"><code>ThrowsAdvice</code></td>
+  <td align="left">…抛出<strong><em>异常</em></strong>后实施增强</td>
+</tr>
+<tr>
+  <td align="center">引介通知</td>
+  <td align="center"><code>IntroductionInterceptor</code></td>
+  <td align="left">在目标类中<strong><em>添加新的方法和属性</em></strong>(少用)</td>
+</tr>
+</tbody></table>
+
+
+<ul>
+<li>添加Spring的AOP依赖 <br />
+使用Spring的AOP和AspectJ需要在pom.xml中添加如下依赖:</li>
+</ul>
+
+
+
+<pre class="prettyprint"><code class=" hljs xml"><span class="hljs-tag">&lt;<span class="hljs-title">dependency</span>&gt;</span>
+    <span class="hljs-tag">&lt;<span class="hljs-title">groupId</span>&gt;</span>org.springframework<span class="hljs-tag">&lt;/<span class="hljs-title">groupId</span>&gt;</span>
+    <span class="hljs-tag">&lt;<span class="hljs-title">artifactId</span>&gt;</span>spring-aop<span class="hljs-tag">&lt;/<span class="hljs-title">artifactId</span>&gt;</span>
+    <span class="hljs-tag">&lt;<span class="hljs-title">version</span>&gt;</span>${spring.version}<span class="hljs-tag">&lt;/<span class="hljs-title">version</span>&gt;</span>
+<span class="hljs-tag">&lt;/<span class="hljs-title">dependency</span>&gt;</span>
+<span class="hljs-tag">&lt;<span class="hljs-title">dependency</span>&gt;</span>
+    <span class="hljs-tag">&lt;<span class="hljs-title">groupId</span>&gt;</span>org.springframework<span class="hljs-tag">&lt;/<span class="hljs-title">groupId</span>&gt;</span>
+    <span class="hljs-tag">&lt;<span class="hljs-title">artifactId</span>&gt;</span>spring-aspects<span class="hljs-tag">&lt;/<span class="hljs-title">artifactId</span>&gt;</span>
+    <span class="hljs-tag">&lt;<span class="hljs-title">version</span>&gt;</span>${spring.version}<span class="hljs-tag">&lt;/<span class="hljs-title">version</span>&gt;</span>
+<span class="hljs-tag">&lt;/<span class="hljs-title">dependency</span>&gt;</span></code></pre>
+
+<ul>
+<li>定义Target</li>
+</ul>
+
+
+
+<pre class="prettyprint"><code class=" hljs java"><span class="hljs-javadoc">/**
+ *<span class="hljs-javadoctag"> @author</span> jifang
+ *<span class="hljs-javadoctag"> @since</span> 16/3/3 下午2:50.
+ */</span>
+<span class="hljs-keyword">public</span> <span class="hljs-class"><span class="hljs-keyword">interface</span> <span class="hljs-title">OrderService</span> {</span>
+
+    <span class="hljs-keyword">void</span> save();
+
+    Integer delete(Integer param);
+}</code></pre>
+
+
+
+<pre class="prettyprint"><code class=" hljs java"><span class="hljs-keyword">public</span> <span class="hljs-class"><span class="hljs-keyword">class</span> <span class="hljs-title">OrderServiceImpl</span> <span class="hljs-keyword">implements</span> <span class="hljs-title">OrderService</span> {</span>
+
+    <span class="hljs-annotation">@Override</span>
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">void</span> <span class="hljs-title">save</span>() {
+        System.out.println(<span class="hljs-string">"添加..."</span>);
+    }
+
+    <span class="hljs-annotation">@Override</span>
+    <span class="hljs-keyword">public</span> Integer <span class="hljs-title">delete</span>(Integer param) {
+        System.out.println(<span class="hljs-string">"删除..."</span>);
+        <span class="hljs-keyword">return</span> param;
+    }
+}</code></pre>
+
+<ul>
+<li>定义Advice</li>
+</ul>
+
+
+
+<pre class="prettyprint"><code class=" hljs java"><span class="hljs-javadoc">/**
+ * 实现MethodInterceptor接口定义环绕通知
+ *
+ *<span class="hljs-javadoctag"> @author</span> jifang
+ *<span class="hljs-javadoctag"> @since</span> 16/3/6 下午2:54.
+ */</span>
+<span class="hljs-keyword">public</span> <span class="hljs-class"><span class="hljs-keyword">class</span> <span class="hljs-title">ConcreteInterceptor</span> <span class="hljs-keyword">implements</span> <span class="hljs-title">MethodInterceptor</span> {</span>
+
+    <span class="hljs-annotation">@Override</span>
+    <span class="hljs-keyword">public</span> Object <span class="hljs-title">invoke</span>(MethodInvocation invocation) <span class="hljs-keyword">throws</span> Throwable {
+        System.out.println(<span class="hljs-string">"前置通知 -&gt; "</span>);
+
+        Object result = invocation.proceed();
+
+        System.out.println(<span class="hljs-string">"&lt;- 后置通知"</span>);
+
+        <span class="hljs-keyword">return</span> result;
+    }
+}</code></pre>
+
+<hr />
+
+
+
+<h3 id="spring手动代理">Spring手动代理</h3>
+
+<ul>
+<li>配置代理 <br />
+Spring最原始的AOP支持, 手动指定目标对象与通知(没有使用AOP名称空间).</li>
+</ul>
+
+
+
+<pre class="prettyprint"><code class=" hljs xml"><span class="hljs-pi">&lt;?xml version="1.0" encoding="UTF-8"?&gt;</span>
+<span class="hljs-tag">&lt;<span class="hljs-title">beans</span> <span class="hljs-attribute">xmlns</span>=<span class="hljs-value">"http://www.springframework.org/schema/beans"</span>
+       <span class="hljs-attribute">xmlns:xsi</span>=<span class="hljs-value">"http://www.w3.org/2001/XMLSchema-instance"</span>
+       <span class="hljs-attribute">xsi:schemaLocation</span>=<span class="hljs-value">"http://www.springframework.org/schema/beans
+       http://www.springframework.org/schema/beans/spring-beans.xsd"</span>&gt;</span>
+
+    <span class="hljs-comment">&lt;!-- target --&gt;</span>
+    <span class="hljs-tag">&lt;<span class="hljs-title">bean</span> <span class="hljs-attribute">id</span>=<span class="hljs-value">"service"</span> <span class="hljs-attribute">class</span>=<span class="hljs-value">"com.fq.service.impl.OrderServiceImpl"</span>/&gt;</span>
+    <span class="hljs-comment">&lt;!-- advice --&gt;</span>
+    <span class="hljs-tag">&lt;<span class="hljs-title">bean</span> <span class="hljs-attribute">id</span>=<span class="hljs-value">"advice"</span> <span class="hljs-attribute">class</span>=<span class="hljs-value">"com.fq.advice.ConcreteInterceptor"</span>/&gt;</span>
+
+    <span class="hljs-tag">&lt;<span class="hljs-title">bean</span> <span class="hljs-attribute">id</span>=<span class="hljs-value">"serviceProxy"</span> <span class="hljs-attribute">class</span>=<span class="hljs-value">"org.springframework.aop.framework.ProxyFactoryBean"</span>&gt;</span>
+        <span class="hljs-tag">&lt;<span class="hljs-title">property</span> <span class="hljs-attribute">name</span>=<span class="hljs-value">"target"</span> <span class="hljs-attribute">ref</span>=<span class="hljs-value">"service"</span>/&gt;</span>
+        <span class="hljs-tag">&lt;<span class="hljs-title">property</span> <span class="hljs-attribute">name</span>=<span class="hljs-value">"interceptorNames"</span> <span class="hljs-attribute">value</span>=<span class="hljs-value">"advice"</span>/&gt;</span>
+        <span class="hljs-tag">&lt;<span class="hljs-title">property</span> <span class="hljs-attribute">name</span>=<span class="hljs-value">"proxyTargetClass"</span> <span class="hljs-attribute">value</span>=<span class="hljs-value">"false"</span>/&gt;</span>
+    <span class="hljs-tag">&lt;/<span class="hljs-title">bean</span>&gt;</span>
+<span class="hljs-tag">&lt;/<span class="hljs-title">beans</span>&gt;</span></code></pre>
+
+<ul>
+<li>Client</li>
+</ul>
+
+
+
+<pre class="prettyprint"><code class=" hljs java"><span class="hljs-annotation">@RunWith</span>(SpringJUnit4ClassRunner.class)
+<span class="hljs-annotation">@ContextConfiguration</span>(locations = <span class="hljs-string">"classpath:spring/applicationContext.xml"</span>)
+<span class="hljs-keyword">public</span> <span class="hljs-class"><span class="hljs-keyword">class</span> <span class="hljs-title">AOPClient</span> {</span>
+
+    <span class="hljs-annotation">@Autowired</span>
+    <span class="hljs-comment">// 必须指定使用代理对象名称, 否则不予代理</span>
+    <span class="hljs-annotation">@Qualifier</span>(<span class="hljs-string">"serviceProxy"</span>)
+    <span class="hljs-keyword">private</span> OrderService service;
+
+    <span class="hljs-annotation">@Test</span>
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">void</span> <span class="hljs-title">client</span>() {
+        service.save();
+        service.delete(<span class="hljs-number">88</span>);
+    }
+}</code></pre>
+
+<blockquote>
+  <p>这种方式的缺陷在于每个<code>Target</code>都必须手动指定<code>ProxyFactoryBean</code>对其代理(不能批量指定),而且这种方式会在Spring容器中存在两份Target对象(代理前/代理后),浪费资源,且容易出错(比如没有指定<code>@Qualifier</code>).</p>
+</blockquote>
+
+<hr />
+
+
+
+<h3 id="spring自动代理-引入aspectj">Spring自动代理 - 引入AspectJ</h3>
+
+<p>通过AspectJ引入Pointcut切点定义</p>
+
+<ul>
+<li>Target/Advice同前</li>
+<li>定义切面表达式 <br />
+
+
+<blockquote>
+  通过execution函数定义切点表达式(定义切点的方法切入) <br />
+  <code>execution(&lt;访问修饰符&gt; &lt;返回类型&gt;&lt;方法名&gt;(&lt;参数&gt;)&lt;异常&gt;)</code> <br />
+  如: <br />
+  1) <code>execution(public * *(..))</code>      # 匹配所有<code>public</code>方法. <br />
+  2) <code>execution(* com.fq.dao.*(..))</code>  # 匹配指定包下所有类方法(不包含子包) <br />
+  3) <code>execution(* com.fq.dao..*(..))</code> # 匹配指定包下所有类方法(包含子包) <br />
+  4) <code>execution(* com.fq.service.impl.OrderServiceImple.*(..))</code>   # 匹配指定类所有方法 <br />
+  5) <code>execution(* com.fq.service.OrderService+.*(..))</code>            # 匹配实现特定接口所有类方法  <br />
+  6) <code>execution(* save*(..))</code> # 匹配所有save开头的方法 </blockquote></li>
+  </ul>
+  
+
+
+<pre class="prettyprint"><code class=" hljs xml"><span class="hljs-pi">&lt;?xml version="1.0" encoding="UTF-8"?&gt;</span>
+<span class="hljs-tag">&lt;<span class="hljs-title">beans</span> <span class="hljs-attribute">xmlns</span>=<span class="hljs-value">"http://www.springframework.org/schema/beans"</span>
+       <span class="hljs-attribute">xmlns:xsi</span>=<span class="hljs-value">"http://www.w3.org/2001/XMLSchema-instance"</span>
+       <span class="hljs-attribute">xmlns:aop</span>=<span class="hljs-value">"http://www.springframework.org/schema/aop"</span>
+       <span class="hljs-attribute">xsi:schemaLocation</span>=<span class="hljs-value">"http://www.springframework.org/schema/beans
+       http://www.springframework.org/schema/beans/spring-beans.xsd
+       http://www.springframework.org/schema/aop
+       http://www.springframework.org/schema/aop/spring-aop.xsd"</span>&gt;</span>
+
+    <span class="hljs-comment">&lt;!-- target --&gt;</span>
+    <span class="hljs-tag">&lt;<span class="hljs-title">bean</span> <span class="hljs-attribute">id</span>=<span class="hljs-value">"service"</span> <span class="hljs-attribute">class</span>=<span class="hljs-value">"com.fq.service.impl.OrderServiceImpl"</span>/&gt;</span>
+    <span class="hljs-comment">&lt;!-- advice --&gt;</span>
+    <span class="hljs-tag">&lt;<span class="hljs-title">bean</span> <span class="hljs-attribute">id</span>=<span class="hljs-value">"advice"</span> <span class="hljs-attribute">class</span>=<span class="hljs-value">"com.fq.advice.ConcreteInterceptor"</span>/&gt;</span>
+
+    <span class="hljs-comment">&lt;!-- 配置切面 : proxy-target-class确定是否使用CGLIB --&gt;</span>
+    <span class="hljs-tag">&lt;<span class="hljs-title">aop:config</span> <span class="hljs-attribute">proxy-target-class</span>=<span class="hljs-value">"true"</span>&gt;</span>
+        <span class="hljs-comment">&lt;!--
+            aop:pointcut : 切点定义
+            aop:advisor: 定义Spring传统AOP的切面,只支持一个pointcut/一个advice
+            aop:aspect : 定义AspectJ切面的,可以包含多个pointcut/多个advice
+        --&gt;</span>
+        <span class="hljs-tag">&lt;<span class="hljs-title">aop:pointcut</span> <span class="hljs-attribute">id</span>=<span class="hljs-value">"pointcut"</span> <span class="hljs-attribute">expression</span>=<span class="hljs-value">"execution(* com.fq.service.impl.OrderServiceImpl.*(..))"</span>/&gt;</span>
+        <span class="hljs-tag">&lt;<span class="hljs-title">aop:advisor</span> <span class="hljs-attribute">advice-ref</span>=<span class="hljs-value">"advice"</span> <span class="hljs-attribute">pointcut-ref</span>=<span class="hljs-value">"pointcut"</span>/&gt;</span>
+    <span class="hljs-tag">&lt;/<span class="hljs-title">aop:config</span>&gt;</span>
+
+<span class="hljs-tag">&lt;/<span class="hljs-title">beans</span>&gt;</span></code></pre>
+
+
+
+<ul>
+<li>Client同前</li>
+</ul>
+
+<hr />
+
+
+
+<h2 id="aspectj-aop">AspectJ AOP</h2>
+
+<p>AspectJ是一个基于Java的AOP框架,提供了强大的AOP功能,其他很多AOP框架都借鉴或采纳了AspectJ的一些思想,Spring2.0以后增加了对AspectJ切点表达式支持(如上),并在Spring3.0之后与AspectJ进行了很好的集成. <br />
+在Java领域,AspectJ中的很多语法结构基本上已成为AOP领域的标准, 他定义了如下几类通知类型:</p>
+
+<table>
+<thead>
+<tr>
+  <th align="center">通知</th>
+  <th align="center">接口</th>
+  <th align="left">描述</th>
+</tr>
+</thead>
+<tbody><tr>
+  <td align="center">前置通知</td>
+  <td align="center"><code>@Before</code></td>
+  <td align="left">相当于<code>BeforeAdvice</code></td>
+</tr>
+<tr>
+  <td align="center">后置通知</td>
+  <td align="center"><code>@AfterReturning</code></td>
+  <td align="left">相当于<code>AfterReturningAdvice</code></td>
+</tr>
+<tr>
+  <td align="center">环绕通知</td>
+  <td align="center"><code>@Around</code></td>
+  <td align="left">相当于<code>MethodInterceptor</code></td>
+</tr>
+<tr>
+  <td align="center">抛出通知</td>
+  <td align="center"><code>@AfterThrowing</code></td>
+  <td align="left">相当于<code>ThrowAdvice</code></td>
+</tr>
+<tr>
+  <td align="center">引介通知</td>
+  <td align="center"><code>@DeclareParents</code></td>
+  <td align="left">相当于<code>IntroductionInterceptor</code></td>
+</tr>
+<tr>
+  <td align="center">最终final通知</td>
+  <td align="center"><code>@After</code></td>
+  <td align="left">不管是否异常,该通知都会执行</td>
+</tr>
+</tbody></table>
+
+
+<blockquote>
+  <p>新版本Spring,建议使用AspectJ方式开发以简化AOP配置.</p>
+</blockquote>
+
+<hr />
+
+
+
+<h2 id="aspectj-xml-aop">AspectJ-XML-AOP</h2>
+
+<p>使用AspectJ编写Advice无需实现任何接口,而且可以将多个通知写入一个切面类.</p>
+
+
+
+<h3 id="前置通知">前置通知</h3>
+
+<ul>
+<li>定义通知</li>
+</ul>
+
+
+
+<pre class="prettyprint"><code class=" hljs java"><span class="hljs-javadoc">/**
+ *<span class="hljs-javadoctag"> @author</span> jifang
+ *<span class="hljs-javadoctag"> @since</span> 16/3/3 下午5:38.
+ */</span>
+<span class="hljs-keyword">public</span> <span class="hljs-class"><span class="hljs-keyword">class</span> <span class="hljs-title">Aspect</span> {</span>
+
+    <span class="hljs-javadoc">/**
+     * 无返回值
+     */</span>
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">void</span> <span class="hljs-title">before1</span>() {
+        System.out.println(<span class="hljs-string">"前置增强before1"</span>);
+    }
+
+    <span class="hljs-javadoc">/**
+     * 还可以传入连接点参数 JoinPoint
+     *
+     *<span class="hljs-javadoctag"> @param</span> point
+     */</span>
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">void</span> <span class="hljs-title">before2</span>(JoinPoint point) {
+        System.out.printf(<span class="hljs-string">"前置增强before2 %s%n"</span>, point.getKind());
+    }
+}</code></pre>
+
+<ul>
+<li>装配</li>
+</ul>
+
+
+
+<pre class="prettyprint"><code class=" hljs xml"><span class="hljs-pi">&lt;?xml version="1.0" encoding="UTF-8"?&gt;</span>
+<span class="hljs-tag">&lt;<span class="hljs-title">beans</span> <span class="hljs-attribute">xmlns</span>=<span class="hljs-value">"http://www.springframework.org/schema/beans"</span>
+       <span class="hljs-attribute">xmlns:xsi</span>=<span class="hljs-value">"http://www.w3.org/2001/XMLSchema-instance"</span>
+       <span class="hljs-attribute">xmlns:aop</span>=<span class="hljs-value">"http://www.springframework.org/schema/aop"</span>
+       <span class="hljs-attribute">xmlns:context</span>=<span class="hljs-value">"http://www.springframework.org/schema/context"</span>
+       <span class="hljs-attribute">xsi:schemaLocation</span>=<span class="hljs-value">"http://www.springframework.org/schema/beans
+       http://www.springframework.org/schema/beans/spring-beans.xsd
+       http://www.springframework.org/schema/aop
+       http://www.springframework.org/schema/aop/spring-aop.xsd
+       http://www.springframework.org/schema/context
+       http://www.springframework.org/schema/context/spring-context.xsd"</span>&gt;</span>
+
+    <span class="hljs-tag">&lt;<span class="hljs-title">context:component-scan</span> <span class="hljs-attribute">base-package</span>=<span class="hljs-value">"com.fq.service"</span>/&gt;</span>
+
+    <span class="hljs-comment">&lt;!-- 配置切面通知 --&gt;</span>
+    <span class="hljs-tag">&lt;<span class="hljs-title">bean</span> <span class="hljs-attribute">id</span>=<span class="hljs-value">"advice"</span> <span class="hljs-attribute">class</span>=<span class="hljs-value">"com.fq.advice.Aspect"</span>/&gt;</span>
+
+    <span class="hljs-comment">&lt;!-- AOP切面配置 --&gt;</span>
+    <span class="hljs-tag">&lt;<span class="hljs-title">aop:config</span>&gt;</span>
+        <span class="hljs-tag">&lt;<span class="hljs-title">aop:aspect</span> <span class="hljs-attribute">ref</span>=<span class="hljs-value">"advice"</span>&gt;</span>
+            <span class="hljs-tag">&lt;<span class="hljs-title">aop:pointcut</span> <span class="hljs-attribute">id</span>=<span class="hljs-value">"pointcut"</span> <span class="hljs-attribute">expression</span>=<span class="hljs-value">"execution(* com.fq.service.impl.OrderServiceImpl.*(..))"</span>/&gt;</span>
+            <span class="hljs-tag">&lt;<span class="hljs-title">aop:before</span> <span class="hljs-attribute">method</span>=<span class="hljs-value">"before1"</span> <span class="hljs-attribute">pointcut-ref</span>=<span class="hljs-value">"pointcut"</span>/&gt;</span>
+            <span class="hljs-tag">&lt;<span class="hljs-title">aop:before</span> <span class="hljs-attribute">method</span>=<span class="hljs-value">"before2"</span> <span class="hljs-attribute">pointcut-ref</span>=<span class="hljs-value">"pointcut"</span>/&gt;</span>
+        <span class="hljs-tag">&lt;/<span class="hljs-title">aop:aspect</span>&gt;</span>
+    <span class="hljs-tag">&lt;/<span class="hljs-title">aop:config</span>&gt;</span>
+
+<span class="hljs-tag">&lt;/<span class="hljs-title">beans</span>&gt;</span></code></pre>
+
+<ul>
+<li>前置通知小结 <br />
+<ul><li>前置通知会保证在目标方法执行前执行;</li>
+<li>前置通知默认不能阻止目标方法执行(但如果通知抛出异常,则目标方法无法执行);</li>
+<li>可以通过<code>JoinPoint</code>参数获得当前拦截对象和方法等信息.</li></ul></li>
+</ul>
+
+<hr />
+
+
+
+<h3 id="后置通知">后置通知</h3>
+
+<ul>
+<li>定义通知</li>
+</ul>
+
+
+
+<pre class="prettyprint"><code class=" hljs cs"><span class="hljs-keyword">public</span> <span class="hljs-keyword">void</span> <span class="hljs-title">afterReturning</span>(JoinPoint point, Object result) {
+    System.<span class="hljs-keyword">out</span>.printf(<span class="hljs-string">"后置增强, 结果为 %s%n"</span>, result);
+}</code></pre>
+
+<ul>
+<li>装配</li>
+</ul>
+
+
+
+<pre class="prettyprint"><code class=" hljs oxygene">&lt;aop:after-returning <span class="hljs-function"><span class="hljs-keyword">method</span>="<span class="hljs-title">afterReturning</span>" <span class="hljs-title">returning</span>="<span class="hljs-title">result</span>" <span class="hljs-title">pointcut</span>-<span class="hljs-title">ref</span>="<span class="hljs-title">pointcut</span>"/&gt;</span></code></pre>
+
+<blockquote>
+  <p>后置通知可以获得方法返回值,但在配置文件定义返回值参数名必须与后置通知方法参数名一致(如<code>result</code>).</p>
+</blockquote>
+
+<hr />
+
+
+
+<h3 id="环绕通知">环绕通知</h3>
+
+<ul>
+<li>定义通知</li>
+</ul>
+
+
+
+<pre class="prettyprint"><code class=" hljs avrasm">public Object around(ProceedingJoinPoint point) throws Throwable {
+    System<span class="hljs-preprocessor">.out</span><span class="hljs-preprocessor">.printf</span>(<span class="hljs-string">"环绕前置增强 method: %s, args: %s%n"</span>, point<span class="hljs-preprocessor">.toShortString</span>(), Arrays<span class="hljs-preprocessor">.toString</span>(point<span class="hljs-preprocessor">.getArgs</span>()))<span class="hljs-comment">;</span>
+
+    Object result = point<span class="hljs-preprocessor">.proceed</span>(point<span class="hljs-preprocessor">.getArgs</span>())<span class="hljs-comment">;</span>
+
+    System<span class="hljs-preprocessor">.out</span><span class="hljs-preprocessor">.printf</span>(<span class="hljs-string">"环绕后置增强 result: %s%n"</span>, result)<span class="hljs-comment">;</span>
+
+    return result<span class="hljs-comment">;</span>
+}</code></pre>
+
+<ul>
+<li>装配</li>
+</ul>
+
+
+
+<pre class="prettyprint"><code class=" hljs oxygene">&lt;aop:around <span class="hljs-function"><span class="hljs-keyword">method</span>="<span class="hljs-title">around</span>" <span class="hljs-title">arg</span>-<span class="hljs-title">names</span>="<span class="hljs-title">point</span>" <span class="hljs-title">pointcut</span>-<span class="hljs-title">ref</span>="<span class="hljs-title">pointcut</span>"/&gt;</span></code></pre>
+
+<blockquote>
+  <p>环绕通知可以实现任何通知的效果, 甚至可以阻止目标方法的执行.</p>
+</blockquote>
+
+<hr />
+
+
+
+<h3 id="抛出通知">抛出通知</h3>
+
+<ul>
+<li>定义通知</li>
+</ul>
+
+
+
+<pre class="prettyprint"><code class=" hljs avrasm">private static final Logger LOGGER = LoggerFactory<span class="hljs-preprocessor">.getLogger</span>(Aspect<span class="hljs-preprocessor">.class</span>)<span class="hljs-comment">;</span>
+
+public void afterThrowing(JoinPoint point, Throwable ex) {
+    String message = new StringBuilder(<span class="hljs-string">"method "</span>)<span class="hljs-preprocessor">.append</span>(point<span class="hljs-preprocessor">.getSignature</span>()<span class="hljs-preprocessor">.getName</span>())<span class="hljs-preprocessor">.append</span>(<span class="hljs-string">" error"</span>)<span class="hljs-preprocessor">.toString</span>()<span class="hljs-comment">;</span>
+    System<span class="hljs-preprocessor">.out</span><span class="hljs-preprocessor">.println</span>(message)<span class="hljs-comment">;</span>
+
+    LOGGER<span class="hljs-preprocessor">.error</span>(<span class="hljs-string">"{},"</span>, message, ex)<span class="hljs-comment">;</span>
+}</code></pre>
+
+<ul>
+<li>装配</li>
+</ul>
+
+
+
+<pre class="prettyprint"><code class=" hljs oxygene">&lt;aop:after-throwing <span class="hljs-function"><span class="hljs-keyword">method</span>="<span class="hljs-title">afterThrowing</span>" <span class="hljs-title">throwing</span>="<span class="hljs-title">ex</span>" <span class="hljs-title">pointcut</span>-<span class="hljs-title">ref</span>="<span class="hljs-title">pointcut</span>"/&gt;</span></code></pre>
+
+<blockquote>
+  <p><code>throwing</code>属性指定异常对象名, 该名称应和方法定义参数名一致.</p>
+</blockquote>
+
+<hr />
+
+
+
+<h3 id="最终通知">最终通知</h3>
+
+<ul>
+<li>定义通知</li>
+</ul>
+
+
+
+<pre class="prettyprint"><code class=" hljs cs"><span class="hljs-keyword">public</span> <span class="hljs-keyword">void</span> <span class="hljs-title">after</span>(JoinPoint point) {
+    System.<span class="hljs-keyword">out</span>.println(<span class="hljs-string">"最终通知, 释放资源"</span>);
+}</code></pre>
+
+<ul>
+<li>装配</li>
+</ul>
+
+
+
+<pre class="prettyprint"><code class=" hljs oxygene">&lt;aop:after <span class="hljs-function"><span class="hljs-keyword">method</span>="<span class="hljs-title">after</span>" <span class="hljs-title">pointcut</span>-<span class="hljs-title">ref</span>="<span class="hljs-title">pointcut</span>"/&gt;</span></code></pre>
+
+<blockquote>
+  <p>无论目标方法是否出现异常,该通知都会执行(类似<code>finally</code>代码块, 应用场景为释放资源).</p>
+</blockquote>
+
+<hr />
+
+
+
+<h2 id="aspectj-annotation-aop">AspectJ-Annotation-AOP</h2>
+
+<p><code>@AspectJ</code>是AspectJ 1.5新增功能,可以通过JDK注解技术,直接在Bean类中定义切面. <br />
+AspectJ预定义的注解有:<code>@Before</code>/<code>@AfterReturning</code>/<code>@Around</code>/<code>@AfterThrowing</code>/<code>@DeclareParents</code>/<code>@After</code>.描述同前. <br />
+使用AspectJ注解AOP需要在applicationContext.xml文件中开启注解自动代理功能:</p>
+
+
+
+<pre class="prettyprint"><code class=" hljs xml"><span class="hljs-pi">&lt;?xml version="1.0" encoding="UTF-8"?&gt;</span>
+<span class="hljs-tag">&lt;<span class="hljs-title">beans</span> <span class="hljs-attribute">xmlns</span>=<span class="hljs-value">"http://www.springframework.org/schema/beans"</span>
+       <span class="hljs-attribute">xmlns:xsi</span>=<span class="hljs-value">"http://www.w3.org/2001/XMLSchema-instance"</span>
+       <span class="hljs-attribute">xmlns:aop</span>=<span class="hljs-value">"http://www.springframework.org/schema/aop"</span>
+       <span class="hljs-attribute">xmlns:context</span>=<span class="hljs-value">"http://www.springframework.org/schema/context"</span>
+       <span class="hljs-attribute">xsi:schemaLocation</span>=<span class="hljs-value">"http://www.springframework.org/schema/beans
+       http://www.springframework.org/schema/beans/spring-beans.xsd
+       http://www.springframework.org/schema/aop
+       http://www.springframework.org/schema/aop/spring-aop.xsd
+       http://www.springframework.org/schema/context
+       http://www.springframework.org/schema/context/spring-context.xsd"</span>&gt;</span>
+
+    <span class="hljs-comment">&lt;!-- 批量扫描@Component --&gt;</span>
+    <span class="hljs-tag">&lt;<span class="hljs-title">context:component-scan</span> <span class="hljs-attribute">base-package</span>=<span class="hljs-value">"com.fq"</span>/&gt;</span>
+    <span class="hljs-comment">&lt;!-- 启用注解自动代理@Aspect--&gt;</span>
+    <span class="hljs-tag">&lt;<span class="hljs-title">aop:aspectj-autoproxy</span>/&gt;</span>
+<span class="hljs-tag">&lt;/<span class="hljs-title">beans</span>&gt;</span></code></pre>
+
+<ul>
+<li><code>OrderService</code>/<code>Client</code>同前</li>
+</ul>
+
+<hr />
+
+
+
+<h3 id="before">@Before</h3>
+
+<ul>
+<li>Aspect</li>
+</ul>
+
+
+
+<pre class="prettyprint"><code class=" hljs java"><span class="hljs-javadoc">/**
+ *<span class="hljs-javadoctag"> @Aspect</span>: 指定是一个切面
+ *<span class="hljs-javadoctag"> @Component</span>: 指定可以被Spring容器扫描到
+ */</span>
+<span class="hljs-annotation">@Aspect</span>
+<span class="hljs-annotation">@Component</span>
+<span class="hljs-keyword">public</span> <span class="hljs-class"><span class="hljs-keyword">class</span> <span class="hljs-title">CustomAspect</span> {</span>
+
+    <span class="hljs-annotation">@Before</span>(<span class="hljs-string">"execution(* com.fq.service.impl.OrderServiceImpl.*(..))"</span>)
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">void</span> <span class="hljs-title">before</span>(JoinPoint point) {
+        System.out.printf(<span class="hljs-string">"前置增强before2 %s%n"</span>, point.getKind());
+    }
+}</code></pre>
+
+<hr />
+
+
+
+<h3 id="afterreturning">@AfterReturning</h3>
+
+
+
+<pre class="prettyprint"><code class=" hljs cs">@AfterReturning(<span class="hljs-keyword">value</span> = <span class="hljs-string">"execution(* com.fq.service.impl.OrderServiceImpl.d*(..))"</span>, returning = <span class="hljs-string">"result"</span>)
+<span class="hljs-keyword">public</span> <span class="hljs-keyword">void</span> <span class="hljs-title">afterReturning</span>(JoinPoint point, Object result) {
+    System.<span class="hljs-keyword">out</span>.printf(<span class="hljs-string">"后置增强, 结果为 %s%n"</span>, result);
+}</code></pre>
+
+<hr />
+
+
+
+<h3 id="around">@Around</h3>
+
+
+
+<pre class="prettyprint"><code class=" hljs java"><span class="hljs-annotation">@Around</span>(<span class="hljs-string">"execution(* com.fq.service.impl.OrderServiceImpl.*(..))"</span>)
+<span class="hljs-keyword">public</span> Object <span class="hljs-title">around</span>(ProceedingJoinPoint point) <span class="hljs-keyword">throws</span> Throwable {
+    <span class="hljs-keyword">long</span> start = System.currentTimeMillis();
+    Object result = point.proceed(point.getArgs());
+    <span class="hljs-keyword">long</span> time = System.currentTimeMillis() - start;
+
+    System.out.printf(<span class="hljs-string">"method %s invoke consuming %d ms%n"</span>, point.toLongString(), time);
+
+    <span class="hljs-keyword">return</span> result;
+}</code></pre>
+
+<blockquote>
+  <p>如果不调用<code>ProceedingJoinPoint</code>的<code>proceed</code>方法,那么目标方法就不执行了.</p>
+</blockquote>
+
+<hr />
+
+
+
+<h3 id="afterthrowing">@AfterThrowing</h3>
+
+
+
+<pre class="prettyprint"><code class=" hljs avrasm">@AfterThrowing(value = <span class="hljs-string">"execution(* com.fq.service.impl.OrderServiceImpl.*(..))"</span>, throwing = <span class="hljs-string">"ex"</span>)
+public void afterThrowing(JoinPoint point, Throwable ex) {
+    String message = new StringBuilder(<span class="hljs-string">"method "</span>)<span class="hljs-preprocessor">.append</span>(point<span class="hljs-preprocessor">.getSignature</span>()<span class="hljs-preprocessor">.getName</span>())<span class="hljs-preprocessor">.append</span>(<span class="hljs-string">" error"</span>)<span class="hljs-preprocessor">.toString</span>()<span class="hljs-comment">;</span>
+    System<span class="hljs-preprocessor">.out</span><span class="hljs-preprocessor">.println</span>(message)<span class="hljs-comment">;</span>
+
+    LOGGER<span class="hljs-preprocessor">.error</span>(<span class="hljs-string">"{},"</span>, message, ex)<span class="hljs-comment">;</span>
+}</code></pre>
+
+<hr />
+
+
+
+<h3 id="after">@After</h3>
+
+
+
+<pre class="prettyprint"><code class=" hljs cs">@After(<span class="hljs-string">"execution(* com.fq.service.impl.OrderServiceImpl.*(..))"</span>)
+<span class="hljs-keyword">public</span> <span class="hljs-keyword">void</span> <span class="hljs-title">after</span>(JoinPoint point) {
+    System.<span class="hljs-keyword">out</span>.println(<span class="hljs-string">"最终通知, 释放资源"</span>);
+}</code></pre>
+
+<hr />
+
+
+
+<h3 id="pointcut定义切点">@Pointcut定义切点</h3>
+
+<p>对于重复的切点,可以使用<code>@Pointcut</code>进行定义, 然后在通知注解内引用.</p>
+
+<ul>
+<li>定义切点方法 <br />
+无参/无返回值/方法名为切点名:</li>
+</ul>
+
+
+
+<pre class="prettyprint"><code class=" hljs java"><span class="hljs-javadoc">/**
+ *<span class="hljs-javadoctag"> @author</span> jifang
+ *<span class="hljs-javadoctag"> @since</span> 16/3/4 上午11:47.
+ */</span>
+<span class="hljs-keyword">public</span> <span class="hljs-class"><span class="hljs-keyword">class</span> <span class="hljs-title">OrderServicePointcut</span> {</span>
+
+    <span class="hljs-annotation">@Pointcut</span>(<span class="hljs-string">"execution(* com.fq.service.impl.OrderServiceImpl.*(..))"</span>)
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">void</span> <span class="hljs-title">pointcut</span>() {
+    }
+}</code></pre>
+
+<ul>
+<li>引用切点 <br />
+在Advice上像调用方法一样引用切点:</li>
+</ul>
+
+
+
+<pre class="prettyprint"><code class=" hljs cs">@After(<span class="hljs-string">"OrderServicePointcut.pointcut()"</span>)
+<span class="hljs-keyword">public</span> <span class="hljs-keyword">void</span> <span class="hljs-title">after</span>(JoinPoint point) {
+    System.<span class="hljs-keyword">out</span>.println(<span class="hljs-string">"最终通知, 释放资源"</span>);
+}</code></pre>
+
+<blockquote>
+  <p>1) 如果切点与切面在同一个类内, 可省去类名前缀; <br />
+  2) 当需要通知多个切点时,可以使用<code>||</code>/<code>&amp;&amp;</code>进行连接.</p>
+</blockquote>
+
+<hr />
+
+
+
+<h3 id="小结">小结</h3>
+
+<table>
+<thead>
+<tr>
+  <th align="center">通知</th>
+  <th align="left">描述</th>
+</tr>
+</thead>
+<tbody><tr>
+  <td align="center">前置通知</td>
+  <td align="left">权限控制(少用)</td>
+</tr>
+<tr>
+  <td align="center">后置通知</td>
+  <td align="left">少用</td>
+</tr>
+<tr>
+  <td align="center">环绕通知</td>
+  <td align="left">权限控制/性能监控/缓存实现/事务管理</td>
+</tr>
+<tr>
+  <td align="center">异常通知</td>
+  <td align="left">发生异常后,记录错误日志</td>
+</tr>
+<tr>
+  <td align="center">最终通知</td>
+  <td align="left">释放资源</td>
+</tr>
+</tbody></table>
+
+
+<hr /></div>&#13;
+        <script type="text/javascript">&#13;
+            $(function () {&#13;
+                $('pre.prettyprint code').each(function () {&#13;
+                    var lines = $(this).text().split('\n').length;&#13;
+                    var $numbering = $('&lt;ul/&gt;').addClass('pre-numbering').hide();&#13;
+                    $(this).addClass('has-numbering').parent().append($numbering);&#13;
+                    for (i = 1; i &lt;= lines; i++) {&#13;
+                        $numbering.append($('&lt;li/&gt;').text(i));&#13;
+                    };&#13;
+                    $numbering.fadeIn(1700);&#13;
+                });&#13;
+            });&#13;
+        </script>&#13;
+   &#13;

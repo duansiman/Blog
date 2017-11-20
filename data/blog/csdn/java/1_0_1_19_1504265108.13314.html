@@ -1,0 +1,209 @@
+
+<p><span style="font-size:14px;">状态模式（State）行为型<br />     根据内部状态的变化，改变对象的行为。既改变对象的状态，又改变对象的行为 <br /></span></p><p><span style="font-size:14px;"><br /></span></p><p><span style="font-size:14px;">假定，一个游戏有五个基本的行为：open、login、prepare、game、exit</span></p><p><span style="font-size:14px;">有四种基本状态：IdleState、OpenState、LoginState、GameState</span></p><p><span style="font-size:14px;"><br /></span></p><p><span style="font-size:14px;">提取行为，抽象出接口：</span></p><p><span style="font-size:14px;"></span></p><pre code_snippet_id="2467789" snippet_file_name="blog_20170703_1_1930996" name="code" class="java">/**
+ * author: stone
+ */
+public interface IGameState {
+
+    void open();
+
+    void login();
+
+    void prepare();
+
+    void game();
+
+    void exit();
+
+}</pre><br />定义各个状态类，<span style="font-size:14px;">分别实现该接口。</span><p></p><p><span style="font-size:14px;"><span style="font-size:14px;"></span></span></p><pre code_snippet_id="2467789" snippet_file_name="blog_20170703_2_5420770" name="code" class="java">/**
+ * author: stone
+ */
+public class IdleState implements IGameState {
+    @Override
+    public void open() {
+        System.out.println("on IdleState， 打开了游戏");
+    }
+
+    @Override
+    public void login() {
+        System.out.println("on IdleState， 请打开游戏");
+    }
+
+    @Override
+    public void prepare() {
+        System.out.println("on IdleState， 请打开游戏");
+    }
+
+    @Override
+    public void game() {
+        System.out.println("on IdleState， 请打开游戏");
+    }
+
+    @Override
+    public void exit() {
+        System.out.println("on IdleState， 无效操作");
+    }
+}</pre><p><span style="font-size:14px;"><span style="font-size:14px;"><br /></span></span></p><p><span style="font-size:14px;"><span style="font-size:14px;"></span></span></p><pre code_snippet_id="2467789" snippet_file_name="blog_20170703_3_3294982" name="code" class="java">/**
+ * author: stone
+ */
+public class OpenState implements IGameState {
+    @Override
+    public void open() {
+        System.out.println("on OpenState， 不能多开游戏");
+    }
+
+    @Override
+    public void login() {
+        System.out.println("on OpenState， 进行登录");
+    }
+
+    @Override
+    public void prepare() {
+        System.out.println("on OpenState， 请先登录");
+    }
+
+    @Override
+    public void game() {
+        System.out.println("on OpenState， 要先登录，才能玩游戏");
+    }
+
+    @Override
+    public void exit() {
+        System.out.println("on OpenState， 离开游戏");
+    }
+}</pre><p></p><br /><pre code_snippet_id="2467789" snippet_file_name="blog_20170703_4_8420175" name="code" class="java">/**
+ * author: stone
+ */
+public class LoginState implements IGameState {
+    @Override
+    public void open() {
+        System.out.println("on LoginState， 不能多开游戏");
+    }
+
+    @Override
+    public void login() {
+        System.out.println("on LoginState， 不要重复登录");
+    }
+
+    @Override
+    public void prepare() {
+        System.out.println("on LoginState， 准备游戏人物、场景等");
+    }
+
+    @Override
+    public void game() {
+        System.out.println("on LoginState， 能玩游戏");
+    }
+
+    @Override
+    public void exit() {
+        System.out.println("on LoginState， 离开游戏");
+    }
+}</pre><br /><pre code_snippet_id="2467789" snippet_file_name="blog_20170703_5_5530237" name="code" class="java">/**
+ * author: stone
+ */
+public class GameState implements IGameState {
+    @Override
+    public void open() {
+        System.out.println("on GameState， 不能多开游戏");
+    }
+
+    @Override
+    public void login() {
+        System.out.println("on GameState， 不要重复登录");
+    }
+
+    @Override
+    public void prepare() {
+        System.out.println("on GameState， 准备游戏人物、场景等");
+    }
+
+    @Override
+    public void game() {
+        System.out.println("on GameState， 游戏中");
+    }
+
+    @Override
+    public void exit() {
+        System.out.println("on GameState， 离开游戏");
+    }
+}</pre><br /><span style="font-size:14px;">一个客户端类，集成状态的改变，与不同行为的处理。</span><p><span style="font-size:14px;"><span style="font-size:14px;"></span></span></p><pre code_snippet_id="2467789" snippet_file_name="blog_20170703_6_8180195" name="code" class="java">/**
+ * author: stone
+ */
+public class SuperGame {
+
+    private IGameState state;
+    private OpenState openState = new OpenState();
+    private LoginState loginState = new LoginState();
+    private GameState gameState = new GameState();
+    private IdleState exitState = new IdleState();
+
+    public SuperGame() {
+        state = idleState;
+    }
+
+    public void open() {
+        state.open();
+        if (state == idleState) {
+            state = openState;
+        }
+    }
+
+    public void login() {
+        state.login();
+        if (state == openState) {
+            state = loginState;
+        }
+    }
+
+    private void prepare() {
+        state.prepare();
+    }
+
+    public void play() {
+        prepare();
+        if (state == loginState) {
+            state = gameState;
+            state.game();
+        }
+    }
+
+    public void exit() {
+        state.exit();
+        state = idleState;
+    }
+}</pre><p><span style="font-size:14px;">注意上面的play()，集成了状态类的 prepare()和game()</span></p><p><br /></p><span style="font-size:14px;">测试</span>：<p></p><p><span style="font-size:14px;"><span style="font-size:14px;"></span></span></p><pre code_snippet_id="2467789" snippet_file_name="blog_20170703_7_2989745" name="code" class="java">public class Main {
+
+    public static void main(String[] args) {
+
+        SuperGame game = new SuperGame();
+        game.open();
+        game.login();
+        game.play();
+        game.exit();
+
+        System.out.println("\n--- on IdleState, does not open ---");
+        game.login();
+        game.play();
+        game.exit();
+
+        System.out.println("\n--- on LoginState, does not login ---");
+        game.open();
+        game.play();
+        game.exit();
+    }
+}</pre><br /><span style="font-size:14px;">print：</span><p></p><p><span style="font-size:14px;"><span style="font-size:14px;"></span></span></p><pre code_snippet_id="2467789" snippet_file_name="blog_20170703_8_3687856" name="code" class="plain">on IdleState， 打开了游戏
+on OpenState， 进行登录
+on LoginState， 准备游戏人物、场景等
+on GameState， 游戏中
+on GameState， 离开游戏
+
+--- on IdleState, does not open ---
+on IdleState， 请打开游戏
+on IdleState， 请打开游戏
+on IdleState， 无效操作
+
+--- on LoginState, does not login ---
+on IdleState， 打开了游戏
+on OpenState， 请先登录
+on OpenState， 离开游戏
+</pre><span style="font-size:14px;"><br /></span><p></p><p><br /></p>   &#13;

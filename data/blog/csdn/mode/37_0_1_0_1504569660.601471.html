@@ -1,0 +1,214 @@
+
+        <div class="markdown_views"><h2 id="介绍">介绍</h2>
+
+<p>状态模式和策略模式是一对双胞胎，他们都属于行为设计模式。状态模式和策略模式都是为具有多种可能情形设计的模式，把不同的处理情形抽象为一个相同的接口，符合对扩展开放，对修改封闭的原则。策略模式封装了一组相关算法，它允许Client在运行时使用可互换的行为；状态模式帮助一个类在不同的状态显示不同的行为。状态模式封装了对象的状态，而策略模式封装算法或策略。因为状态是跟对象密切相关的，它不能被重用；而通过从Context中分离出策略或算法，我们可以重用它们。 <br />
+状态模式(State Pattern) 允许一个对象在其内部状态改变时改变它的行为，对象看起来似乎修改了它的类。对象的行为依赖于它的状态（属性），并且可以根据它的状态改变而改变它的相关行为。</p>
+
+<p>TCP协议中的三次握手和四次断开也可以使用状态模式来实现。</p>
+
+<h2 id="结构图">结构图</h2>
+
+<p><img src="http://img.blog.csdn.net/20170904173251111?watermark/2/text/aHR0cDovL2Jsb2cuY3Nkbi5uZXQvdTAxMzIzOTExMQ==/font/5a6L5L2T/fontsize/400/fill/I0JBQkFCMA==/dissolve/70/gravity/SouthEast" alt="这里写图片描述" title="" /></p>
+
+
+
+<h2 id="时序图">时序图</h2>
+
+<p><img src="http://img.blog.csdn.net/20170904173317993?watermark/2/text/aHR0cDovL2Jsb2cuY3Nkbi5uZXQvdTAxMzIzOTExMQ==/font/5a6L5L2T/fontsize/400/fill/I0JBQkFCMA==/dissolve/70/gravity/SouthEast" alt="这里写图片描述" title="" /></p>
+
+
+
+<h2 id="案例">案例</h2>
+
+<p>我就用工作日的上班时间来举例子 <br />
+6种状态</p>
+
+<ol>
+<li>23点到早上7点</li>
+<li>7点到9点</li>
+<li>9点到12点</li>
+<li>12点到13点</li>
+<li>13点到18点</li>
+<li>18点到23点</li>
+</ol>
+
+<p><strong>State 抽象类</strong></p>
+
+<pre class="prettyprint"><code class=" hljs cs"><span class="hljs-keyword">public</span> <span class="hljs-keyword">abstract</span> <span class="hljs-keyword">class</span> State {
+
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">abstract</span> <span class="hljs-keyword">void</span> <span class="hljs-title">handle</span>(WorkDay workDay);
+
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">void</span> <span class="hljs-title">changeState</span>(WorkDay workDay){
+        State state = <span class="hljs-keyword">null</span>;
+        <span class="hljs-keyword">if</span> (<span class="hljs-number">23</span> &lt; workDay.getHour() || workDay.getHour() &lt;= <span class="hljs-number">7</span>) {
+            state = <span class="hljs-keyword">new</span> SleepState();
+        }
+        <span class="hljs-keyword">if</span> (<span class="hljs-number">7</span> &lt; workDay.getHour() &amp;&amp; workDay.getHour() &lt;= <span class="hljs-number">9</span>) {
+            state = <span class="hljs-keyword">new</span> EarlyMorningState();
+        }
+        <span class="hljs-keyword">if</span> (<span class="hljs-number">9</span> &lt; workDay.getHour() &amp;&amp; workDay.getHour() &lt;= <span class="hljs-number">12</span>) {
+            state = <span class="hljs-keyword">new</span> MorningState();
+        }
+        <span class="hljs-keyword">if</span> (<span class="hljs-number">12</span> &lt; workDay.getHour() &amp;&amp; workDay.getHour() &lt;= <span class="hljs-number">13</span>) {
+            state = <span class="hljs-keyword">new</span> MiddayState();
+        }
+        <span class="hljs-keyword">if</span> (<span class="hljs-number">13</span> &lt; workDay.getHour() &amp;&amp; workDay.getHour() &lt; <span class="hljs-number">18</span>) {
+            state = <span class="hljs-keyword">new</span> AfternoonState();
+        }
+        <span class="hljs-keyword">if</span> (<span class="hljs-number">18</span> &lt; workDay.getHour() &amp;&amp; workDay.getHour() &lt;= <span class="hljs-number">23</span>) {
+            state = <span class="hljs-keyword">new</span> NightState();
+        }
+
+        workDay.setState(state);
+        workDay.doWork();
+    }
+}</code></pre>
+
+<p><strong>23点到早上7点睡觉状态SleepState</strong> </p>
+
+<pre class="prettyprint"><code class=" hljs java"><span class="hljs-keyword">public</span> <span class="hljs-class"><span class="hljs-keyword">class</span> <span class="hljs-title">SleepState</span> <span class="hljs-keyword">extends</span> <span class="hljs-title">State</span> {</span>
+
+    <span class="hljs-annotation">@Override</span>
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">void</span> <span class="hljs-title">handle</span>(WorkDay workDay) {
+        <span class="hljs-keyword">if</span> (<span class="hljs-number">23</span> &lt; workDay.getHour() || workDay.getHour() &lt;= <span class="hljs-number">7</span>) {
+            System.out.println(<span class="hljs-string">"现在是"</span> + workDay.getHour() + <span class="hljs-string">"点，晚上睡觉时间!"</span>);
+        } <span class="hljs-keyword">else</span> {
+            changeState(workDay);
+        }
+    }
+
+}</code></pre>
+
+<p><strong>7点到9点清晨状态EarlyMorningState </strong></p>
+
+<pre class="prettyprint"><code class=" hljs java"><span class="hljs-keyword">public</span> <span class="hljs-class"><span class="hljs-keyword">class</span> <span class="hljs-title">EarlyMorningState</span> <span class="hljs-keyword">extends</span> <span class="hljs-title">State</span> {</span>
+
+    <span class="hljs-annotation">@Override</span>
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">void</span> <span class="hljs-title">handle</span>(WorkDay workDay) {
+        <span class="hljs-keyword">if</span> (<span class="hljs-number">7</span> &lt; workDay.getHour() &amp;&amp; workDay.getHour() &lt;= <span class="hljs-number">9</span>) {
+            System.out.println(<span class="hljs-string">"现在是"</span> + workDay.getHour() + <span class="hljs-string">"点，清晨，准备上班!"</span>);
+        } <span class="hljs-keyword">else</span> {
+            changeState(workDay);
+        }
+    }
+
+}</code></pre>
+
+<p><strong>9点到12点上午上班状态MorningState</strong> </p>
+
+<pre class="prettyprint"><code class=" hljs java"><span class="hljs-keyword">public</span> <span class="hljs-class"><span class="hljs-keyword">class</span> <span class="hljs-title">MorningState</span> <span class="hljs-keyword">extends</span> <span class="hljs-title">State</span>{</span>
+    <span class="hljs-annotation">@Override</span>
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">void</span> <span class="hljs-title">handle</span>(WorkDay workDay) {
+        <span class="hljs-keyword">if</span> (<span class="hljs-number">9</span> &lt; workDay.getHour() &amp;&amp; workDay.getHour() &lt;= <span class="hljs-number">12</span>) {
+            System.out.println(<span class="hljs-string">"现在是"</span> + workDay.getHour() + <span class="hljs-string">"点，上午工作时间!"</span>);
+        } <span class="hljs-keyword">else</span> {
+            changeState(workDay);
+        }
+    }
+}</code></pre>
+
+<p><strong>12点到13点中午休息状态MiddayState</strong> </p>
+
+<pre class="prettyprint"><code class=" hljs java"><span class="hljs-keyword">public</span> <span class="hljs-class"><span class="hljs-keyword">class</span> <span class="hljs-title">MiddayState</span> <span class="hljs-keyword">extends</span> <span class="hljs-title">State</span> {</span>
+    <span class="hljs-annotation">@Override</span>
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">void</span> <span class="hljs-title">handle</span>(WorkDay workDay) {
+        <span class="hljs-keyword">if</span> (<span class="hljs-number">12</span> &lt; workDay.getHour() &amp;&amp; workDay.getHour() &lt;= <span class="hljs-number">13</span>) {
+            System.out.println(<span class="hljs-string">"现在是"</span>+workDay.getHour()+<span class="hljs-string">"点，中午休息时间!"</span>);
+        } <span class="hljs-keyword">else</span> {
+            workDay.setState(<span class="hljs-keyword">new</span> NightState());
+            workDay.doWork();
+        }
+    }
+}</code></pre>
+
+<p><strong>13点到18点下午工作状态AfternoonState</strong> </p>
+
+<pre class="prettyprint"><code class=" hljs java"><span class="hljs-keyword">public</span> <span class="hljs-class"><span class="hljs-keyword">class</span> <span class="hljs-title">AfternoonState</span> <span class="hljs-keyword">extends</span> <span class="hljs-title">State</span> {</span>
+
+    <span class="hljs-annotation">@Override</span>
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">void</span> <span class="hljs-title">handle</span>(WorkDay workDay) {
+        <span class="hljs-keyword">if</span> (<span class="hljs-number">13</span> &lt; workDay.getHour() &amp;&amp; workDay.getHour() &lt;= <span class="hljs-number">18</span>) {
+            System.out.println(<span class="hljs-string">"现在是"</span> + workDay.getHour() + <span class="hljs-string">"点，下午工作时间!"</span>);
+        } <span class="hljs-keyword">else</span> {
+            changeState(workDay);
+        }
+    }
+}</code></pre>
+
+<p><strong>18点到23点晚上下班状态NightState</strong> </p>
+
+<pre class="prettyprint"><code class=" hljs java"><span class="hljs-keyword">public</span> <span class="hljs-class"><span class="hljs-keyword">class</span> <span class="hljs-title">NightState</span> <span class="hljs-keyword">extends</span> <span class="hljs-title">State</span> {</span>
+
+    <span class="hljs-annotation">@Override</span>
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">void</span> <span class="hljs-title">handle</span>(WorkDay workDay) {
+        <span class="hljs-keyword">if</span> (<span class="hljs-number">18</span> &lt; workDay.getHour() &amp;&amp; workDay.getHour() &lt;= <span class="hljs-number">23</span>) {
+            System.out.println(<span class="hljs-string">"现在是"</span> + workDay.getHour() + <span class="hljs-string">"点，晚上下班时间!"</span>);
+        } <span class="hljs-keyword">else</span> {
+            changeState(workDay);
+        }
+    }
+}</code></pre>
+
+<p><strong>工作日类WorkDay</strong> </p>
+
+<pre class="prettyprint"><code class=" hljs cs"><span class="hljs-keyword">public</span> <span class="hljs-keyword">class</span> WorkDay {
+    <span class="hljs-keyword">private</span> State state = <span class="hljs-keyword">new</span> NightState();
+    <span class="hljs-keyword">private</span> <span class="hljs-keyword">int</span> hour;
+
+    <span class="hljs-keyword">public</span> State <span class="hljs-title">getState</span>() {
+        <span class="hljs-keyword">return</span> state;
+    }
+
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">void</span> <span class="hljs-title">setState</span>(State state) {
+        <span class="hljs-keyword">this</span>.state = state;
+    }
+
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">int</span> <span class="hljs-title">getHour</span>() {
+        <span class="hljs-keyword">return</span> hour;
+    }
+
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">void</span> <span class="hljs-title">setHour</span>(<span class="hljs-keyword">int</span> hour) {
+        <span class="hljs-keyword">this</span>.hour = hour;
+    }
+
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">void</span> <span class="hljs-title">doWork</span>(){
+        state.handle(<span class="hljs-keyword">this</span>);
+    }
+}</code></pre>
+
+<p><strong>调用类Client</strong> </p>
+
+<pre class="prettyprint"><code class=" hljs cs"><span class="hljs-keyword">public</span> <span class="hljs-keyword">class</span> Client {
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">static</span> <span class="hljs-keyword">void</span> <span class="hljs-title">main</span>(String[] args) {
+        WorkDay workDay = <span class="hljs-keyword">new</span> WorkDay();
+        <span class="hljs-keyword">for</span> (<span class="hljs-keyword">int</span> i = <span class="hljs-number">0</span>; i &lt; <span class="hljs-number">55</span>; i++) {
+            workDay.setHour(i%<span class="hljs-number">24</span>);
+            workDay.doWork();
+        }
+    }
+}</code></pre>
+
+<p>运行结果 <br />
+<img src="http://img.blog.csdn.net/20170904190412602?watermark/2/text/aHR0cDovL2Jsb2cuY3Nkbi5uZXQvdTAxMzIzOTExMQ==/font/5a6L5L2T/fontsize/400/fill/I0JBQkFCMA==/dissolve/70/gravity/SouthEast" alt="这里写图片描述" title="" /></p>
+
+
+
+<h2 id="总结">总结</h2>
+
+<p>在很多情况下，一个对象的行为取决于一个或多个动态变化的属性，这样的属性叫做状态，这样的对象叫做有状态的(stateful)对象，这样的对象状态是从事先定义好的一系列值中取出的。当一个这样的对象与外部事件产生互动时，其内部状态就会改变，从而使得系统的行为也随之发生变化。 <br />
+环境类实际上就是拥有状态的对象，环境类有时候可以充当状态管理器(State Manager)的角色，可以在环境类中对状态进行切换操作。 <br />
+抽象状态类可以是抽象类，也可以是接口，不同状态类就是继承这个父类的不同子类，状态类的产生是由于环境类存在多个状态，同时还满足两个条件： 这些状态经常需要切换，在不同的状态下对象的行为不同。因此可以将不同对象下的行为单独提取出来封装在具体的状态类中，使得环境类对象在其内部状态改变时可以改变它的行为，对象看起来似乎修改了它的类，而实际上是由于切换到不同的具体状态类实现的。由于环境类可以设置为任一具体状态类，因此它针对抽象状态类进行编程，在程序运行时可以将任一具体状态类的对象设置到环境类中，从而使得环境类可以改变内部状态，并且改变行为。</p></div>&#13;
+        <script type="text/javascript">&#13;
+            $(function () {&#13;
+                $('pre.prettyprint code').each(function () {&#13;
+                    var lines = $(this).text().split('\n').length;&#13;
+                    var $numbering = $('&lt;ul/&gt;').addClass('pre-numbering').hide();&#13;
+                    $(this).addClass('has-numbering').parent().append($numbering);&#13;
+                    for (i = 1; i &lt;= lines; i++) {&#13;
+                        $numbering.append($('&lt;li/&gt;').text(i));&#13;
+                    };&#13;
+                    $numbering.fadeIn(1700);&#13;
+                });&#13;
+            });&#13;
+        </script>&#13;
+   &#13;

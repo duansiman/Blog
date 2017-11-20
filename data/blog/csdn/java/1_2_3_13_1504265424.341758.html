@@ -1,0 +1,325 @@
+
+                
+<p><br/>&#13;
+</p>&#13;
+<p>本博客以一个demo的形式说明模糊查询实现的两种方法：</p>&#13;
+<p>项目结构如图：</p>&#13;
+<p><img src="http://img.blog.csdn.net/20160502002311464?watermark/2/text/aHR0cDovL2Jsb2cuY3Nkbi5uZXQv/font/5a6L5L2T/fontsize/400/fill/I0JBQkFCMA==/dissolve/70/gravity/Center" alt=""/></p>&#13;
+<p><br/>&#13;
+</p>&#13;
+<p>ConditionUser.java:</p>&#13;
+<pre code_snippet_id="1668817" snippet_file_name="blog_20160502_1_7791920" class="java" name="code">package com.mybatis.entity;
+
+public class ConditionUser {
+	
+	private String name;
+	
+	private int minAge;
+	
+	private int maxAge;
+	
+	public ConditionUser(String name,int minAge,int maxAge){
+		this.name= name;
+		this.minAge = minAge;
+		this.maxAge = maxAge;
+	}
+	
+	public String getName() {
+		return name;
+	}
+
+	public void setName(String name) {
+		this.name = name;
+	}
+
+	public int getMinAge() {
+		return minAge;
+	}
+
+	public void setMinAge(int minAge) {
+		this.minAge = minAge;
+	}
+
+	public int getMaxAge() {
+		return maxAge;
+	}
+
+	public void setMaxAge(int maxAge) {
+		this.maxAge = maxAge;
+	}
+
+	
+}
+</pre>&#13;
+<p><br/>&#13;
+</p>&#13;
+<p>User.java:</p>&#13;
+<pre code_snippet_id="1668817" snippet_file_name="blog_20160502_2_3712719" class="java" name="code">package com.mybatis.entity;
+
+public class User {
+
+	/*
+	 * ID
+	 */
+	private int id;
+	
+	/*
+	 * 用户姓名 
+	 */
+	private String name;
+	
+	/*
+	 * age
+	 */
+	private int age;
+
+	public int getId() {
+		return id;
+	}
+
+	public void setId(int id) {
+		this.id = id;
+	}
+
+	public String getName() {
+		return name;
+	}
+
+	public void setName(String name) {
+		this.name = name;
+	}
+
+	public int getAge() {
+		return age;
+	}
+
+	public void setAge(int age) {
+		this.age = age;
+	}
+	
+	@Override
+	public String toString() {
+		return "User [id=" + id + ", name=" + name + ", age=" + age + "]";
+	}
+	
+}
+</pre>&#13;
+<p>我们先以注解方式实现：</p>&#13;
+<pre code_snippet_id="1668817" snippet_file_name="blog_20160502_3_2698963" class="html" name="code">&lt;?xml version="1.0" encoding="UTF-8"?&gt;
+&lt;!DOCTYPE configuration PUBLIC "-//mybatis.org//DTD Config 3.0//EN" 
+"http://mybatis.org/dtd/mybatis-3-config.dtd"&gt;
+&lt;configuration&gt;
+	
+	&lt;!-- 数据库配置文件  --&gt; 
+    &lt;properties resource="db.properties" /&gt;  
+     
+   &lt;!-- 实体类,简称 -设置别名 --&gt;
+	&lt;typeAliases&gt;
+		&lt;typeAlias alias="User" type="com.mybatis.entity.User" /&gt;
+			&lt;/typeAliases&gt;
+
+	
+	&lt;!-- 读取db.properties里的数据，进行数据库配置 --&gt;
+	&lt;environments default="development"&gt;
+		&lt;environment id="development"&gt;
+			&lt;transactionManager type="JDBC" /&gt;
+			&lt;dataSource type="POOLED"&gt;
+				&lt;property name="driver" value="${driver}"/&gt;
+	            &lt;property name="url" value="${url}" /&gt;
+	            &lt;property name="username" value="${username}"/&gt;
+	            &lt;property name="password" value="${password}"/&gt;
+			&lt;/dataSource&gt;
+		&lt;/environment&gt;
+	&lt;/environments&gt;
+	
+	&lt;!--  
+		注册userMapper.xml文件 
+	&lt;mappers&gt;
+		&lt;mapper resource="com/mybatis/mapper/userMapper.xml"/&gt;
+	&lt;/mappers&gt;
+	--&gt;
+	
+	&lt;mappers&gt;
+		&lt;mapper class="com.mybatis.mapper.UserMapper"/&gt;
+			&lt;/mappers&gt;
+	
+&lt;/configuration&gt;
+</pre>&#13;
+<p><br/>&#13;
+db.properties:</p>&#13;
+<p/><pre code_snippet_id="1668817" snippet_file_name="blog_20160502_4_9492596" class="html" name="code">driver=com.mysql.jdbc.Driver
+url=jdbc\:mysql\://localhost\:3306/db_mysql?useUnicode\=true&amp;characterEncoding\=utf-8
+username=root
+password=111
+</pre><br/>&#13;
+<br/>&#13;
+&#13;
+<p>UserMapper.java:</p>&#13;
+<p/><pre code_snippet_id="1668817" snippet_file_name="blog_20160502_5_2698180" class="java" name="code">package com.mybatis.mapper;
+
+import java.util.List;
+
+import org.apache.ibatis.annotations.Delete;
+import org.apache.ibatis.annotations.Insert;
+import org.apache.ibatis.annotations.Select;
+import org.apache.ibatis.annotations.Update;
+
+import com.mybatis.entity.ConditionUser;
+import com.mybatis.entity.User;
+
+public interface UserMapper {
+	@Insert("insert into users(name,age) values(#{name},#{age})")
+	public void save(User user);
+	@Update("update users set name=#{name},age=#{age} where id=#{id}")
+	public boolean update(User user);
+	@Delete("delete from users where id=#{id}")
+	public boolean delete(int id);
+	@Select("select * from users where id=#{id}")
+	public User findById(int id);
+	@Select("select * from users where name like #{name} and age &gt;= #{minAge}")
+	public List&lt;User&gt; findAll(ConditionUser u);
+}
+</pre>&#13;
+<p><br/>&#13;
+</p>&#13;
+<p><br/>&#13;
+</p>&#13;
+<p>测试：</p>&#13;
+<pre code_snippet_id="1668817" snippet_file_name="blog_20160502_6_9176169" class="java" name="code">String resource = "mybatis-config.xml";
+		try{
+			//加载Mybatis的配置文件
+			Reader reader = Resources.getResourceAsReader(resource);
+			//构建sqlSession的工厂
+	        SqlSessionFactory sessionFactory = new SqlSessionFactoryBuilder().build(reader);
+			//创建可以执行sql的SqlSession
+	        SqlSession session = sessionFactory.openSession();
+//			List&lt;User&gt; list  = session.selectList("com.mybatis.mapper.userMapper.findById",new ConditionUser("%a%",0, 1));
+//	        System.out.println(list);
+	        UserMapper mapper = session.getMapper(UserMapper.class);
+	        List&lt;User&gt; list = mapper.findAll(new ConditionUser("%a%", 0, 1));
+	        System.out.println(list);
+	        
+	        Classes c = session.selectOne("com.mybatis.mapper.classesMapper.findById4",1);
+	        System.out.println(c);
+	      
+	        
+		}catch (Exception e) {
+			e.printStackTrace();
+		}
+	}
+	</pre>&#13;
+<p><br/>&#13;
+</p>&#13;
+<p><br/>&#13;
+</p>&#13;
+<p>然后以映射文件的方式实现：</p>&#13;
+<p>注意注解方式和映射文件方式是会冲突的，所以要先删了注解的接口类</p>&#13;
+<p>然后，在新建userMapper.xml:</p>&#13;
+<pre code_snippet_id="1668817" snippet_file_name="blog_20160502_7_4017956" class="html" name="code">&lt;?xml version="1.0" encoding="UTF-8" ?&gt;
+&lt;!DOCTYPE  mapper  PUBLIC  "-//mybatis.org//DTD  Mapper  3.0//EN"
+"http://mybatis.org/dtd/mybatis-3-mapper.dtd"&gt;
+&lt;!-- 
+	为这个mapper指定一个唯一的namespace，namespace的值习惯上设置成包名+sql映射文件名，这样就能够保证namespace的值是唯一的 
+--&gt;
+&lt;mapper namespace="com.mybatis.mapper.userMapper"&gt;
+
+&lt;!-- 
+	在select标签中编写查询的SQL语句， 设置select标签的id属性为findById，id属性值必须是唯一的，不能够重复
+    parameterType可以在MyBatis的配置文件里设置，也可以直接用包名+类名
+ --&gt;
+ 
+	&lt;insert id="save" parameterType="User"&gt;
+	insert into users(id,name,age) value(#{name},#{age})
+	&lt;/insert&gt;
+	&lt;update id="update" parameterType="User"&gt;
+	update users set name=#{name},age=#{age} where id=#{id}
+	&lt;/update&gt;
+	&lt;delete id="delete" parameterType="int"&gt;
+	delete from users where id=#{id}
+	&lt;/delete&gt;
+	&lt;select id="findById" parameterType="com.mybatis.entity.ConditionUser" resultType="User"&gt;
+	select * from users where age&gt;=#{minAge}
+	&lt;if test='name!="%null%"'&gt;and name like #{name}&lt;/if&gt;
+	&lt;/select&gt;
+	&lt;select id="findAll" resultType="User"&gt;
+	select * from users
+	&lt;/select&gt;
+&lt;/mapper&gt;</pre>&#13;
+<p><br/>&#13;
+</p>&#13;
+<p>修改mybatis配置文件：</p>&#13;
+<p/><pre code_snippet_id="1668817" snippet_file_name="blog_20160502_8_4399640" class="html" name="code">&lt;?xml version="1.0" encoding="UTF-8"?&gt;
+&lt;!DOCTYPE configuration PUBLIC "-//mybatis.org//DTD Config 3.0//EN" 
+"http://mybatis.org/dtd/mybatis-3-config.dtd"&gt;
+&lt;configuration&gt;
+	
+	&lt;!-- 数据库配置文件  --&gt; 
+    &lt;properties resource="db.properties" /&gt;  
+     
+   &lt;!-- 实体类,简称 -设置别名 --&gt;
+	&lt;typeAliases&gt;
+		&lt;typeAlias alias="User" type="com.mybatis.entity.User" /&gt;
+		
+	&lt;/typeAliases&gt;
+
+	
+	&lt;!-- 读取db.properties里的数据，进行数据库配置 --&gt;
+	&lt;environments default="development"&gt;
+		&lt;environment id="development"&gt;
+			&lt;transactionManager type="JDBC" /&gt;
+			&lt;dataSource type="POOLED"&gt;
+				&lt;property name="driver" value="${driver}"/&gt;
+	            &lt;property name="url" value="${url}" /&gt;
+	            &lt;property name="username" value="${username}"/&gt;
+	            &lt;property name="password" value="${password}"/&gt;
+			&lt;/dataSource&gt;
+		&lt;/environment&gt;
+	&lt;/environments&gt;
+	
+	&lt;!--  
+		注册userMapper.xml文件 
+	&lt;mappers&gt;
+		&lt;mapper resource="com/mybatis/mapper/userMapper.xml"/&gt;
+	&lt;/mappers&gt;
+	--&gt;
+	
+	&lt;mappers&gt;
+		&lt;mapper resource="com/mybatis/mapper/userMapper.xml"/&gt;
+	&lt;/mappers&gt;
+	
+&lt;/configuration&gt;
+</pre><br/>&#13;
+&#13;
+<p><br/>&#13;
+</p>&#13;
+<p>测试：</p>&#13;
+<p/><pre code_snippet_id="1668817" snippet_file_name="blog_20160502_9_669886" class="java" name="code">String resource = "mybatis-config.xml";
+		try{
+			//加载Mybatis的配置文件
+			Reader reader = Resources.getResourceAsReader(resource);
+			//构建sqlSession的工厂
+	        SqlSessionFactory sessionFactory = new SqlSessionFactoryBuilder().build(reader);
+			//创建可以执行sql的SqlSession
+	        SqlSession session = sessionFactory.openSession();
+			List&lt;User&gt; list  = session.selectList("com.mybatis.mapper.userMapper.findById",new ConditionUser("%a%",0, 1));
+	        System.out.println(list);
+//	        UserMapper mapper = session.getMapper(UserMapper.class);
+//	        List&lt;User&gt; list = mapper.findAll(new ConditionUser("%a%", 0, 1));
+//	        System.out.println(list);
+	        
+	        Classes c = session.selectOne("com.mybatis.mapper.classesMapper.findById4",1);
+	        System.out.println(c);
+	      
+	        
+		}catch (Exception e) {
+			e.printStackTrace();
+		}</pre><br/>&#13;
+<br/>&#13;
+&#13;
+<p><br/>&#13;
+</p>&#13;
+<p><br/>&#13;
+<br/>&#13;
+</p>&#13;
+<link rel="stylesheet" href="http://static.blog.csdn.net/public/res-min/markdown_views.css?v=1.0"/>&#13;
+            

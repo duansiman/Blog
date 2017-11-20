@@ -1,0 +1,431 @@
+
+        <div class="markdown_views"><p><strong>摘要：</strong></p>
+
+<p>　　伴随J2EE一起发布的Servlet规范中还包括一个重要的组件——过滤器(Filter)。过滤器可以认为是Servlet的一种加强版，它主要用于对用户请求进行预处理以及对服务器响应进行后处理，是个典型的处理链。Servlet规范使用了三个接口对过滤器进行了抽象，即Filter是对具体过滤器的抽象，FilterChain是基于AOP理念对责任链切面的抽象，FilterConfig则是对Filter配置的抽象。本文概述了Filter的提出动机、工作原理、使用流程和应用实例，并指出Java Web中Filter机制是AOP思想与责任链模式的融合的最佳实践。</p>
+
+<hr />
+
+<p><strong>版权声明：</strong></p>
+
+<p>本文原创作者：<a href="http://static.zybuluo.com/Rico123/y1lnbzia33ug43hx7pg0sfij/Filter%E5%B7%A5%E4%BD%9C%E5%8E%9F%E7%90%86.png">书呆子Rico</a> <br />
+作者博客地址：<a href="http://blog.csdn.net/justloveyou_/">http://blog.csdn.net/justloveyou_/</a></p>
+
+<hr />
+
+
+
+<h2 id="一-filter-概述">一. Filter 概述</h2>
+
+<p>　　在我的专栏<a href="http://static.zybuluo.com/Rico123/4pc2rol3oqzd853ah634ut64/Filter%E7%9A%84%E5%B7%A5%E4%BD%9C%E5%8E%9F%E7%90%86.png">《Java Web 成神之路》</a>中，已经对 Java Web 基础内容 JSP/Servlet 进行了概述。事实上，Servlet API 还提供了一个重要接口 —— <font color="DarkGreen"><b>Filter</b></font>。在我们开发 Web 应用时，若编写的Java类实现了这个接口，那么我们就可以将这个 Java 类称为过滤器(Filter)。<font color="blue"><b>Filter 可以认为是 Servlet 的一种加强版，它主要用于 <font color="red"><b>对用户请求进行预处理</b></font> 以及<font color="red"><b> 对服务器响应进行后处理</b></font>，是个<font color="DarkGreen"><b> 典型的处理链。</b></font></b></font>简单地说，通过 Filter 技术，开发人员可以实现对请求的预处理，并且在将请求交给Servlet进行处理并生成响应后，Filter 还可以对服务器的响应进行后处理，从而实现对每个请求及响应增加额外的处理逻辑，下面的图示形象地反映了 Filter 的作用原理。</p>
+
+<p>　　　　　　　　　　　<img src="http://img.blog.csdn.net/20170330211916015?watermark/2/text/aHR0cDovL2Jsb2cuY3Nkbi5uZXQvanVzdGxvdmV5b3Vf/font/5a6L5L2T/fontsize/400/fill/I0JBQkFCMA==/dissolve/70/gravity/SouthEast" alt="这里写图片描述" title="" /></p>
+
+<p>　　在 Servlet 规范中，一共有三个接口与 Filter 直接相关，分别是 Interface Filter，Interface FilterChain 和 Interface FilterConfig，Servlet 规范对这三者的描述分别是：</p>
+
+<ul>
+<li><p>A filter is an object that <font color="DarkGreen"><b>performs filtering tasks on either the request to a resource (a servlet or static content), or on the response from a resource, or both；</b></font></p></li>
+<li><p>A FilterChain is an object <font color="DarkGreen"><b>provided by the servlet container  to the developer giving a view into the invocation chain of a filtered request for a resource.</b></font> <font color="red"><b>Filters use the FilterChain to invoke the next filter in the chain, or if the calling filter is the last filter in the chain, to invoke the resource at the end of the chain；</b></font></p></li>
+<li><p>A filter configuration object used by a servlet container to pass information to a filter during initialization。</p>
+
+<p>　　<font color="DarkGreen"><b>总的来说，Filter 是对具体过滤器的抽象，FilterChain 是基于AOP理念对责任链切面的抽象，而 FilterConfig 则是对 Filter 配置的抽象。</b></font></p></li>
+</ul>
+
+<hr />
+
+
+
+<h2 id="二-filter-的工作原理">二. Filter 的工作原理</h2>
+
+<p>　　当客户端发出对Web资源的请求时，Web服务器根据应用程序配置文件设置的过滤规则进行检查，若客户请求满足过滤规则，则对客户请求/响应进行过滤(拦截)，期间我们可以对请求头和请求数据进行检查或改动，然后对请求放行以便由过滤链中的其他过滤器进行处理，最后把请求/响应交给请求的Web资源(Servlet)处理。</p>
+
+<p>　　当然，在请求被过滤(拦截)后，我们可以在过滤器链中修改它，也可以根据条件让请求不发往资源处理器(Servlet)，比如使用Filter进行权限检查，并直接向客户机返回一个响应(forward 到某视图)。特别地，当资源处理器(Servlet)完成了对资源的处理后，响应信息将<font color="DarkGreen"><b> 逐级逆向返回</b></font>。同样地，在这个过程中，用户可以修改响应信息，从而完成一定的任务。Filter的工作流程如下图所示：</p>
+
+<p>　　　　　　　　　　　　<img src="http://static.zybuluo.com/Rico123/4pc2rol3oqzd853ah634ut64/Filter%E7%9A%84%E5%B7%A5%E4%BD%9C%E5%8E%9F%E7%90%86.png" alt="Filter的工作原理.png-12.7kB" title="" /></p>
+
+<hr />
+
+
+
+<h2 id="三-filter-与-servlet-的异同">三. Filter 与 Servlet 的异同</h2>
+
+<p>　　Filter 与 Servlet 极其相似：二者具有相似的API和生命周期，并且 Filter 也可以对用户请求生成响应，尽管我们很少使用Filter对用户请求生成响应。</p>
+
+<hr />
+
+<p><strong>1、Filter 与 Servlet 在API上的异同</strong></p>
+
+<p>　　在API上与Servlet最大的不同就是，Filter 的 doFilter() 方法里多了一个 FilterChain 参数，并且我们可以利用该参数对用户的请求进行控制和放行。在实际应用中，<font color="red"><b>我们常常会把Servlet的service()方法中共同处理逻辑抽取出来放到 Filter的doFilter 方法中 <font color="DarkGreen"><b>(这恰恰正是AOP思想的重要体现)</b></font>，以便更好地实现代码复用</b></font>，比如对中文字符乱码的处理（下文我们将给出关于该问题的具体实现）。</p>
+
+<hr />
+
+<p><strong>2、Filter 与 Servlet 在生命周期方面的异同</strong></p>
+
+<p>　　此外，在生命周期方面，虽然 Filter 和 Servlet 创建和销毁都是由Web服务器负责，但二者仍存在一定的差异，具体包括如下几点：</p>
+
+<ul>
+<li><p><font color="blue">Filter类在应用启动的时候就被Web容器装载，而Servlet是在请求时才创建(但filter与Servlet的load-on-startup配置效果相同)；</font>  </p></li>
+<li><p><font color="blue">容器创建好Filter对象实例后，随后会调用init()方法进行初始化，接着会被 Web 容器保存进应用级的集合容器<font color="red"><b> (该集合容器中含有多个过滤器，它们共同组成过滤链来对用户的请求和响应进行处理) </b></font>中去等待过滤用户请求；</font>  </p></li>
+<li><p><font color="blue">当用户访问的资源正好被Filter过滤时(具体由url-pattern参数指定)，Web容器会调用此Filter的doFilter方法进行过滤。</font></p></li>
+</ul>
+
+<hr />
+
+
+
+<h2 id="三-filter-与-aop理念责任链模式">三. Filter 与 AOP理念、责任链模式</h2>
+
+<p>　　<font color="DarkGreen"><b>实质上，Filter 的实现既体现了AOP的理念，也体现了责任链模式的精髓。</b></font><font color="red">AOP的主要的意图是将日志记录、性能统计、安全控制、事务处理、异常处理等非业务逻辑从业务逻辑代码中解脱出来，通过对这些行为的分离到非主导业务逻辑的方法中，减小其与业务逻辑代码之间的耦合度，进而在改变这些行为的时候不影响业务逻辑的代码。</font>以处理中文字符乱码问题为例，它并非是业务逻辑的内容却又分布在各个请求处理器(Servlet)中，所以对于这些内容的处理，我们就可以基于AOP的思想将其提取出来（AOP中的切面），使用Filter进行整体设置。这种方式相当于对类中的内容做进一步的抽象，使我们的系统更加灵活，更加能应对变化，也进一步提高了代码复用。</p>
+
+<p>　　此外，Filter 的实现体现了责任链模式的精髓，即将请求的发送者与请求的处理者解耦，从而使得系统更灵活，也更容易扩展。就像Servlet规范对Filter描述的那样，过滤链是由Servlet容器提供给开发者的一种过滤器调用的视图，过滤器使用过滤链去调用链中的下一个过滤器去处理请求，特别地，如果当前过滤器时过滤链中的最后一个过滤器，过滤链将把它交给相应的资源处理器(Servlet)进行处理。更进一步地说，<font color="blue">使用过滤链对请求进行过滤的好处就是，发出请求的客户端并不知道链上的哪一个过滤器将处理这个请求，这使得系统可以在不影响客户端的情况下，<font color="red"><b>动态地重新组织链和分配责任</b></font>。并且，在执行过程中的任何时候都可以直接返回结果，也就是说，只要不执行 chain.doFilter() 就不会对请求放行，也就不会再执行后面的过滤器和请求的内容。这显然可以看作是 <font color="red"><b>非纯责任链模式 </b></font>的一种典型实现。</font></p>
+
+<p>　　显然，<font color="red"><b>FilterChain 本身就是对责任链切面的抽象，是对传统责任链模式的一个改进，整个 Filter 机制本身也是AOP思想与责任链模式的融合的最佳实践。</b></font></p>
+
+<hr />
+
+<p>　　更多关于责任链模式的提出动机、原理结构、典型实现和应用场景等介绍，请各位看官移步我的博文<a href="http://blog.csdn.net/justloveyou_/article/details/68489505">《责任链模式综述(基础篇)》</a>。</p>
+
+<p>　　更多关于AOP理念、责任链模式与AOP思想的融合及他们在 Java Web 的过滤器机制和Struts2拦截器机制的应用，请各位看官移步我的博文 <a href="http://blog.csdn.net/justloveyou_/article/details/68491121">《责任链模式进阶：与AOP思想的融合与应用》</a>。</p>
+
+<hr />
+
+<h2 id="四-filter应用实例一中文乱码的统一处理">四. Filter应用实例（一）：中文乱码的统一处理</h2>
+
+<p>　　下面的代码实现了对中文乱码的统一处理，无论请求方式是 GET 还是 POST。在这里，Filter 相当于责任链模式中的抽象处理者，而 DecodeFilter 实现了Filter接口，相当于责任链模式中的具体处理者。特别地，ServletAPI 对 FilterChain 的抽象则是 AOP 思想的重要体现，也就是将责任链结构的实现用切面(FilterChain)抽象出来了，准确地分离出责任链模式中不同角色的共同行为(责任链的构建与维护)。</p>
+
+<hr />
+
+<p><strong>1、中文解码Filter的实现</strong></p>
+
+
+
+<pre class="prettyprint"><code class="language-java hljs "><span class="hljs-javadoc">/**        
+ * Description: 使用 Filter 解决 GET/POST 提交的中文乱码
+ *<span class="hljs-javadoctag"> @author</span> rico       
+ *<span class="hljs-javadoctag"> @created</span> 2017-3-4 上午10:55:06    
+ */</span>   
+<span class="hljs-keyword">public</span> <span class="hljs-class"><span class="hljs-keyword">class</span> <span class="hljs-title">DecodeFilter</span> <span class="hljs-keyword">implements</span> <span class="hljs-title">Filter</span> {</span>
+
+    <span class="hljs-javadoc">/**  指定编码方式，默认 utf-8   (@author: rico) */</span>      
+    <span class="hljs-keyword">private</span> String encoding;    <span class="hljs-comment">// Filter 参数</span>
+
+    <span class="hljs-annotation">@Override</span>
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">void</span> <span class="hljs-title">destroy</span>() {
+        <span class="hljs-keyword">this</span>.encoding = <span class="hljs-keyword">null</span>;
+    }
+
+    <span class="hljs-annotation">@Override</span>
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">void</span> <span class="hljs-title">doFilter</span>(ServletRequest req, ServletResponse response,
+            FilterChain chain) <span class="hljs-keyword">throws</span> IOException, ServletException {
+
+        HttpServletRequest request = (HttpServletRequest) req;
+
+        <span class="hljs-comment">// 重新编码后的请求</span>
+        HttpServletRequest newReq = <span class="hljs-keyword">null</span>;
+
+        <span class="hljs-comment">// 获取请求方式</span>
+        String method = request.getMethod();
+
+        <span class="hljs-keyword">if</span> (<span class="hljs-string">"POST"</span>.equalsIgnoreCase(method)) {          <span class="hljs-comment">// POST请求的处理方式</span>
+            request.setCharacterEncoding(encoding);
+            newReq = request;
+        } <span class="hljs-keyword">else</span> {             <span class="hljs-comment">// GET请求的处理方式</span>
+            <span class="hljs-comment">//  匿名内部类：最终提供给我们的是一个匿名子类对象</span>
+            newReq = <span class="hljs-keyword">new</span> HttpServletRequestWrapper(request) {  <span class="hljs-comment">// HttpServletRequest 接口的实现类   </span>
+
+                <span class="hljs-comment">// 重写对请求参数所有可能的获取方式</span>
+                <span class="hljs-annotation">@Override</span>
+                <span class="hljs-keyword">public</span> String <span class="hljs-title">getParameter</span>(String name) {
+                    String value = <span class="hljs-keyword">super</span>.getParameter(name);
+                    <span class="hljs-keyword">if</span> (value != <span class="hljs-keyword">null</span>) {
+                        value = <span class="hljs-keyword">this</span>.transCoding(value);
+                    }
+                    <span class="hljs-keyword">return</span> value;
+                }
+
+                <span class="hljs-comment">// 重写对请求参数所有可能的获取方式</span>
+                <span class="hljs-annotation">@Override</span>
+                <span class="hljs-keyword">public</span> String[] <span class="hljs-title">getParameterValues</span>(String name) {
+                    String[] values = <span class="hljs-keyword">super</span>.getParameterValues(name);
+                    <span class="hljs-keyword">if</span> (values == <span class="hljs-keyword">null</span>) {
+                        <span class="hljs-keyword">return</span> values;
+                    }
+                    <span class="hljs-keyword">for</span> (<span class="hljs-keyword">int</span> i = <span class="hljs-number">0</span>; i &lt; values.length; i++) {
+                        values[i] = <span class="hljs-keyword">this</span>.transCoding(values[i]);
+                    }
+                    <span class="hljs-keyword">return</span> values;
+                }
+
+                <span class="hljs-comment">// 重写对请求参数所有可能的获取方式</span>
+                <span class="hljs-annotation">@Override</span>
+                <span class="hljs-keyword">public</span> Map&lt;String, String[]&gt; <span class="hljs-title">getParameterMap</span>() {
+                    Map&lt;String, String[]&gt; map = <span class="hljs-keyword">super</span>.getParameterMap();
+                    Map&lt;String, String[]&gt; result = <span class="hljs-keyword">new</span> HashMap&lt;String, String[]&gt;();
+                    Set&lt;Map.Entry&lt;String, String[]&gt;&gt; entrySet = map.entrySet();
+                    <span class="hljs-keyword">for</span> (Map.Entry&lt;String, String[]&gt; set : entrySet) {
+                        String name = set.getKey();
+                        String[] values = set.getValue();
+                        <span class="hljs-keyword">for</span> (<span class="hljs-keyword">int</span> i = <span class="hljs-number">0</span>; i &lt; values.length; i++) {
+                            values[i] = values[i];
+                        }
+                        result.put(name, values);
+                    }
+                    <span class="hljs-keyword">return</span> result;
+                }
+
+                <span class="hljs-comment">// 代码重用，对中文字符进行解码</span>
+                <span class="hljs-keyword">public</span> String <span class="hljs-title">transCoding</span>(String value) {
+                    <span class="hljs-keyword">try</span> {
+                        value = <span class="hljs-keyword">new</span> String(value.getBytes(<span class="hljs-string">"iso-8859-1"</span>),
+                                encoding);
+                    } <span class="hljs-keyword">catch</span> (UnsupportedEncodingException e) {
+                        System.out.println(<span class="hljs-keyword">this</span>.getClass().getName()
+                                + <span class="hljs-string">" 发生转码错误： 从 "</span> + <span class="hljs-string">"iso-8859-1"</span> + <span class="hljs-string">" 到 "</span>
+                                + encoding);
+                        e.printStackTrace();
+                    }
+                    <span class="hljs-keyword">return</span> value;
+                }
+            };
+        }
+
+        <span class="hljs-comment">// AOP 思想的重要体现，将请求交给其下家继续进行处理，不纯的责任链模式</span>
+        chain.doFilter(newReq, response);   
+    }
+
+    <span class="hljs-annotation">@Override</span>
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">void</span> <span class="hljs-title">init</span>(FilterConfig config) <span class="hljs-keyword">throws</span> ServletException {
+        <span class="hljs-comment">// 从配置文件获取编码参数</span>
+        encoding = config.getInitParameter(<span class="hljs-string">"encoding"</span>);
+        encoding = encoding == <span class="hljs-keyword">null</span> ? <span class="hljs-string">"utf-8"</span> : encoding;
+    }
+}</code></pre>
+
+<hr />
+
+<p><strong>2、中文解码Filter的配置</strong></p>
+
+<p>　　要想让该过滤器起作用，还必须将其配置到 Web 中，即需要在 web.xml 中添加如下描述片段。需要注意的是，当一个Web应用包含多个过滤器时，WEB容器会根据其注册顺序进行调用，也就是说，在web.xml文件中越靠前，越先被调用。因此，若想让该过滤器能够对Struts2应用起作用，则必须将其配置到Struts2过滤器前面。</p>
+
+
+
+<pre class="prettyprint"><code class="language-xml hljs "><span class="hljs-comment">&lt;!-- 当一个Web应用包含多个过滤器时，根据其注册顺序进行调用：在web.xml文件中越靠前，越先被调用 --&gt;</span>
+<span class="hljs-comment">&lt;!-- 因此，若想让该过滤器能够对Struts2应用起作用，则必须将其配置到Struts2过滤器前面 --&gt;</span>
+    <span class="hljs-tag">&lt;<span class="hljs-title">filter</span>&gt;</span>
+        <span class="hljs-tag">&lt;<span class="hljs-title">filter-name</span>&gt;</span>DecodeFilter<span class="hljs-tag">&lt;/<span class="hljs-title">filter-name</span>&gt;</span>
+        <span class="hljs-tag">&lt;<span class="hljs-title">filter-class</span>&gt;</span>cn.edu.tju.rico.filter.DecodeFilter<span class="hljs-tag">&lt;/<span class="hljs-title">filter-class</span>&gt;</span>
+        <span class="hljs-tag">&lt;<span class="hljs-title">init-param</span>&gt;</span>
+            <span class="hljs-tag">&lt;<span class="hljs-title">param-name</span>&gt;</span>encoding<span class="hljs-tag">&lt;/<span class="hljs-title">param-name</span>&gt;</span>
+            <span class="hljs-tag">&lt;<span class="hljs-title">param-value</span>&gt;</span>utf-8<span class="hljs-tag">&lt;/<span class="hljs-title">param-value</span>&gt;</span>
+        <span class="hljs-tag">&lt;/<span class="hljs-title">init-param</span>&gt;</span>
+    <span class="hljs-tag">&lt;/<span class="hljs-title">filter</span>&gt;</span>
+    <span class="hljs-tag">&lt;<span class="hljs-title">filter-mapping</span>&gt;</span>
+        <span class="hljs-tag">&lt;<span class="hljs-title">filter-name</span>&gt;</span>DecodeFilter<span class="hljs-tag">&lt;/<span class="hljs-title">filter-name</span>&gt;</span>
+        <span class="hljs-tag">&lt;<span class="hljs-title">url-pattern</span>&gt;</span>/*<span class="hljs-tag">&lt;/<span class="hljs-title">url-pattern</span>&gt;</span>
+    <span class="hljs-tag">&lt;/<span class="hljs-title">filter-mapping</span>&gt;</span></code></pre>
+
+<hr />
+
+<p>　　　这样，当客户端发出Web资源的请求时，Web容器就会根据应用程序配置文件设置的过滤规则进行检查，由于我们设置的是对所有请求进行过滤(/*)，因此我们可以对请求参数进行解码，然后依次通过过滤器链的其他过滤器，最后把请求交给请求的Web资源(Servlet)处理。需要注意的是，在本案例中，我们只对请求做了预处理，而没有对响应做后处理。</p>
+
+<hr />
+
+
+
+<h2 id="六-filter应用实例二登录验证">六. Filter应用实例（二）：登录验证</h2>
+
+<p>　　下面的代码实现了对用户是否登录的验证，若用户用户没有登录，则直接跳转到登录页面。类似地，Filter 相当于责任链模式中的抽象处理者，而 AuthorityFilter 实现了Filter接口，相当于责任链模式中的具体处理者；FilterChain是对过滤链结构的实现的抽象。</p>
+
+<hr />
+
+<p><strong>1、登录验证Filter的实现</strong></p>
+
+
+
+<pre class="prettyprint"><code class="language-java hljs "><span class="hljs-comment">// 权限检查 Filter</span>
+<span class="hljs-keyword">public</span> <span class="hljs-class"><span class="hljs-keyword">class</span> <span class="hljs-title">AuthorityFilter</span> <span class="hljs-keyword">implements</span> <span class="hljs-title">Filter</span> {</span>
+
+    <span class="hljs-comment">// FilterConfig可用于访问Filter的配置信息</span>
+    <span class="hljs-keyword">private</span> FilterConfig config;
+
+    <span class="hljs-comment">// 实现初始化方法</span>
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">void</span> <span class="hljs-title">init</span>(FilterConfig config) {
+        <span class="hljs-keyword">this</span>.config = config;
+    }
+
+    <span class="hljs-comment">// 实现销毁方法</span>
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">void</span> <span class="hljs-title">destroy</span>() {
+        <span class="hljs-keyword">this</span>.config = <span class="hljs-keyword">null</span>;
+    }
+
+    <span class="hljs-comment">// 执行过滤的核心方法</span>
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">void</span> <span class="hljs-title">doFilter</span>(ServletRequest request, ServletResponse response,
+            FilterChain chain) <span class="hljs-keyword">throws</span> IOException, ServletException {
+
+        <span class="hljs-comment">// 获取该Filter的配置参数</span>
+        String encoding = config.getInitParameter(<span class="hljs-string">"encoding"</span>);
+        String loginPage = config.getInitParameter(<span class="hljs-string">"loginPage"</span>);
+        String proLogin = config.getInitParameter(<span class="hljs-string">"proLogin"</span>);
+
+        <span class="hljs-comment">// 设置request编码用的字符集</span>
+        request.setCharacterEncoding(encoding); <span class="hljs-comment">// POST请求处理方式</span>
+
+        HttpServletRequest requ = (HttpServletRequest) request;
+        HttpSession session = requ.getSession(<span class="hljs-keyword">true</span>);
+
+        <span class="hljs-comment">// 获取客户请求的页面</span>
+        String requestPath = requ.getServletPath();
+
+        <span class="hljs-comment">// 如果session范围的user为null，即表明没有登录</span>
+        <span class="hljs-comment">// 且用户请求的既不是登录页面，也不是处理登录的页面</span>
+        <span class="hljs-keyword">if</span> (session.getAttribute(<span class="hljs-string">"user"</span>) == <span class="hljs-keyword">null</span>
+                &amp;&amp; !requestPath.endsWith(loginPage)
+                &amp;&amp; !requestPath.endsWith(proLogin)) {
+
+            <span class="hljs-comment">// forward到登录页面</span>
+            request.setAttribute(<span class="hljs-string">"tip"</span>, <span class="hljs-string">"您还没有登录"</span>);
+            request.getRequestDispatcher(loginPage).forward(request, response);
+        }
+        <span class="hljs-comment">//放行请求</span>
+        <span class="hljs-keyword">else</span> {
+            chain.doFilter(request, response);
+        }
+    }
+}</code></pre>
+
+<hr />
+
+<p><strong>2、登录验证Filter的配置</strong></p>
+
+<p>　　要想让该过滤器起作用，还必须将其配置到 Web 中，即需要在 web.xml 中添加如下描述片段。</p>
+
+
+
+<pre class="prettyprint"><code class="language-xml hljs "><span class="hljs-comment">&lt;!-- 当一个Web应用包含多个过滤器时，根据其注册顺序进行调用：在web.xml文件中越靠前，越先被调用 --&gt;</span>
+    <span class="hljs-tag">&lt;<span class="hljs-title">filter</span>&gt;</span>
+        <span class="hljs-tag">&lt;<span class="hljs-title">filter-class</span>&gt;</span>filter.AuthorityFilter<span class="hljs-tag">&lt;/<span class="hljs-title">filter-class</span>&gt;</span>
+        <span class="hljs-tag">&lt;<span class="hljs-title">init-param</span>&gt;</span>
+            <span class="hljs-tag">&lt;<span class="hljs-title">param-name</span>&gt;</span>encoding<span class="hljs-tag">&lt;/<span class="hljs-title">param-name</span>&gt;</span>
+            <span class="hljs-tag">&lt;<span class="hljs-title">param-value</span>&gt;</span>utf-8<span class="hljs-tag">&lt;/<span class="hljs-title">param-value</span>&gt;</span>
+        <span class="hljs-tag">&lt;/<span class="hljs-title">init-param</span>&gt;</span>
+        <span class="hljs-tag">&lt;<span class="hljs-title">init-param</span>&gt;</span>
+            <span class="hljs-tag">&lt;<span class="hljs-title">param-name</span>&gt;</span>loginPage<span class="hljs-tag">&lt;/<span class="hljs-title">param-name</span>&gt;</span>
+            <span class="hljs-tag">&lt;<span class="hljs-title">param-value</span>&gt;</span>/login.jsp<span class="hljs-tag">&lt;/<span class="hljs-title">param-value</span>&gt;</span>
+        <span class="hljs-tag">&lt;/<span class="hljs-title">init-param</span>&gt;</span>
+        <span class="hljs-tag">&lt;<span class="hljs-title">init-param</span>&gt;</span>
+            <span class="hljs-tag">&lt;<span class="hljs-title">param-name</span>&gt;</span>proLogin<span class="hljs-tag">&lt;/<span class="hljs-title">param-name</span>&gt;</span>
+            <span class="hljs-tag">&lt;<span class="hljs-title">param-value</span>&gt;</span>/proLogin.jsp<span class="hljs-tag">&lt;/<span class="hljs-title">param-value</span>&gt;</span>
+        <span class="hljs-tag">&lt;/<span class="hljs-title">init-param</span>&gt;</span>
+    <span class="hljs-tag">&lt;/<span class="hljs-title">filter</span>&gt;</span>
+    <span class="hljs-tag">&lt;<span class="hljs-title">filter-mapping</span>&gt;</span>
+        <span class="hljs-tag">&lt;<span class="hljs-title">filter-name</span>&gt;</span>authority<span class="hljs-tag">&lt;/<span class="hljs-title">filter-name</span>&gt;</span>
+        <span class="hljs-tag">&lt;<span class="hljs-title">url-pattern</span>&gt;</span>/*<span class="hljs-tag">&lt;/<span class="hljs-title">url-pattern</span>&gt;</span>
+    <span class="hljs-tag">&lt;/<span class="hljs-title">filter-mapping</span>&gt;</span></code></pre>
+
+<hr />
+
+<p><strong>3、登录验证视图</strong></p>
+
+<p>1、登录视图</p>
+
+
+
+<pre class="prettyprint"><code class="language-jsp hljs xml"><span class="vbscript">&lt;%@ page contentType=<span class="hljs-string">"text/html; charset=utf-8"</span> language=<span class="hljs-string">"java"</span> errorPage=<span class="hljs-string">""</span> %&gt;</span>
+<span class="hljs-doctype">&lt;!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+    "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd"&gt;</span>
+<span class="hljs-tag">&lt;<span class="hljs-title">html</span> <span class="hljs-attribute">xmlns</span>=<span class="hljs-value">"http://www.w3.org/1999/xhtml"</span>&gt;</span>
+    <span class="hljs-tag">&lt;<span class="hljs-title">head</span>&gt;</span>
+        <span class="hljs-tag">&lt;<span class="hljs-title">title</span>&gt;</span>登录页面<span class="hljs-tag">&lt;/<span class="hljs-title">title</span>&gt;</span>
+    <span class="hljs-tag">&lt;/<span class="hljs-title">head</span>&gt;</span>
+    <span class="hljs-tag">&lt;<span class="hljs-title">body</span>&gt;</span>
+        <span class="hljs-tag">&lt;<span class="hljs-title">h2</span>&gt;</span>登录页面<span class="hljs-tag">&lt;/<span class="hljs-title">h2</span>&gt;</span>
+    <span class="vbscript">&lt;%
+        <span class="hljs-keyword">if</span>(<span class="hljs-built_in">request</span>.getAttribute(<span class="hljs-string">"tip"</span>) != <span class="hljs-literal">null</span>)
+        {
+            out.println(<span class="hljs-string">"&lt;font color='red'&gt;"</span> 
+                + <span class="hljs-built_in">request</span>.getAttribute(<span class="hljs-string">"tip"</span>)
+                + <span class="hljs-string">"&lt;/font&gt;"</span>);
+        }
+    %&gt;</span>
+        <span class="hljs-tag">&lt;<span class="hljs-title">form</span> <span class="hljs-attribute">method</span>=<span class="hljs-value">"post"</span> <span class="hljs-attribute">action</span>=<span class="hljs-value">"proLogin.jsp"</span>&gt;</span>
+            用户名:<span class="hljs-tag">&lt;<span class="hljs-title">input</span> <span class="hljs-attribute">type</span>=<span class="hljs-value">"text"</span> <span class="hljs-attribute">name</span>=<span class="hljs-value">"name"</span>/&gt;</span><span class="hljs-tag">&lt;<span class="hljs-title">br</span>/&gt;</span>
+            <span class="hljs-tag">&lt;<span class="hljs-title">input</span> <span class="hljs-attribute">type</span>=<span class="hljs-value">"submit"</span> <span class="hljs-attribute">value</span>=<span class="hljs-value">"登录"</span>/&gt;</span>
+        <span class="hljs-tag">&lt;/<span class="hljs-title">form</span>&gt;</span>
+    <span class="hljs-tag">&lt;/<span class="hljs-title">body</span>&gt;</span>
+<span class="hljs-tag">&lt;/<span class="hljs-title">html</span>&gt;</span></code></pre>
+
+<hr />
+
+<p>2、登录处理视图</p>
+
+
+
+<pre class="prettyprint"><code class="language-jsp hljs xml"><span class="vbscript">&lt;%@ page contentType=<span class="hljs-string">"text/html; charset=utf-8"</span> language=<span class="hljs-string">"java"</span> errorPage=<span class="hljs-string">""</span> %&gt;</span>
+<span class="hljs-doctype">&lt;!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+    "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd"&gt;</span>
+<span class="hljs-tag">&lt;<span class="hljs-title">html</span> <span class="hljs-attribute">xmlns</span>=<span class="hljs-value">"http://www.w3.org/1999/xhtml"</span>&gt;</span>
+    <span class="hljs-tag">&lt;<span class="hljs-title">head</span>&gt;</span>
+        <span class="hljs-tag">&lt;<span class="hljs-title">title</span>&gt;</span> 登录页面 <span class="hljs-tag">&lt;/<span class="hljs-title">title</span>&gt;</span>
+    <span class="hljs-tag">&lt;/<span class="hljs-title">head</span>&gt;</span>
+    <span class="hljs-tag">&lt;<span class="hljs-title">body</span>&gt;</span>
+        <span class="hljs-tag">&lt;<span class="hljs-title">h2</span>&gt;</span>登录页面<span class="hljs-tag">&lt;/<span class="hljs-title">h2</span>&gt;</span>
+        <span class="vbscript">&lt;%
+            session.setAttribute(<span class="hljs-string">"user"</span>, <span class="hljs-built_in">request</span>.getParameter(<span class="hljs-string">"name"</span>));
+        %&gt;</span>
+        登录成功，可以访问该应用的其他页面
+    <span class="hljs-tag">&lt;/<span class="hljs-title">body</span>&gt;</span>
+<span class="hljs-tag">&lt;/<span class="hljs-title">html</span>&gt;</span></code></pre>
+
+<hr />
+
+<p>3、验证视图</p>
+
+
+
+<pre class="prettyprint"><code class="language-jsp hljs xml"><span class="vbscript">&lt;%@ page language=<span class="hljs-string">"java"</span> import=<span class="hljs-string">"java.util.*"</span> pageEncoding=<span class="hljs-string">"UTF-8"</span>%&gt;</span>
+<span class="hljs-doctype">&lt;!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN"&gt;</span>
+<span class="hljs-tag">&lt;<span class="hljs-title">html</span>&gt;</span>
+  <span class="hljs-tag">&lt;<span class="hljs-title">head</span>&gt;</span>
+    <span class="hljs-tag">&lt;<span class="hljs-title">title</span>&gt;</span>验证视图<span class="hljs-tag">&lt;/<span class="hljs-title">title</span>&gt;</span>
+  <span class="hljs-tag">&lt;/<span class="hljs-title">head</span>&gt;</span>
+
+  <span class="hljs-tag">&lt;<span class="hljs-title">body</span>&gt;</span>
+    若先访问我，会跳转到系统的登录页面 <span class="hljs-tag">&lt;<span class="hljs-title">br</span>&gt;</span>
+  <span class="hljs-tag">&lt;/<span class="hljs-title">body</span>&gt;</span>
+<span class="hljs-tag">&lt;/<span class="hljs-title">html</span>&gt;</span></code></pre>
+
+<hr />
+
+
+
+<h2 id="七-手动模拟-java-web-的-filter机制">七. 手动模拟 Java Web 的 Filter机制</h2>
+
+<p>　　对 Java Web 的 Filter机制手动模拟，涉及到了责任链模式与AOP理念的融合和应用，笔者已在 <br />
+博文<a href="http://blog.csdn.net/justloveyou_/article/details/68491121">《责任链模式进阶：与AOP思想的融合与应用》</a>中详细阐述，此不赘述。</p>
+
+<hr />
+
+
+
+<h2 id="八-更多">八. 更多</h2>
+
+<p>　　更多关于责任链模式的提出动机、原理结构、典型实现和应用场景等介绍，请各位看官移步我的博文<a href="http://blog.csdn.net/justloveyou_/article/details/68489505">《责任链模式综述(基础篇)》</a>。</p>
+
+<p>　　更多关于AOP理念、责任链模式与AOP思想的融合及他们在 Java Web 的过滤器机制和Struts2拦截器机制的应用，请各位看官移步我的博文 <a href="http://blog.csdn.net/justloveyou_/article/details/68491121">《责任链模式进阶：与AOP思想的融合与应用》</a>。</p>
+
+<p>　　更多关于Servlet的详细介绍，请各位看官移步我的专栏<a href="http://blog.csdn.net/column/details/14810.html">《Java Web 成神之路》</a>。本专栏全面记录了Java Web开发相关知识，不但包括对http, servlet,session等基础知识的讲解，还包括对流行框架(SSM,SpringMVC等)、中间件(Redis等)等进阶知识的深入分析。笔者将持续跟进最新Web技术，期望对大家能够起到抛砖引玉的效果。</p>
+
+<hr /></div>&#13;
+        <script type="text/javascript">&#13;
+            $(function () {&#13;
+                $('pre.prettyprint code').each(function () {&#13;
+                    var lines = $(this).text().split('\n').length;&#13;
+                    var $numbering = $('&lt;ul/&gt;').addClass('pre-numbering').hide();&#13;
+                    $(this).addClass('has-numbering').parent().append($numbering);&#13;
+                    for (i = 1; i &lt;= lines; i++) {&#13;
+                        $numbering.append($('&lt;li/&gt;').text(i));&#13;
+                    };&#13;
+                    $numbering.fadeIn(1700);&#13;
+                });&#13;
+            });&#13;
+        </script>&#13;
+   &#13;

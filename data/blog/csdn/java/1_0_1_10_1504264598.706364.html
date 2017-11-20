@@ -1,0 +1,204 @@
+
+                
+<p>在做基础系统过程中，有很多字典页面需要管理，也有大量的数据需要维护，有时候一条一条数据添加可能，是非常麻烦和低效的，就需要将规范的数据，通过文档的形式，上传到系统中，这样就方便了很多。</p>&#13;
+<p>导入前，首先要编辑一个规范文档，这里我的想法是系统统一提供模板，让用户根据模板填数据，然后再导入系统。先来看看导出模板怎么写吧</p>&#13;
+<p>JSP</p>&#13;
+<p/>&#13;
+<pre code_snippet_id="2158895" snippet_file_name="blog_20170430_1_9917250" name="code" class="html">&lt;a   href="${pageContext.request.contextPath}/trainingPrograms/leadToExcelTemplet"
+class="easyui-linkbutton"
+style="width: 120px; margin-left: 350px; margin-top: 10px;"&gt;点击下载模板&lt;/a&gt;
+</pre>控制器<br/>&#13;
+controller&#13;
+<p/>&#13;
+<p/>&#13;
+<pre code_snippet_id="2158895" snippet_file_name="blog_20170430_2_2218545" name="code" class="java">	@RequestMapping("/trainingPrograms/leadToExcelTemplet")
+	public void leadToExcel(HttpServletRequest request,
+			HttpServletResponse response) {
+		excelUtil = new ExcelUtil();
+		try {
+			// excel表格的表头，map
+			LinkedHashMap&lt;String, String&gt; fieldMap = new LinkedHashMap&lt;String, String&gt;();
+			fieldMap.put("CourseTypeName", "课程类型");
+			fieldMap.put("courseCode", "课程编码");
+			fieldMap.put("courseName", "课程名称");
+			fieldMap.put("classHour", "学时");
+			fieldMap.put("classPoint", "学分");
+			fieldMap.put("theoryClassHour", "理论课时");
+			fieldMap.put("practiceClassHour", "实践课时");
+			fieldMap.put("academy", "开课学院");
+			fieldMap.put("examOrNot", "考核形式");
+			fieldMap.put("periodName", "开课学期");
+			fieldMap.put("weekClass", "周课时");
+			fieldMap.put("institutionName", "培养计划所属专业");
+			fieldMap.put("schoolLevel", "该专业所属学校层次");
+			fieldMap.put("beginweek", "开始周");
+			fieldMap.put("endweek", "结束周");
+			fieldMap.put("oddWeekOrNot", "是否单双周");
+			fieldMap.put("courseNatureId", "公选类型");
+			fieldMap.put("remark", "备注");
+			String sheetName = "培养计划";
+			// 导出模板
+			excelUtil.leadToExcel(fieldMap, sheetName, response);
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+	}
+</pre><br/>&#13;
+这里有一个excel工具&#13;
+<p/>&#13;
+<p/>&#13;
+<pre code_snippet_id="2158895" snippet_file_name="blog_20170205_3_6861045" name="code" class="java">package com.abc.ito.tool.exceluntil;
+
+import java.io.InputStream;
+import java.io.OutputStream;
+import java.lang.reflect.Field;
+import java.text.SimpleDateFormat;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Date;
+import java.util.HashSet;
+import java.util.Iterator;
+import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Map.Entry;
+import java.util.Set;
+
+import javax.servlet.http.HttpServletResponse;
+
+import jxl.Cell;
+import jxl.Sheet;
+import jxl.Workbook;
+import jxl.write.Label;
+import jxl.write.WritableSheet;
+import jxl.write.WritableWorkbook;
+import jxl.write.WriteException;
+
+/**
+ * 导入导出Excel工具类
+ *
+ * @author xlb
+ * @version 1.0.0 
+ */
+public class ExcelUtil {
+    /**
+	 * 导出Excel模板
+	 *
+	 * @param fieldMap
+	 *            类的英文属性和Excel中的中文列名的对应关系
+	 * @param sheetName
+	 *            工作表的名称
+	 * @param response
+	 *            使用response可以导出到浏览器
+	 * @throws ExcelException
+	 *             异常
+	 */
+	public &lt;T&gt; void leadToExcel(LinkedHashMap&lt;String, String&gt; fieldMap,
+			String sheetName, HttpServletResponse response)
+			throws ExcelException {
+
+		// 设置默认文件名为当前时间：年月日时分秒
+		String fileName = new SimpleDateFormat("yyyyMMddhhmmss").format(
+				new Date()).toString();
+
+		// 如果文件名没提供，则使用时间戳
+		if (fileName == null || fileName.trim().equals("")) {
+			// 设置默认文件名为当前时间：年月日时分秒
+			fileName = new SimpleDateFormat("yyyyMMddhhmmss")
+					.format(new Date()).toString();
+		}
+
+		// 设置response头信息
+		response.reset();
+		response.setContentType("application/vnd.ms-excel"); // 改成输出excel文件
+		response.setHeader("Content-disposition", "attachment; filename="
+				+ fileName + ".xls");
+
+		// 创建工作簿并发送到浏览器
+		try {
+
+			OutputStream out = response.getOutputStream();
+
+			int sheetSize = 65535;
+
+			// 创建工作簿并发送到OutputStream指定的地方
+			WritableWorkbook wwb;
+			try {
+				wwb = Workbook.createWorkbook(out);
+
+				// 因为2003的Excel一个工作表最多可以有65536条记录，除去列头剩下65535条
+				// 所以如果记录太多，需要放到多个工作表中，其实就是个分页的过程
+				// 1.计算一共有多少个工作表
+				// double sheetNum = Math.ceil(list.size()
+				// / new Integer(sheetSize).doubleValue());
+
+				double sheetNum = 1;
+
+				// 2.创建相应的工作表，并向其中填充数据
+				// 如果只有一个工作表的情况
+				if (1 == sheetNum) {
+					WritableSheet sheet = wwb.createSheet(sheetName, 1);
+
+					// 定义存放英文字段名和中文字段名的数组
+					String[] enFields = new String[fieldMap.size()];
+					String[] cnFields = new String[fieldMap.size()];
+
+					// 填充数组
+					int count = 0;
+					for (Entry&lt;String, String&gt; entry : fieldMap.entrySet()) {
+						enFields[count] = entry.getKey();
+						cnFields[count] = entry.getValue();
+						count++;
+					}
+					// 填充表头
+					for (int i = 0; i &lt; cnFields.length; i++) {
+						Label label = new Label(i, 0, cnFields[i]);
+						sheet.addCell(label);
+					}
+
+					// 设置自动列宽
+					setColumnAutoSize(sheet, 5);
+
+				}
+
+				wwb.write();
+				wwb.close();
+
+			} catch (Exception e) {
+				e.printStackTrace();
+				// 如果是ExcelException，则直接抛出
+				if (e instanceof ExcelException) {
+					throw (ExcelException) e;
+
+					// 否则将其它异常包装成ExcelException再抛出
+				} else {
+					throw new ExcelException("导出Excel失败");
+				}
+			}
+
+		} catch (Exception e) {
+			e.printStackTrace();
+
+			// 如果是ExcelException，则直接抛出
+			if (e instanceof ExcelException) {
+				throw (ExcelException) e;
+
+				// 否则将其它异常包装成ExcelException再抛出
+			} else {
+				throw new ExcelException("导出Excel失败");
+			}
+		}
+	}
+}</pre>&#13;
+<p/>&#13;
+<p>导出功能也有很多形式，我这里只列出我用到的一种方式。</p>&#13;
+<p><img src="http://img.blog.csdn.net/20170205084339209?watermark/2/text/aHR0cDovL2Jsb2cuY3Nkbi5uZXQvbWF5Zmxh/font/5a6L5L2T/fontsize/400/fill/I0JBQkFCMA==/dissolve/70/gravity/Center" alt=""/></p>&#13;
+<p>名字默认为下载当前时间</p>&#13;
+<p><br/>&#13;
+</p>&#13;
+<p><img src="http://img.blog.csdn.net/20170205084346554?watermark/2/text/aHR0cDovL2Jsb2cuY3Nkbi5uZXQvbWF5Zmxh/font/5a6L5L2T/fontsize/400/fill/I0JBQkFCMA==/dissolve/70/gravity/Center" width="700" alt=""/></p>&#13;
+<p>上面就画出了Excel，这样用户通过填充数据，可以被导入功能识别，并导入成功。</p>&#13;
+<p>导出完，接下来就是导入功能了，为高效工作继续加油。<br/>&#13;
+<br/>&#13;
+</p>&#13;
+<link rel="stylesheet" href="http://static.blog.csdn.net/public/res-min/markdown_views.css?v=1.0"/>&#13;
+            

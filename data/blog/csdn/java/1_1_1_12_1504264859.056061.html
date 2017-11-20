@@ -1,0 +1,167 @@
+
+        <div class="markdown_views"><h2 id="一场景">一、场景</h2>
+
+<hr />
+
+<p>对于学习了Java的同学来说，“迭代”这个词并不会陌生，我们经常使用Iterator接口对Collection下的集合类进行遍历，常见代码：</p>
+
+
+
+<pre class="prettyprint"><code class=" hljs oxygene"><span class="hljs-keyword">Iterator</span> <span class="hljs-keyword">iterator</span>=list.<span class="hljs-keyword">iterator</span>();
+<span class="hljs-keyword">while</span>(<span class="hljs-keyword">iterator</span>.hasNext())<span class="hljs-comment">{
+//进行遍历
+}</span></code></pre>
+
+<p>这便是很好的迭代器模式应用例子。我们可以在不暴露集合类的内部结构情况下，通过迭代器让外部客户端透明的访问其内部的数据。</p>
+
+
+
+<h2 id="二定义及结构">二、定义及结构</h2>
+
+<hr />
+
+<p>1.定义：提供一种可以顺序访问聚合对象中的每个元素的方式，而有不暴露该对象的内部结构。又称为“游标cursor模式”。 <br />
+2.迭代器模式结构：</p>
+
+<ul>
+<li><strong>迭代器角色(Iterator)</strong>:迭代器角色负责定义访问和遍历的接口。</li>
+<li><strong>具体迭代器角色(ConcreteIterator)</strong>：具体迭代器角色实现迭代器接口，记录当前的游标位置。</li>
+<li><strong>聚合角色(Aggregate)</strong>： 聚合角色负责提供创建具体迭代器角色的接口。</li>
+<li><strong>具体聚合角色(ConcreteAggregate)</strong>： 具体聚合角色实现聚合角色接口。 <br />
+结构图： <br />
+<img src="http://img.blog.csdn.net/20161109191357141" alt="这里写图片描述" title="" /></li>
+</ul>
+
+
+
+<h2 id="三示例">三、示例</h2>
+
+<hr />
+
+<p>下面通过模仿JavaSDK中的Iterator写一个自己的迭代器。 <br />
+<font color="#00f" size="3">迭代器角色(Iterator):</font></p>
+
+
+
+<pre class="prettyprint"><code class=" hljs java"><span class="hljs-javadoc">/**
+ * 自定义迭代器接口
+ */</span>
+<span class="hljs-keyword">public</span> <span class="hljs-class"><span class="hljs-keyword">interface</span> <span class="hljs-title">MyIterator</span> {</span>
+    <span class="hljs-keyword">boolean</span> hasnext();<span class="hljs-comment">//是否有下一个元素</span>
+    Object next();<span class="hljs-comment">//获取当前游标所指元素,并将游标加1</span>
+}</code></pre>
+
+<p><font color="#00f" size="3"> 具体聚合角色(ConcreteAggregate): </font></p>
+
+
+
+<pre class="prettyprint"><code class=" hljs java"><span class="hljs-javadoc">/**
+ * 自定义聚合类
+ */</span>
+<span class="hljs-keyword">public</span> <span class="hljs-class"><span class="hljs-keyword">class</span> <span class="hljs-title">ConcreteMyAggregate</span> {</span>
+    <span class="hljs-keyword">private</span> List&lt;Object&gt; list=<span class="hljs-keyword">new</span> ArrayList&lt;Object&gt;();
+
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">void</span> <span class="hljs-title">addObject</span>(Object obj){
+        <span class="hljs-keyword">this</span>.list.add(obj);
+    }
+
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">void</span> <span class="hljs-title">removeObject</span>(Object obj){
+        <span class="hljs-keyword">this</span>.list.remove(obj);
+    }
+
+    <span class="hljs-comment">//获取迭代器</span>
+    <span class="hljs-keyword">public</span> MyIterator <span class="hljs-title">CreateIterator</span>(){
+        <span class="hljs-keyword">return</span> <span class="hljs-keyword">new</span> ConcreteMyIterator();
+    }
+
+    <span class="hljs-javadoc">/**
+     * 具体迭代器角色
+     * 使用内部类定义迭代器，可以直接使用外部类属性
+     */</span>
+    <span class="hljs-keyword">private</span>  <span class="hljs-class"><span class="hljs-keyword">class</span> <span class="hljs-title">ConcreteMyIterator</span> <span class="hljs-keyword">implements</span> <span class="hljs-title">MyIterator</span>{</span>
+        <span class="hljs-keyword">private</span> <span class="hljs-keyword">int</span> cursor;<span class="hljs-comment">//定义游标用于记录遍历时的位置</span>
+
+        <span class="hljs-annotation">@Override</span>
+        <span class="hljs-keyword">public</span> <span class="hljs-keyword">boolean</span> <span class="hljs-title">hasnext</span>() {
+            <span class="hljs-keyword">if</span>(cursor&lt;list.size()){
+                <span class="hljs-keyword">return</span> <span class="hljs-keyword">true</span>;
+            }
+            <span class="hljs-keyword">return</span> <span class="hljs-keyword">false</span>;
+        }
+
+        <span class="hljs-annotation">@Override</span>
+        <span class="hljs-keyword">public</span> Object <span class="hljs-title">next</span>() {
+            Object obj=list.get(cursor);
+            <span class="hljs-keyword">if</span>(cursor&lt;list.size()){
+                cursor++;
+            }
+            <span class="hljs-keyword">return</span> obj; 
+        }
+    }
+}
+
+</code></pre>
+
+<p><font color="#00f" size="3">客户端： </font></p>
+
+
+
+<pre class="prettyprint"><code class=" hljs cs"><span class="hljs-keyword">public</span> <span class="hljs-keyword">class</span> Client {
+
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">static</span> <span class="hljs-keyword">void</span> <span class="hljs-title">main</span>(String[] args) {
+        ConcreteMyAggregate cma=<span class="hljs-keyword">new</span> ConcreteMyAggregate();
+        cma.addObject(<span class="hljs-string">"aa"</span>);
+        cma.addObject(<span class="hljs-string">"bb"</span>);
+        cma.addObject(<span class="hljs-string">"cc"</span>);
+        cma.addObject(<span class="hljs-string">"dd"</span>);
+        MyIterator iterator=cma.CreateIterator();
+        <span class="hljs-keyword">while</span>(iterator.hasnext()){
+            System.<span class="hljs-keyword">out</span>.println(iterator.next());
+        }
+    }
+}
+
+
+<span class="hljs-comment">//输出结果</span>
+aa
+bb
+cc
+dd  
+</code></pre>
+
+
+
+<h2 id="四总结">四、总结</h2>
+
+<hr />
+
+<p><font size="3" color="#ad6">1.迭代器模式优缺点</font> <br />
+优点：</p>
+
+<ul>
+<li>简化了遍历方式，对于对象集合的遍历，还是比较麻烦的，对于数组或者有序列表，我们尚可以通过游标来取得，但用户需要在对集合了解很清楚的前提下，自行遍历对象，但是对于hash表来说，用户遍历起来就比较麻烦了。而引入了迭代器方法后，用户用起来就简单的多了。</li>
+<li>可以提供多种遍历方式，比如说对有序列表，我们可以根据需要提供正序遍历，倒序遍历两种迭代器，用户用起来只需要得到我们实现好的迭代器，就可以方便的对集合进行遍历了。</li>
+<li>封装性良好，用户只需要得到迭代器就可以遍历，而对于遍历算法则不用去关心。 <br />
+缺点：</li>
+<li>对于比较简单的遍历（像数组或者有序列表），使用迭代器方式遍历较为繁琐，大家可能都有感觉，像ArrayList，我们宁可愿意使用for循环和get方法来遍历集合。</li>
+</ul>
+
+<p><font size="3" color="#ad6">2.迭代器模式适用场景</font></p>
+
+<p>　　迭代器模式是与集合共生共死的，一般来说，我们只要实现一个集合，就需要同时提供这个集合的迭代器，就像java中的Collection，List、Set、Map等，这些集合都有自己的迭代器。假如我们要实现一个这样的新的容器，当然也需要引入迭代器模式，给我们的容器实现一个迭代器。</p>
+
+<p>　　 但是，由于容器与迭代器的关系太密切了，所以大多数语言在实现容器的时候都给提供了迭代器，并且这些语言提供的容器和迭代器在绝大多数情况下就可以满足我们的需要，所以现在需要我们自己去实践迭代器模式的场景还是比较少见的，我们只需要使用语言中已有的容器和迭代器就可以了</p></div>&#13;
+        <script type="text/javascript">&#13;
+            $(function () {&#13;
+                $('pre.prettyprint code').each(function () {&#13;
+                    var lines = $(this).text().split('\n').length;&#13;
+                    var $numbering = $('&lt;ul/&gt;').addClass('pre-numbering').hide();&#13;
+                    $(this).addClass('has-numbering').parent().append($numbering);&#13;
+                    for (i = 1; i &lt;= lines; i++) {&#13;
+                        $numbering.append($('&lt;li/&gt;').text(i));&#13;
+                    };&#13;
+                    $numbering.fadeIn(1700);&#13;
+                });&#13;
+            });&#13;
+        </script>&#13;
+   &#13;

@@ -1,0 +1,160 @@
+
+        <div class="markdown_views"><h3 id="摘要">摘要</h3>
+
+<p>本文主要简单介绍下如何在Spring Boot 项目中使用Spring data mongdb.没有深入探究，仅供入门参考。 <br />
+文末有代码链接</p>
+
+
+
+<h3 id="准备">准备</h3>
+
+<p><strong>安装mongodb</strong> <br />
+需要连接mongodb，所以需要提前安装mongodb.在本地安装</p>
+
+<p>安装文档见官网 <a href="https://docs.mongodb.com/manual/administration/install-community/">install mongodb</a></p>
+
+<p>安装完mongodb后配置环境变量。创建目录“C:\data\db”作为mongo 数据存储的默认文件 <br />
+注意本篇文章代码连接的mongo3.2. <br />
+在window7 64 bit 上安装mongo，可以选择Windows Server 2008 R2 64-bit </p>
+
+
+
+<h3 id="例程">例程</h3>
+
+
+
+<h4 id="配置数据库连接">配置数据库连接</h4>
+
+<p>在main/resource/ 下添加application.yml文件</p>
+
+
+
+<pre class="prettyprint"><code class=" hljs haskell"><span class="hljs-title">spring</span>:
+        <span class="hljs-typedef"><span class="hljs-keyword">data</span>:</span>
+             mongodb:
+               host: localhost
+               port: <span class="hljs-number">27017</span>
+               database: test</code></pre>
+
+<p>Spring boot 会检测MongoDb中是否存在db test。如果没有会创建</p>
+
+
+
+<h4 id="model">model</h4>
+
+<p>创建一个person document 类。作为Mongodb的document 映射。加上@Document 注解</p>
+
+
+
+<pre class="prettyprint"><code class=" hljs java"><span class="hljs-annotation">@Document</span>(collection=<span class="hljs-string">"personDocument"</span>)
+<span class="hljs-keyword">public</span> <span class="hljs-class"><span class="hljs-keyword">class</span> <span class="hljs-title">PersonDocument</span> {</span>
+        <span class="hljs-annotation">@Id</span>
+        String id;
+        String name;
+        String description;
+       } </code></pre>
+
+
+
+<h4 id="repository">repository</h4>
+
+<p>repository 就是DAO,将域类型和它的ID类型作为类型参数。Spring Data JPA 在JPA(Java Persistence Api)又做了一层封装。因此我们可以看到，只需要编写repository 接口即可。</p>
+
+
+
+<pre class="prettyprint"><code class=" hljs php">@Repository
+<span class="hljs-keyword">public</span> <span class="hljs-class"><span class="hljs-keyword">interface</span> <span class="hljs-title">PersonRepository</span> <span class="hljs-keyword">extends</span> <span class="hljs-title">MongoRepository</span>&lt;<span class="hljs-title">PersonDocument</span>,<span class="hljs-title">String</span>&gt;{</span>
+    PersonDocument findByName(String name);
+}</code></pre>
+
+<p>这些接口会通过Proxy来自动实现。所以接口里面的方法名不是随意写。需要遵循一定的规范。像上面的 “findByName”是查询语句，Name必须是PersonDocument中的字段，否则会报错。</p>
+
+<p>And 关键字表示的就是SQL中的and <br />
+LessThan 关键词表示的就是SQL 中的 &lt; <br />
+等等，还有许多基本的SQL实现</p>
+
+
+
+<h4 id="service">service</h4>
+
+<p>service 层和之前的写法没什么不同，调用repository，实现业务逻辑</p>
+
+
+
+<pre class="prettyprint"><code class=" hljs java"><span class="hljs-annotation">@EnableMongoRepositories</span>(basePackages = <span class="hljs-string">"com.example.dao.repository"</span>)
+<span class="hljs-annotation">@Service</span>
+<span class="hljs-keyword">public</span> <span class="hljs-class"><span class="hljs-keyword">class</span> <span class="hljs-title">PersonServiceImpl</span>  <span class="hljs-keyword">implements</span> <span class="hljs-title">PersonService</span>{</span>
+
+    <span class="hljs-annotation">@Autowired</span>
+    <span class="hljs-keyword">private</span> PersonRepository personRepo;
+
+    <span class="hljs-keyword">public</span> PersonDocument <span class="hljs-title">getPersonDocumentByName</span>(String name) {
+        PersonDocument doc = personRepo.findByName(name);
+        <span class="hljs-keyword">return</span> doc;
+    }
+
+
+    <span class="hljs-keyword">public</span> PersonDocument <span class="hljs-title">create</span>(PersonDocument personDoc) {
+        personDoc = personRepo.save(personDoc);
+        <span class="hljs-keyword">return</span> personDoc;
+    }
+
+}
+</code></pre>
+
+
+
+<h4 id="test">test</h4>
+
+
+
+<pre class="prettyprint"><code class=" hljs java"><span class="hljs-annotation">@SpringBootApplication</span>
+<span class="hljs-keyword">public</span> <span class="hljs-class"><span class="hljs-keyword">class</span> <span class="hljs-title">DemoApplication</span> <span class="hljs-keyword">implements</span> <span class="hljs-title">CommandLineRunner</span> {</span>
+
+    <span class="hljs-annotation">@Autowired</span>
+    <span class="hljs-keyword">private</span> PersonService personService;
+
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">static</span> <span class="hljs-keyword">void</span> <span class="hljs-title">main</span>(String[] args) {
+        SpringApplication.run(DemoApplication.class, args);
+    }
+
+    <span class="hljs-annotation">@Override</span>
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">void</span> <span class="hljs-title">run</span>(String... arg0) <span class="hljs-keyword">throws</span> Exception {
+        PersonDocument doc = <span class="hljs-keyword">new</span> PersonDocument(<span class="hljs-string">"tom"</span>, <span class="hljs-string">"student"</span>);
+        personService.create(doc);
+        PersonDocument doc2 = personService.getPersonDocumentByName(<span class="hljs-string">"tom"</span>);
+        System.out.println(<span class="hljs-string">"result:"</span> + doc2.getName());
+
+    }</code></pre>
+
+<p>完整代码 <a href="https://github.com/FS1360472174/javaweb/tree/master/microservie/spring-boot/project/spring-data-mongo/demo">github source code</a></p>
+
+
+
+<h3 id="issues">Issues</h3>
+
+<p>Q1.连接mongodb 正常，数据库中也有populate数据。但是使用spring-data-mongo repository 查询不出数据</p>
+
+<p>A1.首先试了下findAll 方法。发现没有查询出数据。最后检查了下application 配置文件。这个文件没有报错。配置的Mongo 连接参数也对。要不然也连接不上。虽然文件没有报错。但是有warning.参考了标准配置后解决了问题</p>
+
+<h3 id="参考">参考</h3>
+
+<p><a href="http://docs.spring.io/spring-data/mongodb/docs/1.2.x/reference/html/mongo.repositories.html">http://docs.spring.io/spring-data/mongodb/docs/1.2.x/reference/html/mongo.repositories.html</a></p>
+
+<p><a href="http://docs.spring.io/spring-data/mongodb/docs/1.4.0.RELEASE/reference/html/mongo.core.html#mongodb-getting-started">http://docs.spring.io/spring-data/mongodb/docs/1.4.0.RELEASE/reference/html/mongo.core.html#mongodb-getting-started</a></p>
+
+<p><a href="https://github.com/springside/springside4/wiki/Spring-Data-JPA">https://github.com/springside/springside4/wiki/Spring-Data-JPA</a></p></div>&#13;
+        <script type="text/javascript">&#13;
+            $(function () {&#13;
+                $('pre.prettyprint code').each(function () {&#13;
+                    var lines = $(this).text().split('\n').length;&#13;
+                    var $numbering = $('&lt;ul/&gt;').addClass('pre-numbering').hide();&#13;
+                    $(this).addClass('has-numbering').parent().append($numbering);&#13;
+                    for (i = 1; i &lt;= lines; i++) {&#13;
+                        $numbering.append($('&lt;li/&gt;').text(i));&#13;
+                    };&#13;
+                    $numbering.fadeIn(1700);&#13;
+                });&#13;
+            });&#13;
+        </script>&#13;
+   &#13;

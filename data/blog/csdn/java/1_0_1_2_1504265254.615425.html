@@ -1,0 +1,360 @@
+
+
+<div style="text-align:center"><span style="font-family:&quot;Microsoft YaHei&quot;; font-size:24px">架构师入门笔记三 初识Queue队列</span></div>&#13;
+<div style="text-align:left"><span style="font-family:&quot;Microsoft YaHei&quot;; font-size:24px"><br />&#13;
+</span></div>&#13;
+<h1 style="text-align:left"><span style="font-family:&quot;Microsoft YaHei&quot;"><span style="font-size:18px">1. wait和notify模拟Queue</span></span></h1>&#13;
+<h2 style="text-align:left"><span style="font-family:Microsoft YaHei; font-size:18px"><strong>1.1 wait / notify 基础知识</strong></span></h2>&#13;
+<div><span style="font-family:Microsoft YaHei; font-size:18px">线程通信概念：线程是操作系统中独立的个体，但这些个体如果不经过特殊的处理，就不能成为一个整体，线程之间的通信就成为整体的必用方法之一。</span></div>&#13;
+<div><span style="font-family:Microsoft YaHei; font-size:18px">使用 wait/ notify 方法实现线程间的通信：</span></div>&#13;
+<div><span style="font-family:Microsoft YaHei; font-size:18px">1）wait 和 notify 必须要配合 synchronized 关键字使用</span></div>&#13;
+<div><span style="font-family:Microsoft YaHei; font-size:18px"><span style="font-family:&quot;Microsoft YaHei&quot;; font-size:18px">2）</span>wait方法是释放锁的， notify方法不释放锁。</span></div>&#13;
+<h2><span style="font-family:Microsoft YaHei; font-size:18px">1.2 wait / notify 模拟BlockingQueue</span></h2>&#13;
+<div><span style="font-family:Microsoft YaHei; font-size:18px">BlockingQueue：是一个队列，并且支持阻塞的机制，阻塞的放入和得到数据。我们要实现 LinkedBlockingQueue 下面两个简单的方法put 和 take<br />&#13;
+put(an object)：把一个object 加到BlockingQueue里，如果BlockingQueue没有空间，则调用此方法的线程会被阻断，知道BlockingQueue里面有空间再继续。<br />&#13;
+take：取走BlockingQueue里排在首位的对象，若BlockingQueue为空，阻断进入等待状直到BlockingQueue有新数据被加入。</span></div>&#13;
+<div><span style="font-family:Microsoft YaHei; font-size:18px"></span><pre code_snippet_id="2528286" snippet_file_name="blog_20170810_1_7302041" name="code" class="java">import java.util.LinkedList;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicInteger;
+
+public class MyQueue {
+	
+	//1 需要一个承装元素的集合 
+	private LinkedList&lt;Object&gt; list = new LinkedList&lt;Object&gt;();
+	//2 需要一个计数器 AtomicInteger （原子性）
+	private AtomicInteger count = new AtomicInteger(0);
+	//3 需要制定上限和下限
+	private final int minSize = 0;
+	private final int maxSize ;
+	
+	//4 构造方法
+	public MyQueue(int size){
+		this.maxSize = size;
+	}
+	
+	//5 初始化一个对象 用于加锁
+	private final Object lock = new Object();
+	
+	//put(anObject): 把anObject加到BlockingQueue里,如果BlockQueue没有空间,则调用此方法的线程被阻断，直到BlockingQueue里面有空间再继续.
+	public void put(Object obj){
+		synchronized (lock) {
+			while(count.get() == this.maxSize){
+				try {
+					lock.wait();  // 当Queue没有空间时，线程被阻塞
+				} catch (InterruptedException e) {
+					e.printStackTrace();
+				}
+			}
+			//1 加入元素
+			list.add(obj);
+			//2 计数器累加
+			count.incrementAndGet();
+			//3 新增元素后，通知另外一个线程（唤醒），队列多了一个元素，可以做移除操作了。
+			lock.notify();
+			System.out.println("新加入的元素为:" + obj);
+		}
+	}
+	
+	//take: 取走BlockingQueue里排在首位的对象,若BlockingQueue为空,阻断进入等待状态直到BlockingQueue有新的数据被加入.
+	public Object take(){
+		Object ret = null;
+		synchronized (lock) {
+			while(count.get() == this.minSize){
+				try {
+					lock.wait();
+				} catch (InterruptedException e) {
+					e.printStackTrace();
+				}
+			}
+			//1 做移除元素操作
+			ret = list.removeFirst();
+			//2 计数器递减
+			count.decrementAndGet();
+			//3 移除元素后，唤醒另外一个线程，队列少元素了，可以再添加操作了
+			lock.notify();
+		}
+		return ret;
+	}
+	
+	public int getSize(){
+		return this.count.get();
+	}
+	
+	public static void main(String[] args) {
+		final MyQueue mq = new MyQueue(5);
+		mq.put("a");
+		mq.put("b");
+		mq.put("c");
+		mq.put("d");
+		mq.put("e");
+		System.out.println("当前容器的长度:" + mq.getSize());
+		Thread t1 = new Thread(new Runnable() {
+			@Override
+			public void run() {
+				mq.put("f");
+				mq.put("g");
+			}
+		},"t1");
+		Thread t2 = new Thread(new Runnable() {
+			@Override
+			public void run() {
+				Object o1 = mq.take();
+				System.out.println("移除的元素为:" + o1);
+				Object o2 = mq.take();
+				System.out.println("移除的元素为:" + o2);
+			}
+		},"t2");
+		t1.start();
+		try {
+			TimeUnit.SECONDS.sleep(2);
+		} catch (InterruptedException e) {
+			e.printStackTrace();
+		}
+		t2.start();
+	}
+	
+}</pre><span style="font-size:18px">从打印的信息可以看出，当t2 线程移除数据后，t1线程才开始加入数据</span></div>&#13;
+<div><span style="font-family:Microsoft YaHei; font-size:18px"><br />&#13;
+</span></div>&#13;
+<h2 style="text-align:left"><span style="font-family:&quot;Microsoft YaHei&quot;"><span style="font-size:18px">2. 并发Queue</span></span></h2>&#13;
+<h2><span style="font-family:&quot;Microsoft YaHei&quot;"><span style="font-size:18px">2.1 Queue 简介</span></span></h2>&#13;
+<div><span style="font-family:Microsoft YaHei"><span style="font-size:18px">Queue的主要实现如下图所示。Queue主要分两类，一类是高性能队列 ConcurrentLinkedQueue； 一类是阻塞队列 BlockingQueue</span></span></div>&#13;
+<div><span style="font-family:Microsoft YaHei"><span style="font-size:18px"><img src="http://img.blog.csdn.net/20170805094413781" alt="" /><br />&#13;
+</span></span></div>&#13;
+<div><span style="font-family:Microsoft YaHei"><span style="font-size:18px"><br />&#13;
+</span></span></div>&#13;
+<h2 style="text-align:left"><span style="font-family:&quot;Microsoft YaHei&quot;"><span style="font-size:18px">2.2 ConcurrentLinkedQueue接口</span></span></h2>&#13;
+<div style="text-align:left"><span style="font-family:&quot;Microsoft YaHei&quot;"><span style="font-size:18px">ConcurrentLinkedQueue：是一个适合高并发场景下的队列，通过无锁的方式，实现了高并发状态下的高性能，通常ConcurrentLinkedQueue性能好于BlockingQueue。它是一个基于链接节点的无界限线程安全队列。该队列的元素遵循先进先出的原则。头是最先加入的，尾是最后加入的，该队列不允许null元素。<br />&#13;
+ConcurrentLinkedQueue 重要方法：<br />&#13;
+add() 和 offer() 都是加入元素，该队列中无区别<br />&#13;
+poll() 和 peek() 都是取头元素节点，区别在于前者会删除元素，后者不会<br />&#13;
+</span></span></div>&#13;
+<div style="text-align:left"><span style="font-family:&quot;Microsoft YaHei&quot;"><span style="font-size:18px"></span></span><pre code_snippet_id="2528286" snippet_file_name="blog_20170810_2_5415451" name="code" class="java">import java.util.concurrent.ConcurrentLinkedQueue;
+
+public class MyConcurrentLinkedQueue {
+
+	public static void main(String[] args) throws Exception {
+		
+		//高性能无阻塞无界队列：ConcurrentLinkedQueue
+		ConcurrentLinkedQueue&lt;String&gt; q = new ConcurrentLinkedQueue&lt;String&gt;();
+		q.offer("a");
+		q.offer("b");
+		q.offer("c");
+		q.offer("d");
+		q.add("e");
+		
+		System.out.println(q.poll());	// 打印结果：a （从头部取出元素，并从队列里删除）
+		System.out.println(q.size());	// 打印结果：4 （执行poll 后 元素减少一个）
+		System.out.println(q.peek());	// 打印结果：b （a 被移除了，首元素就是b）
+		System.out.println(q.size());	// 打印结果：4 （peek 不移除元素）
+		
+	}
+}</pre><br />&#13;
+<h2><span style="font-family:&quot;Microsoft YaHei&quot;"><span style="font-size:18px">2.3 BlockingQueue接口</span></span></h2>&#13;
+<div><span style="font-family:&quot;Microsoft YaHei&quot;"><span style="font-size:18px">ArrayBlockingQueue： 基于数组的阻塞队列实现，在内部，维护了一个定长数组，以便缓存队列中的数据对象。其内部没有实现读写分离，也就意味着生产和消费不能完全并行。长度是需要定义的，可以指定先进先出或者先进后出，是一个有界队列。<br />&#13;
+</span></span></div>&#13;
+</div>&#13;
+<div style="text-align:left"><span style="font-family:&quot;Microsoft YaHei&quot;"><span style="font-size:18px"></span></span><pre code_snippet_id="2528286" snippet_file_name="blog_20170810_3_8097646" name="code" class="java">import java.util.concurrent.ArrayBlockingQueue;
+import java.util.concurrent.TimeUnit;
+
+public class MyArrayBlockingQueue {
+
+	public static void main(String[] args) throws Exception {
+		ArrayBlockingQueue&lt;String&gt; array = new ArrayBlockingQueue&lt;String&gt;(5); // 可以尝试 队列长度由3改到5
+		array.offer("offer 方法 插入数据成功返回true 否则返回false");
+		array.offer("3秒后插入数据", 3, TimeUnit.SECONDS);
+		array.put("put 方法 若超出长度就会阻塞等待");
+		array.add("add 方法 在超出长度时会提示错误信息 java.lang.IllegalStateException"); //  java.lang.IllegalStateException: Queue full
+		System.out.println(array.offer("true or false", 3, TimeUnit.SECONDS));
+		System.out.println(array);
+	}
+}</pre>&#13;
+<div style="text-align:left"><span style="font-family:&quot;Microsoft YaHei&quot;"><span style="font-size:18px"><br />&#13;
+</span></span></div>&#13;
+<span style="font-size:18px">LinkedBlockingQueue：基于列表的阻塞队列，同ArrayBlockingQueue类似，其内部维护了一个数据缓冲队列（该队列由一个链表构成），它之所以能够高效的处理并发数据，是因为其内部实现采用分离锁（读写分离两个锁），从而实现生产者和消费者操作的完全并行运行。是一个无界队列</span></div>&#13;
+<div style="text-align:left"><span style="font-family:&quot;Microsoft YaHei&quot;"><span style="font-size:18px">用法和 <span style="font-family:&quot;Microsoft YaHei&quot;; font-size:18px">ArrayBlockingQueue 差不多，offer，put，add 。区别在于，LinkedBlockingQueue是无界队列，初始化的时候，可以设置一个长度，也可以不设置。drainTo(集合,&#13;
+ 集合最大长度)方法，可以从LinkedBlockingQueue 截取长度到另外一个集合中。</span></span></span></div>&#13;
+<div style="text-align:left"><span style="font-family:&quot;Microsoft YaHei&quot;"><span style="font-size:18px"><span style="font-family:&quot;Microsoft YaHei&quot;; font-size:18px"><br />&#13;
+</span></span></span></div>&#13;
+<div style="text-align:left"><span style="font-family:&quot;Microsoft YaHei&quot;"><span style="font-size:18px">SynchronousQueue：一种没有缓冲的队列，生存者生产的数据直接会被消费者获取并消费。</span></span></div>&#13;
+<div style="text-align:left"><span style="font-family:&quot;Microsoft YaHei&quot;"><span style="font-size:18px"><br />&#13;
+</span></span></div>&#13;
+<div style="text-align:left"><span style="font-family:Microsoft YaHei"><span style="font-size:18px">以上三个队列，用于什么场景呢？举个例子： 坐地铁。人少的时候，刷卡的时候，来一个人就可以直接刷，无需等待，这用SynchronousQueue。 上班高峰期了，人很多，刷卡的时候需要排队，这用LinkedBlockingQueue无界队列。放假高峰期了，人满人患，若用LinkedBlockingQueue队列，它是无界的，如果进来的人太多会影响地铁站正常工作了，这时候就要用有界队列ArrayBlockingQueue。</span></span></div>&#13;
+<div style="text-align:left"><span style="font-family:Microsoft YaHei"><span style="font-size:18px"><br />&#13;
+</span></span></div>&#13;
+<div style="text-align:left"><span style="font-family:Microsoft YaHei"><span style="font-size:18px">PriorityBlockingQueue：基于优先级的阻塞队列（优先级的判断通过构造函数传入的Compator对象来决定，也就是说传入队列的对象必须实现Comparable接口），在实现PriorityBlockingQueue时，内部控制线程同步的锁采用的是公平锁，是一个无界队列。</span></span></div>&#13;
+<div style="text-align:left"><span style="font-family:Microsoft YaHei"><span style="font-size:18px">传入队列的对象：Task</span></span></div>&#13;
+<div style="text-align:left"><span style="font-family:Microsoft YaHei"><span style="font-size:18px"></span></span><pre code_snippet_id="2528286" snippet_file_name="blog_20170810_4_1543993" name="code" class="java">public class Task implements Comparable&lt;Task&gt;{
+	
+	private int id ;
+	private String name;
+	
+	public int getId() {
+		return id;
+	}
+	public void setId(int id) {
+		this.id = id;
+	}
+	public String getName() {
+		return name;
+	}
+	public void setName(String name) {
+		this.name = name;
+	}
+	
+	@Override
+	public int compareTo(Task task) {
+		return this.id &gt; task.id ? 1 : (this.id &lt; task.id ? -1 : 0);  
+	}
+	
+	public String toString(){
+		return this.id + "," + this.name;
+	}
+	
+}</pre><span style="font-family:&quot;Microsoft YaHei&quot;; font-size:18px">PriorityBlockingQueue 排序：</span><br />&#13;
+<pre code_snippet_id="2528286" snippet_file_name="blog_20170810_5_3354136" name="code" class="java">import java.util.concurrent.PriorityBlockingQueue;
+
+public class MyPriorityBlockingQueue {
+	
+	public static void main(String[] args) throws Exception{
+		
+		PriorityBlockingQueue&lt;Task&gt; q = new PriorityBlockingQueue&lt;Task&gt;();
+		
+		// 由大到小的设置
+		Task t1 = new Task();
+		t1.setId(1);
+		t1.setName("id为1");
+		Task t2 = new Task();
+		t2.setId(4);
+		t2.setName("id为4");
+		Task t3 = new Task();
+		t3.setId(9);
+		t3.setName("id为9");
+		Task t4 = new Task();
+		t4.setId(16);
+		t4.setName("id为16");
+		Task t5 = new Task();
+		t5.setId(5);
+		t5.setName("id为5");
+		
+		// 故意打乱顺序进入队列
+		q.add(t3);
+		q.add(t4);
+		q.add(t1);
+		q.add(t2);
+		q.add(t5);
+		
+		System.out.println("初始队列容器：" + q);
+		System.out.println("第一个元素：" + q.take()); // 执行take后排序（取值后排序输出）
+		System.out.println("执行take方法后容器：" + q);
+		
+	}
+}</pre><br />&#13;
+<span style="font-size:18px">DelayQueue：带有延迟时间的Queue，其中的元素只有指定的延迟时间到了，才能够从队列中获取到该元素，DelayQueue中的元素必须实现Delayed接口，DelayQueue是一个没有大小限制的队列，应用场景很多，比如对缓存超时的数据进行移除，任务超时处理，空闲连接的关闭等等</span></div>&#13;
+<div style="text-align:left"><span style="font-size:18px">摘录网上代码：</span></div>&#13;
+<div style="text-align:left"><span style="font-size:18px"></span><pre code_snippet_id="2528286" snippet_file_name="blog_20170810_6_3528077" name="code" class="java">import java.util.concurrent.Delayed;
+import java.util.concurrent.TimeUnit;
+
+public class Wangmin implements Delayed {  
+    
+    private String name;  
+    //身份证  
+    private String id;  
+    //截止时间  
+    private long endTime;  
+    //定义时间工具类
+    private TimeUnit timeUnit = TimeUnit.SECONDS;
+      
+    public Wangmin(String name,String id,long endTime){  
+        this.name=name;  
+        this.id=id;  
+        this.endTime = endTime;  
+    }  
+      
+    public String getName(){  
+        return this.name;  
+    }  
+      
+    public String getId(){  
+        return this.id;  
+    }  
+      
+    /** 
+     * 用来判断是否到了截止时间 
+     */  
+    @Override  
+    public long getDelay(TimeUnit unit) { 
+        //return unit.convert(endTime, TimeUnit.MILLISECONDS) - unit.convert(System.currentTimeMillis(), TimeUnit.MILLISECONDS);
+    	return endTime - System.currentTimeMillis();
+    }  
+  
+    /** 
+     * 相互批较排序用 
+     */  
+    @Override  
+    public int compareTo(Delayed delayed) {  
+    	Wangmin w = (Wangmin)delayed;  
+        return this.getDelay(this.timeUnit) - w.getDelay(this.timeUnit) &gt; 0 ? 1:0;  
+    }  
+}  </pre><br />&#13;
+<pre code_snippet_id="2528286" snippet_file_name="blog_20170810_7_3419393" name="code" class="java">import java.util.concurrent.DelayQueue;
+
+public class WangBa implements Runnable {  
+    
+    private DelayQueue&lt;Wangmin&gt; queue = new DelayQueue&lt;Wangmin&gt;();  
+    public boolean yinye =true;  
+      
+    public void shangji(String name,String id,int money){  
+        Wangmin man = new Wangmin(name, id, 1000 * money + System.currentTimeMillis());  
+        System.out.println("网名"+man.getName()+" 身份证"+man.getId()+"交钱"+money+"块,开始上机...");  
+        this.queue.add(man);  
+    }  
+      
+    public void xiaji(Wangmin man){  
+        System.out.println("网名"+man.getName()+" 身份证"+man.getId()+"时间到下机...");  
+    }  
+  
+    @Override  
+    public void run() {  
+        while(yinye){  
+            try {  
+                Wangmin man = queue.take();  
+                xiaji(man);  
+            } catch (InterruptedException e) {  
+                e.printStackTrace();  
+            }  
+        }  
+    }  
+      
+    public static void main(String args[]){  
+        try{  
+            System.out.println("网吧开始营业");  
+            WangBa siyu = new WangBa();  
+            Thread shangwang = new Thread(siyu);  
+            shangwang.start();  
+              
+            siyu.shangji("路人甲", "123", 1);  
+            siyu.shangji("路人乙", "234", 10);  
+            siyu.shangji("路人丙", "345", 5);  
+        }  
+        catch(Exception e){  
+            e.printStackTrace();
+        }  
+  
+    }  
+}  </pre><br />&#13;
+<br />&#13;
+</div>&#13;
+<div style="text-align:left"><span style="font-family:Microsoft YaHei"><span style="font-size:18px"><br />&#13;
+</span></span></div>&#13;
+<div style="text-align:left"><span style="font-family:Microsoft YaHei"><span style="font-size:18px">以上便是Queue相关笔记，方便自己查阅，同时也希望能帮助到读者。下一章java多线程模式。更多干货尽在 <a target="_blank" href="http://www.itit123.cn">ITDragon博客</a></span></span></div>&#13;
+<div style="text-align:left"><span style="font-family:&quot;Microsoft YaHei&quot;"><span style="font-size:18px"><br />&#13;
+</span></span></div>&#13;
+<div style="text-align:left"><span style="font-family:&quot;Microsoft YaHei&quot;"><span style="font-size:18px"><br />&#13;
+<br />&#13;
+</span></span></div>&#13;
+<div style="text-align:left"><span style="font-family:&quot;Microsoft YaHei&quot;"><span style="font-size:18px"><br />&#13;
+</span></span></div>&#13;
+<div style="text-align:left"><span style="font-family:&quot;Microsoft YaHei&quot;"><span style="font-size:18px"><br />&#13;
+</span></span></div>&#13;
+   &#13;

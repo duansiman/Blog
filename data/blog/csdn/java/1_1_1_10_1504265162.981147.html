@@ -1,0 +1,126 @@
+
+                <div class="markdown_views"><h1 id="form表单利用jquery-validate验证以及ajax提交">Form表单利用Jquery Validate验证以及ajax提交</h1>
+
+
+
+<hr/>
+
+
+
+<h2 id="概述">概述</h2>
+
+<blockquote>
+  <p>详细讲解Form表单利用Jquery <br/>
+  Validate验证以及ajax提交的过程，以及Validate的自定义提示语，非空判断，input字段的远程ajax验证等。</p>
+</blockquote>
+
+<hr/>
+
+
+
+<h2 id="环境准备">环境准备</h2>
+
+<p>在html中引入四个js文件（jquery文件，jquery.form文件，jquery.validate文件，jquery.validate.extend文件）：</p>
+
+
+
+<pre class="prettyprint"><code class=" hljs xml"><span class="hljs-tag">&lt;<span class="hljs-title">script</span> <span class="hljs-attribute">src</span>=<span class="hljs-value">"/jquery/jquery-1.8.3.min.js"</span> <span class="hljs-attribute">type</span>=<span class="hljs-value">"text/javascript"</span>&gt;</span><span class="javascript"/><span class="hljs-tag">&lt;/<span class="hljs-title">script</span>&gt;</span>
+<span class="hljs-tag">&lt;<span class="hljs-title">script</span> <span class="hljs-attribute">src</span>=<span class="hljs-value">"/jquery/jQuery.Form.js"</span> <span class="hljs-attribute">type</span>=<span class="hljs-value">"text/javascript"</span>&gt;</span><span class="javascript"/><span class="hljs-tag">&lt;/<span class="hljs-title">script</span>&gt;</span>
+<span class="hljs-tag">&lt;<span class="hljs-title">script</span> <span class="hljs-attribute">type</span>=<span class="hljs-value">"text/javascript"</span> <span class="hljs-attribute">src</span>=<span class="hljs-value">"/jquery/jquery.validate.js"</span> <span class="hljs-attribute">charset</span>=<span class="hljs-value">"UTF-8"</span>&gt;</span><span class="javascript"/><span class="hljs-tag">&lt;/<span class="hljs-title">script</span>&gt;</span>
+<span class="hljs-tag">&lt;<span class="hljs-title">script</span> <span class="hljs-attribute">type</span>=<span class="hljs-value">"text/javascript"</span> <span class="hljs-attribute">src</span>=<span class="hljs-value">"/jquery/jquery.validate.extend.js"</span> <span class="hljs-attribute">charset</span>=<span class="hljs-value">"UTF-8"</span>&gt;</span><span class="javascript"/><span class="hljs-tag">&lt;/<span class="hljs-title">script</span>&gt;</span></code></pre>
+
+<p>下载地址： <br/>
+<a href="http://download.csdn.net/detail/s445320/9438163" target="_blank">jQuery插件之Form：http://download.csdn.net/detail/s445320/9438163</a> <br/>
+<a href="http://download.csdn.net/detail/s445320/9438161" target="_blank">jquery-1.8.3.min.js：http://download.csdn.net/detail/s445320/9438161</a> <br/>
+<a href="http://download.csdn.net/detail/s445320/9612201" target="_blank">jquery.validate.js：http://download.csdn.net/detail/s445320/9612201</a> <br/>
+<a href="http://download.csdn.net/detail/s445320/9616989" target="_blank">jquery.validate.extend.js : http://download.csdn.net/detail/s445320/9616989</a></p>
+
+<ul>
+<li><strong>编写html区域（form及input）</strong></li>
+</ul>
+
+
+
+<pre class="prettyprint"><code class=" hljs ocaml">&lt;form id=<span class="hljs-string">"inputForm"</span> name=<span class="hljs-string">"inputForm"</span> action=<span class="hljs-string">"../xxxx/xxxxaccount"</span> <span class="hljs-keyword">method</span>=<span class="hljs-string">"post"</span> novalidate=<span class="hljs-string">"novalidate"</span>&gt;
+&lt;input <span class="hljs-class"><span class="hljs-keyword">type</span>=</span><span class="hljs-string">"text"</span> name=<span class="hljs-string">"name"</span> id=<span class="hljs-string">"name"</span> <span class="hljs-keyword">class</span>=<span class="hljs-string">"form-control required"</span>  <span class="hljs-keyword">value</span>=<span class="hljs-string">"刘伟"</span> onfocus=this.blur()&gt;
+&lt;/form&gt;</code></pre>
+
+<ul>
+<li><strong>编写Javascript form验证区域</strong></li>
+</ul>
+
+
+
+<pre class="prettyprint"><code class=" hljs xml"><span class="hljs-tag">&lt;<span class="hljs-title">script</span> <span class="hljs-attribute">type</span>=<span class="hljs-value">"text/javascript"</span>&gt;</span><span class="javascript">
+  $(document).ready(
+    <span class="hljs-function"><span class="hljs-keyword">function</span><span class="hljs-params">()</span> {</span>
+      $(<span class="hljs-string">"#inputForm"</span>).validate({
+        submitHandler : <span class="hljs-function"><span class="hljs-keyword">function</span><span class="hljs-params">(form)</span> {</span>  <span class="hljs-comment">//验证通过后的执行方法</span>
+            <span class="hljs-comment">//当前的form通过ajax方式提交（用到jQuery.Form文件）</span>
+            $(form).ajaxSubmit({
+                dataType:<span class="hljs-string">"json"</span>,
+                success:<span class="hljs-function"><span class="hljs-keyword">function</span><span class="hljs-params">( jsondata )</span>{</span>
+                    <span class="hljs-keyword">if</span>( jsondata.code = <span class="hljs-number">200</span> ){
+                        alert(<span class="hljs-string">"success"</span>);
+                    }<span class="hljs-keyword">else</span>{
+                        alert(<span class="hljs-string">"fail"</span>);
+                    }
+                  }
+                }); 
+
+        },
+        focusInvalid : <span class="hljs-literal">true</span>,   <span class="hljs-comment">//验证提示时，鼠标光标指向提示的input</span>
+        rules : {  <span class="hljs-comment">//验证尺度  </span>
+          account : {  
+            required : <span class="hljs-literal">true</span>,   <span class="hljs-comment">//验证非空</span>
+            remote: {          <span class="hljs-comment">//远程ajax验证</span>
+                url: <span class="hljs-string">"../xxxx/checkaccount"</span>, <span class="hljs-comment">//检查是否存在账号，存在则返回true</span>
+                type: <span class="hljs-string">"GET"</span>,
+                dataType: <span class="hljs-string">"json"</span>,
+                data: {
+                    account: <span class="hljs-function"><span class="hljs-keyword">function</span> <span class="hljs-params">()</span> {</span>
+                        <span class="hljs-keyword">return</span> $(<span class="hljs-string">"#account"</span>).val(); <span class="hljs-comment">//这个是取要验证的用户名</span>
+                    }
+                },
+                dataFilter: <span class="hljs-function"><span class="hljs-keyword">function</span> <span class="hljs-params">(data)</span> {</span>  <span class="hljs-comment">//判断控制器返回的内容</span>
+                    <span class="hljs-keyword">var</span> notice = <span class="hljs-built_in">eval</span>(<span class="hljs-string">"("</span>+ data +<span class="hljs-string">")"</span>);
+                    <span class="hljs-keyword">if</span>( notice ){
+                        <span class="hljs-keyword">return</span> <span class="hljs-literal">false</span>;
+                    }<span class="hljs-keyword">else</span>{
+                        <span class="hljs-keyword">return</span> <span class="hljs-literal">true</span>;
+                    }
+                }
+            }
+          },  
+        },  
+        messages : {  
+          account : {  
+            required : <span class="hljs-string">"用户名不能为空"</span>,
+            remote: <span class="hljs-string">"用户名已存在！"</span>  <span class="hljs-comment">//这个地方如果不写的话，是自带的提示内容，加上就是这个内容。</span>
+          }
+        },  
+        errorElement : <span class="hljs-string">"div"</span>,
+        errorClass : <span class="hljs-string">"error_info"</span>,
+        highlight : <span class="hljs-function"><span class="hljs-keyword">function</span><span class="hljs-params">(element, errorClass,
+            validClass)</span> {</span>
+          $(element).closest(<span class="hljs-string">'.form-control'</span>).addClass(
+              <span class="hljs-string">'highlight_red'</span>);
+        },
+        success : <span class="hljs-function"><span class="hljs-keyword">function</span><span class="hljs-params">(element)</span> {</span>
+          $(element).siblings(<span class="hljs-string">'.form-control'</span>)
+              .removeClass(<span class="hljs-string">'highlight_red'</span>);
+          $(element).siblings(<span class="hljs-string">'.form-control'</span>).addClass(
+              <span class="hljs-string">'highlight_green'</span>);
+          $(element).remove();
+        }
+
+      });
+    });
+</span><span class="hljs-tag">&lt;/<span class="hljs-title">script</span>&gt;</span></code></pre>
+
+
+
+<h2 id="效果图">效果图：</h2>
+
+<p><img src="http://img.blog.csdn.net/20160226132107229" alt="验证用户名是否存在" title=""/></p><link rel="stylesheet" href="http://static.blog.csdn.net/public/res-min/markdown_views.css?v=1.0"/></div><link rel="stylesheet" href="http://static.blog.csdn.net/public/res-min/markdown_views.css?v=1.0"/>&#13;
+            

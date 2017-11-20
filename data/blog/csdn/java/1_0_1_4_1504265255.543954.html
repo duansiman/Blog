@@ -1,0 +1,168 @@
+
+
+<div style="text-align:center"><span style="font-family:&quot;Microsoft YaHei&quot;; font-size:24px">架构师入门笔记五 初识线程池</span></div>&#13;
+<div style="text-align:left"><span style="font-family:&quot;Microsoft YaHei&quot;"><span style="font-size:18px"><br />&#13;
+</span></span></div>&#13;
+<div style="text-align:left"><span style="font-family:&quot;Microsoft YaHei&quot;"><span style="font-size:18px">线程池，顾名思义是线程的池子。当任务提交给线程池的时候，线程池会安排一个空闲的线程去执行任务，当任务执行结束后返回到线程池中。若没有空闲的线程去执行任务，则该任务就会进入队列中等待。若队列满了，线程池开始新增线程。若线程池中的总线程大于线程池运行的最大线程，则会报错。</span></span></div>&#13;
+<h1 style="text-align:left"><span style="font-family:&quot;Microsoft YaHei&quot;"><span style="font-size:18px">1 为什么要用线程池</span></span></h1>&#13;
+<div style="text-align:left"><span style="font-family:&quot;Microsoft YaHei&quot;"><span style="font-size:18px">一个线程从被创建到被销毁是需要时间。若多线程频繁的创建和销毁，严重影响了系统的效率。若有一个容器有若干个线程，并且在任务执行结束后不销毁线程，达到重复循环利用，岂不是可以解决该问题。线程池就在这种环境下诞生。</span></span></div>&#13;
+<h1 style="text-align:left"><span style="font-family:&quot;Microsoft YaHei&quot;"><span style="font-size:18px">2 自定义线程池</span></span></h1>&#13;
+<h2 style="text-align:left"><span style="font-family:&quot;Microsoft YaHei&quot;"><span style="font-size:18px">2.1 一个线程池需要那些基本元素？</span></span></h2>&#13;
+<div style="text-align:left"><span style="font-family:&quot;Microsoft YaHei&quot;"><span style="font-size:18px">1）核心线程个数（比如这一个泳池安排5个教练）</span></span></div>&#13;
+<div style="text-align:left"><span style="font-family:&quot;Microsoft YaHei&quot;"><span style="font-size:18px"><span style="font-family:&quot;Microsoft YaHei&quot;; font-size:18px">2）用于存储任务的队列（5个教练都有学员了，还没有开始的学员先到休息室等候）</span><br />&#13;
+</span></span></div>&#13;
+<div style="text-align:left"><span style="font-family:&quot;Microsoft YaHei&quot;"><span style="font-size:18px">3）运行的最大线程个数（休息室都满了，再找几个教练来帮忙，但最多只能有10个教练） </span></span></div>&#13;
+<div><span style="font-size:18px"><span style="font-family:Microsoft YaHei">4）</span></span><span style="font-family:Microsoft YaHei; font-size:18px">多余的空闲线程等待新任务的最长时间 （那些没有学员，又是来帮忙的教练，2分钟后就可以走了）</span><span style="font-size:18px"></span></div>&#13;
+<div style="text-align:left"><span style="font-family:&quot;Microsoft YaHei&quot;"><span style="font-size:18px">5）等待时间的单位</span></span></div>&#13;
+<h2 style="text-align:left"><span style="font-family:&quot;Microsoft YaHei&quot;"><span style="font-size:18px">2.2 代码事例</span></span></h2>&#13;
+<div style="text-align:left"><span style="font-family:&quot;Microsoft YaHei&quot;"><span style="font-size:18px"></span></span><pre code_snippet_id="2542245" snippet_file_name="blog_20170820_1_600250" name="code" class="java">import java.util.concurrent.ArrayBlockingQueue;
+import java.util.concurrent.ThreadPoolExecutor;
+import java.util.concurrent.TimeUnit;
+
+public class ThreadPoolExecutorTest {
+	
+	//池中所保存的线程数，包括空闲线程。
+	private final static int corePoolSize = 5;
+	//池中允许的最大线程数
+	private final static int maximumPoolSize = 10;
+	//当线程数大于核心线程时，此为终止前多余的空闲线程等待新任务的最长时间
+	private final static long keepAliveTime = 200;
+	//执行前用于保持任务的队列5，即任务缓存队列 
+	private final static ArrayBlockingQueue&lt;Runnable&gt; workQueue = new ArrayBlockingQueue&lt;Runnable&gt;(5);
+	
+	public static void main(String[] args) {
+		//构建一个线程池，正常线程数量为5，最大线程数据为10，等待时间200  
+		ThreadPoolExecutor threadPoolExecutor = new ThreadPoolExecutor(
+				corePoolSize, maximumPoolSize, keepAliveTime, TimeUnit.MINUTES, workQueue);
+		
+		//线程池去执行15个任务
+		for (int i = 0; i &lt; 15; i++) {
+			MyRunnableTest myRunnable = new MyRunnableTest(i);
+			threadPoolExecutor.execute(myRunnable);
+			System.out.println("线程池中现在的线程数目是："+threadPoolExecutor.getPoolSize()+",  队列中正在等待执行的任务数量为："+  
+                    threadPoolExecutor.getQueue().size());
+		}
+		//关掉线程池 
+		threadPoolExecutor.shutdown();
+	}
+	
+}
+
+class MyRunnableTest implements Runnable {
+	// 正在执行的任务数
+	private int num;
+	public MyRunnableTest(int num) {
+		this.num = num;
+	}
+	public void run() {
+		System.out.println("正在执行的MyRunnable " + num);
+		try {
+			Thread.sleep(4000);
+		} catch (InterruptedException e) {
+			e.printStackTrace();
+		}
+		System.out.println("MyRunnable " + num + "执行完毕");
+	}
+}</pre><span style="font-size:18px">执行结果：</span><br />&#13;
+<pre code_snippet_id="2542245" snippet_file_name="blog_20170820_2_1603598" name="code" class="java">线程池中现在的线程数目是：1,  队列中正在等待执行的任务数量为：0
+正在执行的MyRunnable 0
+线程池中现在的线程数目是：2,  队列中正在等待执行的任务数量为：0
+线程池中现在的线程数目是：3,  队列中正在等待执行的任务数量为：0
+正在执行的MyRunnable 2
+正在执行的MyRunnable 1
+线程池中现在的线程数目是：4,  队列中正在等待执行的任务数量为：0
+正在执行的MyRunnable 3
+线程池中现在的线程数目是：5,  队列中正在等待执行的任务数量为：0
+线程池中现在的线程数目是：5,  队列中正在等待执行的任务数量为：1
+线程池中现在的线程数目是：5,  队列中正在等待执行的任务数量为：2
+线程池中现在的线程数目是：5,  队列中正在等待执行的任务数量为：3
+线程池中现在的线程数目是：5,  队列中正在等待执行的任务数量为：4
+正在执行的MyRunnable 4
+线程池中现在的线程数目是：5,  队列中正在等待执行的任务数量为：5
+线程池中现在的线程数目是：6,  队列中正在等待执行的任务数量为：5
+正在执行的MyRunnable 10
+线程池中现在的线程数目是：7,  队列中正在等待执行的任务数量为：5
+线程池中现在的线程数目是：8,  队列中正在等待执行的任务数量为：5
+正在执行的MyRunnable 11
+正在执行的MyRunnable 12
+线程池中现在的线程数目是：9,  队列中正在等待执行的任务数量为：5
+正在执行的MyRunnable 13
+线程池中现在的线程数目是：10,  队列中正在等待执行的任务数量为：5
+正在执行的MyRunnable 14
+MyRunnable 0执行完毕
+正在执行的MyRunnable 5
+MyRunnable 2执行完毕
+正在执行的MyRunnable 6
+MyRunnable 1执行完毕
+正在执行的MyRunnable 7
+MyRunnable 3执行完毕
+正在执行的MyRunnable 8
+MyRunnable 4执行完毕
+正在执行的MyRunnable 9
+MyRunnable 10执行完毕
+MyRunnable 11执行完毕
+MyRunnable 12执行完毕
+MyRunnable 13执行完毕
+MyRunnable 14执行完毕
+MyRunnable 5执行完毕
+MyRunnable 6执行完毕
+MyRunnable 7执行完毕
+MyRunnable 8执行完毕
+MyRunnable 9执行完毕</pre><span style="font-size:18px">从打印的信息可以看出，等待执行的任务个数开始是0个，线程池中执行任务的线程个数是1个增长到5个（核心线程数）之后，等待执行的任务的数量也开始增加。当等待执行的任务数量达到最大值后，线程池开始新增线程。若任务数大于最大线程数后 会提示错误信息  java.util.concurrent.RejectedExecutionException</span></div>&#13;
+<h2 style="text-align:left"><span style="font-family:&quot;Microsoft YaHei&quot;"><span style="font-size:18px">2.3 线程池工作流程</span></span></h2>&#13;
+<div style="text-align:left"><span style="font-family:&quot;Microsoft YaHei&quot;"><span style="font-size:18px">线程池收到任务，开始分配给空闲线程；</span></span></div>&#13;
+<div style="text-align:left"><span style="font-family:&quot;Microsoft YaHei&quot;"><span style="font-size:18px">若没有空闲线程，任务进入队列等待；</span></span></div>&#13;
+<div style="text-align:left"><span style="font-family:&quot;Microsoft YaHei&quot;"><span style="font-size:18px">若队列满了，线程池开始新增线程；</span></span></div>&#13;
+<div style="text-align:left"><span style="font-family:&quot;Microsoft YaHei&quot;"><span style="font-size:18px">若线程池总线程数 大于 线程池运行的最大线程数，就会提示错误信息。</span></span></div>&#13;
+<h2 style="text-align:left"><span style="font-family:&quot;Microsoft YaHei&quot;"><span style="font-size:18px">2.4 参数说明</span></span></h2>&#13;
+<div style="text-align:left"><span style="font-family:&quot;Microsoft YaHei&quot;"><span style="font-size:18px"></span></span><pre code_snippet_id="2542245" snippet_file_name="blog_20170820_3_6237641" name="code" class="java"> public ThreadPoolExecutor(int corePoolSize,  
+                              int maximumPoolSize,  
+                              long keepAliveTime,  
+                              TimeUnit unit,  
+                              BlockingQueue&lt;Runnable&gt; workQueue,  
+                              ThreadFactory threadFactory,  
+                              RejectedExecutionHandler handler) </pre><span style="font-size:18px">corePoolSize： 核心线程数，刚创建线程池的时候，池内是没有线程的，在执行任务的时候会创建线程</span></div>&#13;
+<div style="text-align:left"><span style="font-family:&quot;Microsoft YaHei&quot;"><span style="font-size:18px">maximumPoolSize：运行的最大线程数</span></span></div>&#13;
+<div style="text-align:left"><span style="font-family:&quot;Microsoft YaHei&quot;"><span style="font-size:18px">keepAliveTime：当线程数大于核心线程时，此为终止前多余的空闲线程等待新任务的最长时间</span></span></div>&#13;
+<div style="text-align:left"><span style="font-family:&quot;Microsoft YaHei&quot;"><span style="font-size:18px">unit：<span style="font-family:&quot;Microsoft YaHei&quot;; font-size:18px">keepAliveTime 的</span>时间单位</span></span></div>&#13;
+<div style="text-align:left"><span style="font-family:&quot;Microsoft YaHei&quot;"><span style="font-size:18px">workQueue：保持任务的队列</span></span></div>&#13;
+<div><span style="font-size:18px"><span style="font-family:Microsoft YaHei">threadFactory：</span></span><span style="font-size:18px">执行程序创建新线程时使用的工厂</span><span style="font-size:18px"></span></div>&#13;
+<div><span style="font-size:18px"><span style="font-family:Microsoft YaHei">handler：</span></span><span style="font-size:18px">超出线程范围和队列容量而使执行被阻塞时所使用的处理程序</span></div>&#13;
+<h1 style="text-align:left"><span style="font-family:&quot;Microsoft YaHei&quot;"><span style="font-size:18px">3 线程池分类</span></span></h1>&#13;
+<h2 style="text-align:left"><span style="font-size:18px"><span style="font-family:Microsoft YaHei">3.1 </span></span><span style="font-size:18px"></span><span style="font-size:18px">newSingleThreadExecutor() </span></h2>&#13;
+<div style="text-align:left"><span style="font-size:18px"><span style="font-size:18px">单线程线程池，线程池中只创建唯一的线程去执行任务</span><br />&#13;
+</span></div>&#13;
+<div style="text-align:left"><span style="font-size:18px"><span style="font-size:18px"></span></span><pre code_snippet_id="2542245" snippet_file_name="blog_20170820_4_2017519" name="code" class="java">ExecutorService pool = Executors.newSingleThreadExecutor();</pre></div>&#13;
+<h2 style="text-align:left"><span style="font-size:18px"><span style="font-size:18px">3.2 newFixedThreadPool(num)</span></span></h2>&#13;
+<div style="text-align:left"><span style="font-size:18px"><span style="font-size:18px">固定大小线程池，核心线程数为 num 。</span></span></div>&#13;
+<div style="text-align:left"><span style="font-size:18px"><span style="font-size:18px"></span></span><pre code_snippet_id="2542245" snippet_file_name="blog_20170820_5_9716224" name="code" class="java">ExecutorService pool = Executors.newFixedThreadPool(5);</pre></div>&#13;
+<h2 style="text-align:left"><span style="font-size:18px"><span style="font-size:18px">3.3 Executors.newCachedThreadPool()</span></span></h2>&#13;
+<div><span style="font-size:18px">可缓存无界线程池，这里的无界并不是正的没有界限，只是界限非常大 </span><span style="font-size:18px">Integer.MAX_VALUE ，该线程池如果控制不好，很容易导致cpu占用率过高。</span></div>&#13;
+<div style="text-align:left"><span style="font-size:18px"><span style="font-size:18px"><span style="font-family:Consolas,&quot;Courier New&quot;,Courier,mono,serif; background-color:rgb(248,248,248)"></span></span></span><pre code_snippet_id="2542245" snippet_file_name="blog_20170820_6_479593" name="code" class="java">ExecutorService pool = Executors.newCachedThreadPool();</pre></div>&#13;
+<div style="text-align:left"><br />&#13;
+</div>&#13;
+<div style="text-align:left"><span style="font-family:&quot;Microsoft YaHei&quot;"><span style="font-size:18px">实际开发中，建议使用自定义线程池。</span></span></div>&#13;
+<div style="text-align:left"><span style="font-family:&quot;Microsoft YaHei&quot;"><span style="font-size:18px"><br />&#13;
+</span></span></div>&#13;
+<div style="text-align:left"><span style="font-family:&quot;Microsoft YaHei&quot;"><span style="font-size:18px"><br />&#13;
+</span></span></div>&#13;
+<div style="text-align:left"><span style="font-family:&quot;Microsoft YaHei&quot;"><span style="font-size:18px"><br />&#13;
+</span></span></div>&#13;
+<div style="text-align:left"><span style="font-family:&quot;Microsoft YaHei&quot;"><span style="font-size:18px"></span></span>&#13;
+<div><span style="font-family:&quot;Microsoft YaHei&quot;"><span style="font-size:18px">以上内容便是学习线程池记录的笔记，方便自己以后查阅，同时也希望帮助到读者。下一章线程 锁。</span></span>&#13;
+<div><span style="font-family:&quot;Microsoft YaHei&quot;"><span style="font-size:18px">更多干货尽在 <a target="_blank" href="http://www.itit123.cn/">ITDragon博客</a></span></span></div>&#13;
+<div><span style="font-family:&quot;Microsoft YaHei&quot;"><br />&#13;
+</span></div>&#13;
+</div>&#13;
+<div><span style="font-family:&quot;Microsoft YaHei&quot;"><span style="font-size:18px"><br />&#13;
+</span></span></div>&#13;
+<div><span style="font-family:&quot;Microsoft YaHei&quot;"><span style="font-size:18px">深入学习博客：</span></span></div>&#13;
+<div><span style="font-family:&quot;Microsoft YaHei&quot;"><span style="font-size:18px"><a target="_blank" href="http://blog.csdn.net/zwk626542417/article/details/47072137">跟我学Java多线程——ThreadLocal</a><br />&#13;
+</span></span></div>&#13;
+<div><span style="font-family:&quot;Microsoft YaHei&quot;"><span style="font-size:18px"><a target="_blank" href="http://blog.csdn.net/zwk626542417/article/details/47084925">跟我学Java多线程——ThreadPoolExecutor(线程池)</a><br />&#13;
+</span></span></div>&#13;
+<div><a target="_blank" href="http://blog.csdn.net/zwk626542417/article/details/47089857"><span style="font-size:18px">我学Java多线程——线程池与阻塞队列</span></a><br />&#13;
+</div>&#13;
+<br />&#13;
+</div>&#13;
+   &#13;

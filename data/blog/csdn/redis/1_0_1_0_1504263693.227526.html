@@ -1,0 +1,155 @@
+
+
+一般情况下,一个web系统的架构是类似这样的:<br />&#13;
+一个或多个nginx做负载均衡,后面连多个tomcat(或别的类型的web服务器)。<br />&#13;
+nginx做负载的时候,关于request的分流,至少就有两种策略,第一种就是根据请求的ip做hash,这样能保证同一个ip的请求都映射到同一个tomcat上。第二种,就是直接按照时间或者后端服务器的性能,负载等条件进行分流,那么这样,比如就会产生session问题。<br />&#13;
+所以一般的web系统,会把用户的session单独放到一个服务器上,业内大多使用Redis来存储用户session。<br />&#13;
+这种架构,后端可以使用一个redis实例,也可以使用多个redis实例。<br />&#13;
+如果是单redis的话,与tomcat整合比较简单<br />&#13;
+见下文<br />&#13;
+<a target="_blank" href="http://blog.csdn.net/qq584852076/article/details/46502185">http://blog.csdn.net/qq584852076/article/details/46502185</a><br />&#13;
+<br />&#13;
+<br />&#13;
+但是,如果只有一个redis,总感觉有点不安全,我们可以使用多个redis。<br />&#13;
+一般的架构如图:<br />&#13;
+<img src="http://img.blog.csdn.net/20161227231516912?watermark/2/text/aHR0cDovL2Jsb2cuY3Nkbi5uZXQvZGxmMTIzMzIx/font/5a6L5L2T/fontsize/400/fill/I0JBQkFCMA==/dissolve/70/gravity/Center" alt="" /><br />&#13;
+<br />&#13;
+OK,在这篇博客里<br />&#13;
+我用了一个nginx,版本号1.10.2<br />&#13;
+2个tomcat,版本号都是7.0.68<br />&#13;
+6个Redis实例构成的RedisCluster,版本号是3.2.0。集群的模式,就是官方推出的Cluster,key在服务器端分流。关于redis集群的构建,大家可以参考<a target="_blank" href="http://blog.csdn.net/xu470438000/article/details/42971091">http://blog.csdn.net/xu470438000/article/details/42971091</a><br />&#13;
+我当时在搭建redis集群的时候,碰到的最大的问题就是关于ruby组件的使用。<br />&#13;
+太tm丢人了。<br />&#13;
+当时总是出现./redis-trib.rb:24:in `require': no such file to load -- rubygems (LoadError)<br />&#13;
+后来误打误撞解决了问题。<br />&#13;
+似乎当时使用了rvm选择了默认的ruby版本才OK的<br />&#13;
+参见:<a target="_blank" href="https://my.oschina.net/junfrost/blog/143487">https://my.oschina.net/junfrost/blog/143487</a><br />&#13;
+<br />&#13;
+<br />&#13;
+OK,行文到此,我默认大家目前都已经把nginx和redis集群都搭建好了(其实这篇文章里面的技术和nginx没关系)<br />&#13;
+那么单redis和rediscluster的使用有什么区别么?<br />&#13;
+单redis的java客户端使用的是jedis,例子如下:<br />&#13;
+<pre code_snippet_id="2079718" snippet_file_name="blog_20161227_1_8618708" name="code" class="java"> Jedis jedis=new Jedis("192.168.0.100", 6379);
+ jedis.set("name","xinxin");</pre> 如果是使用JedisPool那后面就要close一下,差别不大<br />&#13;
+RedisCluster的java客户端使用的不是jedis而是JedisCluster,例子如下:<br />&#13;
+<span style="white-space:pre"></span><pre code_snippet_id="2079718" snippet_file_name="blog_20161227_2_822510" name="code" class="java">	String key = "2";
+        // 这东西 可以直接看到key 的分片数，就能知道放哪个 节点
+        System.out.println(JedisClusterCRC16.getSlot(key));
+        Set&lt;HostAndPort&gt; jedisClusterNodes = new HashSet&lt;HostAndPort&gt;();
+        jedisClusterNodes.add(new HostAndPort("127.0.0.1", 7000));
+        jedisClusterNodes.add(new HostAndPort("127.0.0.1", 7001));
+        jedisClusterNodes.add(new HostAndPort("127.0.0.1", 7002));
+        // 3个master 节点
+        JedisCluster jc = new JedisCluster(jedisClusterNodes);
+        System.out.println(jc.get(key));
+        jc.setnx(key, "bar");
+        String value = jc.get(key);
+        System.out.println(value);</pre>那JedisCluster的连接池呢?有没有JedisClusterPool?答案是没有。<br />&#13;
+为啥没有?<br />&#13;
+因为JedisCluster内部就有池的实现。同时JedisCluser的get/set/exist都是使用的模板模式,connection是共用的。如果还不清楚,那就去看源码<br />&#13;
+参见 <a target="_blank" href="http://brandnewuser.iteye.com/blog/2312071">&#13;
+http://brandnewuser.iteye.com/blog/2312071</a><br />&#13;
+<br />&#13;
+<br />&#13;
+大家明白了么?<br />&#13;
+我们按照<a target="_blank" href="http://blog.csdn.net/qq584852076/article/details/46502185">http://blog.csdn.net/qq584852076/article/details/46502185</a> 这篇博客里说的<br />&#13;
+tomcat-redis-session-manager<br />&#13;
+里面使用的Jedis!<br />&#13;
+那么如果我使用的RedisCluster的集群模式<br />&#13;
+改动tomcat的context.xml,如下:(同时那几个jar包也得放进去,参见之前的 <a target="_blank" href="http://blog.csdn.net/qq584852076/article/details/46502185">&#13;
+单redis与tomcat整合</a>)<br />&#13;
+<pre code_snippet_id="2079718" snippet_file_name="blog_20161227_3_4040066" name="code" class="html">&lt;?xml version='1.0' encoding='utf-8'?&gt;  
+&lt;Context&gt;  
+    &lt;WatchedResource&gt;WEB-INF/web.xml&lt;/WatchedResource&gt;  
+      
+    &lt;!-- tomcat-redis-session共享配置 --&gt;  
+    &lt;Valve className="com.orangefunction.tomcat.redissessions.RedisSessionHandlerValve" /&gt;  
+        &lt;Manager className="com.orangefunction.tomcat.redissessions.RedisSessionManager"  
+         host="localhost"   
+         port="6379"   
+         database="0"   
+         maxInactiveInterval="60" /&gt;  
+&lt;!----------------------------- --&gt;  
+&lt;/Context&gt;  </pre>会如何呢?<br />&#13;
+会报这个错误:<br />&#13;
+<img src="http://img.blog.csdn.net/20161227232023136?watermark/2/text/aHR0cDovL2Jsb2cuY3Nkbi5uZXQvZGxmMTIzMzIx/font/5a6L5L2T/fontsize/400/fill/I0JBQkFCMA==/dissolve/70/gravity/Center" alt="" /><br />&#13;
+<br />&#13;
+<br />&#13;
+这个错误是什么意思?<br />&#13;
+你用jedis去连接RedisCluster还问我为什么!!!???<br />&#13;
+那咋办?改呗。改什么?改tomcat-redis-session-manager的源码呗。<br />&#13;
+我们根据上面那个错误,可以看到问题发生在RedisSessionManager的loadSessionDataFromRedis方法。<br />&#13;
+<p>源码如下:</p>&#13;
+<p></p><pre code_snippet_id="2079718" snippet_file_name="blog_20161227_4_9656411" name="code" class="java"> //RedisSessionManager.java
+  public byte[] loadSessionDataFromRedis(String id) throws IOException {
+    Jedis jedis = null;
+    Boolean error = true;
+    try {
+      log.trace("Attempting to load session " + id + " from Redis");
+      jedis = acquireConnection();
+      byte[] data = jedis.get(id.getBytes());
+      error = false;
+
+      if (data == null) {
+        log.trace("Session " + id + " not found in Redis");
+      }
+
+      return data;
+    } finally {
+      if (jedis != null) {
+        returnConnection(jedis, error);
+      }
+    }
+  }</pre>&#13;
+看到了吧,使用的是jedis。<br />&#13;
+那既然知道问题了,那就好改了<br />&#13;
+大体的说:把Jedis改成JedisCluster即可<br />&#13;
+但是具体要改的的地方还不少,代码我就不贴上来了,具体见:<br />&#13;
+<a target="_blank" href="https://github.com/cxyxd/tomcat-redis-session-manager/blob/master/src/main/java/com/orangefunction/tomcat/redissessions/RedisSessionManager.java">https://github.com/cxyxd/tomcat-redis-session-manager/blob/master/src/main/java/com/orangefunction/tomcat/redissessions/RedisSessionManager.java</a><br />&#13;
+<br />&#13;
+<br />&#13;
+这个项目用的别的组件如下:<br />&#13;
+<pre code_snippet_id="2079718" snippet_file_name="blog_20161227_5_3353929" name="code" class="html">  compile group: 'org.apache.tomcat', name: 'tomcat-catalina', version: '7.0.68'
+  compile group: 'redis.clients', name: 'jedis', version: '2.8.2'
+  compile group: 'org.apache.commons', name: 'commons-pool2', version: '2.4.2'</pre><br />&#13;
+<p>我靠你说了半天,整合rediscluster(v-3.2.0)与tomcat7的最主要的jar包在哪么?</p>&#13;
+<a target="_blank" href="http://pan.baidu.com/s/1dEZZFmp">http://pan.baidu.com/s/1dEZZFmp</a><br />&#13;
+本来想直接上传到csdn的资源栏目的,不过传了几次都是错误。<br />&#13;
+<p><br />&#13;
+</p>&#13;
+<p>好的我们看看效果</p>&#13;
+<p></p>&#13;
+<pre code_snippet_id="2079718" snippet_file_name="blog_20161227_6_2873968" name="code" class="html">&lt;%@ page language="java" contentType="text/html; charset=ISO-8859-1"
+    pageEncoding="ISO-8859-1"%&gt;
+&lt;!DOCTYPE html PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN" "http://www.w3.org/TR/html4/loose.dtd"&gt;
+&lt;html&gt;
+&lt;head&gt;
+&lt;meta http-equiv="Content-Type" content="text/html; charset=ISO-8859-1"&gt;
+&lt;title&gt;Insert title here&lt;/title&gt;
+&lt;/head&gt;
+&lt;body&gt;
+/usr/local/tomcat7_forZW/webapps/PathTest--8080
+&lt;br&gt;
+SessionID:&lt;%=session.getId()%&gt;
+&lt;/body&gt;
+&lt;/html&gt;
+</pre>我们在两个tomcat下都放一个sessiontest.jsp,内容如上&#13;
+<p></p>&#13;
+<p>/usr/local/tomcat7_forZW/webapps/PathTest--8080这是tomcat的地址与端口号,两个jsp的这部分内容不一样(一个端口是,8080一个是1314)</p>&#13;
+<p>我们访问一下:</p>&#13;
+<p><img src="http://img.blog.csdn.net/20161227232701831?watermark/2/text/aHR0cDovL2Jsb2cuY3Nkbi5uZXQvZGxmMTIzMzIx/font/5a6L5L2T/fontsize/400/fill/I0JBQkFCMA==/dissolve/70/gravity/Center" alt="" /></p>&#13;
+<p>换个地址,结果如下:</p>&#13;
+<p><img src="http://img.blog.csdn.net/20161227232709253?watermark/2/text/aHR0cDovL2Jsb2cuY3Nkbi5uZXQvZGxmMTIzMzIx/font/5a6L5L2T/fontsize/400/fill/I0JBQkFCMA==/dissolve/70/gravity/Center" alt="" /></p>&#13;
+<p>我们再去看看redis里面</p>&#13;
+<p><img src="http://img.blog.csdn.net/20161227233009342?watermark/2/text/aHR0cDovL2Jsb2cuY3Nkbi5uZXQvZGxmMTIzMzIx/font/5a6L5L2T/fontsize/400/fill/I0JBQkFCMA==/dissolve/70/gravity/Center" alt="" /><br />&#13;
+<br />&#13;
+</p>&#13;
+<p><br />&#13;
+</p>&#13;
+<p><br />&#13;
+</p>&#13;
+参考资料<br />&#13;
+<a target="_blank" href="http://www.open-open.com/lib/view/open1437832076021.html">jredis cluster客户端使用</a><br />&#13;
+<a target="_blank" href="http://brandnewuser.iteye.com/blog/2312071">JedisCluster中应用的Apache Commons Pool对象池技术</a><br />&#13;
+<a target="_blank" href="http://blog.csdn.net/qq584852076/article/details/46502185">tomcat7 redis session 共享</a>&#13;
+   &#13;

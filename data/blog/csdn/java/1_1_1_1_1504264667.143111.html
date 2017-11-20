@@ -1,0 +1,193 @@
+
+                
+<p><span style="font-family:Comic Sans MS">       对象一经创建，如果程序需要就一直存在，直到程序终止。java的对象序列化将那些实现了Sserializable接口的对象转换成一个字节序列，并能通过该序列还原出原来的对象，且跨平台。也就是说，从Windows上序列化一个对象到Linux上反序列化，仍能准确获得该对象。</span></p>&#13;
+<p><span style="font-family:Comic Sans MS">       对象序列化加入到java中主要为了支持两种特性：远程方法调用RMI和JavaBean,。调用远程的对象就像调用本机的一样，当向远程对象发送消息是，需要通过对象序列化来传输参数和返回值。其次JavaBean在使用时需要保存bean状态信息，以便后期恢复，保存Bean信息也通过对象序列化实现。</span></p>&#13;
+<p><span style="font-family:Comic Sans MS">      在java IO包中创建了序列化接口Serializable，与IO相关的序列化实现都源自于该接口。</span></p>&#13;
+<p><span style="font-family:Comic Sans MS; color:#ff0000"><strong>一、最原始的对象序列化过程：</strong></span><span style="font-family:'Comic Sans MS'"> </span></p>&#13;
+<p><span style="font-family:'Comic Sans MS'"><span style="font-family:'Comic Sans MS'">      这里是对一个Worm对象，使用对象IO流进行初始化，调用writeObject方法将对象序列化成字节打印，进行读取。</span><br/>&#13;
+</span></p>&#13;
+<p><span style="font-family:Comic Sans MS"/></p><pre code_snippet_id="1685654" snippet_file_name="blog_20160516_1_5096481" name="code" class="html">public class Worm implements Serializable {
+	private static Random ran=new Random(47);
+	private DATA[] d={
+			new DATA(ran.nextInt(10)),
+			new DATA(ran.nextInt(10)),
+			new DATA(ran.nextInt(10))
+	};
+	private Worm next;
+	private char c;
+
+	public Worm(int i,char x) {
+		System.out.println("worn 构造器："+i);
+		c=x;
+		if(--i&gt;0)
+		{
+			next=new Worm(i, (char)(x+1));
+		}
+	}
+	public Worm()
+	{
+		System.out.println("default 构造器");
+	}
+
+	public String toString() {
+		StringBuilder result=new StringBuilder(":"); //组织输出结果
+		result.append(c);
+		result.append("(");
+		for (DATA data : d)
+			result.append(data);
+		result.append(")");
+			
+		if(next!=null)
+			result.append(next);
+		return result.toString() ;
+	}
+	public static void main(String[] args) throws IOException, ClassNotFoundException {
+		Worm w=new Worm(6,'a');
+		System.out.println("w="+w);
+		ObjectOutputStream out=new ObjectOutputStream(
+				new FileOutputStream("Worm.out"));
+		out.writeObject( "Worm store\n");   //writeObject方法，开始将对象序列化成字节
+		out.writeObject(w);
+		out.close();
+		
+		ObjectInputStream in=new ObjectInputStream(
+				new FileInputStream("Worm.out"));
+		String s=(String)in.readObject();
+		Worm w2=(Worm)in.readObject();
+		System.out.println(s+"w2="+w2);
+	}</pre>输出：&#13;
+<p><span style="background-color:rgb(255,204,153)"><span style="font-family:'Comic Sans MS'">worn 构造器：2    </span><span style="font-family:'Comic Sans MS'">worn 构造器：1</span></span></p>&#13;
+<p><span style="font-family:'Comic Sans MS'; background-color:rgb(255,204,153)">w=:a(853):b(119):c(802):d(788):e(199):f(881)</span></p>&#13;
+<p><span style="font-family:Comic Sans MS"><span style="background-color:rgb(255,204,153)">Worm store</span></span></p>&#13;
+<p><span style="font-family:Comic Sans MS"><span style="background-color:rgb(255,204,153)">w2=:a(853):b(119):c(802):d(788):e(199):f(881)</span></span></p>&#13;
+<p><span style="font-family:Comic Sans MS">二、java web 对象序列化</span></p>&#13;
+<p><span style="font-family:Comic Sans MS">       除了java底层使用序列化进行对象状态的保存和其他特性的支持之外，对于java web 项目而言，页面间传值也大多将对象序列化之后传输，这样的好处主要是序列化之后方便与JS结合获值赋值，同时传输序列化对象一般都比传普通更高效。但java web中的应用一般很少调用底层方法实现，而是通过第三方提供的jar，例如flexjson.jar/jackson等序列化工具包实现对象序列化。（引入jackson-core-asl-1.9.13.jar、jackson-mapper-asl-1.9.13.jar）</span></p>&#13;
+<p><span style="font-family:Comic Sans MS"/></p><pre code_snippet_id="1685654" snippet_file_name="blog_20160516_2_5936296" name="code" class="html">public class JacksonStream{
+	public static void main(String[] args) throws IOException {
+		try {
+			JsonFactory jfactory = new JsonFactory();
+
+			/*
+			 *将json文件写入本地 
+			 */
+			JsonGenerator jGenerator = jfactory.createJsonGenerator(new File(
+					"c:\\user.json"), JsonEncoding.UTF8);
+			jGenerator.writeStartObject(); // {
+
+			jGenerator.writeStringField("name", "mkyong"); // "name" : "mkyong"
+			jGenerator.writeNumberField("age", 29); // 文件类型
+
+			jGenerator.writeFieldName("messages"); // "messages" :
+			jGenerator.writeStartArray(); // [ 数组类型
+
+			jGenerator.writeString("msg 1"); // "msg 1"
+			jGenerator.writeString("msg 2"); // "msg 2"
+			jGenerator.writeString("msg 3"); // "msg 3"
+			jGenerator.writeEndArray(); // ]
+			jGenerator.writeEndObject(); // }
+
+			jGenerator.close();
+
+		} catch (JsonGenerationException e) {
+			e.printStackTrace();
+		}
+	}
+}</pre><span style="font-family:'Comic Sans MS'"/>&#13;
+<p><span style="font-family:'Comic Sans MS'">输出：<span style="background-color:rgb(255,204,153)">{"name":"mkyong","age":29,"messages":["msg 1","msg 2","msg 3"]}</span></span></p>&#13;
+<p><span style="font-family:'Comic Sans MS'">解析json：</span></p>&#13;
+<p><span style="font-family:'Comic Sans MS'"/></p><pre code_snippet_id="1685654" snippet_file_name="blog_20160516_3_6634407" name="code" class="html">public class JacksonStreamExample {
+   public static void main(String[] args) { 
+     try { 
+	JsonFactory jfactory = new JsonFactory(); 
+	/**读取json文件**/
+	JsonParser jParser = jfactory.createJsonParser(new File("c:\\user.json"));
+ 
+	while (jParser.nextToken() != JsonToken.END_OBJECT) { 
+		String fieldname = jParser.getCurrentName();
+		if ("name".equals(fieldname)) {		  
+                  //当前结点为name 
+		  jParser.nextToken();
+		  System.out.println(jParser.getText()); // 输出 mkyong 
+		}
+ 
+		if ("age".equals(fieldname)) { 
+		  // 当前结点为age 
+                  // move to next, which is "name"'s value
+		  jParser.nextToken();
+		  System.out.println(jParser.getIntValue()); // display 29 
+		} 
+		if ("messages".equals(fieldname)) {
+ 		  jParser.nextToken(); 
+		  while (jParser.nextToken() != JsonToken.END_ARRAY) { 
+                     // display msg1, msg2, msg3
+		     System.out.println(jParser.getText()); 
+ 		  } 
+		}
+	  }
+	  jParser.close(); 
+     } catch (JsonGenerationException e) { 
+	  e.printStackTrace(); 
+     }</pre>&#13;
+<p>另外，除了将对象序列化成json字符串，还可以序列化成字节（如一）、XML文件（详见<a target="_blank" href="http://blog.csdn.net/daybreak1209/article/details/43916809">序列化和反序列化</a>）和其他文件格式，具体选择根据业务跟在哪层进行数据传输相关。</p>&#13;
+三、ITOO<span style="font-family:'Comic Sans MS'">项目序列化应用</span>&#13;
+<p><span style="font-family:'Comic Sans MS'">      在ITOO中序列化也是采用上述jackon jar ，将对象序列化成json字符串。下面是封装的工具类。</span></p>&#13;
+<p><span style="font-family:'Comic Sans MS'"/></p><pre code_snippet_id="1685654" snippet_file_name="blog_20160516_4_364162" name="code" class="html">public class JacksonJsonUntil {
+
+	// 定义日志工具
+	private static final Logger logger = Logger
+			.getLogger(JacksonJsonUntil.class);
+	public JsonGenerator jsonGenerator = null;
+	public ObjectMapper objectMapper = null;
+
+	/**
+	 * 将对象转换为json字符串
+	 * 
+	 * @param response
+	 *            向前台传递数据时的格式
+	 * @param obj
+	 *            需要转换的对象（可以为list）
+	 * @throws Exception
+	 *             异常处理
+	 */
+	public void beanToJson(HttpServletResponse response, Object obj) {
+		response.setContentType("application/json;charset=UTF-8");
+		objectMapper = new ObjectMapper();
+		try {
+			String json = objectMapper.writeValueAsString(obj);
+			PrintWriter out = response.getWriter();
+			out.write(json);
+		} catch (Exception e) {
+			logger.error("对象转Json失败!!!");
+			e.printStackTrace();
+		}
+	}
+
+	/**
+	 * 将对象转换为json字符串（专门用于json跨域问题）
+	 * 
+	 * @param response
+	 *            向前台传递数据时的格式
+	 * @param obj
+	 *            需要转换的对象（可以为list）
+	 * @throws Exception
+	 *             异常处理
+	 */
+	public void beanToUrlJson(HttpServletRequest request,
+			HttpServletResponse response, Object obj) {
+		response.setContentType("text/plain");
+		objectMapper = new ObjectMapper();
+		String callbackFunName = request.getParameter("callbackparam");// 得到js函数名称
+		try {
+			String json = objectMapper.writeValueAsString(obj);
+			PrintWriter out = response.getWriter();
+			out.write(callbackFunName + "(" + json + ")");
+			logger.info("对象转Json（专用于解决json跨域问题）：" + callbackFunName + "("
+					+ json + ")");
+		} catch (IOException e) {
+			logger.error("对象转Json失败!!!");
+			e.printStackTrace();
+		}
+	}
+}</pre>    抽丝剥茧，里头的内容一点点付出水面。&#13;
+<link rel="stylesheet" href="http://static.blog.csdn.net/public/res-min/markdown_views.css?v=1.0"/>&#13;
+            

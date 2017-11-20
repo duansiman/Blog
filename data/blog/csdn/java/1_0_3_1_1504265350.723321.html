@@ -1,0 +1,48 @@
+
+        <div class="markdown_views"><p>最近开始做项目,期间遇到一些小问题,开此贴记录一下</p>
+
+
+
+<h2 id="1关于order-by">1.关于order by</h2>
+
+<p>今天写一个sql查询语句,用了order by但是一直没效果,后来才发现用了#{}取值,mybatis使用这个的话对于String类型会自动加上引号,导致sql无效,正确做法用$代替#</p>
+
+
+
+<pre class="prettyprint"><code class=" hljs sql">    <span class="hljs-operator"><span class="hljs-keyword">SELECT</span> * <span class="hljs-keyword">FROM</span> cum_user
+        &lt;<span class="hljs-keyword">where</span>&gt;
+            &lt;<span class="hljs-keyword">if</span> test=<span class="hljs-string">"search != null"</span>&gt;
+                (username <span class="hljs-keyword">LIKE</span> #{search} ) <span class="hljs-keyword">or</span> (nickname <span class="hljs-keyword">LIKE</span> #{search}) <span class="hljs-keyword">OR</span> (stunum <span class="hljs-keyword">LIKE</span> #{search})
+            &lt;/<span class="hljs-keyword">if</span>&gt;
+        &lt;/<span class="hljs-keyword">where</span>&gt;
+        &lt;<span class="hljs-keyword">if</span> test=<span class="hljs-string">"ordername != null"</span>&gt;
+--             对于排序使用${}符号
+            <span class="hljs-keyword">ORDER</span> <span class="hljs-keyword">BY</span> ${ordername} ${<span class="hljs-keyword">order</span>}
+        &lt;/<span class="hljs-keyword">if</span>&gt;</span></code></pre>
+
+
+
+<h2 id="2关于三张表查询去重问题">2.关于三张表查询去重问题</h2>
+
+<p>一张主表problem,关联着catelog和cum_user两张表的主键,下面是正确的查询方法,不然会出现很多重复结果</p>
+
+<pre class="prettyprint"><code class=" hljs sql"><span class="hljs-operator"><span class="hljs-keyword">SELECT</span> problem.id,pro_name,cate_id,catelog.cate_name,pro_pass,pro_sub,problem.credits,start_time,user_id,cum_user.username
+<span class="hljs-keyword">FROM</span> problem
+  <span class="hljs-keyword">LEFT</span> <span class="hljs-keyword">JOIN</span> cum_user <span class="hljs-keyword">on</span> problem.user_id = cum_user.id
+  <span class="hljs-keyword">LEFT</span> <span class="hljs-keyword">JOIN</span> catelog <span class="hljs-keyword">on</span> problem.cate_id = catelog.id
+<span class="hljs-keyword">WHERE</span> (problem.pro_name <span class="hljs-keyword">LIKE</span> <span class="hljs-string">'%1%'</span> ) <span class="hljs-keyword">or</span> (problem.id <span class="hljs-keyword">LIKE</span> <span class="hljs-string">'%1%'</span> ) <span class="hljs-keyword">OR</span> (catelog.cate_name <span class="hljs-keyword">LIKE</span> <span class="hljs-string">'%1%'</span>)
+;</span></code></pre></div>&#13;
+        <script type="text/javascript">&#13;
+            $(function () {&#13;
+                $('pre.prettyprint code').each(function () {&#13;
+                    var lines = $(this).text().split('\n').length;&#13;
+                    var $numbering = $('&lt;ul/&gt;').addClass('pre-numbering').hide();&#13;
+                    $(this).addClass('has-numbering').parent().append($numbering);&#13;
+                    for (i = 1; i &lt;= lines; i++) {&#13;
+                        $numbering.append($('&lt;li/&gt;').text(i));&#13;
+                    };&#13;
+                    $numbering.fadeIn(1700);&#13;
+                });&#13;
+            });&#13;
+        </script>&#13;
+   &#13;

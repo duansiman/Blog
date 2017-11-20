@@ -1,0 +1,22 @@
+
+                
+<p>        在关系数据库中，为了满足ACID的D属性，即事务提交并返回给客户端之后，必须保证该事务的素有修改都持久化了，物理是在数据库崩溃的情况下或者宕机断电情况下，都必须保证数据不能丢失。这就需要事务提交过程中调用fsync或者fdatasync将数据持久化到磁盘。fsync是一个昂贵的系统调用，对于普通磁盘，每秒只能完成几百次fsync操作。fsync会限制每秒钟提交的事务数成为关系数据库瓶颈。</p>&#13;
+<p>       为了提高开启binlog情况下单位时间内事务提交数，就必须减少每个事务提交过程中fsync次数。MySQL5.6开始引入了binlog group commit技术。将commit分为3个阶段。</p>&#13;
+<p>FLUSH_STAGE、SYNC_STAGE、COMMIT_STAGE。本文介绍flush阶段的操作。<br/>&#13;
+</p>&#13;
+<p><br/>&#13;
+</p>&#13;
+<p><img src="http://blog.csdn.net/yanzongshuai/article/details/78008495" alt=""/></p>&#13;
+<p style="text-align:center"><img src="http://img.blog.csdn.net/20170917100548465?watermark/2/text/aHR0cDovL2Jsb2cuY3Nkbi5uZXQveWFuem9uZ3NodWFp/font/5a6L5L2T/fontsize/400/fill/I0JBQkFCMA==/dissolve/70/gravity/Center" alt=""/><br/>&#13;
+</p>&#13;
+<p><br/>&#13;
+</p>&#13;
+<p>说明：</p>&#13;
+<p>1、将thd放到m_queue[FLUSH_STAGE]队列中，并将队列的首thd作为leader。</p>&#13;
+<p>2、leader操作：加LOCK_log锁；将队列的所有thd的binlog写入IO_CACHE；将IO_CACHE的内容写入binlog文件（这里写入操作系统缓存）；sinal_update广播update_cond，唤醒binlog dump线程，注意这里唤醒后会继续等待LOCK_log锁；</p>&#13;
+<p>3、绿色部分是半同步操作：repl_semisync.writeTranxInBinlog保存binlog文件及写入位置（半同步操作后面详细介绍）</p>&#13;
+<p>4、follower：将thd放入队列后，进入等待。直到signal_done广播m_cond_done信号（leader commit完成后调用）；然后follower调用finish_commit结束commit</p>&#13;
+<p>5、process_flush_stage_queue：将队列中thd一个一个pop，然后将其binlog内容写到IO_CACHE中，如果超时binlog_max_flush_queue_time并且队列不为空，则将队列中所有的thd都刷写走</p>&#13;
+<p>6、flush_cache_to_file：将IO_CACHE内容写入操作系统文件。第5、6合起来实际上是write、flush的步骤</p>&#13;
+<link rel="stylesheet" href="http://static.blog.csdn.net/public/res-min/markdown_views.css?v=2.0"/>&#13;
+            

@@ -1,0 +1,181 @@
+
+
+<h1>mybatis的第一个程序</h1>&#13;
+<h2><span style="font-size:14px">前期准备：</span></h2>&#13;
+<div><span style="font-size:14px">新建一个java工程，或一个java web工程，导入工程所需的包，如下图所示，</span></div>&#13;
+<div><img src="http://img.blog.csdn.net/20160718090259662?watermark/2/text/aHR0cDovL2Jsb2cuY3Nkbi5uZXQv/font/5a6L5L2T/fontsize/400/fill/I0JBQkFCMA==/dissolve/70/gravity/Center" alt="" /></div>&#13;
+<div>整体工程如下图，</div>&#13;
+<div><img src="http://img.blog.csdn.net/20160718090509417?watermark/2/text/aHR0cDovL2Jsb2cuY3Nkbi5uZXQv/font/5a6L5L2T/fontsize/400/fill/I0JBQkFCMA==/dissolve/70/gravity/Center" alt="" /><br />&#13;
+</div>&#13;
+<div>新建数据库，在数据库表中添加信息，表的结构如下所示，</div>&#13;
+<div><img src="http://img.blog.csdn.net/20160718090806825?watermark/2/text/aHR0cDovL2Jsb2cuY3Nkbi5uZXQv/font/5a6L5L2T/fontsize/400/fill/I0JBQkFCMA==/dissolve/70/gravity/Center" alt="" />数据库名，mybatis,表名user，也可以直接使用语句，如下，<br />&#13;
+</div>&#13;
+<div><pre code_snippet_id="1767961" snippet_file_name="blog_20160718_1_734733" name="code" class="html">create database mybatis;
+ use mybatis;
+ CREATE TABLE user(id INT PRIMARY KEY AUTO_INCREMENT, name VARCHAR(20), age INT);
+ INSERT INTO user(name, age) VALUES('小明', 22);
+ INSERT INTO user(name, age) VALUES('小红', 21);
+ INSERT INTO user(name, age) VALUES('小黄', 23);</pre><br />&#13;
+<h2>使用mybatis查询表中的数据，</h2>&#13;
+</div>&#13;
+<div>定义表所对应的实体类，</div>&#13;
+<div>下面先介绍实体类User：</div>&#13;
+<div>代码如下：</div>&#13;
+<div>       <pre code_snippet_id="1767961" snippet_file_name="blog_20160718_2_516582" name="code" class="java">package com.edu.hpu.domain;
+
+/**
+ * @author Administrator
+ *user表所对应的实体类
+ */
+public class User {
+      //实体类的属性和表的字段名称一一对应
+	  private int id;
+	  private String name;
+	  private int age;
+     //对属性进行封装	  
+	public int getId() {
+		return id;
+	}
+	public void setId(int id) {
+		this.id = id;
+	}
+	public String getName() {
+		return name;
+	}
+	public void setName(String name) {
+		this.name = name;
+	}
+	public int getAge() {
+		return age;
+	}
+	public void setAge(int age) {
+		this.age = age;
+	}
+	  //添加toString方法
+	  @Override
+	public String toString() {
+		return "User [id=" + id + ",name=" + name + ",age=" + age + "]";
+	}
+}
+</pre><span style="font-family:Verdana,Geneva,Arial,Helvetica,sans-serif; font-size:13px; line-height:20.796875px">添加Mybatis的配置文件，</span><br />&#13;
+</div>&#13;
+<div><span style="font-family:Verdana,Geneva,Arial,Helvetica,sans-serif; font-size:13px; line-height:20.796875px"><span style="font-family:Verdana,Geneva,Arial,Helvetica,sans-serif; font-size:13px; line-height:20.796875px">　在src目录下创建一个conf.xml文件，</span><br />&#13;
+</span></div>&#13;
+<div><span style="font-family:Verdana,Geneva,Arial,Helvetica,sans-serif; font-size:13px; line-height:20.796875px"><span style="font-family:Verdana,Geneva,Arial,Helvetica,sans-serif; font-size:13px; line-height:20.796875px">代码如下：</span></span></div>&#13;
+<div><span style="font-family:Verdana,Geneva,Arial,Helvetica,sans-serif; font-size:13px; line-height:20.796875px"><span style="font-family:Verdana,Geneva,Arial,Helvetica,sans-serif; font-size:13px; line-height:20.796875px"></span></span><pre code_snippet_id="1767961" snippet_file_name="blog_20160718_3_6786828" name="code" class="html">&lt;?xml version="1.0" encoding="UTF-8"?&gt;
+&lt;!DOCTYPE configuration PUBLIC "-//mybatis.org//DTD Config 3.0//EN" "http://mybatis.org/dtd/mybatis-3-config.dtd"&gt;
+&lt;configuration&gt;
+    &lt;environments default="development"&gt;
+        &lt;environment id="development"&gt;
+            &lt;transactionManager type="JDBC" /&gt;
+            &lt;!-- 配置数据库连接信息 --&gt;
+            &lt;dataSource type="POOLED"&gt;
+                &lt;property name="driver" value="com.mysql.jdbc.Driver" /&gt;
+                &lt;property name="url" value="jdbc:mysql://localhost:3306/mybatis" /&gt;
+                &lt;property name="username" value="root" /&gt;
+                &lt;property name="password" value="admin" /&gt;
+            &lt;/dataSource&gt;
+        &lt;/environment&gt;
+    &lt;/environments&gt;
+      &lt;mappers&gt;
+        &lt;!-- 注册userMapper.xml文件， 
+         userMapper.xml位于me.gacl.mapping这个包下，所以resource写成me/gacl/mapping/userMapper.xml--&gt;
+         &lt;mapper resource="com/edu/hpu/mapping/userMapper.xml"/&gt;
+     &lt;/mappers&gt;
+&lt;/configuration&gt;</pre>&#13;
+<p style="margin:10px auto; font-family:Verdana,Geneva,Arial,Helvetica,sans-serif; font-size:13px; line-height:20.796875px">&#13;
+定义操作users表的sql映射文件userMapper.xml,创建一个me.gacl.mapping包，专门用于存放sql映射文件，在包中创建一个userMapper.xml文件，<br />&#13;
+</p>&#13;
+<p style="margin:10px auto; font-family:Verdana,Geneva,Arial,Helvetica,sans-serif; font-size:13px; line-height:20.796875px">&#13;
+userMapper.xml文件的内容如下：<br />&#13;
+</p>&#13;
+<p style="margin:10px auto; font-family:Verdana,Geneva,Arial,Helvetica,sans-serif; font-size:13px; line-height:20.796875px">&#13;
+</p><pre code_snippet_id="1767961" snippet_file_name="blog_20160718_4_9469023" name="code" class="html">&lt;?xml version="1.0" encoding="UTF-8" ?&gt;
+&lt;!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd"&gt;
+&lt;!-- 为这个mapper指定一个唯一的namespace，namespace的值习惯上设置成包名+sql映射文件名，这样就能够保证namespace的值是唯一的
+例如namespace="me.gacl.mapping.userMapper"就是me.gacl.mapping(包名)+userMapper(userMapper.xml文件去除后缀)
+ --&gt;
+&lt;mapper namespace="com.edu.hpu.mapping.userMapper"&gt;
+    &lt;!-- 在select标签中编写查询的SQL语句， 设置select标签的id属性为getUser，id属性值必须是唯一的，不能够重复
+    使用parameterType属性指明查询时使用的参数类型，resultType属性指明查询返回的结果集类型
+    resultType="me.gacl.domain.User"就表示将查询结果封装成一个User类的对象返回
+    User类就是users表所对应的实体类
+    --&gt;
+    &lt;!-- 
+        根据id查询得到一个user对象
+     --&gt;
+    &lt;select id="getUser" parameterType="int" 
+        resultType="com.edu.hpu.domain.User"&gt;
+        select * from users where id=#{id}
+    &lt;/select&gt;
+&lt;/mapper&gt;
+</pre><br />&#13;
+在conf.xml文件中注册userMapper.xml文件，<br />&#13;
+&#13;
+<p style="margin:10px auto; font-family:Verdana,Geneva,Arial,Helvetica,sans-serif; font-size:13px; line-height:20.796875px">&#13;
+语句如下，</p>&#13;
+<p style="margin:10px auto; font-family:Verdana,Geneva,Arial,Helvetica,sans-serif; font-size:13px; line-height:20.796875px">&#13;
+</p><pre code_snippet_id="1767961" snippet_file_name="blog_20160718_5_6644341" name="code" class="html">&lt;mappers&gt;
+        &lt;!-- 注册userMapper.xml文件， 
+         userMapper.xml位于me.gacl.mapping这个包下，所以resource写成me/gacl/mapping/userMapper.xml--&gt;
+         &lt;mapper resource="com/edu/hpu/mapping/userMapper.xml"/&gt;
+     &lt;/mappers&gt;</pre><br />&#13;
+编写测试代码：执行定义的select语句<br />&#13;
+创建一个Test类，编写如下的测试代码：<br />&#13;
+&#13;
+<p style="margin:10px auto; font-family:Verdana,Geneva,Arial,Helvetica,sans-serif; font-size:13px; line-height:20.796875px">&#13;
+</p><pre code_snippet_id="1767961" snippet_file_name="blog_20160718_6_5630585" name="code" class="java">package com.edu.hpu.test;
+
+import java.io.IOException;
+import java.io.InputStream;
+import java.io.Reader;
+
+import org.apache.ibatis.io.Resources;
+import org.apache.ibatis.session.SqlSession;
+import org.apache.ibatis.session.SqlSessionFactory;
+import org.apache.ibatis.session.SqlSessionFactoryBuilder;
+
+import com.edu.hpu.domain.User;
+
+public class Test {
+
+    public static void main(String[] args) throws IOException {
+        //mybatis的配置文件
+        String resource = "conf.xml";
+        //使用类加载器加载mybatis的配置文件（它也加载关联的映射文件）
+        InputStream is = Test.class.getClassLoader().getResourceAsStream(resource);
+        //构建sqlSession的工厂
+        SqlSessionFactory sessionFactory = new SqlSessionFactoryBuilder().build(is);
+        //使用MyBatis提供的Resources类加载mybatis的配置文件（它也加载关联的映射文件）
+        //Reader reader = Resources.getResourceAsReader(resource); 
+        //构建sqlSession的工厂
+        //SqlSessionFactory sessionFactory = new SqlSessionFactoryBuilder().build(reader);
+        //创建能执行映射文件中sql的sqlSession
+        SqlSession session = sessionFactory.openSession();
+        /**
+         * 映射sql的标识字符串，
+         * com.edu.hpu.mapping.userMapper是userMapper.xml文件中mapper标签的namespace属性的值，
+         * getUser是select标签的id属性值，通过select标签的id属性值就可以找到要执行的SQL
+         */
+        String statement = "com.edu.hpu.mapping.userMapper.getUser";//映射sql的标识字符串
+        //执行查询返回一个唯一user对象的sql
+        for(int i = 1;;i++){
+        User user = session.selectOne(statement, i);
+        if(user == null){
+        	break;
+        }
+        System.out.println(user);
+        }
+    }
+}</pre><br />&#13;
+测试结果如下：&#13;
+<p style="margin:10px auto; font-family:Verdana,Geneva,Arial,Helvetica,sans-serif; font-size:13px; line-height:20.796875px">&#13;
+<img src="http://img.blog.csdn.net/20160718091919638?watermark/2/text/aHR0cDovL2Jsb2cuY3Nkbi5uZXQv/font/5a6L5L2T/fontsize/400/fill/I0JBQkFCMA==/dissolve/70/gravity/Center" alt="" /><br />&#13;
+</p>&#13;
+<p style="margin:10px auto; font-family:Verdana,Geneva,Arial,Helvetica,sans-serif; font-size:13px; line-height:20.796875px">&#13;
+本博客参考自：http://www.cnblogs.com/xdp-gacl/p/4261895.html</p>&#13;
+<p style="margin:10px auto; font-family:Verdana,Geneva,Arial,Helvetica,sans-serif; font-size:13px; line-height:20.796875px">&#13;
+</p>&#13;
+<br />&#13;
+</div>&#13;
+   &#13;

@@ -1,0 +1,217 @@
+
+        <div class="markdown_views"><p><font color="brown">介绍：</font>状态模式，又称状态对象模式（Pattern of Objects for States），状态模式是对象的行为模式。状态模式把所研究的对象的行为包装在不同的状态对象里，每一个状态对象都属于一个抽象状态类的一个子类。</p>
+
+<p><font color="green">作用：</font>状态模式的意图是根据状态来分离和选择行为,让一个对象在其内部状态改变的时候，其行为也随之改变。</p>
+
+<p><font color="brown">场景：</font>有些生存类游戏，比如《饥荒》，在场景中会有很多非一次性互动物品，如树木，草等，它们会定时枯萎，生长。 <br />
+就树而言可以分为下面状态：生长—结果—灭亡</p>
+
+
+
+<h1 id="一角色及作用">一、角色及作用</h1>
+
+<p>可能在一个业务中，我们会有很多if—else等。可能原来的逻辑是正确的，但是如果我们在里面增加功能，对逻辑进行修改，就会十分麻烦。这个时候就可以用状态模式。</p>
+
+<table>
+<thead>
+<tr>
+  <th>角色</th>
+  <th>作用</th>
+</tr>
+</thead>
+<tbody><tr>
+  <td>环境(Context)</td>
+  <td>也称上下文，状态决定它的现状</td>
+</tr>
+<tr>
+  <td>抽象状态(State)</td>
+  <td>定义一个接口，用以封装环境（Context）对象的一个特定的状态所对应的行为</td>
+</tr>
+<tr>
+  <td>具体状态(ConcreteState)</td>
+  <td>每一个具体状态类都实现了环境（Context）的一个状态所对应的行为</td>
+</tr>
+</tbody></table>
+
+
+
+
+<h1 id="二模拟一颗树的一生">二、模拟一颗树的一生</h1>
+
+<p><strong>环境角色</strong></p>
+
+<p>（树）保存了一生所有可能经历的状态，基因决定了树木生长和结果最大年龄。</p>
+
+
+
+<pre class="prettyprint"><code class=" hljs cs"><span class="hljs-keyword">public</span> <span class="hljs-keyword">class</span> Tree {
+    <span class="hljs-comment">// 持有一个State类型的对象实例</span>
+    <span class="hljs-keyword">private</span> TreeState state;
+    <span class="hljs-comment">// 保存树木一生所有的状态</span>
+    <span class="hljs-keyword">public</span> Map&lt;String, TreeState&gt; states = <span class="hljs-keyword">new</span> HashMap&lt;String, TreeState&gt;();
+
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">int</span> growSize;    <span class="hljs-comment">// 生长可能时间</span>
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">int</span> fruitSize;   <span class="hljs-comment">// 结果可能时间</span>
+
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">int</span> now = <span class="hljs-number">1</span>; <span class="hljs-comment">// 树木年龄</span>
+
+    <span class="hljs-keyword">public</span> <span class="hljs-title">Tree</span>() {
+        states.put(<span class="hljs-string">"grow"</span>, <span class="hljs-keyword">new</span> GrowState(<span class="hljs-keyword">this</span>));
+        states.put(<span class="hljs-string">"fruit"</span>, <span class="hljs-keyword">new</span> FruitState(<span class="hljs-keyword">this</span>));
+        states.put(<span class="hljs-string">"death"</span>, <span class="hljs-keyword">new</span> DeathState(<span class="hljs-keyword">this</span>));
+
+        <span class="hljs-keyword">this</span>.state = states.<span class="hljs-keyword">get</span>(<span class="hljs-string">"grow"</span>);
+
+
+        <span class="hljs-comment">// 如果没有环境因素，植物生长和结果是由基因决定的,生长最多5年，最多2年结果</span>
+        Random random =<span class="hljs-keyword">new</span> Random();
+        growSize =random.nextInt(<span class="hljs-number">5</span>);
+        fruitSize = random.nextInt(<span class="hljs-number">2</span>);
+    }
+
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">void</span> <span class="hljs-title">setState</span>(TreeState state) {
+        <span class="hljs-keyword">this</span>.state = state;
+    }
+
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">void</span> <span class="hljs-title">handle</span>() {
+        state.handle();
+    }
+
+}</code></pre>
+
+<p><strong>状态</strong></p>
+
+
+
+<pre class="prettyprint"><code class=" hljs cs"><span class="hljs-keyword">public</span> <span class="hljs-keyword">interface</span> TreeState {
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">void</span> <span class="hljs-title">handle</span>();
+}</code></pre>
+
+<p><strong>生长状态</strong></p>
+
+<p>树木如果生长到一定年龄，进入结果状态</p>
+
+
+
+<pre class="prettyprint"><code class=" hljs java"><span class="hljs-keyword">public</span> <span class="hljs-class"><span class="hljs-keyword">class</span> <span class="hljs-title">GrowState</span> <span class="hljs-keyword">implements</span> <span class="hljs-title">TreeState</span> {</span>
+
+    <span class="hljs-keyword">private</span> Tree tree;
+
+    <span class="hljs-keyword">public</span> <span class="hljs-title">GrowState</span>(Tree tree) {
+        <span class="hljs-keyword">this</span>.tree = tree;
+    }
+
+    <span class="hljs-annotation">@Override</span>
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">void</span> <span class="hljs-title">handle</span>() {
+        <span class="hljs-keyword">if</span> (tree.now &lt; tree.growSize) {
+            System.out.println(<span class="hljs-string">"植物长大"</span>);
+            tree.now++;
+        } <span class="hljs-keyword">else</span> {
+            tree.setState(tree.states.get(<span class="hljs-string">"fruit"</span>));
+        }
+    }
+
+}</code></pre>
+
+<p><strong>结果状态</strong></p>
+
+<p>如果超过结果年龄，树木进入死亡状态</p>
+
+
+
+<pre class="prettyprint"><code class=" hljs java"><span class="hljs-keyword">public</span> <span class="hljs-class"><span class="hljs-keyword">class</span> <span class="hljs-title">FruitState</span> <span class="hljs-keyword">implements</span> <span class="hljs-title">TreeState</span> {</span>
+
+    <span class="hljs-keyword">private</span> Tree tree;
+
+    <span class="hljs-keyword">public</span> <span class="hljs-title">FruitState</span>(Tree tree) {
+        <span class="hljs-keyword">this</span>.tree = tree;
+    }
+
+    <span class="hljs-annotation">@Override</span>
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">void</span> <span class="hljs-title">handle</span>() {
+        <span class="hljs-keyword">if</span> (tree.now &lt; (tree.growSize + tree.fruitSize)) {
+            System.out.println(<span class="hljs-string">"植物结果"</span>);
+            tree.now++;
+        } <span class="hljs-keyword">else</span> {
+            tree.setState(tree.states.get(<span class="hljs-string">"death"</span>));
+        }
+    }
+
+}</code></pre>
+
+<p><strong>死亡状态</strong></p>
+
+
+
+<pre class="prettyprint"><code class=" hljs java"><span class="hljs-keyword">public</span> <span class="hljs-class"><span class="hljs-keyword">class</span> <span class="hljs-title">DeathState</span> <span class="hljs-keyword">implements</span> <span class="hljs-title">TreeState</span> {</span>
+    <span class="hljs-keyword">private</span> Tree tree;
+
+    <span class="hljs-keyword">public</span> <span class="hljs-title">DeathState</span>(Tree tree) {
+        <span class="hljs-keyword">this</span>.tree = tree;
+    }
+
+    <span class="hljs-annotation">@Override</span>
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">void</span> <span class="hljs-title">handle</span>() {
+        System.out.println(<span class="hljs-string">"植物已死亡"</span>);
+        tree.setState(tree.states.get(<span class="hljs-string">"death"</span>));
+    }
+}</code></pre>
+
+<p><strong>模拟生长</strong></p>
+
+<p>某一颗树的一生</p>
+
+
+
+<pre class="prettyprint"><code class=" hljs lasso">Tree tree <span class="hljs-subst">=</span> <span class="hljs-literal">new</span> Tree();
+    <span class="hljs-keyword">while</span> (<span class="hljs-literal">true</span>) {
+        tree<span class="hljs-built_in">.</span><span class="hljs-keyword">handle</span>();
+    }</code></pre>
+
+<p>过程</p>
+
+
+
+<pre class="prettyprint"><code class=" hljs ">植物长大
+植物长大
+植物长大
+植物结果
+植物已死亡</code></pre>
+
+<p><font color="red"><strong>缺点</strong></font> <br />
+- 会增加类和对象的个数，如果使用不当会造成逻辑混乱。  <br />
+- 状态模式对“开闭原则”的支持并不太好,增加新的状态类需要修改那些负责状态转换的源代码</p>
+
+
+
+<h1 id="三状态模式和策略模式的比较">三、状态模式和策略模式的比较</h1>
+
+<p><font color="red">在网上学习其他大神博客的时候看到很多评论，这不是状态模式是策略模式，或者这不是策略模式是状态模式，不要误人子弟。但是其实博主是正确的，而那些言语粗鲁的人反而是自己无知（让我十分反感）。状态模式经常与策略模式相混淆。一个简单的方法是考察环境角色是否有明显的状态和状态的过渡。</font></p>
+
+<p><strong>状态模式：</strong></p>
+
+<p>状态模式处理的核心问题是状态的迁移，因为在对象存在很多状态情况下，各个状态之间跳转和迁移过程都是及其复杂的。在状态模式中，状态改变是由对象的内部条件决定，外界只需关心其接口，不必关心其状态对象的创建和转化。</p>
+
+<p><strong>策略模式：</strong></p>
+
+<p>策略模式的好处在于你可以动态的改变对象的策略行为。策略模式里，采取何种策略由外部条件决定，也就是说使用什么策略由我们来提供，而策略的具体实现类实现对应算法。比如一种商品，我们可以有很多降价和提价策略，我们只需要定义好各种策略的规则，然后让商品去执行就行了。</p>
+
+<hr />
+
+<p><strong><em>更多模式：</em></strong> <a href="http://blog.csdn.net/odeviloo/article/details/52382338">一天一个设计模式—分类与六大原则</a></p>
+
+<p><strong><em>更多源码：</em></strong> <a href="https://github.com/oDevilo/Java-Base">https://github.com/oDevilo/Java-Base</a></p></div>&#13;
+        <script type="text/javascript">&#13;
+            $(function () {&#13;
+                $('pre.prettyprint code').each(function () {&#13;
+                    var lines = $(this).text().split('\n').length;&#13;
+                    var $numbering = $('&lt;ul/&gt;').addClass('pre-numbering').hide();&#13;
+                    $(this).addClass('has-numbering').parent().append($numbering);&#13;
+                    for (i = 1; i &lt;= lines; i++) {&#13;
+                        $numbering.append($('&lt;li/&gt;').text(i));&#13;
+                    };&#13;
+                    $numbering.fadeIn(1700);&#13;
+                });&#13;
+            });&#13;
+        </script>&#13;
+   &#13;

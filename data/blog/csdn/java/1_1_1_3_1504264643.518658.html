@@ -1,0 +1,100 @@
+
+
+<p><strong>中介模式(mediator pattern)</strong>是一种“平台式”或“管家式”委派方式。</p>&#13;
+<p>中介模式中，中介是各个希望相互交互的参与者的共同且唯一代理，它完成消息的转发或处理。</p>&#13;
+<h3>平台式中介</h3>&#13;
+<p>现实生活中有集市、股票交易所、婚姻介绍所、房屋中介等形形色色的中介(mediator)组织，它们有效地将参与者(participator)的两两交互转化为参与者与中介的交互。但是，这些中介正好是<strong><span style="color:#ff0000">GoF中介模式的错误例子</span></strong>。网上有许多人用QQ为例引入中介模式，显然没有从代码的角度分析，<strong><span style="color:#ff0000">纯属想当然</span></strong>。</p>&#13;
+<p>这里说一个现实的场景。一场Party，有男生/Boy、女生/Girl参加，每个人都可以与其他对象交互。请问，实现这一场景的代码有多复杂？只有当你真正写出代码时，你会发现10万个对象的彼此交谈，也不过两个类的代码要写。</p>&#13;
+<pre name="code" class="java">例程 5 9 不需要中介
+package delegate.mediator.party;
+public abstract class Actor{
+    String name;
+    public abstract void send(String message,Actor to);
+    public abstract void receive(String message,Actor from);    
+}
+package delegate.mediator.party;
+import static tool.Print.*;
+public class Boy extends Actor{
+    private int count;
+    public Boy(String name){
+        this.name =name;
+    }
+    @Override public void send(String message,Actor to){
+        pln(this.name+" To "+to.name+":\""+message+"\"");
+        to.receive(message,this);
+    }
+    @Override public void receive(String message,Actor from){
+        char c = (char)(Math.random()*4+'a');
+        if(c!='b'){
+            String msg = message+" "+c;
+            send(msg,from);
+        }        
+    }    
+}
+package delegate.mediator.party;
+public class Party{
+    public static void main(){
+        Actor[] alist = new Actor[]{
+                new Boy("B1"),new Boy("B2"),new Boy("B3"),new Boy("B4"),
+                 new Girl("G1"),new Girl("G2"),new Girl("G3")
+            };
+        for(int i=0;i&lt;alist.length;i++){
+            int rand= (int)(Math.random()*alist.length);
+            alist[i].send("hi",alist[rand]);
+        }
+    }
+}
+</pre>&#13;
+<p>测试代码中，每一个Party参与者发起一次对话，对话的对象是随机的。对话的内容为随机字符，对话必须持续直到随机字符为b(bay)才结束。某一次运行结果（”//结束“不是程序的输出）：</p>&#13;
+<p>B1 To B4:"hi"<br />&#13;
+B4 To B1:"hi d"<br />&#13;
+B1 To B4:"hi d d"<br />&#13;
+B4 To B1:"hi d d a"<br />&#13;
+B1 To B4:"hi d d a a"<strong> //结束</strong><br />&#13;
+B2 To B3:"hi"<strong> //结束</strong><br />&#13;
+B3 To G2:"hi"<span style="font-weight:bold">//结束</span><br />&#13;
+B4 To B1:"hi"<span style="font-weight:bold">//结束</span><br />&#13;
+G1 To G2:[hi]<br />&#13;
+G2 To G1:[hi d]<br />&#13;
+G1 To G2:[hi d d]<br />&#13;
+G2 To G1:[hi d d d]<br />&#13;
+G1 To G2:[hi d d d a]<br />&#13;
+G2 To G1:[hi d d d a d]<br />&#13;
+G1 To G2:[hi d d d a d c]<br />&#13;
+G2 To G1:[hi d d d a d c a]<br />&#13;
+G1 To G2:[hi d d d a d c a a]<br />&#13;
+G2 To G1:[hi d d d a d c a a a]<br />&#13;
+G1 To G2:[hi d d d a d c a a a a]<br />&#13;
+G2 To G1:[hi d d d a d c a a a a c] //居然聊了这么多<strong> //结束</strong><br />&#13;
+G2 To B2:[hi]<br />&#13;
+B2 To G2:"hi c"<br />&#13;
+G2 To B2:[hi c a]<br />&#13;
+B2 To G2:"hi c a a"<br />&#13;
+G2 To B2:[hi c a a a]<br />&#13;
+B2 To G2:"hi c a a a c"<br />&#13;
+G2 To B2:[hi c a a a c a]<br />&#13;
+G3 To G1:[hi]<br />&#13;
+</p>&#13;
+<p>在讨论中介模式时，许多人看到对象的交互呈现<span style="color:#ff0000">网状结构</span>，几乎<span style="color:#ff0000">每个对象都需要与其他对象发生相互作用</span>。[GoF]中介者模式：“定义一个中介对象来封装<span style="color:#ff0000">系列对象之间</span>的交互。中介者使各个对象<span style="color:#ff0000"><strong>不需要显示地相互引用</strong></span>，从而使其耦合性松散，而且可以<strong><span style="color:#ff0000">独立地改变他们之间的交互</span></strong>”。事实上，上述代码告诉了一个事实，这里不需要中介模式：</p>&#13;
+<p>①各对象之间并不需要“显式”持有彼此的引用。Boy和Girl是Actor的子类，即使Party中出现了Boy和Girl等具体类型，Boy和Girl的类体中依赖Actor即可。②多个类(Boy、Girl)的大量对象的交互，并不一定会导致类之间的过度耦合。Boy和Girl之间就不存在任何耦合。类似的，让家长、老师等参加Party，只要他们是Actor，彼此之间不存在任何耦合。</p>&#13;
+所以，上面的例子并不是我们需要<strong><span style="color:#ff0000">中介</span></strong>(这里不是<strong><span style="color:#006600">中介模式</span></strong>)的原因。&#13;
+<p>然而，如果有一个对象需要找一个女朋友，他一个个地与每一个Girl对象交互，就显得非常低效和不现实。此时，他需要<strong><span style="color:#ff0000">一个能够广播的“平台”</span></strong>。平台式的中介中，不管参与者如何形形色色，中介的作用如同一个公告牌。所以非常容易地联想到观察者模式，事实上，作为公告牌的<strong>“中介模式”就是观察者模式</strong>。<br />&#13;
+</p>&#13;
+<p>于是，由于<strong><span style="color:#ff0000">中介者Party</span></strong>现在作为交互平台，它被所有感兴趣的参与者观察！<strong>再次不同于[GoF]中介者模式</strong>。[GoF]中，它写道“<strong><span style="color:#ff0000">将Mediator实现为一个观察者，各Colleague作为Subject</span></strong>”。而此时，我们的代码是：<strong><span style="color:#ff0000">Mediator实现为一个<span style="color:rgb(255,0,0)"><strong>Subject</strong></span>，各Colleague作为Observer。</span></strong></p>&#13;
+<p>这一“平台式中介的代码，网上随处可见。<br />&#13;
+</p>&#13;
+<h3>对象和类</h3>&#13;
+<p>[GoF]中介者模式：“定义一个中介对象来封装<span style="color:rgb(255,0,0)">系列对象之间</span>的交互。中介者使各个对象<span style="color:rgb(255,0,0)"><strong>不需要显示地相互引用</strong></span>，从而使其耦合性松散..."<br />&#13;
+</p>&#13;
+<p>这也给我们带来一个问题：这里的<span style="color:#ff0000">”对象“是什么东西</span>？</p>&#13;
+<p>在Java等面向对象的语言中，yqj2065一直强调：类是第一性的。程序员编程针对的都是类而非对象。事实上，[GoF]的中介者模式——“管家式”委派方式中，才体现了<strong><span style="color:#ff0000">一个类(的对象)发生状态改变，将导致许多其他类(的对象)发生相应的变化。</span></strong>和股票交易所、婚姻介绍所等不同，后者虽然参与者有诸多对象，真正的类不多而且交互简单。</p>&#13;
+<p>有人说了：Party中有的男女对上眼了，会一直聊到Party结束；有的男生可以一直聊篮球；有的女生只和女生聊，有的女生只和名字好听的人聊……你怎么处理这些对象？</p>&#13;
+<p>还是一句话：我将处理的不是对象而是类——匿名类！你可以用匿名类或λ表达式为客户留下无限的扩展空间。</p>&#13;
+<p><br />&#13;
+</p>&#13;
+<p>总之，<span style="color:#006600"><strong>股票交易所、婚姻介绍所、聊天室的例子，都不是[GoF]中介者模式</strong></span>。</p>&#13;
+<p><br />&#13;
+</p>&#13;
+<p><a target="_blank" href="http://blog.csdn.net/yqj2065/article/details/8592375" style="text-align:center"><img src="http://img.blog.csdn.net/20140919170809965?watermark/2/text/aHR0cDovL2Jsb2cuY3Nkbi5uZXQveXFqMjA2NQ==/font/5a6L5L2T/fontsize/400/fill/I0JBQkFCMA==/dissolve/70/gravity/SouthEast" alt="" /></a><br />&#13;
+</p>&#13;
+   &#13;

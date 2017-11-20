@@ -1,0 +1,192 @@
+
+        <div class="markdown_views"><p><strong>★ 场景和问题</strong> <br />
+在Java开发时，需要来回交换大量的数据，比如要为方法传入参数，也要获取方法的返回值，该如何能更好的进行数据的交互？</p>
+
+<p><strong>★ 基本的编写步骤</strong> <br />
+<strong>◎第1步</strong>：写一个类，实现可序列化（如果以后数据是往数据库里存的，那么可以不序列化，节省资源） <br />
+<strong>◎第2步</strong>：私有化所有属性，保持一个默认构造方法(public无参) <br />
+<strong>◎第3步</strong>：为每个属性提供get()、set()方法（如果是boolean型变量，最好把get改成is） <br />
+<strong>◎第4步</strong>：推荐覆盖实现equals()、hashCode()和toString()方法</p>
+
+<p><strong>值对象的本质是“封装数据”</strong> <br />
+User 类：</p>
+
+<pre class="prettyprint"><code class=" hljs java"><span class="hljs-keyword">package</span> cn.hncu.pattern.factory.vo.v2.vo;
+
+<span class="hljs-keyword">import</span> java.io.Serializable;
+
+<span class="hljs-keyword">public</span> <span class="hljs-class"><span class="hljs-keyword">class</span> <span class="hljs-title">User</span> <span class="hljs-keyword">implements</span> <span class="hljs-title">Serializable</span>{</span>
+    <span class="hljs-comment">//只能将支持 java.io.Serializable 接口的对象写入流中,必须实现这个接口</span>
+    <span class="hljs-keyword">private</span> String userId;
+    <span class="hljs-keyword">private</span> String tel;
+    <span class="hljs-keyword">private</span> String address;
+    <span class="hljs-keyword">private</span> <span class="hljs-keyword">int</span> age;
+    <span class="hljs-keyword">private</span> <span class="hljs-keyword">boolean</span> isMale;
+    <span class="hljs-keyword">public</span> <span class="hljs-title">User</span>() {
+    }
+
+    <span class="hljs-keyword">public</span> <span class="hljs-title">User</span>(String userId, String tel, String address, <span class="hljs-keyword">int</span> age){
+        <span class="hljs-keyword">this</span>.userId = userId;
+        <span class="hljs-keyword">this</span>.tel = tel;
+        <span class="hljs-keyword">this</span>.address = address;
+        <span class="hljs-keyword">this</span>.age = age;
+    }
+
+    <span class="hljs-keyword">public</span> String <span class="hljs-title">getTel</span>() {
+        <span class="hljs-keyword">return</span> tel;
+    }
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">void</span> <span class="hljs-title">setTel</span>(String tel) {
+        <span class="hljs-keyword">this</span>.tel = tel;
+    }
+    <span class="hljs-keyword">public</span> String <span class="hljs-title">getAddress</span>() {
+        <span class="hljs-keyword">return</span> address;
+    }
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">void</span> <span class="hljs-title">setAddress</span>(String address) {
+        <span class="hljs-keyword">this</span>.address = address;
+    }
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">int</span> <span class="hljs-title">getAge</span>() {
+        <span class="hljs-keyword">return</span> age;
+    }
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">void</span> <span class="hljs-title">setAge</span>(<span class="hljs-keyword">int</span> age) {
+        <span class="hljs-keyword">this</span>.age = age;
+    }
+    <span class="hljs-keyword">public</span> String <span class="hljs-title">getUserId</span>() {
+        <span class="hljs-keyword">return</span> userId;
+    }
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">void</span> <span class="hljs-title">setUserId</span>(String userId) {
+        <span class="hljs-keyword">this</span>.userId = userId;
+    }
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">boolean</span> <span class="hljs-title">isMale</span>() {
+        <span class="hljs-keyword">return</span> isMale;
+    }
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">void</span> <span class="hljs-title">setMale</span>(<span class="hljs-keyword">boolean</span> isMale) {
+        <span class="hljs-keyword">this</span>.isMale = isMale;
+    }
+
+    <span class="hljs-annotation">@Override</span>
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">int</span> <span class="hljs-title">hashCode</span>() {
+        <span class="hljs-keyword">final</span> <span class="hljs-keyword">int</span> prime = <span class="hljs-number">31</span>;
+        <span class="hljs-keyword">int</span> result = <span class="hljs-number">1</span>;
+        result = prime * result + ((userId == <span class="hljs-keyword">null</span>) ? <span class="hljs-number">0</span> : userId.hashCode());
+        <span class="hljs-keyword">return</span> result;
+    }
+
+    <span class="hljs-annotation">@Override</span>
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">boolean</span> <span class="hljs-title">equals</span>(Object obj) {
+        <span class="hljs-keyword">if</span> (<span class="hljs-keyword">this</span> == obj)
+            <span class="hljs-keyword">return</span> <span class="hljs-keyword">true</span>;
+        <span class="hljs-keyword">if</span> (obj == <span class="hljs-keyword">null</span>)
+            <span class="hljs-keyword">return</span> <span class="hljs-keyword">false</span>;
+        <span class="hljs-keyword">if</span> (getClass() != obj.getClass())
+            <span class="hljs-keyword">return</span> <span class="hljs-keyword">false</span>;
+        User other = (User) obj;
+        <span class="hljs-keyword">if</span> (userId == <span class="hljs-keyword">null</span>) {
+            <span class="hljs-keyword">if</span> (other.userId != <span class="hljs-keyword">null</span>)
+                <span class="hljs-keyword">return</span> <span class="hljs-keyword">false</span>;
+        } <span class="hljs-keyword">else</span> <span class="hljs-keyword">if</span> (!userId.equals(other.userId))
+            <span class="hljs-keyword">return</span> <span class="hljs-keyword">false</span>;
+        <span class="hljs-keyword">return</span> <span class="hljs-keyword">true</span>;
+    }
+
+    <span class="hljs-annotation">@Override</span>
+    <span class="hljs-keyword">public</span> String <span class="hljs-title">toString</span>() {
+        <span class="hljs-keyword">return</span> <span class="hljs-string">"User [userId="</span> + userId + <span class="hljs-string">", tel="</span> + tel + <span class="hljs-string">", address="</span>
+                + address + <span class="hljs-string">", age="</span> + age + <span class="hljs-string">"]"</span>;
+    }
+
+
+}
+</code></pre>
+
+<p>B类：</p>
+
+<pre class="prettyprint"><code class=" hljs cs">package cn.hncu.pattern.factory.vo.v2;
+
+import cn.hncu.pattern.factory.vo.v2.vo.User;
+
+
+<span class="hljs-keyword">public</span> <span class="hljs-keyword">class</span> B {
+    String userId=<span class="hljs-keyword">null</span>;
+    User user = <span class="hljs-keyword">null</span>;
+    <span class="hljs-keyword">public</span> boolean <span class="hljs-title">sendData</span>(User user){ <span class="hljs-comment">//Value Object ----Model</span>
+        System.<span class="hljs-keyword">out</span>.println(<span class="hljs-string">"数据已经接受到。。。"</span>);
+        operate(user);
+        <span class="hljs-keyword">return</span> <span class="hljs-keyword">true</span>;
+    }
+    <span class="hljs-keyword">private</span> <span class="hljs-keyword">void</span> <span class="hljs-title">operate</span>(User user) {
+        <span class="hljs-keyword">this</span>.user = user;
+        <span class="hljs-keyword">this</span>.user.setUserId(<span class="hljs-string">"CN_"</span>+user.getUserId());
+        System.<span class="hljs-keyword">out</span>.println(<span class="hljs-string">"处理数据..."</span>);
+    }
+
+    <span class="hljs-keyword">public</span> User <span class="hljs-title">getData</span>(){
+        <span class="hljs-keyword">return</span> user;
+    }
+
+    <span class="hljs-keyword">public</span> String <span class="hljs-title">getUserId</span>(){
+        <span class="hljs-keyword">return</span> userId;
+    }
+
+}
+</code></pre>
+
+<p>A类：</p>
+
+
+
+<pre class="prettyprint"><code class=" hljs avrasm">package cn<span class="hljs-preprocessor">.hncu</span><span class="hljs-preprocessor">.pattern</span><span class="hljs-preprocessor">.factory</span><span class="hljs-preprocessor">.vo</span><span class="hljs-preprocessor">.v</span>2<span class="hljs-comment">;</span>
+
+import cn<span class="hljs-preprocessor">.hncu</span><span class="hljs-preprocessor">.pattern</span><span class="hljs-preprocessor">.factory</span><span class="hljs-preprocessor">.vo</span><span class="hljs-preprocessor">.v</span>2<span class="hljs-preprocessor">.vo</span><span class="hljs-preprocessor">.User</span><span class="hljs-comment">;</span>
+
+
+public class A {
+    public static void main(String[] args) {
+        B obj = new B()<span class="hljs-comment">;</span>
+        User user = new User(<span class="hljs-string">"A001"</span>, <span class="hljs-string">"13512345678"</span>, <span class="hljs-string">"hncu"</span>,<span class="hljs-number">20</span>)<span class="hljs-comment">;</span>
+
+        obj<span class="hljs-preprocessor">.sendData</span>(user)<span class="hljs-comment">;</span>
+        User data = obj<span class="hljs-preprocessor">.getData</span>()<span class="hljs-comment">;</span>
+
+        System<span class="hljs-preprocessor">.out</span><span class="hljs-preprocessor">.println</span>( data<span class="hljs-preprocessor">.getUserId</span>() )<span class="hljs-comment">;</span>
+        System<span class="hljs-preprocessor">.out</span><span class="hljs-preprocessor">.println</span>(data)<span class="hljs-comment">;</span>
+        User user2 = new User()<span class="hljs-comment">;</span>
+        user2<span class="hljs-preprocessor">.setAge</span>(<span class="hljs-number">21</span>)<span class="hljs-comment">;</span>
+        user2<span class="hljs-preprocessor">.setUserId</span>(<span class="hljs-string">"A002"</span>)<span class="hljs-comment">;</span>
+        System<span class="hljs-preprocessor">.out</span><span class="hljs-preprocessor">.println</span>(user2)<span class="hljs-comment">;</span>
+        obj<span class="hljs-preprocessor">.sendData</span>(user2)<span class="hljs-comment">;</span>
+        System<span class="hljs-preprocessor">.out</span><span class="hljs-preprocessor">.println</span>(user2)<span class="hljs-comment">;</span>
+        //可以做得更好的： 
+        // Id可以用唱票模型 <span class="hljs-number">2318</span>,<span class="hljs-number">2319</span>,......
+
+    }
+
+}
+</code></pre>
+
+<p>输出:</p>
+
+
+
+<pre class="prettyprint"><code class=" hljs r">数据已经接受到。。。
+处理数据<span class="hljs-keyword">...</span>
+CN_A001
+User [userId=CN_A001, tel=<span class="hljs-number">13512345678</span>, address=hncu, age=<span class="hljs-number">20</span>]
+User [userId=A002, tel=null, address=null, age=<span class="hljs-number">21</span>]
+数据已经接受到。。。
+处理数据<span class="hljs-keyword">...</span>
+User [userId=CN_A002, tel=null, address=null, age=<span class="hljs-number">21</span>]
+</code></pre></div>&#13;
+        <script type="text/javascript">&#13;
+            $(function () {&#13;
+                $('pre.prettyprint code').each(function () {&#13;
+                    var lines = $(this).text().split('\n').length;&#13;
+                    var $numbering = $('&lt;ul/&gt;').addClass('pre-numbering').hide();&#13;
+                    $(this).addClass('has-numbering').parent().append($numbering);&#13;
+                    for (i = 1; i &lt;= lines; i++) {&#13;
+                        $numbering.append($('&lt;li/&gt;').text(i));&#13;
+                    };&#13;
+                    $numbering.fadeIn(1700);&#13;
+                });&#13;
+            });&#13;
+        </script>&#13;
+   &#13;

@@ -1,0 +1,113 @@
+
+
+<h2><span style="font-size:14px">    Filter介绍</span></h2>&#13;
+<div><span style="font-size:14px">          Filter可以认为是Servlet的加强版，它的目的主要是对用户的请求进行预处理，也可以对HttpServletResponse进行后处理。因此是一个典型的处理链。它可以对用户的请求生成相应，这一点和Servlet是相同的，但是实际上很少会使用Filter向用户请求生成响应。</span></div>&#13;
+<div><span style="font-size:14px">          使用Filter的完整流程：Filter对用户请求进行预处理，接着将请求交给Servlet进行处理并生成相应，最后Filter再对服务器响应进行后处理。</span></div>&#13;
+<h2><span style="font-size:14px">Filter的优点</span></h2>&#13;
+<div><span style="font-size:14px">         在HttpServletRequest到达Servlet之前，拦截用户的HttpServletRequest<br />&#13;
+</span></div>&#13;
+<div><span style="font-size:14px">         根据需要检查HttpServletRequest,也可以修改HttpServletRequest头和数据</span></div>&#13;
+<div><span style="font-size:14px">         在HttpServletResponse到达客户端之前，拦截HttpServletResponse</span></div>&#13;
+<div><span style="font-size:14px">         根据需要检查HttpServletResponse,也可以修改HttpServletResponse头和数据</span></div>&#13;
+<h2><span style="font-size:14px">Filter的种类</span></h2>&#13;
+<div><span style="font-size:14px">         用户授权的Filter：Filter负责检查用户请求，根据请求过滤用户非法请求</span></div>&#13;
+<div><span style="font-size:14px">         日志Filter：详细记录某些特殊的用户请求</span></div>&#13;
+<div><span style="font-size:14px">         负责解码的Filter：包括对非标准编码的请求解码</span></div>&#13;
+<div><span style="font-size:14px">         能改变XML内容的XSLT Filter等</span></div>&#13;
+<div><span style="font-size:14px">         Filter可负责拦截多个请求或响应；一个请求或响应也可被多个Filter拦截。</span></div>&#13;
+<h2><span style="font-size:14px">Filter创建步骤</span></h2>&#13;
+<div><span style="font-size:14px">         创建Filter处理类</span></div>&#13;
+<div><span style="font-size:14px">         web.xml文件中配置Filter</span></div>&#13;
+<h2><span style="font-size:14px">创建Filter类</span></h2>&#13;
+<div><span style="font-size:14px">         Filter类的创建必须实现javax.servlet.Filter接口，在该接口中定义了如下的三个方法：</span></div>&#13;
+<div><span style="font-size:14px">         void init(FilterConfig config):用于完成Filter的初始化</span></div>&#13;
+<div><span style="font-size:14px">         void destroy():用于Filter销毁前，完成某些资源的回收</span></div>&#13;
+<div><span style="font-size:14px">         void doFilter(ServletRequest request,ServletResponse response,FilterChain chain):实现过滤功能，该方法就是对每个请求及响应增加的额外处理</span></div>&#13;
+<h2><span style="font-size:14px">配置Filter</span></h2>&#13;
+<div><span style="font-size:14px">          配置Filter与配置Servlet非常相似，都需要配置如下的两个部分：</span></div>&#13;
+<div><span style="font-size:14px">               配置Filter名</span></div>&#13;
+<div><span style="font-size:14px">               配置Filter拦截URL模式</span></div>&#13;
+<div><span style="font-size:14px">         区别就是，Servlet通常只配置一个URL，而Filter可以同时拦截多个请求的URL，因此，在配置Filter的URl模式时通常会使用模式字符串，使得Filter可以拦截多个请求。</span></div>&#13;
+<h2><span style="font-size:14px">Filter实例</span></h2>&#13;
+<p><span style="font-size:14px">         最近在做一个项目，其中一部分用到了登录拦截，原本我是用拦截器实现的，师兄看了我写的代码，然后给我说这样的情况最好使用filter。然后我就试着用filter去实现了一下。在这里我将核心的代码贴一下，方便大家使用，同时也方便我以后的使用。</span></p>&#13;
+<p><span style="font-size:14px"></span></p>&#13;
+<pre code_snippet_id="1812274" snippet_file_name="blog_20160806_1_8952686" name="code" class="java">package com.liuliangqianbao.common.filter;
+
+import java.io.IOException;
+import java.util.Properties;
+
+import javax.servlet.Filter;
+import javax.servlet.FilterChain;
+import javax.servlet.FilterConfig;
+import javax.servlet.ServletException;
+import javax.servlet.ServletRequest;
+import javax.servlet.ServletResponse;
+import javax.servlet.http.HttpServletRequest;
+import javax.servlet.http.HttpServletResponse;
+
+import org.apache.commons.logging.Log;
+import org.apache.commons.logging.LogFactory;
+
+public class SessionUpcFilter implements Filter {
+	private static Log logger = LogFactory.getLog(SessionUpcFilter.class);
+	private String errorpage;
+	private static Properties props = null;
+
+	@Override
+	public void destroy() {
+		// TODO Auto-generated method stub
+	}
+
+	@Override
+	public void doFilter(ServletRequest request, ServletResponse response, FilterChain filterChain) throws IOException, ServletException {
+		// TODO Auto-generated method stub
+		/**
+		 * 页面缓存设定 &lt;确保浏览器不缓存页面数据
+		 */
+		HttpServletRequest req = (HttpServletRequest) request;
+		HttpServletResponse rep = (HttpServletResponse) response;
+		rep.setHeader("Cache-Control", "no-cache");
+		rep.setHeader("Cache-Control", "no-store");
+		rep.setDateHeader("Expires", 0);
+		rep.setHeader("Pragma", "no-cache");
+		String[] excludedUrls = { "createVfcCode", "login", "checkCard", "getPicStream", ".js", ".css", ".gif", ".png", ".jpg", "NoLogin", ".json" };
+		String uri = req.getRequestURI();
+		if (uri.contains("druid")) {
+			filterChain.doFilter(request, response);
+		} else {
+			uri = uri.indexOf("?") &gt; 0 ? uri.substring(0, uri.indexOf("?")) : uri;
+			uri = uri.indexOf("?") &gt; 0 ? uri.substring((uri.lastIndexOf("/") + 1), uri.indexOf("?")) : uri.substring(uri.lastIndexOf("/") + 1);
+			boolean noFilter = false;
+			for (String s : excludedUrls) {
+				if (uri.contains(s) || "".equals(uri)) {
+					// 如果uri中包含不过滤的uri，则不进行过滤
+					noFilter = true;
+					break;
+				}
+			}
+			if (noFilter) {
+				// 如果不执行过滤，则继续
+				filterChain.doFilter(request, response);
+			} else {
+				if (req.getSession().getAttribute("user") == null) {
+					String path = req.getContextPath();
+					rep.sendRedirect(path);
+				} else {
+					filterChain.doFilter(request, response);
+				}
+			}
+		}
+	}
+
+	@Override
+	public void init(FilterConfig conf) throws ServletException {
+		// TODO Auto-generated method stub
+		errorpage = conf.getInitParameter("login");
+
+	}
+
+}
+</pre><br />&#13;
+<br />&#13;
+<p></p>&#13;
+   &#13;

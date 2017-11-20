@@ -1,0 +1,315 @@
+
+                <div class="markdown_views"><h2 id="curses库基本概念">curses库基本概念</h2>
+
+<p>控制字符输入/输出的格式 <br/>
+termios缺点，转义处理 <br/>
+curses优点 <br/>
+提供与终端无关的字符处理方式 <br/>
+可以管理键盘 <br/>
+支持多窗体管理</p>
+
+
+
+<pre class="prettyprint"><code class=" hljs avrasm">curses vs. ncurses
+源文件包含头文件curses<span class="hljs-preprocessor">.h</span>
+编译时加 –lcurses选项
+gcc program<span class="hljs-preprocessor">.c</span> −o program −lcurses
+gcc −I/usr/include/ncurses program<span class="hljs-preprocessor">.c</span> −o program −lncurses
+curses配置情况的检查
+查看头文件：ls −l /usr/include<span class="hljs-comment">/*curses.h
+查看库文件：ls −l /usr/lib/*curses.*
+
+cureses工作于屏幕、窗口和子窗口上
+屏幕：正在写的设备，占据设备上的全部可用显示面积
+窗口
+curses窗口(称为stdscr)：至少存在一个，与物理屏幕的尺寸相同
+其他窗口：尺寸小于屏幕窗口，可以重叠
+子窗口：必须包含在父窗口内
+</span></code></pre>
+
+<h2 id="curses库的核心数据结构">curses库的核心数据结构</h2>
+
+<pre class="prettyprint"><code class=" hljs mel">stdscr
+对应于“标准屏幕”，是curses程序的默认输出窗口
+工作原理与stdio函数库中的stdout非常相似
+在curses函数产生输出时被刷新
+在调用<span class="hljs-keyword">refresh</span>函数之前，输出到stdscr上的内容不会在屏幕上显示
+curscr
+对应当前屏幕外观
+调用<span class="hljs-keyword">refresh</span>函数时，curses函数库比较stdscr及curscr之间的不同之处，然后用两个数据结构之间的差异来刷新屏幕
+curses程序需了解stdscr，但不需要使用curscr数据结构
+</code></pre>
+
+
+
+<h2 id="curses程序中输出字符的过程">curses程序中输出字符的过程</h2>
+
+<p>用curses函数刷新逻辑屏幕 <br/>
+用refresh函数刷新物理屏幕 <br/>
+逻辑屏幕 <br/>
+通过字符数组来实现 <br/>
+屏幕左上角—坐标(0, 0)为起点 <br/>
+坐标形式 <br/>
+y在前，表示行号 <br/>
+x在后，表示列号 <br/>
+每个位置包括该屏幕位置的字符及其属性</p>
+
+
+
+<h2 id="curses中的全局变量">curses中的全局变量</h2>
+
+<pre class="prettyprint"><code class=" hljs objectivec">WINDDW* curscr：当前屏幕  
+WINDOW* stdscr：标准屏幕  
+<span class="hljs-keyword">int</span> LINES：终端上的行数  
+<span class="hljs-keyword">int</span> COLS：终端上的列数  
+<span class="hljs-keyword">bool</span> <span class="hljs-literal">TRUE</span>：真标志，<span class="hljs-number">1</span>  
+<span class="hljs-keyword">bool</span> <span class="hljs-literal">FALSE</span>：假标志，<span class="hljs-number">0</span>  
+<span class="hljs-keyword">int</span> ERR：错误标志，－<span class="hljs-number">1</span>  
+<span class="hljs-keyword">int</span> OK：OK标志，<span class="hljs-number">0</span>  
+</code></pre>
+
+
+
+<h2 id="curses屏幕处理">curses屏幕处理</h2>
+
+<pre class="prettyprint"><code class=" hljs vala">函数定义
+<span class="hljs-preprocessor">#include &lt;curses.h&gt;</span>
+WINDOW *initscr(<span class="hljs-keyword">void</span>);
+在一个程序中只能调用一次
+判断终端类型和初始化Curses数据结构，同时也对终端进行一次刷新以清除屏幕，为以后的操作做准备 
+成功时，返回一个指向stdscr结构的指针
+失败时，返回一个诊断信息并使程序结束
+</code></pre>
+
+
+
+<pre class="prettyprint"><code class=" hljs cs">函数定义
+<span class="hljs-keyword">int</span> endwin(<span class="hljs-keyword">void</span>);
+将恢复tty终端原来的状态，把光标移到屏幕的左下角,重置终端为非虚拟模式
+调用成功时返回OK，失败时返回ERR
+清屏处理方法
+调用endwin函数退出curses
+调用clearok(stdscr, <span class="hljs-number">1</span>)
+调用refresh函数
+</code></pre>
+
+<p><strong>refresh函数</strong></p>
+
+<pre class="prettyprint"><code class=" hljs mel">函数定义
+<span class="hljs-keyword">int</span> <span class="hljs-keyword">refresh</span>(void);
+说明
+curses最常用的一个函数
+在调用屏幕输出函数试图改变屏幕上的画面时，curses并不会立刻对屏幕做改变，而是等到<span class="hljs-keyword">refresh</span>()调用后，才将刚才所做的变动一次完成
+其余信息维持不变，以尽可能送最少字符发送至屏幕上，减少屏幕重绘时间
+如果是initscr()后第一次调用<span class="hljs-keyword">refresh</span>()，curses将做清除屏幕的工作
+</code></pre>
+
+
+
+<h2 id="基本屏幕字符输出处理函数">基本屏幕字符输出处理函数</h2>
+
+
+
+<pre class="prettyprint"><code class=" hljs cs"><span class="hljs-keyword">int</span> addch(<span class="hljs-keyword">const</span> chtype ch);
+<span class="hljs-comment">//在当前光标位置输入单个字符，并将光标右移一位，可附加加字符修饰参数类函数 </span>
+<span class="hljs-keyword">int</span> addchstr(chtype *<span class="hljs-keyword">const</span> string_to_add);
+<span class="hljs-comment">//在当前光标位置输入一个字符串</span>
+<span class="hljs-keyword">int</span> printw(<span class="hljs-keyword">char</span> *format, ...);
+<span class="hljs-comment">//采用与printf相同机制字符串格式化，并将其添加到光标的当前位置</span>
+<span class="hljs-keyword">int</span> insch(chtype ch);
+<span class="hljs-comment">//把字符ch插入到光标左边，光标后面的所有字符向右移动一个位置在这一行最右端的字符可能会丢失 </span>
+<span class="hljs-keyword">int</span> insertln(<span class="hljs-keyword">void</span>);
+<span class="hljs-comment">//插入一个空行，将现有行依次向下移一行</span>
+</code></pre>
+
+
+
+<pre class="prettyprint"><code class=" hljs cs"><span class="hljs-keyword">int</span> delch(<span class="hljs-keyword">void</span>);
+<span class="hljs-comment">//删除光标左边字符，并把光标右边余下的字符向左移动一个位置 </span>
+<span class="hljs-keyword">int</span> deleteln(<span class="hljs-keyword">void</span>);
+<span class="hljs-comment">//删除光标下面的一行，并把下面所有的其他行都向上移动一个位置， 此外，屏幕最底下的一行将被清除</span>
+<span class="hljs-keyword">int</span> box(WINDOW *win_ptr, chtype vertical_char, chtype horizontal_char);
+<span class="hljs-comment">//自动画方框</span>
+vertical_char ：画方框时垂直方向所用字符
+horizontal_char：画方框时水平方向所用字符
+<span class="hljs-keyword">int</span> beep(<span class="hljs-keyword">void</span>);
+<span class="hljs-comment">//让程序发出声音</span>
+<span class="hljs-keyword">int</span> flash(<span class="hljs-keyword">void</span>);
+<span class="hljs-comment">//使屏幕闪烁</span>
+</code></pre>
+
+
+
+<h2 id="从屏幕读取基本函数">从屏幕读取基本函数</h2>
+
+<pre class="prettyprint"><code class=" hljs cs">chtype inch(<span class="hljs-keyword">void</span>);
+返回光标当前位置的字符及其属性
+<span class="hljs-keyword">int</span> instr(<span class="hljs-keyword">char</span> *<span class="hljs-keyword">string</span>);
+将返回内容写到字符数组中
+<span class="hljs-keyword">int</span> innstr(<span class="hljs-keyword">char</span> *<span class="hljs-keyword">string</span>, <span class="hljs-keyword">int</span> number_of_characters);
+将返回内容写到字符数组中，可以指定返回字符的个数
+</code></pre>
+
+
+
+<h2 id="清除屏幕">清除屏幕</h2>
+
+<pre class="prettyprint"><code class=" hljs cs"><span class="hljs-keyword">int</span> erase(<span class="hljs-keyword">void</span>);
+在每个屏幕位置写上空白字符
+<span class="hljs-keyword">int</span> clear(<span class="hljs-keyword">void</span>);
+与erase()类似，也是清屏，但通过调用clearok函数来强制重现屏幕原文
+clearok函数强制执行清屏操作，并在下次调用refresh函数时重现屏幕原文
+<span class="hljs-keyword">int</span> clrtobot(<span class="hljs-keyword">void</span>);
+清除当前光标所在行下面的所有行，包括当前光标所在行中的光标位置右侧直到行尾的内容
+<span class="hljs-keyword">int</span> clrtoeol(<span class="hljs-keyword">void</span>);
+清除当前光标所在行中光标位置右边至行尾的内容
+</code></pre>
+
+
+
+<h2 id="移动光标">移动光标</h2>
+
+<pre class="prettyprint"><code class=" hljs rust"><span class="hljs-keyword">int</span> <span class="hljs-keyword">move</span>(<span class="hljs-keyword">int</span> y, <span class="hljs-keyword">int</span> x);
+将光标移动至(y, x)的位置 
+LINES和COLUMNS决定y与x的最大取值
+本函数不会使物理光标移动，仅改变逻辑屏幕上的光标位置，下次的输出内容将出现在该位置上
+如果希望物理屏幕上的光标位置在调用<span class="hljs-keyword">move</span>后立即变化，需要立即调用refresh函数
+<span class="hljs-keyword">int</span> leaveok(WINDOW *window_ptr, <span class="hljs-keyword">bool</span> leave_flag);
+控制在屏幕刷新后curses将物理光标放置的位置
+默认情况下，该标志为<span class="hljs-keyword">false</span>，意味屏幕刷新后，硬件光标将停留在屏幕上逻辑光标所处的位置
+如果该标志设为<span class="hljs-keyword">true</span>，则硬件光标会被随机地放在屏幕上的任意位置
+</code></pre>
+
+
+
+<h2 id="curses字符处理">curses字符处理</h2>
+
+<pre class="prettyprint"><code class=" hljs autohotkey">控制字符在屏幕上的显示方式
+前提是用于显示的硬件设备能够支持要求的属性
+属性定义
+<span class="hljs-built_in">A_UNDERLINE</span>：加底线 
+<span class="hljs-built_in">A_REVERSE</span>：反白 
+<span class="hljs-built_in">A_BLINK</span>：闪烁 
+<span class="hljs-built_in">A_BOLD</span>：高亮度 
+<span class="hljs-built_in">A_NORMAL</span>：标准模式(只能配合attrset()使用)
+<span class="hljs-built_in">A_DIM</span>：半亮显示
+<span class="hljs-built_in">A_STANDOUT</span>：终端字符最亮 
+</code></pre>
+
+
+
+<h2 id="字符属性控制函数">字符属性控制函数</h2>
+
+<pre class="prettyprint"><code class=" hljs glsl"><span class="hljs-keyword">int</span> attron(chtype <span class="hljs-keyword">attribute</span>);
+开启某一种特殊属性模式 
+只从被调用位置开始设置 
+<span class="hljs-keyword">int</span> attroff(chtype <span class="hljs-keyword">attribute</span>);
+关闭某一种特殊属性模式 
+<span class="hljs-keyword">int</span> attrset(chtype <span class="hljs-keyword">attribute</span>);
+把当前窗口设置为参数attrs所指定的属性 
+为整个窗口设置一种修饰属性，会覆盖掉先前为整个窗口设置的任何修饰属性 
+<span class="hljs-keyword">int</span> standout(<span class="hljs-keyword">void</span>);
+更加通用的强调或者突出显示模式
+在大多数终端上，通常映射成反白显示
+<span class="hljs-keyword">int</span> standend(<span class="hljs-keyword">void</span>);
+关闭所有设置的修饰 
+这个函数的作用和attrset(A_NORMAL)函数是相同的 
+</code></pre>
+
+<p>读取文件中每个字符并寻找有“/*” <br/>
+一旦找到，就调用attron()函数开始为输出文字加粗加亮 <br/>
+当找到“*/”（注释结束处标志）时 <br/>
+使用attroff()函数关闭修饰效果</p>
+
+
+
+<h2 id="curses键盘处理">curses键盘处理</h2>
+
+<pre class="prettyprint"><code class=" hljs cs"><span class="hljs-keyword">int</span> echo(<span class="hljs-keyword">void</span>);
+<span class="hljs-keyword">int</span> noecho(<span class="hljs-keyword">void</span>);
+控制从键盘输入字符时是否将字符显示在终端上
+系统预设是开启的 
+<span class="hljs-keyword">int</span> cbreak(<span class="hljs-keyword">void</span>);
+<span class="hljs-keyword">int</span> nocbreak(<span class="hljs-keyword">void</span>);
+把终端的CBREAK模式打开或关闭
+如果CBREAK打开，则程序能即时使用读取的输入信息
+如果CBREAK关闭，则输入将被缓存起来，直到产生新的一行 
+<span class="hljs-keyword">int</span> raw(<span class="hljs-keyword">void</span>);
+<span class="hljs-keyword">int</span> noraw(<span class="hljs-keyword">void</span>);
+打开或关闭RAW模式
+RAW模式不处理特别字符，此时不可以输入特殊字符序列来产生信号或进行流控制
+noraw同时恢复行模式和特殊字符处理功能  
+</code></pre>
+
+
+
+<h2 id="键盘输入">键盘输入</h2>
+
+<pre class="prettyprint"><code class=" hljs cpp"><span class="hljs-keyword">int</span> getch(<span class="hljs-keyword">void</span>);
+从键盘读取一个字符
+返回值是整数值
+<span class="hljs-keyword">int</span> getstr(<span class="hljs-keyword">char</span> *<span class="hljs-built_in">string</span>);
+从键盘读取一串字符
+<span class="hljs-keyword">int</span> getnstr(<span class="hljs-keyword">char</span> *<span class="hljs-built_in">string</span>, <span class="hljs-keyword">int</span> number_of_characters);
+允许对读取的字符数目加以限制
+<span class="hljs-keyword">int</span> scanw(<span class="hljs-keyword">char</span> *format, ...);
+与<span class="hljs-built_in">scanf</span>类似，从键盘读取一串字符
+</code></pre>
+
+
+
+<h2 id="curses窗体处理">curses窗体处理</h2>
+
+<pre class="prettyprint"><code class=" hljs perl">在屏幕上同时显示多个不同尺寸的窗口
+WINDOW结构
+stdscr是其特例
+WINDOW <span class="hljs-variable">*newwin</span>(<span class="hljs-keyword">int</span> lines, <span class="hljs-keyword">int</span> cols, <span class="hljs-keyword">int</span> <span class="hljs-keyword">y</span>, <span class="hljs-keyword">int</span> <span class="hljs-keyword">x</span>);
+通过屏幕位置(<span class="hljs-keyword">y</span>, <span class="hljs-keyword">x</span>)及指定行数lines和列数cols来创建一个新窗口
+成功时，返回一个指向新窗口的指针，创建失败返回null
+如果希望新窗口的右下角位于屏幕的右下角，则可以将行数或是列数指定为<span class="hljs-number">0</span>
+所有窗口必须适合当前屏幕，如果新窗口任何部分超出屏幕区域，newwin函数就会失败
+<span class="hljs-keyword">int</span> delwin(WINDOW <span class="hljs-variable">*window_to_delete</span>);
+删除一个由newwin所生成的窗口
+不要试图删除curses自己的窗口，stdscr与curscr
+</code></pre>
+
+
+
+<pre class="prettyprint"><code class=" hljs r">int addch(const chtype char);
+int waddch(WINDOW *window, const chtype char)
+int mvaddch(int y, int x, const chtype char);
+int mvwaddch(WINDOW *window, int y, int x, const chtype char);
+int printw(char *format, <span class="hljs-keyword">...</span>);
+int wprintw(WINDOW *window, char *format, <span class="hljs-keyword">...</span>);
+int mvprintw(int y, int x, char *format, <span class="hljs-keyword">...</span>);
+int mvwprintw(WINDOW *window, int y, int x, char *format, <span class="hljs-keyword">...</span>);</code></pre>
+
+<pre class="prettyprint"><code class=" hljs ">
+说明
+当添加w前缀时，一个额外的WINDOW指针必须添加到参数列表中
+当添加mv前缀时，两个额外的参数，y与x位置，必须添加到参数列表中。他们指明了执行操作的位置
+y与x是相对于窗口的，而不是屏幕，(0,0)是窗口的左上角</code></pre>
+
+
+
+<h2 id="移动和更新窗口">移动和更新窗口</h2>
+
+<pre class="prettyprint"><code class=" hljs perl"><span class="hljs-keyword">int</span> mvwin(WINDOW <span class="hljs-variable">*window</span>, <span class="hljs-keyword">int</span> <span class="hljs-keyword">y</span>, <span class="hljs-keyword">int</span> <span class="hljs-keyword">x</span>);
+在屏幕上移动一个窗口
+如果将窗口的任何部分移出屏幕区域之外，mvwin函数就会失败
+<span class="hljs-keyword">int</span> wrefresh(WINDOW <span class="hljs-variable">*window</span>); 
+<span class="hljs-keyword">int</span> wclear(WINDOW <span class="hljs-variable">*window</span>);
+<span class="hljs-keyword">int</span> werase(WINDOW <span class="hljs-variable">*window</span>);
+以上三个函数指向一个特定窗口，而不是stdscr
+<span class="hljs-keyword">int</span> scrollok(WINDOW <span class="hljs-variable">*window</span>, bool scroll_flag);
+当传递一个布尔值true(通常为非零)时，会允许一个窗口的滚动
+默认情况下，窗口并不可以滚动
+<span class="hljs-keyword">int</span> scroll(WINDOW <span class="hljs-variable">*window</span>);
+将窗口向上滚动一行 
+
+<span class="hljs-keyword">int</span> touchwin(WINDOW <span class="hljs-variable">*window</span>);
+通知curses库，其参数所指向窗口内容已经发生改变
+这意味着curses库会在下一次调用wrefresh时重新绘制窗口，尽管并没有实际的改变窗口内容
+当有多个窗口在屏幕上层叠显示而需要决定显示哪个窗口时，该函数会非常有用
+</code></pre><link rel="stylesheet" href="http://static.blog.csdn.net/public/res-min/markdown_views.css?v=1.0"/></div><link rel="stylesheet" href="http://static.blog.csdn.net/public/res-min/markdown_views.css?v=1.0"/>&#13;
+            

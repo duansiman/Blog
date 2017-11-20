@@ -1,0 +1,488 @@
+
+
+<p><span style="font-size:18px"><span style="white-space:pre"></span><span style="white-space:pre"></span>      在Linux驱动程序中，可以使用等待队列（wait queue）来实现阻塞进程的唤醒。等待队列可以用来同步对系统资源的访问。</span></p>&#13;
+<p><span style="font-size:18px">1.定义和初始化队列头<br />&#13;
+<strong>wait_queue_head_t wqh;<br />&#13;
+init_waitqueue_head(wait_queue_head_t *wqh);</strong><br />&#13;
+2.定义和初始化等待队列<br />&#13;
+<strong>DECLARE_WAITQUEUE(name, tsk);</strong><br />&#13;
+3.添加、移除等待队列<br />&#13;
+<strong>add_wait_queue(wait_queue_head_t *q, wait_queue_t *wait);<br />&#13;
+remove_wait_queue(wait_queue_head_t *q, wait_queue_t *wait);</strong>将等待队列wait添加到等待队列头q执行的等待队列链表中，或者从中删除。<br />&#13;
+4.等待事件<br />&#13;
+<strong>wait_event(queue, condition)</strong>;当condition为真时，立即返回；否则进程进入TASK_UNINTERRUPTIBLE类型的睡眠状态，并挂在queue指定的等待队列头上。<br />&#13;
+<strong>add_wait_queue(queue, conditon)</strong>;当condition为真时，立即返回；否则进程进入TASK_INTERRUPTIBLE类型的睡眠状态，并挂在queue指定的等待队列头上。<br />&#13;
+5.唤醒队列<br />&#13;
+<strong>wake_up(wait_queue_head_t *queue);<br />&#13;
+wake_up_interruptible(wait_queue_head_t *queue);</strong>唤醒由queue指向的等待队列头链表中所有等待队列对应的进程。<br />&#13;
+6.在等待队列中睡眠<br />&#13;
+<strong>sleep_on(wait_queue_head_t *q)</strong>;让进程进入不可中断的睡眠，并将它放入等待队列<br />&#13;
+<strong>interruptible_sleep_on(wait_queue_head_t *q);</strong>让进程进入不可中断的睡眠，并将它进入等待队列。</span><br />&#13;
+</p>&#13;
+<p><br />&#13;
+</p>&#13;
+<p><span style="font-size:18px">内核等待队列一般使用方法：<br />&#13;
+a.定义和初始化等待队列，将进程状态改变，并将等待队列添加到等待队列数据链中<br />&#13;
+b.改变进程状态的方法：调用set_current_state(state_value)函数、调用set_task_state(task, state_value)函数、直接采用current-&gt;state = TASK_INTERRUPTIBLE,类似于赋值语句。<br />&#13;
+c.通过schedule()调用放弃cpu，调度其他进程执行<br />&#13;
+d.进程被其它地方唤醒，将等待队列移出等待队列头指向的数据链</span><br />&#13;
+</p>&#13;
+<p></p>&#13;
+<pre code_snippet_id="169694" snippet_file_name="blog_20140124_1_4041245" name="code" class="objc">/**
+*Copyright (c) 2013.TianYuan
+*All rights reserved.
+*
+*文件名称: char_device_driver13.c
+*文件标识: 等待队列
+*
+*当前版本：1.0
+*作者：wuyq 
+*
+*取代版本：xxx
+*原作者：xxx
+*完成日期：2013-11-29
+*/
+#include &lt;linux/init.h&gt;
+#include &lt;linux/module.h&gt;
+#include &lt;linux/fs.h&gt;
+#include &lt;linux/cdev.h&gt;
+#include &lt;linux/device.h&gt;
+#include &lt;linux/slab.h&gt;
+#include &lt;asm/uaccess.h&gt;
+
+#include &lt;asm/gpio.h&gt;
+#include &lt;plat/gpio-cfg.h&gt;
+#include &lt;linux/spinlock_types.h&gt;
+#include &lt;linux/sched.h&gt;
+
+
+MODULE_LICENSE("GPL");
+#define CDD_MAJOR	200//cat /proc/devices找一个尚未使用的
+#define CDD_MINOR	0
+#define CDD_COUNT	2
+dev_t dev = 0;
+u32 cdd_major = 0;
+u32 cdd_minor = 0;
+
+struct class *dev_class = NULL;
+#define BUF_SIZE	100
+struct cdd_cdev{
+	struct cdev cdev;
+	struct device *dev_device;
+	u8 led;
+	
+	char kbuf[BUF_SIZE];
+	
+	u32 data_len;//记录缓冲区中已经写入数据的长度
+	//定义等待队列头
+	wait_queue_head_t wqh;
+};
+
+struct cdd_cdev *cdd_cdevp = NULL;
+
+unsigned long led_gpio_table[2] = {
+	S5PV210_GPC1(3),//数字
+	S5PV210_GPC1(4),
+};
+
+int cdd_open(struct inode* inode, struct file *filp)
+{
+	struct cdd_cdev *pcdevp = NULL;
+	printk("enter cdd_open!\n");
+
+	pcdevp = container_of(inode-&gt;i_cdev, struct cdd_cdev, cdev);
+	printk("led = %d\n", pcdevp-&gt;led);
+	
+	/*获取信号量*/
+	//down获取信号量不成功，会导致进程睡眠（第3个进程的时候）
+	//down(&amp;pcdevp-&gt;sem_open);
+	if(down_interruptible(&amp;pcdevp-&gt;sem_open)&lt;0){
+		return -1;
+	}
+	filp-&gt;private_data = pcdevp;
+	//申请gpio管脚
+	gpio_request(led_gpio_table[0], "GPC1_3");
+	gpio_request(led_gpio_table[1], "GPC1_4");
+	
+	return 0;
+}
+
+int cdd_read(struct file *filp, char __user *buf, size_t count, loff_t *offset)
+{
+	int ret = 0;
+	u32 pos = *offset;
+	u32 cnt = count;
+	
+	struct cdd_cdev *cdevp = filp-&gt;private_data;
+#if 0
+	//定义并初始化一个等待队列
+	DECLARE_WAITQUEUE(wq, current);
+	//将等待队列添加到wqh指向的链表
+	add_wait_queue(&amp;pcdevp-&gt;wqh, &amp;wq);
+	//判断设备有没有数据供用户空间读,假设led不为0，表示有数据供用户空间读取
+	if(pcdevp-&gt;led == 0){
+		printk("no data for reading! sleep...\n");
+		//设置当前线程为睡眠状态
+		set_current_state(TASK_INTERRUPTIBLE);
+		schedule();//内核调度cpu的算法
+		printk("have data for reading!\n");
+	}
+	//从指定的链表中删除等待队列
+	remove_wait_queue(&amp;pcdevp-&gt;wqh, &amp;wq);
+#endif
+	wait_event_interruptible(&amp;pcdevp-&gt;wqh, pcdevp-&gt;led != 0); 
+	
+	//printk("enter cdd_read!\n");
+	if(cnt &gt; (cdevp-&gt;data_len-pos) ){
+		cnt = cdevp-&gt;data_len - pos;
+	}
+	
+	ret = copy_to_user(buf, cdevp-&gt;kbuf+pos, cnt);
+	//printk("kernel kbuf content:%s\n", cdevp-&gt;kbuf);
+	*offset += cnt;
+	
+	pcdevp-&gt;led = 0;
+	
+	return ret;
+}
+
+int cdd_write(struct file *filp, const char __user *buf, size_t count, loff_t *offset)
+{
+	int ret = 0;
+	struct cdd_cdev *cdevp = filp-&gt;private_data;
+	u32 pos = *offset;
+	u32 cnt = count;
+	
+	//printk("enter cdd_write!\n");
+	if(cnt &gt; (BUF_SIZE - pos) ){
+		cnt = BUF_SIZE - pos;
+	}
+	ret = copy_from_user(cdevp-&gt;kbuf+pos, buf, cnt);
+	*offset += cnt;
+	if(*offset &gt; cdevp-&gt;data_len){
+		cdevp-&gt;data_len = *offset;
+	}
+	pcdevp-&gt;led = 1;
+	//唤醒等待队列头中的一个等待队列
+	wake_up_interruptible(&amp;pcdevp-&gt;wqh);
+	
+	
+	return ret;
+}
+
+int cdd_ioctl(struct inode *inode, struct file *filp, unsigned int cmd, unsigned long data)
+{
+	//printk("enter cdd_ioctl!\n");
+	switch(cmd){
+		case 1://点亮灯
+			//设置管脚为输出功能
+			//参数：1.要设置的管脚编号2.默认的输出值 0低电平1高电平
+			gpio_direction_output(led_gpio_table[data], 0);
+			//禁止内部上拉
+			s3c_gpio_setpull(led_gpio_table[data], SEC_GPIO_PULL_NONE);
+			//设置输出值
+			gpio_set_value(led_gpio_table[data], 1);
+			
+			break;
+		case 0://熄灭灯
+			
+			//设置管脚为输出功能
+			//参数：1.要设置的管脚编号2.默认的输出值 0低电平1高电平
+			gpio_direction_output(led_gpio_table[data], 0);
+			//禁止内部上拉
+			s3c_gpio_setpull(led_gpio_table[data], SEC_GPIO_PULL_NONE);
+			//设置输出值
+			gpio_set_value(led_gpio_table[data], 0);
+			
+			break;
+		default:
+			return -EINVAL;
+	}
+	
+	
+	return 0;
+}
+
+int cdd_release(struct inode *inode, struct file *filp)
+{
+	struct cdd_cdev *pcdevp = filp-&gt;private_data;
+	printk("enter cdd_release!\n");
+	
+	gpio_free(led_gpio_table[0]);
+	gpio_free(led_gpio_table[1]);
+	up(&amp;pcdevp-&gt;sem_open);
+	return 0;
+}
+
+loff_t cdd_llseek(struct file *filp, loff_t offset, int whence)
+{
+	struct cdd_cdev *pcdevp = filp-&gt;private_data;
+	loff_t newpos = 0;
+	switch(whence){
+		case SEEK_SET:
+			newpos = offset;
+			break;
+		case SEEK_CUR:
+			newpos = filp-&gt;f_pos + offset;
+			break;
+		case SEEK_END:
+			newpos = pcdevp-&gt;data_len + offset;
+			break;
+		default:
+			return -EINVAL;//无效的参数
+	}
+	
+	if( newpos&lt;0 || newpos&gt;= BUF_SIZE ){
+		return -EINVAL;
+	}
+	filp-&gt;f_pos = newpos;
+	return newpos;
+}
+
+struct file_operations cdd_fops = {
+	.owner = THIS_MODULE,
+	.open = cdd_open,
+	.read = cdd_read,
+	.write = cdd_write,
+	.ioctl = cdd_ioctl,
+	.release = cdd_release,
+	.llseek = cdd_llseek,
+	};
+
+int __init cdd_init(void)
+{
+	int ret = 0;
+	int i = 0;
+	
+	if(cdd_major){
+		dev = MKDEV(CDD_MAJOR, CDD_MINOR);//生成设备号
+		//注册设备号;1、要注册的起始设备号2、连续注册的设备号个数3、名字
+		ret = register_chrdev_region(dev, CDD_COUNT, "cdd_demo");
+	}else{
+		// 动态分配设备号
+		ret = alloc_chrdev_region(&amp;dev, cdd_minor, CDD_COUNT, "cdd_demo02");
+	}
+	
+	if(ret &lt; 0){
+		printk("register_chrdev_region failed!\n");
+		goto failure_register_chrdev;
+	}
+	//获取主设备号
+	cdd_major = MAJOR(dev);
+	printk("cdd_major = %d\n", cdd_major);
+	
+	cdd_cdevp = kzalloc(sizeof(struct cdd_cdev)*CDD_COUNT, GFP_KERNEL);
+	if(IS_ERR(cdd_cdevp)){
+		printk("kzalloc failed!\n");
+		goto failure_kzalloc;
+	}
+	/*创建设备类*/
+	dev_class = class_create(THIS_MODULE, "cdd_class");
+	if(IS_ERR(dev_class)){
+		printk("class_create failed!\n");
+		goto failure_dev_class;
+	}
+	for(i=0; i&lt;CDD_COUNT; i++){
+		/*初始化cdev*/
+		cdev_init(&amp;(cdd_cdevp[i].cdev), &amp;cdd_fops);
+		/*添加cdev到内核*/
+		cdev_add(&amp;(cdd_cdevp[i].cdev), dev+i, 1);
+		
+		/* “/dev/xxx” */
+		device_create(dev_class, NULL, dev+i, NULL, "cdd%d", i);
+		
+		cdd_cdevp[i].led = i;
+		//初始化等待队列头
+		init_waitqueue_head(&amp;cdd_cdevp[i].wqh);
+	}
+	
+	return 0;
+failure_dev_class:
+	kfree(cdd_cdevp);
+failure_kzalloc:
+	unregister_chrdev_region(dev, CDD_COUNT);
+failure_register_chrdev:
+	return ret;
+}
+
+void __exit cdd_exit(void)
+{
+/*逆序消除*/
+	int i = 0;
+	for(; i &lt; CDD_COUNT; i++){
+		device_destroy(dev_class, dev+i);
+		cdev_del(&amp;(cdd_cdevp[i].cdev));
+		//cdev_del(&amp;((cdd_cdevp+i)-&gt;cdev));
+	}
+	class_destroy(dev_class);
+	kfree(cdd_cdevp);
+	unregister_chrdev_region(dev, CDD_COUNT);
+	
+}	
+
+module_init(cdd_init);
+module_exit(cdd_exit);
+</pre><br />&#13;
+<pre code_snippet_id="169694" snippet_file_name="blog_20140124_2_7344322" name="code" class="objc">/**
+*Copyright (c) 2013.TianYuan
+*All rights reserved.
+*
+*文件名称: char_device_driver13_test0.c
+*文件标识: 此程序运行r，此时发生阻塞，进入等待
+*
+*当前版本：1.0
+*作者：wuyq 
+*
+*取代版本：xxx
+*原作者：xxx
+*完成日期：2013-11-29
+*/
+#include &lt;stdio.h&gt;
+#include &lt;fcntl.h&gt;
+#include &lt;stdlib.h&gt;
+#include &lt;string.h&gt;
+
+/*手工创建设备节点文件
+mknod /dev/cdd c 248 0
+*/
+int fd = 0;
+char rbuf[100];
+char wbuf[100] = "nihao!\n";
+
+
+int main()
+{
+	char ch;
+	
+	fd = open("/dev/cdd0", O_RDWR);
+	if(fd &lt; 0){
+		printf("open failed!\n");
+		return -1;
+	}
+	printf("open successed fd = %d\n", fd);
+	while(1)
+	{
+		printf("starting to test /dev/cdd...\n");
+		ch = getchar();
+		getchar();//取走回车
+		if(ch == 'q'){
+			break;
+		}
+		switch(ch){
+			case 'r':
+				memset(rbuf, 0, 100);//清空
+				read(fd, rbuf, 3);
+				printf("user space from kernel: %s\n", rbuf);
+				break;
+			case 'w':
+				write(fd, wbuf, strlen(wbuf) );
+				break;
+			case 'o':
+				ioctl(fd, 0, 0);
+				break;
+			case 'O':
+				ioctl(fd, 1, 0);
+				break;
+			case 'p':
+				ioctl(fd, 0, 1);
+				break;
+			case 'P':
+				ioctl(fd, 1, 1);
+				break;
+			case 'l':
+				lseek(fd, 0, SEEK_SET);//移动的文件的开头
+				break;
+				
+			default:
+				break;
+		}
+		sleep(1);
+	}
+	
+	close(fd);
+	return 0;
+}</pre><br />&#13;
+<pre code_snippet_id="169694" snippet_file_name="blog_20140124_3_7126171" name="code" class="objc">/**
+*Copyright (c) 2013.TianYuan
+*All rights reserved.
+*
+*文件名称: char_device_driver13_test1.c
+*文件标识: test0 和 test1两个测试：此程序执行w，观察阻塞的r进程被唤醒，完成操作。
+*
+*当前版本：1.0
+*作者：wuyq 
+*
+*取代版本：xxx
+*原作者：xxx
+*完成日期：2013-11-29
+*/
+#include &lt;stdio.h&gt;
+#include &lt;fcntl.h&gt;
+#include &lt;stdlib.h&gt;
+#include &lt;string.h&gt;
+
+/*手工创建设备节点文件
+mknod /dev/cdd c 248 0
+*/
+int fd = 0;
+char rbuf[100];
+char wbuf[100] = "nihao!\n";
+
+
+int main()
+{
+	char ch;
+	
+	fd = open("/dev/cdd1", O_RDWR);
+	if(fd &lt; 0){
+		printf("open failed!\n");
+		return -1;
+	}
+	printf("open successed fd = %d\n", fd);
+	while(1)
+	{
+		printf("starting to test /dev/cdd...\n");
+		ch = getchar();
+		getchar();//取走回车
+		if(ch == 'q'){
+			break;
+		}
+		switch(ch){
+			case 'r':
+				memset(rbuf, 0, 100);//清空
+				read(fd, rbuf, 3);
+				printf("user space from kernel: %s\n", rbuf);
+				break;
+			case 'w':
+				write(fd, wbuf, strlen(wbuf) );
+				break;
+			case 'o':
+				ioctl(fd, 0, 0);
+				break;
+			case 'O':
+				ioctl(fd, 1, 0);
+				break;
+			case 'p':
+				ioctl(fd, 0, 1);
+				break;
+			case 'P':
+				ioctl(fd, 1, 1);
+				break;
+			case 'l':
+				lseek(fd, 0, SEEK_SET);//移动的文件的开头
+				break;
+				
+			default:
+				break;
+		}
+		sleep(1);
+	}
+	
+	close(fd);
+	return 0;
+}</pre><br />&#13;
+<br />&#13;
+<p></p>&#13;
+<p><br />&#13;
+</p>&#13;
+   &#13;

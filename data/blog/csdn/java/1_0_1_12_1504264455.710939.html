@@ -1,0 +1,349 @@
+
+
+<h2>一、与数据库的交互（增删改查）</h2>&#13;
+<p>注意：1.写hql语言是是对于对象操作，而不是表数据</p>&#13;
+<p>            2.注意hibernate中的缓存<br />&#13;
+</p>&#13;
+<h2><span style="color:black">1.Hibernate </span><span style="color:black">查询方式</span></h2>&#13;
+<p></p>&#13;
+<p><span style="color:black">     </span>Hibernate<span style="color:black">配备了一种非常强大的查询语言，这种语言看上去很像</span><span style="color:black">SQL</span><span style="color:black">。但是不要被语法结构上的相似所迷惑，</span><span style="color:#333399">HQL(Hibernate query</span><span style="color:#333399">lauguage</span><span style="color:#333399">)</span><span style="color:black">被设计为完全面向对象的查询。</span><span style="color:black">   </span></p>&#13;
+<p><span style="color:black">     </span><span style="color:black">HQL</span><span style="color:black">对关键字的</span><span style="color:#333399">大写小并不区分</span><span style="color:black">，但是</span><span style="color:#333399">对查询的对象就要区分大小写</span><span style="color:black">，因为它是面向对象的查询，所以查询的是一个对象，而不是数据库的表，在</span><span style="color:black">sql</span><span style="color:black">中如果要加条件的话就是列，而在</span><span style="color:black">HQL</span><span style="color:black">里面条件就是</span><span style="color:#333399">对象的属性</span><span style="color:black">，而且</span><span style="color:#333399">还要给对象起别名</span><span style="color:black">。</span></p>&#13;
+<blockquote><span style="color:#CC0000">1.Hibernate</span><span style="color:#CC0000">查询</span><span style="color:#CC0000">HQL</span><span style="color:#CC0000">语句</span><br />&#13;
+<p><span style="color:#330033">限制查询结果记录数与起始记录</span></p>&#13;
+<p><span style="color:#333399"></span></p>&#13;
+<pre code_snippet_id="1854193" snippet_file_name="blog_20160827_1_5760910" name="code" class="html">Sessionsession=HibernateSessionFactory.getSession();
+
+Queryquery=session.createQuery("fromCustomer");
+
+query.setFirstResult(10); //设置查询记录开始位置，索引从0开始。
+
+query.setMaxResults(10);//设置查询返回的最大记录个数。
+
+Listlist=query.list();
+
+注意：条件查询
+
+Sessionsession=HibernateSessionFactory.getSession();
+
+Queryquery=session.createQuery("from Customer cus where cus.name='zhou'");</pre><br />&#13;
+<p></p>&#13;
+<p><span style="color:#CC0000"> </span>2<span style="color:#CC0000">、取表中部分列时</span></p>&#13;
+<p><span style="color:#330033">(1) 单一属性查询。还是返回一个集合，只不过集合中存储的不是表的实例而是对象。</span></p>&#13;
+<pre code_snippet_id="1854193" snippet_file_name="blog_20160827_2_286269" name="code" class="html">Sessionsession =null;
+
+session= HibernateSessionFactory.getSession();
+
+Listcnames = session.createQuery("select cname from Customer").list();
+
+for(inti=0;i&lt;cnames.size();i++) {
+
+  String name = (String)cnames.get(i);
+
+  System.out.println(name);
+
+}</pre><span style="color:#330033"><br />&#13;
+</span>&#13;
+<p><span style="color:#330033">(2) 多个属性的查询,使用对象数组。</span></p>&#13;
+<pre code_snippet_id="1854193" snippet_file_name="blog_20160827_3_667953" name="code" class="html">Sessionsession =null;
+
+session= HibernateSessionFactory.getSession();
+
+//查询多个属性，其集合元素是对象数组
+
+//数组元素的类型，跟实体类的属性的类型相关
+
+Liststudents = session.createQuery("select sno,sname from Students").list();
+
+for(inti=0;i&lt;students.size();i++) {
+
+  Object[] obj = (Object[])students.get(i);
+
+  System.out.println(obj[0] +", " + obj[1]);
+
+}</pre><span style="color:#330033"></span>&#13;
+<p><span style="color:#330033"> (3) 多个属性的查询,使用List集合装部分列</span></p>&#13;
+<pre code_snippet_id="1854193" snippet_file_name="blog_20160827_4_8923065" name="code" class="html">Sessionsession = HibernateSessionFactory.getSession();
+
+Queryquery = session.createQuery("select new list(cus.name,cus.phone) from Customer cus");
+
+Listlist = query.list();
+
+for(int i = 0; i &lt; list.size(); i++) {
+
+  List temp=(List)list.get(i);
+
+  System.out.println(temp.get(0));  //0是索引
+
+}</pre><span style="color:#330033"><br />&#13;
+</span>&#13;
+<p><span style="color:#330033"> (4) 使用Map集合装部分列</span></p>&#13;
+<pre code_snippet_id="1854193" snippet_file_name="blog_20160827_5_2128649" name="code" class="html">Sessionsession = HibernateSessionFactory.getSession();
+
+Queryquery = session.createQuery("select new map(cus.name,cus.phone) from Customer cus");
+
+Listlist = query.list();
+
+for(int i = 0; i &lt; list.size(); i++) {
+
+  Map temp=(Map)list.get(i);
+
+  System.out.println(temp.get("1"));  //"1"是key
+}</pre><br />&#13;
+<p><span style="color:#CC0000"> </span><span style="color:#CC0000">3</span><span style="color:#CC0000">、内连接</span><span style="color:#CC0000"> </span><span style="color:black"> </span></p>&#13;
+<pre code_snippet_id="1854193" snippet_file_name="blog_20160827_7_8780579" name="code" class="html">Queryquery=session.createQuery("select c.name, s.name fromStudent s join s.classes c").list();
+
+for(Iterator iter = students.iterator();iter.hasNext();){
+
+  Object[] obj = (Object[])iter.next();
+
+  System.out.println(obj[0] +", " + obj[1]);
+
+}</pre><br />&#13;
+<p><span style="color:#CC0000">4</span><span style="color:#CC0000">、外连接</span></p>&#13;
+<p><span style="color:#333399"></span></p>&#13;
+<pre code_snippet_id="1854193" snippet_file_name="blog_20160827_7_8780579" name="code" class="html">Queryquery=session.createQuery("select c.name, s.name fromStudent s join s.classes c").list();
+
+for(Iterator iter = students.iterator();iter.hasNext();){
+
+  Object[] obj = (Object[])iter.next();
+
+  System.out.println(obj[0] +", " + obj[1]);
+
+}&lt;/span&gt;</pre>&#13;
+<p><span style="color:#CC0000">5</span><span style="color:#CC0000">、带参数的查询</span></p>&#13;
+<pre code_snippet_id="1854193" snippet_file_name="blog_20160827_8_1670518" name="code" class="html">(1) ?作为参数 如"from Customer cus where cus.name=?";
+
+     Session session = HibernateSessionFactory.getSession();
+
+    Query query = session.createQuery("fromCustomer cuswhere cus.name=?");
+
+     query.setParameter(0,"zhou");
+
+     List list = query.list();
+
+(2) 参数名称  :name   如" from Customer cus where cus.name=:name";
+
+Sessionsession = HibernateSessionFactory.getSession();
+
+     Queryquery = session.createQuery("fromCustomer cuswhere cus.name=:name");
+
+     query.setParameter("name","zhou");
+
+     List list = query.list();
+(3)条件查询，使用 ？的方式传递参数
+&lt;p&gt;&lt;span style="color:black;"&gt; &lt;/span&gt;Query &lt;span style="color:black;"&gt;query&lt;/span&gt;&lt;span style="color:black;"&gt; = &lt;/span&gt;&lt;span style="color:black;"&gt;session.createQuery&lt;/span&gt;&lt;span style="color:black;"&gt;("SELECTs.id, s.name FROM Student s WHERE s.name &lt;/span&gt;&lt;span style="color:#333399;"&gt;LIKE ?&lt;/span&gt;&lt;span style="color:black;"&gt;");&lt;/span&gt;&lt;/p&gt;&lt;p&gt;&lt;span style="color:black;"&gt;  &lt;/span&gt; &lt;span style="color:black;"&gt;query&lt;/span&gt;&lt;span style="color:#333399;"&gt;.setParameter&lt;/span&gt;&lt;span style="color:black;"&gt;(0,“%&lt;/span&gt;&lt;span style="color:black;"&gt;周&lt;/span&gt;&lt;span style="color:black;"&gt;%”);//&lt;/span&gt;&lt;span style="color:black;"&gt;传递参数参数的索引是从&lt;/span&gt;&lt;span style="color:black;"&gt;0&lt;/span&gt;&lt;span style="color:black;"&gt;开始的。  &lt;/span&gt;如条件查询，&lt;span style="color:#333399;"&gt;使用&lt;/span&gt;&lt;span style="color:#333399;"&gt;":&lt;/span&gt;&lt;span style="color:#333399;"&gt;参数&lt;/span&gt;&lt;span style="color:#333399;"&gt;"&lt;/span&gt;&lt;span style="color:#333399;"&gt;名称的方式传递参数&lt;/span&gt;&lt;/p&gt;&lt;p&gt;&lt;span style="color:black;"&gt;  &lt;/span&gt;Query &lt;span style="color:black;"&gt;query&lt;/span&gt;&lt;span style="color:black;"&gt; = &lt;/span&gt;&lt;span style="color:black;"&gt;session.createQuery&lt;/span&gt;&lt;span style="color:black;"&gt;("SELECTs.id, s.name FROM Student s WHERE s.name &lt;/span&gt;&lt;span style="color:#333399;"&gt;LIKE &lt;/span&gt;&lt;span style="color:#333399;"&gt;:&lt;/span&gt;&lt;span style="color:#333399;"&gt;myname&lt;/span&gt;&lt;span style="color:black;"&gt;");&lt;/span&gt;&lt;/p&gt;&lt;p&gt;&lt;span style="color:black;"&gt;  &lt;/span&gt;&lt;span style="color:black;"&gt;query.setParameter&lt;/span&gt;&lt;span style="color:black;"&gt;("&lt;/span&gt;&lt;span style="color:black;"&gt;myname&lt;/span&gt;&lt;span style="color:black;"&gt;","&lt;/span&gt;&lt;span style="color:black;"&gt;张三&lt;/span&gt;&lt;span style="color:black;"&gt;");//&lt;/span&gt;&lt;span style="color:black;"&gt;传递参数&lt;/span&gt;&lt;/p&gt;&lt;p&gt;&lt;span style="color:black;"&gt;因为&lt;/span&gt;&lt;span style="color:black;"&gt;setParameter&lt;/span&gt;&lt;span style="color:black;"&gt;方法返回&lt;/span&gt;&lt;span style="color:black;"&gt;Query&lt;/span&gt;&lt;span style="color:black;"&gt;接口，所以可用省略方式来查询&lt;/span&gt;&lt;/p&gt;&lt;p&gt;&lt;span style="color:black;"&gt;Liststudents = &lt;/span&gt;&lt;span style="color:black;"&gt;session.createQuery&lt;/span&gt;&lt;span style="color:black;"&gt;("SELECTs.id, s.name FROM Student s WHERE s.name &lt;/span&gt;&lt;span style="color:#333399;"&gt;LIKE :&lt;/span&gt;&lt;span style="color:#333399;"&gt;myname&lt;/span&gt;&lt;span style="color:#333399;"&gt; and s.id = :&lt;/span&gt;&lt;span style="color:#333399;"&gt;myid&lt;/span&gt;&lt;span style="color:black;"&gt;")&lt;/span&gt;&lt;/p&gt;&lt;p&gt;&lt;span style="color:black;"&gt;setParameter&lt;/span&gt;&lt;span style="color:black;"&gt;("&lt;/span&gt;&lt;span style="color:black;"&gt;myname&lt;/span&gt;&lt;span style="color:black;"&gt;","%&lt;/span&gt;&lt;span style="color:black;"&gt;周&lt;/span&gt;&lt;span style="color:black;"&gt;%").&lt;/span&gt;&lt;span style="color:black;"&gt;setParameter&lt;/span&gt;&lt;span style="color:black;"&gt;("&lt;/span&gt;&lt;span style="color:black;"&gt;myid&lt;/span&gt;&lt;span style="color:black;"&gt;",15).list();&lt;/span&gt;&lt;/p&gt;
+</pre>&#13;
+<p><span style="color:#CC0000">6</span><span style="color:#CC0000">、嵌入原生</span><span style="color:#CC0000">sql</span><span style="color:#CC0000">测试</span></p>&#13;
+<pre code_snippet_id="1854193" snippet_file_name="blog_20160827_9_1354091" name="code" class="html">SQLQuerysqlQuery = session.createSQLQuery("select * from t_student");
+
+  List students = sqlQuery.list();
+
+  for (Iterator iter = students.iterator();iter.hasNext();){
+
+  Object[] obj = (Object[])iter.next();
+
+  System.out.println(obj[0] +", " + obj[1]);
+
+  }</pre><br />&#13;
+<br />&#13;
+<p><span style="color:black"></span></p>&#13;
+</blockquote>&#13;
+<p><span style="color:#333399"></span></p>&#13;
+<h2><span style="color:black">2.Hibernate增加、修改</span><span style="color:black">方式</span></h2>&#13;
+<p></p>&#13;
+<p><span style="color:#330033"><strong>拿到要修改的对象，调用session.saveOrUpdate();方法</strong></span></p>&#13;
+<p></p>&#13;
+<pre code_snippet_id="1854193" snippet_file_name="blog_20160827_10_5672489" name="code" class="html">public void addStudent(Student stud) {
+		Session session=HibernateSessionFactory.getSession();
+		Transaction tr=session.beginTransaction();
+		try {
+			session.saveOrUpdate(stud);//一个方法
+//			session.update(stud);
+		} catch (HibernateException e) {
+			e.printStackTrace();
+		}
+		tr.commit();
+}</pre><br />&#13;
+<p></p>&#13;
+<h2><span style="color:black">2.Hibernate删除</span><span style="color:black">方式</span></h2>&#13;
+<br />&#13;
+<span style="color:#333399"><span style="color:#330033"><strong>拿到要删除的对象，调用session.delete();方法</strong></span></span>&#13;
+<p></p>&#13;
+<p></p>&#13;
+<pre code_snippet_id="1854193" snippet_file_name="blog_20160827_11_1942735" name="code" class="html">public void delStudent(Student stud) {
+		Session session=HibernateSessionFactory.getSession();
+		
+		Transaction tr=session.beginTransaction();
+		try {
+			session.delete(stud);
+			session.flush();
+		} catch (Exception e) {
+			System.out.println("回滚了");
+//			tr.rollback();
+		}
+		tr.commit();//删除没有事务不行！
+	}</pre>&#13;
+<p></p>&#13;
+<p><br />&#13;
+</p>&#13;
+<p><strong><span style="color:#FF0000">注意要添加事务：不然增删改用不了</span></strong></p>&#13;
+<p><strong><span style="color:#FF0000"></span></strong><br />&#13;
+</p>&#13;
+<h2>二、关于hibernate事务的必须开启的问题</h2>&#13;
+<p><span style="font-size:18px; color:#33CC00">当我们在写简单的增删改的时候，发现如果不开启事务，数据就不会向数据库提交这是因为hibernate中的session对象是Connection对象的子类，对Connection的加强，</span></p>&#13;
+<p><span style="font-size:18px; color:#33CC00">而我们在看hibernate源码的时候发现Session对象中通过了代理，自动帮我们把setAtuoCommit(false),设置成不自动提交，所有我们在增删改必须开启事务，而且要提交，同时session还对rollback()进行了代理，所以在commit的时候是自动回滚</span></p>&#13;
+<p><span style="color:#333399"><br />&#13;
+</span></p>&#13;
+<p><span style="color:#333399"></span></p>&#13;
+<h2>三、代码演示</h2>&#13;
+<p></p>&#13;
+<p></p>&#13;
+<pre code_snippet_id="1854193" snippet_file_name="blog_20160827_12_9205283" name="code" class="html">package cn.hncu.demo.dao;
+
+import java.util.List;
+
+import org.hibernate.HibernateException;
+import org.hibernate.Query;
+import org.hibernate.Session;
+import org.hibernate.Transaction;
+import org.junit.Test;
+
+import cn.hncu.domain.Student;
+import cn.hncu.hib.HibernateSessionFactory;
+
+public class DemoDaoJdbc {
+	public List&lt;Student&gt; queryAllStudent(){
+		Session session=HibernateSessionFactory.getSession();
+		//无论是Load 还是 Get 都会首先查找缓存（一级缓存） 如果没有，才会去数据库查找，调用Clear() 方法，可以强制清除Session缓存
+		session.clear();
+		Query query=session.createQuery("from Student");
+		List&lt;Student&gt; list=query.list();
+		return list;
+	}
+	public void delStudent(Student stud) {
+		Session session=HibernateSessionFactory.getSession();
+		
+		Transaction tr=session.beginTransaction();
+		try {
+			session.delete(stud);
+			session.flush();
+		} catch (Exception e) {
+			System.out.println("回滚了");
+//			tr.rollback();
+		}
+		tr.commit();//删除没有事务不行！
+	}
+	
+	@Test
+	public void t(){
+		Student stud=new Student();
+		stud.setStudId("S003");
+		delStudent(stud);
+		System.out.println(queryAllStudent());
+	}
+
+	public void addStudent(Student stud) {
+		Session session=HibernateSessionFactory.getSession();
+		Transaction tr=session.beginTransaction();
+		try {
+			session.saveOrUpdate(stud);
+//			session.update(stud);
+		} catch (HibernateException e) {
+			e.printStackTrace();
+		}
+		tr.commit();
+	}
+
+	public Student queryAStudent(Student stud) {
+		Session session=HibernateSessionFactory.getSession();
+		String hql="from Student s where s.studId=?";
+		Query query=session.createQuery(hql);
+		query.setParameter(0, stud.getStudId());
+		List&lt;Student&gt; list=query.list();
+		if(list!=null&amp;&amp;list.size()&gt;0){
+			return list.get(0);
+		}
+		return null;
+	}
+	public List&lt;Student&gt; queryStudent(Student stud) {
+		Session session=HibernateSessionFactory.getSession();
+		String hql="from Student s where 1=1";
+		if(stud.getStudId()!=null&amp;&amp;stud.getStudId().trim().length()&gt;0){
+			hql+=" and s.studId='"+stud.getStudId()+"'";
+		}
+		if(stud.getStudName()!=null&amp;&amp;stud.getStudName().trim().length()&gt;0){
+			hql+=" and s.studName='"+stud.getStudName()+"'";
+		}
+		if(stud.getStudAge()!=null){
+			hql+=" and s.studAge="+stud.getStudAge();
+		}
+		if(stud.getDeptId()!=null&amp;&amp;stud.getDeptId().trim().length()&gt;0){
+			hql+="and s.deptId='"+stud.getDeptId()+"'";
+		}
+		Query query=session.createQuery(hql);
+		List&lt;Student&gt; list=query.list();
+		return list;
+	}
+}
+</pre>&#13;
+<p>HibernateSessionFactory<br />&#13;
+</p>&#13;
+<p></p>&#13;
+<pre code_snippet_id="1854193" snippet_file_name="blog_20160827_13_7669843" name="code" class="html">package cn.hncu.hib;
+
+import org.hibernate.HibernateException;
+import org.hibernate.Session;
+import org.hibernate.SessionFactory;
+import org.hibernate.cfg.Configuration;
+
+public class HibernateSessionFactory {
+	private static final String CONFIG_FILENAME="/hibernate.cfg.xml";//文件名
+	private static final ThreadLocal&lt;Session&gt; threadLocal=new ThreadLocal&lt;Session&gt;();//本地线程
+	private static Configuration config=new Configuration();
+	private static SessionFactory sessionFactory;//声明一个SessionFactory对象
+	static{
+		try {
+			config.configure(CONFIG_FILENAME);
+			sessionFactory=config.buildSessionFactory();
+		} catch (HibernateException e) {
+			e.printStackTrace();
+		}
+	}
+	public static SessionFactory getSessionFactory() {
+		return sessionFactory;
+	}
+	public static Session getSession() throws HibernateException{
+		Session session=threadLocal.get();
+		if(session==null||!session.isOpen()){//如果这个链接没开
+			if (sessionFactory==null) {
+				config.configure(CONFIG_FILENAME);
+				sessionFactory = config.buildSessionFactory();
+			}
+			session=(sessionFactory!=null)?sessionFactory.openSession():null;//是否开放一个session
+			threadLocal.set(session);//把session放入本地线程
+		}
+		return session;
+	}
+	
+	//关闭连接
+	public static void closeSession() throws HibernateException{
+		Session session=threadLocal.get();
+		threadLocal.remove();
+		if(session!=null){
+			session.close();
+		}
+		
+	}
+
+}
+</pre><br />&#13;
+<br />&#13;
+<p></p>&#13;
+<br />&#13;
+<p></p>&#13;
+<br />&#13;
+<p><span style="color:#333399"><br />&#13;
+</span></p>&#13;
+<p><br />&#13;
+</p>&#13;
+   &#13;

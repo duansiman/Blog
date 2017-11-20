@@ -1,0 +1,162 @@
+
+        <div class="markdown_views"><p>之前讲的几种模式都是创建型模式，现在开始讲结构型模式。何为结构型模式？<strong>结构型模式的 核心作用， 是从程序结构上实现松耦合，从而可以扩大整体的类结构，用来解决更大的问题。</strong></p>
+
+
+
+<h2 id="一适配器模式定义">一、适配器模式定义</h2>
+
+<hr />
+
+<p><strong>适配器模式</strong>，把一个类接口变化成客户端所期待的另一个类的接口，使原来因接口不匹配而无法一起工作的类能够一起工作。</p>
+
+
+
+<h2 id="二适配器模式举例">二、适配器模式举例</h2>
+
+<hr />
+
+<p><font size="3" color="#00f">1.生活中例子：</font> 用电器做例子，一个电器的插头只有两相，而有些地方的电源插座却只有三相。电源插座与电器的电源插头不匹配使得电器无法使用。这时候一个三相到两相的转换器（适配器）就能解决此问题，而这正像是本模式所做的事情。 <br />
+<img src="http://img.blog.csdn.net/20161027185239961" alt="这里写图片描述" title="" /></p>
+
+<p><font size="3" color="#00f">2.Java源码中的例子：</font>如Java IO中的java.io.InputStreamReader(InputStream) 和java.io.OutputStreamWriter(OutputStream)就是典型的适配器模式，通过InputStreamReader、OutputStreamWriter适配器将字节流转换为字符流。</p>
+
+
+
+<h2 id="三适配器模式结构">三、适配器模式结构</h2>
+
+<ul>
+<li><strong>Target(目标角色)</strong>: 客户所期待的接口。目标可以是具体的或抽象的类，也可以是接口。</li>
+<li><strong>Adaptee(源角色)</strong>:现在需要适配的类。</li>
+<li><strong>Adapter(适配器)</strong>: 适配器类是本模式的核心。适配器把源接口转换成目标接口。显然，这一角色不可以是接口，而必须是具体类。</li>
+</ul>
+
+<p><strong><em>示例代码</em></strong> <br />
+Target (目标角色) ：</p>
+
+
+
+<pre class="prettyprint"><code class=" hljs java"><span class="hljs-javadoc">/**
+ * 目标角色，如举例中需要转换成的三相插头
+ * <span class="hljs-javadoctag"> @author</span>  14501_000
+ */</span>
+<span class="hljs-keyword">public</span> <span class="hljs-class"><span class="hljs-keyword">interface</span> <span class="hljs-title">Target</span> {</span>
+     <span class="hljs-keyword">void</span> handleReq();
+}   
+</code></pre>
+
+<p>Adaptee(源角色):</p>
+
+
+
+<pre class="prettyprint"><code class=" hljs java"><span class="hljs-javadoc">/**
+ * 源角色，需要被适配的类，如举例中的两脚插头
+ */</span>
+<span class="hljs-keyword">public</span> <span class="hljs-class"><span class="hljs-keyword">class</span> <span class="hljs-title">Adaptee</span> {</span>
+     <span class="hljs-keyword">public</span> <span class="hljs-keyword">void</span> <span class="hljs-title">request</span>(){
+        System.out.println( <span class="hljs-string">"可以完成客户请求的需要的功能!"</span> );
+    }
+}   
+</code></pre>
+
+<p>Adapter(适配器):</p>
+
+
+
+<pre class="prettyprint"><code class=" hljs java"><span class="hljs-javadoc">/**
+ * 适配器，把源接口转换成目标接口，即将两脚插头转换为三脚插头
+ *
+ */</span>
+<span class="hljs-keyword">public</span> <span class="hljs-class"><span class="hljs-keyword">class</span> <span class="hljs-title">Adapter</span> <span class="hljs-keyword">extends</span> <span class="hljs-title">Adaptee</span> <span class="hljs-keyword">implements</span> <span class="hljs-title">Target</span>{</span>
+     <span class="hljs-keyword">public</span> <span class="hljs-keyword">void</span> <span class="hljs-title">handleReq</span>() {
+         <span class="hljs-keyword">super</span>.request();
+    }
+     }   
+</code></pre>
+
+<p>客户端：</p>
+
+
+
+<pre class="prettyprint"><code class=" hljs java"><span class="hljs-javadoc">/**
+ * 客户端类，通过三脚插座进行工作
+ *
+ */</span>
+<span class="hljs-keyword">public</span> <span class="hljs-class"><span class="hljs-keyword">class</span> <span class="hljs-title">Client</span> {</span>
+     <span class="hljs-keyword">public</span> <span class="hljs-keyword">void</span> <span class="hljs-title">work</span>(Target t){
+         t.handleReq();
+    }
+     <span class="hljs-keyword">public</span> <span class="hljs-keyword">static</span> <span class="hljs-keyword">void</span> <span class="hljs-title">main</span>(String[] args){
+        Client c = <span class="hljs-keyword">new</span> Client();
+        Target t = <span class="hljs-keyword">new</span> Adapter();
+         c.work(t);
+    }
+}</code></pre>
+
+
+
+<h2 id="四类适配器与对象适配器">四、类适配器与对象适配器</h2>
+
+<hr />
+
+<p>　　上面这种实现的适配器称为<strong>类适配器</strong>，因为 Adapter 类既继承了 Adaptee （被适配类），也实现了 Target 接口（因为 Java 不支持多继承，所以这样来实现），在 Client 类中我们可以根据需要选择并创建任一种符合需求的子类，来实现具体功能。另外一种适配器模式是<strong>对象适配器</strong>，它不是使用多继承或继承再实现的方式，而是使用直接关联，或者称为委托的方式，通过组合的方式跟适配对象组合。</p>
+
+<p><strong><em>对于Adapter类和Client类的修改</em></strong></p>
+
+
+
+<pre class="prettyprint"><code class=" hljs java"><span class="hljs-javadoc">/**
+ * 适配器，把源接口转换成目标接口，即将两脚插头转换为三脚插头
+ *
+ */</span>
+<span class="hljs-keyword">public</span> <span class="hljs-class"><span class="hljs-keyword">class</span> <span class="hljs-title">Adapter</span> <span class="hljs-keyword">implements</span> <span class="hljs-title">Target</span>{</span>
+    Adaptee adaptee ;
+     <span class="hljs-keyword">public</span> <span class="hljs-title">Adapter</span>(Adaptee adaptee){
+         <span class="hljs-keyword">this</span>.adaptee = adaptee ;
+    }
+     <span class="hljs-keyword">public</span> <span class="hljs-keyword">void</span> <span class="hljs-title">handleReq</span>() {
+         adaptee.request();
+    }
+
+}
+
+
+<span class="hljs-keyword">public</span> <span class="hljs-class"><span class="hljs-keyword">class</span> <span class="hljs-title">Client</span> {</span>
+     <span class="hljs-keyword">public</span> <span class="hljs-keyword">void</span> <span class="hljs-title">work</span>(Target  t){
+         t.handleReq();
+    }
+     <span class="hljs-keyword">public</span> <span class="hljs-keyword">static</span> <span class="hljs-keyword">void</span> <span class="hljs-title">main</span>(String[]  args ) {
+        Client c =<span class="hljs-keyword">new</span> Client();
+        Adaptee adaptee =<span class="hljs-keyword">new</span> Adaptee();
+        Target t = <span class="hljs-keyword">new</span> Adapter(adaptee);
+         c.work( t );
+    }
+}</code></pre>
+
+<p>测试结果与上面的一致。 使用对象适配器模式，可以使得 Adapter 类（适配类）根据传入的 Adaptee 对象达到适配多个不同被适配类的功能，当然，此时我们可以为多个被适配类提取出一个接口或抽象类。这样看起来的话，似乎对象适配器模式更加灵活一点。</p>
+
+
+
+<h2 id="适配器模式适用场景">适配器模式适用场景</h2>
+
+<hr />
+
+<ul>
+<li>系统需要使用现有的类，而这些类的接口不符合系统的接口。</li>
+<li>想要建立一个可以重用的类，用于与一些彼此之间没有太大关联的一些类，包括一些可能在将来引进的类一起工作。</li>
+<li>两个类所做的事情相同或相似，但是具有不同接口的时候。</li>
+<li>旧的系统开发的类已经实现了一些功能，但是客户端却只能以另外接口的形式访问，但我们不希望手动更改原有类的时候。</li>
+</ul></div>&#13;
+        <script type="text/javascript">&#13;
+            $(function () {&#13;
+                $('pre.prettyprint code').each(function () {&#13;
+                    var lines = $(this).text().split('\n').length;&#13;
+                    var $numbering = $('&lt;ul/&gt;').addClass('pre-numbering').hide();&#13;
+                    $(this).addClass('has-numbering').parent().append($numbering);&#13;
+                    for (i = 1; i &lt;= lines; i++) {&#13;
+                        $numbering.append($('&lt;li/&gt;').text(i));&#13;
+                    };&#13;
+                    $numbering.fadeIn(1700);&#13;
+                });&#13;
+            });&#13;
+        </script>&#13;
+   &#13;

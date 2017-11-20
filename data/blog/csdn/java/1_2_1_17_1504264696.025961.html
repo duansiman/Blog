@@ -1,0 +1,275 @@
+
+
+<p><span style="white-space:pre"></span><span style="font-size:18px">spring框架在我们的开发中用到的很多,前面几篇博客也理解了一下spring的基本概念，现在准备写一个spring框架的入门实例，以一个登陆认证签到模块为例子；</span></p>&#13;
+<p><span style="font-size:18px; color:#ff0000"><strong>实例说明：</strong></span></p>&#13;
+<p><span style="font-size:18px">登陆签到模块其实很简单，首先用户输入网址，然后系统进入欢迎页面，在欢迎页面填写账号和密码的表单，点击提交到服务端，检查用户名密码，是否匹配，如果匹配就记录登陆日志，显示登陆成功，在登陆成功页面有一个点击签到功能，点击签到会送5个积分，一天只能签到一次，这里要进行验证一下。如果登陆不成功就返回到登陆页面，并给出提示；</span></p>&#13;
+<p><span style="font-size:18px"><span style="white-space:pre"><img src="http://img.blog.csdn.net/20150831105311908?watermark/2/text/aHR0cDovL2Jsb2cuY3Nkbi5uZXQv/font/5a6L5L2T/fontsize/400/fill/I0JBQkFCMA==/dissolve/70/gravity/Center" alt="" /></span></span></p>&#13;
+<p><span style="font-size:18px; color:#ff0000"><strong>整体流程:</strong></span></p>&#13;
+<p><span style="font-size:18px">1.用户登陆网址，web服务会进入默认页面，login.jsp；</span></p>&#13;
+<p><span style="font-size:18px">2.login.jsp是一个带有账号密码的表单，用户要输入账号密码点击提交；</span></p>&#13;
+<p><span style="font-size:18px">3.提交到web服务器里，web服务器会找到我们的spring配置，并根据配置找到我们的controller;</span></p>&#13;
+<p><span style="font-size:18px">4.在controller里面，调用service方法，根据用户名和密码查询是否存在匹配的用户;</span></p>&#13;
+<p><span style="font-size:18px">5.service去调用我们的dao方法，dao方法与数据库进行交互查询并得到最终结果；</span></p>&#13;
+<p><span style="font-size:18px">6.如果没有找到与之匹配的用户，那么就返回登陆页面，并给出错误提示;</span></p>&#13;
+<p><span style="font-size:18px">7.如果找到与之匹配的用户，进入欢迎页面打印用户信息。</span></p>&#13;
+<p><span style="font-size:18px">8.点击签到，判断该用户是今天第一次登陆则可以点击签到，如果不是则不能点击。</span></p>&#13;
+<p><span style="font-size:18px">9.点击签到后，会找到其对应的controller,然后去调用service和dao方法，给该用户增加5积分；</span></p>&#13;
+<p><span style="font-size:18px"><strong><span style="color:#ff0000">准备工作:</span></strong></span></p>&#13;
+<p><span style="font-size:18px"><strong>数据库:</strong></span></p>&#13;
+<p><span style="font-size:18px">在进行开发之前要先做一点准备工作，其中最主要的就是创建数据库，这里我采用的是MySQL数据库，简单好用；</span></p>&#13;
+<p><span style="font-size:18px"></span></p>&#13;
+<pre name="code" class="sql">##用户表
+create table sys_user(
+user_id int auto_increment primary key,
+user_name varchar(32),
+user_password varchar(32),
+credits int,
+last_visit datetime,
+last_ip varchar(32)
+##用户登录日志表
+create table sys_login(
+login_id int auto_increment primary key,
+user_id int,</pre><pre name="code" class="sql">login_sign int,
+login_ip varchar(32),
+login_datetime datetime
+)</pre><br />&#13;
+这里我们再初始化一条记录，方便我们登陆&#13;
+<p></p>&#13;
+<p><span style="font-size:18px"></span></p>&#13;
+<pre name="code" class="sql">insert into sys_user(user_name,user_password) values('admin','123456');</pre>&#13;
+<p></p>&#13;
+<p><span style="font-size:18px"><strong>配置信息:</strong></span></p>&#13;
+<p><span style="font-size:18px">1.首先创建一个web项目，然后找到WebRoot下面的WEB_INF下面的web.xml;配置我们的登陆页面;</span></p>&#13;
+<p><span style="font-size:18px"></span></p>&#13;
+<pre name="code" class="html">&lt;welcome-file-list&gt;
+	&lt;welcome-file&gt;login.jsp&lt;/welcome-file&gt;
+&lt;/welcome-file-list&gt;</pre>&#13;
+<p></p>&#13;
+<p><span style="font-size:18px">2.在web.xml里面配置一下spring的基本信息；spring可以将所有的配置信息都统一到一个文件中，也可以放置到多个文件中，对于简单的项目来说，由于配置信息少，一个文件就够了，这里我们使用spring的扩展容器,不适用spring的父容器，采用servlet加载的方式得到我们的扩展容器;</span></p>&#13;
+<p></p>&#13;
+<pre name="code" class="html">&lt;span style="font-size:14px;"&gt;&lt;!-- 配置 DispatcherServlet --&gt;
+	&lt;servlet&gt;
+		&lt;servlet-name&gt;dispatcherServlet&lt;/servlet-name&gt;
+		&lt;servlet-class&gt;org.springframework.web.servlet.DispatcherServlet&lt;/servlet-class&gt;
+		&lt;!-- 配置 DispatcherServlet 的一个初始化参数: 配置 SpringMVC 配置文件的位置和名称 --&gt;
+		&lt;!-- 实际上也可以不通过 contextConfigLocation 来配置 SpringMVC 的配置文件, 而使用默认的. 默认的配置文件为: 
+			/WEB-INF/&lt;servlet-name&gt;-servlet.xml --&gt;
+		&lt;!-- &lt;init-param&gt; &lt;param-name&gt;contextConfigLocation&lt;/param-name&gt; &lt;param-value&gt;classpath:springmvc.xml&lt;/param-value&gt; 
+			&lt;/init-param&gt; --&gt;
+		&lt;load-on-startup&gt;1&lt;/load-on-startup&gt;
+	&lt;/servlet&gt;
+
+	&lt;servlet-mapping&gt;
+		&lt;servlet-name&gt;dispatcherServlet&lt;/servlet-name&gt;
+		&lt;url-pattern&gt;/&lt;/url-pattern&gt;
+	&lt;/servlet-mapping&gt;&lt;/span&gt;</pre>&#13;
+<p></p>&#13;
+<span style="font-size:18px">3.导入架包,这里使用的是spring4 版本;导入到WebRoot下面WEB_INF下面的lib下面</span>&#13;
+<p><span style="font-size:18px"><img src="http://img.blog.csdn.net/20150831165518927?watermark/2/text/aHR0cDovL2Jsb2cuY3Nkbi5uZXQv/font/5a6L5L2T/fontsize/400/fill/I0JBQkFCMA==/dissolve/70/gravity/Center" alt="" /><br />&#13;
+</span></p>&#13;
+<p><span style="font-size:18px">配置一下spring容器,以后需要什么功能再添加:</span></p>&#13;
+<p></p>&#13;
+<pre name="code" class="html">&lt;pre name="code" class="html"&gt;&lt;?xml version="1.0" encoding="UTF-8"?&gt;
+&lt;beans xmlns="http://www.springframework.org/schema/beans"
+	xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+	xmlns:context="http://www.springframework.org/schema/context"
+	xmlns:mvc="http://www.springframework.org/schema/mvc"
+	xmlns:aop="http://www.springframework.org/schema/aop"
+	xmlns:tx="http://www.springframework.org/schema/tx"
+	xsi:schemaLocation="http://www.springframework.org/schema/beans http://www.springframework.org/schema/beans/spring-beans.xsd
+		http://www.springframework.org/schema/context http://www.springframework.org/schema/context/spring-context-4.0.xsd
+		http://www.springframework.org/schema/mvc http://www.springframework.org/schema/mvc/spring-mvc-4.0.xsd
+		http://www.springframework.org/schema/aop http://www.springframework.org/schema/aop/spring-aop-4.0.xsd
+		http://www.springframework.org/schema/tx http://www.springframework.org/schema/tx/spring-tx-4.0.xsd"&gt;
+
+	&lt;!-- 配置自定扫描的包 --&gt;
+	&lt;context:component-scan base-package="com.cn.*"&gt;&lt;/context:component-scan&gt;
+	&lt;bean id="configure"
+		class="org.springframework.beans.factory.config.PropertyPlaceholderConfigurer"&gt;
+		&lt;property name="location" value="classpath:/dbconfig.properties" /&gt;
+	&lt;/bean&gt; 
+	&lt;!-- 配置一个使用DBCP的数据源 --&gt;
+	&lt;bean id="dataSource" class="org.apache.commons.dbcp.BasicDataSource" destroy-method="close"&gt;
+		&lt;property name="driverClassName" value="${db.driverClassName}" /&gt;
+		&lt;property name="url" value="${db.url}${db.basename}" /&gt;
+		&lt;property name="username" value="${db.username}" /&gt;
+		&lt;property name="password" value="${db.password}" /&gt;
+	&lt;/bean&gt;
+	
+	&lt;!-- 定义JDBC模板Bean --&gt;
+	&lt;bean id="jdbcTemplate" class="org.springframework.jdbc.core.JdbcTemplate"&gt;
+	&lt;property name="dataSource" ref="dataSource"&gt;&lt;/property&gt;
+	&lt;/bean&gt;
+	
+	&lt;!-- 配置事务管理器 --&gt;
+	&lt;bean id="transactionManager" 
+	class="org.springframework.jdbc.datasource.DataSourceTransactionManager"&gt;
+	&lt;property name="dataSource" ref="dataSource"&gt;&lt;/property&gt;
+	&lt;/bean&gt;
+	
+	&lt;!-- 通过AOP配置实务增强 --&gt;
+	&lt;aop:config proxy-target-class="true"&gt;  
+        &lt;aop:pointcut expression="execution(* com.cn.service..*(..))" id="serviceMethod"/&gt;  
+        &lt;aop:advisor advice-ref="txAdvice" pointcut-ref="serviceMethod"/&gt;  
+    &lt;/aop:config&gt;  
+     
+    &lt;tx:advice id="txAdvice" transaction-manager="transactionManager"&gt;  
+        &lt;tx:attributes&gt;  
+            &lt;tx:method name="*"/&gt;  
+        &lt;/tx:attributes&gt;  
+    &lt;/tx:advice&gt;  
+	
+	&lt;!-- 配置视图解析器: 如何把 handler 方法返回值解析为实际的物理视图 --&gt;
+	&lt;bean class="org.springframework.web.servlet.view.InternalResourceViewResolver"&gt;
+		&lt;property name="prefix" value="/"&gt;&lt;/property&gt;
+		&lt;property name="suffix" value=".jsp"&gt;&lt;/property&gt;
+	&lt;/bean&gt;
+	&lt;!-- 启动 @AspectJ 支持 --&gt; 
+ 	&lt;aop:aspectj-autoproxy/&gt; 
+	&lt;!-- 在实际开发中通常都需配置 mvc:annotation-driven 标签 --&gt;
+	&lt;mvc:annotation-driven&gt;&lt;/mvc:annotation-driven&gt;
+
+&lt;/beans&gt;
+</pre><br />&#13;
+<pre></pre>&#13;
+<span style="font-size:18px"><strong>持久层:</strong></span>&#13;
+<p></p>&#13;
+<p><span style="font-size:18px">现在市面有很多ORM框架,像hibernate,mybatis,springjpa这些我都用过，个人最喜欢用mybatis了，使用持久层主要是对数据的访问和操作与数据库进行交互。spring对这些框架提供了良好的支持，今天就用一个比较原始的框架springJDBC作为持久层的实现技术。</span></p>&#13;
+<p><span style="font-size:18px"><strong><span style="color:#ff0000">模型层：</span></strong></span></p>&#13;
+<p><span style="font-size:18px">模型层也叫实体类,它代表了与真实世界的事物，也可以用来表示业务的状态。一般来说实体类属于业务层，和我们的业务直接挂钩的，但是它贯穿了整个MVC，并被持久化到数据库中。模型层使得我们以面向对象的形式开发项目，为程序的扩展和维护带来了很大的方便，一个模型往往对应于数据库的一张表，但是也可以扩展出自己想要的模型，这使得我们的程序更加灵活。在java程序中，一个模型也代表一个javabean;</span></p>&#13;
+<p><span style="font-size:18px"><strong>用户模型:</strong></span>用户模型与之对应的是我们的sys_user表,一下省略get，set和构造器方法;</p>&#13;
+<p></p>&#13;
+<pre name="code" class="java">/*/
+ * 用户模型
+ */
+public class SysUser implements Serializable{
+	private int userId; //用户主键
+	private String userName; //用户账户名
+	private String userPassword;//用户密码
+	private int credits; //积分
+	private String lastIp; //IP地址
+	private Date lastVisit;  //登陆时间</pre><span style="font-size:18px"><strong>登陆日志模型:</strong></span>&#13;
+<p></p>&#13;
+<p><span style="font-size:18px">用户登陆成功之后就会产生一条登陆日志，所以我们会有一个登陆日志模型;</span></p>&#13;
+<p><span style="font-size:18px"></span></p>&#13;
+<pre name="code" class="java">public class SysLogin implements Serializable{
+	private int loginId; //登陆日志主键
+	private int userId; //用户外键
+	private String loginIp; //登陆IP
+	private int loginSign; //是否签到
+	private Date loginDatetime; //登陆时间</pre>&#13;
+<p>好了，准备工作做完了，接下来我们就一步一步的来做项目;</p>&#13;
+<p><strong>属性文件:</strong></p>&#13;
+<p></p>&#13;
+<pre name="code" class="java">&lt;span style="font-size:18px;"&gt;db.driverClassName=com.mysql.jdbc.Driver
+db.url=jdbc:mysql://127.0.0.1:3306/
+db.basename=test
+db.username=root
+db.password=root&lt;/span&gt;</pre>&#13;
+<p></p>&#13;
+<p><span style="font-size:18px"><span style="color:rgb(255,0,0); font-size:18px"><strong>一步一步构造项目:</strong></span><br />&#13;
+</span></p>&#13;
+<p><span style="font-size:18px">我们再构造项目的时候一定要一步一步的来，你可以从下到上，先写dao,再写service,最后写control。当然你也可以从外到内再到下，先写jsp，再去调用control,接着往下走直到进入持久层。</span></p>&#13;
+<p><span style="font-size:18px">那我们就先写一个登陆页面的jsp；</span></p>&#13;
+<p><span style="font-size:18px"></span></p>&#13;
+<pre name="code" class="html">&lt;form action="login" method="post"&gt;
+ 			账号:&lt;input type="text" name="userName"&gt;
+ 			密码:&lt;input type="password" name="userPassword"&gt;
+ 			&lt;input type="submit" value="登陆"&gt;
+ 		&lt;/form&gt;</pre>注意一下我们这里的name属性要和javaBean对应;&#13;
+<p></p>&#13;
+<p><span style="font-size:18px">上面这个请求为login,那么我们就去创建一个这样的control;这里control作为控制器，会判断我们的用户匹配程度，从而</span></p>&#13;
+<p><span style="font-size:18px">进行页面上的跳转;</span></p>&#13;
+<p><span style="font-size:18px"></span></p>&#13;
+<pre name="code" class="java">@RequestMapping(value="login")
+	public String login(SysUser user,HttpServletRequest request){
+		if(!userService.hasMatchUser(user))
+			return "login";
+		return "success";
+	}</pre><br />&#13;
+<br />&#13;
+<p></p>&#13;
+<p><span style="font-size:18px"></span></p>&#13;
+<pre name="code" class="java">&lt;/pre&gt;&lt;p&gt;&lt;span style="font-size:18px"&gt;得到control之后，我们要去调用service方法，接着再去创建一个UserService;在开发的时候，我们尽量使用接口继承，这样可以达到，高内聚低耦合。&lt;/span&gt;&lt;/p&gt;&lt;p&gt;&lt;/p&gt;&lt;pre name="code" class="java"&gt;public interface UserService {
+	
+	public boolean hasMatchUser(SysUser user);</pre><br />&#13;
+<p></p>&#13;
+<p></p>&#13;
+<pre name="code" class="java">@Service
+public class UserServiceImpl implements UserService{
+	
+	@Autowired
+	private UserDao userDao;
+	public boolean hasMatchUser(SysUser user) {
+		int count=userDao.getMatchCount(user.getUserName(),user.getUserPassword());
+		if(count&gt;=1)
+			return true;
+		return false;
+	}
+</pre>&#13;
+<p><span style="font-size:18px">这里的service方法会接着往下调用Dao方法:它与我们的数据库进行交互，</span></p>&#13;
+<p><span style="font-size:18px"></span></p>&#13;
+<pre name="code" class="java">ublic interface UserDao {
+	public int getMatchCount(String userName,String userPassword); //根据用户名和密码获取匹配的用户</pre><pre name="code" class="java">@Repository
+public class UserDaoImpl implements UserDao{
+	
+	@Autowired
+	private JdbcTemplate jdbcTemplate;
+	public int getMatchCount(String userName,String userPassword) {
+		String sql=" select count(*) from sys_user where user_name=?  and  user_password=? ";
+		int count=jdbcTemplate.queryForInt(sql,new Object[]{userName,userPassword});
+		return count;
+	}</pre><span style="font-size:18px">到现在，我们的基本登陆方法都已经写好了，开始启动程序测试一下，测试成功如果没有问题就接着完善功能，如果有问题，可能就是细节上的错误，这个错误就要通过Debug和搜索引擎进行修改了；</span>&#13;
+<p></p>&#13;
+<p><span style="font-size:18px">接下来把我们的方法都给完善一下。首先登陆进去之后，我们会去匹配账号和密码，如果没有匹配到就返回登陆页面，重新登陆，如果登陆成功之后我们就添加登陆日志。在添加登陆日志的时候我们会去判断一下他今天是否签到，</span></p>&#13;
+<p><span style="font-size:18px">我们取出此账号最后一次的登陆时间判断它是否与今天的时间相等，如果不相等，那么就证明他今天没有登陆过，我们会给userBean添加一个标示。</span></p>&#13;
+<p><span style="font-size:18px"></span></p>&#13;
+<pre name="code" class="java">private boolean signStatus; //签到状态</pre>在登陆的时候修改签到状态，然后在页面进行签到流程的控制;&#13;
+<p></p>&#13;
+<p><span style="font-size:18px"></span></p>&#13;
+<pre name="code" class="html">&lt;body&gt;
+                         登陆成功!&lt;br&gt;
+       &lt;%
+         SysUser user=(SysUser)request.getSession().getAttribute("user");
+        if(!user.isSignStatus()){
+        %&gt;
+        	&lt;form action="loginSign" method="post"&gt;
+        	&lt;input type="submit" value="签到"&gt; 
+        	&lt;/form&gt;
+        	&lt;%} %&gt;
+  &lt;/body&gt;</pre><br />&#13;
+点击签到后，会去修改他的积分，在修改积分后会添加一条登陆日志，修改他的状态为已经签到;&#13;
+<p></p>&#13;
+<p><span style="font-size:18px"></span></p>&#13;
+<pre name="code" class="java">@RequestMapping(value="login")
+	public String login(SysUser user,HttpServletRequest request){
+		if(!userService.hasMatchUser(user))
+			return "login";
+		//添加登陆日志
+		try {
+			user=userService.findUserByName(user.getUserName());
+			SysLogin login=loginService.getLogin(user.getUserId());
+			int toDate=TestUtil.toDate(new Date()); //获得今天的时间
+			int yestDate=TestUtil.toDate(login.getLoginDatetime());  //获得最后一次的登陆时间
+			if(toDate==yestDate){
+				if(login.getLoginSign()==1)
+				user.setSignStatus(true);
+			}
+			request.getSession().setAttribute("user", user); //登陆成功之后把用户放入session里面
+			loginService.insertLogin(user);
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+		return "success";
+	}</pre><br />&#13;
+<br />&#13;
+<p></p>&#13;
+<p><span style="font-size:18px">所以我们会有查询最后一次登陆信息的方法，添加登陆日志的方法，修改登陆日志的方法，修改用户信息的方法。<br />&#13;
+方法在这里就不贴出来了，有兴趣的可以去下载源代码。</span></p>&#13;
+<p><span style="font-size:18px"><a target="_blank" href="http://download.csdn.net/detail/liaodehong/9083013">点击打开链接</a><br />&#13;
+</span></p>&#13;
+<p><span style="font-size:18px">总结一下:启动程序挺花时间的，书上没有说提供哪些Jar包，根据英文提示一个个的去比对，还好程序跑起来了，整个模块其实很简单。但是准备工作挺多的，归纳起来也不容易，但是大脑里面的思维会清晰很多。以后要多多学习归纳总结，来提高自己。本来放假三天就可以写好的，但是放假出去玩了一会，所以只好牺牲下午的一点时间来完善这篇博文，写到后面也倦了点，希望各位看官不要嫌弃凑合着将近吧。</span></p>&#13;
+<p><span style="font-size:18px"><br />&#13;
+</span></p>&#13;
+<p></p>&#13;
+   &#13;

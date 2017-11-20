@@ -1,0 +1,234 @@
+
+        <div class="markdown_views"><p><strong>策略模式的简单定义和生活例子:</strong></p>
+
+<p>策略模式将可变的部分从程序中抽象分离成算法接口,在该接口下分别封装一系列算法实现并使他们可以相互替换,从而导致客户端程序独立于算法的改变</p>
+
+<p>生活中例子:网上购物,当进行支付页面时,会提供很多支付方式,即有很多不同的银行,这些银行都可以完成支付功能,它们的共性就是都能完成支付功能,但它们具体自己是怎样完成支付功能的并不一样</p>
+
+<p>策略模式:抽象出的算法接口,以适应程序中变动代码(策略),在Context中,只要传入具体的策略实现即可在Context中应用你提交的策略,实现你要的功能</p>
+
+
+
+<h2 id="模拟场景应用来介绍策略模式">模拟场景应用来介绍策略模式:*</h2>
+
+<p><img src="http://img.mukewang.com/56ce64370001df4712800720.jpg" alt="" title="" /></p>
+
+<p><strong>实现功能(鸭子如何才能飞?)—使用继承的方法:</strong></p>
+
+<p>方法一:继承在父类中提供实现方法,子类通过继承父类的飞行行为,优点:简单易用,已有应用可以快速添加飞行能力,缺点:不具有灵活性,对未来变更支持差</p>
+
+
+
+<pre class="prettyprint"><code class=" hljs cs"><span class="hljs-keyword">public</span> <span class="hljs-keyword">void</span> <span class="hljs-title">fly</span>(){
+    System.<span class="hljs-keyword">out</span>.println(<span class="hljs-string">"用翅膀飞行"</span>);
+}</code></pre>
+
+<p>方法二:在父类中提供抽象方法,强迫子类实现自己的飞行行为.优点:足够灵活,不会忘记覆写代码,缺点:每个子类都要实现一边代码,代码重复,没有复用代码</p>
+
+
+
+<pre class="prettyprint"><code class=" hljs cs"><span class="hljs-keyword">public</span> <span class="hljs-keyword">abstract</span> <span class="hljs-keyword">void</span> <span class="hljs-title">fly</span>();</code></pre>
+
+<p><strong>实现功能(鸭子如何才能飞?)—使用组合(最佳方案)的方法:</strong></p>
+
+<p>Favor composition over inheritance:复合(组合)优先于继承,多用组合,少用继承</p>
+
+<p>组合定义:在类中增加一个私有域,引用另一个已有的类的实例,通过调用引用实例的方法从而获得新的功能,这种设计被称作组合(复合)(j简单的意思就是:得到其他类的对象,使用这个对象的方法)</p>
+
+<p>方法三(组合):将飞行行为抽象为接口,在父类中持有该接口,并由该接口代理飞行行为,优点:有扩展性,有复用代码</p>
+
+
+
+<pre class="prettyprint"><code class=" hljs cs"><span class="hljs-keyword">public</span> <span class="hljs-keyword">interface</span> FlyingStrategy{<span class="hljs-comment">//抽象飞行行为的策略接口</span>
+    <span class="hljs-keyword">void</span> performFly();
+}
+
+<span class="hljs-keyword">private</span> FlyingStrategy flyingStrategy;<span class="hljs-comment">//在父类中持有的接口实例</span>
+publiv <span class="hljs-keyword">void</span> fly(){
+    flyingStrategy.performFly();
+}</code></pre>
+
+<p><strong>使用策略模式实现鸭子应用的完整代码:</strong></p>
+
+<p>定义抽象的Duck.java类:</p>
+
+
+
+<pre class="prettyprint"><code class=" hljs cs"><span class="hljs-comment">/*超类,所有的鸭子都要继承此类,抽象了鸭子的行为:显示和鸣叫*/</span>
+<span class="hljs-keyword">public</span> <span class="hljs-keyword">abstract</span> <span class="hljs-keyword">class</span> Duck {
+
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">void</span> <span class="hljs-title">quack</span>(){<span class="hljs-comment">//鸭子发出叫声,通用的行为,由超类实现</span>
+        System.<span class="hljs-keyword">out</span>.println(<span class="hljs-string">"嘎嘎嘎"</span>);
+    }
+
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">abstract</span> <span class="hljs-keyword">void</span> <span class="hljs-title">display</span>();<span class="hljs-comment">//显示鸭子的外观,鸭子的外观各不相同,声明为abstract,由子类实现</span>
+
+    <span class="hljs-keyword">private</span> FlyingStrategy flyingStrategy;
+
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">void</span> <span class="hljs-title">setFlyingStrategy</span>(FlyingStrategy flyingStrategy) {
+        <span class="hljs-keyword">this</span>.flyingStrategy = flyingStrategy;
+    }   
+
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">void</span> <span class="hljs-title">fly</span>(){
+        flyingStrategy.performFly();
+    }
+}</code></pre>
+
+<p>定义一个策略接口(FlyingStrategy.java):</p>
+
+
+
+<pre class="prettyprint"><code class=" hljs cs"><span class="hljs-comment">/*策略接口,实现鸭子的飞行行为*/</span>
+<span class="hljs-keyword">public</span> <span class="hljs-keyword">interface</span> FlyingStrategy {
+    <span class="hljs-keyword">void</span> performFly();
+}</code></pre>
+
+<p>定义实现了策略接口的类(FlyingStrategy.java):</p>
+
+
+
+<pre class="prettyprint"><code class=" hljs java"><span class="hljs-keyword">public</span> <span class="hljs-class"><span class="hljs-keyword">class</span> <span class="hljs-title">FlyWithWin</span> <span class="hljs-keyword">implements</span> <span class="hljs-title">FlyingStrategy</span>{</span>
+    <span class="hljs-annotation">@Override</span>
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">void</span> <span class="hljs-title">performFly</span>() {
+        System.out.println(<span class="hljs-string">"振翅高飞"</span>);
+    }
+}</code></pre>
+
+<p>定义继承Duck类的MallardDuck.java类:</p>
+
+
+
+<pre class="prettyprint"><code class=" hljs java"><span class="hljs-keyword">public</span> <span class="hljs-class"><span class="hljs-keyword">class</span> <span class="hljs-title">MallardDuck</span> <span class="hljs-keyword">extends</span> <span class="hljs-title">Duck</span>{</span>
+
+    <span class="hljs-keyword">public</span> <span class="hljs-title">MallardDuck</span>(){
+        <span class="hljs-keyword">super</span>();
+        <span class="hljs-keyword">super</span>.setFlyingStrategy(<span class="hljs-keyword">new</span> FlyWithWin());
+    }
+
+    <span class="hljs-annotation">@Override</span>
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">void</span> <span class="hljs-title">display</span>() {
+        System.out.println(<span class="hljs-string">"我的脖子是绿的"</span>);
+    }
+}</code></pre>
+
+<p>定义继承Duck类的RedheadDuck.java类:</p>
+
+
+
+<pre class="prettyprint"><code class=" hljs java"><span class="hljs-keyword">public</span> <span class="hljs-class"><span class="hljs-keyword">class</span> <span class="hljs-title">RedheadDuck</span> <span class="hljs-keyword">extends</span> <span class="hljs-title">Duck</span>{</span>
+
+    <span class="hljs-keyword">public</span> <span class="hljs-title">RedheadDuck</span>(){
+        <span class="hljs-keyword">super</span>();
+        <span class="hljs-keyword">super</span>.setFlyingStrategy(<span class="hljs-keyword">new</span> FlyWithWin());
+    }
+
+    <span class="hljs-annotation">@Override</span>
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">void</span> <span class="hljs-title">display</span>() {
+        System.out.println(<span class="hljs-string">"我的头是红色的"</span>);
+    }
+}</code></pre>
+
+<p>最后是一个测试类(DuckTest.java):</p>
+
+
+
+<pre class="prettyprint"><code class=" hljs cs"><span class="hljs-keyword">public</span> <span class="hljs-keyword">class</span> DuckTest {
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">static</span> <span class="hljs-keyword">void</span> <span class="hljs-title">main</span>(String[] args) {
+
+        System.<span class="hljs-keyword">out</span>.println(<span class="hljs-string">"测试鸭子程序"</span>);
+
+        Duck m_duck=<span class="hljs-keyword">new</span> MallardDuck();<span class="hljs-comment">//测试绿脖鸭</span>
+        m_duck.display();
+        m_duck.quack();
+        m_duck.fly();
+
+        Duck r_duck=<span class="hljs-keyword">new</span> RedheadDuck();<span class="hljs-comment">//测试红头鸭</span>
+        r_duck.display();
+        r_duck.quack();
+        r_duck.fly();
+
+        System.<span class="hljs-keyword">out</span>.println(<span class="hljs-string">"测试完毕!"</span>);
+    }
+}</code></pre>
+
+<p><strong>用策略模式提供高复用性代码的例子(在上面的例子中添加代码):</strong></p>
+
+
+
+<pre class="prettyprint"><code class=" hljs java"><span class="hljs-keyword">public</span> <span class="hljs-class"><span class="hljs-keyword">class</span> <span class="hljs-title">FlyNoWay</span> <span class="hljs-keyword">implements</span> <span class="hljs-title">FlyingStrategy</span> {</span><span class="hljs-comment">//再定义一个类实现飞行策略接口</span>
+    <span class="hljs-annotation">@Override</span>
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">void</span> <span class="hljs-title">performFly</span>() {
+        System.out.println(<span class="hljs-string">"我不会飞"</span>);
+    }
+}</code></pre>
+
+
+
+<pre class="prettyprint"><code class=" hljs java"><span class="hljs-keyword">public</span> <span class="hljs-class"><span class="hljs-keyword">class</span> <span class="hljs-title">RubberDuck</span> <span class="hljs-keyword">extends</span> <span class="hljs-title">Duck</span>{</span>
+
+    <span class="hljs-keyword">public</span> <span class="hljs-title">RubberDuck</span>(){
+        <span class="hljs-keyword">super</span>();
+        <span class="hljs-keyword">super</span>.setFlyingStrategy(<span class="hljs-keyword">new</span> FlyNoWay());
+    }
+
+    <span class="hljs-annotation">@Override</span>
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">void</span> <span class="hljs-title">display</span>() {
+        System.out.println(<span class="hljs-string">"我嘴巴发黄,全身很红"</span>);
+    }
+
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">void</span> <span class="hljs-title">quack</span>(){<span class="hljs-comment">//修改鸭子的叫声</span>
+        System.out.println(<span class="hljs-string">"嘎-嘎-嘎"</span>);
+    }
+}</code></pre>
+
+
+
+<h2 id="策略模式的最后总结">策略模式的最后总结</h2>
+
+<p><strong>策略模式设计原则:</strong></p>
+
+<blockquote>
+  <p>1.多用组合,少用继承</p>
+  
+  <p>2.面向接口编程,而不是面向实现编程</p>
+  
+  <p>3.找出应用中需要变化的部分,把他们独立出来,不要和那些不需要变化的代码混在一起,将不变的东西抽象为接口,而变化的部分交给实现去做,具体而言,鸭子飞行的行为是千变万化的,但是鸭子具有飞行行为本身是不变的,我们将不变的部分抽象为飞行策略接口,而将具体的飞行行为交给实现去处理</p>
+</blockquote>
+
+<p><strong>策略模式的优点和缺点:</strong></p>
+
+
+
+<pre class="prettyprint"><code class=" hljs cs"><span class="hljs-comment">//策略模式的优点:</span>
+<span class="hljs-number">1.</span>使用了组合,使架构更加灵活
+<span class="hljs-number">2.</span>富有弹性,可以较好的应对变化(开闭原则)
+<span class="hljs-number">3.</span>更好的代码复用性(相对于继承)
+<span class="hljs-number">4.</span>消除了大量的条件语句
+
+<span class="hljs-comment">//策略模式的缺点:</span>
+<span class="hljs-number">1.</span>客户代码需要了解每个策略实现的细节,不然就会使得实现有可能有不正确的行为
+<span class="hljs-number">2.</span>随着时间的推移,策略接口会急剧膨胀,增加了对象的数目</code></pre>
+
+<p><strong>策略模式的适用场景:</strong></p>
+
+<blockquote>
+  <p>1.许多相关的类仅仅是行为差异,将差异的共享分离出来成为一个策略接口,而这些相关的类便成为其算法家族的成员</p>
+  
+  <p>2.运行时选取不同的算法变体</p>
+  
+  <p>3.通过条件语句在多个分支中选取一个,使用策略模式使得代码更加简洁</p>
+</blockquote></div>&#13;
+        <script type="text/javascript">&#13;
+            $(function () {&#13;
+                $('pre.prettyprint code').each(function () {&#13;
+                    var lines = $(this).text().split('\n').length;&#13;
+                    var $numbering = $('&lt;ul/&gt;').addClass('pre-numbering').hide();&#13;
+                    $(this).addClass('has-numbering').parent().append($numbering);&#13;
+                    for (i = 1; i &lt;= lines; i++) {&#13;
+                        $numbering.append($('&lt;li/&gt;').text(i));&#13;
+                    };&#13;
+                    $numbering.fadeIn(1700);&#13;
+                });&#13;
+            });&#13;
+        </script>&#13;
+   &#13;

@@ -1,0 +1,295 @@
+
+                
+<p>上一篇说到导出Excel，如果数据填充没有问题，就可以将文件导入到系统中了。</p>&#13;
+<p>导入Excel调试通以前有很多坑，通了以后就觉得没什么了。</p>&#13;
+<p>废话不多，直接上代码</p>&#13;
+<p>JSP</p>&#13;
+<p/>&#13;
+<pre code_snippet_id="2158898" snippet_file_name="blog_20170205_1_6405624" name="code" class="html">&lt;div style="margin-top: 60px; margin-left: 30px;"&gt;
+      &lt;input id="excelFile" name="excelFile" class="easyui-filebox" style="width: 60%" data-options="prompt:'选择Excel文件...'"&gt;
+       &lt;a href="#" class="easyui-linkbutton" style="" onclick="uploadExcel()"&gt;导入&lt;/a&gt;
+&lt;/div&gt;
+</pre><br/>&#13;
+JS&#13;
+<p/>&#13;
+<p/>&#13;
+<pre code_snippet_id="2158898" snippet_file_name="blog_20170205_2_8727965" name="code" class="javascript">function uploadExcel() {
+		
+	// 得到上传文件的全路径
+	var fileName = $('#excelFile').filebox('getValue')
+
+	// 进行基本校验
+	if (fileName == "") {
+		alert("请选择上传文件！");
+	} else {
+		// 对文件格式进行校验
+		var d1 = /\.[^\.]+$/.exec(fileName);
+		if (d1 == ".xls") {
+
+			$('#Manage').form('submit', {
+				url : 'trainingPrograms/import',
+				onSubmit : function() {
+					return $(this).form('validate');
+				},
+				success : function(result) {
+					// var result = eval('(' + result +
+					// ')');"${pageContext.request.contextPath}/trainingPrograms/import"
+					var result = eval('(' + result + ')');
+					if (result == "error") {
+						$.messager.alert("提示", "导入失败！", "info");
+						$('#trainingProgramsImport').dialog('close'); // close
+																		// the
+						// dialog
+						$('#dg').datagrid('reload'); // reload the Teacher
+						// data
+					} else if(result == "success") {
+						$.messager.alert("提示", "导入成功！", "info");
+						$('#trainingProgramsImport').dialog('close'); // close
+																		// the
+						// dialog
+						$('#dg').datagrid('reload'); // reload the Teacher
+						// data
+					}else if (result == "chongfu"){
+						$.messager.alert("提示", "导入失败,Excel中的数据已部分或全部导入！", "info");
+						$('#trainingProgramsImport').dialog('close'); 
+						$('#dg').datagrid('reload'); 
+					}
+						
+				}
+			});
+
+		} else {
+			alert("请选择xls格式文件！");
+			$('#uploadExcel').filebox('setValue', '');
+		}
+	}
+}</pre>&#13;
+<p/>&#13;
+<p>从页面被调用控制器</p>&#13;
+controller&#13;
+<p/>&#13;
+<pre code_snippet_id="2158898" snippet_file_name="blog_20170205_3_2238785" name="code" class="java">	@RequestMapping(value = "/trainingPrograms/import", method = RequestMethod.POST)
+	public void importTrainingProgram(HttpServletResponse response,
+			HttpServletRequest request) throws Exception {
+		String dataBaseName=(String) request.getSession().getAttribute (CloudContext.DatabaseName)+"_basic";
+		// 创建一个通用的多部分解析器
+		CommonsMultipartResolver multipartResolver = new CommonsMultipartResolver(
+				request.getSession().getServletContext());
+		InputStream inExcelFile = null;
+		// 判断 request 是否有文件上传,即多部分请求
+		if (multipartResolver.isMultipart(request)) {
+			// 转换成多部分request
+			MultipartHttpServletRequest multiRequest = (MultipartHttpServletRequest) request;
+
+			// 取得request中的所有文件名
+			Iterator&lt;String&gt; iter = multiRequest.getFileNames();
+			while (iter.hasNext()) {
+				// 记录上传过程起始时的时间，用来计算上传时间
+				int pre = (int) System.currentTimeMillis();
+				// 取得上传文件
+				MultipartFile file = multiRequest.getFile(iter.next());
+				inExcelFile = file.getInputStream();
+			}
+		}
+
+		// 创建一个list 用来存储excel文件中的内容
+		List list = new ArrayList();
+		
+		Workbook rwb = null;
+		Cell cell = null;
+
+		String result = "error";
+
+		// 获取Excel文件对象
+		rwb = Workbook.getWorkbook(inExcelFile);
+
+		// 获取文件的指定工作表 默认的第一个
+		Sheet sheet = rwb.getSheet(0);
+		
+		// 行数(表头的目录不需要，从1开始)
+		for (int i = 0; i &lt; sheet.getRows(); i++) {
+
+			// 创建一个数组 用来存储每一列的值
+			String[] str = new String[sheet.getColumns()];
+
+			// 列数
+			for (int j = 0; j &lt; sheet.getColumns(); j++) {
+
+				// 获取第i行，第j列的值
+				cell = sheet.getCell(j, i);
+				str[j] = cell.getContents();
+
+			}
+			list.add(str);
+		}
+		
+		//构造实体list
+		List&lt;CourseInfo&gt; courseinfolist = new ArrayList&lt;CourseInfo&gt;();
+		List&lt;TraningProgramNow&gt; trainingprogramlist = new ArrayList&lt;TraningProgramNow&gt;();	
+		/*
+		//查出来的是专业类型,比如"专业选修课"之类的--韩林--2016年9月23日20:19:21
+		List&lt;CourseType&gt; coursetypeAbtlist = editTrainingProgramBean
+				.queryAllCoursesType(dataBaseName);
+
+		// 查询nodelevel表中pId为null的学校id，然后根据这个学校id查询pId为这个id的学院类型id
+		String academyId = editTrainingProgramBean
+				.findAcademyTypeid(dataBaseName);
+		
+		// 根据学院类型id查询专业类型id
+		String inistutionId = editTrainingProgramBean.findInisutionTypeid(
+				academyId,  dataBaseName);
+
+		//查询所有二级学院--韩林--2016年9月23日20:20:27
+		List&lt;Institution&gt; academyList = editTrainingProgramBean
+				.queryAllacademy(academyId, dataBaseName);
+		
+		//显示八个学期--韩林--2016年9月23日20:22:15
+		List&lt;DictionaryNow&gt; tremList = editTrainingProgramBean
+				.queryTremList("学期", dataBaseName);
+		
+		//显示两个考核形式，考查还是考试--2016年9月23日20:22:45--韩林
+		List&lt;DictionaryNow&gt; examList = editTrainingProgramBean
+				.queryTremList("考核形式",  dataBaseName);
+		
+		//查询所有专业--韩林--2016年9月23日20:23:26
+		List&lt;Institution&gt; institutionList = editTrainingProgramBean
+				.queryAllacademy(inistutionId,  dataBaseName);
+		
+		//查询数据库中已有的全部课程--2016年9月23日20:25:02--韩林
+		List&lt;CourseInfo&gt; courselist = editTrainingProgramBean
+				.queryAllCourseInfo(dataBaseName);
+		*/
+			
+		a:   //用于跳出循环
+		if (list.size() &gt; 0 &amp;&amp; list != null) {		
+			b:   //用于跳出循环
+			//循环list中的每条数据,也就是excel中的每条数据
+			for (int i = 1; i &lt; list.size(); i++) {
+				String[] str = (String[]) list.get(i);  //将List (Excel) 中的第一条记录存入String数组
+				if (list.get(i) != null) {
+					
+					//在导入之前，先判断是否是重复导入，也就是说，判断是否之前已经导入过相同的数据--韩林--2016年9月23日16:51:29
+					//如果有重复数据，则提示给用户
+					
+					//1.查询数据库中已有的数据
+					//返回的list有三个值:课程id，学期名，专业名
+					
+					/*List listDB = new ArrayList();
+					listDB = editTrainingProgramBean.selectTrainingPrograms(dataBaseName);
+					
+					//2.一条条遍历将要导入数据库的list,和数据库中的每条数据做比较
+					c:
+					for (int j = 0; j &lt; listDB.size(); j++) { 
+						
+						Object[] strDB = (Object[]) listDB.get(j);
+						
+						//比较课程编码、开课学期、培养计划所属专业
+						//3.拿list中的一条数据和数据库中的每条数据listDB做对比
+						if(strDB[0].toString().equals(str[1]) &amp;&amp; 
+						   strDB[1].toString().equals(str[9]) &amp;&amp; 
+						   strDB[2].toString().equals(str[11])){
+						result=INFO;
+						logger.info("Excel中有重复数据,导入失败");
+						break a;						
+						}
+					}*/
+										
+					//构造实体对象
+					Institution academy = new Institution();
+					Institution institution = new Institution();
+					DictionaryNow trem = new DictionaryNow();
+					DictionaryNow exam = new DictionaryNow();
+					CourseType coursetype = new CourseType();
+					CourseInfo courseinfo = new CourseInfo();
+					TraningProgramNow trainingprogram = new TraningProgramNow();		
+					
+				
+					// 课程类型
+     				coursetype.setCourseTypeName(str[0]); // CourseTypeName
+					coursetype = findremoveDuplicateAbtCourseType(coursetype,
+							coursetypeAbtlist);
+
+					// 学校，是哪所大学，比如清华、北大、北理工……
+					academy.setInstitutionName(str[7]);
+					academy = findremoveDuplicateAbtInstitution(academy,
+							academyList);
+
+					// 专业,比如 生物技术,食品工程，商务英语……
+					institution.setInstitutionName(str[11]);
+					institution = findremoveDuplicateAbtInstitution(institution,
+							institutionList);
+
+					// 学期
+					trem.setContent(str[9]);
+					trem.setType("学期");
+					trem = findremoveDuplicateAbtDictionaryNow(trem, tremList);
+
+					// 考核形式
+     				exam.setContent(str[8]);
+					exam.setType("考核形式");
+					exam = findremoveDuplicateAbtDictionaryNow(exam, examList);
+
+					// 课程
+					//查询公选的课程性质id  (str[16]的值是 "自然科学" 或 "人文社科" 或 "社会体育")
+					String courseNatureId = editTrainingProgramBean.queryCourseNatureId(dataBaseName, str[16]);
+					courseinfo.setCourseCode(str[1]);
+					courseinfo.setCourseName(str[2]); // CourseInfoName
+					courseinfo.setClassHour(str[3]); // classHour
+					courseinfo.setClassPoint(str[4]); // classPoint
+					courseinfo.setCourseTypeId(coursetype.getId()); // CourseTypeID
+					courseinfo.setTheoryClassHour(str[5]); // TheoryClassHour
+					courseinfo.setPracticeClassHour(str[6]); // PracticeClassHour
+					courseinfo.setCourseNatureId(courseNatureId);
+					courseinfo.setInstitutionId(academy.getId()); // institutionId
+					courseinfo.setDataBaseName(dataBaseName);
+					courseinfo = findremoveDuplicateAbtCourseInfo(courseinfo,
+							courselist);
+					
+					// 培养计划
+					String uuid = UUID.randomUUID().toString();
+					trainingprogram.setId(uuid);
+					trainingprogram.setCourseId(courseinfo.getId());
+					trainingprogram.setCourseTypeID(coursetype.getId());
+					trainingprogram.setPeriodId(trem.getId());
+					trainingprogram.setExamOrNot(exam.getId());
+					trainingprogram.setInstitutionId(institution.getId());
+					trainingprogram.setWeekClass(str[10]);
+					trainingprogram.setBeginweek(str[13]);
+					trainingprogram.setEndweek(str[14]);
+					trainingprogram.setOddWeekOrNot(str[15]);
+					trainingprogram.setRemark(str[17]);	
+					trainingprogram.setDataBaseName(dataBaseName);
+					
+					//将excel中的每条记录都保存到对应的实体list中
+					courseinfolist.add(courseinfo);
+					trainingprogramlist.add(trainingprogram);					
+				}
+			}		
+		
+			// 给courseinfo去重
+			courseinfolist = queryremoveDuplicateCourseInfo(courseinfolist);
+			
+			Boolean it = editTrainingProgramBean.AddTrainProgramDetaillist(
+					dataBaseName,courseinfolist,trainingprogramlist);
+			if (it) {
+				result = SUCCESS;
+			}
+		}
+		JacksonJsonUntil jacksonJsonUntil = new JacksonJsonUntil();
+		jacksonJsonUntil.beanToJson(response, result);
+	}
+</pre><br/>&#13;
+这样调用就可以验证Excel数据是否重复，并且经过循环，将其中数据循环存入list传到后端，存储进数据库。&#13;
+<p/>&#13;
+<p>补充：</p>&#13;
+<p>在部署的时候，需要在jboss中引入两个用于上传的jar包：commons-fileupload-1.3.1.jar和commons-io-2.2.jar。</p>&#13;
+<p>结果：</p>&#13;
+<p><img src="http://img.blog.csdn.net/20170205090358483?watermark/2/text/aHR0cDovL2Jsb2cuY3Nkbi5uZXQvbWF5Zmxh/font/5a6L5L2T/fontsize/400/fill/I0JBQkFCMA==/dissolve/70/gravity/Center" alt=""/><br/>&#13;
+</p>&#13;
+<p><br/>&#13;
+</p>&#13;
+<p>一句话点评：前天看到家族群里分享的一篇文章，其中有句话：在你越艰难的时候，就是你收获最大的时候。<br/>&#13;
+<br/>&#13;
+</p>&#13;
+<link rel="stylesheet" href="http://static.blog.csdn.net/public/res-min/markdown_views.css?v=1.0"/>&#13;
+            

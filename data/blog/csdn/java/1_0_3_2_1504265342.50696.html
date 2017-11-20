@@ -1,0 +1,418 @@
+
+        <div class="markdown_views"><p>mybatis和spring整合,也就是通过spring管理SqlSessionFactory、mapper接口。</p>
+
+
+
+<h2 id="一导入架包">一.导入架包</h2>
+
+<p>除了spring的包和mybatis的包,还需要导入两者的整合包,目前这个包由mybatis提供 <br />
+<strong>mybatis-spring-1.2.0.jar</strong></p>
+
+<hr />
+
+
+
+<h2 id="二一些必要的配置文件">二.一些必要的配置文件</h2>
+
+
+
+<h3 id="1log4j配置">1.log4j配置</h3>
+
+<p>需要先导入log4j的架包,然后建立log4j.properties</p>
+
+
+
+<pre class="prettyprint"><code class=" hljs avrasm"><span class="hljs-preprocessor"># Global logging configuration</span>
+<span class="hljs-preprocessor">#在开发环境中要设置为DEBUG,不然不会打印出信息</span>
+log4j<span class="hljs-preprocessor">.rootLogger</span>=DEBUG, stdout
+<span class="hljs-preprocessor"># Console output...</span>
+log4j<span class="hljs-preprocessor">.appender</span><span class="hljs-preprocessor">.stdout</span>=org<span class="hljs-preprocessor">.apache</span><span class="hljs-preprocessor">.log</span>4j<span class="hljs-preprocessor">.ConsoleAppender</span>
+log4j<span class="hljs-preprocessor">.appender</span><span class="hljs-preprocessor">.stdout</span><span class="hljs-preprocessor">.layout</span>=org<span class="hljs-preprocessor">.apache</span><span class="hljs-preprocessor">.log</span>4j<span class="hljs-preprocessor">.PatternLayout</span>
+log4j<span class="hljs-preprocessor">.appender</span><span class="hljs-preprocessor">.stdout</span><span class="hljs-preprocessor">.layout</span><span class="hljs-preprocessor">.ConversionPattern</span>=%<span class="hljs-number">5</span>p [%t] - %m%n</code></pre>
+
+<hr />
+
+
+
+<h3 id="2数据库连接参数配置">2.数据库连接参数配置</h3>
+
+<p>由于使用druid连接池,所以配置参数也在里面一起配置</p>
+
+
+
+<pre class="prettyprint"><code class=" hljs avrasm">jdbc<span class="hljs-preprocessor">.driver</span>=<span class="hljs-keyword">com</span><span class="hljs-preprocessor">.mysql</span><span class="hljs-preprocessor">.jdbc</span><span class="hljs-preprocessor">.Driver</span>
+jdbc<span class="hljs-preprocessor">.url</span>=jdbc:mysql://localhost:<span class="hljs-number">3306</span>/shopdemo?useUnicode=true&amp;characterEncoding=utf8&amp;characterSetResults=utf8
+jdbc<span class="hljs-preprocessor">.username</span>=root
+jdbc<span class="hljs-preprocessor">.password</span>=<span class="hljs-number">123456</span>
+
+<span class="hljs-label">filters:</span>stat
+
+<span class="hljs-label">maxActive:</span><span class="hljs-number">20</span>
+<span class="hljs-label">initialSize:</span><span class="hljs-number">1</span>
+<span class="hljs-label">maxWait:</span><span class="hljs-number">60000</span>
+<span class="hljs-label">minIdle:</span><span class="hljs-number">10</span>
+
+<span class="hljs-label">timeBetweenEvictionRunsMillis:</span><span class="hljs-number">60000</span>
+<span class="hljs-label">minEvictableIdleTimeMillis:</span><span class="hljs-number">300000</span>
+
+<span class="hljs-label">validationQuery:</span>SELECT <span class="hljs-string">'x'</span>
+<span class="hljs-label">testWhileIdle:</span>true
+<span class="hljs-label">testOnBorrow:</span>false
+<span class="hljs-label">testOnReturn:</span>false
+
+<span class="hljs-label">maxOpenPreparedStatements:</span><span class="hljs-number">20</span>
+<span class="hljs-label">removeAbandoned:</span>true
+<span class="hljs-label">removeAbandonedTimeout:</span><span class="hljs-number">1800</span>
+<span class="hljs-label">logAbandoned:</span>true</code></pre>
+
+
+
+<h3 id="3applicationcontext配置">3.applicationContext配置</h3>
+
+<p>在这个里面我们主要把mybatis的数据库源和SqlSessionFactory来交给spring管理.这里的连接池使用阿里的druid连接池.</p>
+
+
+
+<pre class="prettyprint"><code class=" hljs xml"><span class="hljs-pi">&lt;?xml version="1.0" encoding="UTF-8"?&gt;</span>
+<span class="hljs-tag">&lt;<span class="hljs-title">beans</span> <span class="hljs-attribute">xmlns</span>=<span class="hljs-value">"http://www.springframework.org/schema/beans"</span>
+       <span class="hljs-attribute">xmlns:xsi</span>=<span class="hljs-value">"http://www.w3.org/2001/XMLSchema-instance"</span>
+       <span class="hljs-attribute">xmlns:context</span>=<span class="hljs-value">"http://www.springframework.org/schema/context"</span>
+       <span class="hljs-attribute">xsi:schemaLocation</span>=<span class="hljs-value">"http://www.springframework.org/schema/beans http://www.springframework.org/schema/beans/spring-beans.xsd http://www.springframework.org/schema/context http://www.springframework.org/schema/context/spring-context.xsd"</span>&gt;</span>
+
+    <span class="hljs-comment">&lt;!-- 加载数据库配置文件 --&gt;</span>
+    <span class="hljs-tag">&lt;<span class="hljs-title">context:property-placeholder</span> <span class="hljs-attribute">location</span>=<span class="hljs-value">"classpath:db.properties"</span>/&gt;</span>
+    <span class="hljs-comment">&lt;!--配置数据库连接池Druid--&gt;</span>
+    <span class="hljs-tag">&lt;<span class="hljs-title">bean</span> <span class="hljs-attribute">id</span>=<span class="hljs-value">"dataSource"</span> <span class="hljs-attribute">class</span>=<span class="hljs-value">"com.alibaba.druid.pool.DruidDataSource"</span> <span class="hljs-attribute">destroy-method</span>=<span class="hljs-value">"close"</span>&gt;</span>
+        <span class="hljs-comment">&lt;!-- 数据库基本信息配置 --&gt;</span>
+        <span class="hljs-tag">&lt;<span class="hljs-title">property</span> <span class="hljs-attribute">name</span>=<span class="hljs-value">"url"</span> <span class="hljs-attribute">value</span>=<span class="hljs-value">"${jdbc.url}"</span> /&gt;</span>
+        <span class="hljs-tag">&lt;<span class="hljs-title">property</span> <span class="hljs-attribute">name</span>=<span class="hljs-value">"username"</span> <span class="hljs-attribute">value</span>=<span class="hljs-value">"${jdbc.username}"</span> /&gt;</span>
+        <span class="hljs-tag">&lt;<span class="hljs-title">property</span> <span class="hljs-attribute">name</span>=<span class="hljs-value">"password"</span> <span class="hljs-attribute">value</span>=<span class="hljs-value">"${jdbc.password}"</span> /&gt;</span>
+        <span class="hljs-tag">&lt;<span class="hljs-title">property</span> <span class="hljs-attribute">name</span>=<span class="hljs-value">"driverClassName"</span> <span class="hljs-attribute">value</span>=<span class="hljs-value">"${jdbc.driver}"</span> /&gt;</span>
+        <span class="hljs-tag">&lt;<span class="hljs-title">property</span> <span class="hljs-attribute">name</span>=<span class="hljs-value">"filters"</span> <span class="hljs-attribute">value</span>=<span class="hljs-value">"${filters}"</span> /&gt;</span>
+        <span class="hljs-comment">&lt;!-- 最大并发连接数 --&gt;</span>
+        <span class="hljs-tag">&lt;<span class="hljs-title">property</span> <span class="hljs-attribute">name</span>=<span class="hljs-value">"maxActive"</span> <span class="hljs-attribute">value</span>=<span class="hljs-value">"${maxActive}"</span> /&gt;</span>
+        <span class="hljs-comment">&lt;!-- 初始化连接数量 --&gt;</span>
+        <span class="hljs-tag">&lt;<span class="hljs-title">property</span> <span class="hljs-attribute">name</span>=<span class="hljs-value">"initialSize"</span> <span class="hljs-attribute">value</span>=<span class="hljs-value">"${initialSize}"</span> /&gt;</span>
+        <span class="hljs-comment">&lt;!-- 配置获取连接等待超时的时间 --&gt;</span>
+        <span class="hljs-tag">&lt;<span class="hljs-title">property</span> <span class="hljs-attribute">name</span>=<span class="hljs-value">"maxWait"</span> <span class="hljs-attribute">value</span>=<span class="hljs-value">"${maxWait}"</span> /&gt;</span>
+        <span class="hljs-comment">&lt;!-- 最小空闲连接数 --&gt;</span>
+        <span class="hljs-tag">&lt;<span class="hljs-title">property</span> <span class="hljs-attribute">name</span>=<span class="hljs-value">"minIdle"</span> <span class="hljs-attribute">value</span>=<span class="hljs-value">"${minIdle}"</span> /&gt;</span>
+        <span class="hljs-comment">&lt;!-- 配置间隔多久才进行一次检测，检测需要关闭的空闲连接，单位是毫秒 --&gt;</span>
+        <span class="hljs-tag">&lt;<span class="hljs-title">property</span> <span class="hljs-attribute">name</span>=<span class="hljs-value">"timeBetweenEvictionRunsMillis"</span> <span class="hljs-attribute">value</span>=<span class="hljs-value">"${timeBetweenEvictionRunsMillis}"</span> /&gt;</span>
+        <span class="hljs-comment">&lt;!-- 配置一个连接在池中最小生存的时间，单位是毫秒 --&gt;</span>
+        <span class="hljs-tag">&lt;<span class="hljs-title">property</span> <span class="hljs-attribute">name</span>=<span class="hljs-value">"minEvictableIdleTimeMillis"</span> <span class="hljs-attribute">value</span>=<span class="hljs-value">"${minEvictableIdleTimeMillis}"</span> /&gt;</span>
+        <span class="hljs-tag">&lt;<span class="hljs-title">property</span> <span class="hljs-attribute">name</span>=<span class="hljs-value">"validationQuery"</span> <span class="hljs-attribute">value</span>=<span class="hljs-value">"${validationQuery}"</span> /&gt;</span>
+        <span class="hljs-tag">&lt;<span class="hljs-title">property</span> <span class="hljs-attribute">name</span>=<span class="hljs-value">"testWhileIdle"</span> <span class="hljs-attribute">value</span>=<span class="hljs-value">"${testWhileIdle}"</span> /&gt;</span>
+        <span class="hljs-tag">&lt;<span class="hljs-title">property</span> <span class="hljs-attribute">name</span>=<span class="hljs-value">"testOnBorrow"</span> <span class="hljs-attribute">value</span>=<span class="hljs-value">"${testOnBorrow}"</span> /&gt;</span>
+        <span class="hljs-tag">&lt;<span class="hljs-title">property</span> <span class="hljs-attribute">name</span>=<span class="hljs-value">"testOnReturn"</span> <span class="hljs-attribute">value</span>=<span class="hljs-value">"${testOnReturn}"</span> /&gt;</span>
+        <span class="hljs-tag">&lt;<span class="hljs-title">property</span> <span class="hljs-attribute">name</span>=<span class="hljs-value">"maxOpenPreparedStatements"</span> <span class="hljs-attribute">value</span>=<span class="hljs-value">"${maxOpenPreparedStatements}"</span> /&gt;</span>
+        <span class="hljs-comment">&lt;!-- 打开removeAbandoned功能 --&gt;</span>
+        <span class="hljs-tag">&lt;<span class="hljs-title">property</span> <span class="hljs-attribute">name</span>=<span class="hljs-value">"removeAbandoned"</span> <span class="hljs-attribute">value</span>=<span class="hljs-value">"${removeAbandoned}"</span> /&gt;</span>
+        <span class="hljs-comment">&lt;!-- 1800秒，也就是30分钟 --&gt;</span>
+        <span class="hljs-tag">&lt;<span class="hljs-title">property</span> <span class="hljs-attribute">name</span>=<span class="hljs-value">"removeAbandonedTimeout"</span> <span class="hljs-attribute">value</span>=<span class="hljs-value">"${removeAbandonedTimeout}"</span> /&gt;</span>
+        <span class="hljs-comment">&lt;!-- 关闭abanded连接时输出错误日志 --&gt;</span>
+        <span class="hljs-tag">&lt;<span class="hljs-title">property</span> <span class="hljs-attribute">name</span>=<span class="hljs-value">"logAbandoned"</span> <span class="hljs-attribute">value</span>=<span class="hljs-value">"${logAbandoned}"</span> /&gt;</span>
+    <span class="hljs-tag">&lt;/<span class="hljs-title">bean</span>&gt;</span>
+
+    <span class="hljs-comment">&lt;!-- 让spring管理sqlsessionfactory 使用mybatis和spring整合包中的 --&gt;</span>
+    <span class="hljs-tag">&lt;<span class="hljs-title">bean</span> <span class="hljs-attribute">id</span>=<span class="hljs-value">"sqlSessionFactory"</span> <span class="hljs-attribute">class</span>=<span class="hljs-value">"org.mybatis.spring.SqlSessionFactoryBean"</span>&gt;</span>
+        <span class="hljs-comment">&lt;!-- 数据库连接池 --&gt;</span>
+        <span class="hljs-tag">&lt;<span class="hljs-title">property</span> <span class="hljs-attribute">name</span>=<span class="hljs-value">"dataSource"</span> <span class="hljs-attribute">ref</span>=<span class="hljs-value">"dataSource"</span> /&gt;</span>
+        <span class="hljs-comment">&lt;!-- 加载mybatis的全局配置文件 --&gt;</span>
+        <span class="hljs-tag">&lt;<span class="hljs-title">property</span> <span class="hljs-attribute">name</span>=<span class="hljs-value">"configLocation"</span> <span class="hljs-attribute">value</span>=<span class="hljs-value">"classpath:mybatis/SqlMapConfig.xml"</span> /&gt;</span>
+    <span class="hljs-tag">&lt;/<span class="hljs-title">bean</span>&gt;</span>
+
+<span class="hljs-tag">&lt;/<span class="hljs-title">beans</span>&gt;</span></code></pre>
+
+<p>到此基本配置就完成了</p>
+
+<hr />
+
+
+
+<h2 id="三整合后开发dao方法">三.整合后开发DAO方法</h2>
+
+<p>首先， 通过翻阅源码，我们来整理一下mybatis进行持久化操作时重要的几个类：</p>
+
+<ol>
+<li><p>SqlSessionFactoryBuilder：build方法创建SqlSessionFactory实例。</p></li>
+<li><p>SqlSessionFactory：创建SqlSession实例的工厂。</p></li>
+<li><p>SqlSession：用于执行持久化操作的对象，类似于jdbc中的Connection。</p></li>
+<li><p>SqlSessionTemplate：MyBatis提供的持久层访问模板化的工具，线程安全，可通过构造参数或依赖注入SqlSessionFactory实例。</p></li>
+</ol>
+
+
+
+<h3 id="1原始dao方法">1.原始dao方法</h3>
+
+<p>原始方法就是写好mapper.xml映射,然后写dao接口,再写dao实现类,最后测试.</p>
+
+
+
+<h4 id="1mapper映射">1.mapper映射</h4>
+
+<p>UserMapper.xml</p>
+
+
+
+<pre class="prettyprint"><code class=" hljs xml"><span class="hljs-pi">&lt;?xml version="1.0" encoding="UTF-8" ?&gt;</span>
+<span class="hljs-doctype">&lt;!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd"&gt;</span>
+<span class="hljs-comment">&lt;!--命名空间，用于隔离sql语句，后面会讲另一层非常重要的作用。--&gt;</span>
+<span class="hljs-tag">&lt;<span class="hljs-title">mapper</span> <span class="hljs-attribute">namespace</span>=<span class="hljs-value">"UserMapper"</span>&gt;</span>
+    <span class="hljs-comment">&lt;!--根据id查询出用户信息(查询一条数据)--&gt;</span>
+    <span class="hljs-tag">&lt;<span class="hljs-title">select</span> <span class="hljs-attribute">id</span>=<span class="hljs-value">"findUserById"</span> <span class="hljs-attribute">parameterType</span>=<span class="hljs-value">"int"</span> <span class="hljs-attribute">resultType</span>=<span class="hljs-value">"com.aust.model.User"</span>&gt;</span>
+        SELECT * FROM user WHERE id=#{id}
+    <span class="hljs-tag">&lt;/<span class="hljs-title">select</span>&gt;</span>
+<span class="hljs-tag">&lt;/<span class="hljs-title">mapper</span>&gt;</span></code></pre>
+
+<p>其次在sqlMapConfig.xml中配置映射</p>
+
+
+
+<pre class="prettyprint"><code class=" hljs xml"><span class="hljs-tag">&lt;<span class="hljs-title">mappers</span>&gt;</span>
+    <span class="hljs-tag">&lt;<span class="hljs-title">mapper</span> <span class="hljs-attribute">resource</span>=<span class="hljs-value">"mybatis/mapper/UserMapper.xml"</span>/&gt;</span>
+<span class="hljs-tag">&lt;/<span class="hljs-title">mappers</span>&gt;</span></code></pre>
+
+
+
+<h4 id="2dao接口">2.dao接口</h4>
+
+<p>UserDao.java</p>
+
+
+
+<pre class="prettyprint"><code class=" hljs cs"><span class="hljs-keyword">public</span> <span class="hljs-keyword">interface</span> UserDao {
+    <span class="hljs-keyword">public</span> User <span class="hljs-title">findUserById</span>(<span class="hljs-keyword">int</span> id);
+}</code></pre>
+
+
+
+<h4 id="3dao实现类">3.dao实现类</h4>
+
+<p>这里需要注意的就是在实现类中我们需要使用sqlSession这个变量,因此需要spring提前注入进去,整合包中帮我们提供了<strong>SqlSessionDaoSupport</strong>这个类,集成他之后,再在spring配置文件中配置下就可以实现注入了,省去了自己写注入代码的烦恼. <br />
+UserDaoImp.java</p>
+
+
+
+<pre class="prettyprint"><code class=" hljs java"><span class="hljs-keyword">public</span> <span class="hljs-class"><span class="hljs-keyword">class</span> <span class="hljs-title">UserDaoImp</span> <span class="hljs-keyword">extends</span> <span class="hljs-title">SqlSessionDaoSupport</span> <span class="hljs-keyword">implements</span> <span class="hljs-title">UserDao</span> {</span>
+
+
+    <span class="hljs-annotation">@Override</span>
+    <span class="hljs-keyword">public</span> User <span class="hljs-title">findUserById</span>(<span class="hljs-keyword">int</span> id) {
+        SqlSession session = <span class="hljs-keyword">this</span>.getSqlSession();
+        User user = session.selectOne(<span class="hljs-string">"UserMapper.findUserById"</span>,id);
+        <span class="hljs-keyword">return</span> user;
+    }
+}</code></pre>
+
+<p>需要在spring中配置注入</p>
+
+
+
+<pre class="prettyprint"><code class=" hljs xml">    <span class="hljs-comment">&lt;!--显示注入sqlsessionFactory--&gt;</span>
+    <span class="hljs-tag">&lt;<span class="hljs-title">bean</span> <span class="hljs-attribute">class</span>=<span class="hljs-value">"com.aust.dao.UserDaoImp"</span> <span class="hljs-attribute">id</span>=<span class="hljs-value">"userDao"</span>&gt;</span>
+        <span class="hljs-tag">&lt;<span class="hljs-title">property</span> <span class="hljs-attribute">name</span>=<span class="hljs-value">"sqlSessionFactory"</span> <span class="hljs-attribute">ref</span>=<span class="hljs-value">"sqlSessionFactory"</span>/&gt;</span>
+    <span class="hljs-tag">&lt;/<span class="hljs-title">bean</span>&gt;</span></code></pre>
+
+
+
+<h4 id="4junit测试">4.junit测试</h4>
+
+
+
+<pre class="prettyprint"><code class=" hljs java">    ApplicationContext context = <span class="hljs-keyword">null</span>;
+
+    <span class="hljs-annotation">@Before</span>
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">void</span> <span class="hljs-title">init</span>(){
+        <span class="hljs-comment">//得到spring容器</span>
+        context = <span class="hljs-keyword">new</span> ClassPathXmlApplicationContext(<span class="hljs-string">"classpath:spring/applicationContext.xml"</span>);
+    }
+
+    <span class="hljs-annotation">@Test</span>
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">void</span> <span class="hljs-title">findUserByIdTest</span>(){
+        <span class="hljs-comment">//从spring容器中获取bean</span>
+        UserDaoImp daoImp = (UserDaoImp) context.getBean(<span class="hljs-string">"userDao"</span>);
+        <span class="hljs-comment">//执行查询</span>
+        User user = daoImp.findUserById(<span class="hljs-number">18</span>);
+        System.out.println(user.toString());
+    }</code></pre>
+
+<p><img src="http://img.blog.csdn.net/20160418214403789" alt="这里写图片描述" title="" /></p>
+
+<hr />
+
+
+
+<h3 id="2mapper代理方法">2.mapper代理方法</h3>
+
+<p>代理方法和之前一样,不需要写实现类,现在是有spring自动创建实现类.</p>
+
+
+
+<h4 id="1mapperxml文件">1.mapper.xml文件</h4>
+
+<p>需要注意的就是namespace需要写上mapper接口的类路径名</p>
+
+
+
+<pre class="prettyprint"><code class=" hljs xml"><span class="hljs-pi">&lt;?xml version="1.0" encoding="UTF-8" ?&gt;</span>
+<span class="hljs-doctype">&lt;!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd"&gt;</span>
+<span class="hljs-comment">&lt;!--命名空间，用于隔离sql语句，后面会讲另一层非常重要的作用。--&gt;</span>
+<span class="hljs-tag">&lt;<span class="hljs-title">mapper</span> <span class="hljs-attribute">namespace</span>=<span class="hljs-value">"com.aust.dao.UserMapper"</span>&gt;</span>
+    <span class="hljs-comment">&lt;!--根据id查询出用户信息(查询一条数据)--&gt;</span>
+    <span class="hljs-tag">&lt;<span class="hljs-title">select</span> <span class="hljs-attribute">id</span>=<span class="hljs-value">"findUserById"</span> <span class="hljs-attribute">parameterType</span>=<span class="hljs-value">"int"</span> <span class="hljs-attribute">resultType</span>=<span class="hljs-value">"com.aust.model.User"</span>&gt;</span>
+        SELECT * FROM user WHERE id=#{id}
+    <span class="hljs-tag">&lt;/<span class="hljs-title">select</span>&gt;</span>
+<span class="hljs-tag">&lt;/<span class="hljs-title">mapper</span>&gt;</span></code></pre>
+
+
+
+<h4 id="2usermapperjava">2.UserMapper.java</h4>
+
+<p>mapper接口,用于spring来创建管理</p>
+
+
+
+<pre class="prettyprint"><code class=" hljs cs"><span class="hljs-keyword">public</span> <span class="hljs-keyword">interface</span> UserMapper {
+    <span class="hljs-keyword">public</span> User <span class="hljs-title">findUserById</span>(<span class="hljs-keyword">int</span> id);
+}</code></pre>
+
+
+
+<h4 id="3spring配置管理mapper">3.spring配置管理mapper</h4>
+
+
+
+<pre class="prettyprint"><code class=" hljs xml">    <span class="hljs-comment">&lt;!--配置mapper方式--&gt;</span>
+    <span class="hljs-comment">&lt;!--MapperFactoryBean用于根据mapper接口创建动态代理对象的工厂--&gt;</span>
+    <span class="hljs-tag">&lt;<span class="hljs-title">bean</span> <span class="hljs-attribute">id</span>=<span class="hljs-value">"userMapper"</span> <span class="hljs-attribute">class</span>=<span class="hljs-value">"org.mybatis.spring.mapper.MapperFactoryBean"</span>&gt;</span>
+        <span class="hljs-comment">&lt;!--mapperInterface要创建代理的接口对象--&gt;</span>
+        <span class="hljs-tag">&lt;<span class="hljs-title">property</span> <span class="hljs-attribute">name</span>=<span class="hljs-value">"mapperInterface"</span> <span class="hljs-attribute">value</span>=<span class="hljs-value">"com.aust.dao.UserMapper"</span>/&gt;</span>
+        <span class="hljs-comment">&lt;!--sqlSessionFactory配置--&gt;</span>
+        <span class="hljs-tag">&lt;<span class="hljs-title">property</span> <span class="hljs-attribute">name</span>=<span class="hljs-value">"sqlSessionFactory"</span> <span class="hljs-attribute">ref</span>=<span class="hljs-value">"sqlSessionFactory"</span>/&gt;</span>
+    <span class="hljs-tag">&lt;/<span class="hljs-title">bean</span>&gt;</span></code></pre>
+
+
+
+<h4 id="4junit测试类">4.junit测试类</h4>
+
+
+
+<pre class="prettyprint"><code class=" hljs java">    ApplicationContext context = <span class="hljs-keyword">null</span>;
+
+    <span class="hljs-annotation">@Before</span>
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">void</span> <span class="hljs-title">init</span>(){
+        <span class="hljs-comment">//得到spring容器</span>
+        context = <span class="hljs-keyword">new</span> ClassPathXmlApplicationContext(<span class="hljs-string">"classpath:spring/applicationContext.xml"</span>);
+    }
+
+    <span class="hljs-annotation">@Test</span>
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">void</span> <span class="hljs-title">findUserByIdTest</span>(){
+        UserMapper userMapper = (UserMapper) context.getBean(<span class="hljs-string">"userMapper"</span>);
+        User user = userMapper.findUserById(<span class="hljs-number">18</span>);
+        System.out.println(user.toString());
+    }</code></pre>
+
+
+
+<h4 id="5带来的问题">5.带来的问题</h4>
+
+<p>此方法问题需要针对每一个mapper来配置,这样的话,如果很多mapper则配置相当繁琐.因此就可以用扫描器来配置mapper,不过需要遵循一些约定.</p>
+
+
+
+<pre class="prettyprint"><code class=" hljs xml">    <span class="hljs-comment">&lt;!--mapper批量扫描,扫描出来的mapper会自动创建代理对象,并在spring容器中注册
+        遵循约定:需要将mapper.java和mapper.xml放在同一个包中,且名称一致
+        自动扫描注册的bean名称为mapper接口类名(首字母小写)
+    --&gt;</span>
+    <span class="hljs-tag">&lt;<span class="hljs-title">bean</span> <span class="hljs-attribute">class</span>=<span class="hljs-value">"org.mybatis.spring.mapper.MapperScannerConfigurer"</span>&gt;</span>
+        <span class="hljs-comment">&lt;!--配置要扫描的包,如果有多个包需要用逗号隔开--&gt;</span>
+        <span class="hljs-tag">&lt;<span class="hljs-title">property</span> <span class="hljs-attribute">name</span>=<span class="hljs-value">"basePackage"</span> <span class="hljs-attribute">value</span>=<span class="hljs-value">"com.aust.dao"</span>/&gt;</span>
+        <span class="hljs-comment">&lt;!--使用beanname来配置,防止提前加载而加载不到相应的bean--&gt;</span>
+        <span class="hljs-tag">&lt;<span class="hljs-title">property</span> <span class="hljs-attribute">name</span>=<span class="hljs-value">"sqlSessionFactoryBeanName"</span> <span class="hljs-attribute">value</span>=<span class="hljs-value">"sqlSessionFactory"</span>/&gt;</span>
+    <span class="hljs-tag">&lt;/<span class="hljs-title">bean</span>&gt;</span></code></pre>
+
+
+
+<h3 id="3基于sqlsessiontemplate开发">3.基于sqlSessionTemplate开发</h3>
+
+
+
+<h4 id="1userdao">1.UserDao</h4>
+
+
+
+<pre class="prettyprint"><code class=" hljs cs"><span class="hljs-keyword">public</span> <span class="hljs-keyword">class</span> UserDao {
+<span class="hljs-comment">//使用SqlSessionTemplate</span>
+    <span class="hljs-keyword">private</span> SqlSessionTemplate sessionFactory;
+<span class="hljs-comment">//这里实现set方法,用于spring的注入</span>
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">void</span> <span class="hljs-title">setSqlSessionTemplate</span>(SqlSessionTemplate sqlSessionTemplate) {
+        <span class="hljs-keyword">this</span>.sessionFactory = sqlSessionTemplate;
+    }
+
+    <span class="hljs-keyword">public</span> User <span class="hljs-title">findUserById</span>(<span class="hljs-keyword">int</span> id){
+        User user = sessionFactory.selectOne(<span class="hljs-string">"userMapper.findUserById"</span>,id);
+        <span class="hljs-keyword">return</span> user;
+    }
+}</code></pre>
+
+
+
+<h4 id="2spring配置">2.spring配置</h4>
+
+
+
+<pre class="prettyprint"><code class=" hljs xml">    <span class="hljs-comment">&lt;!--sqlSession模板,本身线程安全--&gt;</span>
+    <span class="hljs-tag">&lt;<span class="hljs-title">bean</span> <span class="hljs-attribute">id</span>=<span class="hljs-value">"sqlSessionTemplate"</span> <span class="hljs-attribute">class</span>=<span class="hljs-value">"org.mybatis.spring.SqlSessionTemplate"</span>&gt;</span>
+        <span class="hljs-tag">&lt;<span class="hljs-title">constructor-arg</span> <span class="hljs-attribute">ref</span>=<span class="hljs-value">"sqlSessionFactory"</span> /&gt;</span>
+    <span class="hljs-tag">&lt;/<span class="hljs-title">bean</span>&gt;</span>
+    <span class="hljs-tag">&lt;<span class="hljs-title">bean</span> <span class="hljs-attribute">class</span>=<span class="hljs-value">"com.aust.dao.userDao"</span> <span class="hljs-attribute">id</span>=<span class="hljs-value">"userDao"</span>&gt;</span>
+        <span class="hljs-tag">&lt;<span class="hljs-title">property</span> <span class="hljs-attribute">name</span>=<span class="hljs-value">"sqlSessionTemplate"</span> <span class="hljs-attribute">ref</span>=<span class="hljs-value">"sqlSessionTemplate"</span>/&gt;</span>
+    <span class="hljs-tag">&lt;/<span class="hljs-title">bean</span>&gt;</span></code></pre>
+
+
+
+<h4 id="3junit测试">3.junit测试</h4>
+
+
+
+<pre class="prettyprint"><code class=" hljs java">    ApplicationContext context = <span class="hljs-keyword">null</span>;
+
+    <span class="hljs-annotation">@Before</span>
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">void</span> <span class="hljs-title">init</span>(){
+        <span class="hljs-comment">//得到spring容器</span>
+        context = <span class="hljs-keyword">new</span> ClassPathXmlApplicationContext(<span class="hljs-string">"classpath:spring/applicationContext.xml"</span>);
+    }
+
+    <span class="hljs-annotation">@Test</span>
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">void</span> <span class="hljs-title">findUserByIdTest</span>(){
+        UserDao userDao = (userDao) context.getBean(<span class="hljs-string">"userDao"</span>);
+        User user = userDao.findUserById(<span class="hljs-number">18</span>);
+        System.out.println(user.toString());
+    }</code></pre>
+
+<p>这种方式和第一种方式差不多,不同的就是sqlSession获得的方式.</p>
+
+<hr />
+
+<p>项目示例:</p>
+
+<p>SSM框架整合: <a href="https://github.com/nl101531/JavaWEB">https://github.com/nl101531/JavaWEB</a></p>
+
+<p>自己做的一个项目: <a href="https://github.com/nl101531/AUSTOJ">https://github.com/nl101531/AUSTOJ</a></p></div>&#13;
+        <script type="text/javascript">&#13;
+            $(function () {&#13;
+                $('pre.prettyprint code').each(function () {&#13;
+                    var lines = $(this).text().split('\n').length;&#13;
+                    var $numbering = $('&lt;ul/&gt;').addClass('pre-numbering').hide();&#13;
+                    $(this).addClass('has-numbering').parent().append($numbering);&#13;
+                    for (i = 1; i &lt;= lines; i++) {&#13;
+                        $numbering.append($('&lt;li/&gt;').text(i));&#13;
+                    };&#13;
+                    $numbering.fadeIn(1700);&#13;
+                });&#13;
+            });&#13;
+        </script>&#13;
+   &#13;

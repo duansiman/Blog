@@ -1,0 +1,243 @@
+
+        <div class="markdown_views"><h1 id="springdatajpa学习记录一环境配置">SpringDataJPA学习记录(一)–环境配置</h1>
+
+<p>标签（空格分隔）： springJPA</p>
+
+<hr />
+
+
+
+<h2 id="1maven配置">1.maven配置</h2>
+
+<p>首先需要spring相关架包,其实spring-data-jpa里面已经依赖了,如果你想用自己的版本则需要额外引入spring相关包.JPA实现还都是hibernate去实现的,所以还需要hibernate相关包.mysql就更不用说了.</p>
+
+
+
+<pre class="prettyprint"><code class=" hljs xml">    <span class="hljs-comment">&lt;!--JPA start--&gt;</span>
+      <span class="hljs-tag">&lt;<span class="hljs-title">dependency</span>&gt;</span>
+        <span class="hljs-tag">&lt;<span class="hljs-title">groupId</span>&gt;</span>org.springframework.data<span class="hljs-tag">&lt;/<span class="hljs-title">groupId</span>&gt;</span>
+        <span class="hljs-tag">&lt;<span class="hljs-title">artifactId</span>&gt;</span>spring-data-jpa<span class="hljs-tag">&lt;/<span class="hljs-title">artifactId</span>&gt;</span>
+        <span class="hljs-tag">&lt;<span class="hljs-title">version</span>&gt;</span>1.10.4.RELEASE<span class="hljs-tag">&lt;/<span class="hljs-title">version</span>&gt;</span>
+      <span class="hljs-tag">&lt;/<span class="hljs-title">dependency</span>&gt;</span>
+    <span class="hljs-comment">&lt;!--JPA end--&gt;</span>
+
+    <span class="hljs-comment">&lt;!--hibernate start--&gt;</span>
+    <span class="hljs-tag">&lt;<span class="hljs-title">dependency</span>&gt;</span>
+      <span class="hljs-tag">&lt;<span class="hljs-title">groupId</span>&gt;</span>org.hibernate<span class="hljs-tag">&lt;/<span class="hljs-title">groupId</span>&gt;</span>
+      <span class="hljs-tag">&lt;<span class="hljs-title">artifactId</span>&gt;</span>hibernate-core<span class="hljs-tag">&lt;/<span class="hljs-title">artifactId</span>&gt;</span>
+      <span class="hljs-tag">&lt;<span class="hljs-title">version</span>&gt;</span>${hibernate.version}<span class="hljs-tag">&lt;/<span class="hljs-title">version</span>&gt;</span>
+    <span class="hljs-tag">&lt;/<span class="hljs-title">dependency</span>&gt;</span>
+    <span class="hljs-tag">&lt;<span class="hljs-title">dependency</span>&gt;</span>
+      <span class="hljs-tag">&lt;<span class="hljs-title">groupId</span>&gt;</span>org.hibernate<span class="hljs-tag">&lt;/<span class="hljs-title">groupId</span>&gt;</span>
+      <span class="hljs-tag">&lt;<span class="hljs-title">artifactId</span>&gt;</span>hibernate-entitymanager<span class="hljs-tag">&lt;/<span class="hljs-title">artifactId</span>&gt;</span>
+      <span class="hljs-tag">&lt;<span class="hljs-title">version</span>&gt;</span>${hibernate.version}<span class="hljs-tag">&lt;/<span class="hljs-title">version</span>&gt;</span>
+    <span class="hljs-tag">&lt;/<span class="hljs-title">dependency</span>&gt;</span>
+    <span class="hljs-comment">&lt;!--hibernate end--&gt;</span>
+
+    <span class="hljs-comment">&lt;!--mysql start--&gt;</span>
+    <span class="hljs-tag">&lt;<span class="hljs-title">dependency</span>&gt;</span>
+      <span class="hljs-tag">&lt;<span class="hljs-title">groupId</span>&gt;</span>mysql<span class="hljs-tag">&lt;/<span class="hljs-title">groupId</span>&gt;</span>
+      <span class="hljs-tag">&lt;<span class="hljs-title">artifactId</span>&gt;</span>mysql-connector-java<span class="hljs-tag">&lt;/<span class="hljs-title">artifactId</span>&gt;</span>
+      <span class="hljs-tag">&lt;<span class="hljs-title">version</span>&gt;</span>${mysql.version}<span class="hljs-tag">&lt;/<span class="hljs-title">version</span>&gt;</span>
+    <span class="hljs-tag">&lt;/<span class="hljs-title">dependency</span>&gt;</span>
+    <span class="hljs-comment">&lt;!--mysql end--&gt;</span></code></pre>
+
+
+
+<h2 id="2整合spring">2.整合Spring</h2>
+
+<p>整合Spring主要有以下几点要注意: <br />
+1.数据源配置 <br />
+2.JPA提供者,JPA属性配置 <br />
+3.事务配置 <br />
+4.jpa:repositories 配置,具体如下代码:</p>
+
+
+
+<pre class="prettyprint"><code class=" hljs xml"> <span class="hljs-comment">&lt;!-- 加载数据库配置文件 --&gt;</span>
+    <span class="hljs-tag">&lt;<span class="hljs-title">context:property-placeholder</span> <span class="hljs-attribute">location</span>=<span class="hljs-value">"classpath:config.properties"</span>/&gt;</span>
+<span class="hljs-comment">&lt;!--配置数据库连接池Druid--&gt;</span>
+    <span class="hljs-tag">&lt;<span class="hljs-title">bean</span> <span class="hljs-attribute">id</span>=<span class="hljs-value">"dataSource"</span> <span class="hljs-attribute">class</span>=<span class="hljs-value">"com.alibaba.druid.pool.DruidDataSource"</span> <span class="hljs-attribute">init-method</span>=<span class="hljs-value">"init"</span> <span class="hljs-attribute">destroy-method</span>=<span class="hljs-value">"close"</span>&gt;</span>
+        <span class="hljs-comment">&lt;!-- 数据库基本信息配置 --&gt;</span>
+        <span class="hljs-tag">&lt;<span class="hljs-title">property</span> <span class="hljs-attribute">name</span>=<span class="hljs-value">"url"</span> <span class="hljs-attribute">value</span>=<span class="hljs-value">"${jdbc.url}"</span> /&gt;</span>
+        <span class="hljs-tag">&lt;<span class="hljs-title">property</span> <span class="hljs-attribute">name</span>=<span class="hljs-value">"username"</span> <span class="hljs-attribute">value</span>=<span class="hljs-value">"${jdbc.username}"</span> /&gt;</span>
+        <span class="hljs-tag">&lt;<span class="hljs-title">property</span> <span class="hljs-attribute">name</span>=<span class="hljs-value">"password"</span> <span class="hljs-attribute">value</span>=<span class="hljs-value">"${jdbc.password}"</span> /&gt;</span>
+        <span class="hljs-tag">&lt;<span class="hljs-title">property</span> <span class="hljs-attribute">name</span>=<span class="hljs-value">"driverClassName"</span> <span class="hljs-attribute">value</span>=<span class="hljs-value">"${jdbc.driver}"</span> /&gt;</span>
+        <span class="hljs-tag">&lt;<span class="hljs-title">property</span> <span class="hljs-attribute">name</span>=<span class="hljs-value">"filters"</span> <span class="hljs-attribute">value</span>=<span class="hljs-value">"${filters}"</span> /&gt;</span>
+        <span class="hljs-comment">&lt;!-- 最大并发连接数 --&gt;</span>
+        <span class="hljs-tag">&lt;<span class="hljs-title">property</span> <span class="hljs-attribute">name</span>=<span class="hljs-value">"maxActive"</span> <span class="hljs-attribute">value</span>=<span class="hljs-value">"${maxActive}"</span> /&gt;</span>
+        <span class="hljs-comment">&lt;!-- 初始化连接数量 --&gt;</span>
+        <span class="hljs-tag">&lt;<span class="hljs-title">property</span> <span class="hljs-attribute">name</span>=<span class="hljs-value">"initialSize"</span> <span class="hljs-attribute">value</span>=<span class="hljs-value">"${initialSize}"</span> /&gt;</span>
+        <span class="hljs-comment">&lt;!-- 配置获取连接等待超时的时间 --&gt;</span>
+        <span class="hljs-tag">&lt;<span class="hljs-title">property</span> <span class="hljs-attribute">name</span>=<span class="hljs-value">"maxWait"</span> <span class="hljs-attribute">value</span>=<span class="hljs-value">"${maxWait}"</span> /&gt;</span>
+        <span class="hljs-comment">&lt;!-- 最小空闲连接数 --&gt;</span>
+        <span class="hljs-tag">&lt;<span class="hljs-title">property</span> <span class="hljs-attribute">name</span>=<span class="hljs-value">"minIdle"</span> <span class="hljs-attribute">value</span>=<span class="hljs-value">"${minIdle}"</span> /&gt;</span>
+        <span class="hljs-comment">&lt;!-- 配置间隔多久才进行一次检测，检测需要关闭的空闲连接，单位是毫秒 --&gt;</span>
+        <span class="hljs-tag">&lt;<span class="hljs-title">property</span> <span class="hljs-attribute">name</span>=<span class="hljs-value">"timeBetweenEvictionRunsMillis"</span> <span class="hljs-attribute">value</span>=<span class="hljs-value">"${timeBetweenEvictionRunsMillis}"</span> /&gt;</span>
+        <span class="hljs-comment">&lt;!-- 配置一个连接在池中最小生存的时间，单位是毫秒 --&gt;</span>
+        <span class="hljs-tag">&lt;<span class="hljs-title">property</span> <span class="hljs-attribute">name</span>=<span class="hljs-value">"minEvictableIdleTimeMillis"</span> <span class="hljs-attribute">value</span>=<span class="hljs-value">"${minEvictableIdleTimeMillis}"</span> /&gt;</span>
+        <span class="hljs-tag">&lt;<span class="hljs-title">property</span> <span class="hljs-attribute">name</span>=<span class="hljs-value">"validationQuery"</span> <span class="hljs-attribute">value</span>=<span class="hljs-value">"SELECT 1"</span> /&gt;</span>
+        <span class="hljs-tag">&lt;<span class="hljs-title">property</span> <span class="hljs-attribute">name</span>=<span class="hljs-value">"testWhileIdle"</span> <span class="hljs-attribute">value</span>=<span class="hljs-value">"${testWhileIdle}"</span> /&gt;</span>
+        <span class="hljs-tag">&lt;<span class="hljs-title">property</span> <span class="hljs-attribute">name</span>=<span class="hljs-value">"testOnBorrow"</span> <span class="hljs-attribute">value</span>=<span class="hljs-value">"${testOnBorrow}"</span> /&gt;</span>
+        <span class="hljs-tag">&lt;<span class="hljs-title">property</span> <span class="hljs-attribute">name</span>=<span class="hljs-value">"testOnReturn"</span> <span class="hljs-attribute">value</span>=<span class="hljs-value">"${testOnReturn}"</span> /&gt;</span>
+        <span class="hljs-tag">&lt;<span class="hljs-title">property</span> <span class="hljs-attribute">name</span>=<span class="hljs-value">"maxOpenPreparedStatements"</span> <span class="hljs-attribute">value</span>=<span class="hljs-value">"${maxOpenPreparedStatements}"</span> /&gt;</span>
+        <span class="hljs-comment">&lt;!-- 打开removeAbandoned功能 --&gt;</span>
+        <span class="hljs-tag">&lt;<span class="hljs-title">property</span> <span class="hljs-attribute">name</span>=<span class="hljs-value">"removeAbandoned"</span> <span class="hljs-attribute">value</span>=<span class="hljs-value">"${removeAbandoned}"</span> /&gt;</span>
+        <span class="hljs-comment">&lt;!-- 1800秒，也就是30分钟 --&gt;</span>
+        <span class="hljs-tag">&lt;<span class="hljs-title">property</span> <span class="hljs-attribute">name</span>=<span class="hljs-value">"removeAbandonedTimeout"</span> <span class="hljs-attribute">value</span>=<span class="hljs-value">"${removeAbandonedTimeout}"</span> /&gt;</span>
+        <span class="hljs-comment">&lt;!-- 关闭abanded连接时输出错误日志 --&gt;</span>
+        <span class="hljs-tag">&lt;<span class="hljs-title">property</span> <span class="hljs-attribute">name</span>=<span class="hljs-value">"logAbandoned"</span> <span class="hljs-attribute">value</span>=<span class="hljs-value">"${logAbandoned}"</span> /&gt;</span>
+    <span class="hljs-tag">&lt;/<span class="hljs-title">bean</span>&gt;</span>
+
+    <span class="hljs-comment">&lt;!--第二步--&gt;</span>
+    <span class="hljs-comment">&lt;!--定义实体的工厂bean--&gt;</span>
+    <span class="hljs-tag">&lt;<span class="hljs-title">bean</span> <span class="hljs-attribute">id</span>=<span class="hljs-value">"entityManagerFactory"</span> <span class="hljs-attribute">class</span>=<span class="hljs-value">"org.springframework.orm.jpa.LocalContainerEntityManagerFactoryBean"</span>&gt;</span>
+        <span class="hljs-tag">&lt;<span class="hljs-title">property</span> <span class="hljs-attribute">name</span>=<span class="hljs-value">"dataSource"</span> <span class="hljs-attribute">ref</span>=<span class="hljs-value">"dataSource"</span>/&gt;</span>
+        <span class="hljs-comment">&lt;!--实体类位置--&gt;</span>
+        <span class="hljs-tag">&lt;<span class="hljs-title">property</span> <span class="hljs-attribute">name</span>=<span class="hljs-value">"packagesToScan"</span> <span class="hljs-attribute">value</span>=<span class="hljs-value">"cn.mrdear.entity"</span>/&gt;</span>
+        <span class="hljs-comment">&lt;!--持久化单元名--&gt;</span>
+        <span class="hljs-tag">&lt;<span class="hljs-title">property</span> <span class="hljs-attribute">name</span>=<span class="hljs-value">"persistenceUnitName"</span> <span class="hljs-attribute">value</span>=<span class="hljs-value">"TestJPA"</span> /&gt;</span>
+        <span class="hljs-comment">&lt;!--JPA提供者--&gt;</span>
+        <span class="hljs-tag">&lt;<span class="hljs-title">property</span> <span class="hljs-attribute">name</span>=<span class="hljs-value">"persistenceProviderClass"</span> <span class="hljs-attribute">value</span>=<span class="hljs-value">"org.hibernate.ejb.HibernatePersistence"</span>/&gt;</span>
+        <span class="hljs-comment">&lt;!--JPA属性--&gt;</span>
+        <span class="hljs-tag">&lt;<span class="hljs-title">property</span> <span class="hljs-attribute">name</span>=<span class="hljs-value">"jpaProperties"</span>&gt;</span>
+            <span class="hljs-tag">&lt;<span class="hljs-title">props</span>&gt;</span>
+                <span class="hljs-comment">&lt;!--配置方言--&gt;</span>
+                <span class="hljs-tag">&lt;<span class="hljs-title">prop</span> <span class="hljs-attribute">key</span>=<span class="hljs-value">"hibernate.dialect"</span>&gt;</span>org.hibernate.dialect.MySQL5Dialect<span class="hljs-tag">&lt;/<span class="hljs-title">prop</span>&gt;</span>
+                <span class="hljs-comment">&lt;!--激活查询日志功能--&gt;</span>
+                <span class="hljs-tag">&lt;<span class="hljs-title">prop</span> <span class="hljs-attribute">key</span>=<span class="hljs-value">"hibernate.show_sql"</span>&gt;</span>false<span class="hljs-tag">&lt;/<span class="hljs-title">prop</span>&gt;</span>
+                <span class="hljs-comment">&lt;!--优雅地输出Sql--&gt;</span>
+                <span class="hljs-tag">&lt;<span class="hljs-title">prop</span> <span class="hljs-attribute">key</span>=<span class="hljs-value">"hibernate.format_sql"</span>&gt;</span>false<span class="hljs-tag">&lt;/<span class="hljs-title">prop</span>&gt;</span>
+                <span class="hljs-comment">&lt;!--添加一条解释型标注--&gt;</span>
+                <span class="hljs-tag">&lt;<span class="hljs-title">prop</span> <span class="hljs-attribute">key</span>=<span class="hljs-value">"hibernate.use_sql_comments"</span>&gt;</span>false<span class="hljs-tag">&lt;/<span class="hljs-title">prop</span>&gt;</span>
+                <span class="hljs-comment">&lt;!--配置如何根据java模型生成数据库表结构,常用update,validate--&gt;</span>
+                <span class="hljs-tag">&lt;<span class="hljs-title">prop</span> <span class="hljs-attribute">key</span>=<span class="hljs-value">"hibernate.hbm2ddl.auto"</span>&gt;</span>none<span class="hljs-tag">&lt;/<span class="hljs-title">prop</span>&gt;</span>
+            <span class="hljs-tag">&lt;/<span class="hljs-title">props</span>&gt;</span>
+        <span class="hljs-tag">&lt;/<span class="hljs-title">property</span>&gt;</span>
+    <span class="hljs-tag">&lt;/<span class="hljs-title">bean</span>&gt;</span>
+
+    <span class="hljs-comment">&lt;!--第三步--&gt;</span>
+    <span class="hljs-comment">&lt;!--定义事务管理器--&gt;</span>
+    <span class="hljs-tag">&lt;<span class="hljs-title">bean</span> <span class="hljs-attribute">id</span>=<span class="hljs-value">"transactionManager"</span> <span class="hljs-attribute">class</span>=<span class="hljs-value">"org.springframework.orm.jpa.JpaTransactionManager"</span>&gt;</span>
+        <span class="hljs-tag">&lt;<span class="hljs-title">property</span> <span class="hljs-attribute">name</span>=<span class="hljs-value">"dataSource"</span> <span class="hljs-attribute">ref</span>=<span class="hljs-value">"dataSource"</span>/&gt;</span>
+        <span class="hljs-tag">&lt;<span class="hljs-title">property</span> <span class="hljs-attribute">name</span>=<span class="hljs-value">"entityManagerFactory"</span> <span class="hljs-attribute">ref</span>=<span class="hljs-value">"entityManagerFactory"</span>/&gt;</span>
+    <span class="hljs-tag">&lt;/<span class="hljs-title">bean</span>&gt;</span>
+
+    <span class="hljs-comment">&lt;!--第四步--&gt;</span>
+    <span class="hljs-comment">&lt;!--定义repository接口的存放目录--&gt;</span>
+    <span class="hljs-comment">&lt;!--定义接口实现的后缀，通常用Impl--&gt;</span>
+    <span class="hljs-comment">&lt;!--定义实体工厂的引用--&gt;</span>
+    <span class="hljs-comment">&lt;!--定义事务管理器的引用--&gt;</span>
+    <span class="hljs-tag">&lt;<span class="hljs-title">jpa:repositories</span> <span class="hljs-attribute">base-package</span>=<span class="hljs-value">"cn.mrdear.repository"</span>
+                      <span class="hljs-attribute">repository-impl-postfix</span>=<span class="hljs-value">"Impl"</span>
+                      <span class="hljs-attribute">entity-manager-factory-ref</span>=<span class="hljs-value">"entityManagerFactory"</span>
+                      <span class="hljs-attribute">transaction-manager-ref</span>=<span class="hljs-value">"transactionManager"</span>/&gt;</span>
+
+    <span class="hljs-comment">&lt;!--第五步--&gt;</span>
+    <span class="hljs-comment">&lt;!--声明采用注解的方式申明事务--&gt;</span>
+    <span class="hljs-tag">&lt;<span class="hljs-title">tx:annotation-driven</span> <span class="hljs-attribute">transaction-manager</span>=<span class="hljs-value">"transactionManager"</span>/&gt;</span></code></pre>
+
+<hr />
+
+<p>3.创建实体类</p>
+
+<p>实体类中常用注解: <br />
+* @Entity ：声明这个类是一个实体类 <br />
+* @Table：指定映射到数据库的表格 <br />
+* @Id ：映射到数据库表的主键属性,一个实体只能有一个属性被映射为主键 <br />
+* @GeneratedValue：主键的生成策略 <br />
+* @Column配置单列属性</p>
+
+<hr />
+
+
+
+<pre class="prettyprint"><code class=" hljs java"><span class="hljs-annotation">@Entity</span><span class="hljs-comment">//标识该为一个实体</span>
+<span class="hljs-annotation">@Table</span>(name = <span class="hljs-string">"user"</span>)<span class="hljs-comment">//关联数据库中的user表</span>
+<span class="hljs-keyword">public</span> <span class="hljs-class"><span class="hljs-keyword">class</span> <span class="hljs-title">User</span> {</span>
+
+    <span class="hljs-annotation">@Id</span><span class="hljs-comment">//标识该属性为主键</span>
+    <span class="hljs-keyword">private</span> Integer id;
+
+    <span class="hljs-keyword">private</span> String name;
+
+    <span class="hljs-keyword">private</span> String address;
+
+    <span class="hljs-keyword">private</span> String phone;
+
+    <span class="hljs-comment">//省略get和set</span>
+}</code></pre>
+
+
+
+<h2 id="3repository接口">3.Repository接口</h2>
+
+<ul>
+<li>Repository： 最顶层的接口，是一个空接口，目的是为了统一所有的Repository的类型，且能让组件扫描时自动识别</li>
+<li>CrudRepository: Repository的子接口，提供CRUD 的功能。</li>
+<li>PagingAndSortingRepository:CrudRepository的子接口, 添加分页排序。</li>
+<li>JpaRepository: PagingAndSortingRepository的子接口,增加批量操作等。</li>
+<li>JpaSpecificationExecutor: 用来做复杂查询的接口。</li>
+</ul>
+
+<p>(图片漏了一个字母J) <br />
+<img src="http://img.blog.csdn.net/20161101215927300" alt="这里写图片描述" title="" /></p>
+
+<p>由图来看,一般使用JpaRepository这个接口做查询即可.这个接口拥有如下方法:</p>
+
+<ul>
+<li>delete删除或批量删除</li>
+<li>findOne查找单个</li>
+<li>findAll查找所有</li>
+<li>save保存单个或批量保存</li>
+<li>saveAndFlush保存并刷新到数据库</li>
+</ul>
+
+<p>创建repository</p>
+
+
+
+<pre class="prettyprint"><code class=" hljs php"><span class="hljs-comment">//User表示该Repository与实体User关联,主键类型为Integer</span>
+<span class="hljs-keyword">public</span> <span class="hljs-class"><span class="hljs-keyword">interface</span> <span class="hljs-title">UserRepository</span> <span class="hljs-keyword">extends</span> <span class="hljs-title">JpaRepository</span>&lt;<span class="hljs-title">User</span>,<span class="hljs-title">Integer</span>&gt; {</span>
+
+}</code></pre>
+
+<p>这样就完成了一个基本Repository的创建,可以直接使用其中的方法,而不需要去写实现类.</p>
+
+<hr />
+
+
+
+<h2 id="4测试">4.测试</h2>
+
+<p>关于测试这里,我把测试案例写到test文件夹的话,总是报实体类未被JPA管理,所以改写到java文件夹,具体原因未知.</p>
+
+
+
+<pre class="prettyprint"><code class=" hljs avrasm">    public static void main(String[] args) {
+        ApplicationContext applicationContext = new ClassPathXmlApplicationContext(<span class="hljs-string">"spring/applicationContext.xml"</span>)<span class="hljs-comment">;</span>
+        UserRepository userRepository = (UserRepository) applicationContext<span class="hljs-preprocessor">.getBean</span>(<span class="hljs-string">"userRepository"</span>)<span class="hljs-comment">;</span>
+        System<span class="hljs-preprocessor">.out</span><span class="hljs-preprocessor">.println</span>(userRepository<span class="hljs-preprocessor">.findAll</span>())<span class="hljs-comment">;</span>
+        System<span class="hljs-preprocessor">.out</span><span class="hljs-preprocessor">.println</span>(userRepository<span class="hljs-preprocessor">.findOne</span>(<span class="hljs-number">1</span>))<span class="hljs-comment">;</span>
+        System<span class="hljs-preprocessor">.out</span><span class="hljs-preprocessor">.println</span>(userRepository<span class="hljs-preprocessor">.findAll</span>(new Sort(new Sort<span class="hljs-preprocessor">.Order</span>(Sort<span class="hljs-preprocessor">.Direction</span><span class="hljs-preprocessor">.ASC</span>,<span class="hljs-string">"id"</span>))))<span class="hljs-comment">;</span>
+    }</code></pre>
+
+<p><img src="http://img.blog.csdn.net/20161101221534182" alt="这里写图片描述" title="" /></p>
+
+<p>代码地址:</p>
+
+<p>github地址:   <a href="https://github.com/nl101531/JavaWEB">https://github.com/nl101531/JavaWEB</a>       JPA-Demo</p></div>&#13;
+        <script type="text/javascript">&#13;
+            $(function () {&#13;
+                $('pre.prettyprint code').each(function () {&#13;
+                    var lines = $(this).text().split('\n').length;&#13;
+                    var $numbering = $('&lt;ul/&gt;').addClass('pre-numbering').hide();&#13;
+                    $(this).addClass('has-numbering').parent().append($numbering);&#13;
+                    for (i = 1; i &lt;= lines; i++) {&#13;
+                        $numbering.append($('&lt;li/&gt;').text(i));&#13;
+                    };&#13;
+                    $numbering.fadeIn(1700);&#13;
+                });&#13;
+            });&#13;
+        </script>&#13;
+   &#13;

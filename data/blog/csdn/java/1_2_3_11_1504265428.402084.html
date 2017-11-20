@@ -1,0 +1,209 @@
+
+                
+<p><br/>&#13;
+</p>&#13;
+<p><br/>&#13;
+</p>&#13;
+<p><br/>&#13;
+</p>&#13;
+<p><img src="http://img.blog.csdn.net/20160501153711633?watermark/2/text/aHR0cDovL2Jsb2cuY3Nkbi5uZXQv/font/5a6L5L2T/fontsize/400/fill/I0JBQkFCMA==/dissolve/70/gravity/Center" alt=""/></p>&#13;
+<p><br/>&#13;
+</p>&#13;
+<p>User.java:</p>&#13;
+<p/><pre code_snippet_id="1668417" snippet_file_name="blog_20160501_1_3109462" class="java" name="code">package com.mybatis.entity;
+
+public class User {
+
+	/*
+	 * ID
+	 */
+	private int id;
+	
+	/*
+	 * 用户姓名 
+	 */
+	private String name;
+	
+	/*
+	 * age
+	 */
+	private int age;
+
+	public int getId() {
+		return id;
+	}
+
+	public void setId(int id) {
+		this.id = id;
+	}
+
+	public String getName() {
+		return name;
+	}
+
+	public void setName(String name) {
+		this.name = name;
+	}
+
+	public int getAge() {
+		return age;
+	}
+
+	public void setAge(int age) {
+		this.age = age;
+	}
+	
+	@Override
+	public String toString() {
+		return "User [id=" + id + ", name=" + name + ", age=" + age + "]";
+	}
+	
+}
+</pre><br/>&#13;
+&#13;
+<p>注解方式的UserMapper.java</p>&#13;
+<p><br/>&#13;
+</p>&#13;
+<pre code_snippet_id="1668417" snippet_file_name="blog_20160501_2_8027695" class="java" name="code">package com.mybatis.mapper;
+
+import java.util.List;
+
+import org.apache.ibatis.annotations.Delete;
+import org.apache.ibatis.annotations.Insert;
+import org.apache.ibatis.annotations.Select;
+import org.apache.ibatis.annotations.Update;
+
+import com.mybatis.entity.User;
+
+public interface UserMapper {
+	@Insert("insert into users(name,age) values(#{name},#{age})")
+	public void save(User user);
+	@Update("update users set name=#{name},age=#{age} where id=#{id}")
+	public boolean update(User user);
+	@Delete("delete from users where id=#{id}")
+	public boolean delete(int id);
+	@Select("select * from users where id=#{id}")
+	public User findById(int id);
+	@Select("select * from users")
+	public List&lt;User&gt; findAll();
+}
+</pre>&#13;
+<p><br/>&#13;
+</p>&#13;
+<p>注册这个接口,mybatis-config.xml:</p>&#13;
+<p/><pre code_snippet_id="1668417" snippet_file_name="blog_20160501_3_9456938" class="html" name="code">&lt;?xml version="1.0" encoding="UTF-8"?&gt;
+&lt;!DOCTYPE configuration PUBLIC "-//mybatis.org//DTD Config 3.0//EN" 
+"http://mybatis.org/dtd/mybatis-3-config.dtd"&gt;
+&lt;configuration&gt;
+	
+	&lt;!-- 数据库配置文件  --&gt; 
+    &lt;properties resource="db.properties" /&gt;  
+     
+   &lt;!-- 实体类,简称 -设置别名 --&gt;
+	&lt;typeAliases&gt;
+		&lt;typeAlias alias="User" type="com.mybatis.entity.User" /&gt;
+	&lt;/typeAliases&gt;
+	
+	&lt;!-- 读取db.properties里的数据，进行数据库配置 --&gt;
+	&lt;environments default="development"&gt;
+		&lt;environment id="development"&gt;
+			&lt;transactionManager type="JDBC" /&gt;
+			&lt;dataSource type="POOLED"&gt;
+				&lt;property name="driver" value="${driver}"/&gt;
+	            &lt;property name="url" value="${url}" /&gt;
+	            &lt;property name="username" value="${username}"/&gt;
+	            &lt;property name="password" value="${password}"/&gt;
+			&lt;/dataSource&gt;
+		&lt;/environment&gt;
+	&lt;/environments&gt;
+	
+	&lt;!--  
+		注册userMapper.xml文件 
+	&lt;mappers&gt;
+		&lt;mapper resource="com/mybatis/mapper/userMapper.xml"/&gt;
+	&lt;/mappers&gt;
+	--&gt;
+	
+	&lt;mappers&gt;
+		&lt;mapper class="com.mybatis.mapper.UserMapper"/&gt;
+	&lt;/mappers&gt;
+	
+&lt;/configuration&gt;
+</pre><br/>&#13;
+&#13;
+<p>db.properties:</p>&#13;
+<p/><pre code_snippet_id="1668417" snippet_file_name="blog_20160501_4_5661927" class="html" name="code">driver=com.mysql.jdbc.Driver
+url=jdbc\:mysql\://localhost\:3306/db_mysql?useUnicode\=true&amp;characterEncoding\=utf-8
+username=root
+password=111
+</pre><br/>&#13;
+&#13;
+<p>日志文件</p>&#13;
+<pre code_snippet_id="1668417" snippet_file_name="blog_20160501_5_3851784" class="html" name="code">log4j.properties\uFF0C
+log4j.rootLogger=DEBUG, Console
+#Console
+log4j.appender.Console=org.apache.log4j.ConsoleAppender
+log4j.appender.Console.layout=org.apache.log4j.PatternLayout
+log4j.appender.Console.layout.ConversionPattern=%d [%t] %-5p [%c] - %m%n
+log4j.logger.java.sql.ResultSet=INFO
+log4j.logger.org.apache=INFO
+log4j.logger.java.sql.Connection=DEBUG
+log4j.logger.java.sql.Statement=DEBUG
+log4j.logger.java.sql.PreparedStatement=DEBUG</pre>&#13;
+<p><br/>&#13;
+进行测试：</p>&#13;
+<p/><pre code_snippet_id="1668417" snippet_file_name="blog_20160501_6_3121436" class="java" name="code">import java.io.Reader;
+
+import org.apache.ibatis.io.Resources;
+import org.apache.ibatis.session.SqlSession;
+import org.apache.ibatis.session.SqlSessionFactory;
+import org.apache.ibatis.session.SqlSessionFactoryBuilder;
+
+import com.mybatis.entity.User;
+import com.mybatis.mapper.UserMapper;
+
+
+public class Test {
+
+	public static void main(String[] args) {
+//		String resource = "mybatis-config.xml";
+//		try{
+//			//加载Mybatis的配置文件
+//			Reader reader = Resources.getResourceAsReader(resource);
+//			//构建sqlSession的工厂
+//	        SqlSessionFactory sessionFactory = new SqlSessionFactoryBuilder().build(reader);
+//			//创建可以执行sql的SqlSession
+//	        SqlSession session = sessionFactory.openSession();
+//			//映射sql的标志字符串
+//	        String statement = "com.mybatis.mapper.userMapper.findById";
+//	        //执行查询返回id为1的User对象
+//			User user = session.selectOne(statement,1);
+//			System.out.println(user);
+//			
+//		}catch (Exception e) {
+//			e.printStackTrace();
+//		}
+		
+		String resource = "mybatis-config.xml";
+		try{
+			//加载Mybatis的配置文件
+			Reader reader = Resources.getResourceAsReader(resource);
+			//构建sqlSession的工厂
+	        SqlSessionFactory sessionFactory = new SqlSessionFactoryBuilder().build(reader);
+			//创建可以执行sql的SqlSession
+	        SqlSession session = sessionFactory.openSession();
+			UserMapper mapper = session.getMapper(UserMapper.class);
+			User user = mapper.findById(1);
+	        System.out.println(user);
+		}catch (Exception e) {
+			e.printStackTrace();
+		}
+		
+		
+	}
+}
+</pre><br/>&#13;
+<br/>&#13;
+&#13;
+<link rel="stylesheet" href="http://static.blog.csdn.net/public/res-min/markdown_views.css?v=1.0"/>&#13;
+            

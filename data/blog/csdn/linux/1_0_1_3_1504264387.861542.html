@@ -1,0 +1,53 @@
+
+        <div class="markdown_views"><p><strong>内核线程</strong> <br />
+内核线程是直接由内核本身启动的进程，也经常称之为守护进程。主要用于执行下列任务：</p>
+
+<ol>
+<li>周期性地将修改的内存页与页来源块设备同步；</li>
+<li>如果内存页很少使用，则写入交换区；</li>
+<li>管理延时操作；</li>
+<li>实现文件系统的事物日志。</li>
+</ol>
+
+<p><strong>有两种类型的内核线程：</strong> <br />
+类型1：线程启动后一直等待，直至内核请求线程执行某一特定操作。 <br />
+类型2：线程启动后按周期性间隔运行，检测特定资源的使用，在用量超出或低于预置的限制  值时采取行动。内核使用这类线程用于连续监测任务。</p>
+
+<p><strong>内核函数的启动：</strong> <br />
+调用kernel_thread函数可启动一个内核线程，其原型如下：</p>
+
+
+
+<pre class="prettyprint"><code class=" hljs delphi">&lt;<span class="hljs-keyword">asm</span>-arch/processor.h&gt;
+int kernel_thread(int <span class="hljs-comment">(*fn)(void *)</span>, void * arg, unsigned long flags)
+fn:产生线程将执行fn指针指向的函数。
+arg：指定的参数将自动传递给该函数.
+flag:指定CLONE标志</code></pre>
+
+<p><strong>内核线程的特点：</strong></p>
+
+<ol>
+<li>它们在CPU的管态（supervisor mode）执行。</li>
+<li>(2)们只可以访问虚拟地址空间的内核部分（高于TASK_SIZE的所有地址），但不能访问用户空间。</li>
+</ol>
+
+<p><strong>惰性TLB处理：</strong> <br />
+假如内核线程之后运行的进程和之前是同一个进程，在这种情况下，内核不需要修改用户空间地址表，地址转换后备缓冲器信息依然有效，在内核线程之后执行的进程是与此前不同的用户层进程时，才进行切换。</p>
+
+<p><strong>内核线程的实现方法：</strong> <br />
+1）将一个函数直接传递给kernei_thread。该函数接下来负责帮助内核调用daemonize以转换为守护进程。接下来该函数首先从内核线程释放其父进程的所有资源，daemonize阻塞信号的接收，最后将init用作守护进程的父进程。创建内核线程的辅助函数：kthread_create。 <br />
+2）使用备选方案宏kthread_run，它会调用kthread_create创建新线程，并立即唤醒它，还可使用kthread_create_cpu代替kthread_create创建内核线程，使之绑定特定CPU。</p></div>&#13;
+        <script type="text/javascript">&#13;
+            $(function () {&#13;
+                $('pre.prettyprint code').each(function () {&#13;
+                    var lines = $(this).text().split('\n').length;&#13;
+                    var $numbering = $('&lt;ul/&gt;').addClass('pre-numbering').hide();&#13;
+                    $(this).addClass('has-numbering').parent().append($numbering);&#13;
+                    for (i = 1; i &lt;= lines; i++) {&#13;
+                        $numbering.append($('&lt;li/&gt;').text(i));&#13;
+                    };&#13;
+                    $numbering.fadeIn(1700);&#13;
+                });&#13;
+            });&#13;
+        </script>&#13;
+   &#13;

@@ -1,0 +1,346 @@
+
+        <div class="markdown_views"><p><strong>摘要：</strong></p>
+
+<p>　　MVC框架的分层结构提高了程序的可维护性、可移植性、可扩展性与可重用性，降低了程序的开发难度，但是也引来了一些新的问题，比如不同层次间的数据流转问题。OGNL的出现填平了这条沟壑，成为字符串与Java对象之间沟通的桥梁，这也是Struts1与WebWork整合成Struts2时引入WebWork的OGNL的原因。本文给出了Struts2官方对OGNL的描述，并就OGNL在Struts2中的进一步应用进行了详述，包括数据访问、控制标签等。</p>
+
+<hr />
+
+<p><strong>版权声明：</strong></p>
+
+<p>本文原创作者：<a href="http://my.csdn.net/justloveyou_">书呆子Rico</a> <br />
+作者博客地址：<a href="http://blog.csdn.net/justloveyou_/">http://blog.csdn.net/justloveyou_/</a></p>
+
+<hr />
+
+<p><strong>友情提示：</strong></p>
+
+<p>　　为了更好地了解 OGNL，笔者以两篇博客的篇幅来介绍OGNL：<a href="http://blog.csdn.net/justloveyou_/article/details/68957129">《与MVC框架解耦的OGNL：前世今生及其基本用法》</a>和《再述OGNL：在Struts2中的应用》。其中，在本文(<a href="http://blog.csdn.net/justloveyou_/article/details/68957129">《与MVC框架解耦的OGNL：前世今生及其基本用法》</a>)中，我们首先介绍了OGNL的前世今生，并结合具体实例和源码阐述了OGNL的实质、OGNL三要素和基本用法语法。在此基础上，本篇的姊妹篇《再述OGNL：在Struts2中的应用》详尽地介绍了OGNL的在Struts2中的应用。</p>
+
+<p>　　Ps：<font color="red"><b>读者强烈建议读者在阅读本篇博文前，先阅读其姊妹篇<a href="http://blog.csdn.net/justloveyou_/article/details/68957129">《与MVC框架解耦的OGNL：前世今生及其基本用法》</a>，因为二者之间关联性很强。通过对<a href="http://blog.csdn.net/justloveyou_/article/details/68957129">《与MVC框架解耦的OGNL：前世今生及其基本用法》</a>的阅读，相信读者会对Struts2中的OGNL有一个更加深刻地认识。</b></font></p>
+
+<hr />
+
+
+
+<h2 id="一-struts2-为何要集成webwork的ognl">一. Struts2 为何要集成WebWork的OGNL</h2>
+
+<p>　　众所周知，OGNL充斥在Struts2前后台数据传递与存储的方方面面，给Struts2中数据的处理带来了极大的方便。<font color="red">实际上，在我们使用 MVC 架构模式进行开发Web应用时，数据往往需要在各层之间进行流转。由于数据在不同层次中的表现形式不尽相同，所以这种流转会很麻烦，特别是在Controller层与View层之间进行流转。</font>我们知道，<font color="blue">数据在View层(视图页面)的表现形式是一个 扁平的、不带任何数据类型的字符串，无论该数据的数据结构有多复杂，数据类型有多丰富，在View层都只能以字符串的形式进行展现。</font> 与此相反，<font color="blue">数据在Controller层（Java世界）可以有 丰富的数据结构和数据类型，比如我们可以自定义各种各样的类型，这些类型间也可以有多种关系(包含继承、聚合等)，我们通常可以把这种丰富的数据模型抽象成 <font color="DarkGreen"><b>对象树</b></font>。</font> </p>
+
+<p>　　在这种情况下，由于Controller与View层次中的数据不能直接匹配，因此数据在二者之间互相流转传递时就会很麻烦。实际上，这也是任何一个成熟的MVC框架必须要解决的问题，具体如下：</p>
+
+<ul>
+<li><p><font color="red">第一，当数据从View层传递到Controller层时，MVC框架应该能够保证将扁平而分散在各处的数据能以一定的规则高效地映射到Java世界中的对象树中去。也就是说，能够自动地将字符串类型转化为Java中各种类型；</font></p></li>
+<li><p><font color="red">第二，当数据从Controller层传递到View层时，MVC框架应该保证在View层能够以某种简易的规则对Java世界中的对象(树)进行访问，并且能够在一定程度上控制对象树中的数据在View层的显示格式。</font></p>
+
+<p>　　事实上，解决数据由于表现形式的不同而发生流转不匹配的问题对我们来说其实并不陌生。<font color="blue"><b>同样的问题也会出现在Java世界与数据库世界中，面对这种对象与关系模型的不匹配，我们可以使用 ORM 框架去解决，比如Hibernate，MyBatis等。</b></font>类似地，现在在Web开发中也同样发生了这种不匹配，所以我们理论上也可以借助一些工具来帮助我们解决问题，并且任何一个成熟的MVC框架也应该提供这种工具来帮助我们解决这个问题。不出所料，为了解决数据在View层与Controller层流转时的不匹配性，Struts2 提供了 OGNL 来帮助我们解决个问题。</p></li>
+</ul>
+
+<hr />
+
+
+
+<h2 id="二-struts2-对-ognl-描述">二.  Struts2 对 OGNL 描述</h2>
+
+<p>　　在本篇的姊妹篇<a href="http://blog.csdn.net/justloveyou_/article/details/68957129">《与MVC框架解耦的OGNL：前世今生及其基本用法》</a>，我们已经知道OGNL是一种功能强大的表达式语言。其中，<font color="blue"><b>OGNL表达式、OGNL上下文和OGNL根对象是OGNL的三要素，它们三者的关系是：OGNL表达式的计算是围绕OGNL上下文(OgnlContext)进行的，OGNL根对象侧面指明了OGNL表达式的操作对象，而OGNL表达式则指明了其操作语义。</b></font>也就是说，<font color="red"><b>OGNL的操作实际上就是围绕着这三个参数而进行的。</b></font>在此基础上，它通过简单一致的语法，可以存取Java对象树中的任意属性、调用Java对象树的方法，并能够自动实现必要的类型转化。更形象地说，<font color="DarkGreen"><b>如果我们把表达式看做是一个带有语义的字符串，那么OGNL无疑是这个语义字符串与Java对象之间沟通的桥梁。</b></font>以下Struts2官方对OGNL的两段描述：</p>
+
+<p>　　The framework uses a standard naming context to evaluate OGNL expressions. The top level object dealing with OGNL is a Map (usually referred as a context map or context). OGNL has a notion of there being a root (or default) object within the context. In expression, the properties of the root object can be referenced without any special “marker” notion. References to other objects are marked with a pound sign (#).</p>
+
+<p>　　The framework sets the OGNL context to be our ActionContext, and the value stack to be the OGNL root object. (The value stack is a set of several objects, but to OGNL it appears to be a single object.) Along with the value stack, the framework places other objects in the ActionContext, including Maps representing the application, session, and request contexts. These objects coexist in the ActionContext, alongside the value stack (our OGNL root).</p>
+
+<p>　　根据上面的表述我们可以知道，针对根对象（Root Object）的操作，表达式是 <font color="blue">自根对象到被访问对象的某个链式操作的字符串表示；</font>而针对上下文环境（Context）的操作，表达式是 <font color="blue">自上下文环境（Context）到被访问对象的某个链式操作的字符串表示</font>，但是必须给这个字符串加上前缀 “#”，以表示与访问根对象的区别。此外，在 Struts2 中，<font color="red"><b>OGNLContext的实现者为ActionContext(Stack Context)，而 OGNLContext中的Root Object是Value Stack，并且 Application、Session、Request等我们经常访问的对象(Map表示)都被放到了ActionContext中。</b></font>结构示意图如下:</p>
+
+<p>　　　　　　　　　　　　　　<img src="http://static.zybuluo.com/Rico123/bmcnca2dmr1j6mra1t51inhi/OGNL%20Context.jpg" alt="OGNL Context.jpg-24.8kB" title="" /></p>
+
+<hr />
+
+<p><font color="red">1、ActionContext(StackContext)</font>   </p>
+
+<p>　　<font color="blue"><b>ActionContext是一个Action对象执行所依赖的上下文环境，每一个Action在执行时都会有一个专属的上下文环境。</b></font>这个上下文环境可以看作是运行Action所需的资源集合，其中包括 application、session、request、parameters、attr及当前Action对象。实际上，<font color="DarkGreen"><b>正因为 Struts2 将 OGNLContext 设置为 ActionContext，我们才能在Struts2中随意地使用OGNL来完成数据在Controller层与View层之间进行流转。</b></font></p>
+
+<hr />
+
+<p><font color="red">2、ValueStack </font></p>
+
+<p>　　ValueStack对象相当于一个栈，它贯穿整个Action的生命周期，并且每个Action类的对象实例都会拥有一个自身的ValueStack对象。<font color="blue">当Struts2接收到一个*.action请求时，在调用Action方法处理请求前会迅速创建ActionContext，ValueStack，Action 等对象，并会把当前的Action存放进ValueStack的栈顶。</font>ValueStack对象和Parameters、Request、Session、Application、Attr等对象都属于 ActionContext 的一部分，只不过ValueStack对象是ActionContext的根对象。根对象和另外五个对象是有区别的，根对象可以省写#号，比如&lt;s:property value=”user.username”/&gt;。<font color="red"><b>需要特别指出的是，ValueStack 是ActionContext的栈顶(根)对象，而当前运行的Action是ValueStack的栈顶对象。并且，ActionContext(ValueStack)的生命周期与请求相关，每次请求产生一个ActionContext(ValueStack)，默认当前的Action会被自动放到ValueStack里。</b></font></p>
+
+<p>　　<font color="blue"><b>注意，在struts2中，根对象ValueStack的实现类为com.opensymphony.xwork2.ognl.OgnlValueStack（该类实现了ValueStack接口），它能够存放一组对象。</b></font>通常，我们在OGNL表达式里直接写上属性的名称即可访问ValueStack的对象属性，搜索顺序是从ValueStack的栈顶对象开始寻找，如果栈顶对象不存在该属性，就会从第二个对象寻找，如果没有找到就从第三个对象寻找，依次往下访问，直到找到为止。 </p>
+
+<p>　　特别地，<font color="red"><b>ValueStack中可以有多个Action对象，Struts2的服务器跳转(通过设置result类型为chain实现)就会共用值栈。</b></font>比如，从Action1通过服务器跳转到Action2时，就意味着这两个Action是共享一个值栈的，因为<font color="red"><b>一次请求只会有一个值栈</b></font>。具体流程是这样的：服务器首先接收到Action1请求后，会产生一个值栈并将Action1对象存放到栈顶。然后，经过服务器跳转到Action2，这时就会把Action2对象压入值栈的栈顶位置，此时Action1对象就位于栈底了，因为值栈也是栈嘛，所以一定遵循FILO原则。<font color="red"><b>另外，与服务器端跳转不同的是，客户端跳转(通过设置result类型为redirect实现)使用的是各自的值栈，因为是两个请求嘛。</b></font></p>
+
+<hr />
+
+<p><font color="red">3、ActionContext 中的其他常用对象</font></p>
+
+<p>　　在Struts2中，Struts2会把我们经常需要用到的 Request、Session、Application 等对象自动放到 ActionContext中，因此我们可以很方便地使用 OGNL 去访问它们范围的属性，如下表所示：</p>
+
+<table>
+    <tbody><tr>
+        <th>名称</th>
+        <th>作用</th>
+        <th>实例</th>
+    </tr>
+    <tr>
+        <td>parameters</td>
+        <td>包含当前HTTP<font color="red"><b> 请求参数 </b></font>的Map</td>
+        <td>#parameters.userName作用相当于<font color="blue"><b>request.getParameter(“userName”)</b></font></td>
+    </tr>
+    <tr>
+        <td>request</td>
+        <td>包含当前HttpServletRequest的<font color="red"><b> 属性(attribute) </b></font>的Map</td>
+        <td>#request.userName相当于<font color="blue"><b>request.getAttribute(“userName”)</b></font></td>
+    </tr>
+    <tr>
+        <td>session</td>
+        <td>包含当前HttpSession的<font color="red"><b> 属性(attribute) </b></font>的Map</td>
+        <td>#session.userName相当于<font color="blue"><b>session.getAttribute(“userName”)</b></font></td>
+    </tr>
+    <tr>
+        <td>application</td>
+        <td>包含当前应用的ServletContext的<font color="red"><b> 属性(attribute) </b></font>的Map</td>
+        <td>#application.userName相当于<font color="blue"><b>application.getAttribute(“userName”)</b></font></td>
+    </tr>
+    <tr>
+        <td>attr</td>
+        <td>依次从 Request、Session、Application范围搜索<font color="red"><b> 属性(attribute) </b></font></td>
+        <td></td>
+    </tr>
+</tbody></table>
+
+<hr />
+
+
+
+<h2 id="三-ognl在struts2中的使用实例">三. OGNL在Struts2中的使用实例</h2>
+
+<p>　　到此为止，加上我们在本篇的姊妹篇<a href="http://blog.csdn.net/justloveyou_/article/details/68957129">《与MVC框架解耦的OGNL：前世今生及其基本用法》</a>对OGNL介绍，我们基本介绍完了OGNL的基本原理和基本概念。下面我们借用马士兵老师的例子介绍一下OGNL表达式在Struts2中的用法，实际上，其与我们在本篇的姊妹篇<a href="http://blog.csdn.net/justloveyou_/article/details/68957129">《与MVC框架解耦的OGNL：前世今生及其基本用法》</a>介绍的单独使用OGNL的情况类似。在这里，相关Bean类就不给出了，大家知道OGNL怎么使用就足够了。</p>
+
+
+
+<pre class="prettyprint"><code class="language-jsp hljs xml"><span class="hljs-pi">&lt;?xml version="1.0" encoding="GB18030" ?&gt;</span>
+<span class="vbscript">&lt;%@ page language=<span class="hljs-string">"java"</span> contentType=<span class="hljs-string">"text/html; charset=GB18030"</span>
+    pageEncoding=<span class="hljs-string">"GB18030"</span>%&gt;</span>
+<span class="vbscript">&lt;%@ taglib uri=<span class="hljs-string">"/struts-tags"</span> prefix=<span class="hljs-string">"s"</span> %&gt;</span>
+<span class="hljs-doctype">&lt;!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd"&gt;</span>
+<span class="hljs-tag">&lt;<span class="hljs-title">html</span> <span class="hljs-attribute">xmlns</span>=<span class="hljs-value">"http://www.w3.org/1999/xhtml"</span>&gt;</span>
+<span class="hljs-tag">&lt;<span class="hljs-title">head</span>&gt;</span>
+<span class="hljs-tag">&lt;<span class="hljs-title">meta</span> <span class="hljs-attribute">http-equiv</span>=<span class="hljs-value">"Content-Type"</span> <span class="hljs-attribute">content</span>=<span class="hljs-value">"text/html; charset=GB18030"</span> /&gt;</span>
+<span class="hljs-tag">&lt;<span class="hljs-title">title</span>&gt;</span>OGNL表达式语言学习<span class="hljs-tag">&lt;/<span class="hljs-title">title</span>&gt;</span>
+<span class="hljs-tag">&lt;/<span class="hljs-title">head</span>&gt;</span>
+<span class="hljs-tag">&lt;<span class="hljs-title">body</span>&gt;</span>
+    <span class="hljs-tag">&lt;<span class="hljs-title">ol</span>&gt;</span>
+        <span class="hljs-tag">&lt;<span class="hljs-title">li</span>&gt;</span>访问值栈中的action的普通属性: username = <span class="hljs-tag">&lt;<span class="hljs-title">s:property</span> <span class="hljs-attribute">value</span>=<span class="hljs-value">"username"</span>/&gt;</span> <span class="hljs-tag">&lt;/<span class="hljs-title">li</span>&gt;</span>
+        <span class="hljs-tag">&lt;<span class="hljs-title">li</span>&gt;</span>访问值栈中对象的普通属性(get set方法)：<span class="hljs-tag">&lt;<span class="hljs-title">s:property</span> <span class="hljs-attribute">value</span>=<span class="hljs-value">"user.age"</span>/&gt;</span> | <span class="hljs-tag">&lt;<span class="hljs-title">s:property</span> <span class="hljs-attribute">value</span>=<span class="hljs-value">"user['age']"</span>/&gt;</span> | <span class="hljs-tag">&lt;<span class="hljs-title">s:property</span> <span class="hljs-attribute">value</span>=<span class="hljs-value">"user[\"</span><span class="hljs-value">age\"]"</span>/&gt;</span> | wrong: <span class="vbscript">&lt;%--&lt;s:<span class="hljs-keyword">property</span> value=<span class="hljs-string">"user[age]"</span>/&gt;--%&gt;</span><span class="hljs-tag">&lt;/<span class="hljs-title">li</span>&gt;</span>
+        <span class="hljs-tag">&lt;<span class="hljs-title">li</span>&gt;</span>访问值栈中对象的普通属性(get set方法): <span class="hljs-tag">&lt;<span class="hljs-title">s:property</span> <span class="hljs-attribute">value</span>=<span class="hljs-value">"cat.friend.name"</span>/&gt;</span><span class="hljs-tag">&lt;/<span class="hljs-title">li</span>&gt;</span>
+        <span class="hljs-tag">&lt;<span class="hljs-title">li</span>&gt;</span>访问值栈中对象的普通方法：<span class="hljs-tag">&lt;<span class="hljs-title">s:property</span> <span class="hljs-attribute">value</span>=<span class="hljs-value">"password.length()"</span>/&gt;</span><span class="hljs-tag">&lt;/<span class="hljs-title">li</span>&gt;</span>
+        <span class="hljs-tag">&lt;<span class="hljs-title">li</span>&gt;</span>访问值栈中对象的普通方法：<span class="hljs-tag">&lt;<span class="hljs-title">s:property</span> <span class="hljs-attribute">value</span>=<span class="hljs-value">"cat.miaomiao()"</span> /&gt;</span><span class="hljs-tag">&lt;/<span class="hljs-title">li</span>&gt;</span>
+        <span class="hljs-tag">&lt;<span class="hljs-title">li</span>&gt;</span>访问值栈中action的普通方法：<span class="hljs-tag">&lt;<span class="hljs-title">s:property</span> <span class="hljs-attribute">value</span>=<span class="hljs-value">"m()"</span> /&gt;</span><span class="hljs-tag">&lt;/<span class="hljs-title">li</span>&gt;</span>
+        <span class="hljs-tag">&lt;<span class="hljs-title">hr</span> /&gt;</span>
+        <span class="hljs-tag">&lt;<span class="hljs-title">li</span>&gt;</span>访问静态方法：<span class="hljs-tag">&lt;<span class="hljs-title">s:property</span> <span class="hljs-attribute">value</span>=<span class="hljs-value">"@com.bjsxt.struts2.ognl.S@s()"</span>/&gt;</span><span class="hljs-tag">&lt;/<span class="hljs-title">li</span>&gt;</span>
+        <span class="hljs-tag">&lt;<span class="hljs-title">li</span>&gt;</span>访问静态属性：<span class="hljs-tag">&lt;<span class="hljs-title">s:property</span> <span class="hljs-attribute">value</span>=<span class="hljs-value">"@com.bjsxt.struts2.ognl.S@STR"</span>/&gt;</span><span class="hljs-tag">&lt;/<span class="hljs-title">li</span>&gt;</span>
+        <span class="hljs-tag">&lt;<span class="hljs-title">li</span>&gt;</span>访问Math类的静态方法：<span class="hljs-tag">&lt;<span class="hljs-title">s:property</span> <span class="hljs-attribute">value</span>=<span class="hljs-value">"@@max(2,3)"</span> /&gt;</span><span class="hljs-tag">&lt;/<span class="hljs-title">li</span>&gt;</span>
+        <span class="hljs-tag">&lt;<span class="hljs-title">hr</span> /&gt;</span>
+        <span class="hljs-tag">&lt;<span class="hljs-title">li</span>&gt;</span>访问普通类的构造方法：<span class="hljs-tag">&lt;<span class="hljs-title">s:property</span> <span class="hljs-attribute">value</span>=<span class="hljs-value">"new com.bjsxt.struts2.ognl.User(8)"</span>/&gt;</span><span class="hljs-tag">&lt;/<span class="hljs-title">li</span>&gt;</span>
+        <span class="hljs-tag">&lt;<span class="hljs-title">hr</span> /&gt;</span>
+        <span class="hljs-tag">&lt;<span class="hljs-title">li</span>&gt;</span>访问List:<span class="hljs-tag">&lt;<span class="hljs-title">s:property</span> <span class="hljs-attribute">value</span>=<span class="hljs-value">"users"</span>/&gt;</span><span class="hljs-tag">&lt;/<span class="hljs-title">li</span>&gt;</span>
+        <span class="hljs-tag">&lt;<span class="hljs-title">li</span>&gt;</span>访问List中某个元素:<span class="hljs-tag">&lt;<span class="hljs-title">s:property</span> <span class="hljs-attribute">value</span>=<span class="hljs-value">"users[1]"</span>/&gt;</span><span class="hljs-tag">&lt;/<span class="hljs-title">li</span>&gt;</span>
+        <span class="hljs-tag">&lt;<span class="hljs-title">li</span>&gt;</span>访问List中元素某个属性的集合:<span class="hljs-tag">&lt;<span class="hljs-title">s:property</span> <span class="hljs-attribute">value</span>=<span class="hljs-value">"users.{age}"</span>/&gt;</span><span class="hljs-tag">&lt;/<span class="hljs-title">li</span>&gt;</span>
+        <span class="hljs-tag">&lt;<span class="hljs-title">li</span>&gt;</span>访问List中元素某个属性的集合中的特定值:<span class="hljs-tag">&lt;<span class="hljs-title">s:property</span> <span class="hljs-attribute">value</span>=<span class="hljs-value">"users.{age}[0]"</span>/&gt;</span> | <span class="hljs-tag">&lt;<span class="hljs-title">s:property</span> <span class="hljs-attribute">value</span>=<span class="hljs-value">"users[0].age"</span>/&gt;</span><span class="hljs-tag">&lt;/<span class="hljs-title">li</span>&gt;</span>
+        <span class="hljs-tag">&lt;<span class="hljs-title">li</span>&gt;</span>访问Set:<span class="hljs-tag">&lt;<span class="hljs-title">s:property</span> <span class="hljs-attribute">value</span>=<span class="hljs-value">"dogs"</span>/&gt;</span><span class="hljs-tag">&lt;/<span class="hljs-title">li</span>&gt;</span>
+        <span class="hljs-tag">&lt;<span class="hljs-title">li</span>&gt;</span>访问Set中某个元素:<span class="hljs-tag">&lt;<span class="hljs-title">s:property</span> <span class="hljs-attribute">value</span>=<span class="hljs-value">"dogs[1]"</span>/&gt;</span><span class="hljs-tag">&lt;/<span class="hljs-title">li</span>&gt;</span>   <span class="hljs-comment">&lt;!--不会有输出，因为Set无序 --&gt;</span>
+        <span class="hljs-tag">&lt;<span class="hljs-title">li</span>&gt;</span>访问Map:<span class="hljs-tag">&lt;<span class="hljs-title">s:property</span> <span class="hljs-attribute">value</span>=<span class="hljs-value">"dogMap"</span>/&gt;</span><span class="hljs-tag">&lt;/<span class="hljs-title">li</span>&gt;</span>
+        <span class="hljs-tag">&lt;<span class="hljs-title">li</span>&gt;</span>访问Map中某个元素:<span class="hljs-tag">&lt;<span class="hljs-title">s:property</span> <span class="hljs-attribute">value</span>=<span class="hljs-value">"dogMap.dog101"</span>/&gt;</span> | <span class="hljs-tag">&lt;<span class="hljs-title">s:property</span> <span class="hljs-attribute">value</span>=<span class="hljs-value">"dogMap['dog101']"</span>/&gt;</span> | <span class="hljs-tag">&lt;<span class="hljs-title">s:property</span> <span class="hljs-attribute">value</span>=<span class="hljs-value">"dogMap[\"</span><span class="hljs-value">dog101\"]"</span>/&gt;</span><span class="hljs-tag">&lt;/<span class="hljs-title">li</span>&gt;</span>
+        <span class="hljs-tag">&lt;<span class="hljs-title">li</span>&gt;</span>访问Map中所有的key:<span class="hljs-tag">&lt;<span class="hljs-title">s:property</span> <span class="hljs-attribute">value</span>=<span class="hljs-value">"dogMap.keys"</span>/&gt;</span><span class="hljs-tag">&lt;/<span class="hljs-title">li</span>&gt;</span>
+        <span class="hljs-tag">&lt;<span class="hljs-title">li</span>&gt;</span>访问Map中所有的value:<span class="hljs-tag">&lt;<span class="hljs-title">s:property</span> <span class="hljs-attribute">value</span>=<span class="hljs-value">"dogMap.values"</span>/&gt;</span><span class="hljs-tag">&lt;/<span class="hljs-title">li</span>&gt;</span>
+        <span class="hljs-tag">&lt;<span class="hljs-title">li</span>&gt;</span>访问容器的大小：<span class="hljs-tag">&lt;<span class="hljs-title">s:property</span> <span class="hljs-attribute">value</span>=<span class="hljs-value">"dogMap.size()"</span>/&gt;</span> | <span class="hljs-tag">&lt;<span class="hljs-title">s:property</span> <span class="hljs-attribute">value</span>=<span class="hljs-value">"users.size"</span>/&gt;</span>   <span class="hljs-comment">&lt;!--容器的伪属性 --&gt;</span><span class="hljs-tag">&lt;/<span class="hljs-title">li</span>&gt;</span>
+        <span class="hljs-tag">&lt;<span class="hljs-title">hr</span> /&gt;</span>
+        <span class="hljs-tag">&lt;<span class="hljs-title">li</span>&gt;</span>投影(过滤)：<span class="hljs-tag">&lt;<span class="hljs-title">s:property</span> <span class="hljs-attribute">value</span>=<span class="hljs-value">"users.{?#this.age==1}[0]"</span>/&gt;</span><span class="hljs-tag">&lt;/<span class="hljs-title">li</span>&gt;</span>
+        <span class="hljs-tag">&lt;<span class="hljs-title">li</span>&gt;</span>投影：<span class="hljs-tag">&lt;<span class="hljs-title">s:property</span> <span class="hljs-attribute">value</span>=<span class="hljs-value">"users.{^#this.age&gt;1}.{age}"</span>/&gt;</span><span class="hljs-tag">&lt;/<span class="hljs-title">li</span>&gt;</span>
+        <span class="hljs-tag">&lt;<span class="hljs-title">li</span>&gt;</span>投影：<span class="hljs-tag">&lt;<span class="hljs-title">s:property</span> <span class="hljs-attribute">value</span>=<span class="hljs-value">"users.{$#this.age&gt;1}.{age}"</span>/&gt;</span><span class="hljs-tag">&lt;/<span class="hljs-title">li</span>&gt;</span>
+        <span class="hljs-tag">&lt;<span class="hljs-title">li</span>&gt;</span>投影：<span class="hljs-tag">&lt;<span class="hljs-title">s:property</span> <span class="hljs-attribute">value</span>=<span class="hljs-value">"users.{$#this.age&gt;1}.{age} == null"</span>/&gt;</span><span class="hljs-tag">&lt;/<span class="hljs-title">li</span>&gt;</span>
+        <span class="hljs-tag">&lt;<span class="hljs-title">hr</span> /&gt;</span>
+        <span class="hljs-tag">&lt;<span class="hljs-title">li</span>&gt;</span>[]:<span class="hljs-tag">&lt;<span class="hljs-title">s:property</span> <span class="hljs-attribute">value</span>=<span class="hljs-value">"[0].username"</span>/&gt;</span><span class="hljs-tag">&lt;/<span class="hljs-title">li</span>&gt;</span>
+    <span class="hljs-tag">&lt;/<span class="hljs-title">ol</span>&gt;</span>
+    <span class="hljs-tag">&lt;<span class="hljs-title">s:debug</span>&gt;</span><span class="hljs-tag">&lt;/<span class="hljs-title">s:debug</span>&gt;</span>
+<span class="hljs-tag">&lt;/<span class="hljs-title">body</span>&gt;</span>
+<span class="hljs-tag">&lt;/<span class="hljs-title">html</span>&gt;</span></code></pre>
+
+<hr />
+
+
+
+<h2 id="四-容器的伪属性">四. 容器的伪属性</h2>
+
+<p>　　<font color="blue"><b>OGNL能够直接引用容器的一些特殊的属性，即使这些属性没有getter/setter。</b></font>比如，我们可以这样获取List的大小：&lt;s:property value=”testList.size”/&gt;，我们称这些特殊的属性为 <br />
+<font color="DarkGreen"><b>伪属性</b></font>。<font color="blue"><b>当使用OGNL表达式引用这些属性时，OGNL会调用自动相应的方法，比如size()、length()。</b></font>以下是一些常用容器的伪属性：</p>
+
+<ul>
+<li>List的伪属性：size、isEmpty、iterator；</li>
+<li>Set的伪属性：size、isEmpty、iterator；</li>
+<li>Map的伪属性：size、isEmpty、keys、values；</li>
+<li>Iterator的伪属性：next、hasNext；</li>
+<li>Enumeration伪属性：next、hasNext、nextElement、hasMoreElements。</li>
+</ul>
+
+<hr />
+
+
+
+<h2 id="五-常用控制标签">五. 常用控制标签</h2>
+
+<p>　　对于Struts2 中标签的使用，我们必须要知道：<font color="red"><b>Struts2 中的很多标签都可以指定 var/id 属性的，一旦指定了 var/id 属性，则Struts2就会将新生成、新设置的值放入ActionContext中，对该值的访问就必须加前缀 “#”。若不指定 var 属性，则新生成、新设置的值就不会放入ActionContext中，因此我们就只能在该标签内部访问新生成、新设置的值。特别需要注意的是，此时新生成、新设置的值位于ValueStack中，因此我们可以直接访问。</b></font>特别地，<font color="blue"><b>若对set标签指定指定 var/id 属性，则Struts2就会将新生成、新设置的值放入ValueStack中。</b></font></p>
+
+<p>　　下面，我们介绍几个Struts2常用的几个标签。</p>
+
+<hr />
+
+<p><strong>1、条件标签</strong></p>
+
+<p>　　<font color="blue"><b>条件标签主要有&lt;s:if&gt;、&lt;s:elseif&gt; 和 &lt;s:esle&gt;3个子标签构成，用于执行基本的条件流转。其中，test是条件判定语句，值为boolean类型。</b></font>   </p>
+
+
+
+<pre class="prettyprint"><code class="language-jsp hljs lua">&lt;s:<span class="hljs-keyword">if</span> test=<span class="hljs-string">"#request.username =='admin'"</span>&gt;  
+    您是admin！  
+&lt;/s:<span class="hljs-keyword">if</span>&gt;  
+&lt;s:<span class="hljs-keyword">elseif</span> test=<span class="hljs-string">"#request.username =='manager'"</span>&gt;  
+    您是manager！  
+&lt;/s:<span class="hljs-keyword">elseif</span>&gt;  
+&lt;s:<span class="hljs-keyword">else</span>&gt;  
+    您没有身份！  
+&lt;/s:<span class="hljs-keyword">else</span>&gt;  </code></pre>
+
+<hr />
+
+<p><strong>2、迭代标签</strong></p>
+
+<p>　　<font color="blue"><b>&lt;s:iterator&gt;标签用于遍历<font color="red"><b> 容器(Java.util.Collection、Java.util.Map) 对象，如下所示：</b></font></b></font></p>
+
+
+
+<pre class="prettyprint"><code class="language-jsp hljs xml">    使用id/var属性，加前缀"#"：<span class="hljs-tag">&lt;/<span class="hljs-title">br</span>&gt;</span>
+    <span class="hljs-tag">&lt;<span class="hljs-title">s:iterator</span> <span class="hljs-attribute">value</span>=<span class="hljs-value">"users"</span> <span class="hljs-attribute">id</span>=<span class="hljs-value">"uuu"</span>&gt;</span>
+        <span class="hljs-comment">&lt;!-- OK --&gt;</span>
+        <span class="hljs-tag">&lt;<span class="hljs-title">s:property</span> <span class="hljs-attribute">value</span>=<span class="hljs-value">"#uuu.age"</span>/&gt;</span>
+        <span class="hljs-comment">&lt;!-- OK --&gt;</span>
+        <span class="hljs-tag">&lt;<span class="hljs-title">s:property</span> <span class="hljs-attribute">value</span>=<span class="hljs-value">"age"</span>/&gt;</span>
+        <span class="hljs-tag">&lt;<span class="hljs-title">br</span>/&gt;</span>
+    <span class="hljs-tag">&lt;/<span class="hljs-title">s:iterator</span>&gt;</span>
+
+    使用id/var属性，不加前缀"#"：<span class="hljs-tag">&lt;/<span class="hljs-title">br</span>&gt;</span>
+    <span class="hljs-tag">&lt;<span class="hljs-title">s:iterator</span> <span class="hljs-attribute">value</span>=<span class="hljs-value">"users"</span> <span class="hljs-attribute">id</span>=<span class="hljs-value">"uuuu"</span>&gt;</span>
+        <span class="hljs-comment">&lt;!-- 访问不到~ --&gt;</span>
+        <span class="hljs-tag">&lt;<span class="hljs-title">s:property</span> <span class="hljs-attribute">value</span>=<span class="hljs-value">"uuuu.age"</span>/&gt;</span>
+        <span class="hljs-tag">&lt;<span class="hljs-title">br</span>/&gt;</span>
+    <span class="hljs-tag">&lt;/<span class="hljs-title">s:iterator</span>&gt;</span></code></pre>
+
+<p>　　使用上述代码遍历List类型的users，结果如下图所示：</p>
+
+<p>　　　　　　　　　　　　<img src="http://static.zybuluo.com/Rico123/5agxs9dtcpm66cn10016457s/iterator.png" alt="iterator.png-31.5kB" title="" /></p>
+
+<hr />
+
+<p>　　其中，使用上述代码遍历List类型的users且指定 var/id 属性时，Struts2就会将新生成、新设置的值uuu放入ActionContext中，如下图所示：</p>
+
+<p>　　　　　　　　　　　　<img src="http://static.zybuluo.com/Rico123/1rtqnqx1r5n5fqgmoos9m66n/iterator1.png" alt="iterator1.png-13.4kB" title="" /></p>
+
+<hr />
+
+<p>　　其中，<font color="red"><b><font color="red"><b>id/var</b></font></b></font> 是指定集合中元素在<font color="red"><b> ActionContext </b></font>中的名称，<font color="red"><b>value</b></font> 是指定迭代的<font color="red"><b> 迭代体</b></font>。此外，<font color="red"><b>status </b></font>属性在迭代时会产生一个IteratorStatus对象，该对象可以<font color="red"><b> 判断当前元素的位置。也就是说，当声明iterator的status属性时，通过 <font color="blue"><b>#statusName.method</b></font> 可以使用以下方法:</b></font></p>
+
+<ul>
+<li>even : boolean - 如果当前迭代位置是偶数返回true</li>
+<li>odd : boolean - 如果当前迭代位置是奇数返回true</li>
+<li>count : int - 返回当前迭代位置的计数(从1开始)</li>
+<li>index : int - 返回当前迭代位置的编号(从0开始)</li>
+<li>first : boolean - 如果当前迭代位置是第一位时返回true</li>
+<li>last : boolean - 如果当前迭代位置是最后一位时返回true</li>
+<li>modulus(operand : int) : int - 返回当前计数(从1开始)与指定操作数的模数</li>
+</ul>
+
+<hr />
+
+<p><strong>3、set标签</strong></p>
+
+<p>　　<font color="red"><b>set标签用于将某个值放入指定范围内，</b></font>比如，application、session范围等。特别地，当某个值所在的对象图深度非常深时，例如：person.worker.wife.parent.age，每次访问该值不仅性能地下，而可读性也很差。为了解决这个问题，可以将改该值设置成一个新值，并放入特定范围内。set标签有以下几个属性：</p>
+
+<ul>
+<li>name： 必填，重新生成的新变量的名字；</li>
+<li>scope： 可选，指定新变量被放置的范围，该属性可以接受application、session、request、page或action 5个值。如果没有指定，默认是放置在Stack Context中；</li>
+<li>value： 可选，指定将赋给变量的值。如果没指定，则将ValueStack栈顶的值赋给新变量；</li>
+<li><p>var/id： 可选，指定该元素的引用ID，如果指定了将会将该值放在 <font color="red"><b>ValueStack</b></font> 中。</p>
+
+<p>　　set标签用于生成一个新变量，并把该变量放置到指定的范围内，这样就允许直接使用JSP表达式语言(EL)来访问这些变量，当然也可以通过struts2标签来访问，示例如下：</p></li>
+</ul>
+
+
+
+<pre class="prettyprint"><code class="language-jsp hljs xml"><span class="hljs-comment">&lt;!--使用param标签为JavaBean实例传入参数--&gt;</span>
+<span class="hljs-tag">&lt;<span class="hljs-title">s:bean</span> <span class="hljs-attribute">name</span>=<span class="hljs-value">"lee.Person"</span> <span class="hljs-attribute">id</span>=<span class="hljs-value">"p"</span>&gt;</span>
+    <span class="hljs-tag">&lt;<span class="hljs-title">s:param</span> <span class="hljs-attribute">name</span>=<span class="hljs-value">"name"</span> <span class="hljs-attribute">value</span>=<span class="hljs-value">"'yeeku'"</span>/&gt;</span>
+    <span class="hljs-tag">&lt;<span class="hljs-title">s:param</span> <span class="hljs-attribute">name</span>=<span class="hljs-value">"age"</span> <span class="hljs-attribute">value</span>=<span class="hljs-value">"29"</span>/&gt;</span>
+<span class="hljs-tag">&lt;/<span class="hljs-title">s:bean</span>&gt;</span>
+将Stack Context中的p值放入默认范围内。<span class="hljs-tag">&lt;<span class="hljs-title">br</span>&gt;</span>
+<span class="hljs-tag">&lt;<span class="hljs-title">s:set</span> <span class="hljs-attribute">value</span>=<span class="hljs-value">"#p"</span> <span class="hljs-attribute">name</span>=<span class="hljs-value">"xxx"</span>/&gt;</span>
+<span class="hljs-tag">&lt;<span class="hljs-title">s:property</span> <span class="hljs-attribute">value</span>=<span class="hljs-value">"#xxx.name"</span>/&gt;</span> <span class="hljs-tag">&lt;<span class="hljs-title">br</span>&gt;</span>
+将Stack Context中的p值放入application范围内<span class="hljs-tag">&lt;<span class="hljs-title">br</span>&gt;</span>
+<span class="hljs-tag">&lt;<span class="hljs-title">s:set</span> <span class="hljs-attribute">value</span>=<span class="hljs-value">"#p"</span> <span class="hljs-attribute">name</span>=<span class="hljs-value">"xxx"</span> <span class="hljs-attribute">scope</span>=<span class="hljs-value">"application"</span>/&gt;</span>
+<span class="hljs-tag">&lt;<span class="hljs-title">s:property</span> <span class="hljs-attribute">value</span>=<span class="hljs-value">"#attr.xxx.name"</span>/&gt;</span> <span class="hljs-tag">&lt;<span class="hljs-title">br</span>&gt;</span>
+将Stack Context中的p值放入session范围内<span class="hljs-tag">&lt;<span class="hljs-title">br</span>&gt;</span>
+<span class="hljs-tag">&lt;<span class="hljs-title">s:set</span> <span class="hljs-attribute">value</span>=<span class="hljs-value">"#p"</span> <span class="hljs-attribute">name</span>=<span class="hljs-value">"xxx"</span> <span class="hljs-attribute">scope</span>=<span class="hljs-value">"session"</span>/&gt;</span>
+<span class="hljs-comment">&lt;!--使用JSP2.0表达式语言直接访问session中的属性--&gt;</span>
+${sessionScope.xxx.name}<span class="hljs-tag">&lt;<span class="hljs-title">br</span>&gt;</span></code></pre>
+
+<hr />
+
+
+
+<h2 id="六-注意">六. 注意</h2>
+
+<p>　　下面是我们需要在Struts2中注意的几点：</p>
+
+<p>　　<font color="blue"> (1). OGNL表达式的计算是围绕OGNL上下文进行的。由本篇的姊妹篇<a href="http://blog.csdn.net/justloveyou_/article/details/68957129">《与MVC框架解耦的OGNL：前世今生及其基本用法》</a>知，OGNL上下文实际上就是一个Map对象，由ognl.OgnlContext类表示，它里面可以存放很多个JavaBean对象。它有一个上下文根对象，根对象可以直接使用名来访问或直接使用它的属性名访问它的属性值，而其他对象要加前缀“#key；</font></p>
+
+<p>　　<font color="blue">(2). 在Struts2中，OGNL必须配合Struts标签使用（&lt;s:property value=”xxx”/&gt;）而EL表达式可以直接使用，并且能够使用EL的一定可以使用OGNL，能使用OGNL的不一定能够使用EL；</font> </p>
+
+<p>　　<font color="blue">(3). Struts2将ActionContext设置为OGNL上下文，并将值栈作为OGNL的根对象放置到ActionContext中；</font> </p>
+
+<p>　　<font color="blue">(4). 值栈(ValueStack)贯穿整个Action的生命周期，并且每个Action类的对象实例都会拥有一个自身的ValueStack对象，并且Struts2总是把当前Action实例放置在栈顶。</font> </p>
+
+<hr />
+
+
+
+<h2 id="七-更多">七. 更多</h2>
+
+<p>　　更多关于OGNL的前世今生，并结合具体实例和源码阐述了OGNL的实质、OGNL三要素和基本用法语法，请读者移步我的博客<a href="http://blog.csdn.net/justloveyou_/article/details/68957129">《与MVC框架解耦的OGNL：前世今生及其基本用法》</a>。 <br />
+　　更多关于如何开发一个Struts2应用，请读者移步我的博客<a href="http://blog.csdn.net/justloveyou_/article/details/55002006">《 Struts2 实战：从 登录Demo 看 Struts2 应用开发》</a>。</p>
+
+<p>　　更多关于<font color="red"><b> Struts2的概述及其与Struts1.x差异 </b></font>请读者移步我的博文<a href="http://blog.csdn.net/justloveyou_/article/details/69365627">《 Struts1与Struts2的区别和对比（深度好文）》</a>。</p>
+
+<p>　　更多关于Struts2的的介绍请见我的专栏<a href="http://blog.csdn.net/column/details/14810.html">《Java Web 成神之路》</a>。本专栏全面记录了Java Web开发相关知识，不但包括对http, servlet,session等基础知识的讲解，还包括对流行框架(SSM,SpringMVC等)、中间件(Redis等)等进阶知识的深入分析。笔者将持续跟进最新Web技术，期望对大家能够起到抛砖引玉的效果。</p>
+
+<hr />
+
+<blockquote>
+  <h2 id="引用">引用</h2>
+  
+  <p><a href="http://blog.csdn.net/yu102655/article/details/52179695">OGNL表达式语言详解</a> <br />
+  <a href="http://blog.csdn.net/tjcyjd/article/details/6850203">Struts2中的OGNL详解</a> <br />
+  <a href="http://blog.csdn.net/resigshy/article/details/7560573">ognl概念和原理详解</a> <br />
+  <a href="http://blog.csdn.net/zzjjiandan/article/details/17786955">ognl 详解</a> <br />
+  <a href="http://blog.csdn.net/zhangjinhuang/article/details/26176363">struts2常用标签库之逻辑控制标签</a></p>
+</blockquote></div>&#13;
+        <script type="text/javascript">&#13;
+            $(function () {&#13;
+                $('pre.prettyprint code').each(function () {&#13;
+                    var lines = $(this).text().split('\n').length;&#13;
+                    var $numbering = $('&lt;ul/&gt;').addClass('pre-numbering').hide();&#13;
+                    $(this).addClass('has-numbering').parent().append($numbering);&#13;
+                    for (i = 1; i &lt;= lines; i++) {&#13;
+                        $numbering.append($('&lt;li/&gt;').text(i));&#13;
+                    };&#13;
+                    $numbering.fadeIn(1700);&#13;
+                });&#13;
+            });&#13;
+        </script>&#13;
+   &#13;

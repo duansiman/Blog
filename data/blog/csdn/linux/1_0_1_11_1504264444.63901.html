@@ -1,0 +1,68 @@
+
+
+<p>        在内联汇编中使用跳转语句是非常常见的，比如：比较两个数，返回较大数时，就会用到跳转；先看下汇编和运行结果，然后再一步步分析下：</p>&#13;
+<p>                      <img src="http://img.blog.csdn.net/20150114183309921?watermark/2/text/aHR0cDovL2Jsb2cuY3Nkbi5uZXQvWXVaaGlIdWlfTm8x/font/5a6L5L2T/fontsize/400/fill/I0JBQkFCMA==/dissolve/70/gravity/Center" alt="" /><br />&#13;
+</p>&#13;
+<p>        运行结果：</p>&#13;
+<p>                     <img src="http://img.blog.csdn.net/20150114183355489?watermark/2/text/aHR0cDovL2Jsb2cuY3Nkbi5uZXQvWXVaaGlIdWlfTm8x/font/5a6L5L2T/fontsize/400/fill/I0JBQkFCMA==/dissolve/70/gravity/Center" alt="" /></p>&#13;
+<p>        代码分析：</p>&#13;
+<p></p>&#13;
+<pre name="code" class="cpp"> #include&lt;stdio.h&gt;
+ 
+ void fun(int a, int b)
+ {
+     printf("a=%d, b=%d\n", a, b); //先打印下a, b的值
+     asm(
+         "cmp %0, %1;"     // 通过占位符来比较，其中%0代码b，%1代表a
+         "jle le;"         // 如果小于等于则跳转到le标签处，这里的比较和Intel相反，是 %1 - %0
+         "jmp end;"        // 无条件跳转到end处
+         "le:\n\t"         // le标签
+         "movl %1, %0;"    // 把%1传送给%0，这时候%1是比%0小的
+         "end:"            // 结束标识
+ 
+         :"=r"(a)          // 让a同时作为输出参数
+         :"r"(a), "0"(b)   // b和输出寄存器共用
+         );  
+     printf("The result:%d\n", a); // 打印返回值
+ }
+ 
+ int main (void)
+ {
+     fun(2,4);
+     fun(6,3);
+     return 0;
+ }</pre>        上面代码不仅仅是为了说明跳转，还是对前面几篇blog写的内容进行举例。可以使用分号；来替代\n\t；占位符的使用，以及引用占位符，然后输入参数和输出参数同一个的；等等。。。&#13;
+<p></p>&#13;
+<p>        用标签作为跳转的位置存在很多局限性：1、只能跳转到本asm汇编段中，不能两个asm汇编段之间跳转；2、如果使用标签，那么如果函数中有多个asm汇编段时，里面的标签是不能相同的，否则会报错；3、如果该函数（包含asm汇编）被多个函数调用，则里面的asm汇编中的标签也是会重复的，会报错。</p>&#13;
+<p>        针对上面的问题，可以把标签替换成数字，那么就可以解决标签重复问题（其实开始我也不知道为什么替换后就可以解决，就算替换后重复的标签位置变成数字也是会重复的啊？但是事实却是用数字替换后还真的不重复了，至于原因看最后一段）</p>&#13;
+<p></p>&#13;
+<pre name="code" class="cpp"> #include&lt;stdio.h&gt;
+ 
+ void fun(int a, int b)
+ {
+     printf("a=%d, b=%d\n", a, b); //先打印下a, b的值
+     asm(
+         "cmp %0, %1;"     // 通过占位符来比较，其中%0代码b，%1代表a
+         "jle 0f;"         // 如果小于等于则跳转到0标签处，这里的比较和Intel相反，是 %1 - %0
+         "jmp 1f;"         // 无条件跳转到1标签处（f表示forward向前，b表示backward向后）
+         "0:\n\t"          // 0标签
+         "movl %1, %0;"    // 把%1传送给%0，这时候%1是比%0小的
+         "1:"              // 结束标识
+ 
+         :"=r"(a)          // 让a同时作为输出参数
+         :"r"(a), "0"(b)   // b和输出寄存器共用
+         );  
+     printf("The result:%d\n", a); // 打印返回值
+ }
+ 
+ int main (void)
+ {
+     fun(2,4);
+     fun(6,3);
+     return 0;
+ }</pre>        上面说明下，跳转时：“jle 0f”表示从跳转指令开始顺序查找，然后跳转到第一个标签；其实这就解释了上面的疑惑：如果重复加载包含asm汇编的函数，标签会因为重复，而数字却不会。因为数字替换标签后，表示的不是一个固定的地址标签，而是第几个标签，所以不管怎么加载都不会因为标签重复而报错了。&#13;
+<p></p>&#13;
+<p>        转载请注明作者和原文出处，原文地址：<a target="_blank" href="http://blog.csdn.net/yuzhihui_no1/article/details/42713439">http://blog.csdn.net/yuzhihui_no1/article/details/42713439</a><br />&#13;
+<br />&#13;
+</p>&#13;
+   &#13;

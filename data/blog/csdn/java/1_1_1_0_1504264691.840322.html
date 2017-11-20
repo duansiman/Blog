@@ -1,0 +1,190 @@
+
+                
+<p><span style="font-size:24px">RabbitMQ入门教程 For Java【9】 - 与Spring集成<br/>&#13;
+</span></p>&#13;
+<p><span style="font-size:24px">简介：</span></p>&#13;
+<p><span style="font-size:14px">        RabbitMQ在与Spring集成我做了两个项目，一个项目是消息生产者，负责发送消息，另外一个是消息消费者，负责监听消息。大致的流程图如下：</span></p>&#13;
+<p style="text-align:center"><span style="font-size:14px"><img src="http://img.blog.csdn.net/20160125174129872?watermark/2/text/aHR0cDovL2Jsb2cuY3Nkbi5uZXQv/font/5a6L5L2T/fontsize/400/fill/I0JBQkFCMA==/dissolve/70/gravity/Center" alt=""/><br/>&#13;
+</span></p>&#13;
+<p><span style="font-size:14px">项目环境：</span></p>&#13;
+<p><span style="font-size:14px">Windows7 64bit</span></p>&#13;
+<p><span style="font-size:14px">Eclipse Kepler SR2</span></p>&#13;
+<p><span style="font-size:14px">JDK 1.7</span></p>&#13;
+<p><span style="font-size:14px">Tomcat 7</span></p>&#13;
+<p><span style="font-size:14px">RabbitMQ 3.6.0</span></p>&#13;
+<p><span style="font-size:14px">项目源码地址：</span></p>&#13;
+<p>生产者：https://github.com/chwshuang/spring-rabbitmq-producer</p>&#13;
+<p>消费者：https://github.com/chwshuang/spring-rabbitmq-customer</p>&#13;
+<p><br/>&#13;
+</p>&#13;
+<h1><span style="font-size:24px">生产者：</span></h1>&#13;
+<p><span style="font-size:14px">        与Spring集成的项目使用的是Maven，只需要一个依赖配置就搞定：</span><br/>&#13;
+</p>&#13;
+<p/>&#13;
+<pre code_snippet_id="1565282" snippet_file_name="blog_20160125_2_8148577" name="code" class="plain">                &lt;!-- RabbitMQ --&gt;
+		&lt;dependency&gt;
+			&lt;groupId&gt;org.springframework.amqp&lt;/groupId&gt;
+			&lt;artifactId&gt;spring-rabbit&lt;/artifactId&gt;
+			&lt;version&gt;1.3.5.RELEASE&lt;/version&gt;
+		&lt;/dependency&gt;</pre><span style="font-size:14px"><br/>&#13;
+<span style="font-size:14px">        </span>消息生产者在Spring的配置也比较简单，只需要一个连接工厂和一个连接模版类就搞定了。</span>&#13;
+<p/>&#13;
+<p/>&#13;
+<pre code_snippet_id="1565282" snippet_file_name="blog_20160125_3_2434739" name="code" class="plain">        &lt;!-- ========================================RabbitMQ========================================= --&gt;
+	&lt;rabbit:connection-factory id="connectionFactory" host="localhost" publisher-confirms="true" virtual-host="test" username="test" password="1234" /&gt;
+
+	&lt;rabbit:template id="rabbitTemplate" connection-factory="connectionFactory"/&gt;</pre><br/>&#13;
+<span style="font-size:14px"><span style="font-size:14px">        </span>生产者在Spring中使用时，只需要定义一个服务接口实现类即可。</span>&#13;
+<p/>&#13;
+<p/>&#13;
+<pre code_snippet_id="1565282" snippet_file_name="blog_20160125_4_624596" name="code" class="plain">@Service("rabbitService")
+public class RabbitServiceImpl {
+	private static Logger log = LoggerFactory.getLogger(RabbitServiceImpl.class);
+	@Autowired
+	private RabbitTemplate rabbitTemplate;
+
+	/**
+	 * 发送消息
+	 * @param msg 消息内容
+	 * @param routingKey 路由关键字
+	 * void
+	 */
+	public void setMessage(String msg, String routingKey) {
+		rabbitTemplate.convertAndSend(routingKey, msg);
+		log.info("rabbitmq--发送消息完成: routingKey[{}]-msg[{}]", routingKey, msg);
+	}
+}</pre>&#13;
+<p/>&#13;
+<p><br/>&#13;
+</p>&#13;
+<p><span style="font-size:14px">生产者端还需要创建一个测试页面，通过Ajax技术发送消息到生产者端的控制层，由控制层调用消息服务层发送消息。</span></p>&#13;
+<p/>&#13;
+<pre code_snippet_id="1565282" snippet_file_name="blog_20160125_5_3797942" name="code" class="html">&lt;%@ page contentType="text/html;charset=UTF-8" language="java"%&gt;
+&lt;!DOCTYPE html&gt;
+&lt;html&gt;
+&lt;head&gt;
+&lt;meta charset="UTF-8"&gt;
+&lt;script src="http://cdn.bootcss.com/jquery/1.11.3/jquery.min.js"&gt;&lt;/script&gt;
+&lt;title&gt;测试&lt;/title&gt;
+&lt;script type="text/javascript"&gt;
+ function sendMsg(){
+	 var t = $("#type").val();
+	 //alert(t);
+	 $.post('/producer/rabbit/setMessage',{msg:'hello world '+t+' rabbit!',type:t}, function(result){
+		 if(result.success){
+			 //alert("发送成功");
+		 }else{
+			 alert("发送失败");
+		 }
+	 },'json');
+ }
+&lt;/script&gt;
+&lt;/head&gt;
+&lt;body&gt;
+&lt;h1&gt;发送消息&lt;/h1&gt;&lt;hr&gt;
+&lt;select id="type" &gt; 
+&lt;option selected="selected" value="red"&gt;red&lt;/option&gt;
+&lt;option value="blue"&gt;blue&lt;/option&gt;
+
+&lt;/select&gt;
+&lt;button id="send" onclick="sendMsg()" value="发送消息" type="button" title="send"&gt;发送&lt;/button&gt;
+&lt;/body&gt;
+&lt;/html&gt;</pre><br/>&#13;
+<br/>&#13;
+<p/>&#13;
+<p><br/>&#13;
+</p>&#13;
+<h1><span style="font-size:24px">消费者：</span></h1>&#13;
+<p><span style="font-size:14px"><span style="font-size:14px">        </span>RabbitMQ的消息消费者需要监听消息，以及处理收到的消息，所以需要配置一个监听器，声明一个需要监听的队列，和一个消息处理器。消费者端与spring集成的侵入较少。</span></p>&#13;
+<p/>&#13;
+<pre code_snippet_id="1565282" snippet_file_name="blog_20160125_6_4496053" name="code" class="plain">&lt;pre name="code" class="plain"&gt;	&lt;!-- ========================================RabbitMQ========================================= --&gt;
+	&lt;!-- 连接工厂 --&gt;
+	&lt;rabbit:connection-factory id="connectionFactory" host="192.168.5.198" publisher-confirms="true" virtual-host="test" username="test" password="1234" /&gt;
+    &lt;!-- 监听器 --&gt;
+	&lt;rabbit:listener-container connection-factory="connectionFactory"&gt;
+		&lt;!-- queues是队列名称，可填多个，用逗号隔开， method是ref指定的Bean调用Invoke方法执行的方法名称 --&gt;
+		&lt;rabbit:listener queues="red" method="onMessage" ref="redQueueListener" /&gt;
+		&lt;rabbit:listener queues="blue" method="onMessage" ref="blueQueueListener" /&gt;
+	&lt;/rabbit:listener-container&gt;
+	&lt;!-- 队列声明 --&gt;
+	&lt;rabbit:queue name="red" durable="true" /&gt;
+	&lt;!-- 队列声明 --&gt;
+	&lt;rabbit:queue name="blue" durable="true" /&gt;
+    &lt;!-- 红色监听处理器 --&gt;
+	&lt;bean id="redQueueListener" class="com.aitongyi.customer.RedQueueListener" /&gt;
+    &lt;!-- 蓝色监听处理器 --&gt;
+	&lt;bean id="blueQueueListener" class="com.aitongyi.customer.BlueQueueListener" /&gt;</pre><br/>&#13;
+<br/>&#13;
+<p/>&#13;
+<pre/>&#13;
+<span style="font-size:14px"><span style="font-size:14px">        </span>消息处理器可以只是一个通过spring管理的普通Bean对象，需要有一个在xml中定义method同名的方法</span>&#13;
+<p/>&#13;
+<p/>&#13;
+<pre code_snippet_id="1565282" snippet_file_name="blog_20160125_7_5717552" name="code" class="plain">public class RedQueueListener{
+	private static Logger log = LoggerFactory.getLogger(RedQueueListener.class);
+	/**
+	 * 处理消息
+	 * @param message
+	 * void
+	 */
+	public void onMessage(String message) {
+		log.info("RedQueueListener--receved:"  + message);
+	}
+}</pre><br/>&#13;
+<br/>&#13;
+<p/>&#13;
+<h1><span style="font-size:24px">RabbitMQ创建消息环境</span></h1>&#13;
+<div><br/>&#13;
+</div>&#13;
+<p/>&#13;
+<p><span style="font-size:14px">        在项目开发完成后，我们需要在RabbitMQ中创建vhost，user、queues，这样，消费者在启动的时候，登录、声明虚拟机、队列就不会报错。</span></p>&#13;
+<p><span style="font-size:14px">1. 创建test虚拟机，然后点击Name标签，进入虚拟机，添加权限</span></p>&#13;
+<p style="text-align:center"><img src="http://img.blog.csdn.net/20160125175837466?watermark/2/text/aHR0cDovL2Jsb2cuY3Nkbi5uZXQv/font/5a6L5L2T/fontsize/400/fill/I0JBQkFCMA==/dissolve/70/gravity/SouthEast" alt=""/><br/>&#13;
+</p>&#13;
+<p><br/>&#13;
+</p>&#13;
+<p style="text-align:center"><br/>&#13;
+</p>&#13;
+<p style="text-align:left"><span style="font-size:14px">2. 进入【Admin】菜单【Users】标签创建用户，然后点击用户名称进入详情设置权限</span></p>&#13;
+<p style="text-align:center"><img src="http://img.blog.csdn.net/20160125180042766?watermark/2/text/aHR0cDovL2Jsb2cuY3Nkbi5uZXQv/font/5a6L5L2T/fontsize/400/fill/I0JBQkFCMA==/dissolve/70/gravity/SouthEast" alt=""/></p>&#13;
+<p style="text-align:center"><br/>&#13;
+</p>&#13;
+<p style="text-align:center"><img src="http://img.blog.csdn.net/20160125175942343?watermark/2/text/aHR0cDovL2Jsb2cuY3Nkbi5uZXQv/font/5a6L5L2T/fontsize/400/fill/I0JBQkFCMA==/dissolve/70/gravity/SouthEast" alt=""/></p>&#13;
+<p><br/>&#13;
+</p>&#13;
+<p><br/>&#13;
+</p>&#13;
+<p><span style="font-size:14px">3. 进入【Queues】菜单，创建队列</span></p>&#13;
+<p style="text-align:center"><img src="http://img.blog.csdn.net/20160125180529210?watermark/2/text/aHR0cDovL2Jsb2cuY3Nkbi5uZXQv/font/5a6L5L2T/fontsize/400/fill/I0JBQkFCMA==/dissolve/70/gravity/SouthEast" alt=""/><br/>&#13;
+</p>&#13;
+<p><br/>&#13;
+</p>&#13;
+<p><br/>&#13;
+</p>&#13;
+<h1><span style="font-size:24px">执行测试：</span></h1>&#13;
+<p><span style="font-size:14px">将生产者和消费者项目添加到Tomcat中，然后启动，在浏览器输入【http://localhost:8080/producer/test.jsp】,进入测试页面，分别发送红色、蓝色的消息到队列，消费者端会显示接收日志</span></p>&#13;
+<p style="text-align:center"><img src="http://img.blog.csdn.net/20160125181207484?watermark/2/text/aHR0cDovL2Jsb2cuY3Nkbi5uZXQv/font/5a6L5L2T/fontsize/400/fill/I0JBQkFCMA==/dissolve/70/gravity/SouthEast" alt=""/><br/>&#13;
+</p>&#13;
+<p style="text-align:center"><img src="http://img.blog.csdn.net/20160125181255094?watermark/2/text/aHR0cDovL2Jsb2cuY3Nkbi5uZXQv/font/5a6L5L2T/fontsize/400/fill/I0JBQkFCMA==/dissolve/70/gravity/SouthEast" alt=""/><br/>&#13;
+</p>&#13;
+<p><span style="font-size:14px">生产者端日志</span></p>&#13;
+<p/>&#13;
+<pre code_snippet_id="1565282" snippet_file_name="blog_20160125_8_8367511" name="code" class="plain">2016-01-25 18:09:26 722 [INFO] c.a.p.c.RabbitController - rabbitmq--收到待发送消息: type[blue]-msg[hello world blue rabbit!]
+2016-01-25 18:09:26 723 [INFO] c.a.p.s.RabbitServiceImpl - rabbitmq--发送消息完成: routingKey[blue]-msg[hello world blue rabbit!]
+2016-01-25 18:09:28 715 [INFO] c.a.p.c.RabbitController - rabbitmq--收到待发送消息: type[red]-msg[hello world red rabbit!]
+2016-01-25 18:09:28 716 [INFO] c.a.p.s.RabbitServiceImpl - rabbitmq--发送消息完成: routingKey[red]-msg[hello world red rabbit!]</pre><br/>&#13;
+<span style="font-size:14px">消费者端日志</span>&#13;
+<p/>&#13;
+<p/>&#13;
+<pre code_snippet_id="1565282" snippet_file_name="blog_20160125_9_254102" name="code" class="plain">2016-01-25 18:09:26 727 [INFO] c.a.c.BlueQueueListener - BlueQueueListener Receved:hello world blue rabbit!
+2016-01-25 18:09:28 719 [INFO] c.a.c.RedQueueListener - RedQueueListener Receved:hello world red rabbit!</pre><br/>&#13;
+<br/>&#13;
+<p/>&#13;
+<p><br/>&#13;
+</p>&#13;
+<p><br/>&#13;
+</p>&#13;
+<p><br/>&#13;
+</p>&#13;
+<link rel="stylesheet" href="http://static.blog.csdn.net/public/res-min/markdown_views.css?v=1.0"/>&#13;
+            

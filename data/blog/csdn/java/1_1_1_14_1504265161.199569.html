@@ -1,0 +1,278 @@
+
+                <div class="markdown_views"><p>转自：<a href="http://blog.csdn.net/xllily_11/article/details/51517897">http://blog.csdn.net/xllily_11/article/details/51517897</a></p>
+
+<p>随着互联网的飞速发展，前端开发越来越复杂。本文将从实际项目中遇到的问题出发，讲述模块化能解决哪些问题，以及如何使用 Sea.js 进行前端的模块化开发。</p>
+
+<p>恼人的命名冲突</p>
+
+<p>我们从一个简单的习惯出发。我做项目时，常常会将一些通用的、底层的功能抽象出来，独立成一个个函数，比如</p>
+
+<p>function each(arr) { <br/>
+  // 实现代码 <br/>
+}</p>
+
+<p>function log(str) { <br/>
+  // 实现代码 <br/>
+} <br/>
+并像模像样地把这些函数统一放在 util.js 里。需要用到时，引入该文件就行。这一切工作得很好，同事也很感激我提供了这么便利的工具包。</p>
+
+<p>直到团队越来越大，开始有人抱怨。</p>
+
+<p>小杨：我想定义一个 each 方法遍历对象，但页头的 util.js 里已经定义了一个，我的只能叫 eachObject 了，好无奈。</p>
+
+<p>小高：我自定义了一个 log 方法，为什么小明写的代码就出问题了呢？谁来帮帮我。 <br/>
+抱怨越来越多。团队经过一番激烈的讨论，决定参照 Java 的方式，引入命名空间来解决。于是 util.js 里的代码变成了</p>
+
+<p>var org = {}; <br/>
+org.CoolSite = {}; <br/>
+org.CoolSite.Utils = {};</p>
+
+<p>org.CoolSite.Utils.each = function (arr) { <br/>
+  // 实现代码 <br/>
+};</p>
+
+<p>org.CoolSite.Utils.log = function (str) { <br/>
+  // 实现代码 <br/>
+}; <br/>
+不要认为上面的代码是为了写这篇文章而故意捏造的。将命名空间的概念在前端中发扬光大，首推 Yahoo! 的 YUI2 项目。下面是一段真实代码，来自 Yahoo! 的一个开源项目。</p>
+
+<p>if (org.cometd.Utils.isString(response)) { <br/>
+  return org.cometd.JSON.fromJSON(response); <br/>
+} <br/>
+if (org.cometd.Utils.isArray(response)) { <br/>
+  return response; <br/>
+} <br/>
+通过命名空间，的确能极大缓解冲突。但每每看到上面的代码，都忍不住充满同情。为了调用一个简单的方法，需要记住如此长的命名空间，这增加了记忆负担，同时剥夺了不少编码的乐趣。</p>
+
+<p>作为前端业界的标杆，YUI 团队下定决心解决这一问题。在 YUI3 项目中，引入了一种新的命名空间机制。</p>
+
+<p>YUI().use(‘node’, function (Y) { <br/>
+  // Node 模块已加载好 <br/>
+  // 下面可以通过 Y 来调用 <br/>
+  var foo = Y.one(‘#foo’); <br/>
+}); <br/>
+YUI3 通过沙箱机制，很好的解决了命名空间过长的问题。然而，也带来了新问题。</p>
+
+<p>YUI().use(‘a’, ‘b’, function (Y) { <br/>
+  Y.foo(); <br/>
+  // foo 方法究竟是模块 a 还是 b 提供的？ <br/>
+  // 如果模块 a 和 b 都提供 foo 方法，如何避免冲突？ <br/>
+}); <br/>
+看似简单的命名冲突，实际解决起来并不简单。如何更优雅地解决？我们按下暂且不表，先来看另一个常见问题。</p>
+
+<p>烦琐的文件依赖</p>
+
+<p>继续上面的故事。基于 util.js，我开始开发 UI 层通用组件，这样项目组同事就不用重复造轮子了。</p>
+
+<p>其中有一个最被大家喜欢的组件是 dialog.js，使用方式很简单。</p>
+
+
+
+
+  org.CoolSite.Dialog.init({ /* 传入配置 */ });
+
+
+<p>可是无论我怎么写文档，以及多么郑重地发邮件宣告，时不时总会有同事来询问为什么 dialog.js 有问题。通过一番排查，发现导致错误的原因经常是</p>
+
+
+
+  org.CoolSite.Dialog.init({ /* 传入配置 */ });
+
+
+<p>在 dialog.js 前没有引入 util.js，因此 dialog.js 无法正常工作。同样不要以为我上面的故事是虚构的，在我待过的公司里，至今依旧有类似的脚本报错，特别是在各种快速制作的营销页面中。</p>
+
+<p>上面的文件依赖还在可控范围内。当项目越来越复杂，众多文件之间的依赖经常会让人抓狂。下面这些问题，我相信每天都在真实地发生着。</p>
+
+<p>通用组更新了前端基础类库，却很难推动全站升级。 <br/>
+业务组想用某个新的通用组件，但发现无法简单通过几行代码搞定。 <br/>
+一个老产品要上新功能，最后评估只能基于老的类库继续开发。 <br/>
+公司整合业务，某两个产品线要合并。结果发现前端代码冲突。 <br/>
+…… <br/>
+以上很多问题都是因为文件依赖没有很好的管理起来。在前端页面里，大部分脚本的依赖目前依旧是通过人肉的方式保证。当团队比较小时，这不会有什么问题。当团队越来越大，公司业务越来越复杂后，依赖问题如果不解决，就会成为大问题。</p>
+
+<p>文件的依赖，目前在绝大部分类库框架里，比如国外的 YUI3 框架、国内的 KISSY 等类库，目前是通过配置的方式来解决。</p>
+
+<p>YUI.add(‘my-module’, function (Y) { <br/>
+  // … <br/>
+}, ‘0.0.1’, { <br/>
+    requires: [‘node’, ‘event’] <br/>
+}); <br/>
+上面的代码，通过 requires 等方式来指定当前模块的依赖。这很大程度上可以解决依赖问题，但不够优雅。当模块很多，依赖很复杂时，烦琐的配置会带来不少隐患。</p>
+
+<p>命名冲突和文件依赖，是前端开发过程中的两个经典问题。下来我们看如何通过模块化开发来解决。为了方便描述，我们使用 Sea.js 来作为模块化开发框架。</p>
+
+<p>使用 Sea.js 来解决</p>
+
+<p>Sea.js 是一个成熟的开源项目，核心目标是给前端开发提供简单、极致的模块化开发体验。这里不多做介绍，有兴趣的可以访问 seajs.org 查看官方文档。</p>
+
+<p>使用 Sea.js，在书写文件时，需要遵守 CMD （Common Module Definition）模块定义规范。一个文件就是一个模块。前面例子中的 util.js 变成</p>
+
+<p>define(function(require, exports) { <br/>
+  exports.each = function (arr) { <br/>
+    // 实现代码 <br/>
+  };</p>
+
+<p>exports.log = function (str) { <br/>
+    // 实现代码 <br/>
+  }; <br/>
+}); <br/>
+通过 exports 就可以向外提供接口。这样，dialog.js 的代码变成</p>
+
+<p>define(function(require, exports) { <br/>
+  var util = require(‘./util.js’);</p>
+
+<p>exports.init = function() { <br/>
+    // 实现代码 <br/>
+  }; <br/>
+}); <br/>
+关键部分到了！我们通过 require(‘./util.js’) 就可以拿到 util.js 中通过 exports 暴露的接口。这里的require 可以认为是 Sea.js 给 JavaScript 语言增加的一个 语法关键字，通过 require 可以获取其他模块提供的接口。</p>
+
+<p>这其实一点也不神奇。作为前端工程师，对 CSS 代码一定也不陌生。</p>
+
+<p>@import url(“base.css”);</p>
+
+<h1 id="id">id { … }</h1>
+
+<p>.class { … } <br/>
+Sea.js 增加的 require 语法关键字，就如 CSS 文件中的 @import 一样，给我们的源码赋予了依赖引入功能。</p>
+
+<p>如果你是后端开发工程师，更不会陌生。Java、Python、C# 等等语言，都有 include、import 等功能。JavaScript 语言本身也有类似功能，但目前还处于草案阶段，需要等到 ES6 标准得到主流浏览器支持后才能使用。</p>
+
+<p>这样，在页面中使用 dialog.js 将变得非常简单。</p>
+
+
+
+seajs.use('dialog', function(Dialog) {
+  Dialog.init(/* 传入配置 */);
+});
+
+
+<p>首先要在页面中引入 sea.js 文件，这一般通过页头全局把控，也方便更新维护。想在页面中使用某个组件时，只要通过 seajs.use 方法调用。</p>
+
+<p>好好琢磨以上代码，我相信你已经看到了 Sea.js 带来的两大好处：</p>
+
+<p>通过 exports 暴露接口。这意味着不需要命名空间了，更不需要全局变量。这是一种彻底的命名冲突解决方案。</p>
+
+<p>通过 require 引入依赖。这可以让依赖内置，开发者只需关心当前模块的依赖，其他事情 Sea.js 都会自动处理好。对模块开发者来说，这是一种很好的 关注度分离，能让程序员更多地享受编码的乐趣。</p>
+
+<p>小结</p>
+
+<p>除了解决命名冲突和依赖管理，使用 Sea.js 进行模块化开发还可以带来很多好处：</p>
+
+<p>模块的版本管理。通过别名等配置，配合构建工具，可以比较轻松地实现模块的版本管理。</p>
+
+<p>提高可维护性。模块化可以让每个文件的职责单一，非常有利于代码的维护。Sea.js 还提供了 nocache、debug 等插件，拥有在线调试等功能，能比较明显地提升效率。</p>
+
+<p>前端性能优化。Sea.js 通过异步加载模块，这对页面性能非常有益。Sea.js 还提供了 combo、flush 等插件，配合服务端，可以很好地对页面性能进行调优。</p>
+
+<p>跨环境共享模块。CMD 模块定义规范与 Node.js 的模块规范非常相近。通过 Sea.js 的 Node.js 版本，可以很方便实现模块的跨服务器和浏览器共享。</p>
+
+<p>模块化开发并不是新鲜事物，但在 Web 领域，前端开发是新生岗位，一直处于比较原始的刀耕火种时代。直到最近两三年，随着 Dojo、YUI3、Node.js 等社区的推广和流行，前端的模块化开发理念才逐步深入人心。</p>
+
+<p>前端的模块化构建可分为两大类。一类是以 Dojo、YUI3、国内的 KISSY 等类库为代表的大教堂模式。在大教堂模式下，所有组件都是颗粒化、模块化的，各组件之间层层分级、环环相扣。另一类是以 jQuery、RequireJS、国内的 Sea.js、OzJS 等类库为基础的集市模式。在集市模式下，所有组件彼此独立、职责单一，各组件通过组合松耦合在一起，协同完成开发。</p>
+
+<p>这两类模块化构建方式各有应用场景。从长远来看，小而美更具备宽容性和竞争力，更能形成有活力的生态圈。</p>
+
+<p>总之，模块化能给前端开发带来很多好处。如果你还没有尝试，不妨从试用 Sea.js 开始。</p>
+
+<hr/>
+
+<p>模块话的原理和必要性： 来自某博主的分享和总结</p>
+
+<p>如果你听过js模块化这个东西，那么你就应该听过或CommonJS或AMD甚至是CMD这些规范咯，我也听过，但之前也真的是听听而已。</p>
+
+<p>现在就看看吧，这些规范到底是啥东西，干嘛的。</p>
+
+<p>一、CommonJS</p>
+
+<p>CommonJS就是为JS的表现来制定规范，因为js没有模块的功能所以CommonJS应运而生，它希望js可以在任何地方运行，不只是浏览器中。</p>
+
+<p>CommonJS能有一定的影响力，我觉得绝对离不开Node的人气，不过喔，Node，CommonJS，浏览器甚至是W3C之间有什么关系呢，我找到了个贴切的图：</p>
+
+<p>|—————浏览器—– ——————|        |————————–CommonJS———————————-|</p>
+
+<p>|  BOM  |       | DOM |        | ECMAScript |         | FS |           | TCP |         | Stream |        | Buffer |          |……..|</p>
+
+<p>|——-W3C———–|       |—————————————Node————————————————–|</p>
+
+<p>CommonJS定义的模块分为:{模块引用(require)} {模块定义(exports)} {模块标识(module)}</p>
+
+<p>require()用来引入外部模块；exports对象用于导出当前模块的方法或变量，唯一的导出口；module对象就代表模块本身。</p>
+
+<p>比如说我们就可以这样用了：</p>
+
+<p>复制代码 <br/>
+1 //sum.js <br/>
+2 exports.sum = function(){…做加操作..}; <br/>
+3  <br/>
+4 //calculate.js <br/>
+5 var math = require(‘sum’); <br/>
+6 exports.add = function(n){ <br/>
+7     return math.sum(val,n); <br/>
+8 }; <br/>
+复制代码</p>
+
+<p>虽说Node遵循CommonJS的规范，但是相比也是做了一些取舍，填了一些新东西的。</p>
+
+<p>不过，说了CommonJS也说了Node，那么我觉得也得先了解下NPM了。NPM作为Node的包管理器，不是为了帮助Node解决依赖包的安装问题嘛，那它肯定也要遵循CommonJS规范啦，它遵循包规范（还是理论）的。</p>
+
+<p>CommonJS WIKI讲了它的历史，还介绍了modules和packages等。</p>
+
+<p>二、AMD</p>
+
+<p>CommonJS是主要为了JS在后端的表现制定的，他是不适合前端的，为什么这么说呢？</p>
+
+<p>这需要分析一下浏览器端的js和服务器端js都主要做了哪些事，有什么不同了：</p>
+
+<p>—————————————服务器端JS   |    浏览器端JS——————————————-</p>
+
+<pre><code>                               相同的代码需要多次执行  |    代码需要从一个服务器端分发到多个客户端执行
+
+                                 CPU和内存资源是瓶颈   |    带宽是瓶颈
+
+                                    加载时从磁盘中加载   |    加载时需要通过网络加载
+</code></pre>
+
+<hr/>
+
+<p>于是乎，AMD(异步模块定义)出现了，它就主要为前端JS的表现制定规范。</p>
+
+<p>AMD就只有一个接口：define(id?,dependencies?,factory);</p>
+
+<p>它要在声明模块的时候制定所有的依赖(dep)，并且还要当做形参传到factory中，像这样：</p>
+
+<p>1 define([‘dep1’,’dep2’],function(dep1,dep2){…});</p>
+
+<p>要是没什么依赖，就定义简单的模块，下面这样就可以啦：</p>
+
+<p>1 define(function(){ <br/>
+2     var exports = {}; <br/>
+3     exports.method = function(){…}; <br/>
+4     return exports; <br/>
+5 });</p>
+
+<p>咦，这里有define，把东西包装起来啦，那Node实现中怎么没看到有define关键字呢，它也要把东西包装起来呀，其实吧，只是Node隐式包装了而已…..</p>
+
+<p>RequireJS就是实现了AMD规范的呢。</p>
+
+<p>这有AMD的WIKI中文版，讲了很多蛮详细的东西，用到的时候可以查看：AMD的WIKI中文版</p>
+
+<p>三、CMD</p>
+
+<p>大名远扬的玉伯写了seajs，就是遵循他提出的CMD规范，与AMD蛮相近的，不过用起来感觉更加方便些，最重要的是中文版，应有尽有：seajs官方doc</p>
+
+<p>1 define(function(require,exports,module){…});</p>
+
+<p>用过seajs吧，这个不陌生吧，对吧。</p>
+
+<p>前面说AMD，说RequireJS实现了AMD，CMD看起来与AMD好像呀，那RequireJS与SeaJS像不像呢？</p>
+
+<p>虽然CMD与AMD蛮像的，但区别还是挺明显的，官方非官方都有阐述和理解，我觉得吧，说的都挺好：</p>
+
+<p>官方阐述SeaJS与RequireJS异同</p>
+
+<p>SeaJS与RequireJS的最大异同（这个说的也挺好）</p>
+
+<p>如转载，敬请注明地址。 <br/>
+JS前端实用开发QQ群 ：147250970  欢迎加入~！</p><link rel="stylesheet" href="http://static.blog.csdn.net/public/res-min/markdown_views.css?v=1.0"/></div><link rel="stylesheet" href="http://static.blog.csdn.net/public/res-min/markdown_views.css?v=1.0"/>&#13;
+            

@@ -1,0 +1,255 @@
+
+        <div class="markdown_views"><h1 id="装饰者模式"><center> 装饰者模式</center></h1>
+
+<p>标签 ： Java与设计模式</p>
+
+<hr />
+
+<blockquote>
+  <p><strong>装饰者</strong>模式(Decorator): 又称<strong>包装器</strong>(Wrapper), 可以动态地为一个<strong>对象</strong>添加一些额外的职责. 就增加功能来说, 装饰者模式是一种用于替代继承的技术, <strong><em>他无须通过增加子类继承就能扩展对象的已有功能</em></strong>,  而是<strong>使用对象的关联关系代替继承关系</strong> , 更加灵活, 同时还可避免类型体系的快速膨胀.</p>
+</blockquote>
+
+<ul>
+<li>模式组件:</li>
+</ul>
+
+<table>
+<thead>
+<tr>
+  <th align="center">组件</th>
+  <th align="center">描述</th>
+  <th align="left">I/O示例</th>
+</tr>
+</thead>
+<tbody><tr>
+  <td align="center"><strong>Component</strong></td>
+  <td align="center">抽象构件角色, 真实对象和装饰对象的共有接口. 这样,客户端就能以<strong>调用真实对象的相同方式</strong>同<strong>装饰对象</strong>交互.</td>
+  <td align="left"><code>InputStream</code>/<code>OutputStream</code></td>
+</tr>
+<tr>
+  <td align="center"><strong>ConcreteComponent</strong></td>
+  <td align="center">具体构件角色,真实对象</td>
+  <td align="left"><code>FileInputStream</code>/<code>FileOutputStream</code></td>
+</tr>
+<tr>
+  <td align="center"><strong>Decorator</strong></td>
+  <td align="center">装饰抽象类, 实现了<strong>Component</strong>, 并持有一个<strong>Component</strong>引用, 接受所有客户端请求,并将请求转发给真实对象, 这样,就能在真实对象调用的前后增强新功能. 但对于<strong>Component</strong>来说, 是无需知道<strong>Decorator</strong>存在的.</td>
+  <td align="left"><code>FilterInputStream</code>/<code>FilterOutputStream</code></td>
+</tr>
+<tr>
+  <td align="center"><strong>ConcreteDecorator</strong></td>
+  <td align="center">具体装饰角色,完成对<strong>Component</strong>的具体增强.</td>
+  <td align="left"><code>BufferedInputStream</code>/<code>BufferedOutputStream</code></td>
+</tr>
+</tbody></table>
+
+
+<p><img src="http://7xrgh9.com1.z0.glb.clouddn.com/16-8-20/93012693.jpg" alt="" title="" /></p>
+
+<blockquote>
+  <p><strong><em>是你还有你, 一切拜托你</em></strong>.(图片来源: <a href="http://www.cnblogs.com/java-my-life/archive/2012/04/20/2455726.html">《JAVA与模式》之装饰模式</a>)</p>
+</blockquote>
+
+<hr />
+
+
+
+<h2 id="实现">实现</h2>
+
+<ul>
+<li>Component</li>
+</ul>
+
+
+
+<pre class="prettyprint"><code class=" hljs java"><span class="hljs-javadoc">/**
+ *<span class="hljs-javadoctag"> @author</span> jifang
+ *<span class="hljs-javadoctag"> @since</span> 16/8/20 下午5:55.
+ */</span>
+<span class="hljs-keyword">public</span> <span class="hljs-class"><span class="hljs-keyword">interface</span> <span class="hljs-title">Component</span> {</span>
+
+    <span class="hljs-keyword">void</span> operator();
+}
+
+class ConcreteComponent implements Component {
+
+    <span class="hljs-annotation">@Override</span>
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">void</span> <span class="hljs-title">operator</span>() {
+        System.out.println(<span class="hljs-string">"具体对象"</span> + <span class="hljs-keyword">this</span>.toString() + <span class="hljs-string">"的操作"</span>);
+    }
+}</code></pre>
+
+<ul>
+<li>Decorator</li>
+</ul>
+
+
+
+<pre class="prettyprint"><code class=" hljs axapta"><span class="hljs-keyword">public</span> <span class="hljs-keyword">abstract</span> <span class="hljs-class"><span class="hljs-keyword">class</span> <span class="hljs-title">Decorator</span> <span class="hljs-inheritance"><span class="hljs-keyword">implements</span></span> <span class="hljs-title">Component</span> {</span>
+
+    <span class="hljs-keyword">protected</span> Component component;
+
+    <span class="hljs-keyword">public</span> Decorator(Component component) {
+        <span class="hljs-keyword">this</span>.component = component;
+    }
+
+    @Override
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">abstract</span> <span class="hljs-keyword">void</span> operator();
+}
+
+<span class="hljs-class"><span class="hljs-keyword">class</span> <span class="hljs-title">BeforeAdviceDecorator</span> <span class="hljs-inheritance"><span class="hljs-keyword">extends</span></span> <span class="hljs-title">Decorator</span> {</span>
+
+    <span class="hljs-keyword">public</span> BeforeAdviceDecorator(Component component) {
+        <span class="hljs-keyword">super</span>(component);
+    }
+
+    @Override
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">void</span> operator() {
+        System.out.println(<span class="hljs-string">" -&gt; 前置增强"</span>);
+        <span class="hljs-keyword">this</span>.component.operator();
+    }
+}
+
+<span class="hljs-class"><span class="hljs-keyword">class</span> <span class="hljs-title">AfterAdviceDecorator</span> <span class="hljs-inheritance"><span class="hljs-keyword">extends</span></span> <span class="hljs-title">Decorator</span> {</span>
+
+    <span class="hljs-keyword">public</span> AfterAdviceDecorator(Component component) {
+        <span class="hljs-keyword">super</span>(component);
+    }
+
+    @Override
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">void</span> operator() {
+        <span class="hljs-keyword">this</span>.component.operator();
+
+        System.out.println(<span class="hljs-string">"后置增强 -&gt; "</span>);
+    }
+}</code></pre>
+
+<ul>
+<li>Client</li>
+</ul>
+
+
+
+<pre class="prettyprint"><code class=" hljs cs"><span class="hljs-keyword">public</span> <span class="hljs-keyword">class</span> Client {
+
+    @Test
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">void</span> <span class="hljs-title">client</span>() {
+
+        <span class="hljs-comment">// 裸Component</span>
+        Component component = <span class="hljs-keyword">new</span> ConcreteComponent();
+        component.<span class="hljs-keyword">operator</span>();
+
+
+        <span class="hljs-comment">// 前置增强</span>
+        component = <span class="hljs-keyword">new</span> BeforeAdviceDecorator(component);
+        component.<span class="hljs-keyword">operator</span>();
+
+        <span class="hljs-comment">// + 后置增强</span>
+        component = <span class="hljs-keyword">new</span> AfterAdviceDecorator(component);
+        component.<span class="hljs-keyword">operator</span>();
+    }
+}</code></pre>
+
+<blockquote>
+  <p>注: 如果只有<strong>ConcreteComponent</strong>而没有抽象的<strong>Component</strong>, 那么<strong>Decorator</strong>可直接继承<strong>ConcreteComponent</strong>. 同样, 如果只有一个<strong>ConcreteDecorator</strong>, 那就没有必要建立一个独立的<strong>Decorator</strong>, 将<strong>Decorator</strong>和<strong>ConcreteDecorator</strong>的职责合并.</p>
+</blockquote>
+
+<hr />
+
+
+
+<h2 id="小结">小结</h2>
+
+<blockquote>
+  <ul>
+  <li>装饰者模式是<strong>为已有功能动态添加更多功能</strong>的一种方式: 把类内装饰逻辑从类中剥离, 以简化原有类设计: <br />
+  <ul><li><strong>有效地将类的核心职责和装饰功能区分开</strong>;</li>
+  <li><strong>去除相关类中重复的装饰逻辑</strong>;</li>
+  <li>可以对一个对象<strong>装饰多次</strong>, 构造出不同行为的组合, 得到功能更强大的对象;</li>
+  <li>具体构件类和具体装饰类可<strong>独立变化</strong>, 且用户可根据需要<strong>增加新的具体构件子类</strong>和<strong>具体装饰子类</strong>.</li></ul></li>
+  </ul>
+</blockquote>
+
+<ul>
+<li>与桥接模式的对比 <br />
+两个模式都是为了解决子类过多问题, 但他们的诱因不同: <br />
+<ul><li>桥接模式对象自身有<strong>沿着多个维度变化的趋势</strong>, 本身不稳定;</li>
+<li>装饰者模式对象自身非常稳定, 只是为了增加新功能/增强原功能.</li></ul></li>
+<li><p>与适配器模式的不同 <br />
+装饰者与适配器都有一个别名:包装模式(Wrapper), 它们看似都是起到包装一个接口/类/对象的作用, 但包装形式却不同.</p>
+
+<ul><li>适配器的意义是将一个接口转变成另一个接口: 通过改变接口达到重复使用的目的;</li>
+<li>而装饰者不改变被装饰对象的接口, 而恰恰保持了原有的接口: 增强原有对象的功能, 或改变原有对象的处理方法而提升性能.</li></ul></li>
+<li><p>继承、装饰者模式、动态代理对比</p></li>
+</ul>
+
+<table>
+<thead>
+<tr>
+  <th align="center">*</th>
+  <th align="center">继承</th>
+  <th align="center">装饰者</th>
+  <th align="center">动态代理</th>
+</tr>
+</thead>
+<tbody><tr>
+  <td align="center">对象</td>
+  <td align="center">被增强对象不能变</td>
+  <td align="center">被增强对象可变</td>
+  <td align="center">被增强对象可变</td>
+</tr>
+<tr>
+  <td align="center">内容</td>
+  <td align="center">增强内容不能变</td>
+  <td align="center">增强内容不可变</td>
+  <td align="center">增强内容可变</td>
+</tr>
+</tbody></table>
+
+
+<ul>
+<li>常见场景 <br />
+当系统更新、原有逻辑需要增强时, 我们最初的想法是 <strong><em>向旧的类中添加新代码</em></strong>, 由新代码装饰原有类的主要行为,  他们会在主类中加入新的<strong>字段</strong>/<strong>方法</strong>/<strong>逻辑</strong>, 但同样也增加了主类的<strong>复杂度</strong>, 而这些新加入的内容仅仅是为了满足一些<strong>只在某种特定情况下才会执行的特殊行为</strong>的需要. 而装饰者模式提供了一个解决该问题的非常好的方案: <strong>把每个要装饰的功能放在单独的类中</strong>, 并让这个类<strong>包装它所要装饰的对象</strong>, 当需要执行特殊行为时, 客户代码就可以在运行时根据需要有选择地、按顺序地使用装饰过的包装对象了, 如: <br />
+<ul><li>Java I/O流体系(详细可参考: <a href="http://blog.csdn.net/zjf280441589/article/details/50526786">Java I/O</a>);</li>
+<li><code>Servlet</code> API: <code>HttpServletRequestWrapper</code>/<code>HttpServletResponseWrapper</code>增强Servlet功能(详细可参考<a href="http://blog.csdn.net/zjf280441589/article/details/51344746#t14">Servlet - Listener、Filter、Decorator</a>)</li></ul></li>
+</ul>
+
+<hr />
+
+<dl>
+<dt>参考:</dt>
+<dd><a href="https://book.douban.com/subject/1052241/">设计模式: 可复用面向对象软件的基础</a></dd>
+
+<dd><a href="https://book.douban.com/subject/2334288/">大话设计模式</a></dd>
+
+<dd><a href="http://www.bjsxt.com/2014/down_0425/34.html">高淇讲设计模式</a></dd>
+
+<dd><a href="https://book.douban.com/subject/25953851/">深入分析Java Web技术内幕（修订版）</a></dd>
+
+<dd><a href="http://www.cnblogs.com/denisyxc/archive/2009/07/29/1533734.html">装饰模式与适配器模式的的区别</a></dd>
+</dl>
+
+<hr />
+
+<ul>
+<li><em>by</em> 攻城师@翡青 <br />
+<ul><li>Email: feiqing.zjf@gmail.com</li>
+<li>博客: <a href="http://blog.csdn.net/zjf280441589">攻城师-翡青</a> - <a href="http://blog.csdn.net/zjf280441589">http://blog.csdn.net/zjf280441589</a></li>
+<li>微博: <a href="http://weibo.com/u/3319050953">攻城师-翡青</a> - <a href="http://weibo.com/u/3319050953">http://weibo.com/u/3319050953</a></li></ul></li>
+</ul>
+
+<hr /></div>&#13;
+        <script type="text/javascript">&#13;
+            $(function () {&#13;
+                $('pre.prettyprint code').each(function () {&#13;
+                    var lines = $(this).text().split('\n').length;&#13;
+                    var $numbering = $('&lt;ul/&gt;').addClass('pre-numbering').hide();&#13;
+                    $(this).addClass('has-numbering').parent().append($numbering);&#13;
+                    for (i = 1; i &lt;= lines; i++) {&#13;
+                        $numbering.append($('&lt;li/&gt;').text(i));&#13;
+                    };&#13;
+                    $numbering.fadeIn(1700);&#13;
+                });&#13;
+            });&#13;
+        </script>&#13;
+   &#13;

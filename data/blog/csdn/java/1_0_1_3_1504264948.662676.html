@@ -1,0 +1,178 @@
+
+
+<h3>解释器模式</h3>&#13;
+<p>给定一个语言，定义他的文法的一个表示，并定义一个解释器，这个解释器使用该表示来解释语言中的句子。</p>&#13;
+<p><span style="font-size:12px"><br />&#13;
+</span></p><pre code_snippet_id="155083" snippet_file_name="blog_20140113_1_8811114" name="code" class="java">package com.ruishenh.designPatter.action.interpreter;
+ 
+import java.io.IOException;
+import java.util.HashMap;
+import java.util.Map;
+import java.util.Stack;
+ 
+public class InterpreterClient {
+         public static void main(String[] args) throws IOException {
+ 
+                   String expression = "a+b+c+b"; //创建一个表达式
+                   HashMap&lt;String, Integer&gt; map=new HashMap&lt;String, Integer&gt;(); //对应的表达式参数
+                   map.put("a", 2);
+                   map.put("b", 3);
+                   map.put("c", 4);
+                   Context ctx = new Context();
+                   ctx.setData(map);
+                   for (String         str : map.keySet()) {
+                            System.out.println(str+"="+map.get(str));
+                   }
+                   System.out.println(expression+"="+getExpression(expression).interpreter(ctx));
+         }
+         //调用解释器解释计算逻辑
+         static Expression getExpression(String expression){
+                   char[] charArray = expression.toCharArray();
+                   Stack&lt;Expression&gt; stack = new Stack&lt;Expression&gt;();
+                   Expression left = null;
+                   Expression right = null;
+                   for (int i = 0; i &lt; charArray.length; i++) {
+                            switch (charArray[i]) {
+                            case '+':
+                                     left = stack.pop();
+                                     right = new VarExpression(String.valueOf(charArray[++i]));
+                                     stack.push(new AddExp(left, right));
+                                     break;
+                            default:
+                                     stack.push(new VarExpression(String.valueOf(charArray[i])));
+                            }
+                   }
+                   return stack.pop();
+         }
+        
+}
+//环境角色
+class Context {
+         Map&lt;String,Integer&gt; data;
+         public Map&lt;String, Integer&gt; getData() {
+                   return data;
+         }
+         public void setData(Map&lt;String, Integer&gt; data) {
+                   this.data = data;
+         }
+}
+abstract class Expression {
+         public abstract Object interpreter(Context ctx);
+}
+//终结符表达式
+class VarExpression extends Expression {
+         private String key;
+         public VarExpression(String key) {
+                   this.key = key;
+         }
+         public Object interpreter(Context ctx) {
+                   return ctx.getData().get(key);
+         }
+}
+//非终结符表达式
+abstract class CalcExpression extends Expression {
+         protected Expression left;
+         protected Expression right;
+         public CalcExpression(Expression left, Expression right) {
+                   this.left = left;
+                   this.right = right;
+         }
+         public abstract Object interpreter(Context ctx);
+}
+class AddExp extends CalcExpression{
+ 
+         public AddExp(Expression left, Expression right) {
+                   super(left, right);
+         }
+         @Override
+         public Object interpreter(Context ctx) {
+                   return Integer.valueOf(left.interpreter(ctx).toString()) + Integer.valueOf(right.interpreter(ctx).toString()) ;
+         }
+        
+}
+ </pre><br />&#13;
+  &#13;
+<p>很好的一篇博文：<a target="_blank" href="http://www.cnblogs.com/cbf4life/archive/2009/12/17/1626125.html">http://www.cnblogs.com/cbf4life/archive/2009/12/17/1626125.html</a></p>&#13;
+<p>因为解释器模式比较特殊，它要写出一个解释器，然后解释器对一些我们预先设定好的公式能够解析，而且对一些业务逻辑和使用规则都得比较了解才能使用。故一般很少使用这种模式。</p>&#13;
+<h3>备忘录模式</h3>&#13;
+<p>在不破坏对象的前提下，捕获一个对象的内部状态，并在该对象之外保存这个状态。</p>&#13;
+<p> </p><pre code_snippet_id="155083" snippet_file_name="blog_20140113_2_4459696" name="code" class="java">package com.ruishenh.designPatter.action.memento;
+ 
+public class mementoClient {
+   public static void main(String[] args) {
+      Developer dev=new Developer();
+      //项目未上线前，之前状态良好
+      dev.setState("状态良好");
+      System.out.println(dev.getState());
+     
+      //项目上线之前备份一下之前文件
+      Maintenance maintenance =new Maintenance();
+      maintenance.backup(dev.createBak());
+     
+      //项目上线导致系统崩溃
+      dev.setState("状态失败，系统停止");
+      System.out.println(dev.getState());
+     
+      //马上让运维回滚系统
+      dev.rollback(maintenance.retrieveData());
+      System.out.println(dev.getState());
+     
+     
+   }
+}
+ 
+// 运维管理员
+class Maintenance {
+   Bak bak;
+ 
+   Bak retrieveData() {
+      return this.bak;
+   }
+   void backup(Bak bak) {
+      this.bak = bak;
+   }
+}
+ 
+// 备忘录
+class Bak {
+   private String state = "";
+ 
+   public Bak(String state) {
+      this.state = state;
+   }
+ 
+   public String getState() {
+      return state;
+   }
+ 
+   public void setState(String state) {
+      this.state = state;
+   }
+ 
+}
+ 
+// 发起人-开发人员
+class Developer {
+   String state;
+ 
+   public String getState() {
+      return state;
+   }
+ 
+   public void setState(String state) {
+      this.state = state;
+   }
+ 
+   public Bak createBak() {
+      return new Bak(this.state);
+   }
+ 
+   public void rollback(Bak bak) {
+      this.setState(bak.getState());
+   }
+}</pre><br />&#13;
+&#13;
+<p> </p>&#13;
+<p> </p>&#13;
+<p>备忘录模式核心任务就是把之前对象的之前的一种状态（数据）保留到另外一个载体，等待下一次的应用回调。因为这种载体可能会有很多很对的资源被占用，个人理解以后使用的时候可以考虑设置一个阀值来控制更好地节约资源。</p>&#13;
+   &#13;

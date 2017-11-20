@@ -1,0 +1,319 @@
+
+        <div class="markdown_views"><p><strong>摘要：</strong></p>
+
+<p>　　Web 技术成为当今主流的互联网 Web 应用技术之一，而 Servlet 是 Java Web 技术的核心基础。本文首先从请求/响应架构应用的大背景谈起 Servlet 的由来，明确 Servlet 的产生动机，并揭示了 Servlet 的本质以及其在标准MVC模式中所扮演的角色。紧接着，给出了 Servlet族的继承结构，并对族内的接口和抽象类作了进一步的介绍，并给出开发一个Servlet程序的常用做法。在此基础上，我们图文并茂地介绍了 Servlet 的生命周期与执行流程，清晰展现 Servlet 的原理。特别地，由于Servlet容器默认采用单实例多线程的方式来处理请求，我们进一步介绍了Servlet 与并发的联系，并就Servlet容器如何同时来处理多个请求和如何开发线程安全的Servlet两个问题进行讨论和总结。最后，结合Java Web 应用的结构演变历程，给出了MVC架构的基本组成要素、内在联系和作用分工，并给出了 Servlet 在其中所扮演的角色。</p>
+
+<p>　　本篇主要介绍 Servlet 理论方面的知识，更多关注于以下几个问题：</p>
+
+<ul>
+<li>为什么会有 Servlet；</li>
+<li>Servlet 是什么；</li>
+<li>Servlet 如何实现预期效果；</li>
+<li>Servlet 的作用原理；</li>
+<li>Servlet 与 并发；</li>
+<li>Servlet 与 Java Web 应用的结构演变历程；</li>
+<li>Servlet 与 MVC 的联系。</li>
+</ul>
+
+<hr />
+
+<p>　　更多关于Servlet使用、实践方面的介绍以及Servlet新特性（Servlet 异步处理、Servlet 非阻塞IO 以及 Servlet 文件上传等）的总结见本文的姊妹篇<a href="http://blog.csdn.net/justloveyou_/article/details/60964556">《Servlet 综述(实践篇)》</a>。 <br />
+　　 <br />
+　　更多关于Java并发相关知识请移步我的专栏<a href="http://blog.csdn.net/column/details/14542.html">《Java并发编程学习笔记》</a>。该专栏全面记录了Java并发编程的相关知识，并结合操作系统、Java内存模型和相关源码对并发编程的原理、技术、设计、底层实现进行深入分析和总结，并持续跟进并发相关技术。</p>
+
+<hr />
+
+<p><strong>版权声明：</strong></p>
+
+<p>本文原创作者：<a href="http://my.csdn.net/justloveyou_">书呆子Rico</a> <br />
+作者博客地址：<a href="http://blog.csdn.net/justloveyou_/">http://blog.csdn.net/justloveyou_/</a></p>
+
+<hr />
+
+
+
+<h2 id="一-servlet-概述">一. Servlet 概述</h2>
+
+<p><strong>1、从请求/响应架构谈 Servlet 的由来</strong></p>
+
+<p>　　我们之前在博文<a href="http://blog.csdn.net/justloveyou_/article/details/57154560">《Java Web基础 — Jsp 综述(下)》</a>中对 <font color="blue"><b>请求/响应架构</b></font> 有过比较系统的叙述，现在我们作进一步叙述。</p>
+
+<p>　　我们日常所接触到的应用有很大一部分都是基于 <font color="blue"><b>请求/响应架构</b></font> 的，如下图所示。在这种架构中，一般由两个角色组成，即：<font color="blue"><b>Server</b></font> 和 <font color="blue"><b>User Agent</b></font>。特别地，根据 User Agent 的不同，我们可以将应用分为 <font color="blue"><b>B/S模式（User Agent 为浏览器时）</b></font> 和 <font color="blue"><b>C/S模式</b></font>。但无论哪种模式，Server 与 User Agent 的交互使用的都是同一个请求和应答的标准，即 <font color="DarkGreen"><b>HTTP 协议</b></font>。</p>
+
+<p>　　一般地，以浏览器为例，<font color="blue">User Agent 的作用就是根据用户的请求URL生成相应的 HTTP请求报文发送给服务器，并对服务器的响应进行解析(或渲染)，使用户看到一个丰富多彩的页面。</font>但是，如果我们需要在网页上完成一些业务逻辑（比如，登陆验证），或者需要从服务器的数据库中取一些数据作为网页的显示内容，那么除了负责显示的HTML标记之外，必须还要有完成这些业务功能的代码存在，这种网页我们称之为 <font color="DarkGreen"><b>动态网页</b></font>。</p>
+
+<p>　　对于静态网页而言，服务器上存在的是一个个纯HTML文件。当客户端浏览器发出HTTP请求时，服务器可以根据请求的URL找到对应的HTML文件，并将HTML代码返回给客户端浏览器。但是对于动态网页，服务器上除了找到需要显示的HTML标记外，还必须执行所需要的业务逻辑，然后将业务逻辑运算后的结果和需要显示的HTML标记一起生成新的HTML代码。最后，将新的带有业务逻辑运算结果的HTML代码返回给客户端。<font color="red"><b>为了实现动态网页的目标，Servlet技术（利用输出流动态生成 HTML 页面）应运而生，它能够以一种可移植的方法来提供动态的、面向用户的内容。</b></font></p>
+
+<p>　　　　　　　　　　　　<img src="http://static.zybuluo.com/Rico123/45je9s4wx1blvi1eaf5i3caq/%E8%AF%B7%E6%B1%82%E5%93%8D%E5%BA%94.png" alt="请求响应.png-211.4kB" title="" /></p>
+
+<hr />
+
+<p><strong>2、Servlet 的本质与角色</strong></p>
+
+<p>　　Web 技术成为当今主流的互联网 Web 应用技术之一，而 Servlet 是 Java Web 技术的核心基础。包括我们在前面的博文中谈到的JSP，也只是为了弥补使用 Servlet 作为表现层的不足而提出的。JSP规范通过实现普通静态HTML和动态部分的混合编码，使得逻辑内容与外观相分离，大大简化了表示层的实现。但是，JSP并没有增加任何本质上不能用Servlet实现的功能，只是在JSP中编写静态HTML更加方便。事实上，<font color="blue"><b>JSP的本质仍然是Servlet，并且站在表现层的角度上来看，JSP 是 Servlet 的一种就简化。</b></font></p>
+
+<p>　　<font color="red"><b>Servlet 是 J2EE 标准的一部分，是一种运行在Web服务器端的小型Java程序，更具体的说，Servlet 是按照Servlet规范编写的一个Java类，用于交互式地浏览和修改数据，生成动态Web内容。</b></font>要注意的是，由于 Servlet 是服务器端小程序，所以 Servlet 必须部署在 Servlet 容器中才能使用，例如 Tomcat，Jetty 等。</p>
+
+<p>　　<font color="blue">在标准的MVC模式中，Servlet 仅作为控制器使用，而控制器角色的作用是：负责接收客户端的请求，它既不直接对客户端输出响应，也不处理用户请求，只是调用业务逻辑组件(JavaBean)来处理用户请求。一旦业务逻辑组件处理结束后，控制器会根据处理结果，调用不同的表现层页面向浏览器呈现处理结果。  </font></p>
+
+<hr />
+
+
+
+<h2 id="二-servlet-api">二. Servlet API</h2>
+
+<p>　　关于 Servlet 的接口主要在以下两个包中，Servlet 继承结构如下图所示：</p>
+
+<ul>
+<li><p><font color="blue">javax.servlet.* ：</font>存放与HTTP 协议无关的一般性Servlet 类；</p></li>
+<li><p><font color="blue">javax.servlet.http.* ：</font>除了继承 javax.servlet.* 之外，还增加了与HTTP协议有关的功能。</p>
+
+<p>　　特别需要说明的是，所有的 Servlet 都必须实现 <font color="blue">javax.servlet.Servlet 接口</font>。若我们开发的 Servlet程序与HTTP协议无关，那么可以直接继承 <font color="blue">javax.servlet.GenericServlet抽象类</font> ；否则，若我们开发的Servlet程序和HTTP协议有关，那么可以直接继承<font color="blue"> javax.servlet.http.HttpServlet 抽象类</font>。</p>
+
+<p>　　　　　　　　　　　　<img src="http://static.zybuluo.com/Rico123/uzd2jsfn3f1gktldxbbgllnp/Servlet-API.png" alt="Servlet-API.png-14.4kB" title="" />　　　　　　　　　　　　　　</p></li>
+</ul>
+
+<hr />
+
+<p>　　下面我们分别看一下 Servlet接口、ServletConfig接口、GenericServlet抽象类 和 HttpServlet抽象类给我们提供的接口：</p>
+
+<p><strong>(1) Interface Servlet</strong></p>
+
+<p>　　　　　　　　　　　　　<img src="http://static.zybuluo.com/Rico123/bthxjrqc03vzjv8yv6m3eeec/InterfaceServlet.png" alt="InterfaceServlet.png-22.9kB" title="" /></p>
+
+<p>　　<font color="red"><b>Servlet 接口定义了所有Servlet都必须实现的方法</b></font>。其中，destroy()方法、init()方法 和 service()方法 由Servlet容器来调用。特别地，<font color="red"><b>service()方法用于处理并响应请求。</b></font></p>
+
+<hr />
+
+<p><strong>(2) Interface ServletConfig</strong></p>
+
+<p>　　A servlet configuration object <font color="blue">used by a servlet container</font> to pass information to a servlet <font color="blue">during initialization.</font></p>
+
+<p>　　　　　　　　　　　　　<img src="http://static.zybuluo.com/Rico123/gloup14eomyqyes2ru67et70/InterfaceServletConfig.png" alt="InterfaceServletConfig.png-14kB" title="" /></p>
+
+<hr />
+
+<p><strong>(3) Abstract Class GenericServlet</strong></p>
+
+<p>　　<font color="blue">GenericServlet implements the Servlet and ServletConfig interfaces.</font> GenericServlet may be directly extended by a servlet, although it’s more common to extend a protocol-specific subclass such as HttpServlet. </p>
+
+<p>　　<font color="red">GenericServlet makes writing servlets easier. </font>It provides simple versions of the lifecycle methods init and destroy and of the methods in the ServletConfig interface. GenericServlet also implements the log method, declared in the ServletContext interface. </p>
+
+<p>　　<font color="blue">To write a generic servlet, you need only override the abstract service method. </font></p>
+
+<p>　　　　　　　　　　　　　<img src="http://static.zybuluo.com/Rico123/35et98hjd5sxyw8jgg2eyfxx/ServletGeneric.png" alt="ServletGeneric.png-38.2kB" title="" /></p>
+
+<hr />
+
+<p><strong>(4) Abstract Class HttpServlet</strong></p>
+
+<p>　　　　　　　　　　　　　<img src="http://static.zybuluo.com/Rico123/2vuagnfsl32d9mkj3hsz2nfn/HttpServlet.png" alt="HttpServlet.png-44.5kB" title="" /></p>
+
+<p>　　<font color="red"><b>通过继承 HttpServlet 可以很方便的帮助我们创建一个 HTTP Servlet。</b></font>我们可以看到，HttpServlet 为各种Http请求都提供了相应的处理方式。但是，我们从Servlet接口中我们了解到，service()方法用于生成对客户端的响应，那么 service()方法与图中所示的七种Http请求处理方法有什么联系呢？下面请看 HttpServlet 对service()方法的实现：</p>
+
+
+
+<pre class="prettyprint"><code class="language-java hljs "><span class="hljs-keyword">protected</span> <span class="hljs-keyword">void</span> <span class="hljs-title">service</span>(HttpServletRequest req, HttpServletResponse resp)
+    <span class="hljs-keyword">throws</span> ServletException, IOException {
+
+    String method = req.getMethod();
+
+    <span class="hljs-keyword">if</span> (method.equals(METHOD_GET)) {
+        <span class="hljs-keyword">long</span> lastModified = getLastModified(req);
+        <span class="hljs-keyword">if</span> (lastModified == -<span class="hljs-number">1</span>) {
+            doGet(req, resp);
+        } <span class="hljs-keyword">else</span> {
+            <span class="hljs-keyword">long</span> ifModifiedSince = req.getDateHeader(HEADER_IFMODSINCE);
+            <span class="hljs-keyword">if</span> (ifModifiedSince &lt; (lastModified / <span class="hljs-number">1000</span> * <span class="hljs-number">1000</span>)) {
+                maybeSetLastModified(resp, lastModified);
+                doGet(req, resp);
+            } <span class="hljs-keyword">else</span> {
+                resp.setStatus(HttpServletResponse.SC_NOT_MODIFIED);
+            }
+       }
+    } <span class="hljs-keyword">else</span> <span class="hljs-keyword">if</span> (method.equals(METHOD_HEAD)) {
+        <span class="hljs-keyword">long</span> lastModified = getLastModified(req);
+        maybeSetLastModified(resp, lastModified);
+        doHead(req, resp);
+    } <span class="hljs-keyword">else</span> <span class="hljs-keyword">if</span> (method.equals(METHOD_POST)) {
+        doPost(req, resp);
+    } <span class="hljs-keyword">else</span> <span class="hljs-keyword">if</span> (method.equals(METHOD_PUT)) {
+        doPut(req, resp);   
+    } <span class="hljs-keyword">else</span> <span class="hljs-keyword">if</span> (method.equals(METHOD_DELETE)) {
+        doDelete(req, resp);
+    } <span class="hljs-keyword">else</span> <span class="hljs-keyword">if</span> (method.equals(METHOD_OPTIONS)) {
+        doOptions(req,resp);
+    } <span class="hljs-keyword">else</span> <span class="hljs-keyword">if</span> (method.equals(METHOD_TRACE)) {
+        doTrace(req,resp);
+    } <span class="hljs-keyword">else</span> {
+        <span class="hljs-comment">// Error</span>
+        Object[] errArgs = <span class="hljs-keyword">new</span> Object[<span class="hljs-number">1</span>];
+        errArgs[<span class="hljs-number">0</span>] = method;
+        errMsg = MessageFormat.format(errMsg, errArgs);
+        resp.sendError(HttpServletResponse.SC_NOT_IMPLEMENTED, errMsg);
+    }
+}</code></pre>
+
+<p>　　我们知道，<font color="blue">service()方法用于生成对客户端的响应。但对于 HTTPServlet 而言，service()方法会按照具体的请求类型将请求进一步分发到对应的处理方法进行处理。</font>由于在大部分时候，Servlet 对各种类型的请求的处理方式都是一样的，因此我们只需重写service()方法即可响应客户端的所有请求。或者，另一种处理方式是，由于客户端的请求通常只有 GET 和 POST 两种，因此我们只需重写doGet() 和 doPost()两个方法即可。</p>
+
+<p>　　<font color="DarkGreen"><b>实际上，普通Servlet类里的service()方法的作用，完全等同于JSP转译所生成Servlet类里的_jspService()方法。</b></font></p>
+
+<hr />
+
+
+
+<h2 id="三-servlet的生命周期与执行流程">三. Servlet的生命周期与执行流程</h2>
+
+<p><strong>1、Servlet的生命周期</strong></p>
+
+<p>　　当 Servlet 在容器中运行时，其实例的创建及销毁等都不是由程序员所决定的，而是由Web容器进行控制的。<font color="DarkGreen"><b>一个Servlet对象的创建有两个时机：用户请求之时或应用启动之时。</b></font></p>
+
+<p>　<font color="blue">(1) 客户端第一次请求某个Servlet时，容器创建该Servlet实例，这也是大部分Servlet创建实例的时机；</font> <br />
+　<font color="blue">(2) Web应用启动时立即创建Servlet实例，即 load-on-startup Servlet。　</font></p>
+
+<p>　　但每个Servlet都遵循一个生命周期，即：<font color="DarkGreen"><b>Servlet 实例化–&gt;Servlet 初始化—&gt;服务—&gt;销毁</b></font>。具体流程如下图所示：</p>
+
+<ul>
+<li><p><font color="blue">创建Servlet实例；</font></p></li>
+<li><p><font color="blue">Web容器调用Servlet的init()方法，对Servlet进行初始化。特别地，在Servlet的生命周期中，仅执行一次init()方法；</font></p></li>
+<li><p><font color="blue">Servlet 被初始化后，将一直存在于Web容器中，用于响应客户端请求。默认的请求处理、响应方式是调用与HTTP请求的方法相应的do方法；</font></p></li>
+<li><p><font color="blue">Web容器决定销毁Servlet时，先调用Servlet的 destroy() 的方法回收资源，通常在关闭Web应用之时销毁 Servlet。和 init() 方法类似，destroy()方法在Servlet的生命周期中也仅执行一次。当Servlet对象退出生命周期时，负责释放占用的资源。一个Servlet在运行service()方法时可能会产生其他的线程，因此需要确保在调用destroy()方法时，这些线程已经终止或完成。</font></p>
+
+<p>　　　　　　　　　　<img src="http://static.zybuluo.com/Rico123/cdqksy09sds21r2m3rf46pll/Servlet%E7%94%9F%E5%91%BD%E5%91%A8%E6%9C%9F.png" alt="Servlet生命周期.png-235.9kB" title="" /></p>
+
+<p>　　Ps:本图来源于CSDN博友何静媛<a href="http://blog.csdn.net/hejingyuan6/article/details/30273879">JAVA学习篇–Servlet详解</a>一文。</p></li>
+</ul>
+
+<hr />
+
+<p><strong>2、Servlet的执行流程</strong></p>
+
+<p>　Servlet的执行流程如下图所示：</p>
+
+<p>　　(1) User Agent 向 Servlet容器（Tomcat）发出Http请求； <br />
+　　(2) Servle容器接收 User Agent 发来的请求； <br />
+　　(3) Servle容器根据web.xml文件中Servlet相关配置信息，将请求转发到相应的Servlet； <br />
+　　(4) Servlet容器创建一个 HttpServlet对象，用于处理请求； <br />
+　　(5) Servlet容器创建一个 HttpServletRequest对象，将请求信息封装到这个对象中； <br />
+　　(6) Servlet容器创建一个HttpServletResponse对象； <br />
+　　(7) Servlet容器调用HttpServlet对象的service方法，并把HttpServltRequest对象与HttpServltResponse对象作为参数传给 HttpServlet 对象； <br />
+　　(8) HttpServlet调用HttpServletRequest对象的有关方法，获取Http请求信息； <br />
+　　(9) HttpServlet调用JavaBean对象（业务逻辑组件）处理Http请求； <br />
+　　(10) HttpServlet调用HttpServletResponse对象的有关方法，生成响应数据； <br />
+　　(11) Servlet容器将HttpServlet的响应结果传给 User Agent。</p>
+
+<p>　　　　　　　　　　　　　<img src="http://static.zybuluo.com/Rico123/ti96h7aq3ost4ckkwtgbe1ip/servlet%E6%89%A7%E8%A1%8C%E6%B5%81%E7%A8%8B.png" alt="servlet执行流程.png-14.8kB" title="" /></p>
+
+<hr />
+
+<p><strong>3、load-on-servlet</strong></p>
+
+<p>　　<font color="blue">load-on-servlet 指的是应用启动时就创建的Servlet，这些Servlet通常是用于后台服务的Servlet或者需要拦截很多请求的Servlet。也就是说，这些Servlet常常作为应用的基础Servlet使用，提供重要的后台服务。</font>例如：</p>
+
+<pre class="prettyprint"><code class="language-java hljs "><span class="hljs-annotation">@WebServlet</span>(loadOnStartup=<span class="hljs-number">1</span>)
+<span class="hljs-keyword">public</span> <span class="hljs-class"><span class="hljs-keyword">class</span> <span class="hljs-title">TimerServlet</span> <span class="hljs-keyword">extends</span> <span class="hljs-title">HttpServlet</span>
+{</span>
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">void</span> <span class="hljs-title">init</span>(ServletConfig config)<span class="hljs-keyword">throws</span> ServletException
+    {
+        <span class="hljs-keyword">super</span>.init(config);
+        Timer t = <span class="hljs-keyword">new</span> Timer(<span class="hljs-number">1000</span>,<span class="hljs-keyword">new</span> ActionListener()       <span class="hljs-comment">// 匿名内部类</span>
+        {
+            <span class="hljs-keyword">public</span> <span class="hljs-keyword">void</span> <span class="hljs-title">actionPerformed</span>(ActionEvent e)
+            {
+                System.out.println(<span class="hljs-keyword">new</span> Date());
+            }
+        });
+        t.start();
+    }
+}</code></pre>
+
+<p>　　我们看到，<font color="red"><b>这个 load-on-servlet 没有提供 service()方法，这表明它不能响应用户请求，所以无需为它配置URL映射。由于它不能接收用户请求，所以只能在应用启动时实例化。 </b></font></p>
+
+<p>　　特别需要注意的是，loadOnStartup属性用于标记容器是否在启动的时候加载这个servlet。当值为0或者大于0时，表示容器在应用启动时就加载这个servlet；当是一个负数时或者没有指定时，则指示容器在该servlet被选择时才加载。其中，正数值越小，启动该servlet的优先级越高。</p>
+
+<hr />
+
+
+
+<h2 id="四-servlet的配置">四. Servlet的配置</h2>
+
+<p>　　为了让Servlet能够响应用户请求，必须将Servlet配置到Web应用中。从 J2EE 6（即 Servlet 3.0）开始，配置Servlet有两种方式，即 @WebServlet注解配置 和 传统的 web.xml 配置，这部分内容在我的下一篇博客《Servlet 综述(实践篇)》有详细介绍，此不赘述。</p>
+
+<hr />
+
+
+
+<h2 id="五-servlet-与-并发">五. Servlet 与 并发</h2>
+
+<p><strong>1、Servlet容器如何同时来处理多个请求</strong></p>
+
+<p>　　<font color="DarkGreen"><b>Servlet 采用多线程来处理多个请求同时访问。</b></font>更具体地，Servlet 依赖于一个线程池来服务请求，所谓线程池实际上是一系列的工作者线程集合，该集合包含的是一组等待执行任务的线程。此外，Servlet 使用一个调度线程来管理这些工作者线程。</p>
+
+<p>　　<font color="blue">当Servlet容器收到一个Servlet请求时，调度线程会从线程池中选出一个工作者线程，并将请求传递给该工作者线程，然后由该线程来执行Servlet的service()方法。当这个线程正在执行的时候，如果容器收到另外一个请求，调度线程将同样从线程池中选出另一个工作者线程来服务新的请求，特别需要注意的是，<font color="DarkGreen"><b>容器并不关心这个请求是否访问的是同一个Servlet。</b></font>当容器同时收到对同一个Servlet的多个请求时，那么这个Servlet的service()方法将在多线程中并发执行。</font></p>
+
+<p>　　<font color="DarkGreen"><b>Servlet容器默认采用单实例多线程的方式来处理请求，</b></font>这样减少产生Servlet实例的开销，提升了对请求的响应时间，对于Tomcat容器，我们可以在其server.xml中通过元素设置线程池中的线程数目。</p>
+
+<hr />
+
+<p><strong>2、如何开发线程安全的Servlet</strong></p>
+
+<p>　　Servlet容器采用多线程来处理请求，提高性能的同时也造成了线程安全问题。要开发线程安全的 Servlet应该从这几个方面进行：</p>
+
+<p>(1). <font color="red">变量的线程安全：</font> 多线程并不共享局部变量，所以我们要尽可能的在Servlet中使用局部变量；</p>
+
+<p>(2). <font color="red">代码块的线程安全：</font> 可以使用Synchronized、Lock 和 原子操作(java.util.concurrent.atomic)来保证多线程对共享变量的协同访问；但是要注意的是，要尽可能得缩小同步代码的范围，尽量不要在service方法和响应方法上直接使用同步，这会严重影响性能；</p>
+
+<p>(3). <font color="red">属性的线程安全：</font> ServletContext，HttpSession，ServletRequest对象中属性是线程安全的；</p>
+
+<p>(4). <font color="red">使用线程安全容器：</font> 使用 java.util.concurrent 包下的线程安全容器代替 ArrayList、HashMap 等非线程安全容器；</p>
+
+<hr />
+
+<p>　　更多关于Java并发相关知识请移步我的专栏<a href="http://blog.csdn.net/column/details/14542.html">《   Java并发编程学习笔记》</a>。该专栏全面记录了Java并发编程的相关知识，并结合操作系统、Java内存模型和相关源码对并发编程的原理、技术、设计、底层实现进行深入分析和总结，并持续跟进并发相关技术。</p>
+
+<hr />
+
+
+
+<h2 id="六-servlet-与-mvc">六. Servlet 与 MVC</h2>
+
+<p>　　Java Web 应用的结构经历了 Model1 和 Model2 两个时代。在 Model1 模式下，整个 Web 应用几乎全部用JSP页面组成，只用少量的JavaBean来处理数据库连接、访问等操作。从工程化角度来看，JSP 不但充当了表现层角色，还充当了控制器角色，将控制逻辑和表现逻辑混杂在一起，导致代码重用率极低，使得应用极难扩展和维护。</p>
+
+<p>　　Model2 已经是基于MVC架构的设计模式。在 Model2 中，Servlet 作为前端控制器，负责接收客户端发送的请求，在 Servlet 中只包含控制逻辑和简单的前端处理；然后，Servlet 调用后端的JavaBean(业务逻辑组件)来处理业务逻辑；最后，根据处理结果转发到相应的JSP页面处理显示逻辑。在 Model2 模式下，模型(Model)由 JavaBean 充当，视图（View）由JSP页面充当，而控制器则由 Servlet 充当。Model2 的流程示意图如下：</p>
+
+<p>　　　　　　　　　　　　　　<img src="http://static.zybuluo.com/Rico123/p8cnd0rlfmpopxhjzqgfr7ef/Model2.png" alt="Model2.png-32.7kB" title="" /></p>
+
+<p>　　更具体地，在 Model2（标准MVC）中，角色分工如下:</p>
+
+<ul>
+<li><p><font color="red">Model：由 JavaBean 充当，所有的业务逻辑、数据库访问都在Model中实现；</font></p></li>
+<li><p><font color="red">View：由 JSP 充当，负责收集用户请求参数并将应用处理结果、状态数据呈现给用户；</font></p></li>
+<li><p><font color="red">Controller：由 Servlet 充当，作用类似于调度员，即所有用户请求都发送给 Servlet，Servlet 调用 Model 来处理用户请求，并根据处理结果调用 JSP 来呈现结果；或者Servlet直接调用JSP将应用处理结果展现给用户。</font></p></li>
+</ul>
+
+<hr />
+
+<blockquote>
+  <h2 id="引用">引用</h2>
+  
+  <p>《轻量级 JavaEE 企业应用实战(第四版)》  <br />
+  <a href="http://www.blogjava.net/xzclog/archive/2011/09/29/359789.html">web.xml中load-on-startup的作用</a> <br />
+  <a href="http://blog.csdn.net/hejingyuan6/article/details/30273879">JAVA学习篇–Servlet详解</a> <br />
+  <a href="http://www.cnblogs.com/xuekyo/archive/2013/02/24/2924072.html">Servlet 生命周期、工作原理</a> <br />
+  <a href="http://www.iteye.com/topic/766418">Servlet总结</a> <br />
+  <a href="http://www.cnblogs.com/liangxiaofeng/p/5838696.html">Servlet容器如何同时来处理多个请求</a></p>
+</blockquote></div>&#13;
+        <script type="text/javascript">&#13;
+            $(function () {&#13;
+                $('pre.prettyprint code').each(function () {&#13;
+                    var lines = $(this).text().split('\n').length;&#13;
+                    var $numbering = $('&lt;ul/&gt;').addClass('pre-numbering').hide();&#13;
+                    $(this).addClass('has-numbering').parent().append($numbering);&#13;
+                    for (i = 1; i &lt;= lines; i++) {&#13;
+                        $numbering.append($('&lt;li/&gt;').text(i));&#13;
+                    };&#13;
+                    $numbering.fadeIn(1700);&#13;
+                });&#13;
+            });&#13;
+        </script>&#13;
+   &#13;

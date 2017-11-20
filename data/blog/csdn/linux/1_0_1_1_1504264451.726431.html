@@ -1,0 +1,224 @@
+
+
+<p>        在上一篇blog<a target="_blank" href="http://blog.csdn.net/yuzhihui_no1/article/details/43703153">Linux内核源码分析--文件系统（三、buffer.c）</a>中最后第二个函数<span class="keyword" style="margin:0px; padding:0px; border:none">struct</span><span style="margin:0px; padding:0px; border:none"> buffer_head * breada(</span><span class="datatypes" style="margin:0px; padding:0px; border:none">int</span><span style="margin:0px; padding:0px; border:none"> dev,</span><span class="datatypes" style="margin:0px; padding:0px; border:none">int</span><span style="margin:0px; padding:0px; border:none"> first, ...)&#13;
+ ，里面涉及到可变参数列表，所以就干脆来总结下可变参数列表问题。</span></p>&#13;
+<h2><span style="margin:0px; padding:0px; border:none">大众版</span></h2>&#13;
+<p><span style="margin:0px; padding:0px; border:none">        首先来看下怎么使用，然后再来总结下其中一些问题：</span></p>&#13;
+<p><span style="margin:0px; padding:0px; border:none"></span></p>&#13;
+<pre name="code" class="cpp"> #include&lt;stdio.h&gt;
+ #include&lt;stdarg.h&gt;
+ 
+ int test(int num, ...)
+ {
+     int i, result = 0;
+ 
+     va_list ap;//这里写的什么list，（搞得好像是得到可变参数列表头一样）其实它就是个字符指针:char * 
+     va_start(ap, num);// 这里把上面得到的字符指针，后移动4个字节，就是跳过num的内存地址
+     printf("num:%d, *ap:%d\n", num, *ap);// 这里打印下就会看出，*ap 跳过了num指向了下一个参数
+     
+     for (i = 0; i &lt; num; i++)//这里num表示可变参数列表中有多少个参数（num本身算不算，由自己觉得，这里是不算入参数个数的）
+     {   
+         result = va_arg(ap, int);//这里把ap往后跳过4个字节（sizeof(int)大小）指向下一个参数，返回的是当前参数（而非下一个参数）
+         printf("in for  result:%d,  *ap:%d\n", result, *ap);//这里打印下，可以看出，ap总是指向result后面的那个参数
+     }   
+     va_end(ap);//结束标志
+ 
+     return result;
+ }
+ //下面是测试函数
+ int main()
+ {
+     int i = 4, j = 1, k = 2, g = 3, z = 4, m = 10; 
+     printf("result:%d\n", test(i, j, k, g, z, m));
+     return 0;
+ }</pre>        运行结果如下：&#13;
+<p></p>&#13;
+<p><span style="margin:0px; padding:0px; border:none">        <img src="http://img.blog.csdn.net/20150211154714229?watermark/2/text/aHR0cDovL2Jsb2cuY3Nkbi5uZXQvWXVaaGlIdWlfTm8x/font/5a6L5L2T/fontsize/400/fill/I0JBQkFCMA==/dissolve/70/gravity/Center" alt="" /><br />&#13;
+        看完后估计大家都会觉得很简单，这是大众版的，就是可变参数列表中第一个参数用来表示可变参数列表有多少个（至于算不算上他自己，那就看你程序自己设计了）；</span></p>&#13;
+<p><span style="margin:0px; padding:0px; border:none"><br />&#13;
+</span></p>&#13;
+<h2><span style="margin:0px; padding:0px; border:none">真实版</span></h2>&#13;
+<p><span style="margin:0px; padding:0px; border:none">        下面来看下真实版的程序：</span></p>&#13;
+<p><span style="margin:0px; padding:0px; border:none"></span></p>&#13;
+<pre name="code" class="cpp"> #include&lt;stdio.h&gt;
+ #include&lt;stdarg.h&gt;
+ 
+ int test(int first, ...){
+ 
+     va_list args;
+     va_start(args, first);
+     printf("args:%d  first:%d\n", *args, first);
+ 
+     while( (first = va_arg(args, int)) &gt;= 0 ){
+         printf("*args:%d  first:%d\n", *args, first);
+     }   
+     va_end(args);
+     return 0;
+ }
+ int main()
+ {
+     int a = 100, i = 1, j = 2, k = 3, g = -1; 
+ 
+     printf("test1:\n");
+     test(a, i, j, k, g); 
+ 
+     printf("test2:\n");
+     a = 200, i = 11, j = 12, k = 13; 
+     test(a, i, j, g); 
+ 
+     return 0;
+ }</pre>        这个和上面是一样的，唯一不同的是可变参数列表的第一个参数，没有用来当作参数个数，而是把最后一个参数用负数作为结束标志，可变参数列表第一个参数在这里的作用仅仅是为了得到可变参数列表的起始地址；（貌似这个程序上面的那个有点冗余，但是对照这个程序兴许会更好理解可变参数列表的应用）&#13;
+<p></p>&#13;
+<p><span style="margin:0px; padding:0px; border:none">        运行结果见下图：</span></p>&#13;
+<p><span style="margin:0px; padding:0px; border:none">        <img src="http://img.blog.csdn.net/20150211160955344?watermark/2/text/aHR0cDovL2Jsb2cuY3Nkbi5uZXQvWXVaaGlIdWlfTm8x/font/5a6L5L2T/fontsize/400/fill/I0JBQkFCMA==/dissolve/70/gravity/Center" alt="" /><br />&#13;
+</span></p>&#13;
+<p><span style="margin:0px; padding:0px; border:none"><br />&#13;
+</span></p>&#13;
+<h2><span style="margin:0px; padding:0px; border:none">实际原理</span></h2>&#13;
+<p><span style="margin:0px; padding:0px; border:none">        可变参数列表的实现是由几个宏组成的，在文件include/stdarg.h（我看的源码是0.11版本的，但是上面编译是在2.6版本内核上的，根据编译运行得到的结果，可以推理出可变参数列表实现程序在这两个版本中是一样的，也就是说两个版本内核中可变参数列表代码是相同的）中：</span></p>&#13;
+<p><span style="margin:0px; padding:0px; border:none">       va_list  定义某个变量，其本质就是：</span></p>&#13;
+<p><span style="margin:0px; padding:0px; border:none"></span></p>&#13;
+<pre name="code" class="cpp">typedef char *va_list;//字符指针类型</pre>        va_start(ap, type)   开始获取可变参数列表中的第一个参数（...里面的第一个），也就是跳过第一个参数（这里的第一个是num或first）&#13;
+<p></p>&#13;
+<p><span style="margin:0px; padding:0px; border:none"></span></p>&#13;
+<pre name="code" class="cpp">#ifndef __sparc__
+#define va_start(AP, LASTARG) 						\
+ (AP = ((char *) &amp;(LASTARG) + __va_rounded_size (LASTARG)))//ap指向下一个参数，lastarg不变
+#else
+#define va_start(AP, LASTARG) 						\
+ (__builtin_saveregs (),						\
+  AP = ((char *) &amp;(LASTARG) + __va_rounded_size (LASTARG))) //跳过下第一个参数，指向第二个参数内存地址
+#endif
+
+//对type向上取整 取int的整 4，然后乘上int整型4的倍数
+#define __va_rounded_size(TYPE)  \
+  (((sizeof (TYPE) + sizeof (int) - 1) / sizeof (int)) * sizeof (int))</pre>&#13;
+<p></p>&#13;
+<p><span style="margin:0px; padding:0px; border:none">        va_arg(args, int)  循环获取到可变参数列表中的参数，args指向下一个参数地址，返回的则是当前参数地址</span></p>&#13;
+<p><span style="margin:0px; padding:0px; border:none"></span></p>&#13;
+<pre name="code" class="cpp">//  first=va_arg(args,int)
+#define va_arg(AP, TYPE)						\//ap指向下一个类型的参数
+ (AP += __va_rounded_size (TYPE),					\//返回ap - sizeof(type)参数，即前一个参数
+  *((TYPE *) (AP - __va_rounded_size (TYPE))))
+
+//对type向上取整 取int的整 4，然后乘上int整型4的倍数
+#define __va_rounded_size(TYPE)  \
+  (((sizeof (TYPE) + sizeof (int) - 1) / sizeof (int)) * sizeof (int))
+</pre>        最后一个va_end(ap)结束标志（没有好像也没关系），可能只是在程序中作为一个可变参数列表的结束标志而已（stdarg.h里面只是仅仅定义了下，没有实现的代码部分）。从上面的分析就可以知道第二个程序（所谓的真实版）是怎么来的了，其实根据实现原理来讲第一个参数是没有规定表示可变参数个数的，而是用来得到可变参数列表的起始地址。<br />&#13;
+<br />&#13;
+<p></p>&#13;
+<h2><span style="margin:0px; padding:0px; border:none">自己实现可变参数列表</span></h2>&#13;
+<p><span style="margin:0px; padding:0px; border:none">        如果看懂了上面的可变参数列表原理，那么自己动手写个可变参数列表程序解析下多个参数问题，其实很简单的：</span></p>&#13;
+<p><span style="margin:0px; padding:0px; border:none"></span></p>&#13;
+<pre name="code" class="cpp">#include&lt;stdio.h&gt;//这里不需要用到可变参数列表解析宏，所以不用包含stdarg.h头文件
+ 
+ int test(int first, ...)
+ {
+     int count = 0;
+ 
+     char *ap ;
+     ap = (char*)(&amp;first);//得到参数列表的起始地址
+ 
+     ap = ap + 4;//加上4跳过第一个参数first
+     while(count++ &lt; first){//这里first参数表示有多少个参数
+         printf("*ap:%d\n", *((int *)ap));//把参数列表中的参数都挨个打印出来
+         ap += 4;//指向下一个参数
+     }   
+     return *ap;
+ }
+ //下面是测试程序
+ int main(void)
+ {
+     int i = 1, j = 2, k = 3, z = 4, num = 4;
+     printf("test1:\n");
+     test(num, i, j, k, z); 
+ 
+     num = 3;
+     printf("\ntest2:\n");
+     test(num, i, j, k); 
+     return 0;
+ 
+ }
+ </pre>&#13;
+<p><br />&#13;
+</p>&#13;
+<h2>可变参数列表缺陷</h2>&#13;
+<p><span style="margin:0px; padding:0px; border:none">        不知道大家有没有发现，上面的所有可变参数都是int型的，就算你用字符作为参数（char  c = 'a'），在可变参数里面（三个小点里面）也同样会为他分配4个字节地址空间；如果是浮点型那么就会报错，至于具体为什么报错我还没有去看那三个点的实现（就是可变参数列表内存分配问题，我估计在库文件里面，后期看到再分析下）；为什么不能用其他类型（非整型）的参数呢？我估计是开始设计的时候，为了简便，统一用整型（这样更好实现嘛），可是现实中这样就存在一个缺陷问题，那怎么解决让可变参数列表中可以使用浮点型、字符串呢？</span></p>&#13;
+<p><span style="margin:0px; padding:0px; border:none">        答案是我也不知道，我只是想到了个方案，用第一个参数来表示可变参数列表中的类型，当然不能用int型了，而是用字符数组来表示，这也有个限制那就是只能有一个字符串而且是放在最后（当然要传多个字符串也可以在数组中自己设置），因为字符串长度不知道，指针不知道偏移多少位，所以把它放在最后就好了。</span></p>&#13;
+<p><span style="margin:0px; padding:0px; border:none"></span></p><pre name="code" class="cpp">#include&lt;stdio.h&gt;
+ 
+ int test(char num[], int i, char c, float f, char *s)
+ {
+     int ti;
+     char tc;
+     float tf;
+     char *ts;
+ 
+     printf("int:%p, char:%p, float:%p, char:%p\n", &amp;i, &amp;c, &amp;f, &amp;s);
+ 
+     int count = 0;
+ 
+     char *ap ;
+ 
+     ap =  num + sizeof(num);
+ 
+     while(num[count] != '\0'){
+         switch(num[count++]){
+ 
+             case 'i':
+                 ti = *((int *)ap);
+                 ap += sizeof(int);
+                 printf("ti:%d\n", ti);
+                 break;
+             case 'c':
+                 tc = *ap++;
+                 printf("tc:%c\n", tc);
+                 break;
+ 
+             case 'f':
+                 tf = *((float*)ap);
+                 ap += sizeof(float);
+                 printf("tf:%f\n", tf);
+                 break;
+
+             case '1':
+                 ts = ap;
+                 printf("ts:%s\n", ts);
+                 break;
+ 
+             default:
+                 printf("No the type!\n");
+         }
+     }
+ 
+     return 0;
+ }
+ 
+ int main(void)
+ {
+     int i = 12;
+     char c = 'a';
+     float f = 5.20;
+     char *s = "yuzhihui";
+ 
+     char num[4] = {'\0'};
+      num[0] = 'i';
+      num[1] = 'c';
+      num[2] = 'f';
+      num[3] = '1';
+ 
+     test(num, i, c, f, s);
+ 
+     return 0;
+ 
+ }</pre>        上面就是我设计的一个雏形，大概意思就是这样，但运行时得不到正确结果，原因很有可能是可变参数列表中出问题了。因为...可变参数列表其在内存中的地址是连续的，而我上面的却不一定是连续的（模拟的可变参数列表），还有字节之间对齐问题（因为整型刚好是4个字节对齐的不存在这个问题）.但大概意思就是这样的。&#13;
+<p><span style="margin:0px; padding:0px; border:none">        这个缺陷的改变可能并没有太多实际意义，我也是突发奇想，高手轻喷。哈哈</span></p>&#13;
+<p><span style="margin:0px; padding:0px; border:none"></span></p>&#13;
+<div>        转载请注明作者和原文出处，原文地址：<a target="_blank" href="http://blog.csdn.net/yuzhihui_no1/article/details/43734663">http://blog.csdn.net/yuzhihui_no1/article/details/43734663</a></div>&#13;
+<div>&#13;
+<p style="margin-top:0px; margin-bottom:0px; padding-top:0px; padding-bottom:0px">&#13;
+        如果有什么不正确之处，欢迎大家指正，一起努力，共同学习！！</p>&#13;
+</div>&#13;
+<br />&#13;
+<p></p>&#13;
+   &#13;

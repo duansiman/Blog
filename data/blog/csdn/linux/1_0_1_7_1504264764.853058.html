@@ -1,0 +1,167 @@
+
+                <div class="markdown_views"><h2 id="字符串的ip与32的ip的转换">字符串的IP与32的IP的转换</h2>
+
+
+
+<pre class="prettyprint"><code class=" hljs cs">说明
+ 网络上的IP都是数字加点(<span class="hljs-number">192.168</span><span class="hljs-number">.0</span><span class="hljs-number">.1</span>)构成
+<span class="hljs-keyword">struct</span> in_addr结构使用<span class="hljs-number">32</span>位的IP，如
+IP(C0A80001)是<span class="hljs-number">192.168</span><span class="hljs-number">.0</span><span class="hljs-number">.1</span> 
+函数原型
+ <span class="hljs-keyword">int</span> inet_aton(<span class="hljs-keyword">const</span> <span class="hljs-keyword">char</span> *cp, <span class="hljs-keyword">struct</span> in_addr *inp)
+将a.b.c.d的IP转换为<span class="hljs-number">32</span>位的IP，存储在 inp指针里面
+<span class="hljs-keyword">char</span> *inet_ntoa(<span class="hljs-keyword">struct</span> in_addr <span class="hljs-keyword">in</span>) 
+将<span class="hljs-number">32</span>位IP转换为a.b.c.d的格式
+说明
+a代表 ascii，n代表network
+</code></pre>
+
+
+
+<h2 id="面向连接的socket通信流程">面向连接的socket通信流程</h2>
+
+<p>服务器程序作用 <br/>
+初始化服务器程序 <br/>
+持续监听一个固定的端口 <br/>
+收到客户的连接后建立一个socket连接 <br/>
+与客户进行通信和信息处理 <br/>
+接收客户通过socket连接发送来的数据，创建一个新的socket， <br/>
+通过socket连接与客户通信，进行相应处理，并返回处理结果 <br/>
+通信结束后中断与客户的连接（关闭socket）</p>
+
+<p>客户程序作用 <br/>
+初始化客户程序 <br/>
+连接到某个服务器上，建立socket连接 <br/>
+与服务器进行通信和信息处理 <br/>
+接收服务器通过socket连接发送来的数据，进行相应处理 <br/>
+通过socket连接向服务器发送请求信息 <br/>
+通信结束后中断与客户的连接</p>
+
+
+
+<h2 id="服务器请求处理流程循环服务器方案">服务器请求处理流程—循环服务器方案</h2>
+
+<p>UDP实现框架 <br/>
+没有一个客户端可以一直占用服务端 <br/>
+只要处理过程不是死循环，则服务器对于每一个客户机的请求总是能够满足</p>
+
+
+
+<pre class="prettyprint"><code class=" hljs r">  socket(<span class="hljs-keyword">...</span>); 
+   bind(<span class="hljs-keyword">...</span>); 
+   <span class="hljs-keyword">while</span>(<span class="hljs-number">1</span>) 
+    { 
+         recvfrom(<span class="hljs-keyword">...</span>); 
+         process(<span class="hljs-keyword">...</span>); 
+         sendto(<span class="hljs-keyword">...</span>); 
+   } </code></pre>
+
+<p>TCP实现框架 <br/>
+每次接受一个客户端连接 <br/>
+完成某客户所有请求后，断开连接 </p>
+
+<pre class="prettyprint"><code class=" hljs r"> socket(<span class="hljs-keyword">...</span>); 
+     bind(<span class="hljs-keyword">...</span>); 
+     listen(<span class="hljs-keyword">...</span>); 
+     <span class="hljs-keyword">while</span>(<span class="hljs-number">1</span>){ 
+         accept(<span class="hljs-keyword">...</span>); 
+         { 
+              read(<span class="hljs-keyword">...</span>); 
+              process(<span class="hljs-keyword">...</span>); 
+              write(<span class="hljs-keyword">...</span>); 
+         } 
+         close(<span class="hljs-keyword">...</span>); 
+     }
+</code></pre>
+
+<p>TCP实现框架</p>
+
+<pre class="prettyprint"><code class=" hljs r"> s = socket(<span class="hljs-keyword">...</span>); 
+  bind(s, <span class="hljs-keyword">...</span>); 
+  listen(s, <span class="hljs-keyword">...</span>); 
+  <span class="hljs-keyword">while</span>(<span class="hljs-number">1</span>) { 
+     ns = accept(s, <span class="hljs-keyword">...</span>); 
+     <span class="hljs-keyword">if</span>(fork(..)==<span class="hljs-number">0</span>)  {         
+           read(ns, <span class="hljs-keyword">...</span>); 
+           process(<span class="hljs-keyword">...</span>); 
+           write(ns, <span class="hljs-keyword">...</span>);
+          close(ns); 
+        } 
+     } 
+
+  }  </code></pre>
+
+
+
+<h2 id="多线程客户服务器示例线程实现">多线程客户/服务器示例—线程实现</h2>
+
+<p>功能描述 <br/>
+客户端 <br/>
+使用线程向服务器发送从标准输入得到的字符 <br/>
+在主线程中将从服务器端返回的字符显示到标准输出 <br/>
+服务器端 <br/>
+将客户端发来的数据原样返回给客户端，每一个客户在服务器上对应一个线程</p>
+
+
+
+<h2 id="服务器并发处理优化途径">服务器并发处理优化途径</h2>
+
+<p>多路复用I/O <br/>
+工作机理 <br/>
+进程可在多个socket上等待网络事件，当某个socket发生网络事件时，用户可通过查看网络事件对该socket事件进行I/O操作 <br/>
+要求应用程序不断向内核写入socket描述符，内核还应不断扫描socket集来检测状态 <br/>
+实现途径 <br/>
+预先构造一张描述符表，随后通过select()选择一个已准备好的描述符并返回 <br/>
+应用场景 <br/>
+一个进程中有多个客户连接（存在多个TCP 套接字描述符），select()函数阻塞直到任何一个描述符被激活 <br/>
+避免进程为等待一个已连接上的数据而无法处理其他连接</p>
+
+
+
+<h2 id="select函数">select()函数</h2>
+
+
+
+<pre class="prettyprint"><code class=" hljs perl"><span class="hljs-keyword">int</span> <span class="hljs-keyword">select</span>(<span class="hljs-keyword">int</span> nfds, fd_set <span class="hljs-variable">*readfds</span>, fd_set <span class="hljs-variable">*writefds</span>, fd_set <span class="hljs-variable">*exceptfds</span>, struct timeval <span class="hljs-variable">*timeout</span>) 
+nfds：所有被监控文件描述符中最大的一个加<span class="hljs-number">1</span>  
+readfds：所有要读的文件文件描述符的集合 
+writefds：所有要写的文件文件描述符的集合
+exceptfds：其他需要向我们通知的文件描述符
+timeout：超时设置
+</code></pre>
+
+<p>运行机制 <br/>
+select调用进程一直阻塞直到以下情况之一发生 <br/>
+有文件可以读 <br/>
+有文件可以写 <br/>
+超时所设置的时间到 <br/>
+返回结果 <br/>
+-1：表明函数调用发生错误，错误号存放在errno变量中 <br/>
+0：表明发生超时而没有发生其他的错误 <br/>
+大于0：表明事件发生的文件描述符的数目</p>
+
+
+
+<h2 id="多路复用io相关宏">多路复用I/O相关宏</h2>
+
+
+
+<pre class="prettyprint"><code class=" hljs perl">void FD_SET(<span class="hljs-keyword">int</span> fd, fd_set <span class="hljs-variable">*fdset</span>) 
+将fd加入到fdset 
+void FD_CLR(<span class="hljs-keyword">int</span> fd, fd_set <span class="hljs-variable">*fdset</span>)
+将fd从fdset里面清除 
+void FD_ZERO(fd_set <span class="hljs-variable">*fdset</span>)
+从fdset中清除所有的文件描述符 
+<span class="hljs-keyword">int</span> FD_ISSET(<span class="hljs-keyword">int</span> fd, fd_set <span class="hljs-variable">*fdset</span>) 
+判断fd是否在fdset集合中 
+</code></pre>
+
+<pre class="prettyprint"><code class=" hljs cs">功能
+更多的灵活性，可编写TCP/UDP套接字不能实现的功能
+可由用户自己创建各个头部
+只能由有root权限的用户创建
+函数原型
+<span class="hljs-keyword">int</span> sockfd(AF_INET, SOCK_RAW, protocol) 
+根据protocol（如IPPROTO_ICMP, IPPROTO_TCP, IPPROTO_UDP）创建不同类型原始套接字 
+</code></pre><link rel="stylesheet" href="http://static.blog.csdn.net/public/res-min/markdown_views.css?v=1.0"/></div><link rel="stylesheet" href="http://static.blog.csdn.net/public/res-min/markdown_views.css?v=1.0"/>&#13;
+            

@@ -1,0 +1,179 @@
+
+                <div class="markdown_views"><h1 id="意图">意图</h1>
+
+<p>以类表示状态 <br/>
+允许一个对象在其内部状态改变时改变他的行为。对象看起来似乎修改了它的类。</p>
+
+
+
+<h1 id="适用性">适用性</h1>
+
+<p>在下面的两种情况下均可使用State模式： <br/>
+1.  一个对象的行为取决于它的状态，并且它必须在运行时刻根据状态改变它的行为。 <br/>
+2.  一个操作中含有庞大的多分支的条件语句，且这些分支依赖于该对象的状态。这个状态通常用一个或多个枚举常量表示。通常，有多个操作包含这一相同的条件结构。State模式将每一个条件分支放入一个独立的类中。这使得你可以根据对象自身的情况将对象的状态作为一个对象，这一个对象可以不依赖于其他对象而独立变化。</p>
+
+
+
+<h1 id="结构">结构</h1>
+
+<p><img title="" alt="这里写图片描述" src="http://img.blog.csdn.net/20170420080632707?watermark/2/text/aHR0cDovL2Jsb2cuY3Nkbi5uZXQvc2xkODgwMzEx/font/5a6L5L2T/fontsize/400/fill/I0JBQkFCMA==/dissolve/70/gravity/SouthEast"/></p>
+
+
+
+<h1 id="参与者">参与者</h1>
+
+
+
+<h2 id="使用环境context角色">使用环境（Context）角色</h2>
+
+<ol>
+<li>客户程序是通过它来满足自己的需求。定义了客户程序需要的接口</li>
+<li>并且维护一个具体状态角色的实例，这个实例决定当前的状态</li>
+</ol>
+
+
+
+<h2 id="状态state角色">状态（State）角色</h2>
+
+<ol>
+<li>定义一个接口已封装与使用环境角色的一个特定状态相关的行为。</li>
+</ol>
+
+
+
+<h2 id="具体状态concretestate">具体状态（ConcreteState）</h2>
+
+<ol>
+<li>每一个子类实现一个与Context的一个状态相关的行为</li>
+</ol>
+
+
+
+<h1 id="代码">代码</h1>
+
+
+
+<pre class="prettyprint"><code class="language-java hljs "><span class="hljs-keyword">public</span> <span class="hljs-class"><span class="hljs-keyword">interface</span> <span class="hljs-title">State</span> {</span>
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">void</span> <span class="hljs-title">executeState</span>();
+}
+<span class="hljs-keyword">public</span> <span class="hljs-class"><span class="hljs-keyword">class</span> <span class="hljs-title">ConcreteState1</span> <span class="hljs-keyword">implements</span> <span class="hljs-title">State</span>{</span>
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">void</span> <span class="hljs-title">executeState</span>() {
+        System.out.println(<span class="hljs-string">"===ConcreteState1====executeState==="</span>);
+    }
+}
+<span class="hljs-keyword">public</span> <span class="hljs-class"><span class="hljs-keyword">class</span> <span class="hljs-title">ConcreteState2</span> <span class="hljs-keyword">implements</span> <span class="hljs-title">State</span>{</span>
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">void</span> <span class="hljs-title">executeState</span>() {
+        System.out.println(<span class="hljs-string">"===ConcreteState2====executeState==="</span>);
+    }
+}
+<span class="hljs-keyword">public</span> <span class="hljs-class"><span class="hljs-keyword">class</span> <span class="hljs-title">Context</span> {</span>
+    <span class="hljs-keyword">private</span> State state;
+    <span class="hljs-keyword">public</span> <span class="hljs-title">Context</span>(State state){<span class="hljs-keyword">this</span>.state = state;}
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">void</span> <span class="hljs-title">execute</span>(){state.executeState();}
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">void</span> <span class="hljs-title">setState</span>(State state){<span class="hljs-keyword">this</span>.state = state;}
+}
+<span class="hljs-keyword">public</span> <span class="hljs-class"><span class="hljs-keyword">class</span> <span class="hljs-title">Client</span> {</span>
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">static</span> <span class="hljs-keyword">void</span> <span class="hljs-title">main</span>(String[] args) {
+        Context c = <span class="hljs-keyword">new</span> Context(<span class="hljs-keyword">new</span> ConcreteState1());
+        c.execute();
+        c.setState(<span class="hljs-keyword">new</span> ConcreteState2());
+        c.execute();
+    }
+}
+</code></pre>
+
+
+
+<h1 id="协作">协作</h1>
+
+<ol>
+<li>Context将与状态相关的请求委托给当前的ConcreteState对象处理</li>
+<li>Context可将自身作为一个参数传递给处理该请求的状态对象。这使得状态对象在必要时可访问Context。</li>
+<li>Context是客户使用的主要接口。客户可用状态对象来配置一个Context，一旦一个Context配置完毕，它的客户不再需要直接与状态对象打交道。</li>
+<li>Context或ConcreteState子类都可决定哪个状态是另外哪一个的后继者，以及是在何种条件下进行状态转换。</li>
+</ol>
+
+
+
+<h1 id="效果">效果</h1>
+
+
+
+<h2 id="使得状态转换显式化">使得状态转换显式化</h2>
+
+<p>当一个对象仅以内部数据值来定义当前状态时，其状态仅表现为对一些变量的赋值，这不够明确。为不同的状态引入独立的对象使得转换变得更加明确。而且，State对象可保证Context不会发生内部状态不一致的情况，因为从Context的角度看，状态转换是原子的，只要重新保定一个变量（即Context的State对象变量），而无需为多个变量赋值。</p>
+
+
+
+<h2 id="state对象可被共享">State对象可被共享</h2>
+
+<p>如果State对象没有实例变量，即它们表示的状态完全以它们的类型来编码，那么各Context对象可以共享一个State对象。当状态以这种方式被共享时，它们必然是没有内部状态，只有行为的轻量级对象（Flyweight Pattern）。</p>
+
+
+
+<h2 id="优点">优点</h2>
+
+<ol>
+<li>把状态的判断逻辑转移到表示不同状态的一系列类当中，可以把复杂的判断逻辑简化。 </li>
+<li>将与特定状态相关的行为局部化，并且将不同状态的行为分割开来。 </li>
+<li>通过把各种状态转移逻辑分不到状态与其子类之间，来减少相互间的依赖。</li>
+</ol>
+
+
+
+<h2 id="缺点">缺点</h2>
+
+<p>@策略模式，每个具体状态类都会产生一个新类，所以会增加系统需要维护的类的数量。可以使用工厂方法来解决，还可以使用享元模式来完成对象的共享，减少系统开销</p>
+
+
+
+<h1 id="实现">实现</h1>
+
+
+
+<h2 id="谁定义状态转换">谁定义状态转换</h2>
+
+<p>State模式不指定哪一个参与者定义状态转换准则。如果该准则是固定的，那么它们可在Context中完全实现。然而若让State子类自身指定它们的后继状态以及何时进行转换，通常更灵活更合适。这需要Context增加一个接口，让State对象显示地设定Context的当前状态。 <br/>
+用这种方法分散转换逻辑可以很容易地定义新的State子类来修改和扩展逻辑。这样做的一个缺点是，一个State子类至少拥有一个其他子类的信息，这就再各个子类之间产生了实现依赖。</p>
+
+
+
+<h2 id="基于表达的另一种方法">基于表达的另一种方法</h2>
+
+<p>在C++中描述了另一种将结构加载在状态驱动的代码上的方法：他使用表将输入映射到状态转换。对每一个状态，一张表将每一个可能的输入映射到一个后继状态。实际上，这种方法将条件代码映射为一个查找表。 <br/>
+表的主要好处是它们的规则性：你可以通过更改数据而不是更改程序代理来改变状态转换的准则。然而它也有一些缺点： <br/>
+1.  对标的查找通常不如（虚）函数调用效率高 <br/>
+2.  用统一的、表格的形式表示转换逻辑使得转换准则变得不够明确而难以理解 <br/>
+3.  通常难以加入伴随状态转换的一些动作。表驱动的方法描述了状态和它们之间的转换，但必须扩充这个机制以便在每一个转换上能够进行任意的计算。 <br/>
+表驱动的状态和State模式的主要区别：State模式对与状态相关的行为进行建模，而表驱动的方法着重于定义状态转换。</p>
+
+
+
+<h2 id="创建和销毁state对象">创建和销毁State对象</h2>
+
+<p>一个常见的值得考虑的实现上的权衡是，究竟是（1）仅当需要State对象时才创建它们并随后销毁它们，还是（2）提前创建它们并且始终不销毁它们。 <br/>
+当将要进入的状态在运行时是不可知的，并且上下文不经常改变状态时，第一种选择较为可取。这种方法避免创建不会被用到的对象，如果State对象存储大量的信息时这一点很重要。当状态改变很频繁，第二种方法较好。在这种情况下最好避免销毁状态，因为可能很快再次需要用到它们。此时可以预先一次付清创建各个状态对象的开销，并且在运行过程中根本不存在销毁状态对象的开销。但是这种方法可能不太方便，因为Context必须保存对所有可能会进入的那些状态的引用。</p>
+
+
+
+<h2 id="使用动态继承">使用动态继承</h2>
+
+<p>改变一个响应特定请求的行为可以用在运行时刻改变这个对象的类的实现，但这在大多数面向对象程序设计语言中都是不可能的。Self和其他一些基于委托的语言却是例外，它们提供这种机制 , 从而直接支持State模式。 Self中的对象可将操作委托给其他对象以达到某种形式的动态继承。在运行时刻改变委托的目标有效地改变了继承的结构。这一机制允许对象改变它们的行为，也就是改变它们的类。</p>
+
+
+
+<h1 id="相关模式">相关模式</h1>
+
+
+
+<h2 id="singleton-pattern">Singleton Pattern</h2>
+
+<p>ConcreteState有时会被实现成单例模式。</p>
+
+
+
+<h2 id="flyweight-pattern">Flyweight Pattern</h2>
+
+<p>表示状态的类没有对象实例字段，因此有时会用享元模式让两个以上的Context参与者共享ConcreteState参与者。 <br/>
+<font color="#0099ff" face="黑体" size="3">敬请期待“模板方法模式（Template Method Pattern，类行为型模式）”</font></p><link rel="stylesheet" href="http://static.blog.csdn.net/public/res-min/markdown_views.css?v=2.0"/></div><link rel="stylesheet" href="http://static.blog.csdn.net/public/res-min/markdown_views.css?v=2.0"/>&#13;
+            

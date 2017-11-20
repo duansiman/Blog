@@ -1,0 +1,1348 @@
+
+        <div class="markdown_views"><blockquote>
+  <p class="cye-lm-tag">参考 <br />
+  <a href="https://www.ibm.com/developerworks/community/blogs/a2674a1d-a968-4f17-998f-b8b38497c9f7/entry/kernel-build-sys?lang=en">一次实验引发的故事 – kernel build system探索—vmlinux是如何炼成的– kernel makefile</a></p>
+  
+  <p class="cye-lm-tag">深度探索Linux操作系统：系统构建和原理解析.pdf</p>
+</blockquote>
+
+<h1 id="问题">问题</h1>
+
+<hr />
+
+<p class="cye-lm-tag">在前面的博文中，我们先是为自己的Ubuntu安装了一套内核源码树，然后为了方便进行嵌入式交叉编译，我们又为arm板子构建了一套源码树。 <br />
+那么现在我们已经知道如何自己的电脑上去构建、安装一个定制化的Linux内核，但是我们还是要在唠叨一些。 <br />
+<strong>当你在内核源码路径里敲下make时究竟发生什么</strong> <br />
+     <img src="http://img.blog.csdn.net/20151006181652125" alt="这里写图片描述" title="" /></p>
+
+<p class="cye-lm-tag">当我们刚刚开始接触内核代码时，毫无头绪，这时候Makefile是往往是我们打开的第一个文件，这个makefile是Linux内核代码的根makefile，内核构建就始于此处。是的，它的内容很多，但是如果你已经读过内核源代码，你就会发现每个包含代码的目录都有一个自己的Makefile。当然了，我们不会去描述每个代码文件是怎么编译链接的，所以我们将只会挑选一些通用的例子来说明问题。而你不会在这里找到构建内核的文档、如何整洁内核代码、tags的生成和交叉编译相关的说明，等等。</p>
+
+<p class="cye-lm-tag">我们仅仅将从make开始，使用标准的内核配置文件，一直到生成了内核镜像bzImage或者zImage结束。 <br />
+当然在着之前我们需要了解，我们make究竟是要构建一个什么样的目标，我想这个</p>
+
+
+
+<h1 id="构建的目标vmlinuxvmlinuzbzimagezimage">构建的目标vmlinux,vmlinuz,bzImage,zImage</h1>
+
+<hr />
+
+<p class="cye-lm-tag">对于Linux内核，编译可以生成不同格式的映像文件，例如：</p>
+
+
+
+<pre class="prettyprint"><code class=" hljs go"><span class="hljs-built_in cye-lm-tag">make</span> zImag
+<span class="hljs-built_in cye-lm-tag">make</span> uImage</code></pre>
+
+<p class="cye-lm-tag">zImage是ARM Linux常用的一种压缩映像文件，uImage是U-boot专用的映像文件，它是在zImage之前加上一个长度为0x40的“头”，说明这个映像文件的类型、加载位置、生成时间、大小等信息。换句话说，如果直接从uImage的0x40位置开始执行，zImage和uImage没有任何区别。另外，Linux2.4内核不支持uImage，Linux2.6内核加入了很多对嵌入式系统的支持，但是uImage的生成也需要设置。</p>
+
+<p class="cye-lm-tag">几种linux内核文件的区别：</p>
+
+<blockquote>
+  <p class="cye-lm-tag">1、vmlinux  编译出来的最原始的内核文件，未压缩。 <br />
+  2、zImage   是vmlinux经过gzip压缩后的文件。适用于小内核 <br />
+  3、bzImage bz表示“big zImage”，不是用bzip2压缩的。两者的不同之处在于，zImage解压缩内核到低端内存(第一个640K)，bzImage解压缩内核到高端内存(1M以上)。如果内核比较小，那么采用zImage或bzImage都行，如果比较大应该用bzImage。适用于大内核 <br />
+  4、uImage   U-boot专用的映像文件，它是在zImage之前加上一个长度为0x40的tag。 <br />
+  5、vmlinuz  是bzImage/zImage文件的拷贝或指向bzImage/zImage的链接。 <br />
+  6、initrd   是“initial ramdisk”的简写。一般被用来临时的引导硬件到实际内核vmlinuz能够接管并继续引导的状态。</p>
+</blockquote>
+
+
+
+<h2 id="vmlinux">vmlinux</h2>
+
+<hr />
+
+<p class="cye-lm-tag">vmlinux是未压缩的内核，是make工作编译出的原始内核，vmlinuz是vmlinux的压缩文件。</p>
+
+<p class="cye-lm-tag">vmlinux 是ELF文件，即编译出来的最原始的文件。 </p>
+
+
+
+<h2 id="zimage-bzimage和vmlinuz">zImage, bzImage和vmlinuz</h2>
+
+<hr />
+
+<p class="cye-lm-tag"><strong>vmlinuz是可引导的、压缩的内核</strong>。“vm”代表“Virtual Memory”。Linux 支持虚拟内存，不像老的操作系统比如DOS有640KB内存的限制。Linux能够使用硬盘空间作为虚拟内存，因此得名“vm”。vmlinuz是可执行的Linux内核，它位于/boot/vmlinuz，它一般是一个软链接,是bzImage/zImage文件的拷贝或指向bzImage/zImage的链接。</p>
+
+<p class="cye-lm-tag">vmlinuz的建立有两种方式。</p>
+
+<p class="cye-lm-tag">一是编译内核时通过“make zImage”创建，然后通过：“cp /usr/src/linux-2.4/arch/i386/linux/boot/zImage /boot/vmlinuz”产生。zImage适用于小内核的情况，它的存在是为了向后的兼容性。</p>
+
+<p class="cye-lm-tag">二是内核编译时通过命令make bzImage创建，然后通过：“cp /usr/src/linux-2.4/arch/i386/linux/boot/bzImage /boot/vmlinuz”产生。bzImage是压缩的内核映像，需要注意，bzImage不是用bzip2压缩的，bzImage中的bz容易引起误解，bz表示“big zImage”。 bzImage中的b是“big”意思。</p>
+
+<p class="cye-lm-tag">zImage(vmlinuz)和bzImage(vmlinuz)都是用gzip压缩的。它们不仅是一个压缩文件，而且在这两个文件的开头部分内嵌有gzip解压缩代码。所以你不能用gunzip 或 gzip –dc解包vmlinuz。</p>
+
+<p class="cye-lm-tag">内核文件中包含一个微型的gzip用于解压缩内核并引导它。两者的不同之处在于，老的zImage解压缩内核到低端内存(第一个640K)，bzImage解压缩内核到高端内存(1M以上)。如果内核比较小，那么可以采用zImage 或bzImage之一，两种方式引导的系统运行时是相同的。大的内核采用bzImage，不能采用zImage。</p>
+
+<blockquote>
+  <p class="cye-lm-tag">但是注意通常情况下是不能用vmlinuz解压缩得到vmlinux的</p>
+</blockquote>
+
+
+
+<h2 id="initrd-xxximg">initrd-x.x.x.img</h2>
+
+<hr />
+
+<p class="cye-lm-tag">initrd是“initial ramdisk”的简写。initrd一般被用来临时的引导硬件到实际内核vmlinuz能够接管并继续引导的状态。</p>
+
+<p class="cye-lm-tag">initrd 映象文件是使用mkinitrd创建的。mkinitrd实用程序能够创建initrd映象文件。这个命令是RedHat专有的。其它Linux发行版或许有相应的命令。这是个很方便的实用程序。具体情况请看帮助:man mkinitrd下面的命令创建initrd映象文件。</p>
+
+<p class="cye-lm-tag">最后生成的内核镜象有两种 zImage 以及 uImage 。其中 zImage 下载到目标板中后，可以直接用 uboot 的命令 go 来进行直接跳转。这时候内核直接解压启动。但是无法挂载文件系统，因为 go 命令没有将内核需要的相关的启动参数传递给内核。传递启动参数我们必须使用命令 bootm 来进行跳转。 Bootm 命令跳转只处理 uImage 的镜象。</p>
+
+<p class="cye-lm-tag">uboot 源代码的 tools/ 目录下有 mkimage 工具，这个工具可以用来制作不压缩或者压缩的多种可启动映象文件。</p>
+
+<p class="cye-lm-tag">mkimage 在制作映象文件的时候，是在原来的可执行映象文件的前面加上一个 0x40 字节的头，记录参数所指定的信息，这样 uboot 才能识别这个映象是针对哪个 CPU 体系结构的，哪个 OS 的，哪种类型，加载内存中的哪个位置， 入口点在内存的那个位置以及映象名是什么</p>
+
+
+
+<h2 id="uimage文件">uImage文件</h2>
+
+<hr />
+
+<p class="cye-lm-tag">　　vmlinux是内核文件，zImage是一般情况下默认的压缩内核映像文件，压缩vmlinux，加上一段解压启动代码得到。而uImage 则是使用工具mkimage对普通的压缩内核映像文件（zImage）加工而得。它是uboot专用的映像文件，它是在zImage之前加上一个长度为 64字节的“头”，说明这个内核的版本、加载位置、生成时间、大小等信息；其0x40之后与zImage没区别。 <br />
+其实就是一个自动跟手动的区别,有了uImage头部的描述,u-boot就知道对应Image的信息,如果没有头部则需要自己手动去搞那些参数。 <br />
+如何生成 uImage文件？首先在uboot的/tools目录下寻找mkimage文件，把其copy到系统/usr/local/bin目录下，这样就完成制 作工具。然后在内核目录下运行make uImage，如果成功，便可以在arch/arm/boot/目录下发现uImage文件，其大小比 zImage多64个字节。 <br />
+此外，平时调试用uImage，不用去管调整了哪些东西；zImage则是一切OK后直接烧0X0。开机就运行</p>
+
+
+
+<h1 id="编译内核前的准备">编译内核前的准备</h1>
+
+<hr />
+
+<p class="cye-lm-tag">在开始编译前要进行很多准备工作。最主要的就是找到并配置好配置文件，make命令要使用到的参数都需要从这些配置文件获取。现在就让我们深入内核的根makefile吧</p>
+
+
+
+<h2 id="内核版本设定">内核版本设定</h2>
+
+<hr />
+
+<p class="cye-lm-tag">内核的根Makefile负责构建两个主要的文件：vmlinux（内核镜像可执行文件）和模块文件moudles。 <br />
+我们先看看内核的Makefile开始的几行<code>head -n 6 Makefile</code></p>
+
+
+
+<pre class="prettyprint"><code class="language-bash hljs ">VERSION = <span class="hljs-number cye-lm-tag">4</span>
+PATCHLEVEL = <span class="hljs-number cye-lm-tag">2</span>
+SUBLEVEL = <span class="hljs-number cye-lm-tag">3</span>
+EXTRAVERSION =
+NAME = Hurr durr I<span class="hljs-string cye-lm-tag">'ma sheep
+</span></code></pre>
+
+<p class="cye-lm-tag"><img src="http://img.blog.csdn.net/20151006181854957" alt="这里写图片描述" title="" /></p>
+
+<p class="cye-lm-tag">Makefile在开始的时候定义了几个变量，这些变量决定了当前内核的版本，并且被使用在很多不同的地方，比如同一个Makefile中的<code>KERNELVERSION</code>  <br />
+<img src="http://img.blog.csdn.net/20151006183622285" alt="这里写图片描述" title="" /></p>
+
+<blockquote>
+  <p class="cye-lm-tag">关于版本号</p>
+  
+  <p class="cye-lm-tag">Linux内核有三个不同的命名方案。</p>
+  
+  <p class="cye-lm-tag">参见  <a href="https://zh.wikipedia.org/wiki/Linux%E5%86%85%E6%A0%B8">https://zh.wikipedia.org/wiki/Linux%E5%86%85%E6%A0%B8</a></p>
+  
+  <p class="cye-lm-tag"><strong>早期版本</strong> <br />
+  　　第一种方式用于1.0版本之前（包括1.0）。第一个版本的内核是0.01。其次是0.02,0.03,0.10,0.11,0.12（第一GPL版本),0.95,0.96,0.97,0.98,0.99及1.0。从0.95版有许多的补丁发布于主要版本版本之间。</p>
+  
+  <p class="cye-lm-tag"><strong>旧计划</strong> <br />
+  　　第二种方式用于1.0之后到2.6，版本的格式为A.B.C，其中A,B,C代表：</p>
+  
+  <p class="cye-lm-tag">　　A大幅度转变的内核。这是很少发生变化，只有当发生重大变化的代码和核心发生才会发生。在历史上曾改变两次的内核：1994年的1.0及1996年的2.0。</p>
+  
+  <p class="cye-lm-tag">　　B是指一些重大修改的内核。内核使用了传统的奇数次要版本号码的软件号码系统（用偶数的次要版本号码来表示稳定版本）。</p>
+  
+  <p class="cye-lm-tag">　　C是指轻微修订的内核。这个数字当有安全补丁,bug修复，新的功能或驱动程序，内核便会有变化。 <br />
+  　　这样稳定版本来源于上一个测试版升级版本号，而一个稳定版本发展到完全成熟后就不再发展。</p>
+  
+  <p class="cye-lm-tag">　　自2.6.0（2003年12月）发布后，人们认识到，更短的发布周期将是有益的。自那时起，版本的格式为A.B.C.D，其中A,B,C,D代表：</p>
+  
+  <p class="cye-lm-tag">　　A和B是无关紧要的 <br />
+  　　C是内核的版本</p>
+  
+  <p class="cye-lm-tag"><strong>新计划</strong> <br />
+  　　自3.0（2011年7月）发布后，版本的格式为3.A.B，其中A,B代表：</p>
+  
+  <p class="cye-lm-tag">　　A是内核的版本 <br />
+  　　B是安全补丁</p>
+  
+  <p class="cye-lm-tag">　　使用一种“time-based”的方式。3.0版本之前，是一种“A.B.C.D”的格式。七年里，前两个数字A.B即“2.6”保持不变，C随着新版本的发布而增加,D代表一些bug修复，安全更新，添加新特性和驱动的次数。 <br />
+  　　3.0版本之后是“A.B.C”格式，B随着新版本的发布而增加, C代表一些bug修复，安全更新，新特性和驱动的次数。第三种方式中不再使用偶数代表稳定版，奇数代表开发版这样的命名方式。举个例子：3.7.0代表的不是开发版，而是稳定版！</p>
+  
+  <p class="cye-lm-tag">　　而4.0（2015年4月）发布后，则延续3.A.B的命名格式，只是将主版号变更为4。</p>
+</blockquote>
+
+
+
+<h2 id="make参数传递">make参数传递</h2>
+
+<hr />
+
+<p class="cye-lm-tag">　　接下来我们会看到很多ifeq条件判断语句，它们负责检查传递给make的参数。内核的Makefile提供了一个特殊的编译选项makehelp，这个选项可以生成所有的可用目标和一些能传给make的有效的命令行参数。 <br />
+　　举个例子，首先出现的就是<code>-V</code> ，那么<code>make V=1</code>会在构建过程中输出详细的编译信息，第一个ifeq就是检查传递给make的V=n选项。</p>
+
+
+
+<h3 id="参数-v在控制构建过程中输出编译信息">参数-v在控制构建过程中输出编译信息</h3>
+
+<p class="cye-lm-tag">使用<code>cat -n Makefile | head -n 83 | tail -n +23</code> 查看</p>
+
+
+
+<pre class="prettyprint"><code class="language-shell hljs vala"><span class="hljs-preprocessor cye-lm-tag"># Avoid interference with shell env settings</span>
+unexport GREP_OPTIONS
+
+<span class="hljs-preprocessor cye-lm-tag"># We are using a recursive build, so we need to do a little thinking</span>
+<span class="hljs-preprocessor cye-lm-tag"># to get the ordering right.</span>
+<span class="hljs-preprocessor cye-lm-tag">#</span>
+<span class="hljs-preprocessor cye-lm-tag"># Most importantly: sub-Makefiles should only ever modify files in</span>
+<span class="hljs-preprocessor cye-lm-tag"># their own directory. If in some directory we have a dependency on</span>
+<span class="hljs-preprocessor cye-lm-tag"># a file in another dir (which doesn't happen often, but it's often</span>
+<span class="hljs-preprocessor cye-lm-tag"># unavoidable when linking the built-in.o targets which finally</span>
+<span class="hljs-preprocessor cye-lm-tag"># turn into vmlinux), we will call a sub make in that other dir, and</span>
+<span class="hljs-preprocessor cye-lm-tag"># after that we are sure that everything which is in that other dir</span>
+<span class="hljs-preprocessor cye-lm-tag"># is now up to date.</span>
+<span class="hljs-preprocessor cye-lm-tag">#</span>
+<span class="hljs-preprocessor cye-lm-tag"># The only cases where we need to modify files which have global</span>
+<span class="hljs-preprocessor cye-lm-tag"># effects are thus separated out and done before the recursive</span>
+<span class="hljs-preprocessor cye-lm-tag"># descending is started. They are now explicitly listed as the</span>
+<span class="hljs-preprocessor cye-lm-tag"># prepare rule.</span>
+
+<span class="hljs-preprocessor cye-lm-tag"># Beautify output</span>
+<span class="hljs-preprocessor cye-lm-tag"># ---------------------------------------------------------------------------</span>
+<span class="hljs-preprocessor cye-lm-tag">#</span>
+<span class="hljs-preprocessor cye-lm-tag"># Normally, we echo the whole command before executing it. By making</span>
+<span class="hljs-preprocessor cye-lm-tag"># that echo $($(quiet)$(cmd)), we now have the possibility to set</span>
+<span class="hljs-preprocessor cye-lm-tag"># $(quiet) to choose other forms of output instead, e.g.</span>
+<span class="hljs-preprocessor cye-lm-tag">#</span>
+<span class="hljs-preprocessor cye-lm-tag">#         quiet_cmd_cc_o_c = Compiling $(RELDIR)/$@</span>
+<span class="hljs-preprocessor cye-lm-tag">#         cmd_cc_o_c       = $(CC) $(c_flags) -c -o $@ $&lt;</span>
+<span class="hljs-preprocessor cye-lm-tag">#</span>
+<span class="hljs-preprocessor cye-lm-tag"># If $(quiet) is empty, the whole command will be printed.</span>
+<span class="hljs-preprocessor cye-lm-tag"># If it is set to "quiet_", only the short version will be printed.</span>
+<span class="hljs-preprocessor cye-lm-tag"># If it is set to "silent_", nothing will be printed at all, since</span>
+<span class="hljs-preprocessor cye-lm-tag"># the variable $(silent_cmd_cc_o_c) doesn't exist.</span>
+<span class="hljs-preprocessor cye-lm-tag">#</span>
+<span class="hljs-preprocessor cye-lm-tag"># A simple variant is to prefix commands with $(Q) - that's useful</span>
+<span class="hljs-preprocessor cye-lm-tag"># for commands that shall be hidden in non-verbose mode.</span>
+<span class="hljs-preprocessor cye-lm-tag">#</span>
+<span class="hljs-preprocessor cye-lm-tag">#   $(Q)ln $@ :&lt;</span>
+<span class="hljs-preprocessor cye-lm-tag">#</span>
+<span class="hljs-preprocessor cye-lm-tag"># If KBUILD_VERBOSE equals 0 then the above command will be hidden.</span>
+<span class="hljs-preprocessor cye-lm-tag"># If KBUILD_VERBOSE equals 1 then the above command is displayed.</span>
+<span class="hljs-preprocessor cye-lm-tag">#</span>
+<span class="hljs-preprocessor cye-lm-tag"># To put more focus on warnings, be less verbose as default</span>
+<span class="hljs-preprocessor cye-lm-tag"># Use 'make V=1' to see the full commands</span>
+
+ifeq (<span class="hljs-string cye-lm-tag">"$(origin V)"</span>, <span class="hljs-string cye-lm-tag">"command line"</span>)
+ <span class="hljs-constant cye-lm-tag"> KBUILD_VERBOSE </span>= $(V)
+endif
+ifndef KBUILD_VERBOSE
+ <span class="hljs-constant cye-lm-tag"> KBUILD_VERBOSE </span>= <span class="hljs-number cye-lm-tag">0</span>
+endif
+
+ifeq ($(KBUILD_VERBOSE),<span class="hljs-number cye-lm-tag">1</span>)
+  quiet =
+ <span class="hljs-constant cye-lm-tag"> Q </span>=
+<span class="hljs-keyword cye-lm-tag">else</span>
+  quiet=quiet_
+ <span class="hljs-constant cye-lm-tag"> Q </span>= @
+endif
+</code></pre>
+
+<p class="cye-lm-tag">　　如果V=n这个选项传给了make，系统就会给变量KBUILD_VERBOSE选项附上V的值，否则的话KBUILD_VERBOSE就会为0。然后系统会检查KBUILD_VERBOSE的值，以此来决定quiet和Q的值。符号@控制命令的输出，如果它被放在一个命令之前，这条命令的输出将会是CCscripts/mod/empty.o，而不是Compiling….scripts/mod/empty.o（LCTT译注：CC在makefile中一般都是编译命令）。在这段最后，系统导出了所有的变量。</p>
+
+
+
+<h3 id="参数-s">参数-s</h3>
+
+<p class="cye-lm-tag">然后是<code>-s</code> 的控制</p>
+
+
+
+<pre class="prettyprint"><code class="language-shell hljs perl"><span class="hljs-comment cye-lm-tag"># If the user is running make -s (silent mode), suppress echoing of</span>
+<span class="hljs-comment cye-lm-tag"># commands</span>
+
+ifne<span class="hljs-string cye-lm-tag">q (<span class="hljs-variable cye-lm-tag">$(</span>filter 4.<span class="hljs-variable cye-lm-tag">%,</span><span class="hljs-variable cye-lm-tag">$(</span>MAKE_VERSION)</span>),)   <span class="hljs-comment cye-lm-tag"># make-4</span>
+ifne<span class="hljs-string cye-lm-tag">q (<span class="hljs-variable cye-lm-tag">$(</span>filter <span class="hljs-variable cye-lm-tag">%s</span> ,<span class="hljs-variable cye-lm-tag">$(</span>firstword x<span class="hljs-variable cye-lm-tag">$(</span>MAKEFLAGS)</span>)),)
+  quiet=silent<span class="hljs-number cye-lm-tag">_</span>
+endif
+<span class="hljs-keyword cye-lm-tag">else</span>                    <span class="hljs-comment cye-lm-tag"># make-3.8x</span>
+ifne<span class="hljs-string cye-lm-tag">q (<span class="hljs-variable cye-lm-tag">$(</span>filter s% -s<span class="hljs-variable cye-lm-tag">%,</span><span class="hljs-variable cye-lm-tag">$(</span>MAKEFLAGS)</span>),)
+  quiet=silent<span class="hljs-number cye-lm-tag">_</span>
+endif
+endif
+
+export quiet Q KBUILD_VERBOSE</code></pre>
+
+
+
+<h3 id="参数-o">参数-O</h3>
+
+<hr />
+
+<p class="cye-lm-tag">　　下一个ifeq语句检查的是传递给make的选项O=/dir，这个选项允许在指定的目录dir输出所有的结果文件 <br />
+使用 <code>cat -n  Makefile | head -n 153 | tail -n +127</code>  查看</p>
+
+
+
+<pre class="prettyprint"><code class="language-shell hljs mel"># Cancel implicit rules on top Makefile
+<span class="hljs-variable cye-lm-tag">$(</span>CURDIR)/Makefile Makefile: ;
+
+ifneq (<span class="hljs-variable cye-lm-tag">$(</span>KBUILD_OUTPUT),)
+# Invoke a second make <span class="hljs-keyword cye-lm-tag">in</span> the output directory, passing relevant variables
+# check that the output directory actually <span class="hljs-keyword cye-lm-tag">exists</span>
+saved-output := <span class="hljs-variable cye-lm-tag">$(</span>KBUILD_OUTPUT)
+KBUILD_OUTPUT := <span class="hljs-variable cye-lm-tag">$(</span>shell mkdir -p <span class="hljs-variable cye-lm-tag">$(</span>KBUILD_OUTPUT) &amp;&amp; cd <span class="hljs-variable cye-lm-tag">$(</span>KBUILD_OUTPUT) \
+                                &amp;&amp; /bin/<span class="hljs-keyword cye-lm-tag">pwd</span>)
+<span class="hljs-variable cye-lm-tag">$(</span><span class="hljs-keyword cye-lm-tag">if</span> <span class="hljs-variable cye-lm-tag">$(</span>KBUILD_OUTPUT),, \
+     <span class="hljs-variable cye-lm-tag">$(</span><span class="hljs-keyword cye-lm-tag">error</span> failed to create output directory <span class="hljs-string cye-lm-tag">"$(saved-output)"</span>))
+
+PHONY += <span class="hljs-variable cye-lm-tag">$(</span>MAKECMDGOALS) sub-make
+
+<span class="hljs-variable cye-lm-tag">$(</span><span class="hljs-keyword cye-lm-tag">filter</span>-out _all sub-make <span class="hljs-variable cye-lm-tag">$(</span>CURDIR)/Makefile, <span class="hljs-variable cye-lm-tag">$(</span>MAKECMDGOALS)) _all: sub-make
+    <span class="hljs-variable cye-lm-tag">@:</span>
+
+sub-make: FORCE
+    <span class="hljs-variable cye-lm-tag">$(</span>Q)<span class="hljs-variable cye-lm-tag">$(</span>MAKE) -C <span class="hljs-variable cye-lm-tag">$(</span>KBUILD_OUTPUT) KBUILD_SRC=<span class="hljs-variable cye-lm-tag">$(</span>CURDIR) \
+    -f <span class="hljs-variable cye-lm-tag">$(</span>CURDIR)/Makefile <span class="hljs-variable cye-lm-tag">$(</span><span class="hljs-keyword cye-lm-tag">filter</span>-out _all sub-make,<span class="hljs-variable cye-lm-tag">$(</span>MAKECMDGOALS))
+
+# Leave processing to above invocation of make
+skip-makefile := <span class="hljs-number cye-lm-tag">1</span>
+endif # ifneq (<span class="hljs-variable cye-lm-tag">$(</span>KBUILD_OUTPUT),)
+endif # ifeq (<span class="hljs-variable cye-lm-tag">$(</span>KBUILD_SRC),)</code></pre>
+
+<p class="cye-lm-tag">　　 <br />
+　　系统会检查变量KBUILD_SRC，它代表内核代码的顶层目录，如果它是空的（第一次执行makefile时总是空的），我们会设置变量KBUILD_OUTPUT为传递给选项O的值（如果这个选项被传进来了）。下一步会检查变量KBUILD_OUTPUT，如果已经设置好，那么接下来会做以下几件事： <br />
+　　将变量KBUILD_OUTPUT的值保存到临时变量saved-output； <br />
+　　尝试创建给定的输出目录； <br />
+　　检查创建的输出目录，如果失败了就打印错误； <br />
+　　如果成功创建了输出目录，那么就在新目录重新执行make命令（参见选项-C）。 <br />
+　　</p>
+
+
+
+<h3 id="选项c">选项C</h3>
+
+<p class="cye-lm-tag">下一个ifeq语句会检查传递给make的选项C <br />
+使用 <code>cat -n  Makefile | head -n 178 | tail -n +153</code> 查看</p>
+
+
+
+<pre class="prettyprint"><code class="language-shell hljs sql"># We process the rest of the Makefile if this is the final invocation of make
+ifeq ($(skip-makefile),)
+
+# <span class="hljs-operator cye-lm-tag"><span class="hljs-keyword cye-lm-tag">Do</span> <span class="hljs-keyword cye-lm-tag">not</span> print <span class="hljs-string cye-lm-tag">"Entering directory ..."</span>,
+# but we want <span class="hljs-keyword cye-lm-tag">to</span> display it <span class="hljs-keyword cye-lm-tag">when</span> entering <span class="hljs-keyword cye-lm-tag">to</span> the <span class="hljs-keyword cye-lm-tag">output</span> directory
+# so that IDEs/editors <span class="hljs-keyword cye-lm-tag">are</span> able <span class="hljs-keyword cye-lm-tag">to</span> understand <span class="hljs-keyword cye-lm-tag">relative</span> filenames.
+MAKEFLAGS += --<span class="hljs-keyword cye-lm-tag">no</span>-print-directory
+
+# <span class="hljs-keyword cye-lm-tag">Call</span> a source code checker (<span class="hljs-keyword cye-lm-tag">by</span> <span class="hljs-keyword cye-lm-tag">default</span>, <span class="hljs-string cye-lm-tag">"sparse"</span>) <span class="hljs-keyword cye-lm-tag">as</span> part <span class="hljs-keyword cye-lm-tag">of</span> the
+# C compilation.
+#
+# Use <span class="hljs-string cye-lm-tag">'make C=1'</span> <span class="hljs-keyword cye-lm-tag">to</span> enable checking <span class="hljs-keyword cye-lm-tag">of</span> <span class="hljs-keyword cye-lm-tag">only</span> re-compiled files.
+# Use <span class="hljs-string cye-lm-tag">'make C=2'</span> <span class="hljs-keyword cye-lm-tag">to</span> enable checking <span class="hljs-keyword cye-lm-tag">of</span> *<span class="hljs-keyword cye-lm-tag">all</span>* source files, regardless
+# <span class="hljs-keyword cye-lm-tag">of</span> whether they <span class="hljs-keyword cye-lm-tag">are</span> re-compiled <span class="hljs-keyword cye-lm-tag">or</span> <span class="hljs-keyword cye-lm-tag">not</span>.
+#
+# See the file <span class="hljs-string cye-lm-tag">"Documentation/sparse.txt"</span> <span class="hljs-keyword cye-lm-tag">for</span> more details, including
+# <span class="hljs-keyword cye-lm-tag">where</span> <span class="hljs-keyword cye-lm-tag">to</span> <span class="hljs-keyword cye-lm-tag">get</span> the <span class="hljs-string cye-lm-tag">"sparse"</span> utility.
+
+ifeq (<span class="hljs-string cye-lm-tag">"$(origin C)"</span>, <span class="hljs-string cye-lm-tag">"command line"</span>)
+  KBUILD_CHECKSRC = $(C)
+endif
+ifndef KBUILD_CHECKSRC
+  KBUILD_CHECKSRC = <span class="hljs-number cye-lm-tag">0</span>
+endif
+</span></code></pre>
+
+<p class="cye-lm-tag">选项C会告诉makefile需要使用环境变量$CHECK提供的工具来检查全部c代码，默认情况下会使用sparse。</p>
+
+<p class="cye-lm-tag">我们可以看到之前先检查了<code>skip-makefile</code> ，这个变量在选项O的时候被定义为1</p>
+
+
+
+<h3 id="选项m">选项M</h3>
+
+<p class="cye-lm-tag">选项M会用来编译外部模块 <br />
+使用<code>cat -n  Makefile | head -n 198 | tail -n +178</code> 查看</p>
+
+
+
+<pre class="prettyprint"><code class="language-shell hljs vhdl"># <span class="hljs-keyword cye-lm-tag">Use</span> make M=dir <span class="hljs-keyword cye-lm-tag">to</span> specify directory <span class="hljs-keyword cye-lm-tag">of</span> external module <span class="hljs-keyword cye-lm-tag">to</span> build
+# Old syntax make ... SUBDIRS=$PWD <span class="hljs-keyword cye-lm-tag">is</span> still supported
+# Setting the environment <span class="hljs-keyword cye-lm-tag">variable</span> KBUILD_EXTMOD take precedence
+ifdef SUBDIRS
+  KBUILD_EXTMOD ?= $(SUBDIRS)
+endif
+
+ifeq (<span class="hljs-string cye-lm-tag">"$(origin M)"</span>, <span class="hljs-string cye-lm-tag">"command line"</span>)
+  KBUILD_EXTMOD := $(M)
+endif
+
+# <span class="hljs-keyword cye-lm-tag">If</span> building an external module we do <span class="hljs-keyword cye-lm-tag">not</span> care about the <span class="hljs-keyword cye-lm-tag">all</span>: rule
+# but instead _all depend <span class="hljs-keyword cye-lm-tag">on</span> modules
+PHONY += <span class="hljs-keyword cye-lm-tag">all</span>
+ifeq ($(KBUILD_EXTMOD),)
+    _all: <span class="hljs-keyword cye-lm-tag">all</span>
+<span class="hljs-keyword cye-lm-tag">else</span>
+    _all: modules
+endif</code></pre>
+
+
+
+<h2 id="设置objtree">设置objtree</h2>
+
+<p class="cye-lm-tag">紧接着系统检查了变量<code>KBUILD_SRC</code> ，如果<code>KBUILD_SRC</code> 没有被设置，系统会设置变量srctree为当前目录<code>./</code>, 使用<code>cat -n  Makefile | head -n 215 | tail -n +198</code> 进行查看</p>
+
+
+
+<pre class="prettyprint"><code class=" hljs mel">ifeq (<span class="hljs-variable cye-lm-tag">$(</span>KBUILD_SRC),)
+        # building <span class="hljs-keyword cye-lm-tag">in</span> the <span class="hljs-keyword cye-lm-tag">source</span> tree
+        srctree := .
+<span class="hljs-keyword cye-lm-tag">else</span>
+        ifeq (<span class="hljs-variable cye-lm-tag">$(</span>KBUILD_SRC)/,<span class="hljs-variable cye-lm-tag">$(</span>dir <span class="hljs-variable cye-lm-tag">$(</span>CURDIR)))
+                # building <span class="hljs-keyword cye-lm-tag">in</span> a subdirectory of the <span class="hljs-keyword cye-lm-tag">source</span> tree
+                srctree := ..
+        <span class="hljs-keyword cye-lm-tag">else</span>
+                srctree := <span class="hljs-variable cye-lm-tag">$(</span>KBUILD_SRC)
+        endif
+endif
+objtree     := .
+src     := <span class="hljs-variable cye-lm-tag">$(</span>srctree)
+obj     := <span class="hljs-variable cye-lm-tag">$(</span>objtree)
+
+VPATH       := <span class="hljs-variable cye-lm-tag">$(</span>srctree)<span class="hljs-variable cye-lm-tag">$(</span><span class="hljs-keyword cye-lm-tag">if</span> <span class="hljs-variable cye-lm-tag">$(</span>KBUILD_EXTMOD),:<span class="hljs-variable cye-lm-tag">$(</span>KBUILD_EXTMOD))
+
+export srctree objtree VPATH
+</code></pre>
+
+<p class="cye-lm-tag">这将会告诉Makefile内核的源码树就在执行make命令的目录，然后要设置objtree和其他变量为这个目录，并且将这些变量导出。</p>
+
+
+
+<h2 id="subarch获取系统架构">SUBARCH获取系统架构</h2>
+
+<p class="cye-lm-tag">接着就是要获取SUBARCH的值，这个变量代表了当前的系统架构（LCTT译注：一般都指CPU架构）： <br />
+使用<code>cat  Makefile | head -n 230 | tail -n +217</code>查看</p>
+
+
+
+<pre class="prettyprint"><code class=" hljs bash"><span class="hljs-comment cye-lm-tag"># SUBARCH tells the usermode build what the underlying arch is.  That is set</span>
+<span class="hljs-comment cye-lm-tag"># first, and if a usermode build is happening, the "ARCH=um" on the command</span>
+<span class="hljs-comment cye-lm-tag"># line overrides the setting of ARCH below.  If a native build is happening,</span>
+<span class="hljs-comment cye-lm-tag"># then ARCH is assigned, getting whatever value it gets normally, and</span>
+<span class="hljs-comment cye-lm-tag"># SUBARCH is subsequently ignored.</span>
+
+SUBARCH := $(shell uname -m | sed <span class="hljs-operator cye-lm-tag">-e</span> s/i.<span class="hljs-number cye-lm-tag">86</span>/x86/ <span class="hljs-operator cye-lm-tag">-e</span> s/x86_64/x86/ \
+                  <span class="hljs-operator cye-lm-tag">-e</span> s/sun4u/sparc64/ \
+                  <span class="hljs-operator cye-lm-tag">-e</span> s/arm.*/arm/ <span class="hljs-operator cye-lm-tag">-e</span> s/sa110/arm/ \
+                  <span class="hljs-operator cye-lm-tag">-e</span> s/s390x/s390/ <span class="hljs-operator cye-lm-tag">-e</span> s/parisc64/parisc/ \
+                  <span class="hljs-operator cye-lm-tag">-e</span> s/ppc.*/powerpc/ <span class="hljs-operator cye-lm-tag">-e</span> s/mips.*/mips/ \
+                  <span class="hljs-operator cye-lm-tag">-e</span> s/sh[<span class="hljs-number cye-lm-tag">234</span>].*/sh/ <span class="hljs-operator cye-lm-tag">-e</span> s/aarch64.*/arm64/ )
+</code></pre>
+
+<p class="cye-lm-tag">它其实就是执行了如下的命令</p>
+
+
+
+<pre class="prettyprint"><code class=" hljs bash">uname -m | sed <span class="hljs-operator cye-lm-tag">-e</span> s/i.<span class="hljs-number cye-lm-tag">86</span>/x86/ <span class="hljs-operator cye-lm-tag">-e</span> s/x86_64/x86/ <span class="hljs-operator cye-lm-tag">-e</span> s/sun4u/sparc64/  <span class="hljs-operator cye-lm-tag">-e</span> s/arm.*/arm/ <span class="hljs-operator cye-lm-tag">-e</span> s/sa110/arm/ <span class="hljs-operator cye-lm-tag">-e</span> s/s390x/s390/ <span class="hljs-operator cye-lm-tag">-e</span> s/parisc64/parisc/  <span class="hljs-operator cye-lm-tag">-e</span> s/ppc.*/powerpc/ <span class="hljs-operator cye-lm-tag">-e</span> s/mips.*/mips/  <span class="hljs-operator cye-lm-tag">-e</span> s/sh[<span class="hljs-number cye-lm-tag">234</span>].*/sh/ <span class="hljs-operator cye-lm-tag">-e</span> s/aarch64.*/arm64/ </code></pre>
+
+<p class="cye-lm-tag">我的机子是Ubuntu-Gnome14.04 LTS x86的（即x86架构）运行一下 <br />
+得到如下信息 <br />
+<img src="http://img.blog.csdn.net/20151006211404637" alt="这里写图片描述" title="" /></p>
+
+<p class="cye-lm-tag">如你所见，系统执行uname得到机器、操作系统和架构的信息。因为我们得到的是uname的输出，所以我们需要做一些处理再赋给变量SUBARCH。</p>
+
+
+
+<h2 id="依据subarch设置srcarch和hfr-arch">依据SUBARCH设置SRCARCH和hfr-arch</h2>
+
+<p class="cye-lm-tag">获得<code>SUBARCH</code>之后就要设置<code>SRCARCH</code>和<code>hfr-arch</code></p>
+
+<p class="cye-lm-tag">SRCARCH提供了硬件架构相关代码的目录 <br />
+hfr-arch提供了相关头文件的目录</p>
+
+
+
+<pre class="prettyprint"><code class=" hljs ruby"><span class="hljs-constant cye-lm-tag">ARCH</span>        ?= <span class="hljs-variable cye-lm-tag">$(</span><span class="hljs-constant cye-lm-tag">SUBARCH</span>)
+<span class="hljs-constant cye-lm-tag">CROSS_COMPILE</span>   ?= <span class="hljs-variable cye-lm-tag">$(</span><span class="hljs-constant cye-lm-tag">CONFIG_CROSS_COMPILE</span><span class="hljs-symbol cye-lm-tag">:<span class="hljs-string cye-lm-tag">"%"</span></span>=%)
+
+<span class="hljs-comment cye-lm-tag"># Architecture as present in compile.h</span>
+<span class="hljs-constant cye-lm-tag">UTS_MACHINE</span>     <span class="hljs-symbol cye-lm-tag">:</span>= <span class="hljs-variable cye-lm-tag">$(</span><span class="hljs-constant cye-lm-tag">ARCH</span>)
+<span class="hljs-constant cye-lm-tag">SRCARCH</span>     <span class="hljs-symbol cye-lm-tag">:</span>= <span class="hljs-variable cye-lm-tag">$(</span><span class="hljs-constant cye-lm-tag">ARCH</span>)
+
+<span class="hljs-comment cye-lm-tag"># Additional ARCH settings for x86</span>
+ifeq (<span class="hljs-variable cye-lm-tag">$(</span><span class="hljs-constant cye-lm-tag">ARCH</span>),i386)
+        <span class="hljs-constant cye-lm-tag">SRCARCH</span> <span class="hljs-symbol cye-lm-tag">:</span>= x86
+endif
+ifeq (<span class="hljs-variable cye-lm-tag">$(</span><span class="hljs-constant cye-lm-tag">ARCH</span>),x86_64)
+        <span class="hljs-constant cye-lm-tag">SRCARCH</span> <span class="hljs-symbol cye-lm-tag">:</span>= x86
+endif
+
+<span class="hljs-comment cye-lm-tag"># Additional ARCH settings for sparc</span>
+ifeq (<span class="hljs-variable cye-lm-tag">$(</span><span class="hljs-constant cye-lm-tag">ARCH</span>),sparc32)
+       <span class="hljs-constant cye-lm-tag">SRCARCH</span> <span class="hljs-symbol cye-lm-tag">:</span>= sparc
+endif
+ifeq (<span class="hljs-variable cye-lm-tag">$(</span><span class="hljs-constant cye-lm-tag">ARCH</span>),sparc64)
+       <span class="hljs-constant cye-lm-tag">SRCARCH</span> <span class="hljs-symbol cye-lm-tag">:</span>= sparc
+endif
+
+<span class="hljs-comment cye-lm-tag"># Additional ARCH settings for sh</span>
+ifeq (<span class="hljs-variable cye-lm-tag">$(</span><span class="hljs-constant cye-lm-tag">ARCH</span>),sh64)
+       <span class="hljs-constant cye-lm-tag">SRCARCH</span> <span class="hljs-symbol cye-lm-tag">:</span>= sh
+endif
+
+<span class="hljs-comment cye-lm-tag"># Additional ARCH settings for tile</span>
+ifeq (<span class="hljs-variable cye-lm-tag">$(</span><span class="hljs-constant cye-lm-tag">ARCH</span>),tilepro)
+       <span class="hljs-constant cye-lm-tag">SRCARCH</span> <span class="hljs-symbol cye-lm-tag">:</span>= tile
+endif
+ifeq (<span class="hljs-variable cye-lm-tag">$(</span><span class="hljs-constant cye-lm-tag">ARCH</span>),tilegx)
+       <span class="hljs-constant cye-lm-tag">SRCARCH</span> <span class="hljs-symbol cye-lm-tag">:</span>= tile
+endif
+
+<span class="hljs-comment cye-lm-tag"># Where to locate arch specific headers</span>
+hdr-arch  <span class="hljs-symbol cye-lm-tag">:</span>= <span class="hljs-variable cye-lm-tag">$(</span><span class="hljs-constant cye-lm-tag">SRCARCH</span>)
+</code></pre>
+
+<p class="cye-lm-tag">注意：ARCH是SUBARCH的别名。</p>
+
+
+
+<h2 id="设置kconfigconfig">设置KCONFIG_CONFIG</h2>
+
+<p class="cye-lm-tag">如果没有设置过代表内核配置文件路径的变量<code>KCONFIG_CONFIG</code>，下一步系统会设置它，默认情况下就是.config，这个文件是不是很熟悉,它就是我们make menuconfig后的那个.config配置文件，里面写入我们内核编译的所有信息 <br />
+使用<code>cat -n  Makefile | head -n 292 | tail -n +289</code> 查看</p>
+
+
+
+<pre class="prettyprint"><code class=" hljs bash">KCONFIG_CONFIG  ?= .config
+<span class="hljs-keyword cye-lm-tag">export</span> KCONFIG_CONFIG</code></pre>
+
+
+
+<h2 id="configshell编译内核过程中要用到的shell">CONFIG_SHELL编译内核过程中要用到的shell</h2>
+
+<p class="cye-lm-tag">使用<code>cat -n  Makefile | head -n 297 | tail -n +292</code> 查看</p>
+
+
+
+<pre class="prettyprint"><code class=" hljs bash"><span class="hljs-comment cye-lm-tag"># SHELL used by kbuild</span>
+CONFIG_SHELL := $(shell <span class="hljs-keyword cye-lm-tag">if</span> [ -x <span class="hljs-string cye-lm-tag">"$<span class="hljs-variable cye-lm-tag">$BASH</span>"</span> ]; <span class="hljs-keyword cye-lm-tag">then</span> <span class="hljs-built_in cye-lm-tag">echo</span> $<span class="hljs-variable cye-lm-tag">$BASH</span>; \
+      <span class="hljs-keyword cye-lm-tag">else</span> <span class="hljs-keyword cye-lm-tag">if</span> [ -x /bin/bash ]; <span class="hljs-keyword cye-lm-tag">then</span> <span class="hljs-built_in cye-lm-tag">echo</span> /bin/bash; \
+      <span class="hljs-keyword cye-lm-tag">else</span> <span class="hljs-built_in cye-lm-tag">echo</span> sh; <span class="hljs-keyword cye-lm-tag">fi</span> ; <span class="hljs-keyword cye-lm-tag">fi</span>)
+</code></pre>
+
+<p class="cye-lm-tag"><img src="http://img.blog.csdn.net/20151007111318410" alt="这里写图片描述" title="" /></p>
+
+
+
+<h2 id="编译器以及编译选项">编译器以及编译选项</h2>
+
+<p class="cye-lm-tag">接下来就要设置一组和编译内核的编译器相关的变量。我们会设置主机的C和C++的编译器及相关配置项 <br />
+使用<code>cat -n  Makefile | head -n 307 | tail -n +297</code> 查看</p>
+
+
+
+<pre class="prettyprint"><code class=" hljs lasso">HOSTCC       <span class="hljs-subst cye-lm-tag">=</span> gcc
+HOSTCXX      <span class="hljs-subst cye-lm-tag">=</span> g<span class="hljs-subst cye-lm-tag">++</span>
+HOSTCFLAGS   <span class="hljs-subst cye-lm-tag">=</span> <span class="hljs-attribute cye-lm-tag">-Wall</span> <span class="hljs-attribute cye-lm-tag">-Wmissing</span><span class="hljs-attribute cye-lm-tag">-prototypes</span> <span class="hljs-attribute cye-lm-tag">-Wstrict</span><span class="hljs-attribute cye-lm-tag">-prototypes</span> <span class="hljs-attribute cye-lm-tag">-O2</span> <span class="hljs-attribute cye-lm-tag">-fomit</span><span class="hljs-attribute cye-lm-tag">-frame</span><span class="hljs-attribute cye-lm-tag">-pointer</span> <span class="hljs-attribute cye-lm-tag">-std</span><span class="hljs-subst cye-lm-tag">=</span>gnu89
+HOSTCXXFLAGS <span class="hljs-subst cye-lm-tag">=</span> <span class="hljs-attribute cye-lm-tag">-O2</span>
+
+ifeq ($(shell $(HOSTCC) <span class="hljs-attribute cye-lm-tag">-v</span> <span class="hljs-number cye-lm-tag">2</span><span class="hljs-subst cye-lm-tag">&gt;&amp;</span><span class="hljs-number cye-lm-tag">1</span> <span class="hljs-subst cye-lm-tag">|</span> grep <span class="hljs-attribute cye-lm-tag">-c</span> <span class="hljs-string cye-lm-tag">"clang version"</span>), <span class="hljs-number cye-lm-tag">1</span>)
+HOSTCFLAGS  <span class="hljs-subst cye-lm-tag">+=</span> <span class="hljs-attribute cye-lm-tag">-Wno</span><span class="hljs-attribute cye-lm-tag">-unused</span><span class="hljs-attribute cye-lm-tag">-value</span> <span class="hljs-attribute cye-lm-tag">-Wno</span><span class="hljs-attribute cye-lm-tag">-unused</span><span class="hljs-attribute cye-lm-tag">-parameter</span> <span class="hljs-subst cye-lm-tag">\</span>
+        <span class="hljs-attribute cye-lm-tag">-Wno</span><span class="hljs-attribute cye-lm-tag">-missing</span><span class="hljs-attribute cye-lm-tag">-field</span><span class="hljs-attribute cye-lm-tag">-initializers</span> <span class="hljs-attribute cye-lm-tag">-fno</span><span class="hljs-attribute cye-lm-tag">-delete</span><span class="hljs-attribute cye-lm-tag">-null</span><span class="hljs-attribute cye-lm-tag">-pointer</span><span class="hljs-attribute cye-lm-tag">-checks</span>
+endif</code></pre>
+
+<p class="cye-lm-tag">我们可以看到Makefile在这里开始适配代表C/C++编译器的变量CC和CXX <br />
+那为什么还要HOST*这些变量呢？这是因为CC是编译内核过程中要使用的目标架构的编译器，但是HOSTCC是要被用来编译一组host程序的（下面我们就会看到）。</p>
+
+
+
+<h2 id="kbuild编译的目标">KBUILD_编译的目标</h2>
+
+<p class="cye-lm-tag">然后我们就看到变量KBUILD_MODULES和KBUILD_BUILTIN的定义，这两个变量决定了我们要编译什么东西（内核、模块或者两者都有）： <br />
+使用<code>cat -n  Makefile | head -n 337 | tail -n +307</code> 查看</p>
+
+
+
+<pre class="prettyprint"><code class=" hljs sql">
+# Decide whether to build built-in, modular, or both.
+# Normally, just <span class="hljs-operator cye-lm-tag"><span class="hljs-keyword cye-lm-tag">do</span> built-<span class="hljs-keyword cye-lm-tag">in</span>.
+
+KBUILD_MODULES :=
+KBUILD_BUILTIN := <span class="hljs-number cye-lm-tag">1</span>
+
+# <span class="hljs-keyword cye-lm-tag">If</span> we have <span class="hljs-keyword cye-lm-tag">only</span> <span class="hljs-string cye-lm-tag">"make modules"</span>, don<span class="hljs-string cye-lm-tag">'t compile built-in objects.
+# When we'</span>re building modules <span class="hljs-keyword cye-lm-tag">with</span> modversions, we need <span class="hljs-keyword cye-lm-tag">to</span> consider
+# the built-<span class="hljs-keyword cye-lm-tag">in</span> objects during the descend <span class="hljs-keyword cye-lm-tag">as</span> well, <span class="hljs-keyword cye-lm-tag">in</span> <span class="hljs-keyword cye-lm-tag">order</span> <span class="hljs-keyword cye-lm-tag">to</span>
+# make sure the checksums <span class="hljs-keyword cye-lm-tag">are</span> up <span class="hljs-keyword cye-lm-tag">to</span> <span class="hljs-keyword cye-lm-tag">date</span> <span class="hljs-keyword cye-lm-tag">before</span> we record them.
+
+ifeq ($(MAKECMDGOALS),modules)
+  KBUILD_BUILTIN := $(<span class="hljs-keyword cye-lm-tag">if</span> $(CONFIG_MODVERSIONS),<span class="hljs-number cye-lm-tag">1</span>)
+endif
+
+# <span class="hljs-keyword cye-lm-tag">If</span> we have <span class="hljs-string cye-lm-tag">"make &lt;whatever&gt; modules"</span>, compile modules
+# <span class="hljs-keyword cye-lm-tag">in</span> addition <span class="hljs-keyword cye-lm-tag">to</span> whatever we <span class="hljs-keyword cye-lm-tag">do</span> anyway.
+# Just <span class="hljs-string cye-lm-tag">"make"</span> <span class="hljs-keyword cye-lm-tag">or</span> <span class="hljs-string cye-lm-tag">"make all"</span> shall build modules <span class="hljs-keyword cye-lm-tag">as</span> well
+
+ifneq ($(filter <span class="hljs-keyword cye-lm-tag">all</span> _all modules,$(MAKECMDGOALS)),)
+  KBUILD_MODULES := <span class="hljs-number cye-lm-tag">1</span>
+endif
+
+ifeq ($(MAKECMDGOALS),)
+  KBUILD_MODULES := <span class="hljs-number cye-lm-tag">1</span>
+endif
+
+export KBUILD_MODULES KBUILD_BUILTIN
+export KBUILD_CHECKSRC KBUILD_SRC KBUILD_EXTMOD
+
+</span></code></pre>
+
+<p class="cye-lm-tag">在这我们可以看到这些变量的定义，并且，如果们仅仅传递了modules给make，变量KBUILD_BUILTIN会依赖于内核配置选项CONFIG_MODVERSIONS。</p>
+
+
+
+<h2 id="kbuild">Kbuild</h2>
+
+<p class="cye-lm-tag">接着下一步操作是引入下面的文件： <br />
+使用查看 <code>cat  Makefile | head -n 341 | tail -n +337</code></p>
+
+
+
+<pre class="prettyprint"><code class=" hljs ocaml"># We need some generic definitions (<span class="hljs-keyword cye-lm-tag">do</span> not <span class="hljs-keyword cye-lm-tag">try</span> <span class="hljs-keyword cye-lm-tag">to</span> remake the file).
+scripts/Kbuild.<span class="hljs-keyword cye-lm-tag">include</span>: ;
+<span class="hljs-keyword cye-lm-tag">include</span> scripts/Kbuild.<span class="hljs-keyword cye-lm-tag">include</span></code></pre>
+
+<p class="cye-lm-tag">文件Kbuild或者又叫做KernelBuildSystem是一个用来管理构建内核及其模块的特殊框架。kbuild文件的语法与makefile一样。文件scripts/Kbuild.include为kbuild系统提供了一些常规的定义。因为我们包含了这个kbuild文件，我们可以看到和不同工具关联的这些变量的定义，这些工具会在内核和模块编译过程中被使用（比如链接器、编译器、来自binutils的二进制工具包，等等）：</p>
+
+
+
+<pre class="prettyprint"><code class=" hljs makefile"><span class="hljs-comment cye-lm-tag"># Make variables (CC, etc...)</span>
+<span class="hljs-constant cye-lm-tag">AS</span>      = <span class="hljs-variable cye-lm-tag">$(CROSS_COMPILE)</span>as
+<span class="hljs-constant cye-lm-tag">LD</span>      = <span class="hljs-variable cye-lm-tag">$(CROSS_COMPILE)</span>ld
+<span class="hljs-constant cye-lm-tag">CC</span>      = <span class="hljs-variable cye-lm-tag">$(CROSS_COMPILE)</span>gcc
+<span class="hljs-constant cye-lm-tag">CPP</span>     = <span class="hljs-variable cye-lm-tag">$(CC)</span> -E
+<span class="hljs-constant cye-lm-tag">AR</span>      = <span class="hljs-variable cye-lm-tag">$(CROSS_COMPILE)</span>ar
+<span class="hljs-constant cye-lm-tag">NM</span>      = <span class="hljs-variable cye-lm-tag">$(CROSS_COMPILE)</span>nm
+<span class="hljs-constant cye-lm-tag">STRIP</span>       = <span class="hljs-variable cye-lm-tag">$(CROSS_COMPILE)</span>strip
+<span class="hljs-constant cye-lm-tag">OBJCOPY</span>     = <span class="hljs-variable cye-lm-tag">$(CROSS_COMPILE)</span>objcopy
+<span class="hljs-constant cye-lm-tag">OBJDUMP</span>     = <span class="hljs-variable cye-lm-tag">$(CROSS_COMPILE)</span>objdump
+<span class="hljs-constant cye-lm-tag">AWK</span>     = awk
+<span class="hljs-constant cye-lm-tag">GENKSYMS</span>    = scripts/genksyms/genksyms
+<span class="hljs-constant cye-lm-tag">INSTALLKERNEL</span>  := installkernel
+<span class="hljs-constant cye-lm-tag">DEPMOD</span>      = /sbin/depmod
+<span class="hljs-constant cye-lm-tag">PERL</span>        = perl
+<span class="hljs-constant cye-lm-tag">PYTHON</span>      = python
+<span class="hljs-constant cye-lm-tag">CHECK</span>       = sparse
+
+<span class="hljs-constant cye-lm-tag">CHECKFLAGS</span>     := -D__linux__ -Dlinux -D__STDC__ -Dunix -D__unix__ \
+          -Wbitwise -Wno-return-void $(CF)
+<span class="hljs-constant cye-lm-tag">CFLAGS_MODULE</span>   =
+<span class="hljs-constant cye-lm-tag">AFLAGS_MODULE</span>   =
+<span class="hljs-constant cye-lm-tag">LDFLAGS_MODULE</span>  =
+<span class="hljs-constant cye-lm-tag">CFLAGS_KERNEL</span>   =
+<span class="hljs-constant cye-lm-tag">AFLAGS_KERNEL</span>   =
+<span class="hljs-constant cye-lm-tag">CFLAGS_GCOV</span> = -fprofile-arcs -ftest-coverage</code></pre>
+
+<p class="cye-lm-tag">在这些定义好的变量后面，我们又定义了两个变量：USERINCLUDE和LINUXINCLUDE。他们包含了头文件的路径（第一个是给用户用的，第二个是给内核用的），使用<code>cat  Makefile | head -n 387 | tail -n +369</code> 查看</p>
+
+
+
+<pre class="prettyprint"><code class=" hljs haml"># Use USERINCLUDE when you must reference the UAPI directories only.
+USERINCLUDE    := \
+        -<span class="ruby cye-lm-tag"><span class="hljs-constant cye-lm-tag">I</span><span class="hljs-variable cye-lm-tag">$(</span>srctree)/arch/<span class="hljs-variable cye-lm-tag">$(</span>hdr-arch)/<span class="hljs-keyword cye-lm-tag">include</span>/uapi \
+</span>        -<span class="ruby cye-lm-tag"><span class="hljs-constant cye-lm-tag">Iarch</span>/<span class="hljs-variable cye-lm-tag">$(</span>hdr-arch)/<span class="hljs-keyword cye-lm-tag">include</span>/generated/uapi \
+</span>        -<span class="ruby cye-lm-tag"><span class="hljs-constant cye-lm-tag">I</span><span class="hljs-variable cye-lm-tag">$(</span>srctree)/<span class="hljs-keyword cye-lm-tag">include</span>/uapi \
+</span>        -<span class="ruby cye-lm-tag"><span class="hljs-constant cye-lm-tag">Iinclude</span>/generated/uapi \
+</span>                -<span class="ruby cye-lm-tag"><span class="hljs-keyword cye-lm-tag">include</span> <span class="hljs-variable cye-lm-tag">$(</span>srctree)/<span class="hljs-keyword cye-lm-tag">include</span>/linux/kconfig.h
+</span>
+# Use LINUXINCLUDE when you must reference the include/ directory.
+# Needed to be compatible with the O= option
+LINUXINCLUDE    := \
+        -<span class="ruby cye-lm-tag"><span class="hljs-constant cye-lm-tag">I</span><span class="hljs-variable cye-lm-tag">$(</span>srctree)/arch/<span class="hljs-variable cye-lm-tag">$(</span>hdr-arch)/<span class="hljs-keyword cye-lm-tag">include</span> \
+</span>        -<span class="ruby cye-lm-tag"><span class="hljs-constant cye-lm-tag">Iarch</span>/<span class="hljs-variable cye-lm-tag">$(</span>hdr-arch)/<span class="hljs-keyword cye-lm-tag">include</span>/generated/uapi \
+</span>        -<span class="ruby cye-lm-tag"><span class="hljs-constant cye-lm-tag">Iarch</span>/<span class="hljs-variable cye-lm-tag">$(</span>hdr-arch)/<span class="hljs-keyword cye-lm-tag">include</span>/generated \
+</span>        $(if $(KBUILD_SRC), -I$(srctree)/include) \
+        -<span class="ruby cye-lm-tag"><span class="hljs-constant cye-lm-tag">Iinclude</span> \
+</span>        $(USERINCLUDE)
+</code></pre>
+
+<p class="cye-lm-tag">以及给C编译器的标准标志，使用<code>cat  Makefile | head -n 419 | tail -n +387</code>查看</p>
+
+
+
+<pre class="prettyprint"><code class=" hljs makefile">
+<span class="hljs-constant cye-lm-tag">KBUILD_CPPFLAGS</span> := -D__KERNEL__
+
+<span class="hljs-constant cye-lm-tag">KBUILD_CFLAGS</span>   := -Wall -Wundef -Wstrict-prototypes -Wno-trigraphs \
+           -fno-strict-aliasing -fno-common \
+           -Werror-implicit-function-declaration \
+           -Wno-format-security \
+           -std=gnu89
+
+<span class="hljs-constant cye-lm-tag">KBUILD_AFLAGS_KERNEL</span> :=
+<span class="hljs-constant cye-lm-tag">KBUILD_CFLAGS_KERNEL</span> :=
+<span class="hljs-constant cye-lm-tag">KBUILD_AFLAGS</span>   := -D__ASSEMBLY__
+<span class="hljs-constant cye-lm-tag">KBUILD_AFLAGS_MODULE</span>  := -DMODULE
+<span class="hljs-constant cye-lm-tag">KBUILD_CFLAGS_MODULE</span>  := -DMODULE
+<span class="hljs-constant cye-lm-tag">KBUILD_LDFLAGS_MODULE</span> := -T <span class="hljs-variable cye-lm-tag">$(srctree)</span>/scripts/module-common.lds
+
+<span class="hljs-comment cye-lm-tag"># Read KERNELRELEASE from include/config/kernel.release (if it exists)</span>
+<span class="hljs-constant cye-lm-tag">KERNELRELEASE</span> = <span class="hljs-variable cye-lm-tag">$(shell cat include/config/kernel.release 2&gt; /dev/null)</span>
+<span class="hljs-constant cye-lm-tag">KERNELVERSION</span> = <span class="hljs-variable cye-lm-tag">$(VERSION)</span><span class="hljs-variable cye-lm-tag">$(if $(PATCHLEVEL)</span>,.<span class="hljs-variable cye-lm-tag">$(PATCHLEVEL)</span><span class="hljs-variable cye-lm-tag">$(if $(SUBLEVEL)</span>,.<span class="hljs-variable cye-lm-tag">$(SUBLEVEL)</span>))<span class="hljs-variable cye-lm-tag">$(EXTRAVERSION)</span>
+
+export VERSION PATCHLEVEL SUBLEVEL KERNELRELEASE KERNELVERSION
+export ARCH SRCARCH CONFIG_SHELL HOSTCC HOSTCFLAGS CROSS_COMPILE AS LD CC
+export CPP AR NM STRIP OBJCOPY OBJDUMP
+export MAKE AWK GENKSYMS INSTALLKERNEL PERL PYTHON UTS_MACHINE
+export HOSTCXX HOSTCXXFLAGS LDFLAGS_MODULE CHECK CHECKFLAGS
+
+export KBUILD_CPPFLAGS NOSTDINC_FLAGS LINUXINCLUDE OBJCOPYFLAGS LDFLAGS
+export KBUILD_CFLAGS CFLAGS_KERNEL CFLAGS_MODULE CFLAGS_GCOV CFLAGS_KASAN
+export KBUILD_AFLAGS AFLAGS_KERNEL AFLAGS_MODULE
+export KBUILD_AFLAGS_MODULE KBUILD_CFLAGS_MODULE KBUILD_LDFLAGS_MODULE
+export KBUILD_AFLAGS_KERNEL KBUILD_CFLAGS_KERNEL
+export KBUILD_ARFLAGS
+</code></pre>
+
+<p class="cye-lm-tag">这并不是最终确定的编译器标志，它们还可以在其他makefile里面更新（比如arch/里面的kbuild）。变量定义完之后，全部会被导出供其他makefile使用。</p>
+
+<p class="cye-lm-tag">下面的两个变量RCS_FIND_IGNORE和RCS_TAR_IGNORE包含了被版本控制系统忽略的文件，使用<code>cat  Makefile | head -n 432 | tail -n +419</code> 查看</p>
+
+
+
+<pre class="prettyprint"><code class=" hljs applescript"><span class="hljs-comment cye-lm-tag"># When compiling out-of-tree modules, put MODVERDIR in the module</span>
+<span class="hljs-comment cye-lm-tag"># tree rather than in the kernel tree. The kernel tree might</span>
+<span class="hljs-comment cye-lm-tag"># even be read-only.</span>
+export MODVERDIR := $(<span class="hljs-keyword cye-lm-tag">if</span> $(KBUILD_EXTMOD),$(firstword $(KBUILD_EXTMOD))/).tmp_versions
+
+<span class="hljs-comment cye-lm-tag"># Files to ignore in find ... statements</span>
+
+export RCS_FIND_IGNORE := \( -<span class="hljs-property cye-lm-tag">name</span> SCCS -o -<span class="hljs-property cye-lm-tag">name</span> BitKeeper -o -<span class="hljs-property cye-lm-tag">name</span> .svn -o    \
+              -<span class="hljs-property cye-lm-tag">name</span> CVS -o -<span class="hljs-property cye-lm-tag">name</span> .pc -o -<span class="hljs-property cye-lm-tag">name</span> .hg -o -<span class="hljs-property cye-lm-tag">name</span> .git \) \
+              -prune -o
+export RCS_TAR_IGNORE := <span class="hljs-comment cye-lm-tag">--exclude SCCS --exclude BitKeeper --exclude .svn \</span>
+             <span class="hljs-comment cye-lm-tag">--exclude CVS --exclude .pc --exclude .hg --exclude .git</span></code></pre>
+
+<p class="cye-lm-tag">然后后面的一大块内容负责根据各种配置文件（make*.config）生成不同目标内核的 <br />
+可以使用<code>cat  Makefile | head -n 593 | tail -n +432</code> 进行查看，内容较多，我们在这里就不一一列举了。 <br />
+下面让我么直接进入make构建的过程。</p>
+
+
+
+<h1 id="内核编译过程">内核编译过程</h1>
+
+<hr />
+
+<p class="cye-lm-tag">现在我们已经完成了所有的配置工作，根makefile的下一步工作就是和编译内核相关的了。 <br />
+在这之前，我们不会在终端看到make命令输出的任何东西。</p>
+
+<p class="cye-lm-tag">但是现在编译的第一步开始了，好吧，我们知道make后，最终的结果叫vmlinux，那我们就找找这个神奇的东西是怎么产生的吧。 </p>
+
+
+
+<h2 id="终极目标vmlinux">终极目标vmlinux</h2>
+
+<hr />
+
+<p class="cye-lm-tag">这里我们需要从内核根makefile的594行开始，这里可以看到目标vmlinux的构建命令</p>
+
+<p class="cye-lm-tag">使用 <code>cat  Makefile | head -n 606 | tail -n +594</code> 查看</p>
+
+
+
+<pre class="prettyprint"><code class=" hljs oxygene">
+# The all: target <span class="hljs-keyword cye-lm-tag">is</span> the <span class="hljs-keyword cye-lm-tag">default</span> when no target <span class="hljs-keyword cye-lm-tag">is</span> given <span class="hljs-keyword cye-lm-tag">on</span> the
+# command line.
+# This allow a user <span class="hljs-keyword cye-lm-tag">to</span> issue only <span class="hljs-string cye-lm-tag">'make'</span> <span class="hljs-keyword cye-lm-tag">to</span> build a kernel including modules
+# Defaults <span class="hljs-keyword cye-lm-tag">to</span> vmlinux, but the arch makefile usually adds further targets
+all: vmlinux
+
+# The arch Makefile can <span class="hljs-keyword cye-lm-tag">set</span> ARCH_<span class="hljs-comment cye-lm-tag">{CPP,A,C}</span><span class="hljs-keyword cye-lm-tag">FLAGS</span> <span class="hljs-keyword cye-lm-tag">to</span> <span class="hljs-keyword cye-lm-tag">override</span> the <span class="hljs-keyword cye-lm-tag">default</span>
+# values <span class="hljs-keyword cye-lm-tag">of</span> the respective KBUILD_* variables
+ARCH_CPPFLAGS :=
+ARCH_AFLAGS :=
+ARCH_CFLAGS :=
+include arch/$(SRCARCH)/Makefile</code></pre>
+
+<p class="cye-lm-tag">目标all:是在命令行如果不指定具体目标时默认使用的目标。 <br />
+你可以看到这里包含了架构相关的makefile（在这里就指的是arch/x86/Makefile）。从这一时刻起，我们会从这个makefile继续进行下去。 <br />
+如我们所见，目标all依赖于根makefile后面声明的vmlinux，我们可以使用<code>cat  Makefile | head -n 922 | tail -n +920</code> 来查看</p>
+
+
+
+<pre class="prettyprint"><code class=" hljs vala"><span class="hljs-preprocessor cye-lm-tag"># Include targets which we want to</span>
+<span class="hljs-preprocessor cye-lm-tag"># execute if the rest of the kernel build went well.</span>
+vmlinux: scripts/link-vmlinux.sh $(vmlinux-deps) FORC</code></pre>
+
+<p class="cye-lm-tag">vmlinux是linux内核的静态链接可执行文件格式。脚本scripts/link-vmlinux.sh把不同的编译好的子模块链接到一起形成了vmlinux。</p>
+
+
+
+<h2 id="vmlinux-deps">vmlinux-deps</h2>
+
+<p class="cye-lm-tag">同时<strong>我们可以发现vlinux依赖于是vmlinux-deps</strong>，我们查找一下它<code>cat -n Makefile |   grep vmlinux-deps</code> <br />
+<img src="http://img.blog.csdn.net/20151007180730391" alt="这里写图片描述" title="" /> <br />
+发现它定义在914行，内容如下</p>
+
+
+
+<pre class="prettyprint"><code class=" hljs ruby">vmlinux-deps <span class="hljs-symbol cye-lm-tag">:</span>= <span class="hljs-variable cye-lm-tag">$(</span><span class="hljs-constant cye-lm-tag">KBUILD_LDS</span>) <span class="hljs-variable cye-lm-tag">$(</span><span class="hljs-constant cye-lm-tag">KBUILD_VMLINUX_INIT</span>) <span class="hljs-variable cye-lm-tag">$(</span><span class="hljs-constant cye-lm-tag">KBUILD_VMLINUX_MAIN</span>)</code></pre>
+
+<p class="cye-lm-tag">它是由内核代码下的每个顶级目录的built-in.o组成的。 <br />
+之后我们还会检查内核所有的目录，kbuild会编译各个目录下所有的对应<code>$(obj-y)</code>的源文件。接着调用<code>$(LD)-r</code>把这些文件合并到一个<code>build-in.o</code>文件里。当然此时我们还没有<code>vmlinux-deps</code>，所以目标vmlinux现在还不会被构建。对我而言vmlinux-deps包含下面的文件：</p>
+
+
+
+<pre class="prettyprint"><code class=" hljs avrasm">arch/x86/kernel/vmlinux<span class="hljs-preprocessor cye-lm-tag">.lds</span> arch/x86/kernel/head_64<span class="hljs-preprocessor cye-lm-tag">.o</span>
+arch/x86/kernel/head64<span class="hljs-preprocessor cye-lm-tag">.o</span>    arch/x86/kernel/head<span class="hljs-preprocessor cye-lm-tag">.o</span>
+init/built-<span class="hljs-keyword cye-lm-tag">in</span><span class="hljs-preprocessor cye-lm-tag">.o</span>             usr/built-<span class="hljs-keyword cye-lm-tag">in</span><span class="hljs-preprocessor cye-lm-tag">.o</span>
+arch/x86/built-<span class="hljs-keyword cye-lm-tag">in</span><span class="hljs-preprocessor cye-lm-tag">.o</span>         kernel/built-<span class="hljs-keyword cye-lm-tag">in</span><span class="hljs-preprocessor cye-lm-tag">.o</span>
+mm/built-<span class="hljs-keyword cye-lm-tag">in</span><span class="hljs-preprocessor cye-lm-tag">.o</span>               fs/built-<span class="hljs-keyword cye-lm-tag">in</span><span class="hljs-preprocessor cye-lm-tag">.o</span>
+ipc/built-<span class="hljs-keyword cye-lm-tag">in</span><span class="hljs-preprocessor cye-lm-tag">.o</span>              security/built-<span class="hljs-keyword cye-lm-tag">in</span><span class="hljs-preprocessor cye-lm-tag">.o</span>
+crypto/built-<span class="hljs-keyword cye-lm-tag">in</span><span class="hljs-preprocessor cye-lm-tag">.o</span>           block/built-<span class="hljs-keyword cye-lm-tag">in</span><span class="hljs-preprocessor cye-lm-tag">.o</span>
+lib/lib<span class="hljs-preprocessor cye-lm-tag">.a</span>                   arch/x86/lib/lib<span class="hljs-preprocessor cye-lm-tag">.a</span>
+lib/built-<span class="hljs-keyword cye-lm-tag">in</span><span class="hljs-preprocessor cye-lm-tag">.o</span>              arch/x86/lib/built-<span class="hljs-keyword cye-lm-tag">in</span><span class="hljs-preprocessor cye-lm-tag">.o</span>
+drivers/built-<span class="hljs-keyword cye-lm-tag">in</span><span class="hljs-preprocessor cye-lm-tag">.o</span>          sound/built-<span class="hljs-keyword cye-lm-tag">in</span><span class="hljs-preprocessor cye-lm-tag">.o</span>
+firmware/built-<span class="hljs-keyword cye-lm-tag">in</span><span class="hljs-preprocessor cye-lm-tag">.o</span>         arch/x86/pci/built-<span class="hljs-keyword cye-lm-tag">in</span><span class="hljs-preprocessor cye-lm-tag">.o</span>
+arch/x86/power/built-<span class="hljs-keyword cye-lm-tag">in</span><span class="hljs-preprocessor cye-lm-tag">.o</span>   arch/x86/video/built-<span class="hljs-keyword cye-lm-tag">in</span><span class="hljs-preprocessor cye-lm-tag">.o</span>
+net/built-<span class="hljs-keyword cye-lm-tag">in</span><span class="hljs-preprocessor cye-lm-tag">.o</span></code></pre>
+
+
+
+<h2 id="vmlinux-dirs">vmlinux-dirs</h2>
+
+<hr />
+
+<p class="cye-lm-tag">内核中有这么多目录，Makefile是怎么知道这些目录的呢，让我们继续往下看，使用<code>cat  -n Makefile | head -n 940 | tail -n +936</code> 查看</p>
+
+
+
+<pre class="prettyprint"><code class=" hljs ruby"><span class="hljs-comment cye-lm-tag"># The actual objects are generated when descending,</span>
+<span class="hljs-comment cye-lm-tag"># make sure no implicit rule kicks in</span>
+<span class="hljs-variable cye-lm-tag">$(</span>sort <span class="hljs-variable cye-lm-tag">$(</span>vmlinux-deps))<span class="hljs-symbol cye-lm-tag">:</span> <span class="hljs-variable cye-lm-tag">$(</span>vmlinux-dirs) ;</code></pre>
+
+<p class="cye-lm-tag">我们会发现<strong><code>vmlinux-deps</code>是基于<code>vmlinux-dirs</code></strong> <br />
+继续往下，使用<code>cat  Makefile | head -n 950 | tail -n +940 <br />
+</code> 查看</p>
+
+
+
+<pre class="prettyprint"><code class=" hljs ruby"><span class="hljs-comment cye-lm-tag"># Handle descending into subdirectories listed in $(vmlinux-dirs)</span>
+<span class="hljs-comment cye-lm-tag"># Preset locale variables to speed up the build process. Limit locale</span>
+<span class="hljs-comment cye-lm-tag"># tweaks to this spot to avoid wrong language settings when running</span>
+
+<span class="hljs-comment cye-lm-tag"># make menuconfig etc.</span>
+
+<span class="hljs-comment cye-lm-tag"># Error messages still appears in the original language</span>
+
+<span class="hljs-constant cye-lm-tag">PHONY</span> += <span class="hljs-variable cye-lm-tag">$(</span>vmlinux-dirs)
+<span class="hljs-variable cye-lm-tag">$(</span>vmlinux-dirs)<span class="hljs-symbol cye-lm-tag">:</span> prepare scripts
+    <span class="hljs-variable cye-lm-tag">$(</span><span class="hljs-constant cye-lm-tag">Q</span>)<span class="hljs-variable cye-lm-tag">$(</span><span class="hljs-constant cye-lm-tag">MAKE</span>) <span class="hljs-variable cye-lm-tag">$(</span>build)=<span class="hljs-variable cye-lm-tag">$@</span>
+</code></pre>
+
+<p class="cye-lm-tag">就像我们看到的，vmlinux-dir依赖于两部分：prepare和scripts。</p>
+
+
+
+<h3 id="prepare">prepare</h3>
+
+<hr />
+
+<p class="cye-lm-tag">第一个prepare定义在内核的根makefile中，准备工作分成三个阶段。</p>
+
+<p class="cye-lm-tag">我们继续往下看，使用 <code>cat  -n Makefile | head -n 996 | tail -n +959</code></p>
+
+
+
+<pre class="prettyprint"><code class=" hljs ruby">
+<span class="hljs-comment cye-lm-tag"># Things we need to do before we recursively start building the kernel</span>
+<span class="hljs-comment cye-lm-tag"># or the modules are listed in "prepare".</span>
+<span class="hljs-comment cye-lm-tag"># A multi level approach is used. prepareN is processed before prepareN-1.</span>
+<span class="hljs-comment cye-lm-tag"># archprepare is used in arch Makefiles and when processed asm symlink,</span>
+<span class="hljs-comment cye-lm-tag"># version.h and scripts_basic is processed / created.</span>
+
+<span class="hljs-comment cye-lm-tag"># Listed in dependency order</span>
+<span class="hljs-constant cye-lm-tag">PHONY</span> += prepare archprepare prepare<span class="hljs-number cye-lm-tag">0</span> prepare1 prepare2 prepare3
+
+<span class="hljs-comment cye-lm-tag"># prepare3 is used to check if we are building in a separate output directory,</span>
+<span class="hljs-comment cye-lm-tag"># and if so do:</span>
+<span class="hljs-comment cye-lm-tag"># 1) Check that make has not been executed in the kernel src $(srctree)</span>
+<span class="hljs-symbol cye-lm-tag">prepare3:</span> <span class="hljs-keyword cye-lm-tag">include</span>/config/kernel.release
+ifneq (<span class="hljs-variable cye-lm-tag">$(</span><span class="hljs-constant cye-lm-tag">KBUILD_SRC</span>),)
+    @<span class="hljs-variable cye-lm-tag">$(</span>kecho) <span class="hljs-string cye-lm-tag">'  Using $(srctree) as source for kernel'</span>
+    <span class="hljs-variable cye-lm-tag">$(</span><span class="hljs-constant cye-lm-tag">Q</span>)<span class="hljs-keyword cye-lm-tag">if</span> [ -f <span class="hljs-variable cye-lm-tag">$(</span>srctree)/.config -o -d <span class="hljs-variable cye-lm-tag">$(</span>srctree)/<span class="hljs-keyword cye-lm-tag">include</span>/config ]; <span class="hljs-keyword cye-lm-tag">then</span> \
+        echo &gt;&amp;<span class="hljs-number cye-lm-tag">2</span> <span class="hljs-string cye-lm-tag">"  $(srctree) is not clean, please run 'make mrproper'"</span>; \
+        echo &gt;&amp;<span class="hljs-number cye-lm-tag">2</span> <span class="hljs-string cye-lm-tag">"  in the '$(srctree)' directory."</span>;\
+        /bin/<span class="hljs-keyword cye-lm-tag">false</span>; \
+    fi;
+endif
+
+<span class="hljs-comment cye-lm-tag"># prepare2 creates a makefile if using a separate output directory</span>
+<span class="hljs-symbol cye-lm-tag">prepare2:</span> prepare3 outputmakefile asm-generic
+
+<span class="hljs-symbol cye-lm-tag">prepare1:</span> prepare2 <span class="hljs-variable cye-lm-tag">$(</span>version_h) <span class="hljs-keyword cye-lm-tag">include</span>/generated/utsrelease.h \
+                   <span class="hljs-keyword cye-lm-tag">include</span>/config/auto.conf
+    <span class="hljs-variable cye-lm-tag">$(</span>cmd_crmodverdir)
+
+<span class="hljs-symbol cye-lm-tag">archprepare:</span> archheaders archscripts prepare1 scripts_basic
+
+<span class="hljs-symbol cye-lm-tag">prepare0:</span> archprepare <span class="hljs-constant cye-lm-tag">FORCE</span>
+    <span class="hljs-variable cye-lm-tag">$(</span><span class="hljs-constant cye-lm-tag">Q</span>)<span class="hljs-variable cye-lm-tag">$(</span><span class="hljs-constant cye-lm-tag">MAKE</span>) <span class="hljs-variable cye-lm-tag">$(</span>build)=.
+
+<span class="hljs-comment cye-lm-tag"># All the preparing..</span>
+<span class="hljs-symbol cye-lm-tag">prepare:</span> prepare<span class="hljs-number cye-lm-tag">0</span>
+</code></pre>
+
+<p class="cye-lm-tag">第一个prepare0展开到archprepare，后者又展开到archheader和archscripts，这两个变量定义在对应架构目录下的Makefile，x86架构就是arch/x86让我们看看这个文件。 <br />
+x86特定的makefile从变量定义开始，这些变量都是和特定架构的配置文件(defconfig，等等)有关联。在定义了编译16-bit代码的编译选项之后，根据变量BITS的值，如果是32，汇编代码、链接器、以及其它很多东西（全部的定义都可以在arch/x86/Makefile找到）对应的参数就是i386，而64就对应的是x86_84。</p>
+
+
+
+<h3 id="archheaders">archheaders</h3>
+
+<p class="cye-lm-tag">首先是<code>archheaders</code></p>
+
+<p class="cye-lm-tag"><img src="http://img.blog.csdn.net/20151007185606388" alt="查找archheaders" title="" /></p>
+
+
+
+<pre class="prettyprint"><code class=" hljs ruby"><span class="hljs-symbol cye-lm-tag">archheaders:</span>
+    <span class="hljs-variable cye-lm-tag">$(</span><span class="hljs-constant cye-lm-tag">Q</span>)<span class="hljs-variable cye-lm-tag">$(</span><span class="hljs-constant cye-lm-tag">MAKE</span>) <span class="hljs-variable cye-lm-tag">$(</span>build)=arch/x86/entry/syscalls all
+</code></pre>
+
+
+
+<h3 id="archscripts">archscripts</h3>
+
+<p class="cye-lm-tag">接着是<code>archscripts</code></p>
+
+<p class="cye-lm-tag"><img src="http://img.blog.csdn.net/20151007185809703" alt="查找archscripts" title="" /></p>
+
+
+
+<pre class="prettyprint"><code class=" hljs ruby"><span class="hljs-symbol cye-lm-tag">archscripts:</span> scripts_basic
+    <span class="hljs-variable cye-lm-tag">$(</span><span class="hljs-constant cye-lm-tag">Q</span>)<span class="hljs-variable cye-lm-tag">$(</span><span class="hljs-constant cye-lm-tag">MAKE</span>) <span class="hljs-variable cye-lm-tag">$(</span>build)=arch/x86/tools relocs
+</code></pre>
+
+
+
+<h3 id="scriptsbasic">scripts_basic</h3>
+
+<p class="cye-lm-tag">然后是<code>scripts_basic</code>  <br />
+通过查找发现我们可以看到archscripts是依赖于根Makefile里的scripts_basic。 <br />
+<img src="http://img.blog.csdn.net/20151007190655841" alt="查找scrpits_basic" title="" /> <br />
+<img src="http://img.blog.csdn.net/20151007190155127" alt="查找scripts_basic" title="" /> <br />
+使用<code>cat  Makefile | head -n 441 | tail -n +432</code> 查看</p>
+
+
+
+<pre class="prettyprint"><code class=" hljs ruby"><span class="hljs-comment cye-lm-tag">#====================================================</span>
+<span class="hljs-comment cye-lm-tag"># Rules shared between *config targets and build targets</span>
+
+<span class="hljs-comment cye-lm-tag"># Basic helpers built in scripts/</span>
+<span class="hljs-constant cye-lm-tag">PHONY</span> += scripts_basic
+<span class="hljs-symbol cye-lm-tag">scripts_basic:</span>
+    <span class="hljs-variable cye-lm-tag">$(</span><span class="hljs-constant cye-lm-tag">Q</span>)<span class="hljs-variable cye-lm-tag">$(</span><span class="hljs-constant cye-lm-tag">MAKE</span>) <span class="hljs-variable cye-lm-tag">$(</span>build)=scripts/basic
+    <span class="hljs-variable cye-lm-tag">$(</span><span class="hljs-constant cye-lm-tag">Q</span>)rm -f .tmp_quiet_recordmcount</code></pre>
+
+<p class="cye-lm-tag">首先我们可以看出scripts_basic是按照scripts/basic的makefile执行make的</p>
+
+<p class="cye-lm-tag">下面我们看看scripts/basic下的makefile都有什么 <br />
+<img src="http://img.blog.csdn.net/20151007191144590" alt="scripts/basic/Makefile" title="" /></p>
+
+<p class="cye-lm-tag">scripts/basic/Makefile包含了编译两个主机程序fixdep和bin2的目标</p>
+
+<p class="cye-lm-tag">第一个工具是fixdep： <br />
+用来优化gcc生成的依赖列表，然后在重新编译源文件的时候告诉make。 <br />
+第二个工具是bin2c， <br />
+它依赖于内核配置选项CONFIG_BUILD_BIN2C，并且它是一个用来将标准输入接口（LCTT译注：即stdin）收到的二进制流通过标准输出接口（即：stdout）转换成C头文件的非常小的C程序。你可能注意到这里有些奇怪的标志，如hostprogs-y等。这个标志用于所有的kbuild文件，更多的信息你可以从documentation获得。</p>
+
+<p class="cye-lm-tag">在我们这里，hostprogs-y告诉kbuild这里有个名为fixed的程序，这个程序会通过和Makefile相同目录的fixdep.c编译而来。</p>
+
+<p class="cye-lm-tag">我们make时执行make之后，终端的第一个输出就是kbuild的结果： <br />
+<img src="http://img.blog.csdn.net/20151007192326712" alt="这里写图片描述" title="" /></p>
+
+<p class="cye-lm-tag">现在<code>scripts_basic</code>的工作完成了，现在<code>archscripts</code> 开始工作了，重新回到<code>archscripts</code>的地方，</p>
+
+
+
+<pre class="prettyprint"><code class=" hljs ruby">    <span class="hljs-variable cye-lm-tag">$(</span><span class="hljs-constant cye-lm-tag">Q</span>)<span class="hljs-variable cye-lm-tag">$(</span><span class="hljs-constant cye-lm-tag">MAKE</span>) <span class="hljs-variable cye-lm-tag">$(</span>build)=arch/x86/tools relocs</code></pre>
+
+<p class="cye-lm-tag">当目标script_basic被执行，目标<code>archscripts</code>就会<code>make arch/x86/tools</code>下的<code>makefile</code>和目标<code>relocs</code> <br />
+包含了重定位的信息的代码relocs_32.c和relocs_64.c将会被编译，这可以在make的输出中看到，下面仍然是make的工作 <br />
+<img src="http://img.blog.csdn.net/20151007192655760" alt="这里写图片描述" title="" /></p>
+
+<p class="cye-lm-tag">下面我们继续接着进行<code>make</code>，我们发现在编译完relocs.c之后会检查version.h <br />
+<img src="http://img.blog.csdn.net/20151007200009399" alt="这里写图片描述" title="" /> <br />
+使用 <code>cat Makefile | head -n 1021 | tail -n +1017</code> 查看</p>
+
+
+
+<pre class="prettyprint"><code class=" hljs ruby"><span class="hljs-variable cye-lm-tag">$(</span>version_h)<span class="hljs-symbol cye-lm-tag">:</span> <span class="hljs-variable cye-lm-tag">$(</span>srctree)/<span class="hljs-constant cye-lm-tag">Makefile</span> <span class="hljs-constant cye-lm-tag">FORCE</span>
+    <span class="hljs-variable cye-lm-tag">$(</span>call filechk,version.h)
+    <span class="hljs-variable cye-lm-tag">$(</span><span class="hljs-constant cye-lm-tag">Q</span>)rm -f <span class="hljs-variable cye-lm-tag">$(</span>old_version_h)</code></pre>
+
+<p class="cye-lm-tag">以及在内核的根Makefiel使用arch/x86/include/generated/asm的目标asm-generic来构建generic汇编头文件。 <br />
+<img src="http://img.blog.csdn.net/20151007200200021" alt="这里写图片描述" title="" /> <br />
+在目标asm-generic之后，archprepare就完成了，所以目标prepare0会接着被执行，如我上面所写：</p>
+
+
+
+<pre class="prettyprint"><code class=" hljs ruby"><span class="hljs-symbol cye-lm-tag">prepare0:</span> archprepare <span class="hljs-constant cye-lm-tag">FORCE</span>
+    <span class="hljs-variable cye-lm-tag">$(</span><span class="hljs-constant cye-lm-tag">Q</span>)<span class="hljs-variable cye-lm-tag">$(</span><span class="hljs-constant cye-lm-tag">MAKE</span>) <span class="hljs-variable cye-lm-tag">$(</span>build)=.</code></pre>
+
+<p class="cye-lm-tag">注意build，它是定义在文件<a href="https://github.com/torvalds/linux/blob/master/scripts/Kbuild.include">scripts/Kbuild.include</a>，内容是这样的： <br />
+<img src="http://img.blog.csdn.net/20151007200905895" alt="这里写图片描述" title="" /> <br />
+脚本scripts/Makefile.build通过参数obj给定的目录找到Kbuild文件，然后引入kbuild文件</p>
+
+
+
+<pre class="prettyprint"><code class=" hljs ruby"><span class="hljs-keyword cye-lm-tag">include</span> <span class="hljs-variable cye-lm-tag">$(</span>kbuild-file)</code></pre>
+
+<p class="cye-lm-tag">并根据这个构建目标。我们这里.包含了生成kernel/bounds.s和arch/x86/kernel/asm-offsets.s的Kbuild文件。在此之后，目标prepare就完成了它的工作。</p>
+
+
+
+<h3 id="scripts">scripts</h3>
+
+<hr />
+
+<p class="cye-lm-tag">vmlinux-dirs也依赖于第二个目标scripts，它会编译接下来的几个程序：filealias，mk_elfconfig，modpost等等。 <br />
+<img src="http://img.blog.csdn.net/20151007210013304" alt="这里写图片描述" title="" /> <br />
+与prepare类似，所以我们在这里就不细讲了。</p>
+
+
+
+<h3 id="开始编译vmlinux-dirs">开始编译vmlinux-dirs</h3>
+
+<hr />
+
+<p class="cye-lm-tag">之后，scripts/host-programs就可以开始编译我们的目标vmlinux-dirs了。</p>
+
+<p class="cye-lm-tag">首先，我们先来理解一下vmlinux-dirs都包含了那些东西。在我们的例子中它包含了下列内核目录的路径 <br />
+<img src="http://img.blog.csdn.net/20151007204735673" alt="这里写图片描述" title="" /> <br />
+我们可以在内核的根Makefile里找到vmlinux-dirs的定义： <br />
+<img src="http://img.blog.csdn.net/20151007204846555" alt="这里写图片描述" title="" /> <br />
+使用<code>cat -n Makefile | head -n 905 | tail -n +891</code> 查看vmlinux-dirs的定义</p>
+
+
+
+<pre class="prettyprint"><code class=" hljs ruby">vmlinux-dirs    <span class="hljs-symbol cye-lm-tag">:</span>= <span class="hljs-variable cye-lm-tag">$(</span>patsubst <span class="hljs-string cye-lm-tag">%/,%,$(filter %/</span>, <span class="hljs-variable cye-lm-tag">$(</span>init-y) <span class="hljs-variable cye-lm-tag">$(</span>init-m) \
+             <span class="hljs-variable cye-lm-tag">$(</span>core-y) <span class="hljs-variable cye-lm-tag">$(</span>core-m) <span class="hljs-variable cye-lm-tag">$(</span>drivers-y) <span class="hljs-variable cye-lm-tag">$(</span>drivers-m) \
+             <span class="hljs-variable cye-lm-tag">$(</span>net-y) <span class="hljs-variable cye-lm-tag">$(</span>net-m) <span class="hljs-variable cye-lm-tag">$(</span>libs-y) <span class="hljs-variable cye-lm-tag">$(</span>libs-m)))
+
+vmlinux-alldirs <span class="hljs-symbol cye-lm-tag">:</span>= <span class="hljs-variable cye-lm-tag">$(</span>sort <span class="hljs-variable cye-lm-tag">$(</span>vmlinux-dirs) <span class="hljs-variable cye-lm-tag">$(</span>patsubst <span class="hljs-string cye-lm-tag">%/,%,$(filter %/</span>, \
+             <span class="hljs-variable cye-lm-tag">$(</span>init-) <span class="hljs-variable cye-lm-tag">$(</span>core-) <span class="hljs-variable cye-lm-tag">$(</span>drivers-) <span class="hljs-variable cye-lm-tag">$(</span>net-) <span class="hljs-variable cye-lm-tag">$(</span>libs-))))
+
+init-y      <span class="hljs-symbol cye-lm-tag">:</span>= <span class="hljs-variable cye-lm-tag">$(</span>patsubst <span class="hljs-string cye-lm-tag">%/, %/</span>built-<span class="hljs-keyword cye-lm-tag">in</span>.o, <span class="hljs-variable cye-lm-tag">$(</span>init-y))
+core-y      <span class="hljs-symbol cye-lm-tag">:</span>= <span class="hljs-variable cye-lm-tag">$(</span>patsubst <span class="hljs-string cye-lm-tag">%/, %/</span>built-<span class="hljs-keyword cye-lm-tag">in</span>.o, <span class="hljs-variable cye-lm-tag">$(</span>core-y))
+drivers-y   <span class="hljs-symbol cye-lm-tag">:</span>= <span class="hljs-variable cye-lm-tag">$(</span>patsubst <span class="hljs-string cye-lm-tag">%/, %/</span>built-<span class="hljs-keyword cye-lm-tag">in</span>.o, <span class="hljs-variable cye-lm-tag">$(</span>drivers-y))
+net-y       <span class="hljs-symbol cye-lm-tag">:</span>= <span class="hljs-variable cye-lm-tag">$(</span>patsubst <span class="hljs-string cye-lm-tag">%/, %/</span>built-<span class="hljs-keyword cye-lm-tag">in</span>.o, <span class="hljs-variable cye-lm-tag">$(</span>net-y))
+libs-y1     <span class="hljs-symbol cye-lm-tag">:</span>= <span class="hljs-variable cye-lm-tag">$(</span>patsubst <span class="hljs-string cye-lm-tag">%/, %/</span>lib.a, <span class="hljs-variable cye-lm-tag">$(</span>libs-y))
+libs-y2     <span class="hljs-symbol cye-lm-tag">:</span>= <span class="hljs-variable cye-lm-tag">$(</span>patsubst <span class="hljs-string cye-lm-tag">%/, %/</span>built-<span class="hljs-keyword cye-lm-tag">in</span>.o, <span class="hljs-variable cye-lm-tag">$(</span>libs-y))
+libs-y      <span class="hljs-symbol cye-lm-tag">:</span>= <span class="hljs-variable cye-lm-tag">$(</span>libs-y1) <span class="hljs-variable cye-lm-tag">$(</span>libs-y2)
+</code></pre>
+
+<p class="cye-lm-tag">前面我们已经知道vmlinux-dir会依赖与prepare和scripts</p>
+
+
+
+<pre class="prettyprint"><code class=" hljs ruby"><span class="hljs-variable cye-lm-tag">$(</span>vmlinux-dirs)<span class="hljs-symbol cye-lm-tag">:</span> prepare scripts
+<span class="hljs-variable cye-lm-tag">$(</span><span class="hljs-constant cye-lm-tag">Q</span>)<span class="hljs-variable cye-lm-tag">$(</span><span class="hljs-constant cye-lm-tag">MAKE</span>) <span class="hljs-variable cye-lm-tag">$(</span>build)=<span class="hljs-variable cye-lm-tag">$@</span></code></pre>
+
+<p class="cye-lm-tag">符号$@在这里代表了vmlinux-dirs，这就表明程序会递归遍历从vmlinux-dirs以及它内部的全部目录（依赖于配置），并且在对应的目录下执行make命令。我们可以在输出看到结果 <br />
+<img src="http://img.blog.csdn.net/20151007210108059" alt="这里写图片描述" title="" /></p>
+
+<p class="cye-lm-tag">在make的最后阶段，当所有的目录编译结束后，每个目录下的源代码将会被编译并且链接到built-io.o里。</p>
+
+
+
+<h2 id="神秘的built-ino">神秘的built-in.o</h2>
+
+<hr />
+
+<p class="cye-lm-tag">在最后的链接过程中，我们可以看到，几乎所有的依赖条件中，都会生成一个built-in.o的文件。 那这个文件，是怎么生成的呢？ <br />
+<img src="http://img.blog.csdn.net/20151008144636147" alt="这里写图片描述" title="" /></p>
+
+
+
+<h2 id="生成vmlinux">生成vmlinux</h2>
+
+<hr />
+
+<p class="cye-lm-tag">那么问题来了，makefile是怎么把内核目录中编译生成的build-in.o链接在一起生成vmlinux的呢？ <br />
+现在我们回到目标vmlinux上。你应该还记得，目标vmlinux是在内核的根makefile里。在链接vmlinux之前，系统会构建samples,Documentation等等。 <br />
+接着我们使用<code>cat -n Makefile | head -n 936 | tail -n +922</code> 查看</p>
+
+
+
+<pre class="prettyprint"><code class=" hljs ruby"><span class="hljs-symbol cye-lm-tag">vmlinux:</span> scripts/link-vmlinux.sh <span class="hljs-variable cye-lm-tag">$(</span>vmlinux-deps) <span class="hljs-constant cye-lm-tag">FORCE</span>
+ifdef <span class="hljs-constant cye-lm-tag">CONFIG_HEADERS_CHECK</span>
+    <span class="hljs-variable cye-lm-tag">$(</span><span class="hljs-constant cye-lm-tag">Q</span>)<span class="hljs-variable cye-lm-tag">$(</span><span class="hljs-constant cye-lm-tag">MAKE</span>) -f <span class="hljs-variable cye-lm-tag">$(</span>srctree)/<span class="hljs-constant cye-lm-tag">Makefile</span> headers_check
+endif
+ifdef <span class="hljs-constant cye-lm-tag">CONFIG_SAMPLES</span>
+    <span class="hljs-variable cye-lm-tag">$(</span><span class="hljs-constant cye-lm-tag">Q</span>)<span class="hljs-variable cye-lm-tag">$(</span><span class="hljs-constant cye-lm-tag">MAKE</span>) <span class="hljs-variable cye-lm-tag">$(</span>build)=samples
+endif
+ifdef <span class="hljs-constant cye-lm-tag">CONFIG_BUILD_DOCSRC</span>
+    <span class="hljs-variable cye-lm-tag">$(</span><span class="hljs-constant cye-lm-tag">Q</span>)<span class="hljs-variable cye-lm-tag">$(</span><span class="hljs-constant cye-lm-tag">MAKE</span>) <span class="hljs-variable cye-lm-tag">$(</span>build)=<span class="hljs-constant cye-lm-tag">Documentation</span>
+endif
+ifdef <span class="hljs-constant cye-lm-tag">CONFIG_GDB_SCRIPTS</span>
+    <span class="hljs-variable cye-lm-tag">$(</span><span class="hljs-constant cye-lm-tag">Q</span>)ln -fsn `cd <span class="hljs-variable cye-lm-tag">$(</span>srctree) &amp;&amp; <span class="hljs-regexp cye-lm-tag">/bin/pwd</span>`/scripts/gdb/vmlinux-gdb.py
+endif
+    +<span class="hljs-variable cye-lm-tag">$(</span>call if_changed,link-vmlinux)</code></pre>
+
+<p class="cye-lm-tag">我们可以看到vmlinux依赖于<code>$(vmlinux-deps)</code> 但是还需要一个shell脚本<code>scripts/link-vmlinux.sh</code> 这个脚本是用来干嘛的，不急我们慢慢来。 <br />
+我们直接看最后使用<code>+$(call if_changed,link-vmlinux)</code>，真相正在一步步浮出水面。</p>
+
+<p class="cye-lm-tag">我们查看一下这个命令 <br />
+<img src="http://img.blog.csdn.net/20151007212018545" alt="查找link-vmlinux" title="" /></p>
+
+<p class="cye-lm-tag">这个命令是<code>cmd_link-vmlinux</code>，就定义在主Makefile中第917行</p>
+
+
+
+<pre class="prettyprint"><code class=" hljs ruby">cmd_link-vmlinux = <span class="hljs-variable cye-lm-tag">$(</span><span class="hljs-constant cye-lm-tag">CONFIG_SHELL</span>) <span class="hljs-variable cye-lm-tag">$&lt;</span> <span class="hljs-variable cye-lm-tag">$(</span><span class="hljs-constant cye-lm-tag">LD</span>) <span class="hljs-variable cye-lm-tag">$(</span><span class="hljs-constant cye-lm-tag">LDFLAGS</span>) <span class="hljs-variable cye-lm-tag">$(</span><span class="hljs-constant cye-lm-tag">LDFLAGS_vmlinux</span>)</code></pre>
+
+<blockquote>
+  <p class="cye-lm-tag"><span class="MathJax_Preview cye-lm-tag"></span><span class="MathJax cye-lm-tag" id="MathJax-Element-1-Frame" role="textbox" aria-readonly="true"><nobr><span class="math cye-lm-tag" id="MathJax-Span-1" style="width: 18.745em; display: inline-block;"><span style="display: inline-block; position: relative; width: 17.676em; height: 0px; font-size: 106%;" class="cye-lm-tag"><span style="position: absolute; clip: rect(1.764em 1000em 3.211em -0.5em); top: -2.764em; left: 0.003em;" class="cye-lm-tag"><span class="mrow cye-lm-tag" id="MathJax-Span-2"><span class="mo cye-lm-tag" id="MathJax-Span-3" style="font-family: MathJax_Main;">(</span><span class="mi cye-lm-tag" id="MathJax-Span-4" style="font-family: MathJax_Math-italic;">C<span style="display: inline-block; overflow: hidden; height: 1px; width: 0.066em;" class="cye-lm-tag"></span></span><span class="mi cye-lm-tag" id="MathJax-Span-5" style="font-family: MathJax_Math-italic;">O</span><span class="mi cye-lm-tag" id="MathJax-Span-6" style="font-family: MathJax_Math-italic;">N<span style="display: inline-block; overflow: hidden; height: 1px; width: 0.066em;" class="cye-lm-tag"></span></span><span class="mi cye-lm-tag" id="MathJax-Span-7" style="font-family: MathJax_Math-italic;">F<span style="display: inline-block; overflow: hidden; height: 1px; width: 0.129em;" class="cye-lm-tag"></span></span><span class="mi cye-lm-tag" id="MathJax-Span-8" style="font-family: MathJax_Math-italic;">I<span style="display: inline-block; overflow: hidden; height: 1px; width: 0.066em;" class="cye-lm-tag"></span></span><span class="msubsup cye-lm-tag" id="MathJax-Span-9"><span style="display: inline-block; position: relative; width: 1.387em; height: 0px;" class="cye-lm-tag"><span style="position: absolute; clip: rect(1.638em 1000em 2.708em -0.5em); top: -2.513em; left: 0.003em;" class="cye-lm-tag"><span class="mi cye-lm-tag" id="MathJax-Span-10" style="font-family: MathJax_Math-italic;">G</span><span style="display: inline-block; width: 0px; height: 2.519em;" class="cye-lm-tag"></span></span><span style="position: absolute; top: -2.135em; left: 0.821em;" class="cye-lm-tag"><span class="mi cye-lm-tag" id="MathJax-Span-11" style="font-size: 70.7%; font-family: MathJax_Math-italic;">S<span style="display: inline-block; overflow: hidden; height: 1px; width: 0.003em;" class="cye-lm-tag"></span></span><span style="display: inline-block; width: 0px; height: 2.267em;" class="cye-lm-tag"></span></span></span></span><span class="mi cye-lm-tag" id="MathJax-Span-12" style="font-family: MathJax_Math-italic;">H<span style="display: inline-block; overflow: hidden; height: 1px; width: 0.066em;" class="cye-lm-tag"></span></span><span class="mi cye-lm-tag" id="MathJax-Span-13" style="font-family: MathJax_Math-italic;">E<span style="display: inline-block; overflow: hidden; height: 1px; width: 0.003em;" class="cye-lm-tag"></span></span><span class="mi cye-lm-tag" id="MathJax-Span-14" style="font-family: MathJax_Math-italic;">L</span><span class="mi cye-lm-tag" id="MathJax-Span-15" style="font-family: MathJax_Math-italic;">L</span><span class="mo cye-lm-tag" id="MathJax-Span-16" style="font-family: MathJax_Main;">)</span><span class="texatom cye-lm-tag" id="MathJax-Span-17"><span class="mrow cye-lm-tag" id="MathJax-Span-18"><span class="mo cye-lm-tag" id="MathJax-Span-19"><span style="font-family: STIXGeneral, 'Arial Unicode MS', serif; font-size: 94%; font-style: normal; font-weight: normal;" class="cye-lm-tag">就</span></span></span></span><span class="texatom cye-lm-tag" id="MathJax-Span-20"><span class="mrow cye-lm-tag" id="MathJax-Span-21"><span class="mo cye-lm-tag" id="MathJax-Span-22"><span style="font-family: STIXGeneral, 'Arial Unicode MS', serif; font-size: 94%; font-style: normal; font-weight: normal;" class="cye-lm-tag">是</span></span></span></span><span class="texatom cye-lm-tag" id="MathJax-Span-23"><span class="mrow cye-lm-tag" id="MathJax-Span-24"><span class="mo cye-lm-tag" id="MathJax-Span-25"><span style="font-family: STIXGeneral, 'Arial Unicode MS', serif; font-size: 94%; font-style: normal; font-weight: normal;" class="cye-lm-tag">我</span></span></span></span><span class="texatom cye-lm-tag" id="MathJax-Span-26"><span class="mrow cye-lm-tag" id="MathJax-Span-27"><span class="mo cye-lm-tag" id="MathJax-Span-28"><span style="font-family: STIXGeneral, 'Arial Unicode MS', serif; font-size: 94%; font-style: normal; font-weight: normal;" class="cye-lm-tag">们</span></span></span></span><span class="texatom cye-lm-tag" id="MathJax-Span-29"><span class="mrow cye-lm-tag" id="MathJax-Span-30"><span class="mo cye-lm-tag" id="MathJax-Span-31"><span style="font-family: STIXGeneral, 'Arial Unicode MS', serif; font-size: 94%; font-style: normal; font-weight: normal;" class="cye-lm-tag">的</span></span></span></span><span class="mi cye-lm-tag" id="MathJax-Span-32" style="font-family: MathJax_Math-italic;">b</span><span class="mi cye-lm-tag" id="MathJax-Span-33" style="font-family: MathJax_Math-italic;">a</span><span class="mi cye-lm-tag" id="MathJax-Span-34" style="font-family: MathJax_Math-italic;">s</span><span class="mi cye-lm-tag" id="MathJax-Span-35" style="font-family: MathJax_Math-italic;">h</span><span class="mi cye-lm-tag" id="MathJax-Span-36" style="font-family: MathJax_Math-italic;">s</span><span class="mi cye-lm-tag" id="MathJax-Span-37" style="font-family: MathJax_Math-italic;">h</span><span class="mi cye-lm-tag" id="MathJax-Span-38" style="font-family: MathJax_Math-italic;">e</span><span class="mi cye-lm-tag" id="MathJax-Span-39" style="font-family: MathJax_Math-italic;">l</span><span class="mi cye-lm-tag" id="MathJax-Span-40" style="font-family: MathJax_Math-italic;">l</span></span><span style="display: inline-block; width: 0px; height: 2.77em;" class="cye-lm-tag"></span></span></span><span style="border-left-width: 0.003em; border-left-style: solid; display: inline-block; overflow: hidden; width: 0px; height: 1.27em; vertical-align: -0.33em;" class="cye-lm-tag"></span></span></nobr></span><script type="math/tex" id="MathJax-Element-1">(CONFIG_SHELL)就是我们的bash shell  
+  </script>&lt; 表示第一个以来目标，那么在vmlinux目标中，第一个目标是 scripts/link-vmlinux.sh <br />
+  那么这个命令展开就成为</p>
+  
+  <pre class="prettyprint"><code class=" hljs lasso">/bin/bash scripts/<span class="hljs-keyword cye-lm-tag">link</span><span class="hljs-attribute cye-lm-tag">-vmlinux</span><span class="hljs-built_in cye-lm-tag">.</span>sh ld <span class="hljs-attribute cye-lm-tag">-m</span> elf_i386 <span class="hljs-subst cye-lm-tag">--</span>emit<span class="hljs-attribute cye-lm-tag">-relocs</span> <span class="hljs-subst cye-lm-tag">--</span>build<span class="hljs-attribute cye-lm-tag">-id</span></code></pre>
+</blockquote>
+
+<p class="cye-lm-tag">现在明晰了在这里调用脚本scripts/link-vmlinux.sh的，把所有的built-in.o链接成一个静态可执行文件vmlinux，和生成System.map。 <br />
+那么link-vmlinux.sh是怎么做到得呢，使用该<code>cat -n link-vmlinux.sh | head -n 239 | tail -n +229</code> 查看这个脚本的信息 <br />
+<img src="http://img.blog.csdn.net/20151008154258773" alt="这里写图片描述" title="" /></p>
+
+
+
+<pre class="prettyprint"><code class=" hljs bash">info LD vmlinux
+vmlinux_link <span class="hljs-string cye-lm-tag">"<span class="hljs-variable cye-lm-tag">${kallsymso}</span>"</span> vmlinux
+
+<span class="hljs-keyword cye-lm-tag">if</span> [ -n <span class="hljs-string cye-lm-tag">"<span class="hljs-variable cye-lm-tag">${CONFIG_BUILDTIME_EXTABLE_SORT}</span>"</span> ]; <span class="hljs-keyword cye-lm-tag">then</span>
+    info SORTEX vmlinux
+    sortextable vmlinux
+<span class="hljs-keyword cye-lm-tag">fi</span>
+
+info SYSMAP System.map
+mksysmap vmlinux System.map
+</code></pre>
+
+<p class="cye-lm-tag">使用了脚本中vmlinux_link这个函数来生成vmlinux，使用mksysmap生成System.map <br />
+下面是<code>vmlinux_link</code> 函数的定义，<code>cat -n  link-vmlinux.sh | head -n 69 | tail -n +51 <br />
+</code></p>
+
+
+
+<pre class="prettyprint"><code class=" hljs bash"><span class="hljs-function cye-lm-tag"><span class="hljs-title cye-lm-tag">vmlinux_link</span></span>()
+{
+    local lds=<span class="hljs-string cye-lm-tag">"<span class="hljs-variable cye-lm-tag">${objtree}</span>/<span class="hljs-variable cye-lm-tag">${KBUILD_LDS}</span>"</span>
+
+    <span class="hljs-keyword cye-lm-tag">if</span> [ <span class="hljs-string cye-lm-tag">"<span class="hljs-variable cye-lm-tag">${SRCARCH}</span>"</span> != <span class="hljs-string cye-lm-tag">"um"</span> ]; <span class="hljs-keyword cye-lm-tag">then</span>
+        <span class="hljs-variable cye-lm-tag">${LD}</span> <span class="hljs-variable cye-lm-tag">${LDFLAGS}</span> <span class="hljs-variable cye-lm-tag">${LDFLAGS_vmlinux}</span> -o <span class="hljs-variable cye-lm-tag">${2}</span>                  \
+            -T <span class="hljs-variable cye-lm-tag">${lds}</span> <span class="hljs-variable cye-lm-tag">${KBUILD_VMLINUX_INIT}</span>                     \
+            --start-group <span class="hljs-variable cye-lm-tag">${KBUILD_VMLINUX_MAIN}</span> --end-group <span class="hljs-variable cye-lm-tag">${1}</span>
+    <span class="hljs-keyword cye-lm-tag">else</span>
+        <span class="hljs-variable cye-lm-tag">${CC}</span> <span class="hljs-variable cye-lm-tag">${CFLAGS_vmlinux}</span> -o <span class="hljs-variable cye-lm-tag">${2}</span>                              \
+            -Wl,-T,<span class="hljs-variable cye-lm-tag">${lds}</span> <span class="hljs-variable cye-lm-tag">${KBUILD_VMLINUX_INIT}</span>                 \
+            -Wl,--start-group                                    \
+                 <span class="hljs-variable cye-lm-tag">${KBUILD_VMLINUX_MAIN}</span>                      \
+            -Wl,--end-group                                      \
+            -lutil <span class="hljs-variable cye-lm-tag">${1}</span>
+        rm <span class="hljs-operator cye-lm-tag">-f</span> linux
+    <span class="hljs-keyword cye-lm-tag">fi</span>
+}</code></pre>
+
+<p class="cye-lm-tag">然后是mksysmap，使用<code>cat -n  link-vmlinux.sh | head -n 107 | tail -n +103</code> 查看</p>
+
+
+
+<pre class="prettyprint"><code class=" hljs bash"><span class="hljs-function cye-lm-tag"><span class="hljs-title cye-lm-tag">mksysmap</span></span>()
+{
+    <span class="hljs-variable cye-lm-tag">${CONFIG_SHELL}</span> <span class="hljs-string cye-lm-tag">"<span class="hljs-variable cye-lm-tag">${srctree}</span>/scripts/mksysmap"</span> <span class="hljs-variable cye-lm-tag">${1}</span> <span class="hljs-variable cye-lm-tag">${2}</span>
+}</code></pre>
+
+<p class="cye-lm-tag">最后我们来看看下面的输出： <br />
+<img src="http://img.blog.csdn.net/20151008145150964" alt="生成vmlinux" title="" /> <br />
+vmlinux和System.map生成在内核源码树根目录下。</p>
+
+<p class="cye-lm-tag">这就是全部了，vmlinux构建好了，下一步就是创建bzImage. <br />
+<img src="http://img.blog.csdn.net/20151008145337433" alt="这里写图片描述" title="" /></p>
+
+
+
+<h1 id="构建bzimage">构建bzImage</h1>
+
+<hr />
+
+<p class="cye-lm-tag">bzImage就是压缩了的linux内核镜像。我们可以在构建了vmlinux之后通过执行makebzImage获得bzImage。同时我们可以仅仅执行make而不带任何参数也可以生成bzImage，因为它是在arch/x86/kernel/Makefile里预定义的、默认生成的镜像。</p>
+
+<p class="cye-lm-tag">我们在makefile中查找一下</p>
+
+<p class="cye-lm-tag"><img src="http://img.blog.csdn.net/20151008131821632" alt="这里写图片描述" title="" /></p>
+
+<p class="cye-lm-tag">我们可以看到bzImage是依赖于vmlinux生成的，</p>
+
+<p class="cye-lm-tag">我们使用<code>cat -n Makefile | head -n 237 | tail -n +215</code> 查看其构建信息</p>
+
+
+
+<pre class="prettyprint"><code class=" hljs ruby"><span class="hljs-comment cye-lm-tag">####</span>
+<span class="hljs-comment cye-lm-tag"># boot loader support. Several targets are kept for legacy purposes</span>
+
+boot <span class="hljs-symbol cye-lm-tag">:</span>= arch/x86/boot
+
+<span class="hljs-constant cye-lm-tag">BOOT_TARGETS</span> = bzlilo bzdisk fdimage fdimage144 fdimage288 isoimage
+
+<span class="hljs-constant cye-lm-tag">PHONY</span> += bzImage <span class="hljs-variable cye-lm-tag">$(</span><span class="hljs-constant cye-lm-tag">BOOT_TARGETS</span>)
+
+<span class="hljs-comment cye-lm-tag"># Default kernel to build</span>
+<span class="hljs-symbol cye-lm-tag">all:</span> bzImage
+
+<span class="hljs-comment cye-lm-tag"># KBUILD_IMAGE specify target image being built</span>
+<span class="hljs-constant cye-lm-tag">KBUILD_IMAGE</span> <span class="hljs-symbol cye-lm-tag">:</span>= <span class="hljs-variable cye-lm-tag">$(</span>boot)/bzImage
+
+<span class="hljs-symbol cye-lm-tag">bzImage:</span> vmlinux
+ifeq (<span class="hljs-variable cye-lm-tag">$(</span><span class="hljs-constant cye-lm-tag">CONFIG_X86_DECODER_SELFTEST</span>),y)
+    <span class="hljs-variable cye-lm-tag">$(</span><span class="hljs-constant cye-lm-tag">Q</span>)<span class="hljs-variable cye-lm-tag">$(</span><span class="hljs-constant cye-lm-tag">MAKE</span>) <span class="hljs-variable cye-lm-tag">$(</span>build)=arch/x86/tools posttest
+endif
+    <span class="hljs-variable cye-lm-tag">$(</span><span class="hljs-constant cye-lm-tag">Q</span>)<span class="hljs-variable cye-lm-tag">$(</span><span class="hljs-constant cye-lm-tag">MAKE</span>) <span class="hljs-variable cye-lm-tag">$(</span>build)=<span class="hljs-variable cye-lm-tag">$(</span>boot) <span class="hljs-variable cye-lm-tag">$(</span><span class="hljs-constant cye-lm-tag">KBUILD_IMAGE</span>)
+    <span class="hljs-variable cye-lm-tag">$(</span><span class="hljs-constant cye-lm-tag">Q</span>)mkdir -p <span class="hljs-variable cye-lm-tag">$(</span>objtree)/arch/<span class="hljs-variable cye-lm-tag">$(</span><span class="hljs-constant cye-lm-tag">UTS_MACHINE</span>)/boot
+    <span class="hljs-variable cye-lm-tag">$(</span><span class="hljs-constant cye-lm-tag">Q</span>)ln -fsn ../../x86/boot/bzImage <span class="hljs-variable cye-lm-tag">$(</span>objtree)/arch/<span class="hljs-variable cye-lm-tag">$(</span><span class="hljs-constant cye-lm-tag">UTS_MACHINE</span>)/boot/<span class="hljs-variable cye-lm-tag">$@</span>
+
+</code></pre>
+
+
+
+<h2 id="setupbin">setup.bin</h2>
+
+<hr />
+
+<p class="cye-lm-tag">在这里我们可以看到第一次为<code>$(boot)==arch/x86/boot</code> 目录执行了<code>make</code> 操作 </p>
+
+<p class="cye-lm-tag">我们进入这个目录看看。这个makefile是如何工作生成bzImage的 <br />
+<img src="http://img.blog.csdn.net/20151008145649352" alt="这里写图片描述" title="" /> <br />
+我们会发现bzImage依赖于setup.bin和vmlinux.bin <br />
+使用<code>cat -n Makefile | head -n 112 | tail -n +107</code> 我们可以查看到</p>
+
+<pre class="prettyprint"><code class=" hljs ruby"><span class="hljs-variable cye-lm-tag">$(</span>obj)/setup.<span class="hljs-symbol cye-lm-tag">bin:</span> <span class="hljs-variable cye-lm-tag">$(</span>obj)/setup.elf <span class="hljs-constant cye-lm-tag">FORCE</span>
+    <span class="hljs-variable cye-lm-tag">$(</span>call if_changed,objcopy)
+
+<span class="hljs-variable cye-lm-tag">$(</span>obj)/compressed/<span class="hljs-symbol cye-lm-tag">vmlinux:</span> <span class="hljs-constant cye-lm-tag">FORCE</span>
+    <span class="hljs-variable cye-lm-tag">$(</span><span class="hljs-constant cye-lm-tag">Q</span>)<span class="hljs-variable cye-lm-tag">$(</span><span class="hljs-constant cye-lm-tag">MAKE</span>) <span class="hljs-variable cye-lm-tag">$(</span>build)=<span class="hljs-variable cye-lm-tag">$(</span>obj)/compressed <span class="hljs-variable cye-lm-tag">$@</span></code></pre>
+
+<p class="cye-lm-tag">那么我们现在的主要目标是编译目录arch/x86/boot和arch/x86/boot/compressed的代码，构建setup.bin和vmlinux.bin，最后用这两个文件生成bzImage。</p>
+
+<p class="cye-lm-tag"><img src="http://img.blog.csdn.net/20151008133216809" alt="这里写图片描述" title="" /></p>
+
+<p class="cye-lm-tag">第一个目标是定义在arch/x86/boot/Makefile的$(obj)/setup.elf: <br />
+<img src="http://img.blog.csdn.net/20151008150220331" alt="这里写图片描述" title="" /> <br />
+我们接着使用<code>cat -n Makefile | head -n 105 | tail -n +103</code> 查看如何生成setup.elf</p>
+
+
+
+<pre class="prettyprint"><code class=" hljs ruby"><span class="hljs-variable cye-lm-tag">$(</span>obj)/setup.<span class="hljs-symbol cye-lm-tag">elf:</span> <span class="hljs-variable cye-lm-tag">$(</span>src)/setup.ld <span class="hljs-variable cye-lm-tag">$(</span><span class="hljs-constant cye-lm-tag">SETUP_OBJS</span>) <span class="hljs-constant cye-lm-tag">FORCE</span>
+    <span class="hljs-variable cye-lm-tag">$(</span>call if_changed,ld)</code></pre>
+
+<p class="cye-lm-tag">通过setup.ld来检列所有的setup_objs的目标文件来生成setup.elf</p>
+
+
+
+<h2 id="vmlinuxbin">vmlinux.bin</h2>
+
+<hr />
+
+<p class="cye-lm-tag">下一个源码文件是<code>arch/x86/boot/header.S</code>，这个是一个汇编文件 <br />
+<img src="http://img.blog.csdn.net/20151008151758117" alt="这里写图片描述" title="" /></p>
+
+<p class="cye-lm-tag"><img src="http://img.blog.csdn.net/20151008152119634" alt="1. 列表内容" title="" /></p>
+
+<p class="cye-lm-tag">但是我们不能现在就编译它，因为这个目标依赖于下面两个头文件：</p>
+
+<pre class="prettyprint"><code class=" hljs ruby"><span class="hljs-variable cye-lm-tag">$(</span>obj)/header.<span class="hljs-symbol cye-lm-tag">o:</span> <span class="hljs-variable cye-lm-tag">$(</span>obj)/voffset.h <span class="hljs-variable cye-lm-tag">$(</span>obj)/zoffset.h</code></pre>
+
+<p class="cye-lm-tag">第一个头文件voffset.h是使用sed脚本生成的 <br />
+<img src="http://img.blog.csdn.net/20151008152320996" alt="这里写图片描述" title="" /> <br />
+包含用nm工具从vmlinux获取的两个地址：</p>
+
+
+
+<pre class="prettyprint"><code class=" hljs cs"><span class="hljs-preprocessor cye-lm-tag">#<span class="hljs-keyword cye-lm-tag">define</span> VO__end 0xffffffff82ab0000</span>
+<span class="hljs-preprocessor cye-lm-tag">#<span class="hljs-keyword cye-lm-tag">define</span> VO__text 0xffffffff81000000</span></code></pre>
+
+<p class="cye-lm-tag">这两个地址是内核的起始和结束地址。</p>
+
+<p class="cye-lm-tag">第二个头文件zoffset.h在arch/x86/boot/compressed/Makefile可以看出是依赖于目标vmlinux的 <br />
+<img src="http://img.blog.csdn.net/20151008152620816" alt="这里写图片描述" title="" /></p>
+
+
+
+<pre class="prettyprint"><code class=" hljs ruby"><span class="hljs-variable cye-lm-tag">$(</span>obj)/zoffset.<span class="hljs-symbol cye-lm-tag">h:</span> <span class="hljs-variable cye-lm-tag">$(</span>obj)/compressed/vmlinux <span class="hljs-constant cye-lm-tag">FORCE</span>
+    <span class="hljs-variable cye-lm-tag">$(</span>call if_changed,zoffset)</code></pre>
+
+<p class="cye-lm-tag">然后编译目录arch/x86/boot/compressed下的源代码，然后生成vmlinux.bin、vmlinux.bin.bz2，和编译工具mkpiggy。 <br />
+<img src="http://img.blog.csdn.net/20151008152933467" alt="这里写图片描述" title="" /></p>
+
+<p class="cye-lm-tag">vmlinux.bin是去掉了调试信息和注释的vmlinux二进制文件，加上了占用了u32（LCTT译注：即4-Byte）的长度信息的vmlinux.bin.all压缩后就是vmlinux.bin.bz2。其中vmlinux.bin.all包含了vmlinux.bin和vmlinux.relocs（LCTT译注：vmlinux的重定位信息），其中vmlinux.relocs是vmlinux经过程序relocs处理之后的vmlinux镜像（见上文所述）。 <br />
+我们现在已经获取到了这些文件，汇编文件piggy.S将会被mkpiggy生成、然后编译：</p>
+
+
+
+<pre class="prettyprint"><code class=" hljs avrasm">MKPIGGY arch/x86/boot/compressed/piggy<span class="hljs-preprocessor cye-lm-tag">.S</span>
+ AS      arch/x86/boot/compressed/piggy<span class="hljs-preprocessor cye-lm-tag">.o</span></code></pre>
+
+<p class="cye-lm-tag">这个汇编文件会包含经过计算得来的、压缩内核的偏移信息。处理完这个汇编文件，我们就可以看到zoffset生成了：</p>
+
+
+
+<pre class="prettyprint"><code class=" hljs avrasm">ZOFFSET arch/x86/boot/zoffset<span class="hljs-preprocessor cye-lm-tag">.h</span></code></pre>
+
+<p class="cye-lm-tag">现在zoffset.h和voffset.h已经生成了，arch/x86/boot里的源文件可以继续编译，直到 <br />
+所有的源代码会被编译，他们最终会被链接到setup.elf <br />
+<img src="http://img.blog.csdn.net/20151008153351508" alt="这里写图片描述" title="" /></p>
+
+
+
+<pre class="prettyprint"><code class=" hljs avrasm"><span class="hljs-keyword cye-lm-tag">ld</span> -m elf_x86_64   -T arch/x86/boot/setup<span class="hljs-preprocessor cye-lm-tag">.ld</span> arch/x86/boot/a20<span class="hljs-preprocessor cye-lm-tag">.o</span> arch/x86/boot/bioscall<span class="hljs-preprocessor cye-lm-tag">.o</span> arch/x86/boot/cmdline<span class="hljs-preprocessor cye-lm-tag">.o</span> arch/x86/boot/copy<span class="hljs-preprocessor cye-lm-tag">.o</span> arch/x86/boot/cpu<span class="hljs-preprocessor cye-lm-tag">.o</span> arch/x86/boot/cpuflags<span class="hljs-preprocessor cye-lm-tag">.o</span> arch/x86/boot/cpucheck<span class="hljs-preprocessor cye-lm-tag">.o</span> arch/x86/boot/early_serial_console<span class="hljs-preprocessor cye-lm-tag">.o</span> arch/x86/boot/edd<span class="hljs-preprocessor cye-lm-tag">.o</span> arch/x86/boot/header<span class="hljs-preprocessor cye-lm-tag">.o</span> arch/x86/boot/main<span class="hljs-preprocessor cye-lm-tag">.o</span> arch/x86/boot/mca<span class="hljs-preprocessor cye-lm-tag">.o</span> arch/x86/boot/memory<span class="hljs-preprocessor cye-lm-tag">.o</span> arch/x86/boot/pm<span class="hljs-preprocessor cye-lm-tag">.o</span> arch/x86/boot/pmjump<span class="hljs-preprocessor cye-lm-tag">.o</span> arch/x86/boot/printf<span class="hljs-preprocessor cye-lm-tag">.o</span> arch/x86/boot/regs<span class="hljs-preprocessor cye-lm-tag">.o</span> arch/x86/boot/string<span class="hljs-preprocessor cye-lm-tag">.o</span> arch/x86/boot/tty<span class="hljs-preprocessor cye-lm-tag">.o</span> arch/x86/boot/video<span class="hljs-preprocessor cye-lm-tag">.o</span> arch/x86/boot/video-mode<span class="hljs-preprocessor cye-lm-tag">.o</span> arch/x86/boot/version<span class="hljs-preprocessor cye-lm-tag">.o</span> arch/x86/boot/video-vga<span class="hljs-preprocessor cye-lm-tag">.o</span> arch/x86/boot/video-vesa<span class="hljs-preprocessor cye-lm-tag">.o</span> arch/x86/boot/video-bios<span class="hljs-preprocessor cye-lm-tag">.o</span> -o arch/x86/boot/setup<span class="hljs-preprocessor cye-lm-tag">.elf</span></code></pre>
+
+<p class="cye-lm-tag">最后的两件事是创建包含目录arch/x86/boot/*下的编译过的代码的setup.bin：</p>
+
+
+
+<pre class="prettyprint"><code class=" hljs avrasm">objcopy  -O binary arch/x86/boot/setup<span class="hljs-preprocessor cye-lm-tag">.elf</span> arch/x86/boot/setup<span class="hljs-preprocessor cye-lm-tag">.bin</span></code></pre>
+
+<p class="cye-lm-tag">以及从vmlinux生成vmlinux.bin:</p>
+
+
+
+<pre class="prettyprint"><code class=" hljs lasso">objcopy  <span class="hljs-attribute">-O</span> binary <span class="hljs-attribute">-R</span> <span class="hljs-built_in">.</span>note <span class="hljs-attribute">-R</span> <span class="hljs-built_in">.</span>comment <span class="hljs-attribute">-S</span> arch/x86/boot/compressed/vmlinux arch/x86/boot/vmlinux<span class="hljs-built_in">.</span>bin</code></pre>
+
+
+
+<h2 id="生成bzimage">生成bzImage</h2>
+
+<hr />
+
+<p>最后，我们编译主机程序arch/x86/boot/tools/build.c，它将会用来把setup.bin和vmlinux.bin打包成bzImage:</p>
+
+<pre class="prettyprint"><code class=" hljs avrasm">arch/x86/boot/tools/build arch/x86/boot/setup<span class="hljs-preprocessor cye-lm-tag">.bin</span> arch/x86/boot/vmlinux<span class="hljs-preprocessor cye-lm-tag">.bin</span> arch/x86/boot/zoffset<span class="hljs-preprocessor cye-lm-tag">.h</span> arch/x86/boot/bzImage</code></pre>
+
+<p class="cye-lm-tag">实际上bzImage就是把setup.bin和vmlinux.bin连接到一起。最终我们会看到输出结果，就和那些用源码编译过内核的同行的结果一样： <br />
+<img src="http://img.blog.csdn.net/20151008153252721" alt="aa" title="" /></p></div>&#13;
+        <script type="text/javascript">&#13;
+            $(function () {&#13;
+                $('pre.prettyprint code').each(function () {&#13;
+                    var lines = $(this).text().split('\n').length;&#13;
+                    var $numbering = $('&lt;ul/&gt;').addClass('pre-numbering').hide();&#13;
+                    $(this).addClass('has-numbering').parent().append($numbering);&#13;
+                    for (i = 1; i &lt;= lines; i++) {&#13;
+                        $numbering.append($('&lt;li/&gt;').text(i));&#13;
+                    };&#13;
+                    $numbering.fadeIn(1700);&#13;
+                });&#13;
+            });&#13;
+        </script>&#13;
+   &#13;

@@ -1,0 +1,197 @@
+
+
+<p>        前面两篇blog是分析缓存区的，而这里开始分析文件系统底层操作函数；首先开刀的是bitmap.c程序，这个程序主要负责逻辑块的申请和释放以及i节点的申请和释放；如果大家看了一系列的blog会想《Linux完全注释》不是有吗，我这个blog就没有什么价值了。其实不是这样的（至少我个人不是这么认为的），首先是我看了理解后的笔记，然后是《Linux完全注释》非常散，仅仅是注释，没有对整个操作系统的联系来分析。就好比如告诉你一篇文章中的每个字的意思，但你却未必知道整篇文章讲的是什么意思。</p>&#13;
+<p>        总结的来说其实Bitmap.c程序就是操作文件系统中的两个位图：i节点位图和逻辑块位图；拿逻辑块位图来说吧，申请一个新的逻辑块时，首先是在8块逻辑块位图中查找一个空闲的比特位，找到以后转换成逻辑块号，然后就通过逻辑块号找到真正的逻辑块，通过函数把该逻辑块映射到缓存区中，当然最后要对缓存区做些属性设置；释放一个逻辑块时也一样，首先做些检查，然后释放缓存块，最后也是设置下逻辑块位图（当然也是根据逻辑块号转换成8块逻辑块位图中的某个比特位）。</p>&#13;
+<p><br />&#13;
+</p>&#13;
+<p>        1、看下本程序涉及到的一些汇编；</p>&#13;
+<p>        stosl指令：相当于将EAX中的值保存到ES:EDI指向的地址中， 若设置了EFLAGS中的方向位置位(即在STOSL指令前使用STD指令)则EDI自减4，否则(使用CLD指令)EDI自增4。一般和rep一起用循环的把eax中的值放到edi中（当然cx表示循环的次数）。本程序中在clear_block() 清除块上所有位数时使用；<br />&#13;
+</p>&#13;
+<p>        btsl指令：bts %1, %2 把基地址%2 偏移地址为%1所指的比特位值保存到cf进位标志中，然后设置该比特位为1；指令setb用于根据进位标志cf设置al，cf=1，al=1；cf=0，al=0；在set_bit(nr,addr)指定某块逻辑块上的某个位进行置1，并把该位原来的值保存到进位标志cf上，以便接下来的检查；</p>&#13;
+<p>        btrl指令：btr %1, %2把基地址%2 偏移地址1所指的比特位保存到cf进位标志中，然后设置该比特位为0。setnb 根据进位标志cf设置al，cf=1，al=0；cf=0，al=1；这个指令刚好和上个相反；在clear_bit(nr,addr)指定某块逻辑块上的某个位进行清零，并把该位原来的值放到cf中，以便接下来的检查；<br />&#13;
+</p>&#13;
+<p>        在一块逻辑块上查找一个第一个比特位为0的比特位（其实就是在一个逻辑块中查找空闲位）</p>&#13;
+<p></p>&#13;
+<pre name="code" class="cpp">#define find_first_zero(addr) ({ \
+int __res; \
+__asm__("cld\n" \
+	"1:\tlodsl\n\t" \//将esi指向的内存内容存放到ax中
+	"notl %%eax\n\t" \//反转eax中的比特位
+	"bsfl %%eax,%%edx\n\t" \//顺序扫描eax把第一个为1的存放到edx中
+	"je 2f\n\t" \//如果没有为1的比特位，则跳转到2标号处
+	"addl %%edx,%%ecx\n\t" \//把偏移地址号加入到ecx处
+	"jmp 3f\n" \//跳转到3处
+	"2:\taddl $32,%%ecx\n\t" \//没有找到，则到下个字节开始查找
+	"cmpl $8192,%%ecx\n\t" \//比较是否超出一个块大小
+	"jl 1b\n" \
+	"3:" \
+	:"=c" (__res):"c" (0),"S" (addr):"ax","dx","si"); \
+__res;})</pre>&#13;
+<p><br />&#13;
+</p>&#13;
+<p>        2、释放掉设备上数据区的逻辑块block：首先根据设备号和逻辑块号查找到对应的缓存头结构；根据引用次数分两种情况来处理，如果引用次数大于1，就递减引用就可以；如果是多次引用，则修改缓存块的属性值；最后再得到逻辑块号，设置逻辑块位图就可以了；</p>&#13;
+<p></p>&#13;
+<pre name="code" class="cpp">//释放设备dev上数据区中的逻辑块block
+//复位指定逻辑块block对应的逻辑块位图比特位
+//dev设备号，block逻辑块号
+void free_block(int dev, int block)
+{
+	struct super_block * sb;
+	struct buffer_head * bh;
+
+	if (!(sb = get_super(dev)))//得到超级块
+		panic("trying to free block on nonexistent device");
+	if (block &lt; sb-&gt;s_firstdatazone || block &gt;= sb-&gt;s_nzones)//确定逻辑块号范围
+		panic("trying to free block not in datazone");
+	
+	//首先查找下要释放的逻辑块是否映射到了缓存区，如果有就需要释放掉缓存区的数据
+	bh = get_hash_table(dev,block);//查找到逻辑块映射的缓存区块
+	if (bh) {
+		if (bh-&gt;b_count != 1) {//因为上面能够查找到，所以引用一定大于等于1
+			printk("trying to free block (%04x:%d), count=%d\n",
+				dev,block,bh-&gt;b_count);//brelse(bh)，递减掉一个引用就可以
+			return;
+		}
+		bh-&gt;b_dirt=0;
+		bh-&gt;b_uptodate=0;
+		brelse(bh);//上面是释放映射的缓存块，如果没有映射到缓存块就不需要操作
+	}
+
+	//逻辑块位图比特位1代表数据区中逻辑块的第一块(逻辑块位图0不用)
+	block -= sb-&gt;s_firstdatazone - 1 ;//开始的block是该块在整个文件系统中的块号，操作后表示该块在数据区的块号
+	if (clear_bit(block&amp;8191,sb-&gt;s_zmap[block/8192]-&gt;b_data)) {//block&amp;8191 获取到该块在某一块位图中的偏移量；
+	                                                           //sb-&gt;s_zmap[block/8192]-&gt;b_data获取到block所在位图块
+		printk("block (%04x:%d) ",dev,block+sb-&gt;s_firstdatazone-1);
+		panic("free_block: bit already cleared");
+	}
+	sb-&gt;s_zmap[block/8192]-&gt;b_dirt = 1;//该块已经修改
+}</pre>&#13;
+<p></p>&#13;
+<p><br />&#13;
+</p>&#13;
+        3、向设备申请一个空闲逻辑块：首先在8块逻辑块位图中查找一位空闲的比特位，然后设置该比特位；最后把比特位号转换成逻辑块号；根据设备号和逻辑块号申请映射一个缓存块，清楚缓存块数据，设置缓存块属性值；最后返回逻辑块号，只是有个问题不懂：为什么要释放掉缓存头结构，估计要到后面的函数中体现吧；（其实就算是释放掉了最后查找的时候也能找到这个缓存头结构，因为是hash查找）；&#13;
+<p></p>&#13;
+<pre name="code" class="cpp">//向设备申请一个逻辑块
+int new_block(int dev)
+{
+	struct buffer_head * bh;
+	struct super_block * sb;
+	int i,j;
+
+	if (!(sb = get_super(dev)))//得到超级块
+		panic("trying to get new block from nonexistant device");
+	
+	//8块逻辑块位图，每块8192个比特位
+	j = 8192;
+	for (i=0 ; i&lt;8 ; i++)
+		if (bh=sb-&gt;s_zmap[i])
+			if ((j=find_first_zero(bh-&gt;b_data))&lt;8192)//在一个逻辑块中查找一个空闲的比特位
+				break;
+	if (i&gt;=8 || !bh || j&gt;=8192)
+		return 0;//没找到比特位为0的
+	if (set_bit(j,bh-&gt;b_data))//在相应逻辑块位图中的相应位置1
+		panic("new_block: bit already set");
+	bh-&gt;b_dirt = 1;
+	j += i*8192 + sb-&gt;s_firstdatazone-1;//把j转换成逻辑块号
+	if (j &gt;= sb-&gt;s_nzones)//逻辑块号大于总的逻辑块总数，出错返回
+		return 0;
+	if (!(bh=getblk(dev,j)))//根据设备号，和逻辑块号获取一个缓存块
+		panic("new_block: cannot get block");
+	if (bh-&gt;b_count != 1)
+		panic("new block: count is != 1");
+	clear_block(bh-&gt;b_data);
+	bh-&gt;b_uptodate = 1;
+	bh-&gt;b_dirt = 1;
+	brelse(bh);
+	return j;//返回逻辑块号
+}</pre>&#13;
+<p><br />&#13;
+</p>&#13;
+<p>        4、释放i节点，这个比较简单，主要是判断下i节点的一些属性；</p>&#13;
+<p></p>&#13;
+<pre name="code" class="cpp">//释放指定的i节点
+void free_inode(struct m_inode * inode)
+{
+	struct super_block * sb;
+	struct buffer_head * bh;
+
+	if (!inode)
+		return;
+	if (!inode-&gt;i_dev) {//设备号为0，表示没有使用
+		memset(inode,0,sizeof(*inode));//对inode清零
+		return;
+	}
+	if (inode-&gt;i_count&gt;1) {//如果i节点还有其他程序引用，则不能释放
+		printk("trying to free inode with count=%d\n",inode-&gt;i_count);
+		panic("free_inode");
+	}
+	if (inode-&gt;i_nlinks)//不为0  表示还有其他文件目录项在引用
+		panic("trying to free inode with links");
+	if (!(sb = get_super(inode-&gt;i_dev)))//获取超级块，判断设备是否存在
+		panic("trying to free inode on nonexistent device");
+	if (inode-&gt;i_num &lt; 1 || inode-&gt;i_num &gt; sb-&gt;s_ninodes)//i节点号范围
+		panic("trying to free inode 0 or nonexistant inode");
+
+	//得到i节点所在的缓存块中
+	if (!(bh=sb-&gt;s_imap[inode-&gt;i_num&gt;&gt;13]))// 整除8192得到该i节点在哪块缓存块中
+		panic("nonexistent imap in superblock");
+	
+	//清除i节点所在的i节点位图中比特位
+	if (clear_bit(inode-&gt;i_num&amp;8191,bh-&gt;b_data))
+		printk("free_inode: bit already cleared.\n\r");
+	bh-&gt;b_dirt = 1;//设置表示该缓存区修改过
+	memset(inode,0,sizeof(*inode));
+}</pre>&#13;
+<p></p>&#13;
+<p><br />&#13;
+</p>&#13;
+        5、申请一个空闲的i节点：&#13;
+<p></p>&#13;
+<pre name="code" class="cpp">//为设备dev建设一个新i节点，初始化并返回该新i节点的指针
+struct m_inode * new_inode(int dev)
+{
+	struct m_inode * inode;
+	struct super_block * sb;
+	struct buffer_head * bh;
+	int i,j;
+
+	if (!(inode=get_empty_inode()))//得到一个空闲的i节点，会把它的引用设置为1
+		return NULL;
+	if (!(sb = get_super(dev)))
+		panic("new_inode with unknown device");
+	j = 8192;
+	for (i=0 ; i&lt;8 ; i++)
+		if (bh=sb-&gt;s_imap[i])
+			if ((j=find_first_zero(bh-&gt;b_data))&lt;8192)
+				break;
+	if (!bh || j &gt;= 8192 || j+i*8192 &gt; sb-&gt;s_ninodes) {
+		iput(inode);//释放i节点内存
+		return NULL;
+	}
+	if (set_bit(j,bh-&gt;b_data))
+		panic("new_inode: bit already set");
+	bh-&gt;b_dirt = 1;
+	inode-&gt;i_count=1;
+	inode-&gt;i_nlinks=1;
+	inode-&gt;i_dev=dev;
+	inode-&gt;i_uid=current-&gt;euid;
+	inode-&gt;i_gid=current-&gt;egid;
+	inode-&gt;i_dirt=1;
+	inode-&gt;i_num = j + i*8192;
+	inode-&gt;i_mtime = inode-&gt;i_atime = inode-&gt;i_ctime = CURRENT_TIME;
+	return inode;//返回i节点指针
+}
+</pre>&#13;
+<p></p>&#13;
+<p></p>&#13;
+<div>        转载请注明作者和原文出处，原文地址：<a target="_blank" href="http://blog.csdn.net/yuzhihui_no1/article/details/43898651">http://blog.csdn.net/yuzhihui_no1/article/details/43898651</a></div>&#13;
+<div>&#13;
+<p style="margin-top:0px; margin-bottom:0px; padding-top:0px; padding-bottom:0px">&#13;
+        如果有什么不正确之处，欢迎大家指正，一起努力，共同学习！！</p>&#13;
+</div>&#13;
+<br />&#13;
+<p></p>&#13;
+<p><br />&#13;
+<br />&#13;
+</p>&#13;
+   &#13;

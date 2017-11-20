@@ -1,0 +1,245 @@
+
+<p style="margin:0in;font-size:14.0pt"><span style="font-family:KaiTi_GB2312;"><span lang="zh-CN" xml:lang="zh-CN"><br /></span></span></p><p style="margin:0in;font-size:14.0pt"><span style="font-family:KaiTi_GB2312;"><span lang="zh-CN" xml:lang="zh-CN">    在之前的博客中已经介绍过线程同步通信技术《</span><span lang="en-US" xml:lang="en-US">JAVA </span><span lang="zh-CN" xml:lang="zh-CN">并发编程</span><span lang="en-US" xml:lang="en-US">-</span><span lang="zh-CN" xml:lang="zh-CN">传统线程同步通信技术（四）》，上篇是使用的synchronized，</span><span lang="en-US" xml:lang="en-US">wait</span><span lang="zh-CN" xml:lang="zh-CN">，</span><span lang="en-US" xml:lang="en-US">notify</span><span lang="zh-CN" xml:lang="zh-CN">来实现，今天我们使用的是</span><span lang="en-US" xml:lang="en-US">Lock</span><span lang="zh-CN" xml:lang="zh-CN">和</span><span lang="en-US" xml:lang="en-US">Condition</span><span lang="zh-CN" xml:lang="zh-CN">，下面我们结合两者对比来学习。</span></span></p><p style="margin: 0in; font-size: 14pt;"><span style="font-family:KaiTi_GB2312;"> </span></p><h1 style="margin:0in;font-size:14.0pt"><span style="font-family:KaiTi_GB2312;"><span lang="zh-CN" xml:lang="zh-CN">简单的</span><span lang="en-US" xml:lang="en-US">Lock</span><span lang="zh-CN" xml:lang="zh-CN">锁应用：</span></span></h1><p style="margin:0in;font-size:14.0pt"><span style="font-family:KaiTi_GB2312;"><span lang="zh-CN" xml:lang="zh-CN"><br /></span></span></p><p style="margin:0in;font-size:14.0pt"><span lang="zh-CN" xml:lang="zh-CN"><span style="font-family:KaiTi_GB2312;"></span></span></p><pre name="code" class="java">/**
+ * 简单Lock的应用
+ * @author hejingyuan
+ *
+ */
+public class LockTest {
+
+	public static void main(String[] args) {
+		new LockTest().init();
+	}
+	
+	private void init(){
+		final Outputer outputer = new Outputer();
+		new Thread(new Runnable(){
+			@Override
+			public void run() {
+				while(true){
+					try {
+						Thread.sleep(10);
+					} catch (InterruptedException e) {
+						e.printStackTrace();
+					}
+					outputer.output("zhangxiaoxiang");
+				}
+				
+			}
+		}).start();
+		
+		new Thread(new Runnable(){
+			@Override
+			public void run() {
+				while(true){
+					try {
+						Thread.sleep(10);
+					} catch (InterruptedException e) {
+						e.printStackTrace();
+					}
+					outputer.output("lihuoming");
+				}
+				
+			}
+		}).start();
+		
+	}
+
+	static class Outputer{
+		Lock lock = new ReentrantLock();
+		public void output(String name){
+			int len = name.length();
+			lock.lock();
+			try{
+				for(int i=0;i&lt;len;i++){
+					System.out.print(name.charAt(i));
+				}
+				System.out.println();
+			}finally{
+				lock.unlock();
+			}
+		}
+	}
+}
+</pre><br /><br /><p></p><p style="margin:0in;font-size:14.0pt"><span lang="zh-CN" xml:lang="zh-CN"><span style="font-family:KaiTi_GB2312;"></span></span></p><p style="margin: 0in; font-size: 14pt;"><span style="font-family:KaiTi_GB2312;">Lock比传统线程模型中的Synchronied方式更加面向对象,与生活中的锁类似,锁本身也应该是一个对象.两个线程执行的代码段要实现同步互斥的效果,它们必须用同一个Lock对象,锁是在代表要操作的资源的类的内部方法中,而不是线程代码中.</span></p><p style="margin: 0in; font-size: 14pt;"><span style="font-family:KaiTi_GB2312;"> </span></p><p style="margin: 0in; font-size: 14pt;"><span style="font-family:KaiTi_GB2312;">注意：</span></p><p style="margin: 0in; font-size: 14pt;"><span style="font-family:KaiTi_GB2312;"> </span></p><p style="margin: 0in; font-size: 14pt;"><span style="font-family:KaiTi_GB2312;">和synchronized不同的是，在线程执行完以后，要关闭锁unlock(),如果不关闭，其他在等待的线程就永远被锁在外面了。因为synchronized是在JVM层面实现的，因此系统可以监控锁的释放与否，而ReentrantLock使用代码实现的，系统无法自动释放锁，需要在代码中finally子句中显式释放锁lock.unlock();</span></p><p style="margin: 0in; font-size: 14pt;"><span style="font-family:KaiTi_GB2312;"> </span></p><p style="margin: 0in; font-size: 14pt;"><span style="font-family:KaiTi_GB2312;"> </span></p><h1 style="margin: 0in; font-size: 14pt;"><span style="font-family:KaiTi_GB2312;">结合前篇博客进行对比（同步通信）：</span></h1><p style="margin: 0in; font-size: 14pt;" lang="en-US" xml:lang="en-US"><span style="font-family:KaiTi_GB2312;"> </span></p><p style="margin: 0in; font-size: 14pt;"><span style="font-family:KaiTi_GB2312;">实现效果：子线程循环10次，接着主线程循环100次，又回到子线程循环10次，接着再回到主线程又循环100次，如此循环50次</span></p><p style="margin: 0in; font-size: 14pt;"><br /></p><pre name="code" class="java">public class ConditionCommunication {
+
+	public static void main(String[] args) {
+		
+		final Business business = new Business();
+		//创建了一个线程，并启动
+		new Thread(
+				new Runnable() {
+					
+					@Override
+					public void run() {					
+						for(int i=1;i&lt;=50;i++){
+							business.sub(i);
+						}						
+					}
+				}
+		).start();
+		//因为mian方法本身就占用一个线程，所以主线程不需要再new Thread
+		for(int i=1;i&lt;=50;i++){
+			business.main(i);
+		}
+		
+	}
+
+	static class Business {
+		
+		  Lock lock = new ReentrantLock();
+		  Condition condition = lock.newCondition();
+		  //决定是main执行还是sub执行
+		  private boolean bShouldSub = true;
+		  public  void sub(int i){
+			  lock.lock();// 锁住了别的线程就不能进来了,包括下面的main()因为他们用的是同一把锁
+			  try{
+				  //bShouldSub==false时等待
+				  while(!bShouldSub){
+					  try {
+						condition.await();
+					} catch (Exception e) {
+						e.printStackTrace();
+					}
+				  }
+					for(int j=1;j&lt;=10;j++){
+						System.out.println("sub thread sequence of " + j + ",loop of " + i);
+					}
+				  bShouldSub = false;
+				  condition.signal();
+			  }finally{
+				  lock.unlock();
+			  }
+		  }
+		  
+		  public  void main(int i){
+			  lock.lock();
+			  try{
+				 //bShouldSub==true时等待
+				 while(bShouldSub){
+				  		try {
+							condition.await();
+						} catch (Exception e) {
+							e.printStackTrace();
+						}
+				  	}
+					for(int j=1;j&lt;=100;j++){
+						System.out.println("main thread sequence of " + j + ",loop of " + i);
+					}
+					bShouldSub = true;
+					condition.signal();
+		  }finally{
+			//如果中途抛出异常,那么这把锁就没有被解锁,别人就进不来了
+			//所以写在finally里面
+			  lock.unlock();
+		  }
+	  }
+	
+	}
+}
+</pre><br /><p style="margin:0in;font-size:14.0pt"><span lang="zh-CN" xml:lang="zh-CN"><span style="font-family:KaiTi_GB2312;"></span></span></p><p style="margin: 0in; font-size: 14pt;"><span style="font-family:KaiTi_GB2312;">在Condition中，用await()替换wait()，用signal()替换notify()，用signalAll()替换notifyAll()，传统线程的通信方式，Condition都可以实现。</span></p><p style="margin: 0in; font-size: 14pt;"><span style="font-family:KaiTi_GB2312;">Condition实例实质上被绑定到一个锁上。要为特定Lock实例获得Condition 实例，请使用其newCondition() 方法。</span></p><p style="margin: 0in; font-size: 14pt;" lang="en-US" xml:lang="en-US"><span style="font-family:KaiTi_GB2312;"> </span></p><h2 style="margin: 0in; font-size: 14pt;"><span style="font-family:KaiTi_GB2312;">注意：在等待Condition时,可能会发生"虚假唤醒"。</span></h2><p style="margin: 0in; font-size: 14pt;"><span style="font-family:KaiTi_GB2312;"> </span></p><p style="margin: 0in; font-size: 14pt;"><span style="font-family:KaiTi_GB2312;">虚假唤醒(spuriouswakeup)在采用条件等待时，我们使用的是 </span></p><p style="margin: 0in; font-size: 14pt;"><span style="font-family:KaiTi_GB2312;"> </span></p><p style="margin: 0in; font-size: 14pt;"><span style="font-family:KaiTi_GB2312;">while(条件不满足){  </span></p><p style="margin: 0in; font-size: 14pt;"><span style="font-family:KaiTi_GB2312;">   condition_wait(cond, mutex);  </span></p><p style="margin: 0in; font-size: 14pt;"><span style="font-family:KaiTi_GB2312;">}  </span></p><p style="margin: 0in; font-size: 14pt;"><span style="font-family:KaiTi_GB2312;">而不是:  </span></p><p style="margin: 0in; font-size: 14pt;"><span style="font-family:KaiTi_GB2312;">If( 条件不满足 ){  </span></p><p style="margin: 0in; font-size: 14pt;"><span style="font-family:KaiTi_GB2312;">   Condition_wait(cond,mutex);  </span></p><p style="margin: 0in; font-size: 14pt;"><span style="font-family:KaiTi_GB2312;">}   </span></p><p style="margin: 0in; font-size: 14pt;"><span style="font-family:KaiTi_GB2312;"> </span></p><p style="margin: 0in; font-size: 14pt;"><span style="font-family:KaiTi_GB2312;">这是因为可能会存在虚假唤醒”spuriouswakeup”的情况。 </span></p><p style="margin: 0in; font-size: 14pt;"><span style="font-family:KaiTi_GB2312;">也就是说，即使没有线程调用condition_signal,原先调用condition_wait的函数也可能会返回。此时线程被唤醒了，但是条件并不满足，这个时候如果不对条件进行检查而往下执行，就可能会导致后续的处理出现错误。</span></p><p style="margin: 0in; font-size: 14pt;"><span style="font-family:KaiTi_GB2312;"> </span></p><p style="margin: 0in; font-size: 14pt;"><span style="font-family:KaiTi_GB2312;">在系统设计时应该可以避免虚假唤醒，但是这会影响条件变量的执行效率，而既然通过while循环就能避免虚假唤醒造成的错误，因此程序的逻辑就变成了while循环的情况。</span></p><p style="margin: 0in; font-size: 14pt;"><span style="font-family:KaiTi_GB2312;"> </span></p><h1 style="margin: 0in; font-size: 14pt;"><span style="font-family:KaiTi_GB2312;"><span style="font-family: KaiTi_GB2312; font-size: 19px;">Condition可以控制多个线程之间的运行顺序</span> </span></h1><p style="margin: 0in; font-size: 14pt;"><span style="font-family:KaiTi_GB2312;"><br /></span></p><p style="margin: 0in; font-size: 14pt;"><span style="font-family:KaiTi_GB2312;">Condition和传统的线程通信没什么区别，Condition的强大之处在于它可以为多个线程间建立不同的Condition，这样可以控制多个线程之间的运行顺序。</span></p><p style="margin: 0in; font-size: 14pt;"><span style="font-family:KaiTi_GB2312;"> </span></p><p style="margin: 0in; font-size: 14pt;"><span style="font-family:KaiTi_GB2312;">例如：</span></p><p style="margin: 0in; font-size: 14pt;"><span style="font-family:KaiTi_GB2312;"> </span></p><p style="margin: 0in; font-size: 14pt;"><span style="font-family:KaiTi_GB2312;">应当先对线程1、线程2，建 condition对象 1： c_th1，对象 2: c_th2;</span></p><p style="margin: 0in; font-size: 14pt;"><span style="font-family:KaiTi_GB2312;">c_th1.await()   // 阻塞写线程1</span></p><p style="margin: 0in; font-size: 14pt;"><span style="font-family:KaiTi_GB2312;">c_th2.signal()   // 唤醒读线程2</span></p><p style="margin: 0in; font-size: 14pt;"><span style="font-family:KaiTi_GB2312;">-------</span></p><p style="margin: 0in; font-size: 14pt;"><span style="font-family:KaiTi_GB2312;">否则，多线程时，函数没有参数时，如何指定阻塞哪个，唤醒哪个呢，线程可能多于2个，总要有方法指定。</span></p><p style="margin: 0in; font-size: 14pt;"><span style="font-family:KaiTi_GB2312;"> </span></p><p style="margin:0in;font-size:14.0pt"><span style="font-family:KaiTi_GB2312;"><span lang="zh-CN" xml:lang="zh-CN">实现</span><span lang="en-US" xml:lang="en-US">demo(</span><span lang="zh-CN" xml:lang="zh-CN">有三个线程，想让线程</span><span lang="zh-CN" xml:lang="zh-CN">1</span><span lang="zh-CN" xml:lang="zh-CN">运行完以后运行线程</span><span lang="zh-CN" xml:lang="zh-CN">2</span><span lang="zh-CN" xml:lang="zh-CN">，线程</span><span lang="zh-CN" xml:lang="zh-CN">2</span><span lang="zh-CN" xml:lang="zh-CN">运行完以后运行线程</span><span lang="zh-CN" xml:lang="zh-CN">3</span><span lang="zh-CN" xml:lang="zh-CN">，线程</span><span lang="zh-CN" xml:lang="zh-CN">3</span><span lang="zh-CN" xml:lang="zh-CN">运行完以后又运行线程</span><span lang="zh-CN" xml:lang="zh-CN">1</span><span lang="en-US" xml:lang="en-US">)</span><span lang="en-US" xml:lang="en-US">:</span></span></p><p style="margin:0in;font-size:14.0pt"><span lang="en-US" xml:lang="en-US"><br /></span></p><pre name="code" class="java">public class ThreeConditionCommunication {
+
+	public static void main(String[] args) {
+		
+		final Business business = new Business();
+		new Thread(
+				new Runnable() {
+					
+					@Override
+					public void run() {
+					
+						for(int i=1;i&lt;=50;i++){
+							business.sub2(i);
+						}
+						
+					}
+				}
+		).start();
+		
+		new Thread(
+				new Runnable() {
+					
+					@Override
+					public void run() {
+					
+						for(int i=1;i&lt;=50;i++){
+							business.sub3(i);
+						}
+						
+					}
+				}
+		).start();		
+		
+		for(int i=1;i&lt;=50;i++){
+			business.main(i);
+		}
+		
+	}
+
+	static class Business {
+		  Lock lock = new ReentrantLock();
+		  Condition condition1 = lock.newCondition();
+		  Condition condition2 = lock.newCondition();
+		  Condition condition3 = lock.newCondition();
+		  private int shouldSub = 1;
+		  public  void sub2(int i){
+			  lock.lock();
+			  try{
+				  while(shouldSub != 2){
+					  try {
+						condition2.await();
+					} catch (Exception e) {
+						e.printStackTrace();
+					}
+				  }
+					for(int j=1;j&lt;=10;j++){
+						System.out.println("sub2 thread sequence of " + j + ",loop of " + i);
+					}
+				  shouldSub = 3;
+				  condition3.signal();
+			  }finally{
+				  lock.unlock();
+			  }
+		  }
+
+		  public  void sub3(int i){
+			  lock.lock();
+			  try{
+				  while(shouldSub != 3){
+					  try {
+						condition3.await();
+					} catch (Exception e) {
+						e.printStackTrace();
+					}
+				  }
+					for(int j=1;j&lt;=20;j++){
+						System.out.println("sub3 thread sequence of " + j + ",loop of " + i);
+					}
+				  shouldSub = 1;
+				  condition1.signal();
+			  }finally{
+				  lock.unlock();
+			  }
+		  }		  
+		  
+		  public  void main(int i){
+			  lock.lock();
+			  try{
+				 while(shouldSub != 1){
+				  		try {
+							condition1.await();
+						} catch (Exception e) {
+							e.printStackTrace();
+						}
+				  	}
+					for(int j=1;j&lt;=100;j++){
+						System.out.println("main thread sequence of " + j + ",loop of " + i);
+					}
+					shouldSub = 2;
+					condition2.signal();
+		  }finally{
+			  lock.unlock();
+		  }
+	  }
+	
+	}
+}</pre><br /><p style="margin:0in;font-size:14.0pt"><span lang="zh-CN" xml:lang="zh-CN"><span style="font-family:KaiTi_GB2312;"></span></span></p><h1 style="margin: 0in; font-size: 14pt;"><span style="font-family:KaiTi_GB2312;">总结：</span></h1><p style="margin: 0in; font-size: 14pt;"><span style="font-family:KaiTi_GB2312;"> </span></p><p style="margin:0in;font-size:14.0pt"><span style="font-family:KaiTi_GB2312;"><span lang="zh-CN" xml:lang="zh-CN">对于以上的两种实现线程同步通信的方式，Lock替代了 synchronized 方法和语句的使用，Condition 替代了 Object 监视器方法的使用。而对比来说</span><span lang="en-US" xml:lang="en-US">Lock</span><span lang="zh-CN" xml:lang="zh-CN">（本身为一个对象）更加面向对象，Condition可以为多个线程间建立不同的Condition，这样可以控制多个线程之间的运行顺序。</span></span></p><br /><p style="margin:0in;font-size:14.0pt"><span lang="zh-CN" xml:lang="zh-CN"><span style="font-family:KaiTi_GB2312;"><br /></span></span></p><p style="margin:0in;font-size:14.0pt"><span style="font-family:宋体" lang="zh-CN" xml:lang="zh-CN"><br /></span></p>   &#13;

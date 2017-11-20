@@ -1,0 +1,506 @@
+
+        <div class="markdown_views"><p>关于mybatis的配置文件,主要有两个,一个是SqlMapperConfig.xml文件一个是mapper.xml文件,分别对这两个进行深入全面学习.</p>
+
+
+
+<h2 id="一sqlmapperconfigxml文件">一.SqlMapperConfig.xml文件</h2>
+
+
+
+<h3 id="1标签概况">1.标签概况</h3>
+
+<p>在SqlMapperConfig.xml中主要有以下标签,其中环境集合environments和spring整合后废除不用.objectFactory和plugins不经常使用.</p>
+
+<ul>
+<li>properties（属性）</li>
+<li>settings（全局配置参数）</li>
+<li>typeAliases（类型别名）</li>
+<li>typeHandlers（类型处理器）</li>
+<li>objectFactory（对象工厂）</li>
+<li>plugins（插件）</li>
+<li>environments（环境集合属性对象）</li>
+<li>environment（环境子属性对象）</li>
+<li>transactionManager（事务管理）</li>
+<li>dataSource（数据源）</li>
+<li>mappers（映射器）</li>
+</ul>
+
+
+
+<h3 id="2properties">2.properties</h3>
+
+<p>此标签主要用来引用额外的properties文件,用来解耦xml和其他特殊的配置参数,比如对于数据库的配置,可以单独创建一个db.properties文件来保存</p>
+
+
+
+<pre class="prettyprint"><code class=" hljs avrasm">jdbc<span class="hljs-preprocessor">.driver</span>=<span class="hljs-keyword">com</span><span class="hljs-preprocessor">.mysql</span><span class="hljs-preprocessor">.jdbc</span><span class="hljs-preprocessor">.Driver</span>
+jdbc<span class="hljs-preprocessor">.url</span>=jdbc:mysql://localhost:<span class="hljs-number">3306</span>/shopdemo
+jdbc<span class="hljs-preprocessor">.username</span>=root
+jdbc<span class="hljs-preprocessor">.password</span>=<span class="hljs-number">123456</span></code></pre>
+
+<p>然后在配置文件中使用$符号来引用</p>
+
+
+
+<pre class="prettyprint"><code class=" hljs xml"><span class="hljs-pi">&lt;?xml version="1.0" encoding="UTF-8" ?&gt;</span>
+<span class="hljs-doctype">&lt;!DOCTYPE configuration
+        PUBLIC "-//mybatis.org//DTD Config 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-config.dtd"&gt;</span>
+<span class="hljs-tag">&lt;<span class="hljs-title">configuration</span>&gt;</span>
+        <span class="hljs-comment">&lt;!--这里引入我们的配置文件--&gt;</span>
+    <span class="hljs-tag">&lt;<span class="hljs-title">properties</span> <span class="hljs-attribute">resource</span>=<span class="hljs-value">"db.properties"</span>&gt;</span>
+        <span class="hljs-comment">&lt;!--这里面也可以单独定义参数--&gt;</span>
+        <span class="hljs-tag">&lt;<span class="hljs-title">property</span> <span class="hljs-attribute">name</span>=<span class="hljs-value">""</span> <span class="hljs-attribute">value</span>=<span class="hljs-value">""</span>/&gt;</span>
+    <span class="hljs-tag">&lt;/<span class="hljs-title">properties</span>&gt;</span>
+    <span class="hljs-tag">&lt;<span class="hljs-title">environments</span> <span class="hljs-attribute">default</span>=<span class="hljs-value">"development"</span>&gt;</span>
+        <span class="hljs-tag">&lt;<span class="hljs-title">environment</span> <span class="hljs-attribute">id</span>=<span class="hljs-value">"development"</span>&gt;</span>
+            <span class="hljs-tag">&lt;<span class="hljs-title">transactionManager</span> <span class="hljs-attribute">type</span>=<span class="hljs-value">"JDBC"</span> /&gt;</span>
+            <span class="hljs-tag">&lt;<span class="hljs-title">dataSource</span> <span class="hljs-attribute">type</span>=<span class="hljs-value">"POOLED"</span>&gt;</span>
+                <span class="hljs-comment">&lt;!--这里使用${}来调用配置文件里面的参数--&gt;</span>
+                <span class="hljs-tag">&lt;<span class="hljs-title">property</span> <span class="hljs-attribute">name</span>=<span class="hljs-value">"driver"</span> <span class="hljs-attribute">value</span>=<span class="hljs-value">"${jdbc.driver}"</span>/&gt;</span>
+                <span class="hljs-tag">&lt;<span class="hljs-title">property</span> <span class="hljs-attribute">name</span>=<span class="hljs-value">"url"</span> <span class="hljs-attribute">value</span>=<span class="hljs-value">"${jdbc.url}"</span>/&gt;</span>
+                <span class="hljs-tag">&lt;<span class="hljs-title">property</span> <span class="hljs-attribute">name</span>=<span class="hljs-value">"username"</span> <span class="hljs-attribute">value</span>=<span class="hljs-value">"${jdbc.username}"</span>/&gt;</span>
+                <span class="hljs-tag">&lt;<span class="hljs-title">property</span> <span class="hljs-attribute">name</span>=<span class="hljs-value">"password"</span> <span class="hljs-attribute">value</span>=<span class="hljs-value">"${jdbc.password}"</span>/&gt;</span>
+            <span class="hljs-tag">&lt;/<span class="hljs-title">dataSource</span>&gt;</span>
+        <span class="hljs-tag">&lt;/<span class="hljs-title">environment</span>&gt;</span>
+    <span class="hljs-tag">&lt;/<span class="hljs-title">environments</span>&gt;</span>
+
+<span class="hljs-tag">&lt;/<span class="hljs-title">configuration</span>&gt;</span></code></pre>
+
+<p><font color="red">如果使用这种方式就要了解mybatis对外部参数引用的过程,不然如果命名一样的参数会出现覆盖现象</font> <br />
+1. 在 properties 元素体内定义的属性首先被读取。  <br />
+2. 然后会读取properties 元素中resource或 url 加载的属性，它会覆盖已读取的同名属性。  <br />
+3. 最后读取parameterType传递的属性，它会覆盖已读取的同名属性。</p>
+
+<p>因此，通过parameterType传递的属性具有最高优先级，resource或 url 加载的属性次之，最低优先级的是 properties 元素体内定义的属性。</p>
+
+
+
+<h3 id="3settings">3.settings</h3>
+
+<p>这个是mybatis运行参数的配置,运行参数将会影响mybatis的运行行为。具体可配置的如下表. <br />
+<img src="http://img.blog.csdn.net/20160415193432637" alt="这里写图片描述" title="" /> <br />
+<img src="http://img.blog.csdn.net/20160415193530101" alt="这里写图片描述" title="" /> <br />
+<img src="http://img.blog.csdn.net/20160415193544758" alt="这里写图片描述" title="" /></p>
+
+
+
+<h3 id="4typealiases">4.typeAliases</h3>
+
+<p>这个是配置类型别名,一般针对自己写的pojo类,因为写全部的类路径名实在是太长了,用这个定义下会省事很多.</p>
+
+
+
+<h4 id="1预设别名">1.预设别名</h4>
+
+<table>
+<thead>
+<tr>
+  <th align="center">别名</th>
+  <th align="center">映射的类型</th>
+</tr>
+</thead>
+<tbody><tr>
+  <td align="center">_byte</td>
+  <td align="center">byte</td>
+</tr>
+<tr>
+  <td align="center">_long</td>
+  <td align="center">long</td>
+</tr>
+<tr>
+  <td align="center">_short</td>
+  <td align="center">short</td>
+</tr>
+<tr>
+  <td align="center">_int</td>
+  <td align="center">int</td>
+</tr>
+<tr>
+  <td align="center">_integer</td>
+  <td align="center">int</td>
+</tr>
+<tr>
+  <td align="center">_double</td>
+  <td align="center">double</td>
+</tr>
+<tr>
+  <td align="center">_float</td>
+  <td align="center">float</td>
+</tr>
+<tr>
+  <td align="center">_boolean</td>
+  <td align="center">boolean</td>
+</tr>
+<tr>
+  <td align="center">string</td>
+  <td align="center">String</td>
+</tr>
+<tr>
+  <td align="center">byte</td>
+  <td align="center">Byte</td>
+</tr>
+<tr>
+  <td align="center">long</td>
+  <td align="center">Long</td>
+</tr>
+<tr>
+  <td align="center">short</td>
+  <td align="center">Short</td>
+</tr>
+<tr>
+  <td align="center">int</td>
+  <td align="center">Integer</td>
+</tr>
+<tr>
+  <td align="center">integer</td>
+  <td align="center">Integer</td>
+</tr>
+<tr>
+  <td align="center">double</td>
+  <td align="center">Double</td>
+</tr>
+<tr>
+  <td align="center">float</td>
+  <td align="center">Float</td>
+</tr>
+<tr>
+  <td align="center">boolean</td>
+  <td align="center">Boolean</td>
+</tr>
+<tr>
+  <td align="center">date</td>
+  <td align="center">Date</td>
+</tr>
+<tr>
+  <td align="center">decimal</td>
+  <td align="center">BigDecimal</td>
+</tr>
+<tr>
+  <td align="center">bigdecimal</td>
+  <td align="center">BigDecimal</td>
+</tr>
+</tbody></table>
+
+
+
+
+<h4 id="2自定义别名">2.自定义别名</h4>
+
+
+
+<pre class="prettyprint"><code class=" hljs xml">    <span class="hljs-tag">&lt;<span class="hljs-title">typeAliases</span>&gt;</span>
+        <span class="hljs-comment">&lt;!--单个映射配置--&gt;</span>
+        <span class="hljs-tag">&lt;<span class="hljs-title">typeAlias</span> <span class="hljs-attribute">type</span>=<span class="hljs-value">"com.aust.model.User"</span>/&gt;</span>
+        <span class="hljs-comment">&lt;!--映射包内的所有文件,默认别名为java文件类名,首字母大小写均可,但一般小写--&gt;</span>
+        <span class="hljs-tag">&lt;<span class="hljs-title">package</span> <span class="hljs-attribute">name</span>=<span class="hljs-value">"com.aust.model"</span>/&gt;</span>
+    <span class="hljs-tag">&lt;/<span class="hljs-title">typeAliases</span>&gt;</span></code></pre>
+
+<hr />
+
+
+
+<h3 id="5typehandlers">5.typeHandlers</h3>
+
+<p>类型处理器用于java类型和jdbc类型映射,这个一般mybatis自带的类型处理器基本上满足日常需求，不需要单独定义。具体转换可以查询相关文档</p>
+
+
+
+<h3 id="6objectfactory">6.objectFactory</h3>
+
+<p>MyBatis 每次创建结果对象的新实例时，它都会使用一个对象工厂（ObjectFactory）实例来完成。默认的对象工厂需要做的仅仅是实例化目标类，要么通过默认构造方法，要么在参数映射存在的时候通过参数构造方法来实例化。默认情况下，我们不需要配置，mybatis会调用默认实现的objectFactory。</p>
+
+
+
+<h3 id="7plugin">7.plugin</h3>
+
+<p>plugins 是一个可选配置。mybatis中的plugin其实就是个interceptor， 它可以拦截Executor 、ParameterHandler 、ResultSetHandler 、StatementHandler 的部分方法，处理我们自己的逻辑。Executor就是真正执行sql语句的东西， ParameterHandler 是处理我们传入参数的，还记得前面讲TypeHandler的时候提到过，mybatis默认帮我们实现了不少的typeHandler, 当我们不显示配置typeHandler的时候，mybatis会根据参数类型自动选择合适的typeHandler执行，其实就是ParameterHandler 在选择。ResultSetHandler 就是处理返回结果的。</p>
+
+
+
+<h3 id="8mappers">8.mappers</h3>
+
+
+
+<pre class="prettyprint"><code class=" hljs d"><span class="hljs-comment">//使用相对于类路径的资源</span>
+&lt;mapper resource=<span class="hljs-string">"sqlmap/User.xml"</span> /&gt;
+
+<span class="hljs-comment">//使用完全限定路径</span>
+&lt;mapper url=<span class="hljs-string">"file:///D:\workspace_spingmvc\mybatis_01\config\sqlmap\User.xml"</span> /&gt;
+
+<span class="hljs-comment">//使用mapper接口类路径,也就是说使用mapper代理开发dao</span>
+&lt;mapper <span class="hljs-keyword">class</span>=<span class="hljs-string">"cn.itcast.mybatis.mapper.UserMapper"</span>/&gt;
+<span class="hljs-comment">//注意：此种方法要求mapper接口名称和mapper映射文件名称相同，且放在同一个目录中。</span>
+
+<span class="hljs-comment">//注册指定包下的所有mapper接口,也就是说使用mapper代理开发dao</span>
+&lt;<span class="hljs-keyword">package</span> name=<span class="hljs-string">"cn.itcast.mybatis.mapper"</span>/&gt;
+<span class="hljs-comment">//注意：此种方法要求mapper接口名称和mapper映射文件名称相同，且放在同一个目录中。</span></code></pre>
+
+<hr />
+
+
+
+<h2 id="二mapperxml文件">二.Mapper.xml文件</h2>
+
+
+
+<h3 id="1输入类型parametertype">1.输入类型parameterType</h3>
+
+<p>输入类型可以为简单类型,pojo类,hashmap等.</p>
+
+
+
+<h4 id="1传递简单类型">1.传递简单类型</h4>
+
+<p>mybatis会根据预设别名typeAliases来自动解析类型</p>
+
+
+
+<pre class="prettyprint"><code class=" hljs cs"><span class="hljs-comment">//传入简单类型int</span>
+&lt;<span class="hljs-keyword">select</span> id=<span class="hljs-string">"findUserById"</span> parameterType=<span class="hljs-string">"int"</span> resultType=<span class="hljs-string">"com.aust.model.User"</span>&gt;
+        SELECT * FROM user WHERE id=<span class="hljs-preprocessor">#{id}</span>
+    &lt;/<span class="hljs-keyword">select</span>&gt;</code></pre>
+
+
+
+<h4 id="2传入hashmap">2.传入hashmap</h4>
+
+<p>传入hashmap的话,则#和$取出的参数都是hashmap中的key</p>
+
+
+
+<pre class="prettyprint"><code class=" hljs xml"><span class="hljs-comment">&lt;!--测试使用hashmap传入参数--&gt;</span>
+    <span class="hljs-tag">&lt;<span class="hljs-title">select</span> <span class="hljs-attribute">id</span>=<span class="hljs-value">"findUser"</span> <span class="hljs-attribute">parameterType</span>=<span class="hljs-value">"java.util.HashMap"</span> <span class="hljs-attribute">resultType</span>=<span class="hljs-value">"com.aust.model.User"</span>&gt;</span>
+        SELECT * FROM user WHERE id=#{id} AND nickname LIKE '%${nickname}%'
+    <span class="hljs-tag">&lt;/<span class="hljs-title">select</span>&gt;</span></code></pre>
+
+<p>测试代码</p>
+
+
+
+<pre class="prettyprint"><code class=" hljs lasso"><span class="hljs-comment">//测试取出单个</span>
+    @Test
+    <span class="hljs-keyword">public</span> <span class="hljs-literal">void</span> findUserTest(){
+        <span class="hljs-comment">//获取sqlsession</span>
+        SqlSession session <span class="hljs-subst">=</span> factory<span class="hljs-built_in">.</span>openSession();
+        <span class="hljs-comment">//创建mapper代理</span>
+        UserMapper mapper <span class="hljs-subst">=</span> session<span class="hljs-built_in">.</span>getMapper(UserMapper<span class="hljs-built_in">.</span>class);
+        <span class="hljs-comment">//利用mapper代理查询</span>
+        HashMap<span class="hljs-subst">&lt;</span><span class="hljs-built_in">String</span>,Object<span class="hljs-subst">&gt;</span> <span class="hljs-built_in">map</span> <span class="hljs-subst">=</span> <span class="hljs-literal">new</span> HashMap<span class="hljs-subst">&lt;&gt;</span>();
+        <span class="hljs-built_in">map</span><span class="hljs-built_in">.</span>put(<span class="hljs-string">"id"</span>,<span class="hljs-number">1</span>);
+        <span class="hljs-built_in">map</span><span class="hljs-built_in">.</span>put(<span class="hljs-string">"nickname"</span>,<span class="hljs-string">"牛"</span>);
+        User u <span class="hljs-subst">=</span> mapper<span class="hljs-built_in">.</span>findUser(<span class="hljs-built_in">map</span>);
+        session<span class="hljs-built_in">.</span>close();
+        System<span class="hljs-built_in">.</span>out<span class="hljs-built_in">.</span>println(u);
+    }</code></pre>
+
+<p><strong>有问题的就是当hashmap中对应的参数不存在的话,程序并不会报错,而是查不到结果,这里可能引发一些异常</strong></p>
+
+
+
+<h4 id="3传递pojo对象">3.传递pojo对象</h4>
+
+<p>这个如果没使用typeAliases来映射的话就直接传递完整类路径,使用的话就可以传递简单名称</p>
+
+
+
+<pre class="prettyprint"><code class=" hljs xml"> <span class="hljs-comment">&lt;!--根据id查询出用户信息(查询一条数据)--&gt;</span>
+    <span class="hljs-tag">&lt;<span class="hljs-title">select</span> <span class="hljs-attribute">id</span>=<span class="hljs-value">"findUserById"</span> <span class="hljs-attribute">parameterType</span>=<span class="hljs-value">"int"</span> <span class="hljs-attribute">resultType</span>=<span class="hljs-value">"com.aust.model.User"</span>&gt;</span>
+        SELECT * FROM user WHERE id=#{id}
+    <span class="hljs-tag">&lt;/<span class="hljs-title">select</span>&gt;</span></code></pre>
+
+
+
+<h3 id="2输出类型resulttype">2.输出类型resultType</h3>
+
+<p>和输入类型用法差不多</p>
+
+
+
+<h4 id="1输出简单类型">1.输出简单类型</h4>
+
+
+
+<pre class="prettyprint"><code class=" hljs xml"><span class="hljs-comment">&lt;!--输出简单类型int--&gt;</span>
+    <span class="hljs-tag">&lt;<span class="hljs-title">select</span> <span class="hljs-attribute">id</span>=<span class="hljs-value">"findUserCount"</span> <span class="hljs-attribute">parameterType</span>=<span class="hljs-value">"java.lang.String"</span> <span class="hljs-attribute">resultType</span>=<span class="hljs-value">"int"</span>&gt;</span>
+        SELECT COUNT(*) from user WHERE nickname LIKE '%${value}%'
+    <span class="hljs-tag">&lt;/<span class="hljs-title">select</span>&gt;</span></code></pre>
+
+<p>要注意的是输出简单类型必须查询出来的结果集有一条记录，最终将第一个字段的值转换为输出类型。 <br />
+使用session的selectOne可查询单条记录。</p>
+
+
+
+<h4 id="2输出pojo类型">2.输出pojo类型</h4>
+
+<p>mybatis使用session调用selectOne查询单条记录。和输入方式一样的用法</p>
+
+
+
+<h4 id="3pojo列表">3.pojo列表</h4>
+
+<p>mybatis使用session的selectList方法获取pojo列表。返回数据为List</p>
+
+
+
+<h4 id="4输出hashmap">4.输出hashmap</h4>
+
+<p>输出pojo对象可以改用hashmap输出类型，将输出的字段名称作为map的key，value为字段值。</p>
+
+
+
+<h3 id="3输出类型resultmap">3.输出类型resultMap</h3>
+
+<p>resultType可以指定pojo将查询结果映射为pojo，但需要pojo的属性名和sql查询的列名一致方可映射成功。如果sql查询字段名和pojo的属性名不一致，可以通过resultMap将字段名和属性名作一个对应关系，resultMap实质上还需要将查询结果映射到pojo对象中。resultMap可以实现将查询结果映射为复杂类型的pojo，比如在查询结果映射对象中包括pojo和list实现一对一查询和一对多查询。</p>
+
+
+
+<h4 id="1定义resultmap">1.定义resultMap</h4>
+
+
+
+<pre class="prettyprint"><code class=" hljs xml">    <span class="hljs-comment">&lt;!--id:此resultMap的唯一表示
+        type:映射的类型
+    --&gt;</span>
+    <span class="hljs-tag">&lt;<span class="hljs-title">resultMap</span> <span class="hljs-attribute">id</span>=<span class="hljs-value">"userMap"</span> <span class="hljs-attribute">type</span>=<span class="hljs-value">"com.aust.model.User"</span>&gt;</span>
+        <span class="hljs-comment">&lt;!--id:该查询记录的唯一标示,也就是主键
+            result:普通列映射标示
+            column:要映射的查询结果sql列
+            property;要映射为pojo的那个属性名
+        --&gt;</span>
+        <span class="hljs-tag">&lt;<span class="hljs-title">id</span> <span class="hljs-attribute">column</span>=<span class="hljs-value">"id_"</span> <span class="hljs-attribute">property</span>=<span class="hljs-value">"id"</span>/&gt;</span>
+        <span class="hljs-tag">&lt;<span class="hljs-title">result</span> <span class="hljs-attribute">column</span>=<span class="hljs-value">"username_"</span> <span class="hljs-attribute">property</span>=<span class="hljs-value">"username"</span>/&gt;</span>
+    <span class="hljs-tag">&lt;/<span class="hljs-title">resultMap</span>&gt;</span></code></pre>
+
+
+
+<h4 id="2使用resultmap">2.使用resultMap</h4>
+
+
+
+<pre class="prettyprint"><code class=" hljs xml"> <span class="hljs-comment">&lt;!--根据id查询出用户信息(查询一条数据)--&gt;</span>
+    <span class="hljs-tag">&lt;<span class="hljs-title">select</span> <span class="hljs-attribute">id</span>=<span class="hljs-value">"findUserById"</span> <span class="hljs-attribute">parameterType</span>=<span class="hljs-value">"int"</span> <span class="hljs-attribute">resultMap</span>=<span class="hljs-value">"userMap"</span>&gt;</span>
+        SELECT id id_,username username_,password,nickname,status FROM user WHERE id=#{id}
+    <span class="hljs-tag">&lt;/<span class="hljs-title">select</span>&gt;</span></code></pre>
+
+<p>从代码可以看出,我给id和username分别起了别名id_,username_,然后返回类型为之前定义的userMap,这样的话查询结果自动会把id_映射为User类的id,username_映射为User类的username. <br />
+<img src="http://img.blog.csdn.net/20160416000533799" alt="列表内容" title="" /></p>
+
+<p>下一篇关联查询会介绍更多</p>
+
+<hr />
+
+
+
+<h3 id="3动态sql">3.动态sql</h3>
+
+<p>通过mybatis提供的各种标签方法实现动态拼接sql。</p>
+
+
+
+<h4 id="1if标签">1.if标签</h4>
+
+
+
+<pre class="prettyprint"><code class=" hljs xml"><span class="hljs-comment">&lt;!-- 传递pojo综合查询用户信息 --&gt;</span>
+    <span class="hljs-tag">&lt;<span class="hljs-title">select</span> <span class="hljs-attribute">id</span>=<span class="hljs-value">"findUserList"</span> <span class="hljs-attribute">parameterType</span>=<span class="hljs-value">"user"</span> <span class="hljs-attribute">resultType</span>=<span class="hljs-value">"user"</span>&gt;</span>
+        select * from user 
+        where 1=1 
+        <span class="hljs-tag">&lt;<span class="hljs-title">if</span> <span class="hljs-attribute">test</span>=<span class="hljs-value">"id!=null and id!=''"</span>&gt;</span>
+        and id=#{id}
+        <span class="hljs-tag">&lt;/<span class="hljs-title">if</span>&gt;</span>
+        <span class="hljs-tag">&lt;<span class="hljs-title">if</span> <span class="hljs-attribute">test</span>=<span class="hljs-value">"username!=null and username!=''"</span>&gt;</span>
+        and username like '%${username}%'
+        <span class="hljs-tag">&lt;/<span class="hljs-title">if</span>&gt;</span>
+    <span class="hljs-tag">&lt;/<span class="hljs-title">select</span>&gt;</span></code></pre>
+
+
+
+<h4 id="2where标签">2.where标签</h4>
+
+<p>where主要解决了上面单纯用if标签还要写where 1=1这样的多余条件的情况.</p>
+
+
+
+<pre class="prettyprint"><code class=" hljs vbnet">&lt;<span class="hljs-keyword">select</span> id=<span class="hljs-string">"findUserList"</span> parameterType=<span class="hljs-string">"user"</span> resultType=<span class="hljs-string">"user"</span>&gt;
+        <span class="hljs-keyword">select</span> * <span class="hljs-keyword">from</span> user 
+        &lt;<span class="hljs-keyword">where</span>&gt;
+        &lt;<span class="hljs-keyword">if</span> test=<span class="hljs-string">"id!=null and id!=''"</span>&gt;
+        <span class="hljs-keyword">and</span> id=<span class="hljs-preprocessor">#{id}</span>
+        &lt;/<span class="hljs-keyword">if</span>&gt;
+        &lt;<span class="hljs-keyword">if</span> test=<span class="hljs-string">"username!=null and username!=''"</span>&gt;
+        <span class="hljs-keyword">and</span> username <span class="hljs-keyword">like</span> <span class="hljs-comment">'%${username}%'</span>
+        &lt;/<span class="hljs-keyword">if</span>&gt;
+        &lt;/<span class="hljs-keyword">where</span>&gt;
+    &lt;/<span class="hljs-keyword">select</span>&gt;</code></pre>
+
+
+
+<h4 id="3foreach标签">3.foreach标签</h4>
+
+<p>foreach遍历集合和数组进行sql语句拼接,看下面例子</p>
+
+<pre><code>SELECT * FROM USERS WHERE username LIKE '%张%' AND id IN (10,89,16)
+</code></pre>
+
+<p>有上面这样的sql,那么用foreach假设传了数组a{10,89,16}或者集合a{10,89,16}</p>
+
+
+
+<pre class="prettyprint"><code class=" hljs livecodeserver">&lt;foreach collection=<span class="hljs-string">"a"</span> <span class="hljs-built_in">open</span>=<span class="hljs-string">" and id in("</span> <span class="hljs-built_in">close</span>=<span class="hljs-string">")"</span> <span class="hljs-keyword">item</span>=<span class="hljs-string">"id"</span> separator=<span class="hljs-string">","</span> &gt;
+                <span class="hljs-comment">#{id}</span>
+&lt;/foreach&gt;</code></pre>
+
+<ul>
+<li>collection:传入的数组或者集合名称</li>
+<li>open:遍历开始前加入的前缀,这里是AND id IN (</li>
+<li>close:遍历结束加入的后缀,这里是)</li>
+<li>item:要遍历的项目,<strong>为pojo的时候,取出参数就要用#{pojo.属性名}</strong></li>
+<li>separator:每个项目之间的分隔符</li>
+</ul>
+
+<p>如果传递的为数组的话,里面还有有个index属性,来表示数组的下标</p>
+
+
+
+<h4 id="4sql片段">4.sql片段</h4>
+
+<p>Sql中可将重复的sql提取出来，使用时用include引用即可，最终达到sql重用的目的 <br />
+sql片段用sql标签包裹起来</p>
+
+
+
+<pre class="prettyprint"><code class=" hljs vbnet">&lt;sql id=<span class="hljs-string">"query_user_where"</span>&gt;
+    &lt;<span class="hljs-keyword">if</span> test=<span class="hljs-string">"id!=null and id!=''"</span>&gt;
+        <span class="hljs-keyword">and</span> id=<span class="hljs-preprocessor">#{id}</span>
+    &lt;/<span class="hljs-keyword">if</span>&gt;
+    &lt;<span class="hljs-keyword">if</span> test=<span class="hljs-string">"username!=null and username!=''"</span>&gt;
+        <span class="hljs-keyword">and</span> username <span class="hljs-keyword">like</span> <span class="hljs-comment">'%${username}%'</span>
+    &lt;/<span class="hljs-keyword">if</span>&gt;
+&lt;/sql&gt;</code></pre>
+
+<p>引用方式 <br />
+ <br />
+如果引用的为其他mapper.xml的片段,则需要使用  namespace.sql片段名</p>
+
+<hr />
+
+<p>项目示例:</p>
+
+<p>SSM框架整合: <a href="https://github.com/nl101531/JavaWEB">https://github.com/nl101531/JavaWEB</a></p>
+
+<p>自己做的一个项目: <a href="https://github.com/nl101531/AUSTOJ">https://github.com/nl101531/AUSTOJ</a></p></div>&#13;
+        <script type="text/javascript">&#13;
+            $(function () {&#13;
+                $('pre.prettyprint code').each(function () {&#13;
+                    var lines = $(this).text().split('\n').length;&#13;
+                    var $numbering = $('&lt;ul/&gt;').addClass('pre-numbering').hide();&#13;
+                    $(this).addClass('has-numbering').parent().append($numbering);&#13;
+                    for (i = 1; i &lt;= lines; i++) {&#13;
+                        $numbering.append($('&lt;li/&gt;').text(i));&#13;
+                    };&#13;
+                    $numbering.fadeIn(1700);&#13;
+                });&#13;
+            });&#13;
+        </script>&#13;
+   &#13;

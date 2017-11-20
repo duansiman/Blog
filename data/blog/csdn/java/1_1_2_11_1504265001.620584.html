@@ -1,0 +1,135 @@
+
+
+<span style="font-size:14px">监听器<br />&#13;
+<br />&#13;
+<br />&#13;
+   是指专门用于对其他对象身上发生的事件或状态进行监听和相应处理的对象，<br />&#13;
+   当被监听的对象发生变化时，立即采取相应的行动。<br />&#13;
+   Web监听器<br />&#13;
+      Servlet规范中定义的一种特殊类<br />&#13;
+      用于监听ServletContext、HttpSession和ServletRequest等域对象的创建与销毁事件<br />&#13;
+      用于监听域对象的属性发生修改的事件<br />&#13;
+      可以在事件发生前、发生后做一些必要的处理<br />&#13;
+   用途<br />&#13;
+        统计在线人数和在线用户<br />&#13;
+<span style="white-space:pre"></span>系统启动时加载初始化信息<br />&#13;
+<span style="white-space:pre"></span>统计网站访问量<br />&#13;
+<span style="white-space:pre"></span>跟Spring结合<br />&#13;
+<span style="white-space:pre"></span>优先级：监听器大于过滤器，过滤器大于Servlet<br />&#13;
+   分类（根据监听的对象划分）<br />&#13;
+      用于监听应用程序环境对象（ServletContext）的事件监听器<br />&#13;
+      用于监听用户会话对象（HttpSession）的事件监听器<br />&#13;
+      用于监听请求消息对象（ServletRequest）的事件监听器<br />&#13;
+      （根据监听对象划分）<br />&#13;
+       监听域对象自身的创建和销毁的事件监听器<br />&#13;
+       监听域对象中的属性的增加和删除的事件监听器<br />&#13;
+</span>&#13;
+<p><span style="font-size:14px">       监听绑定到HttpSession域中的某个对象的状态的事件监听器</span></p>&#13;
+<p><span style="font-size:14px">监听器实现的获取在线人数案例：</span></p>&#13;
+<p><span style="font-size:14px"></span></p><pre code_snippet_id="1664195" snippet_file_name="blog_20160427_1_3824914" name="code" class="java">public class User {
+     private String sessionIdString;
+     private String ipString;
+     private String firstTimeString;
+	public String getSessionIdString() {
+		return sessionIdString;
+	}
+	public void setSessionIdString(String sessionIdString) {
+		this.sessionIdString = sessionIdString;
+	}
+	public String getIpString() {
+		return ipString;
+	}
+	public void setIpString(String ipString) {
+		this.ipString = ipString;
+	}
+	public String getFirstTimeString() {
+		return firstTimeString;
+	}
+	public void setFirstTimeString(String firstTimeString) {
+		this.firstTimeString = firstTimeString;
+	}
+     
+     
+}
+</pre><pre code_snippet_id="1664195" snippet_file_name="blog_20160427_2_825509" name="code" class="java">@WebListener
+public class MyHttpSessionListener implements HttpSessionListener{
+   private int userNumber;
+	public void sessionCreated(HttpSessionEvent se) {
+		userNumber++;
+		se.getSession().getServletContext().setAttribute("userNumber", userNumber);
+	}
+
+	public void sessionDestroyed(HttpSessionEvent se) {
+		userNumber--;
+		se.getSession().getServletContext().setAttribute("userNumber", userNumber);
+	   ArrayList&lt;User&gt; userList =null;
+	   userList = (ArrayList&lt;User&gt;) se.getSession().getServletContext().getAttribute("userList");
+	   
+	   if(SessionUtil.getUserBySessionId(userList, se.getSession().getId()) != null){
+		   userList.remove(SessionUtil.getUserBySessionId(userList, se.getSession().getId()));
+	   }
+	}
+      
+}</pre><br />&#13;
+<br />&#13;
+<pre code_snippet_id="1664195" snippet_file_name="blog_20160427_3_127397" name="code" class="java">@WebListener
+public class MyServletRequestListener implements ServletRequestListener {
+    private ArrayList&lt;User&gt; userList;
+	@Override
+	public void requestDestroyed(ServletRequestEvent arg0) {
+
+	}
+
+	@Override
+	public void requestInitialized(ServletRequestEvent arg0) {
+        userList = (ArrayList&lt;User&gt;)arg0.getServletContext().getAttribute("userList");
+        if(userList == null){
+        	userList = new ArrayList&lt;User&gt;();
+        }
+        
+        HttpServletRequest request = (HttpServletRequest) arg0.getServletRequest();
+        String sessionIdString = request.getSession().getId();
+        
+        if(SessionUtil.getUserBySessionId(userList, sessionIdString) == null){
+        	User user = new User();
+        	user.setSessionIdString(sessionIdString);
+        	user.setFirstTimeString(new SimpleDateFormat("yyyy-MM-ddd HH:mm:ss").format(new Date()));
+        	user.setIpString(request.getRemoteAddr());
+        	userList.add(user);
+        }
+        arg0.getServletContext().setAttribute("userList", userList);
+	}
+
+}
+</pre><br />&#13;
+<pre code_snippet_id="1664195" snippet_file_name="blog_20160427_4_8033845" name="code" class="java">public class SessionUtil {
+      public static Object getUserBySessionId(ArrayList&lt;User&gt; userList,String sessionIdString){
+    	  for(int i = 0; i &lt; userList.size(); i++){
+    		  User user =userList.get(i);
+    		  if(user.getSessionIdString().equals(sessionIdString)){
+    			  return user;
+    		  }
+    	  }
+    	  return null;
+      }
+}
+</pre><br />&#13;
+页面：&#13;
+<p><span style="font-size:14px"></span></p><pre code_snippet_id="1664195" snippet_file_name="blog_20160427_5_3224297" name="code" class="java">  &lt;body&gt;
+    当前在线用户人数：${userNumber}&lt;br&gt;
+    &lt;%
+       ArrayList&lt;User&gt; userList = (ArrayList&lt;User&gt;)request.getServletContext().getAttribute("userList");
+       if(userList != null){
+        for(int i = 0; i &lt; userList.size(); i++){
+            User user = userList.get(i);
+     %&gt;
+     IP:&lt;%=user.getIpString() %&gt;,FirstTime:&lt;%=user.getFirstTimeString() %&gt;,SessionId:&lt;%=user.getSessionIdString() %&gt;&lt;br/&gt;
+     &lt;%
+        }
+        }
+       %&gt;
+  &lt;/body&gt;</pre><br />&#13;
+<br />&#13;
+&#13;
+<p><span style="font-size:14px">  </span></p>&#13;
+   &#13;

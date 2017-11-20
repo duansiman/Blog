@@ -1,0 +1,139 @@
+
+
+<p>1、内核链表定义</p>&#13;
+<p>在&lt;linux/list.h&gt;中定义<br />&#13;
+</p>&#13;
+<p></p>&#13;
+<pre code_snippet_id="129034" snippet_file_name="blog_20131226_1_9794223" name="code" class="objc">struct list_head{
+  struct list_head *next, *prev;
+};</pre>在list_head结构中包含两个指向list_head结构的指针next和prev，在实际使用中，它通常被组织成双向循环链表。&#13;
+<p></p>&#13;
+<p>内核链表结构体不包含数据域，只包含维护链表的指针域。</p>&#13;
+<p>内核链表被包含在其他数据结构体中使用。</p>&#13;
+<p><img src="http://img.blog.csdn.net/20131226154359437" alt="" /></p>&#13;
+<p>初始化链表头INIT_LIST_HEAD函数<br />&#13;
+<span style="color:#ff0000">void INIT_LIST_HEAD(struct list_head *list);</span><br />&#13;
+<span style="white-space:pre"></span>list:待初始化链表头<br />&#13;
+插入节点list_add函数<br />&#13;
+<span style="color:#ff0000">void list_add(struct list_head *new, struct list_head *head);<br />&#13;
+void list_add_tail(struct list_head *new, struct list_head *head);</span><br />&#13;
+<span style="white-space:pre"></span>new:待插入到链表的新节点<br />&#13;
+<span style="white-space:pre"></span>head:待插入到链表的链表头</p>&#13;
+<p>删除节点list_del函数<br />&#13;
+<span style="color:#ff0000">void list_del(struct list_head *entry);</span><br />&#13;
+<span style="white-space:pre"></span>entry:待删除的节点<br />&#13;
+提取数据结构list_entry宏<br />&#13;
+<span style="color:#ff0000">#define list_entry(ptr, type, member) container_of(ptr, type, member)</span><br />&#13;
+<span style="white-space:pre"></span>ptr:当前链表节点指针<br />&#13;
+<span style="white-space:pre"></span>type:包含该链表的数据结构体类型<br />&#13;
+<span style="white-space:pre"></span>member:在数据结构体类型中的list_head成员名称<br />&#13;
+<span style="white-space:pre"></span>返回:获取的数据结构体指针<br />&#13;
+<span style="white-space:pre"></span>实际是通过已知数据结构体中链表节点指针ptr，获取包含该链表节点的数据结构体指针</p>&#13;
+<p>遍历链表list_for_each宏<br />&#13;
+<span style="color:#ff0000">#define list_for_each(pos, head) for(pos = (head)-&gt;next; prefetch(pos-&gt;next), pos != (head); pos = pos-&gt;next)<br />&#13;
+#define list_for_each_safe(pos, n, head) for(pos = (head)-&gt;next, n= pos-&gt;next; pos !=(head); pos = n, n = pos-&gt;next)</span><br />&#13;
+<span style="white-space:pre"></span>pos:list_head指针类型的循环变量<br />&#13;
+<span style="white-space:pre"></span>n:list_head指针类型的循环变量<br />&#13;
+<span style="white-space:pre"></span>head:待遍历链表的链表头</p>&#13;
+<p>2、实例代码：</p>&#13;
+<p></p>&#13;
+<pre code_snippet_id="129034" snippet_file_name="blog_20131226_2_7602396" name="code" class="objc">/**
+*Copyright (c) 2013.TianYuan
+*All rights reserved.
+*
+*文件名称: listtest.c
+*文件标识: 内核链表的使用
+*
+*当前版本：1.0
+*作者：wuyq 
+*
+*取代版本：xxx
+*原作者：xxx
+*完成日期：2013-11-18
+*/
+#include &lt;linux/init.h&gt;
+#include &lt;linux/module.h&gt;
+#include &lt;linux/err.h&gt;
+#include &lt;linux/slab.h&gt;
+#include &lt;linux/list.h&gt;
+
+MODULE_LICENSE("GPL");
+
+#define EMPLOYEE_NUM	10
+
+struct employee
+{
+	char name[20];
+	int id;
+	int salary;
+	int age;
+	struct list_head list;
+};
+
+/*定义链表头节点*/
+struct list_head  employee_list;
+struct employee *employeep = NULL;/*保存首地址*/
+struct list_head *pos = NULL;/*list_for_each*/
+struct employee *employee_tmp = NULL;
+static int __init listtest_init(void)
+{
+	int i = 0;
+	
+	/*初始化链表头节点*/
+	INIT_LIST_HEAD(&amp;employee_list);
+	
+	/*申请employee空间*/
+	employeep = kmalloc(sizeof(struct employee)*EMPLOYEE_NUM, GFP_KERNEL);
+	if(IS_ERR(employeep)){
+		printk("kmalloc failed!\n");
+		return -ENOMEM;
+	}
+	memset(employeep, 0, sizeof(struct employee)*EMPLOYEE_NUM);
+	/*初始化每个struct*/
+	for(i=0; i&lt;EMPLOYEE_NUM; i++){
+		sprintf(employeep[i].name, "employee%d", i);
+		/*true*/sprintf((employeep+i)-&gt;name, "employee%d", i);
+		employeep[i].id = 10000 + i;
+		employeep[i].salary = 10000 + 1000*i;
+		/*添加节点到链表中*/
+		list_add(&amp;(employeep[i].list), &amp;employee_list);
+	}
+	/*链表节点的遍历*/	
+	list_for_each(pos, &amp;employee_list){
+		employee_tmp = list_entry(pos, struct employee, list);
+		printk("employee name :T=%s\tID:%d\tSalary:%d!\n",
+				employee_tmp-&gt;name,
+				employee_tmp-&gt;id,
+				employee_tmp-&gt;salary);
+	}	
+		
+	return 0;
+}
+
+static void __exit listtest_exit(void)
+{
+	int i = 0;
+	for(i=0; i&lt;EMPLOYEE_NUM; i++){
+		list_del(&amp;(employeep[i].list));
+	}
+	
+	kfree(employeep);
+}
+
+module_init(listtest_init);
+module_exit(listtest_exit);
+</pre><br />&#13;
+<pre code_snippet_id="129034" snippet_file_name="blog_20131226_3_3840405" name="code" class="plain">KERNELDIR ?=/root/Desktop/work/ldd3/linux-2.6.31_TX2440A
+PWD := $(shell pwd)
+obj-m += listtest.o
+
+default:
+	$(MAKE) -C $(KERNELDIR) M=$(PWD) modules
+
+clean:
+	@rm -f *.o *.ord* *.sy* *.mod.* *.ko
+</pre><br />&#13;
+<br />&#13;
+<br />&#13;
+<p></p>&#13;
+   &#13;

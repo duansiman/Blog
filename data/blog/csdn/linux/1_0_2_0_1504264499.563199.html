@@ -1,0 +1,17 @@
+
+<p><span style="font-size:24px;"><strong>      我们都知道，用户程序可以通过库函数来通知内核执行系统调用，由于是在内核空间中执行，所以，每一个步骤都需要非常小心，因为错误的操作随时可以导致系统崩溃。</strong></span></p><p><span style="font-size:24px;"><strong><br /></strong></span></p><p><span style="font-size:24px;"><strong>      系统调用必须仔细检查它们所有的参数是否合法有效。举例来说，与文件IO相关的系统调用必须检查文件描述符是否有效。与进程相关的函数必须检查提供的PID是否有效。必须检查每个参数，保证它们不但合法有效，而且正确。进程不应该让内核去访问那些无权访问的资源。</strong></span></p><p><span style="font-size:24px;"><strong><br /></strong></span></p><p><span style="font-size:24px;"><strong>      最重要的一种检查就是检查用户提供的指针是否有效。试想，如果一个进程可以给内核传递指针而又无需检查，那么它就可以给出一个它根本没有访问权限的指针，哄骗内核去为它拷贝不允许它访问的数据。在接收一个用户空间的指针之前，内核必须保证：</strong></span></p><p><span style="font-size:24px;"><strong><br /></strong></span></p><p><span style="font-size:24px;"><strong>      1.<span style="color:#ff0000;">指针指向的内存区域属于用户空间。进程决不能哄骗内核去读内核空间的数据</span></strong></span></p><p><span style="font-size:24px;"><strong>      2.<span style="color:#ff0000;">指针指向的内存区域在进程的地址空间里。进程决不能哄骗内核去读其他进程的数据</span></strong></span></p><p><span style="font-size:24px;"><strong>      3.<span style="color:#ff0000;">如果是读，该内存应该被标记为可读；如果是写，该内存应该被标记为可写；如果是可执行，该内存被标记为可执行。进程决不能绕过内存访问的限制</span></strong></span></p><p><span style="font-size:24px;"><strong><br /></strong></span></p><p><span style="font-size:24px;"><strong>      内核提供了两个方法来完成必须的检查和内核空间与用户空间之间的数据的来回拷贝。注意，内核无论何时都不能轻率的接受来自用户空间的指针！这两个方法中必须经常有一个被使用。</strong></span></p><p><span style="font-size:24px;"><strong><br /></strong></span></p><p><span style="font-size:24px;"><strong>      为了向用户空间写入数据，内核提供了 copy_to_user()，它需要三个参数。第一个参数是进程空间的目的内存地址，第二个是内核空间的源地址，第三个参数时需要拷贝的数据长度（字节数）。</strong></span></p><p><span style="font-size:24px;"><strong><br /></strong></span></p><p><span style="font-size:24px;"><strong>      为了从用户空间中读取数据，内核提供了 copy_from_user()，它和<span style="font-size:24px;">copy_to_user()相似。该函数把第二个参数指定的位置上的数据拷贝到第一个参数指定的位置上，拷贝的数据长度由第三个参数指定。</span></strong></span></p><p><span style="font-size:24px;"><strong><span style="font-size:24px;"><br /></span></strong></span></p><p><span style="font-size:24px;"><strong><span style="font-size:24px;">      如果执行成功，返回0；如果执行失败，系统调用返回标准 -EFAULT 。</span></strong></span></p><p><span style="font-size:24px;"><strong><span style="font-size:24px;"><br /></span></strong></span></p><p><span style="font-size:24px;"><strong><span style="font-size:24px;">      下面贴出《Linux内核设计与实现》中提供的一个演示示例，这是一个说明使用方法的示例，没有价值。</span></strong></span></p><p><span style="font-size:24px;"><strong><span style="font-size:24px;"></span></strong></span></p><pre name="code" class="cpp">SYSCALL_DEFINE3(silly_copy, 
+				unsigned long *, src, 
+				unsigned long *, dst, 
+				unsigned long len)
+{
+	/*内核空间地址*/
+	unsigned long buf;
+	/*将用户地址空间中的src拷贝进buf*/
+	if(copy_from_user(&amp;buf, src, len))
+		return -EFAULT;
+	/*将buf拷贝进用户地址空间中的dst*/
+	if(copy_to_user(dst, &amp;buf, len))
+		return -EFAULT;
+	/*返回拷贝的数据量*/
+	return len;
+}</pre><br />    <span style="font-size:24px;"><strong>  它所实现的功能是利用内核空间作为中转，把用户空间中的源地址数据拷贝到用户空间中的目的地址处，如下图所示：</strong></span><p></p><p style="text-align: center;"><span style="font-size:24px;"><strong><span style="font-size:24px;"><img src="http://img.blog.csdn.net/20130819130043390?watermark/2/text/aHR0cDovL2Jsb2cuY3Nkbi5uZXQvRExVVEJydWNlWmhhbmc=/font/5a6L5L2T/fontsize/400/fill/I0JBQkFCMA==/dissolve/70/gravity/SouthEast" alt="" /><br /></span></strong></span></p>   &#13;

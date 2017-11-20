@@ -1,0 +1,210 @@
+
+        <div class="markdown_views"><p><font color="brown">介绍：给定一种语言，定义它的文法的一种表示，并定义一个解释器，这个解释器使用该表示来解释语言中的例子。</font></p>
+
+<h1 id="一角色及作用">一、角色及作用</h1>
+
+<p><font color="green">可能上面对解释器模式的解释十分难以理解，为什么我们写代码又和语言有关了。这里我举个例子</font></p>
+
+<pre class="prettyprint"><code class=" hljs ">你是大神
+你是高富帅</code></pre>
+
+<p>这里可以解释成 - 你是[名词]的形式</p>
+
+
+
+<pre class="prettyprint"><code class=" hljs ">我是菜鸟
+我是穷矮丑</code></pre>
+
+<p>结合上面，我们可以解释成 - [名词]是[名词]的形式</p>
+
+<table>
+<thead>
+<tr>
+  <th>角色</th>
+  <th>作用</th>
+</tr>
+</thead>
+<tbody><tr>
+  <td>抽象表达式</td>
+  <td>抽象的解释操作父类，并定义一个抽象的解释方法</td>
+</tr>
+<tr>
+  <td>终结符表达式</td>
+  <td>实现文法中与元素相关联的解释操作，比如 A + B 这里A,B是终结符</td>
+</tr>
+<tr>
+  <td>非终结符表达式</td>
+  <td>实现文法中与非终结符有关的解释操作，非终结符表达式一般是文法中的运算符或者其他关键字</td>
+</tr>
+<tr>
+  <td>环境类</td>
+  <td>包含解释器之外的全局信息</td>
+</tr>
+</tbody></table>
+
+
+
+
+<h1 id="二打造加法计算器">二、打造加法计算器</h1>
+
+<p><strong>抽象表达式</strong></p>
+
+
+
+<pre class="prettyprint"><code class=" hljs cs"><span class="hljs-keyword">public</span> <span class="hljs-keyword">abstract</span> <span class="hljs-keyword">class</span> ArithmeticExpression {
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">abstract</span> <span class="hljs-keyword">int</span> <span class="hljs-title">interpret</span>();
+}</code></pre>
+
+<p><strong>数字解释器，终结符表达式</strong></p>
+
+
+
+<pre class="prettyprint"><code class=" hljs java"><span class="hljs-keyword">public</span> <span class="hljs-class"><span class="hljs-keyword">class</span> <span class="hljs-title">NumExpression</span> <span class="hljs-keyword">extends</span> <span class="hljs-title">ArithmeticExpression</span> {</span>
+    <span class="hljs-keyword">private</span> <span class="hljs-keyword">int</span> num;
+
+    <span class="hljs-keyword">public</span> <span class="hljs-title">NumExpression</span>(<span class="hljs-keyword">int</span> num) {
+        <span class="hljs-keyword">this</span>.num = num;
+    }
+
+    <span class="hljs-annotation">@Override</span>
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">int</span> <span class="hljs-title">interpret</span>() {
+        <span class="hljs-keyword">return</span> num;
+    }
+}</code></pre>
+
+<p><strong>运算符抽象解释器，因为有多种运算符，方便以后维护</strong></p>
+
+
+
+<pre class="prettyprint"><code class=" hljs java"><span class="hljs-keyword">public</span> <span class="hljs-keyword">abstract</span> <span class="hljs-class"><span class="hljs-keyword">class</span> <span class="hljs-title">OperatorExpression</span> <span class="hljs-keyword">extends</span> <span class="hljs-title">ArithmeticExpression</span> {</span>
+    <span class="hljs-keyword">protected</span> ArithmeticExpression exp1, exp2;
+
+    <span class="hljs-keyword">public</span> <span class="hljs-title">OperatorExpression</span>(ArithmeticExpression exp1, ArithmeticExpression exp2) {
+        <span class="hljs-keyword">this</span>.exp1 = exp1;
+        <span class="hljs-keyword">this</span>.exp2 = exp2;
+    }
+}</code></pre>
+
+<p><strong>加法解释器，非终结符表达式</strong></p>
+
+
+
+<pre class="prettyprint"><code class=" hljs java"><span class="hljs-keyword">public</span> <span class="hljs-class"><span class="hljs-keyword">class</span> <span class="hljs-title">AdditionExpression</span> <span class="hljs-keyword">extends</span> <span class="hljs-title">OperatorExpression</span> {</span>
+
+    <span class="hljs-keyword">public</span> <span class="hljs-title">AdditionExpression</span>(ArithmeticExpression exp1, ArithmeticExpression exp2) {
+        <span class="hljs-keyword">super</span>(exp1, exp2);
+    }
+
+    <span class="hljs-annotation">@Override</span>
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">int</span> <span class="hljs-title">interpret</span>() {
+        <span class="hljs-keyword">return</span> exp1.interpret() + exp2.interpret();
+    }
+
+}</code></pre>
+
+<p><strong>计算器，环境类</strong></p>
+
+
+
+<pre class="prettyprint"><code class=" hljs cs"><span class="hljs-keyword">public</span> <span class="hljs-keyword">class</span> Calculator {
+    <span class="hljs-comment">// 使用stack，后进先出，记录所有操作</span>
+    <span class="hljs-keyword">private</span> Stack&lt;ArithmeticExpression&gt; stack = <span class="hljs-keyword">new</span> Stack&lt;ArithmeticExpression&gt;();
+
+    <span class="hljs-comment">// 这里规定好，数字和符号之间用空格分隔</span>
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">int</span> <span class="hljs-title">calculate</span>(String exp) {
+        String[] eles = exp.split(<span class="hljs-string">" "</span>);
+        <span class="hljs-keyword">for</span> (<span class="hljs-keyword">int</span> i = <span class="hljs-number">0</span>; i &lt; eles.length; i++) {
+            NumExpression front = <span class="hljs-keyword">null</span>; <span class="hljs-comment">// 保留运算符前面的值</span>
+            NumExpression next = <span class="hljs-keyword">null</span>;<span class="hljs-comment">// 保留运算符后面的值</span>
+            <span class="hljs-keyword">switch</span> (eles[i]) {
+            <span class="hljs-keyword">case</span> <span class="hljs-string">"+"</span>:
+                front = (NumExpression) stack.peek();
+                next = <span class="hljs-keyword">new</span> NumExpression(Integer.valueOf(eles[++i]));
+                stack.push(next);
+                stack.push(<span class="hljs-keyword">new</span> AdditionExpression(front, next));
+                <span class="hljs-keyword">break</span>;
+            <span class="hljs-keyword">default</span>:
+                <span class="hljs-comment">// 其他为数字</span>
+                stack.push(<span class="hljs-keyword">new</span> NumExpression(Integer.valueOf(eles[i])));
+                <span class="hljs-keyword">break</span>;
+            }
+        }
+        <span class="hljs-keyword">return</span> stack.peek().interpret();
+    }
+}</code></pre>
+
+
+
+<h1 id="三我们还需要减法">三、我们还需要减法</h1>
+
+<p>增加减法，十分方便！</p>
+
+<p><strong>减法解释器</strong></p>
+
+
+
+<pre class="prettyprint"><code class=" hljs java"><span class="hljs-keyword">public</span> <span class="hljs-class"><span class="hljs-keyword">class</span> <span class="hljs-title">SubtractExpression</span> <span class="hljs-keyword">extends</span> <span class="hljs-title">OperatorExpression</span> {</span>
+
+    <span class="hljs-keyword">public</span> <span class="hljs-title">SubtractExpression</span>(ArithmeticExpression exp1, ArithmeticExpression exp2) {
+        <span class="hljs-keyword">super</span>(exp1, exp2);
+    }
+
+    <span class="hljs-annotation">@Override</span>
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">int</span> <span class="hljs-title">interpret</span>() {
+        <span class="hljs-keyword">return</span> exp1.interpret() - exp2.interpret();
+    }
+}</code></pre>
+
+<p><strong>计算器</strong></p>
+
+
+
+<pre class="prettyprint"><code class=" hljs r"><span class="hljs-keyword">...</span>
+<span class="hljs-keyword">...</span>
+case <span class="hljs-string">"-"</span>:
+    front = (NumExpression) stack.peek();
+    <span class="hljs-keyword">next</span> = new NumExpression(Integer.valueOf(eles[++i]));
+    stack.push(<span class="hljs-keyword">next</span>);
+    stack.push(new SubtractExpression(front, <span class="hljs-keyword">next</span>));
+    <span class="hljs-keyword">break</span>;
+<span class="hljs-keyword">...</span>
+<span class="hljs-keyword">...</span></code></pre>
+
+
+
+<h1 id="四看看结果">四、看看结果</h1>
+
+
+
+<pre class="prettyprint"><code class=" hljs avrasm">Calculator c = new Calculator()<span class="hljs-comment">;</span>
+System<span class="hljs-preprocessor">.out</span><span class="hljs-preprocessor">.println</span>(c<span class="hljs-preprocessor">.calculate</span>(<span class="hljs-string">"1 + 4"</span>))<span class="hljs-comment">;</span>
+System<span class="hljs-preprocessor">.out</span><span class="hljs-preprocessor">.println</span>(c<span class="hljs-preprocessor">.calculate</span>(<span class="hljs-string">"1 - 4"</span>))<span class="hljs-comment">;</span></code></pre>
+
+<p>输出</p>
+
+
+
+<pre class="prettyprint"><code class=" hljs diff">5
+<span class="hljs-deletion">-3</span></code></pre>
+
+<p><font color="red">总结：</font>解释器模式能灵活地实现扩展，实现时只需要增加非终结符来实现相关业务。缺点也是类的数量的膨胀，对于负责的文法，解释器的结构树也会十分负责，难以维护</p>
+
+<hr />
+
+<p><strong><em>更多模式：</em></strong><a href="http://blog.csdn.net/odeviloo/article/details/52382338">一天一个设计模式—分类与六大原则</a></p>
+
+<p><strong><em>更多源码：</em></strong> <a href="https://github.com/oDevilo/Java-Base">https://github.com/oDevilo/Java-Base</a></p></div>&#13;
+        <script type="text/javascript">&#13;
+            $(function () {&#13;
+                $('pre.prettyprint code').each(function () {&#13;
+                    var lines = $(this).text().split('\n').length;&#13;
+                    var $numbering = $('&lt;ul/&gt;').addClass('pre-numbering').hide();&#13;
+                    $(this).addClass('has-numbering').parent().append($numbering);&#13;
+                    for (i = 1; i &lt;= lines; i++) {&#13;
+                        $numbering.append($('&lt;li/&gt;').text(i));&#13;
+                    };&#13;
+                    $numbering.fadeIn(1700);&#13;
+                });&#13;
+            });&#13;
+        </script>&#13;
+   &#13;

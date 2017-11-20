@@ -1,0 +1,289 @@
+
+        <div class="markdown_views"><h1 id="1struts文件上传"><strong>1.Struts文件上传</strong></h1>
+
+<p>在Web开发中，会经常涉及到文件的上传和下载，比如在注册账户的时候，我们需要上传自己的头像等。 <br />
+我们可以利用Struts很方便地实现文件的上传。</p>
+
+
+
+<h2 id="11-开发步骤"><strong>1.1 开发步骤</strong></h2>
+
+<p>现在，假设我们要在注册的时候上传自己的头像。新建项目名称为StrutsFileUpAndDown，并引入Struts1.3</p>
+
+<p><strong>（1）首先，写注册的JSP页面register.jsp</strong> <br />
+它的body内容如下：</p>
+
+
+
+<pre class="prettyprint"><code class="language-html hljs "><span class="hljs-tag">&lt;<span class="hljs-title">body</span>&gt;</span>
+    <span class="hljs-tag">&lt;<span class="hljs-title">h1</span>&gt;</span>注册用户<span class="hljs-tag">&lt;/<span class="hljs-title">h1</span>&gt;</span>
+    <span class="vbscript">&lt;% --如果表单有文件控件，则需要重新指定表单的编码方式 --%&gt;</span>
+    <span class="hljs-tag">&lt;<span class="hljs-title">form</span> <span class="hljs-attribute">enctype</span>=<span class="hljs-value">"multipart/form-data"</span> <span class="hljs-attribute">action</span>=<span class="hljs-value">"/StrutsFileUpAndDown/register.do"</span> <span class="hljs-attribute">method</span>=<span class="hljs-value">"post"</span>&gt;</span>
+        名字：<span class="hljs-tag">&lt;<span class="hljs-title">input</span> <span class="hljs-attribute">type</span>=<span class="hljs-value">"text"</span> <span class="hljs-attribute">name</span>=<span class="hljs-value">"name"</span> /&gt;</span><span class="hljs-tag">&lt;<span class="hljs-title">br</span>&gt;</span> 
+        头像：<span class="hljs-tag">&lt;<span class="hljs-title">input</span> <span class="hljs-attribute">type</span>=<span class="hljs-value">"file"</span> <span class="hljs-attribute">name</span>=<span class="hljs-value">"photo"</span> /&gt;</span><span class="hljs-tag">&lt;<span class="hljs-title">br</span>&gt;</span> 
+        <span class="hljs-tag">&lt;<span class="hljs-title">input</span> <span class="hljs-attribute">type</span>=<span class="hljs-value">"submit"</span> <span class="hljs-attribute">value</span>=<span class="hljs-value">"注册"</span> /&gt;</span>
+    <span class="hljs-tag">&lt;/<span class="hljs-title">form</span>&gt;</span>
+<span class="hljs-tag">&lt;/<span class="hljs-title">body</span>&gt;</span></code></pre>
+
+<ul>
+<li>这里使用普通的HTML标签来写表单。<strong>一定要注意加上form的enctype属性，并且内容为”multipart/form-data”</strong></li>
+<li>这里必须使用post方法提交，get方法会出错</li>
+<li>action的地址刚开始的时候可以先空着，后面有了Action之后，再补上去。这里我的Action的path为”/register”</li>
+</ul>
+
+<p><strong>（2）添加对应的ActionForm，名字为UserForm</strong></p>
+
+
+
+<pre class="prettyprint"><code class="language-java hljs "><span class="hljs-keyword">public</span> <span class="hljs-class"><span class="hljs-keyword">class</span> <span class="hljs-title">UserForm</span> <span class="hljs-keyword">extends</span> <span class="hljs-title">ActionForm</span> {</span>
+    <span class="hljs-keyword">private</span> String name = <span class="hljs-keyword">null</span>;
+    <span class="hljs-keyword">private</span> FormFile photo = <span class="hljs-keyword">null</span>;
+    <span class="hljs-keyword">public</span> String <span class="hljs-title">getName</span>() {
+        <span class="hljs-keyword">return</span> name;
+    }
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">void</span> <span class="hljs-title">setName</span>(String name) {
+        <span class="hljs-keyword">this</span>.name = name;
+    }
+    <span class="hljs-keyword">public</span> FormFile <span class="hljs-title">getPhoto</span>() {
+        <span class="hljs-keyword">return</span> photo;
+    }
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">void</span> <span class="hljs-title">setPhoto</span>(FormFile photo) {
+        <span class="hljs-keyword">this</span>.photo = photo;
+    }
+}</code></pre>
+
+<ul>
+<li>要知道的是，JSP中的文件控件对应的是FormFile对象，该对象由Struts框架提供。</li>
+</ul>
+
+<p><strong>（2）添加对应的Action，名字为RegisterAction，并配置path为<code>/register</code></strong> <br />
+最关键的地方就在于Action是怎么写的，我们点击注册之后，是由Action来处理这个逻辑的，文件也就是通过这个Action传上来的。</p>
+
+<ul>
+<li>首先我们要得到UserForm中的内容：</li>
+</ul>
+
+
+
+<pre class="prettyprint"><code class="language-java hljs ">UserForm userForm = (UserForm) form;
+String username = userForm.getName();
+FormFile formFile = userForm.getPhoto();</code></pre>
+
+<ul>
+<li>接着，我们保存文件，FormFile对象有getInputStream()方法可以得到文件的输入流。此时我们还需要一个输出流OutputStream，用于将输入流拿到的东西通过输出流保存到服务器的磁盘。但要注意输出流的输出路径是Tomcat下的绝对路径</li>
+</ul>
+
+
+
+<pre class="prettyprint"><code class="language-java hljs "><span class="hljs-comment">// 文件名称</span>
+String fileName = formFile.getFileName();
+<span class="hljs-comment">// 获取输入流</span>
+InputStream is = formFile.getInputStream();
+<span class="hljs-comment">// 得到一个输出流</span>
+<span class="hljs-comment">// 首先得到file文件夹上传到Tomcat服务器后的绝对路径</span>
+String path = request.getServletContext().getRealPath(<span class="hljs-string">"file"</span>);
+OutputStream os = <span class="hljs-keyword">new</span> FileOutputStream(path + <span class="hljs-string">"\\"</span> + fileName);
+<span class="hljs-comment">// 读取文件并写出到服务器file文件夹下</span>
+<span class="hljs-keyword">int</span> len = <span class="hljs-number">0</span>;
+<span class="hljs-comment">// 做一个缓存</span>
+<span class="hljs-keyword">byte</span>[] bytes = <span class="hljs-keyword">new</span> <span class="hljs-keyword">byte</span>[<span class="hljs-number">1024</span>];
+<span class="hljs-comment">// 循环处理</span>
+<span class="hljs-keyword">while</span> ((len = is.read(bytes)) &gt; <span class="hljs-number">0</span>) {
+    <span class="hljs-comment">// 读一点，写一点</span>
+    os.write(bytes, <span class="hljs-number">0</span>, len);
+}</code></pre>
+
+<p>当然，这整个过程要处理异常。如果不出错的话，我们就可以将文件上传给服务器了。</p>
+
+<p>【注意，这里省略一些简单的配置步骤】</p>
+
+
+
+<h2 id="12-改进"><strong>1.2 改进</strong></h2>
+
+<p><strong>（1）问题1：中文乱码的处理，如果用户上传的文件是中文名称会出现乱码</strong></p>
+
+<p>此时，过滤器可以很好地解决这个问题。只需要加上一个过滤器，将request的编码设置为utf-8即可。</p>
+
+
+
+<pre class="prettyprint"><code class="language-java hljs "><span class="hljs-keyword">public</span> <span class="hljs-class"><span class="hljs-keyword">class</span> <span class="hljs-title">EncodingFilter</span> <span class="hljs-keyword">implements</span> <span class="hljs-title">Filter</span> {</span>
+    <span class="hljs-annotation">@Override</span>
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">void</span> <span class="hljs-title">destroy</span>() {
+
+    }
+
+    <span class="hljs-annotation">@Override</span>
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">void</span> <span class="hljs-title">doFilter</span>(ServletRequest arg0, ServletResponse arg1,
+            FilterChain arg2) <span class="hljs-keyword">throws</span> IOException, ServletException {
+        arg0.setCharacterEncoding(<span class="hljs-string">"utf-8"</span>);
+        arg2.doFilter(arg0, arg1);
+    }
+
+    <span class="hljs-annotation">@Override</span>
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">void</span> <span class="hljs-title">init</span>(FilterConfig arg0) <span class="hljs-keyword">throws</span> ServletException {
+    }
+}</code></pre>
+
+<p>配置如下：</p>
+
+
+
+<pre class="prettyprint"><code class="language-xml hljs "><span class="hljs-tag">&lt;<span class="hljs-title">filter</span>&gt;</span>
+    <span class="hljs-tag">&lt;<span class="hljs-title">filter-name</span>&gt;</span>EncodingFilter<span class="hljs-tag">&lt;/<span class="hljs-title">filter-name</span>&gt;</span>
+    <span class="hljs-tag">&lt;<span class="hljs-title">filter-class</span>&gt;</span>com.gavin.filter.EncodingFilter<span class="hljs-tag">&lt;/<span class="hljs-title">filter-class</span>&gt;</span>
+<span class="hljs-tag">&lt;/<span class="hljs-title">filter</span>&gt;</span>
+<span class="hljs-tag">&lt;<span class="hljs-title">filter-mapping</span>&gt;</span>
+    <span class="hljs-tag">&lt;<span class="hljs-title">filter-name</span>&gt;</span>EncodingFilter<span class="hljs-tag">&lt;/<span class="hljs-title">filter-name</span>&gt;</span>
+    <span class="hljs-tag">&lt;<span class="hljs-title">url-pattern</span>&gt;</span>/*<span class="hljs-tag">&lt;/<span class="hljs-title">url-pattern</span>&gt;</span>
+<span class="hljs-tag">&lt;/<span class="hljs-title">filter-mapping</span>&gt;</span></code></pre>
+
+<p><strong>（2）问题2：这里我们保存在服务器的文件名称是用户上传的名称，那么如果有两个用户上传的文件名称一样就会出现覆盖的情况，所以我们要在服务器端进行文件名的处理</strong></p>
+
+<p>这里，我们不再使用用户上传的文件的名称。那么又怎么样才能保证文件名的唯一呢？</p>
+
+<ul>
+<li>1.一种方法是以当前的时间（年+月+日+时+分+秒+毫秒）作为文件的名称</li>
+<li>2.另外，可以直接使用java.util.UUID类，UUID不会重复，这种方法最为简单。</li>
+</ul>
+
+
+
+<pre class="prettyprint"><code class="language-java hljs ">String uuid = UUID.randomUUID().toString();</code></pre>
+
+<ul>
+<li>3.当然，使用UUID之后，还要加上原来文件的后缀才行，所以干脆写一个工具类：</li>
+</ul>
+
+
+
+<pre class="prettyprint"><code class="language-java hljs "><span class="hljs-keyword">public</span> <span class="hljs-class"><span class="hljs-keyword">class</span> <span class="hljs-title">MyTools</span> {</span>
+    <span class="hljs-javadoc">/**
+     * 得到文件后缀
+     *<span class="hljs-javadoctag"> @param</span> fileName
+     *<span class="hljs-javadoctag"> @return</span>
+     */</span>
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">static</span> String <span class="hljs-title">getFileSuffix</span>(String fileName) {
+        <span class="hljs-keyword">return</span> fileName.substring(fileName.lastIndexOf(<span class="hljs-string">"."</span>));
+    }
+
+    <span class="hljs-javadoc">/**
+     * 得到UUID
+     *<span class="hljs-javadoctag"> @return</span>
+     */</span>
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">static</span> String <span class="hljs-title">getUUID</span>(){
+        String uuid = UUID.randomUUID().toString();
+        <span class="hljs-keyword">return</span> uuid;
+    }
+}</code></pre>
+
+<p><strong>（3）问题3：如果用户上传的不是图片怎么办？如果用户上传的图片太大了怎么办？</strong></p>
+
+<p>所以这里我们要进行文件的限制，要进行文件的类型和大小的限制，如果不符合要求，则跳转至一个错误页面并给出提示： <br />
+这里我限制文件的大小上限为10MB，如下：</p>
+
+
+
+<pre class="prettyprint"><code class="language-java hljs "><span class="hljs-keyword">if</span> (fileSize &gt; <span class="hljs-number">10</span> * <span class="hljs-number">1024</span> * <span class="hljs-number">1024</span>) {
+    request.setAttribute(<span class="hljs-string">"error"</span>, <span class="hljs-string">"文件大小不能超过10MB!"</span>);
+    <span class="hljs-keyword">return</span> mapping.findForward(<span class="hljs-string">"error"</span>);
+}
+
+<span class="hljs-keyword">if</span>(!formFile.getContentType().startsWith(<span class="hljs-string">"image/"</span>)){
+    request.setAttribute(<span class="hljs-string">"error"</span>, <span class="hljs-string">"文件格式有错，请检查!"</span>);
+    <span class="hljs-keyword">return</span> mapping.findForward(<span class="hljs-string">"error"</span>);
+}</code></pre>
+
+<blockquote>
+  <p>【注意】文件的类型是不是图片，不是通过后缀名来判断的，要调用FormFile的方法，具体的文件类型你可以查看Tomcat安装目录下的conf文件夹下的web.xml文件中的配置。</p>
+</blockquote>
+
+<p><strong>所以，最后，一个完整的RegisterAction是这样的：</strong></p>
+
+
+
+<pre class="prettyprint"><code class="language-java hljs "><span class="hljs-keyword">public</span> <span class="hljs-class"><span class="hljs-keyword">class</span> <span class="hljs-title">RegisterAction</span> <span class="hljs-keyword">extends</span> <span class="hljs-title">Action</span> {</span>
+    <span class="hljs-keyword">public</span> ActionForward <span class="hljs-title">execute</span>(ActionMapping mapping, ActionForm form,
+            HttpServletRequest request, HttpServletResponse response) {
+        UserForm userForm = (UserForm) form;
+        String username = userForm.getName();
+        FormFile formFile = userForm.getPhoto();
+
+        <span class="hljs-comment">// 通过FormFile我们可以获取关于用户上传文件的各种信息，比如大小，名字等</span>
+        String fileName = formFile.getFileName();
+        <span class="hljs-keyword">int</span> fileSize = formFile.getFileSize();
+
+        <span class="hljs-keyword">if</span> (fileSize &gt; <span class="hljs-number">10</span> * <span class="hljs-number">1024</span> * <span class="hljs-number">1024</span>) {
+            request.setAttribute(<span class="hljs-string">"error"</span>, <span class="hljs-string">"文件大小不能超过10MB!"</span>);
+            <span class="hljs-keyword">return</span> mapping.findForward(<span class="hljs-string">"error"</span>);
+        }
+
+        <span class="hljs-keyword">if</span>(!formFile.getContentType().startsWith(<span class="hljs-string">"image/"</span>)){
+            request.setAttribute(<span class="hljs-string">"error"</span>, <span class="hljs-string">"文件格式有错，请检查!"</span>);
+            <span class="hljs-keyword">return</span> mapping.findForward(<span class="hljs-string">"error"</span>);
+        }
+
+        InputStream is = <span class="hljs-keyword">null</span>;
+        OutputStream os = <span class="hljs-keyword">null</span>;
+        String uuid = MyTools.getUUID();
+        String suffix = MyTools.getFileSuffix(fileName);
+        String newFileName = uuid + suffix;
+        <span class="hljs-keyword">try</span> {
+            is = formFile.getInputStream();
+            String path = request.getServletContext().getRealPath(<span class="hljs-string">"file"</span>);
+            System.out.println(path);
+            os = <span class="hljs-keyword">new</span> FileOutputStream(path + <span class="hljs-string">"\\"</span> + newFileName);
+            <span class="hljs-keyword">int</span> len = <span class="hljs-number">0</span>;
+            <span class="hljs-keyword">byte</span>[] bytes = <span class="hljs-keyword">new</span> <span class="hljs-keyword">byte</span>[<span class="hljs-number">1024</span>];
+            <span class="hljs-keyword">while</span> ((len = is.read(bytes)) &gt; <span class="hljs-number">0</span>) {
+                os.write(bytes, <span class="hljs-number">0</span>, len);
+            }
+
+            <span class="hljs-comment">//这里省略保存数据库的操作</span>
+            <span class="hljs-comment">//逻辑上的正常跳转，这里也省略</span>
+        } <span class="hljs-keyword">catch</span> (Exception e) {
+            e.printStackTrace();
+        } <span class="hljs-keyword">finally</span> {
+            <span class="hljs-keyword">try</span> {
+                <span class="hljs-keyword">if</span> (os != <span class="hljs-keyword">null</span>) {
+                    os.close();
+                }
+                <span class="hljs-keyword">if</span> (is != <span class="hljs-keyword">null</span>) {
+                    is.close();
+                }
+            } <span class="hljs-keyword">catch</span> (Exception e2) {
+                e2.printStackTrace();
+            }
+        }
+        request.setAttribute(<span class="hljs-string">"error"</span>, <span class="hljs-string">"注册出错！"</span>);
+        <span class="hljs-keyword">return</span> mapping.findForward(<span class="hljs-string">"error"</span>);
+    }
+}</code></pre>
+
+
+
+<h1 id="2struts文件下载"><strong>2.Struts文件下载</strong></h1>
+
+<p>文件下载，我们在介绍原生Servlet的时候已经介绍过，可以参考<a href="http://blog.csdn.net/gavin_john/article/details/51219720">【Servlet——使用http响应头Content-Disposition下载文件的示例】</a>。</p>
+
+<p>当然，那时候我们是把下载的业务逻辑写在一个Servlet中，这里其实也没有什么不同，只不过我们要将业务逻辑写在一个Struts的Action中，并且该Action不需要配置相应的表单。</p>
+
+<p>当我们点击下载的超链接时，让它请求这个Action即可。并且最后让该Action跳转至原来的页面：</p>
+
+<pre class="prettyprint"><code class="language-java hljs "><span class="hljs-keyword">return</span> mapping.findForward(<span class="hljs-string">"goback"</span>);</code></pre>
+
+<p><img src="http://img.blog.csdn.net/20160728181403300" alt="goback" title="" /></p></div>&#13;
+        <script type="text/javascript">&#13;
+            $(function () {&#13;
+                $('pre.prettyprint code').each(function () {&#13;
+                    var lines = $(this).text().split('\n').length;&#13;
+                    var $numbering = $('&lt;ul/&gt;').addClass('pre-numbering').hide();&#13;
+                    $(this).addClass('has-numbering').parent().append($numbering);&#13;
+                    for (i = 1; i &lt;= lines; i++) {&#13;
+                        $numbering.append($('&lt;li/&gt;').text(i));&#13;
+                    };&#13;
+                    $numbering.fadeIn(1700);&#13;
+                });&#13;
+            });&#13;
+        </script>&#13;
+   &#13;

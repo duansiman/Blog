@@ -1,0 +1,232 @@
+
+
+        USB Gadget是分层的软件结构，本文分析的是2.6.32.2版本的Gadget软件结构，这个软件结构与以前版本的变化很大。USB Gadget软件结构总共分为三层：<br />&#13;
+一. UDC层<br />&#13;
+        这一层是与硬件相关层。相关文件s3c2410_udc.c s3c2410_udc.h。s3c2410设备控制器作为一个linux设备在这一层是作为platform设备而注册到linux设备模型中的。相关数据结构以及相关函数如下：<br />&#13;
+1 数据结构<pre name="code" class="cpp">struct s3c2410_udc {
+	spinlock_t			lock;
+
+	struct s3c2410_ep		ep[S3C2410_ENDPOINTS];
+	int				address;
+	struct usb_gadget		gadget;
+	struct usb_gadget_driver	*driver;
+	struct s3c2410_request		fifo_req;
+	u8				fifo_buf[EP_FIFO_SIZE];
+	u16				devstatus;
+
+	u32				port_status;
+	int				ep0state;
+
+	unsigned			got_irq : 1;
+
+	unsigned			req_std : 1;
+	unsigned			req_config : 1;
+	unsigned			req_pending : 1;
+	u8				vbus;
+	struct dentry			*regs_info;
+};</pre>        s3c2410_udc.c中声明了一个结构体变量memory,这儿变量代表了S3C2410的USB设备控制器，包括各种信息。<pre name="code" class="cpp">static struct s3c2410_udc memory = {
+	.gadget = {
+		.ops		= &amp;s3c2410_ops,
+		.ep0		= &amp;memory.ep[0].ep,
+		.name		= gadget_name,
+		.dev = {
+			.init_name	= "gadget",
+		},
+	},
+
+	/* control endpoint */
+	.ep[0] = {
+		.num		= 0,
+		.ep = {
+			.name		= ep0name,
+			.ops		= &amp;s3c2410_ep_ops,
+			.maxpacket	= EP0_FIFO_SIZE,
+		},
+		.dev		= &amp;memory,
+	},
+
+	/* first group of endpoints */
+	.ep[1] = {
+		.num		= 1,
+		.ep = {
+			.name		= "ep1-bulk",
+			.ops		= &amp;s3c2410_ep_ops,
+			.maxpacket	= EP_FIFO_SIZE,
+		},
+		.dev		= &amp;memory,
+		.fifo_size	= EP_FIFO_SIZE,
+		.bEndpointAddress = 1,
+		.bmAttributes	= USB_ENDPOINT_XFER_BULK,
+	},
+	.ep[2] = {
+		.num		= 2,
+		.ep = {
+			.name		= "ep2-bulk",
+			.ops		= &amp;s3c2410_ep_ops,
+			.maxpacket	= EP_FIFO_SIZE,
+		},
+		.dev		= &amp;memory,
+		.fifo_size	= EP_FIFO_SIZE,
+		.bEndpointAddress = 2,
+		.bmAttributes	= USB_ENDPOINT_XFER_BULK,
+	},
+	.ep[3] = {
+		.num		= 3,
+		.ep = {
+			.name		= "ep3-bulk",
+			.ops		= &amp;s3c2410_ep_ops,
+			.maxpacket	= EP_FIFO_SIZE,
+		},
+		.dev		= &amp;memory,
+		.fifo_size	= EP_FIFO_SIZE,
+		.bEndpointAddress = 3,
+		.bmAttributes	= USB_ENDPOINT_XFER_BULK,
+	},
+	.ep[4] = {
+		.num		= 4,
+		.ep = {
+			.name		= "ep4-bulk",
+			.ops		= &amp;s3c2410_ep_ops,
+			.maxpacket	= EP_FIFO_SIZE,
+		},
+		.dev		= &amp;memory,
+		.fifo_size	= EP_FIFO_SIZE,
+		.bEndpointAddress = 4,
+		.bmAttributes	= USB_ENDPOINT_XFER_BULK,
+	}
+
+};</pre>2 函数<br />&#13;
+        platform设备需要注册一个platform_driver的结构体：<pre name="code" class="cpp">static struct platform_driver udc_driver_2410 = {
+	.driver		= {
+		.name	= "s3c2410-usbgadget",
+		.owner	= THIS_MODULE,
+	},
+	.probe		= s3c2410_udc_probe,
+	.remove		= s3c2410_udc_remove,
+	.suspend	= s3c2410_udc_suspend,
+	.resume		= s3c2410_udc_resume,
+};</pre>        结构体中的相关函数需要自己实现。最关键的函数就是s3c2410_udc_probe。这个函数在platform总线为驱动程序找到合适的设备后调用，在函数内初始化设备的时钟，申请io资源以及irq资源初始化platform设备结构体struct s3c2410_udc memory。<br />&#13;
+<p>        以上的数据结构以及函数是UDC的硬件层，不同的UDC采取不同的策略。s3c2410是集成的USB设备控制器，所以就是采用platform驱动的形式来注册的。如果系统是外接的USB设备控制器，那么则会采用相应总线的注册形式，比如PCI等。platform驱动的唯一目的就是分配资源以及初级初始化硬件，对于USB设备层和功能驱动层都没有影响。UDC层与USB设备层是通过另外的数据结构进行交互的。这种方式就是使用两个结构体与两个函数， 两个结构体分别是struct usb_gadget与struct&#13;
+ usb_gadget_driver，他们都是嵌入在struct s3c2410_udc结构中的，但是是由不同软件层的代码初始化的。首先看struct usb_gadget，他是在定义memory的时候就进行了初始化，是在UDC层中初始化的。而struct usb_gadget_driver是在USB设备层中初始化的，他是通过usb_gadget_register_driver(struct usb_gadget_driver *driver)函数从USB设备层传过来然后赋值给memory的。这里出现一个关键的函数usb_gadget_register_driver(struct&#13;
+ usb_gadget_driver *driver)这个函数就是UDC层与USB设备层进行交互的函数。设备设备层通过调用它与UDC层联系在一起。这个函数将usb_gadget与usb_gadget_driver联系在一起。向USB设备层提供usb_gadget_register_driver(struct usb_gadget_driver *driver)是UDC层的基本任务，但是UDC层要做的不仅如此，UDC层还需要提供为usb_gadget服务的相关函数，这些函数会通过usb_gadget传递给USB设备层。UDC层还需要提供USB设备的中断处理程序，中断处理尤其重要。因为所有的USB传输都是由主机发起，而有没有USB传输完全由USB中断判定，所以USB中断处理程序是整个软件架构的核心。UDC层主要提供以下的函数与数据结构：</p>&#13;
+<p>（1） usb_gadget操作函数集合 </p><pre name="code" class="cpp">static const struct usb_gadget_ops s3c2410_ops = {
+	.get_frame		= s3c2410_udc_get_frame,
+	.wakeup			= s3c2410_udc_wakeup,
+	.set_selfpowered	= s3c2410_udc_set_selfpowered,
+	.pullup			= s3c2410_udc_pullup,
+	.vbus_session		= s3c2410_udc_vbus_session,
+	.vbus_draw		= s3c2410_vbus_draw,
+};</pre>        这些函数都是由UDC层来实现的。<br />&#13;
+（2） 端点操作函数集合<pre name="code" class="cpp">static const struct usb_ep_ops s3c2410_ep_ops = {
+	.enable		= s3c2410_udc_ep_enable,
+	.disable	= s3c2410_udc_ep_disable,
+
+	.alloc_request	= s3c2410_udc_alloc_request,
+	.free_request	= s3c2410_udc_free_request,
+
+	.queue		= s3c2410_udc_queue,
+	.dequeue	= s3c2410_udc_dequeue,
+
+	.set_halt	= s3c2410_udc_set_halt,
+};</pre>（3） USB 中断处理程序<pre name="code" class="cpp">static irqreturn_t s3c2410_udc_irq(int dummy, void *_dev)</pre>（4） 其他相关辅助函数，比如调试相关函数。<br />&#13;
+二 USB设备层<br />&#13;
+        USB设备层，虽然名字上与设备相关。但是属于硬件无关层。这一层相关的代码是composite.c,composite.h。这一层的功能是隔离Gadget功能驱动与硬件相关层。使得功能驱动直接与USB设备层交互不用考虑硬件的相关细节。还有USB设备层提供了USB设备的一些基本数据结构，不同的Gadget功能驱动可以共同调用。如果没有这一层，则每一个功能驱动都需要实现自己的USB设备，导致了代码重用率很高。这一层向下与UDC层进行交互，向上与Gadget功能驱动层进行交互。在UDC层已经介绍了USB设备层向下与UDC层交互方式主要是通过调用usb_gadget_register_driver(struct&#13;
+ usb_gadget_driver *driver)，这个函数是UDC层提供的。而这个函数传递的参数就是一个usb_gadget_driver的结构体。以下是这个结构体定义：<pre name="code" class="cpp">struct usb_gadget_driver {
+	char			*function;
+	enum usb_device_speed	speed;
+	int			(*bind)(struct usb_gadget *);
+	void			(*unbind)(struct usb_gadget *);
+	int			(*setup)(struct usb_gadget *,
+					const struct usb_ctrlrequest *);
+	void			(*disconnect)(struct usb_gadget *);
+	void			(*suspend)(struct usb_gadget *);
+	void			(*resume)(struct usb_gadget *);
+
+	/* FIXME support safe rmmod */
+	struct device_driver	driver;
+};</pre>        在composite.c中声明了一个这样的一个结构体变量：composite_driver，这个结构体变量就是传给usb_gadget_register_driver(struct usb_gadget_driver *driver)的参数。<pre name="code" class="cpp">static struct usb_gadget_driver composite_driver = {
+	.speed		= USB_SPEED_HIGH,
+
+	.bind		= composite_bind,
+	.unbind		= __exit_p(composite_unbind),
+
+	.setup		= composite_setup,
+	.disconnect	= composite_disconnect,
+
+	.suspend	= composite_suspend,
+	.resume		= composite_resume,
+
+	.driver	= {
+		.owner		= THIS_MODULE,
+	},
+};</pre>       &#13;
+ 以上所有的函数集都需要自己实现，这些函数的大部分参数都是usb_gadget。可以看出这些函数都是与UDC层相关的。以上数据结构是与UDC进行交互的，下面的数据结构以及函数是USB设备层与Gadget功能驱动层进行交互的。&#13;
+<p>（1） 数据结构</p>&#13;
+<p></p><pre name="code" class="cpp">struct usb_composite_dev {
+	struct usb_gadget		*gadget;
+	struct usb_request		*req;
+	unsigned			bufsiz;
+
+	struct usb_configuration	*config;
+
+	/* private: */
+	/* internals */
+	struct usb_device_descriptor	desc;
+	struct list_head		configs;
+	struct usb_composite_driver	*driver;
+	u8				next_string_id;
+
+	/* the gadget driver won't enable the data pullup
+	 * while the deactivation count is nonzero.
+	 */
+	unsigned			deactivations;
+
+	/* protects at least deactivation count */
+	spinlock_t			lock;
+};</pre>         这个结构代表一个USB设备。可以看出结构体中有设备描述符以及配置。还有指向usb_gadget与usb_compsite_driver的指针。说明这个结构体联系了UDC层与功能驱动层。这个结构内嵌在了usb_gadget中，是在composite_bind函数中分配与初始化的。<pre name="code" class="cpp">struct usb_composite_driver {
+	const char				*name;
+	const struct usb_device_descriptor	*dev;
+	struct usb_gadget_strings		**strings;
+
+	/* REVISIT:  bind() functions can be marked __init, which
+	 * makes trouble for section mismatch analysis.  See if
+	 * we can't restructure things to avoid mismatching...
+	 */
+
+	int			(*bind)(struct usb_composite_dev *);
+	int			(*unbind)(struct usb_composite_dev *);
+
+	/* global suspend hooks */
+	void			(*suspend)(struct usb_composite_dev *);
+	void			(*resume)(struct usb_composite_dev *);
+};</pre>        这个结构体代表一个USB设备驱动，是联系功能驱动的主要数据结构。由功能驱动层声明并初始化。<br />&#13;
+（2） 函数<pre name="code" class="cpp"> int __init usb_composite_register(struct usb_composite_driver *driver)
+{
+	if (!driver || !driver-&gt;dev || !driver-&gt;bind || composite)
+		return -EINVAL;
+
+	if (!driver-&gt;name)
+		driver-&gt;name = "composite";
+	composite_driver.function =  (char *) driver-&gt;name;
+	composite_driver.driver.name = driver-&gt;name;
+	composite = driver;
+
+	return usb_gadget_register_driver(&amp;composite_driver);
+}</pre>        这个函数是由Gadget功能驱动层调用的，他简单初始化了composite_driver。然后调用usb_gadget_register_driver。composite是usb_composite_drver类型的全局指针这里赋值了功能驱动传递过来的driver。所以功能驱动层与USB设备层联系在了一起，usb_gadget_register_driver调用后UDC层与USB设备层联系到了一起。usb_composite_register是在功能驱动的模块初始化的函数中进行的调用。所以只要功能驱动一加载，三个软件层就通过数据结构联系在了一起。<br />&#13;
+三 Gadget 功能驱动层<br />&#13;
+        Gadget 功能驱动层是USB Gadget软件结构的最上层。主要是实现USB设备的功能，这一层通常与linux内核的其他层有密切的联系。模拟U盘的gadget就与文件系统层与块IO层有着联系。这里主要介绍最简单的Gadget 功能驱动zero。这一层包括zero.c。该驱动是作为一个模块注册到内核的，首先看一下他的模块初始化函数：<pre name="code" class="cpp">static int __init init(void)
+{
+	return usb_composite_register(&amp;zero_driver);
+}</pre>        非常简单，只调用了usb_composite_register，上面已经说到这个函数一旦调用三个软件层就联系到了一起。函数的参数是zero_driver。这是一个usb_composite_driver的结构体，有如下声明：<pre name="code" class="cpp">static struct usb_composite_driver zero_driver = {
+	.name		= "zero",
+	.dev		= &amp;device_desc,
+	.strings	= dev_strings,
+	.bind		= zero_bind,
+	.unbind		= zero_unbind,
+	.suspend	= zero_suspend,
+	.resume		= zero_resume,
+};</pre> &#13;
+       zero只要实现上面的函数集合就可以了，至此Linux下USB Gadget软件结构就分析完了。这个只是三层怎样联系起来的，但是数据怎样传输的还得另行分析。主要软件结构如下图所示：&#13;
+<p style="text-align:center"><img src="http://my.csdn.net/uploads/201206/25/1340620697_8961.png" alt="" /></p>&#13;
+<br />&#13;
+   &#13;

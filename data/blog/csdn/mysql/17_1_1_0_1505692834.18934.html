@@ -1,0 +1,21 @@
+
+                
+<p style="text-align:center"><img src="http://img.blog.csdn.net/20170917141050907?watermark/2/text/aHR0cDovL2Jsb2cuY3Nkbi5uZXQveWFuem9uZ3NodWFp/font/5a6L5L2T/fontsize/400/fill/I0JBQkFCMA==/dissolve/70/gravity/Center" alt=""/></p>&#13;
+<p><br/>&#13;
+</p>&#13;
+<p>说明：</p>&#13;
+<p>1、如果sync_binlog等于1，那么need_LOCK_log为TRUE，然后将thd放到队列后，就不会释放该锁，等待sync_binlog_file调用结束后即文件sync后才解锁。这样在flush阶段sigal_update唤醒binlog dump线程后，dump线程会在此时才能获取到LOCK_log锁，即binlog 持久化到磁盘后，才会将binlog发送到slave。</p>&#13;
+<p>2、只有flush阶段的leader才会加LOCK_log锁。</p>&#13;
+<p>3、sync_binlog_file：也是sync_binlog次数后才会sync到磁盘</p>&#13;
+<p/><pre name="code" class="cpp">MYSQL_BIN_LOG::sync_binlog_file(bool force)
+{
+    unsigned int sync_period= get_sync_period();
+    if (force || (sync_period &amp;&amp; ++sync_counter &gt;= sync_period)){
+	    sync_counter= 0;
+        mysql_file_sync(log_file.file, MYF(MY_WME);//sync_binlog次数后才调用fsync()一次到磁盘。这里是sync_binlog个组
+    }
+}</pre><br/>&#13;
+<br/>&#13;
+&#13;
+<link rel="stylesheet" href="http://static.blog.csdn.net/public/res-min/markdown_views.css?v=2.0"/>&#13;
+            

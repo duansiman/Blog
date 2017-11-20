@@ -1,0 +1,119 @@
+
+
+<p>java设计模式之桥梁模式（10）<br />&#13;
+又叫桥连模式。<br />&#13;
+桥梁模式是对象的结构模式，桥梁模式的用意是:将抽象化与实现化脱耦，使得二者可以独立地变化。</p>&#13;
+<p>接口就是抽象化，实现类就是实现化，把接口和实现类分开就是脱耦。说起来看似很简单，最重要的是它体现的</p>&#13;
+<p>面向对象的思想。</p>&#13;
+<p>java中的JDBC是最典型的桥梁模式。曾记得刚学JDBC的时候，老师总是告诉我说“我们使用JDBC桥连的方式连接数据库”</p>&#13;
+<p>当时我实在不理解“JDBC桥连”，为什么是这个名字。后来接触到设计模式的时候才恍然大悟，软来JDBC是使用桥连模式</p>&#13;
+<p>所以就叫了JDBC桥连。哈....</p>&#13;
+<p>先来熟悉一下使用JDBC的代码：</p>&#13;
+<p>Class.forName("com.mysql....");//或者DriverManager.registerDriver(new Driver()); &#13;
+<br />&#13;
+DriverManager.getConnection(url,user,password);</p>&#13;
+<p>DriverManager根据具体实现来获取数据库连接。</p>&#13;
+<p>JDK编写人员在编写DriverManager的代码的时候并不关心客户端会注册一个什么数据库驱动，也就是<br />&#13;
+不关心具体的实现。只在DriverManager中保留数据库驱动的抽象表示。客户端根据需要注册所需要<br />&#13;
+的数据库驱动。<br />&#13;
+我们简单的模拟一下JDBC桥连：</p>&#13;
+<pre code_snippet_id="453039" snippet_file_name="blog_20140818_1_2717233" class="java" name="code">package com.pattern.struct.bridge;
+
+public interface Driver {
+
+	public void getConnection();
+	
+}
+</pre>&#13;
+<p><br />&#13;
+ </p>&#13;
+<pre code_snippet_id="453039" snippet_file_name="blog_20140818_2_9620333" class="java" name="code">package com.pattern.struct.bridge;
+
+public class MysqlDriver implements Driver{
+
+	@Override
+	public void getConnection() {
+		System.out.println("mysql 数据库连接");
+	}
+
+	
+}
+</pre>&#13;
+<p><br />&#13;
+ </p>&#13;
+<pre code_snippet_id="453039" snippet_file_name="blog_20140818_3_1365221" class="java" name="code">package com.pattern.struct.bridge;
+
+public class OracleDriver implements Driver {
+
+	@Override
+	public void getConnection() {
+		System.out.println("oracle数据库连接");
+	}
+
+	
+}
+</pre>&#13;
+<p><br />&#13;
+ </p>&#13;
+<pre code_snippet_id="453039" snippet_file_name="blog_20140818_4_8126617" class="java" name="code">package com.pattern.struct.bridge;
+
+public abstract class Manager {
+	private Driver driver;
+
+	public  void getConnection(){
+		driver.getConnection();
+	}
+	
+
+	public void setDriver(Driver driver) {
+		this.driver = driver;
+	}
+	
+	
+	
+}
+</pre>&#13;
+<p><br />&#13;
+ </p>&#13;
+<pre code_snippet_id="453039" snippet_file_name="blog_20140818_5_951300" class="java" name="code">package com.pattern.struct.bridge;
+
+public class DriverManager extends Manager {
+
+	public DriverManager(Driver driver){
+		setDriver(driver);
+	}
+	
+	
+	public void getConnection() {
+		super.getConnection();
+	}
+
+}
+</pre>&#13;
+<p><br />&#13;
+ </p>&#13;
+<pre code_snippet_id="453039" snippet_file_name="blog_20140818_6_4266350" class="java" name="code">package com.pattern.struct.bridge;
+
+public class Client {
+
+	/**
+	 * @param args
+	 */
+	public static void main(String[] args) {
+		DriverManager manager = new DriverManager(new MysqlDriver());
+		manager.getConnection();
+		
+		manager = new DriverManager(new OracleDriver());
+		manager.getConnection();
+		
+	}
+
+}
+</pre>&#13;
+<p><br />&#13;
+ </p>&#13;
+<pre code_snippet_id="453039" snippet_file_name="blog_20140818_7_4724481" class="plain" name="code">mysql 数据库连接
+oracle数据库连接</pre>&#13;
+<p><br />&#13;
+ </p>&#13;
+   &#13;

@@ -1,0 +1,231 @@
+
+                
+<p><br/>&#13;
+</p>&#13;
+<p><span style="font-size:18px">准备：我们需要找一张绿色或者其它颜色的背景图，放在photo文件夹里就好哈，然后加jar：common-io和commo-fileupload就可以哈</span></p>&#13;
+<p><img src="http://img.blog.csdn.net/20160410171330623?watermark/2/text/aHR0cDovL2Jsb2cuY3Nkbi5uZXQv/font/5a6L5L2T/fontsize/400/fill/I0JBQkFCMA==/dissolve/70/gravity/Center" alt=""/></p>&#13;
+<p><br/>&#13;
+</p>&#13;
+<p>创建progress.css文件：</p>&#13;
+<p/><pre code_snippet_id="1641413" snippet_file_name="blog_20160410_1_710227" class="html" name="code">
+.pro{
+
+  height:15px;
+
+  width:500px;
+
+  background: #FFFFF0;
+
+  border: 1px solid #8FBC8F;
+
+  margin: 0;
+
+  padding: 0;
+
+  display:none;
+
+  position: relative;
+
+  left:25px;
+
+  float:left;
+
+}
+
+
+</pre><br/>&#13;
+&#13;
+<p><br/>&#13;
+</p>&#13;
+<p>创建uploadAjax.js</p>&#13;
+<pre code_snippet_id="1641413" snippet_file_name="blog_20160410_2_9249529" class="html" name="code">function go(){
+ f1.submit();
+ document.getElementById("pro").style.display="block";
+ document.getElementById("prop").style.display="";
+ timer=setInterval("getP()",50);
+  
+}
+ 
+var xmlHttpRequest;
+function getP(){
+  
+ if(window.XmlHttpRequest){
+  xmlHttpRequest=new XmlHttpRequest();
+ }else{
+  xmlHttpRequest=new ActiveXObject("Microsoft.XMLHTTP");
+ } 
+  
+ xmlHttpRequest.onreadystatechange=callBack; 
+ url="GetProgressServlet";
+ xmlHttpRequest.open("post",url,true);
+  
+ xmlHttpRequest.setRequestHeader("Content-type","application/x-www-form-urlencoded");
+ xmlHttpRequest.send("&amp;timeStamp="+(new Date()).getTime()); 
+  
+}
+//回调函数
+function callBack(){
+  
+ if(xmlHttpRequest.readyState==4 &amp;&amp; xmlHttpRequest.status==200){ 
+   
+  result=xmlHttpRequest.responseText;
+  var result=result.replace(/(^\s*)|(\s*$)/g, "");
+  var res=result.split(",");
+  var flag=res[1]; 
+  var per=parseInt(res[0]);
+  var err=res[2];
+  document.getElementById("imgpro").style.width=per*5+"px";
+  document.getElementById("prop").innerHTML=per+"%";
+  if(flag=="OK"){
+   window.clearInterval(timer);
+   alert("上传成功！");
+   document.getElementById("pro").style.display="none";
+   document.getElementById("prop").innerHTML="";
+   f1.reset();
+  }
+  if(err!=""||err.length&gt;0){
+   window.clearInterval(timer);
+   alert(err);
+  }
+  if(flag==null){
+   window.clearInterval(timer);
+  }
+ }
+}
+</pre>&#13;
+<p><br/>&#13;
+</p>&#13;
+<p>调用和引入</p>&#13;
+<p><br/>&#13;
+</p>&#13;
+<p>&lt;link rel="stylesheet" type="text/css" href="css/progress.css"&gt;<br/>&#13;
+&lt;script type="text/javascript" src="js/uploadAjax.js" charset="UTF-8"&gt;&lt;/script&gt;<br/>&#13;
+    </p>&#13;
+<p><br/>&#13;
+</p>&#13;
+<p/><pre code_snippet_id="1641413" snippet_file_name="blog_20160410_3_6882978" class="html" name="code">&lt;div class="am-g"&gt;
+      &lt;div class="am-u-sm-12" align="left"&gt;
+    	&lt;div class="am-form-group"&gt;
+		&lt;form action="&lt;%=basePath %&gt;UploadSpotImgServlet" name="f1" id="f1" method="post" enctype="multipart/form-data" target="if"&gt;
+	 		&lt;div class="field"&gt;
+                &lt;a class="button input-file" href="javascript:void(0);"&gt;+ 浏览文件&lt;input size="30" type="file" name="logo" data-validate="required:请选择上传文件,regexp#.+.(jpg|jpeg|png|gif)$:只能上传jpg|gif|png格式文件" /&gt;&lt;/a&gt;
+             &lt;/div&gt;
+             &lt;br&gt;
+             &lt;input type="reset" name="res1" value="重置"  class="am-btn am-btn-primary" /&gt;
+             &lt;input type="submit" name="but1" value="提交" onclick="go();" class="am-btn am-btn-primary" /&gt;
+		&lt;/form&gt;&lt;br&gt;
+		&lt;div id="pro" class="pro" align="left" style="height:1px;width:600px;"&gt;
+ 		&lt;img alt="" src="photo/progress.png" width="0px" id="imgpro"&gt;
+		&lt;/div&gt;
+  		&lt;span id="prop" style="width:15px;height:15px;display: none;"&gt;0%&lt;/span&gt;
+  		&lt;br&gt;&lt;br&gt;
+		&lt;iframe id="if" name="if" src="" style="display: none"&gt;&lt;/iframe&gt;
+		
+		
+	   &lt;/div&gt;
+     &lt;/div&gt;
+   &lt;/div&gt;</pre><br/>&#13;
+&#13;
+<p>创建UploadSpotImgServlet</p>&#13;
+<pre code_snippet_id="1641413" snippet_file_name="blog_20160410_4_3677395" class="java" name="code">public class UploadSpotImgServlet extends HttpServlet {
+
+	/**
+	 * 
+	 */
+	private static final long serialVersionUID = 1L;
+
+	private String fileName;
+	
+	private File tempFile;
+
+	protected void doGet(HttpServletRequest request, HttpServletResponse response) throws ServletException, IOException {
+		//设置编码格式为utf-8
+		response.setContentType("text/html;charset=UTF-8");
+		PrintWriter out1 = response.getWriter();
+		
+		request.setCharacterEncoding("UTF-8");
+		//获取session，保存进度和上传结果，上传结果初始值为NOK，当为Ok表示上传完成
+		HttpSession session=request.getSession();
+		session.setAttribute("prog", "0");
+		session.setAttribute("result", "NOK"); 
+		session.setAttribute("error", "");
+		String error="";
+		//给上传的文件设一个最大值，这里是不得超过50MB
+		int maxSize=50*1024*1024;
+		//创建工厂对象和文件上传对象
+		DiskFileItemFactory factory=new DiskFileItemFactory();
+		ServletFileUpload upload=new ServletFileUpload(factory);
+		try {
+			//解析上传请求
+			List items=upload.parseRequest(request);
+			Iterator itr=items.iterator();
+    
+		   while(itr.hasNext()){
+			    FileItem item=(FileItem)itr.next();
+			    //判断是否为文件域
+			    if(!item.isFormField()){
+			     if(item.getName()!=null&amp;&amp;!item.getName().equals("")){
+				      //获取上传文件大小和文件名称
+				      long upFileSize=item.getSize();   
+				      fileName=item.getName();
+				      if(upFileSize&gt;maxSize){
+				       error="您上传的文件太大了，请选择不超过50MB的文件!";
+				       break;
+				      }
+				      //此时文件暂存在服务器的内存中，构造临时对象
+				      tempFile=new File(fileName);
+				      //指定文件上传服务器的目录及文件名称
+				      File file=new File("D:\\MyEclipse\\workspace\\TourismSystemServer\\WebRoot\\source\\images",tempFile.getName());
+				      //构造输入流读文件
+				      InputStream is=item.getInputStream();
+				      int length=0;
+				      byte[] by=new byte[1024];
+				      double persent=0;
+				      FileOutputStream fos=new FileOutputStream(file);
+				      PrintWriter out=response.getWriter();
+				      while((length=is.read(by))!=-1){
+				       //计算文件进度
+				       persent+=length/(double)upFileSize*100D;
+				       fos.write(by, 0, length);
+				       session.setAttribute("prog", Math.round(persent)+""); 
+				       Thread.sleep(10);
+				      }
+				      fos.close();
+				      Thread.sleep(1000);
+			     	}else{
+			     		error="没选择上传文件！";
+			     	}
+			    }
+		   }
+		   
+		  Constant.ImgPath.path = "/source/images/"+tempFile.getName();
+		  //System.out.println(Constant.ImgPath.path);
+		   response.sendRedirect(Constant.WEB_URL_ADDSPOTINFO);
+		   
+		} catch (Exception e) {
+			e.printStackTrace();
+			error="上传文件出现错误:"+e.getMessage();
+		}
+		if(!error.equals("")){ 
+			session.setAttribute("error", error);
+		}else{
+			session.setAttribute("result", "OK");
+		}
+		
+		out1.flush();
+		out1.close();
+	}
+ 
+	protected void doPost(HttpServletRequest request, HttpServletResponse response) throws ServletException, IOException {
+		doGet(request, response);
+	}
+	
+}
+</pre>&#13;
+<p><span style="font-size:18px">ok,这样我们就可以上传文件到我们制定的文件夹里哦，还有结合Ajax，就不会出现页面刷新的情况了哦！</span><br/>&#13;
+</p>&#13;
+<p><br/>&#13;
+</p>&#13;
+<div style="top:1304px">﻿﻿</div>&#13;
+<link rel="stylesheet" href="http://static.blog.csdn.net/public/res-min/markdown_views.css?v=1.0"/>&#13;
+            

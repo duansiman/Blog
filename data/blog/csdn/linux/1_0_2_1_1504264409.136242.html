@@ -1,0 +1,171 @@
+
+
+<p>        我一直对计算机怎么工作的非常好奇，想想一些死的硬件怎么加电后就可以为大家提供那么复杂的服务呢？看了《x86汇编从实模式到保护模式》，终于有了些浅显的认识，现在和大家分享下。如果有什么不正确的地方，还望各位指正，谢谢！！</p>&#13;
+<p>        首先计算机加电后会执行内嵌在内存中的ROM-BIOS程序（这个程序一般是检查硬件）；然后会在磁盘上的0面0道1扇区（MBR程序，其实我也有点疑惑为什么用LBA写硬盘的时候起始扇区号可以选择0，难道这个LBA的扇区号和硬盘的扇区号不是一一对应的？）上检查是否为有效主引导程序（扇区结尾是否为：0xaa55）；如果是，则把这个扇区的全部内容加载到内存中地址为：0x7c00的地方；这个时候就是主引导程序开始运行和加载内核内容了。</p>&#13;
+<p>        详细代码可以参考《x86汇编从实模式到保护模式》李忠老师。下载地址：<a target="_blank" href="http://download.csdn.net/detail/yuzhihui_no1/8248445">http://download.csdn.net/detail/yuzhihui_no1/8248445</a></p>&#13;
+<p>        步骤思考（实模式下的加载器：把一个程序从磁盘上加载到内存中执行）：</p>&#13;
+<p>        第一、确定从磁盘哪个扇区中加载，以及加载到内存中的什么地方；</p>&#13;
+<p>        第二、最基本的设置数据段，和堆栈段，代码段一般不用设置（跳转的时候已经设置了）；</p>&#13;
+<p>        第三、读取要加载的文件的头文件（大小一般不超过512字节，视情况而定），一般头文件包含：程序大小，入口地址，段的数量，要调整的段基地址；</p>&#13;
+<p>        第四、分析头文件，读取剩余扇区内容；</p>&#13;
+<p>        第五、调整头文件中各个段的基地；</p>&#13;
+<p>        如果对实模式下的加载器比较熟悉，那么对保护模式下的加载器也能更好的理解；当然这个加载器可以加载内核程序也可以加载一般的用户程序，内核程序和用户程序的区别就是存放的地址不一样而已，（对实模式下的汇编来说是这样的）。</p>&#13;
+<p><span style="white-space:pre"></span></p>&#13;
+<pre name="code" class="plain">;main.asm
+
+;用户程序存放的磁盘扇区号
+user_program_number equ 100
+
+section main align=16 vstart=0x7c00
+	;设置堆栈段
+	mov ax , 0x7c00
+	mov ss , ax 
+	mov sp , ax  
+	;设置数据段，把要加载的内容的基地址设置为数据段
+	mov ax , [cs:user_program_memory]
+	mov dx , [cs:user_program_memory+2]
+	mov bx , 16
+	div bx 
+	mov ds , ax 
+	mov es , ax 
+	
+	xor bx , bx  ;ds:bx ==&gt;要加载的程序地址
+	mov si , user_program_number ;读取一个扇区的数据，也就是头文件所在扇区
+	xor di , di 
+	call read_disk_one
+	
+	;段大小dd 入口地址dw dd  段数目dw 调整段地址dd
+	;--------读取剩下的程序；先分析整个程序大小，有多少个扇区
+	mov ax , [0]
+	mov dx , [2]
+	mov bx , 512
+	div bx 
+	
+	;因为已经加载了一个扇区（头文件扇区），所以要调整下整个程序的扇区数
+	cmp dx , 0x00
+	jnz @1
+	dec ax 
+@1:	
+	cmp ax , 0x00
+	jz check_entry ;如果只有一个扇区内容，表示已经读完了，开始调整段
+	
+	mov cx , ax
+	push ds 
+   
+       ;这读扇区有个技巧，因为是读取512个字节（0x200）：
+       ;开始存储读取的内容地址：ds：00 ==》读取一个扇区后，调整 ds = ds + 0x200 
+       ;==》又开始读取一个扇区，地址为ds：00，然后又调整 ds = ds + 0x200 ==》以此循环
+       ;这样做就是为了防止段越界	
+read_other:	 
+	mov ax , ds 
+	add ax , 0x200
+	mov ds , ax 
+	inc si 
+	xor di , di 
+	xor bx , bx 
+	call read_disk_one
+	loop read_other
+	pop ds 
+	
+        ;开始调整程序入口地址
+check_entry:	
+	;开始调整段
+	mov ax , [6]
+	mov dx , [8]
+	add ax , [cs:user_program_memory]
+	adc dx , [cs:user_program_memory+2]
+	;mov bx , 16
+	;div bx 
+	shr ax , 4
+	shl dx , 12
+	or  ax , dx 
+	mov word[6] , ax 
+
+	;开始调整头文件中列举的段基地址，dx:ax ==》调整后只有ax中存放段基地址	
+	mov cx , [10]
+	mov si , 0xc
+	
+check_section:
+	mov ax , [si]
+	mov dx , [si+2]
+	add ax , [cs:user_program_memory]
+	adc dx , [cs:user_program_memory+2]
+	mov bx , 16
+	div bx 
+	mov word[si] , ax 
+	add si , 4
+	loop check_section
+	
+	;跳转到加载的程序的入口地址处
+	jmp far [4]
+	
+	
+;----------------------------------------------------	
+;读个扇区过程
+;参数：bx  si  di	
+;返回：bx
+read_disk_one:
+	push ax 
+	push bx 
+	push cx 
+	push dx 
+	
+	mov dx , 0x1f2  ;扇区数
+	mov al , 0x1
+	out dx , al 
+	
+	inc dx 			;0x1f3
+	mov ax , si 
+	out dx , al 
+	
+	inc dx 			;0x1f4
+	mov al , ah 
+	out dx , al 
+	
+	inc dx 
+	mov ax , di     ;0x1f5
+	out dx , al 
+	
+	inc dx 			;0x1f6
+	mov al , ah     ;前四位为地址
+	or  al , 0xe0	;后四位为LBA 111 主盘：0
+	out dx , al 
+	
+	inc dx          ;0x1f7
+	mov al , 0x20   ;读取磁盘命令
+	out dx , al 
+
+waits:	
+	in  al , dx     ; 
+	and al , 0x88
+	cmp al , 0x08
+	jnz waits
+	
+	;这就开始读取数据了
+	mov cx , 256
+	mov dx , 0x1f0   ;这是16位端口
+	
+read_char:	
+	in ax  , dx
+	mov [bx] , ax 
+	add bx , 2
+	loop read_char
+
+	pop dx
+	pop cx
+	pop bx 
+	pop ax 
+	ret
+;--------------------------------------------
+	
+user_program_memory dd 0x7e00
+	
+times 510-($-$$) db 0x00
+				 dw 0xaa55</pre>&#13;
+<p></p>&#13;
+<p>        非常感谢李忠老师，谢谢！！</p>&#13;
+<p>        转载地址：<a target="_blank" href="http://blog.csdn.net/yuzhihui_no1/article/details/41749443">http://blog.csdn.net/yuzhihui_no1/article/details/41749443</a></p>&#13;
+<p><br />&#13;
+</p>&#13;
+<p></p>&#13;
+   &#13;

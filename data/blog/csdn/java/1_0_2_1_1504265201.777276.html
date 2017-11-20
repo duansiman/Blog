@@ -1,0 +1,128 @@
+
+
+<p><span style="color:rgb(255,0,0); font-family:Arial; font-size:18px; line-height:26px; text-align:left"><strong>转载请注明出处：<a target="_blank" href="http://blog.csdn.net/lhy_ycu/article/details/39721563" style="color:rgb(202,0,0); text-decoration:none"></a><a target="_blank" href="http://blog.csdn.net/lhy_ycu/article/details/39755577" style="color:rgb(202,0,0); text-decoration:none"></a><a target="_blank" href="http://blog.csdn.net/lhy_ycu/article/details/39759199">http://blog.csdn.net/lhy_ycu/article/details/39759199</a></strong></span><br />&#13;
+</p>&#13;
+<p><span style="color:rgb(255,0,0); font-family:Arial; font-size:18px; line-height:26px; text-align:left"><br />&#13;
+</span></p>&#13;
+<p>装饰者(Decorator)模式：动态地将责任附加到对象上，若要扩展功能，装饰者提供了比继承更具有弹性的替代方案。对于装饰者模式，它其实是一种包装，所以我更愿意称它为一种包装。像咱们以前经常使用的Java里面的IO流就用到了装饰者模式。比如：BufferedReader <span style="white-space:pre"></span>br = new BufferedReader(new InputStreamReader(new FileInputStream(file1)));这里file1为目标对象，而像BufferedReader、InputStreamReader就可以称之为包装类。下面举例说明：</p>&#13;
+<p><br />&#13;
+</p>&#13;
+<h1><strong>一、UML模型图</strong></h1>&#13;
+<img src="http://img.blog.csdn.net/20141003220334087?watermark/2/text/aHR0cDovL2Jsb2cuY3Nkbi5uZXQvbGh5X3ljdQ==/font/5a6L5L2T/fontsize/400/fill/I0JBQkFCMA==/dissolve/70/gravity/Center" alt="" /><br />&#13;
+<br />&#13;
+<h1>二、代码实现</h1>&#13;
+<pre code_snippet_id="479113" snippet_file_name="blog_20141003_1_594498" name="code" class="java">/**
+ * 对修改关闭，对扩展开放。
+ * 
+ * 统一接口
+ */
+interface Filterable {
+	public void filter();
+}
+
+/**
+ * 目标类
+ */
+class Filter implements Filterable {
+
+	@Override
+	public void filter() {
+		System.out.println("目标类的核心过滤方法...");
+	}
+}
+
+/**
+ * DecoratorForFilter1包装类与目标类实现相同的接口 --&gt; 织入Log
+ */
+class DecoratorForFilter1 implements Filterable {
+	private Filterable filterable;
+
+	public DecoratorForFilter1(Filterable filterable) {
+		this.filterable = filterable;
+	}
+
+	private void beforeMethod() {
+		System.out.println("DecoratorForFilter1 --&gt; 核心过滤方法执行前执行");
+	}
+
+	private void afterMethod() {
+		System.out.println("DecoratorForFilter1 --&gt; 核心过滤方法执行后执行");
+	}
+
+	@Override
+	public void filter() {
+		beforeMethod();
+		filterable.filter();
+		afterMethod();
+	}
+}
+
+/**
+ * DecoratorForFilter2包装类与目标类实现相同的接口 --&gt; 织入Log
+ */
+class DecoratorForFilter2 implements Filterable {
+	private Filterable filterable;
+
+	public DecoratorForFilter2(Filterable filterable) {
+		this.filterable = filterable;
+	}
+
+	private void beforeMethod() {
+		System.out.println("DecoratorForFilter2 --&gt; 核心过滤方法执行前执行");
+	}
+
+	private void afterMethod() {
+		System.out.println("DecoratorForFilter2 --&gt; 核心过滤方法执行后执行");
+	}
+
+	@Override
+	public void filter() {
+		beforeMethod();
+		filterable.filter();
+		afterMethod();
+	}
+}
+
+/**
+ * 客户端测试类
+ * 
+ * @author Leo
+ */
+public class Test {
+	public static void main(String[] args) {
+		/**
+		 * 目标对象
+		 */
+		Filterable targetObj = new Filter();
+		/**
+		 * 包装对象(对目标对象进行包装)
+		 */
+		Filterable decorObj = new DecoratorForFilter1(new DecoratorForFilter2(
+				targetObj));
+		/**
+		 * 执行包装后的业务方法
+		 */
+		decorObj.filter();
+	}
+}</pre><br />&#13;
+<p>输出：</p>&#13;
+<p>DecoratorForFilter1 --&gt; 核心过滤方法执行前执行<br />&#13;
+DecoratorForFilter2 --&gt; 核心过滤方法执行前执行<br />&#13;
+目标类的核心过滤方法...<br />&#13;
+DecoratorForFilter2 --&gt; 核心过滤方法执行后执行<br />&#13;
+DecoratorForFilter1 --&gt; 核心过滤方法执行后执行<br />&#13;
+</p>&#13;
+<p><br />&#13;
+</p>&#13;
+<h1>三、应用场景<span style="font-size:14px">(仅代表个人观点)</span></h1>&#13;
+I/O、过滤器<br />&#13;
+<br />&#13;
+<h1>四、小结</h1>&#13;
+<p>通过输入的Log我们可以看到：输出的过程其实是将包装类“拆包”的过程，就像包装袋一样一层一层的拆开。<br />&#13;
+</p>&#13;
+<p>设计原则：1)多用组合，少用继承。2)对扩展开放，对修改关闭。</p>&#13;
+<p><br />&#13;
+</p>&#13;
+<p><br />&#13;
+</p>&#13;
+   &#13;

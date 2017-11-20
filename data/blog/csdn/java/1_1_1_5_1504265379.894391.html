@@ -1,0 +1,166 @@
+
+
+<h3>1. logback介绍<br />&#13;
+</h3>&#13;
+<p>Logback是由log4j创始人设计的又一个开源日志组件。logback当前分成三个模块：logback-core,logback- classic和logback-access。logback-core是其它两个模块的基础模块。logback-classic是log4j的一个 改良版本。此外logback-classic完整实现SLF4J API使你可以很方便地更换成其它日志系统如log4j或JDK14 Logging。logback-access访问模块与Servlet容器集成提供通过Http来访问日志的功能。</p>&#13;
+<p><br />&#13;
+</p>&#13;
+<h3>2. maven依赖</h3>&#13;
+<p></p>&#13;
+<pre code_snippet_id="511263" snippet_file_name="blog_20141107_1_6302476" name="code" class="html">		&lt;!-- logback+slf4j --&gt;
+		&lt;dependency&gt;
+			&lt;groupId&gt;org.slf4j&lt;/groupId&gt;
+			&lt;artifactId&gt;slf4j-api&lt;/artifactId&gt;
+			&lt;version&gt;1.6.0&lt;/version&gt;
+			&lt;type&gt;jar&lt;/type&gt;
+			&lt;scope&gt;compile&lt;/scope&gt;
+		&lt;/dependency&gt;
+		&lt;dependency&gt;
+			&lt;groupId&gt;ch.qos.logback&lt;/groupId&gt;
+			&lt;artifactId&gt;logback-core&lt;/artifactId&gt;
+			&lt;version&gt;0.9.28&lt;/version&gt;
+			&lt;type&gt;jar&lt;/type&gt;
+		&lt;/dependency&gt;
+		&lt;dependency&gt;
+			&lt;groupId&gt;ch.qos.logback&lt;/groupId&gt;
+			&lt;artifactId&gt;logback-classic&lt;/artifactId&gt;
+			&lt;version&gt;0.9.28&lt;/version&gt;
+			&lt;type&gt;jar&lt;/type&gt;
+		&lt;/dependency&gt;</pre><br />&#13;
+如果你没有使用maven，那么你自己去下载jar包吧...&#13;
+<p></p>&#13;
+<p><br />&#13;
+</p>&#13;
+<h3>3. 配置和使用</h3>&#13;
+<h4>1. 日志使用</h4>&#13;
+<p>我们使用org.slf4j.LoggerFactory，就可以直接使用日志了。</p>&#13;
+<p></p>&#13;
+<pre code_snippet_id="511263" snippet_file_name="blog_20141107_2_1120868" name="code" class="java">protected final Logger       logger = LoggerFactory.getLogger(this.getClass());</pre>&#13;
+<p></p>&#13;
+<p>使用：</p>&#13;
+<p></p>&#13;
+<pre code_snippet_id="511263" snippet_file_name="blog_20141107_3_4053451" name="code" class="java">@Controller
+@RequestMapping(value = "")
+public class IndexController extends BaseController {
+
+    /**
+     * Success
+     * @param response
+     * @throws IOException
+     */
+    @RequestMapping(value = "")
+    @ResponseBody
+    public void hello(HttpServletResponse response) throws IOException {
+        logger.debug("DEBUG TEST 这个地方输出DEBUG级别的日志");
+        logger.info("INFO test 这个地方输出INFO级别的日志");
+        logger.error("ERROR test 这个地方输出ERROR级别的日志");
+    }
+
+}</pre>&#13;
+<p><br />&#13;
+</p>&#13;
+<h4>2. 在控制台输出特定级别的日志</h4>&#13;
+<p>logback的配置文件都放在/src/main/resource/文件夹下的logback.xml文件中。其中logback.xml文件就是logback的配置文件。只要将这个文件放置好了之后，系统会自动找到这个配置文件。</p>&#13;
+<p>下面的配置中，我们输出特定的ERROR级别的日志：</p>&#13;
+<p></p>&#13;
+<pre code_snippet_id="511263" snippet_file_name="blog_20141107_4_3943149" name="code" class="html">&lt;?xml version="1.0"?&gt;
+&lt;configuration&gt;
+
+    &lt;!-- ch.qos.logback.core.ConsoleAppender 控制台输出 --&gt;
+	&lt;appender name="console" class="ch.qos.logback.core.ConsoleAppender"&gt;
+		&lt;encoder&gt;
+			&lt;pattern&gt;[%-5level] %d{HH:mm:ss.SSS} [%thread] %logger{36} - %msg%n&lt;/pattern&gt;
+		&lt;/encoder&gt;
+	&lt;/appender&gt;
+
+	&lt;!-- 日志级别 --&gt;
+	&lt;root&gt;
+	    &lt;level value="error" /&gt;
+		&lt;appender-ref ref="console" /&gt;
+	&lt;/root&gt;
+
+&lt;/configuration&gt; </pre><br />&#13;
+结果只在控制台输出ERROR级别的日志。&#13;
+<p></p>&#13;
+<p><br />&#13;
+</p>&#13;
+<h4>3. 设置输出多个级别的日志</h4>&#13;
+<p></p>&#13;
+<pre code_snippet_id="511263" snippet_file_name="blog_20141107_5_779427" name="code" class="html">&lt;?xml version="1.0"?&gt;
+&lt;configuration&gt;
+
+    &lt;!-- ch.qos.logback.core.ConsoleAppender 控制台输出 --&gt;
+	&lt;appender name="console" class="ch.qos.logback.core.ConsoleAppender"&gt;
+		&lt;encoder&gt;
+			&lt;pattern&gt;[%-5level] %d{HH:mm:ss.SSS} [%thread] %logger{36} - %msg%n&lt;/pattern&gt;
+		&lt;/encoder&gt;
+	&lt;/appender&gt;
+
+	&lt;!-- 日志级别 --&gt;
+	&lt;root&gt;
+	    &lt;level value="error" /&gt;
+	    &lt;level value="info" /&gt;
+		&lt;appender-ref ref="console" /&gt;
+	&lt;/root&gt;
+
+&lt;/configuration&gt; </pre><br />&#13;
+设置两个level，则可以输出 ERROR和INFO级别的日志了。&#13;
+<p></p>&#13;
+<p><br />&#13;
+</p>&#13;
+<h4>4. 设置文件日志</h4>&#13;
+<p></p>&#13;
+<pre code_snippet_id="511263" snippet_file_name="blog_20141107_6_9251908" name="code" class="html">&lt;?xml version="1.0"?&gt;
+&lt;configuration&gt;
+
+	&lt;!-- ch.qos.logback.core.ConsoleAppender 控制台输出 --&gt;
+	&lt;appender name="console" class="ch.qos.logback.core.ConsoleAppender"&gt;
+		&lt;encoder&gt;
+			&lt;pattern&gt;[%-5level] %d{HH:mm:ss.SSS} [%thread] %logger{36} - %msg%n
+			&lt;/pattern&gt;
+		&lt;/encoder&gt;
+	&lt;/appender&gt;
+
+	&lt;!-- ch.qos.logback.core.rolling.RollingFileAppender 文件日志输出 --&gt;
+	&lt;appender name="file"
+		class="ch.qos.logback.core.rolling.RollingFileAppender"&gt;
+		&lt;Encoding&gt;UTF-8&lt;/Encoding&gt;
+		&lt;File&gt;/home/test.log&lt;/File&gt;
+		&lt;rollingPolicy class="ch.qos.logback.core.rolling.TimeBasedRollingPolicy"&gt;
+			&lt;FileNamePattern&gt;/home/test-%d{yyyy-MM-dd}.log
+			&lt;/FileNamePattern&gt;
+			&lt;MaxHistory&gt;10&lt;/MaxHistory&gt;
+			&lt;TimeBasedFileNamingAndTriggeringPolicy
+				class="ch.qos.logback.core.rolling.SizeAndTimeBasedFNATP"&gt;
+				&lt;MaxFileSize&gt;5MB&lt;/MaxFileSize&gt;
+			&lt;/TimeBasedFileNamingAndTriggeringPolicy&gt;
+		&lt;/rollingPolicy&gt;
+		&lt;layout class="ch.qos.logback.classic.PatternLayout"&gt;
+			&lt;pattern&gt;[%-5level] %d{HH:mm:ss.SSS} [%thread] %logger{36} - %msg%n
+			&lt;/pattern&gt;
+		&lt;/layout&gt;
+	&lt;/appender&gt;
+
+	&lt;!-- 日志级别 --&gt;
+	&lt;root&gt;
+	    &lt;!-- 定义了ERROR和INFO级别的日志，分别在FILE文件和控制台输出 --&gt;
+		&lt;level value="error" /&gt;
+		&lt;level value="info" /&gt;
+		&lt;appender-ref ref="file" /&gt; 
+		&lt;appender-ref ref="console" /&gt;
+	&lt;/root&gt;
+
+
+&lt;/configuration&gt; </pre><br />&#13;
+<p></p>&#13;
+<h4>5. 精确设置每个包下面的日志</h4>&#13;
+<p></p>&#13;
+<pre code_snippet_id="511263" snippet_file_name="blog_20141107_7_3231268" name="code" class="html">	&lt;logger name="com.xxx" additivity="false"&gt;
+		&lt;level value="info" /&gt;
+		&lt;appender-ref ref="file" /&gt;
+		&lt;appender-ref ref="console" /&gt;
+	&lt;/logger&gt;</pre><br />&#13;
+<br />&#13;
+<p>详细参考：<a target="_blank" href="http://logback.qos.ch/manual/configuration.html">http://logback.qos.ch/manual/configuration.html</a></p>&#13;
+<p></p>&#13;
+   &#13;

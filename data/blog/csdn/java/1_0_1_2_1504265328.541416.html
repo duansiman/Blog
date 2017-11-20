@@ -1,0 +1,236 @@
+
+        <div class="markdown_views"><h3 id="spring-security是什么">Spring Security是什么?</h3>
+
+<p>Spring Security是一套认证授权框架,支持认证模式如<code>HTTP BASIC 认证头 (基于 IETF RFC-based 标准)</code>,<code>HTTP Digest 认证头 ( IETF RFC-based 标准)</code>,<code>Form-based authentication (用于简单的用户界面)</code>,<code>OpenID 认证</code>等,Spring Security使得当前系统可以快速集成这些验证机制亦或是实现自己的一套验证机制.</p>
+
+
+
+<h3 id="使用spring-security">使用Spring Security</h3>
+
+<p>Spring Security3之后提供了Java Config的配置方式,但是我觉得xml方式比较容易理解其整体结构,所以本文都是基于xml配置的,在github上该项目会提供Java Config方式作为对比.</p>
+
+
+
+<h4 id="pom依赖">pom依赖</h4>
+
+
+
+<pre class="prettyprint"><code class="language-java hljs ">   &lt;parent&gt;
+        &lt;groupId&gt;org.springframework.boot&lt;/groupId&gt;
+        &lt;artifactId&gt;spring-boot-starter-parent&lt;/artifactId&gt;
+        &lt;version&gt;<span class="hljs-number">1.5</span><span class="hljs-number">.4</span>.RELEASE&lt;/version&gt;
+    &lt;/parent&gt;
+
+    &lt;dependencies&gt;
+        &lt;dependency&gt;
+            &lt;groupId&gt;org.springframework.boot&lt;/groupId&gt;
+            &lt;artifactId&gt;spring-boot-starter-security&lt;/artifactId&gt;
+        &lt;/dependency&gt;
+        &lt;dependency&gt;
+            &lt;groupId&gt;org.springframework.boot&lt;/groupId&gt;
+            &lt;artifactId&gt;spring-boot-starter-web&lt;/artifactId&gt;
+        &lt;/dependency&gt;
+    &lt;/dependencies&gt;</code></pre>
+
+<p>由于使用了Spring Boot,所以需要使用<code>@EnableWebSecurity</code>注解启用Spring Security,并指明其配置文件为classpath下的<code>spring-security.xml</code></p>
+
+
+
+<pre class="prettyprint"><code class="language-java hljs "><span class="hljs-annotation">@Configuration</span>
+<span class="hljs-annotation">@EnableWebSecurity</span>
+<span class="hljs-annotation">@ImportResource</span>(locations = <span class="hljs-string">"classpath:spring-security.xml"</span>)
+<span class="hljs-keyword">public</span> <span class="hljs-class"><span class="hljs-keyword">class</span> <span class="hljs-title">SecurityConfig</span> {</span>
+}</code></pre>
+
+
+
+<h4 id="xml配置">xml配置</h4>
+
+<p>在<code>spring-security.xml</code>中引入官方提供的命名空间,然后简单配置下,该配置大概意思是对所有请求的url拦截,必须有User权限的用户才能访问.</p>
+
+
+
+<pre class="prettyprint"><code class="language-xml hljs "><span class="hljs-tag">&lt;<span class="hljs-title">beans</span> <span class="hljs-attribute">xmlns</span>=<span class="hljs-value">"http://www.springframework.org/schema/beans"</span>
+       <span class="hljs-attribute">xmlns:security</span>=<span class="hljs-value">"http://www.springframework.org/schema/security"</span>
+       <span class="hljs-attribute">xmlns:xsi</span>=<span class="hljs-value">"http://www.w3.org/2001/XMLSchema-instance"</span>
+       <span class="hljs-attribute">xsi:schemaLocation</span>=<span class="hljs-value">"http://www.springframework.org/schema/beans
+        http://www.springframework.org/schema/beans/spring-beans-3.0.xsd
+        http://www.springframework.org/schema/security
+        http://www.springframework.org/schema/security/spring-security.xsd"</span>&gt;</span>
+
+    <span class="hljs-tag">&lt;<span class="hljs-title">security:http</span> &gt;</span>
+        <span class="hljs-tag">&lt;<span class="hljs-title">security:intercept-url</span> <span class="hljs-attribute">pattern</span>=<span class="hljs-value">"/**"</span> <span class="hljs-attribute">access</span>=<span class="hljs-value">"hasRole('ROLE_USER')"</span>/&gt;</span>
+        <span class="hljs-tag">&lt;<span class="hljs-title">security:form-login</span>/&gt;</span>
+        <span class="hljs-tag">&lt;<span class="hljs-title">security:http-basic</span>/&gt;</span>
+        <span class="hljs-tag">&lt;<span class="hljs-title">security:logout</span>/&gt;</span>
+    <span class="hljs-tag">&lt;/<span class="hljs-title">security:http</span>&gt;</span>
+
+    <span class="hljs-tag">&lt;<span class="hljs-title">security:authentication-manager</span>&gt;</span>
+        <span class="hljs-tag">&lt;<span class="hljs-title">security:authentication-provider</span>&gt;</span>
+            <span class="hljs-tag">&lt;<span class="hljs-title">security:user-service</span>&gt;</span>
+                <span class="hljs-tag">&lt;<span class="hljs-title">security:user</span> <span class="hljs-attribute">name</span>=<span class="hljs-value">"user"</span> <span class="hljs-attribute">password</span>=<span class="hljs-value">"123456"</span> <span class="hljs-attribute">authorities</span>=<span class="hljs-value">"ROLE_USER"</span>/&gt;</span>
+                <span class="hljs-tag">&lt;<span class="hljs-title">security:user</span> <span class="hljs-attribute">name</span>=<span class="hljs-value">"admin"</span> <span class="hljs-attribute">password</span>=<span class="hljs-value">"123456"</span> <span class="hljs-attribute">authorities</span>=<span class="hljs-value">"ROLE_USER, ROLE_ADMIN"</span>/&gt;</span>
+            <span class="hljs-tag">&lt;/<span class="hljs-title">security:user-service</span>&gt;</span>
+        <span class="hljs-tag">&lt;/<span class="hljs-title">security:authentication-provider</span>&gt;</span>
+    <span class="hljs-tag">&lt;/<span class="hljs-title">security:authentication-manager</span>&gt;</span>
+
+<span class="hljs-tag">&lt;/<span class="hljs-title">beans</span>&gt;</span></code></pre>
+
+
+
+<h4 id="访问测试">访问测试</h4>
+
+<p>该页面为Spring Security自动生成的登录页面,当我们访问任何连接都会被重定向到该登录页面,输入<code>user:123456</code>登录后才能有权限访问. <br />
+<img src="http://oobu4m7ko.bkt.clouddn.com/1497854910.png?imageMogr2/thumbnail/!70p" alt="" title="" /></p>
+
+
+
+<h4 id="分析">分析</h4>
+
+<p>上述是一个简单的Demo,分析则是从这个Demo深入浅出. <br />
+<strong>1.Spring Security是如何拦截请求的?</strong> <br />
+传统的xml配置都会在web.xml里面配置如下过滤器.</p>
+
+
+
+<pre class="prettyprint"><code class="language-xml hljs ">   <span class="hljs-tag">&lt;<span class="hljs-title">filter</span>&gt;</span>
+      <span class="hljs-tag">&lt;<span class="hljs-title">filter-name</span>&gt;</span>springSecurityFilterChain<span class="hljs-tag">&lt;/<span class="hljs-title">filter-name</span>&gt;</span>
+     <span class="hljs-tag">&lt;<span class="hljs-title">filter-class</span>&gt;</span>org.springframework.web.filter.DelegatingFilterProxy<span class="hljs-tag">&lt;/<span class="hljs-title">filter-class</span>&gt;</span>
+   <span class="hljs-tag">&lt;/<span class="hljs-title">filter</span>&gt;</span>
+   <span class="hljs-tag">&lt;<span class="hljs-title">filter-mapping</span>&gt;</span>
+      <span class="hljs-tag">&lt;<span class="hljs-title">filter-name</span>&gt;</span>springSecurityFilterChain<span class="hljs-tag">&lt;/<span class="hljs-title">filter-name</span>&gt;</span>
+      <span class="hljs-tag">&lt;<span class="hljs-title">url-pattern</span>&gt;</span>/*<span class="hljs-tag">&lt;/<span class="hljs-title">url-pattern</span>&gt;</span>
+   <span class="hljs-tag">&lt;/<span class="hljs-title">filter-mapping</span>&gt;</span></code></pre>
+
+<p>可以看出入口点就是该类,该类会从Spring容器中读取名称为<code>springSecurityFilterChain</code>的一个Filter实例,从而获取到对应代理的Filter.</p>
+
+
+
+<pre class="prettyprint"><code class="language-java hljs ">    <span class="hljs-keyword">protected</span> Filter <span class="hljs-title">initDelegate</span>(WebApplicationContext wac) <span class="hljs-keyword">throws</span> ServletException {
+        Filter delegate = wac.getBean(getTargetBeanName(), Filter.class);
+        <span class="hljs-keyword">if</span> (isTargetFilterLifecycle()) {
+            delegate.init(getFilterConfig());
+        }
+        <span class="hljs-keyword">return</span> delegate;
+    }</code></pre>
+
+<p>然后在doFilter方法中调用该委托的filter,也就实现的拦截请求.</p>
+
+
+
+<pre class="prettyprint"><code class="language-java hljs ">    <span class="hljs-keyword">protected</span> <span class="hljs-keyword">void</span> <span class="hljs-title">invokeDelegate</span>(
+            Filter delegate, ServletRequest request, ServletResponse response, FilterChain filterChain)
+            <span class="hljs-keyword">throws</span> ServletException, IOException {
+
+        delegate.doFilter(request, response, filterChain);
+    }</code></pre>
+
+<p><strong>2. Spring Security拦截请求后是如何处理的?</strong> <br />
+打断点可以发现<code>DelegatingFilterProxy</code>实际上代理的是<code>FilterChainProxy</code>这个类,该类中有<code>private List&lt;SecurityFilterChain&gt; filterChains;</code>全局变量,那么<code>SecurityFilterChain</code>为何物?</p>
+
+
+
+<pre class="prettyprint"><code class="language-java hljs "><span class="hljs-keyword">public</span> <span class="hljs-class"><span class="hljs-keyword">interface</span> <span class="hljs-title">SecurityFilterChain</span> {</span>
+
+    <span class="hljs-keyword">boolean</span> matches(HttpServletRequest request);
+
+    List&lt;Filter&gt; getFilters();
+}</code></pre>
+
+<p>从源码可以判断SecurityFilterChain是一套规则所对应的Filter链集合.再看源码<code>getFilters</code>,该方法会根据规则(也就是配置中的<code>security:http</code>标签)获取一个SecurityFilterChain中的一套对应规则的filter链.</p>
+
+
+
+<pre class="prettyprint"><code class="language-java hljs ">    <span class="hljs-keyword">private</span> List&lt;Filter&gt; <span class="hljs-title">getFilters</span>(HttpServletRequest request) {
+        <span class="hljs-keyword">for</span> (SecurityFilterChain chain : filterChains) {
+            <span class="hljs-keyword">if</span> (chain.matches(request)) {
+                <span class="hljs-keyword">return</span> chain.getFilters();
+            }
+        }
+        <span class="hljs-keyword">return</span> <span class="hljs-keyword">null</span>;
+    }</code></pre>
+
+<p>最后在<code>doFilterInternal</code>方法中创建一个<code>VirtualFilterChain</code>类,调用其<code>doFilter</code>方法.<code>VirtualFilterChain</code>这个类很有意思,该类继承了<code>FilterChain</code>类,那么其就拥有了转交请求到指定filter的能力,另外其还拥有一套filter链<code>List&lt;Filter&gt; additionalFilters;</code>,那么这个类就控制了整个Spring Security的执行流程,那么它是怎么实现的呢? <br />
+开始我以为是一个循环,然而看了源码才发现自己太low了.</p>
+
+
+
+<pre class="prettyprint"><code class="language-java hljs ">        currentPosition++;
+        Filter nextFilter = additionalFilters.get(currentPosition - <span class="hljs-number">1</span>);
+        nextFilter.doFilter(request, response, <span class="hljs-keyword">this</span>);</code></pre>
+
+<p><code>currentPosition</code>与<code>additionalFilters</code>都是全局变量,其在调用filter链的时候每次都把自己本身在<code>doFilter</code>传值过去,每一个Filter链节点执行完毕后再返回<code>VirtualFilterChain</code>的<code>doFilter</code>方法,开启下一个节点执行.其结构如下面代码所示:</p>
+
+
+
+<pre class="prettyprint"><code class="language-java hljs ">interface IA{
+    <span class="hljs-keyword">void</span> doSomeThing(IAChain chain);
+  }
+  <span class="hljs-keyword">static</span> class IAClass implements IA{
+
+    <span class="hljs-annotation">@Override</span>
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">void</span> <span class="hljs-title">doSomeThing</span>(IAChain chain) {
+      System.out.println(<span class="hljs-string">"i am IAClass"</span>);
+      chain.doSomeThing();
+    }
+  }
+
+  interface IAChain{
+    <span class="hljs-keyword">void</span> doSomeThing();
+  }
+
+  <span class="hljs-keyword">static</span> class IAChainClass implements IAChain{
+
+    List&lt;IA&gt; IAChains = <span class="hljs-keyword">new</span> ArrayList&lt;IA&gt;();
+
+    <span class="hljs-keyword">public</span> <span class="hljs-title">IAChainClass</span>() {
+      IAChains.add(<span class="hljs-keyword">new</span> IAClass());
+      IAChains.add(<span class="hljs-keyword">new</span> IAClass());
+      IAChains.add(<span class="hljs-keyword">new</span> IAClass());
+    }
+
+    <span class="hljs-keyword">int</span> position = <span class="hljs-number">0</span>;
+
+    <span class="hljs-annotation">@Override</span>
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">void</span> <span class="hljs-title">doSomeThing</span>() {
+      <span class="hljs-keyword">if</span> (position == IAChains.size()) {
+        System.out.println(<span class="hljs-string">"end"</span>);
+        <span class="hljs-keyword">return</span>;
+      }
+      IA ia = IAChains.get(position++);
+      ia.doSomeThing(<span class="hljs-keyword">this</span>);
+    }
+  }</code></pre>
+
+<p>当调用<code>iaChainClass.doSomeThing()</code>输出</p>
+
+
+
+<pre class="prettyprint"><code class="language-java hljs ">i am IAClass
+i am IAClass
+i am IAClass
+end</code></pre>
+
+<hr />
+
+<p>调用链的实现还可以使用继承来实现,每次执行前先执行super()方法.</p>
+
+<blockquote>
+  <p>github地址:  <a href="https://github.com/nl101531/JavaWEB" target="_blank">https://github.com/nl101531/JavaWEB</a></p>
+</blockquote>
+
+<p>ok,下一章分析具体的Filter链中的节点,探究下Spring Security是如何进行用户认证与权限控制的.</p></div>&#13;
+        <script type="text/javascript">&#13;
+            $(function () {&#13;
+                $('pre.prettyprint code').each(function () {&#13;
+                    var lines = $(this).text().split('\n').length;&#13;
+                    var $numbering = $('&lt;ul/&gt;').addClass('pre-numbering').hide();&#13;
+                    $(this).addClass('has-numbering').parent().append($numbering);&#13;
+                    for (i = 1; i &lt;= lines; i++) {&#13;
+                        $numbering.append($('&lt;li/&gt;').text(i));&#13;
+                    };&#13;
+                    $numbering.fadeIn(1700);&#13;
+                });&#13;
+            });&#13;
+        </script>&#13;
+   &#13;

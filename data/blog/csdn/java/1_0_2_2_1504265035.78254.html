@@ -1,0 +1,293 @@
+
+        <div class="markdown_views"><p><strong>设计模式1——单例变形(多例)</strong> <br />
+<strong>★ 缓存在单例中的使用</strong> <br />
+缓存在编程中使用很频繁，有着非常重要的作用，它能够帮助程序实现以空间换取时间，通常被设计成整个应用程序所共享的一个空间，现要求实现一个用缓存存放单例对象的类。 <br />
+说明：该缓存中可以存放多个该类对象，每个对象以一个key值标识，key值相同时所访问的是同一个单例对象。</p>
+
+<p>给一个key值标识：</p>
+
+<pre class="prettyprint"><code class=" hljs java"><span class="hljs-keyword">package</span> cn.hncu.pattern.mulitition;
+
+<span class="hljs-keyword">import</span> java.util.HashMap;
+<span class="hljs-keyword">import</span> java.util.Map;
+
+<span class="hljs-keyword">public</span> <span class="hljs-class"><span class="hljs-keyword">class</span> <span class="hljs-title">A</span> {</span>
+    <span class="hljs-keyword">private</span> <span class="hljs-keyword">static</span> <span class="hljs-keyword">final</span> Map&lt;String, A&gt; map = <span class="hljs-keyword">new</span> HashMap&lt;String, A&gt;();
+    <span class="hljs-keyword">public</span> <span class="hljs-title">A</span>() {
+    }<span class="hljs-comment">//private也是可以的，这不是关键，关键是map是私有的，这个是集合的单例</span>
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">static</span> A <span class="hljs-title">getInstance</span>(String key){
+        A a = map.get(key);
+        <span class="hljs-keyword">if</span>(a==<span class="hljs-keyword">null</span>){
+            a = <span class="hljs-keyword">new</span> A();
+            map.put(key, a);
+        }
+        <span class="hljs-keyword">return</span> a;
+    }
+}
+</code></pre>
+
+<p>测试：</p>
+
+
+
+<pre class="prettyprint"><code class=" hljs cs">package cn.hncu.pattern.mulitition;
+
+<span class="hljs-keyword">public</span> <span class="hljs-keyword">class</span> Test {
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">static</span> <span class="hljs-keyword">void</span> <span class="hljs-title">main</span>(String[] args) {
+        Atest();
+
+    }
+
+    <span class="hljs-keyword">private</span> <span class="hljs-keyword">static</span> <span class="hljs-keyword">void</span> <span class="hljs-title">Atest</span>() {
+        A a1 = A.getInstance(<span class="hljs-string">"hncu1"</span>);
+        System.<span class="hljs-keyword">out</span>.println(a1);
+
+        A a2 = A.getInstance(<span class="hljs-string">"hncu2"</span>);
+        System.<span class="hljs-keyword">out</span>.println(a2);
+
+        A a3 = A.getInstance(<span class="hljs-string">"hncu1"</span>);
+        System.<span class="hljs-keyword">out</span>.println(a3);
+
+        A a4 = A.getInstance(<span class="hljs-string">"hncu2"</span>);
+        System.<span class="hljs-keyword">out</span>.println(a4);
+
+        A a5 = A.getInstance(<span class="hljs-string">"hncu1"</span>);
+        System.<span class="hljs-keyword">out</span>.println(a5);
+
+    }
+
+}
+</code></pre>
+
+<p>测试输出结果;</p>
+
+
+
+<pre class="prettyprint"><code class=" hljs avrasm">cn<span class="hljs-preprocessor">.hncu</span><span class="hljs-preprocessor">.pattern</span><span class="hljs-preprocessor">.mulitition</span><span class="hljs-preprocessor">.A</span><span class="hljs-localvars">@11</span>dba45
+cn<span class="hljs-preprocessor">.hncu</span><span class="hljs-preprocessor">.pattern</span><span class="hljs-preprocessor">.mulitition</span><span class="hljs-preprocessor">.A</span>@b03be0
+cn<span class="hljs-preprocessor">.hncu</span><span class="hljs-preprocessor">.pattern</span><span class="hljs-preprocessor">.mulitition</span><span class="hljs-preprocessor">.A</span><span class="hljs-localvars">@11</span>dba45
+cn<span class="hljs-preprocessor">.hncu</span><span class="hljs-preprocessor">.pattern</span><span class="hljs-preprocessor">.mulitition</span><span class="hljs-preprocessor">.A</span>@b03be0
+cn<span class="hljs-preprocessor">.hncu</span><span class="hljs-preprocessor">.pattern</span><span class="hljs-preprocessor">.mulitition</span><span class="hljs-preprocessor">.A</span><span class="hljs-localvars">@11</span>dba45
+</code></pre>
+
+<p>可以发现：a1,a3,a5的地址的值是相等的，a2,a4是相等的。</p>
+
+<p><strong>通过Buffer类调用Book类的单例：</strong> <br />
+Book类：</p>
+
+<pre class="prettyprint"><code class=" hljs java"><span class="hljs-keyword">package</span> cn.hncu.pattern.mulitition;
+
+<span class="hljs-keyword">public</span> <span class="hljs-class"><span class="hljs-keyword">class</span> <span class="hljs-title">Book</span> {</span>
+    <span class="hljs-keyword">private</span> String name;
+    <span class="hljs-keyword">private</span> <span class="hljs-keyword">int</span> id;
+    <span class="hljs-keyword">private</span> <span class="hljs-keyword">double</span> price;
+    <span class="hljs-keyword">private</span> String details;
+    <span class="hljs-keyword">private</span> <span class="hljs-keyword">static</span> <span class="hljs-keyword">int</span> cont=<span class="hljs-number">0</span>;
+
+
+    <span class="hljs-keyword">public</span> <span class="hljs-title">Book</span>() {
+        id=cont++;
+    }
+
+    <span class="hljs-keyword">public</span> String <span class="hljs-title">getName</span>() {
+        <span class="hljs-keyword">return</span> name;
+    }
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">void</span> <span class="hljs-title">setName</span>(String name) {
+        <span class="hljs-keyword">this</span>.name = name;
+    }
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">int</span> <span class="hljs-title">getId</span>() {
+        <span class="hljs-keyword">return</span> id;
+    }
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">void</span> <span class="hljs-title">setId</span>(<span class="hljs-keyword">int</span> id) {
+        <span class="hljs-keyword">this</span>.id = id;
+    }
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">double</span> <span class="hljs-title">getPrice</span>() {
+        <span class="hljs-keyword">return</span> price;
+    }
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">void</span> <span class="hljs-title">setPrice</span>(<span class="hljs-keyword">double</span> price) {
+        <span class="hljs-keyword">this</span>.price = price;
+    }
+    <span class="hljs-keyword">public</span> String <span class="hljs-title">getDetails</span>() {
+        <span class="hljs-keyword">return</span> details;
+    }
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">void</span> <span class="hljs-title">setDetails</span>(String details) {
+        <span class="hljs-keyword">this</span>.details = details;
+    }
+    <span class="hljs-annotation">@Override</span>
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">int</span> <span class="hljs-title">hashCode</span>() {
+        <span class="hljs-keyword">final</span> <span class="hljs-keyword">int</span> prime = <span class="hljs-number">31</span>;
+        <span class="hljs-keyword">int</span> result = <span class="hljs-number">1</span>;
+        result = prime * result + id;
+        <span class="hljs-keyword">return</span> result;
+    }
+    <span class="hljs-annotation">@Override</span>
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">boolean</span> <span class="hljs-title">equals</span>(Object obj) {
+        <span class="hljs-keyword">if</span> (<span class="hljs-keyword">this</span> == obj)
+            <span class="hljs-keyword">return</span> <span class="hljs-keyword">true</span>;
+        <span class="hljs-keyword">if</span> (obj == <span class="hljs-keyword">null</span>)
+            <span class="hljs-keyword">return</span> <span class="hljs-keyword">false</span>;
+        <span class="hljs-keyword">if</span> (getClass() != obj.getClass())
+            <span class="hljs-keyword">return</span> <span class="hljs-keyword">false</span>;
+        Book other = (Book) obj;
+        <span class="hljs-keyword">if</span> (id != other.id)
+            <span class="hljs-keyword">return</span> <span class="hljs-keyword">false</span>;
+        <span class="hljs-keyword">return</span> <span class="hljs-keyword">true</span>;
+    }
+    <span class="hljs-annotation">@Override</span>
+    <span class="hljs-keyword">public</span> String <span class="hljs-title">toString</span>() {
+        <span class="hljs-keyword">return</span> <span class="hljs-string">"Book [id="</span> + id + <span class="hljs-string">"]"</span>;
+    }
+
+
+}</code></pre>
+
+<p>Buffer类：</p>
+
+
+
+<pre class="prettyprint"><code class=" hljs java"><span class="hljs-keyword">package</span> cn.hncu.pattern.mulitition;
+
+<span class="hljs-keyword">import</span> java.util.HashMap;
+<span class="hljs-keyword">import</span> java.util.Map;
+
+<span class="hljs-keyword">public</span> <span class="hljs-class"><span class="hljs-keyword">class</span> <span class="hljs-title">Buffer</span> {</span>
+    <span class="hljs-keyword">private</span> <span class="hljs-keyword">static</span> <span class="hljs-keyword">final</span> Map&lt;String, Book&gt; map = <span class="hljs-keyword">new</span> HashMap&lt;String, Book&gt;();
+    <span class="hljs-keyword">public</span> <span class="hljs-title">Buffer</span>() {
+    }<span class="hljs-comment">//private也是可以的，这不是关键，关键是map是私有的，这个是集合的单例</span>
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">static</span> Book <span class="hljs-title">getInstance</span>(String key){
+        Book a = map.get(key);
+        <span class="hljs-keyword">if</span>(a==<span class="hljs-keyword">null</span>){
+            a = <span class="hljs-keyword">new</span> Book();
+            map.put(key, a);
+        }
+        <span class="hljs-keyword">return</span> a;
+    }
+}   
+</code></pre>
+
+<p>测试类;</p>
+
+
+
+<pre class="prettyprint"><code class=" hljs cs">package cn.hncu.pattern.mulitition;
+
+<span class="hljs-keyword">public</span> <span class="hljs-keyword">class</span> Test {
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">static</span> <span class="hljs-keyword">void</span> <span class="hljs-title">main</span>(String[] args) {
+        Buffertest();
+    }
+
+    <span class="hljs-keyword">private</span> <span class="hljs-keyword">static</span> <span class="hljs-keyword">void</span> <span class="hljs-title">Buffertest</span>() {
+        Book bk1 = Buffer.getInstance(<span class="hljs-string">"hncu1"</span>);
+        System.<span class="hljs-keyword">out</span>.println(bk1);
+
+        Book bk2 = Buffer.getInstance(<span class="hljs-string">"hncu2"</span>);
+        System.<span class="hljs-keyword">out</span>.println(bk2);
+
+        Book bk3 = Buffer.getInstance(<span class="hljs-string">"hncu3"</span>);
+        System.<span class="hljs-keyword">out</span>.println(bk3);
+
+        Book bk4 = Buffer.getInstance(<span class="hljs-string">"hncu2"</span>);
+        System.<span class="hljs-keyword">out</span>.println(bk4);
+
+        Book bk5= Buffer.getInstance(<span class="hljs-string">"hncu1"</span>);
+        System.<span class="hljs-keyword">out</span>.println(bk5);
+    }
+}</code></pre>
+
+<p>输出结果：</p>
+
+
+
+<pre class="prettyprint"><code class=" hljs css"><span class="hljs-tag">Book</span> <span class="hljs-attr_selector">[id=0]</span>
+<span class="hljs-tag">Book</span> <span class="hljs-attr_selector">[id=1]</span>
+<span class="hljs-tag">Book</span> <span class="hljs-attr_selector">[id=2]</span>
+<span class="hljs-tag">Book</span> <span class="hljs-attr_selector">[id=1]</span>
+<span class="hljs-tag">Book</span> <span class="hljs-attr_selector">[id=0]</span>
+</code></pre>
+
+<p><strong>★ 单例变形——多例模式</strong> <br />
+把上面缓存的单例实现，做成一个能够控制对象个数的共享空间，供整个应用程序使用。在缓存中维护指定个数的对象，每个对象的key值由该类内部指定，有外部请求时直接返回其中一个对象出去。 <br />
+说明：相当于维护一个指定数量的对象池，当请求个数超过控制的总数时，开始循环重复使用 。</p>
+
+
+
+<pre class="prettyprint"><code class=" hljs java"><span class="hljs-keyword">package</span> cn.hncu.pattern.mulitition.multi;
+
+<span class="hljs-keyword">import</span> java.util.HashMap;
+<span class="hljs-keyword">import</span> java.util.Map;
+
+<span class="hljs-keyword">public</span> <span class="hljs-class"><span class="hljs-keyword">class</span> <span class="hljs-title">A</span> {</span>
+    <span class="hljs-keyword">private</span> <span class="hljs-keyword">static</span> <span class="hljs-keyword">final</span> Map&lt;Integer, A&gt; map= <span class="hljs-keyword">new</span> HashMap&lt;Integer, A&gt;();
+    <span class="hljs-keyword">private</span> <span class="hljs-keyword">static</span> <span class="hljs-keyword">final</span> <span class="hljs-keyword">int</span> MAX=<span class="hljs-number">3</span>;<span class="hljs-comment">//控制容器中所能使用对象的总个数</span>
+    <span class="hljs-keyword">private</span> <span class="hljs-keyword">static</span> <span class="hljs-keyword">int</span> cont = <span class="hljs-number">1</span>;<span class="hljs-comment">//代表池中目前将要被使用的对象的序号</span>
+
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">static</span> A <span class="hljs-title">getInstance</span>(){
+        A a = map.get(cont);
+        <span class="hljs-keyword">if</span>(a==<span class="hljs-keyword">null</span>){
+            a=<span class="hljs-keyword">new</span> A();
+            map.put(cont, a);
+        }
+        cont++;
+        <span class="hljs-keyword">if</span>(cont&gt;MAX){
+            cont=<span class="hljs-number">1</span>;
+        }
+        <span class="hljs-keyword">return</span> a;
+    }
+
+
+}
+</code></pre>
+
+<p>测试的类：</p>
+
+<pre class="prettyprint"><code class=" hljs avrasm">package cn<span class="hljs-preprocessor">.hncu</span><span class="hljs-preprocessor">.pattern</span><span class="hljs-preprocessor">.mulitition</span><span class="hljs-comment">;</span>
+
+public class Test {
+    public static void main(String[] args) {
+        Atest2()<span class="hljs-comment">;</span>
+    }
+
+    private static void Atest2() {
+        System<span class="hljs-preprocessor">.out</span><span class="hljs-preprocessor">.println</span>(cn<span class="hljs-preprocessor">.hncu</span><span class="hljs-preprocessor">.pattern</span><span class="hljs-preprocessor">.mulitition</span><span class="hljs-preprocessor">.multi</span><span class="hljs-preprocessor">.A</span><span class="hljs-preprocessor">.getInstance</span>())<span class="hljs-comment">;</span>
+        System<span class="hljs-preprocessor">.out</span><span class="hljs-preprocessor">.println</span>(cn<span class="hljs-preprocessor">.hncu</span><span class="hljs-preprocessor">.pattern</span><span class="hljs-preprocessor">.mulitition</span><span class="hljs-preprocessor">.multi</span><span class="hljs-preprocessor">.A</span><span class="hljs-preprocessor">.getInstance</span>())<span class="hljs-comment">;</span>
+        System<span class="hljs-preprocessor">.out</span><span class="hljs-preprocessor">.println</span>(cn<span class="hljs-preprocessor">.hncu</span><span class="hljs-preprocessor">.pattern</span><span class="hljs-preprocessor">.mulitition</span><span class="hljs-preprocessor">.multi</span><span class="hljs-preprocessor">.A</span><span class="hljs-preprocessor">.getInstance</span>())<span class="hljs-comment">;</span>
+        System<span class="hljs-preprocessor">.out</span><span class="hljs-preprocessor">.println</span>(cn<span class="hljs-preprocessor">.hncu</span><span class="hljs-preprocessor">.pattern</span><span class="hljs-preprocessor">.mulitition</span><span class="hljs-preprocessor">.multi</span><span class="hljs-preprocessor">.A</span><span class="hljs-preprocessor">.getInstance</span>())<span class="hljs-comment">;</span>
+        System<span class="hljs-preprocessor">.out</span><span class="hljs-preprocessor">.println</span>(cn<span class="hljs-preprocessor">.hncu</span><span class="hljs-preprocessor">.pattern</span><span class="hljs-preprocessor">.mulitition</span><span class="hljs-preprocessor">.multi</span><span class="hljs-preprocessor">.A</span><span class="hljs-preprocessor">.getInstance</span>())<span class="hljs-comment">;</span>
+        System<span class="hljs-preprocessor">.out</span><span class="hljs-preprocessor">.println</span>(cn<span class="hljs-preprocessor">.hncu</span><span class="hljs-preprocessor">.pattern</span><span class="hljs-preprocessor">.mulitition</span><span class="hljs-preprocessor">.multi</span><span class="hljs-preprocessor">.A</span><span class="hljs-preprocessor">.getInstance</span>())<span class="hljs-comment">;</span>
+    }
+
+
+}
+</code></pre>
+
+<p>输出结果：</p>
+
+
+
+<pre class="prettyprint"><code class=" hljs avrasm">cn<span class="hljs-preprocessor">.hncu</span><span class="hljs-preprocessor">.pattern</span><span class="hljs-preprocessor">.mulitition</span><span class="hljs-preprocessor">.multi</span><span class="hljs-preprocessor">.A</span><span class="hljs-localvars">@18</span>a49e0
+cn<span class="hljs-preprocessor">.hncu</span><span class="hljs-preprocessor">.pattern</span><span class="hljs-preprocessor">.mulitition</span><span class="hljs-preprocessor">.multi</span><span class="hljs-preprocessor">.A</span><span class="hljs-localvars">@1</span>f82982
+cn<span class="hljs-preprocessor">.hncu</span><span class="hljs-preprocessor">.pattern</span><span class="hljs-preprocessor">.mulitition</span><span class="hljs-preprocessor">.multi</span><span class="hljs-preprocessor">.A</span><span class="hljs-localvars">@16</span>d2633
+cn<span class="hljs-preprocessor">.hncu</span><span class="hljs-preprocessor">.pattern</span><span class="hljs-preprocessor">.mulitition</span><span class="hljs-preprocessor">.multi</span><span class="hljs-preprocessor">.A</span><span class="hljs-localvars">@18</span>a49e0
+cn<span class="hljs-preprocessor">.hncu</span><span class="hljs-preprocessor">.pattern</span><span class="hljs-preprocessor">.mulitition</span><span class="hljs-preprocessor">.multi</span><span class="hljs-preprocessor">.A</span><span class="hljs-localvars">@1</span>f82982
+cn<span class="hljs-preprocessor">.hncu</span><span class="hljs-preprocessor">.pattern</span><span class="hljs-preprocessor">.mulitition</span><span class="hljs-preprocessor">.multi</span><span class="hljs-preprocessor">.A</span><span class="hljs-localvars">@16</span>d2633
+</code></pre>
+
+<p>可以看到：  123行的输出个不相同， <br />
+            第4行的地址和第一行的相同， <br />
+            第5行的地址和第二行的相同， <br />
+            第6行的地址和第三行的相同。 <br />
+            依次类推，循环节点为3.</p></div>&#13;
+        <script type="text/javascript">&#13;
+            $(function () {&#13;
+                $('pre.prettyprint code').each(function () {&#13;
+                    var lines = $(this).text().split('\n').length;&#13;
+                    var $numbering = $('&lt;ul/&gt;').addClass('pre-numbering').hide();&#13;
+                    $(this).addClass('has-numbering').parent().append($numbering);&#13;
+                    for (i = 1; i &lt;= lines; i++) {&#13;
+                        $numbering.append($('&lt;li/&gt;').text(i));&#13;
+                    };&#13;
+                    $numbering.fadeIn(1700);&#13;
+                });&#13;
+            });&#13;
+        </script>&#13;
+   &#13;

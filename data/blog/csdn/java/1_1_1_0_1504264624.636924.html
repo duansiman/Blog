@@ -1,0 +1,104 @@
+
+
+<p>本节使用访问者模式的基本结构，讨论它的<strong>作用和意义</strong>，或者说<strong>意图</strong>。</p>&#13;
+<h2>1.问题的提出<br />&#13;
+</h2>&#13;
+<p>现有这样一个方案：Person有子类Boy、Girl；Person定义了方法say()、eat(int i)、walk()。</p>&#13;
+<p></p>&#13;
+<pre code_snippet_id="478080" snippet_file_name="blog_20140930_1_6142461" name="code" class="java">package method.visitor;
+public abstract class Person{
+    public abstract void accept(Visitor v);
+    /*
+    public abstract String say();
+    public abstract int eat(int i);//长肉
+    public abstract void walk();
+    */
+}</pre><br />&#13;
+<p>Person的这些代码，由其子类实现。<strong><span style="color:#ff0000">Person非常容易扩展出新的子类</span></strong>。但是，</p>&#13;
+<ul>&#13;
+<li>(据说eat与身高、心情、减肥等相关，有非常复杂的算法...)据说say()与walk()的代码放在一起，会显得不专业</li><li>由于Person的这些方法的（实现）代码将分散到Boy、Gril中“导致整个系统难以理解”，</li><li>更重要的是，<strong><span style="color:#ff0000">Person增添新的方法困难</span></strong>——违反OCP、整个类层次需要修改。</li></ul>&#13;
+<p>于是，有了访问者模式。从结构出发，<a target="_blank" href="http://blog.csdn.net/yqj2065/article/details/39677689">访问者模式2</a>中好人打贱人说明了一个事实，只要涉及双分派，就可以使用访问者模式。</p>&#13;
+<p></p>&#13;
+<h2>2.专项检查</h2>&#13;
+GoF的访问者模式的入手点：将<span style="background-color:rgb(255,255,255)"><span style="color:#cc0000">Person的层次横切为Visitor层次</span></span>。&#13;
+<p></p>&#13;
+<ul>&#13;
+<li>Person定义的方法say()、eat(int i)、walk()将被封装为访问子类，添加一个accept()。</li><li>Visitor及其子类将对Person的子类进行访问。<strong><span style="color:#FF0000">访问者是做专项检查的</span></strong>。<br />&#13;
+</li></ul>&#13;
+<p><strong><span style="color:#006600">Person有n个子类m个方法，转换为Visitor则有m个子类n个方法</span></strong>，虽然n*m=m*n。</p>&#13;
+<p>访问者模式的最好使用场合：<strong><span style="color:#ff0000">m越大n越小越好。换言之：访问者类型很多而对象结构(如Person)中元素（或子类）类型很少，这才适合访问者模式</span></strong>。</p>&#13;
+<p></p>&#13;
+<pre code_snippet_id="478080" snippet_file_name="blog_20140930_2_5837224" name="code" class="java">package method.visitor;
+/**
+ * @author yqj2065
+ * @version 2014.9
+ */
+public abstract class Visitor{
+    public abstract void visit(Person p);    
+    abstract void visitBoy();
+    abstract void visitGirl();
+}
+
+package method.visitor;
+import static tool.Print.*;
+public class SayVisitor extends Visitor{
+    public void visit(Person p){
+        p.accept(this);
+    } 
+    @Override void visitBoy(){
+        //Boy.say
+        pln("Boy.say");
+    }
+    @Override  void visitGirl(){
+        pln("Girl.say");
+    }
+}//EatVisitor、WalkVisitor略
+</pre>所以，(Visitor或)EatVisitor表示“<strong><span style="color:#ff0000">一个作用于某对象结构中的各元素的操作</span></strong>”，EatVisitor表示Person的eat(int i)；&#13;
+<p></p>&#13;
+<p>所以，Visitor“<strong><span style="color:#ff0000">使你可以在不改变各元素的类的前提下定义作用于这些元素的新操作</span></strong>”。例如，希望为Person增添song()操作，添加一个SongVisitor即可。</p>&#13;
+<p>现在，可以容易地为Person(通过扩展Visitor)增添新操作；但是Person本身的扩展，由于Visitor的牵绊，很困难。</p>&#13;
+<p></p>&#13;
+<h2>3.对象结构</h2>&#13;
+GoF的访问者模式中，包含了一个用于存储元素对象集合的对象结构。在讨论访问者模式时，个人从来不关注它。它<span style="color:#FF0000"><strong>不是必需的</strong></span>，但却是常见的、能够理解的。总体而言，我们在学习访问者模式时，可以将“对象结构”省略掉。(如果你觉得有这个对象结构，使得你更容易理解访问者模式，你可以带上它)&#13;
+<p></p>&#13;
+<p>这个对象结构，可以是任何数据结构，这里演示的Group有一个最常见的ArrayList&lt;Person&gt;保存各种具体元素(Person的各种子类)。可以使用<span style="color:#FF0000"><strong>组合模式</strong></span>构造更复杂的数据结构来组织元素，例如将Group设计为Person的子类，等等。但是所有这些和访问者模式并没有实际的关系。</p>&#13;
+<p></p><pre code_snippet_id="478080" snippet_file_name="blog_20150427_3_6364310" name="code" class="java">例程 3-31对象结构
+package method.visitor;
+import java.util.ArrayList;
+public class Group{
+    private ArrayList&lt;Person&gt; list=new ArrayList&lt;&gt;();
+
+    public void accept(Visitor visitor){
+        for(Person x :list){
+            x.accept(visitor);
+        }
+    }
+
+    public void add(Person product){        list.add(product);    }
+
+    public void remove(Person product)	{        list.remove(product);    }
+}
+</pre>假设某个观察者Visitor v1要观察一个小团队Group中的各成员如何说话，Test的代码可以如下：<br />&#13;
+&#13;
+<p>    public static void testGroup(){</p>&#13;
+<p>        Visitor v1 =(Visitor)God.create("3-5-Visitor1");//SayVisitor</p>&#13;
+<p>       // Visitor v2 =(Visitor)God.create("3-5-Visitor2");// new EatVisitor();</p>&#13;
+<p>       // Visitor v3 =(Visitor)God.create("3-5-Visitor3");//new WalkVisitor();</p>&#13;
+<p>        Person a =(Person)God.create("3-5-Person1");// new Boy();</p>&#13;
+<p>        Person b =(Person)God.create("3-5-Person1");// new Boy();</p>&#13;
+<p>        Person c =(Person)God.create("3-5-Person2");// new Girl();</p>&#13;
+<p>        Group g = new Group();</p>&#13;
+<p>        g.add(a);g.add(b);g.add(c);</p>&#13;
+<p>        g.accept(v1);//g.accept(v2);g.accept(v3);</p>&#13;
+<p>    }</p>&#13;
+<p></p>&#13;
+<p>按照配置文件，其输出的一例：</p>&#13;
+<p>Boy.say</p>&#13;
+<p>Boy.say</p>&#13;
+Girl.say<br />&#13;
+<br />&#13;
+<p><br />&#13;
+</p>&#13;
+<p><br />&#13;
+</p>&#13;
+   &#13;

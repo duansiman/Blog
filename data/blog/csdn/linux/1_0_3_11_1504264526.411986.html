@@ -1,0 +1,550 @@
+
+
+<p><strong><span style="word-wrap:break-word; line-height:26px; font-family:黑体"><span style="font-size:32px"><br />&#13;
+</span></span></strong></p>&#13;
+<p><strong><span style="word-wrap:break-word; line-height:26px; font-family:黑体"><span style="font-size:32px; color:#ff0000">Linux2.6 内核进程调度分析</span></span></strong></p>&#13;
+<p><strong><span style="word-wrap:break-word; line-height:26px; font-family:黑体"><span style="font-size:32px"><br />&#13;
+</span></span></strong></p>&#13;
+<strong><span style="word-wrap:break-word; line-height:26px; font-family:黑体"><span style="font-size:18px">   进程的调度时机与引起进程调度的原因和进程调度的方式有关。在 2.6 中,除核心应用</span><br style="word-wrap:break-word" />&#13;
+<span style="font-size:18px">    主动调用调度器之外, 核心还在应用不完全感知的情况下在以下三种时机中启动调度器工作:</span><br style="word-wrap:break-word" />&#13;
+<span style="font-size:18px">    1&gt;从中断或系统调用返回到用户态;</span><br style="word-wrap:break-word" />&#13;
+<span style="font-size:18px">    2&gt;某个进程允许被抢占 CPU;</span><br style="word-wrap:break-word" />&#13;
+<span style="font-size:18px">    3&gt;主动进入休眠状态;</span><br style="word-wrap:break-word" />&#13;
+<span style="font-size:18px">  </span><br style="word-wrap:break-word" />&#13;
+<span style="font-size:18px">  </span><br style="word-wrap:break-word" />&#13;
+<span style="font-size:18px"> 调度策略：</span><br style="word-wrap:break-word" />&#13;
+<span style="font-size:18px">    在 Linux2.6 中,仍有三种调度策略: SCHED_OTHER、SCHED_FIFO 和 SCHED_RR。</span><br style="word-wrap:break-word" />&#13;
+<span style="font-size:18px">  SCHED_ORHER:普通进程，基于优先级进行调度。</span><br style="word-wrap:break-word" />&#13;
+<span style="font-size:18px">  SCHED_FIFO：实时进程，实现一种简单的先进先出的调度算法。</span><br style="word-wrap:break-word" />&#13;
+<span style="font-size:18px">  SCHED_RR：实时进程，基于时间片的SCHED_FIFO,实时轮流调度算法。</span><br style="word-wrap:break-word" />&#13;
+<span style="font-size:18px">    </span><br style="word-wrap:break-word" />&#13;
+<span style="font-size:18px">前者是普通进程调度策略,后两者都是实时进程调度策略。</span><br style="word-wrap:break-word" />&#13;
+<span style="font-size:18px">SCHED_FIFO 与 SCHED_RR 的区别是:</span><br style="word-wrap:break-word" />&#13;
+<span style="font-size:18px">当进程的调度策略为前者时,当前实时进程将一直占用 CPU 直至自动退出,除非有更紧迫的、</span><br style="word-wrap:break-word" />&#13;
+<span style="font-size:18px">优先级更高的实时进程需要运行时,它才会被抢占 CPU;当进程的调度策略</span><br style="word-wrap:break-word" />&#13;
+<span style="font-size:18px">为后者时,它与其它实时进程以实时轮流算法去共同使用 CPU，用完时间片放到运行队列尾部。</span><br style="word-wrap:break-word" />&#13;
+<br style="word-wrap:break-word" />&#13;
+<span style="font-size:18px">注：实时进程的优先级高于普通进程，后面介绍。</span><br style="word-wrap:break-word" />&#13;
+<br style="word-wrap:break-word" />&#13;
+<span style="font-size:18px">     O(1)调度器是以进程的动态优先级 prio为调度依据的,它总是选择目前就绪队列中优先</span><br style="word-wrap:break-word" />&#13;
+<span style="font-size:18px">级最高的进程作为候选进程 next。由于实时进程的优先级总是比普通进程的优先级高,故能</span><br style="word-wrap:break-word" />&#13;
+<span style="font-size:18px">保证实时进程总是比普通进程先被调度。</span><br style="word-wrap:break-word" />&#13;
+<span style="font-size:18px">     Linux2.6 中,优先级 prio 的计算不再集中在调度器选择 next 进程时,而是分散在进程</span><br style="word-wrap:break-word" />&#13;
+<span style="font-size:18px">状态改变的任何时候,这些时机有:</span><br style="word-wrap:break-word" />&#13;
+<span style="font-size:18px">     1&gt;进程被创建时;</span><br style="word-wrap:break-word" />&#13;
+<span style="font-size:18px">     2&gt;休眠进程被唤醒时;</span><br style="word-wrap:break-word" />&#13;
+<span style="font-size:18px">     3&gt;从TASK_INTERRUPTIBLE 状态中被唤醒的进程被调度时;</span><br style="word-wrap:break-word" />&#13;
+<span style="font-size:18px">     4&gt;因时间片耗尽或时间片过长而分段被剥夺 CPU 时;</span><br style="word-wrap:break-word" />&#13;
+<span style="font-size:18px">     在这些情况下,内核都会调用 effective_prio()重新计算进程的动态优先级 prio并根据计算结果调整它在就绪队列中的位置。</span><br style="word-wrap:break-word" />&#13;
+<span style="font-size:18px">     </span><br style="word-wrap:break-word" />&#13;
+<span style="font-size:18px">     </span><br style="word-wrap:break-word" />&#13;
+<span style="font-size:18px">调度算法：</span><br style="word-wrap:break-word" />&#13;
+<span style="font-size:18px">O(1)调度器的重要数据结构</span><br style="word-wrap:break-word" />&#13;
+<span style="font-size:18px">     (1)就绪队列 struct runqueue</span><br style="word-wrap:break-word" />&#13;
+<span style="font-size:18px">     runqueue 的设计是 O(1)调度器的关键技术所在,它用于存放特定 CPU 上的就绪进程队</span><br style="word-wrap:break-word" />&#13;
+<span style="font-size:18px">列信息,其中包含每个 CPU 的调度信息。该结构在 /kernel/sched.c 中的定义如下:</span><br style="word-wrap:break-word" />&#13;
+<span style="font-size:18px">     struct runqueue {</span><br style="word-wrap:break-word" />&#13;
+<span style="font-size:18px">     ...</span><br style="word-wrap:break-word" />&#13;
+<span style="font-size:18px">     prio_array_t *active, *expired, array[2];</span><br style="word-wrap:break-word" />&#13;
+<span style="font-size:18px">     </span><br style="word-wrap:break-word" />&#13;
+<span style="font-size:18px">      active 是指向活动进程队列的指针</span><br style="word-wrap:break-word" />&#13;
+<span style="font-size:18px">      expired 是指向过期进程队列的指针</span><br style="word-wrap:break-word" />&#13;
+<span style="font-size:18px">      array[2]是实际的优先级进程队列，其中一个是活跃的一个是过期的，过期数组存放时间片耗完的进程</span><br style="word-wrap:break-word" />&#13;
+<span style="font-size:18px">     ...</span><br style="word-wrap:break-word" />&#13;
+<span style="font-size:18px">     }</span><br style="word-wrap:break-word" />&#13;
+<span style="font-size:18px">     </span><br style="word-wrap:break-word" />&#13;
+<span style="font-size:18px">     </span><br style="word-wrap:break-word" />&#13;
+<span style="font-size:18px">     在 2.6 中,每个 CPU 单独维护一个就绪队列,每个就绪队列都有一个自旋锁,从而解</span><br style="word-wrap:break-word" />&#13;
+<span style="font-size:18px">     决了 2.4 中因只有一个就绪队列而造成的瓶颈。</span><br style="word-wrap:break-word" />&#13;
+<span style="font-size:18px">     </span><br style="word-wrap:break-word" />&#13;
+<span style="font-size:18px">     (2)task_struct 结构</span><br style="word-wrap:break-word" />&#13;
+<span style="font-size:18px">     Linux2.6 内核使用 task_struct 结构来表示进程。2.6 对 task_struct 也做了较大的改动,</span><br style="word-wrap:break-word" />&#13;
+<span style="font-size:18px">     该结构定义在/include/linux/sched.h 中:</span><br style="word-wrap:break-word" />&#13;
+<span style="font-size:18px">     struct task_struct{</span><br style="word-wrap:break-word" />&#13;
+<span style="font-size:18px">     ...</span><br style="word-wrap:break-word" />&#13;
+<span style="font-size:18px">     int prio,static_prio;</span><br style="word-wrap:break-word" />&#13;
+<span style="font-size:18px">     prio 是动态优先级,static_prio 是静态优先级(与最初nice相关)</span><br style="word-wrap:break-word" />&#13;
+<span style="font-size:18px">     ...</span><br style="word-wrap:break-word" />&#13;
+<span style="font-size:18px">     prio_array_t *array;</span><br style="word-wrap:break-word" />&#13;
+<span style="font-size:18px">     记录当前 CPU 的活跃就绪队列 </span><br style="word-wrap:break-word" />&#13;
+<span style="font-size:18px">     </span><br style="word-wrap:break-word" />&#13;
+<span style="font-size:18px">     unsigned long sleep_avg;</span><br style="word-wrap:break-word" />&#13;
+<span style="font-size:18px">     进程的平均等待时间,取值范围[0,MAX_SLEEP_AVG],初值为0。</span><br style="word-wrap:break-word" />&#13;
+<span style="font-size:18px">     sleep_avg 反映了该进程需要运行的紧迫性。进程休眠该值增加，如果进程当前正在运行该值减少。</span><br style="word-wrap:break-word" />&#13;
+<span style="font-size:18px">     是影响进程优先级最重要的元素。值越大,说明该进程越需要被调度。 </span><br style="word-wrap:break-word" />&#13;
+<span style="font-size:18px">                                              </span><br style="word-wrap:break-word" />&#13;
+<span style="font-size:18px">     ...</span><br style="word-wrap:break-word" />&#13;
+<span style="font-size:18px">     };</span><br style="word-wrap:break-word" />&#13;
+<span style="font-size:18px">   </span><br style="word-wrap:break-word" />&#13;
+<span style="font-size:18px">     (3)优先级数组</span><br style="word-wrap:break-word" />&#13;
+<span style="font-size:18px">     每个处理器的就绪队列都有两个优先级数组,它们是 prio_array 类型的结构体。Linux2.6</span><br style="word-wrap:break-word" />&#13;
+<span style="font-size:18px">内核正是因为使用了优先级数组,才实现了 O(1)调度算法。该结构定义在 kernel/sched.c 中:</span><br style="word-wrap:break-word" />&#13;
+<span style="font-size:18px">     struct prio_array{</span><br style="word-wrap:break-word" />&#13;
+<span style="font-size:18px">     ...</span><br style="word-wrap:break-word" />&#13;
+<span style="font-size:18px">     unsigned int nr_active;</span><br style="word-wrap:break-word" />&#13;
+<span style="font-size:18px">     /**相应 runqueue 中的进程数</span><br style="word-wrap:break-word" />&#13;
+<span style="font-size:18px">     </span><br style="word-wrap:break-word" />&#13;
+<span style="font-size:18px">     unsigned long bitmap[BITMAP_SIZE];</span><br style="word-wrap:break-word" />&#13;
+<span style="font-size:18px">     /**索引位图，BITMAP_SIZE 默认值为 5,5个long(32位)类型，每位代表一个优先级，可以代表160个优先级，但实际中只有140。</span><br style="word-wrap:break-word" />&#13;
+<span style="font-size:18px">     与下面的queue[]对应。</span><br style="word-wrap:break-word" />&#13;
+<span style="font-size:18px">     分布0-99对应为实时进程，100-140对应为普通的进程</span><br style="word-wrap:break-word" />&#13;
+<span style="font-size:18px">     </span><br style="word-wrap:break-word" />&#13;
+<span style="font-size:18px">     struct list_head queue[MAX_PRIO];</span><br style="word-wrap:break-word" />&#13;
+<span style="font-size:18px">     /**每个优先级的进程队列,MAX_PRIO 是系统允许的最大优先级数,默认值为 140,数值越小优先级越高</span><br style="word-wrap:break-word" />&#13;
+<span style="font-size:18px">     bitmap每一位都与 queue[i]相对应,当 queue[i]的进程队列不为空时,bitmap 相应位为 1,否则就为 0。</span><br style="word-wrap:break-word" />&#13;
+<span style="font-size:18px">     }</span><br style="word-wrap:break-word" />&#13;
+<br style="word-wrap:break-word" />&#13;
+<span style="font-size:18px">     </span><br style="word-wrap:break-word" />&#13;
+<span style="font-size:18px"> O(1)调度算法实现的简单介绍</span><br style="word-wrap:break-word" />&#13;
+<span style="font-size:18px">     (1)选择并运行候选进程 next它确定下一个应该占有 CPU 并运行的进程,</span><br style="word-wrap:break-word" />&#13;
+<span style="font-size:18px">     schedule()函数是完成进程调度的主要函数,</span><br style="word-wrap:break-word" />&#13;
+<span style="font-size:18px">     并完成进程切换的工作。schedule()用于确定最高优先级进程的代码非常快捷高效,其</span><br style="word-wrap:break-word" />&#13;
+<span style="font-size:18px">性能的好坏对系统性能有着直接影响,它在/kernel/sched.c 中的定义如下:</span><br style="word-wrap:break-word" />&#13;
+<span style="font-size:18px">     ...</span><br style="word-wrap:break-word" />&#13;
+<span style="font-size:18px">     int idx;</span><br style="word-wrap:break-word" />&#13;
+<span style="font-size:18px">     ...</span><br style="word-wrap:break-word" />&#13;
+<span style="font-size:18px">     preempt_disable();</span><br style="word-wrap:break-word" />&#13;
+<span style="font-size:18px">     ...</span><br style="word-wrap:break-word" />&#13;
+<span style="font-size:18px">     idx = sched_find_first_bit( array -&gt; bitmap);</span><br style="word-wrap:break-word" />&#13;
+<span style="font-size:18px">     queue = array -&gt; queue + idx;</span><br style="word-wrap:break-word" />&#13;
+<span style="font-size:18px">     next = list_entry( queue -&gt; next, task_t, run_list);</span><br style="word-wrap:break-word" />&#13;
+<span style="font-size:18px">     ...</span><br style="word-wrap:break-word" />&#13;
+<span style="font-size:18px">     prev = context_switch( rq, prev, next);</span><br style="word-wrap:break-word" />&#13;
+<span style="font-size:18px">     ...</span><br style="word-wrap:break-word" />&#13;
+<span style="font-size:18px">     }</span><br style="word-wrap:break-word" />&#13;
+<span style="font-size:18px">     其中,sched_find_first_bit()能快速定位优先级最高的非空就绪进程链表,运行时间和就</span><br style="word-wrap:break-word" />&#13;
+<span style="font-size:18px">     绪队列中的进程数无关,是实现 O(1)调度算法的一个关键所在。</span><br style="word-wrap:break-word" />&#13;
+<span style="font-size:18px">     schedule()的执行流程:首先,调用 pre_empt_disable(),关闭内核抢占,因为此时要对</span><br style="word-wrap:break-word" />&#13;
+<span style="font-size:18px">     内核的一些重要数据结构进行操作,所以必须将内核抢占关闭;其次,调用</span><br style="word-wrap:break-word" />&#13;
+<span style="font-size:18px">    sched_find_first_bit()找到位图中的第1个置1的位,该位正好对应于就绪队列中的最高优先级进程链表;</span><br style="word-wrap:break-word" />&#13;
+<span style="font-size:18px">    </span><br style="word-wrap:break-word" />&#13;
+<span style="font-size:18px">再者,调用 context_switch()执行进程切换,选择在最高优先级链表中的第 1个进程投入运行;</span><br style="word-wrap:break-word" />&#13;
+<span style="font-size:18px">详细过程如图 1 所示：</span><br style="word-wrap:break-word" />&#13;
+<br style="word-wrap:break-word" />&#13;
+</span><span style="font-size:18px; word-wrap:break-word; font-family:宋体,Arial; line-height:26px"><img src="http://blogimg.chinaunix.net/blog/upfile2/080809213406.jpg" alt="" style="word-wrap:break-word; border:0px; font-family:黑体" /><br style="word-wrap:break-word; font-family:黑体" />&#13;
+</span></strong><span style="word-wrap:break-word; line-height:26px; font-family:&#x9ED1;&#x4F53;"><span style="font-size:18px"><strong>    <br style="word-wrap:break-word" />&#13;
+                                                        <span style="word-wrap:break-word">图 1</span><br style="word-wrap:break-word" />&#13;
+ 图中的网格为 140 位优先级数组,queue[7]为优先级为 7 的就绪进程链表。<br style="word-wrap:break-word" />&#13;
+    此种算法保证了调度器运行的时间上限,加速了候选进程的定位过程。<br style="word-wrap:break-word" />&#13;
+    (2)时间片的计算方法与时机<br style="word-wrap:break-word" />&#13;
+    Linux2.4 调度系统在所有就绪进程的时间片都耗完以后在调度器中一次性重新计算,其中重算是用for循环相当耗时。<br style="word-wrap:break-word" />&#13;
+    <br style="word-wrap:break-word" />&#13;
+    Linux2.6 为每个 CPU 保留 active 和 expired 两个优先级数<br style="word-wrap:break-word" />&#13;
+组, active 数组中包含了有剩余时间片的任务,expired 数组中包含了所有用完时间片的任务。<br style="word-wrap:break-word" />&#13;
+当一个任务的时间片用完了就会重新计算其时间片,并插入到 expired 队列中,当 active 队<br style="word-wrap:break-word" />&#13;
+列中所有进程用完时间片时,只需交换指向 active 和 expired 队列的指针即可。此交换是实<br style="word-wrap:break-word" />&#13;
+现 O(1)算法的核心,由 schedule()中以下程序来实现:<br style="word-wrap:break-word" />&#13;
+    array = rq -&gt;active;<br style="word-wrap:break-word" />&#13;
+    if (unlikely(!array-&gt;nr_active)) {<br style="word-wrap:break-word" />&#13;
+              rq -&gt; active = rq -&gt; expired;<br style="word-wrap:break-word" />&#13;
+              rq -&gt; expired = array;<br style="word-wrap:break-word" />&#13;
+              array = rq -&gt;active;<br style="word-wrap:break-word" />&#13;
+    ...<br style="word-wrap:break-word" />&#13;
+</strong></span></span>&#13;
+<p><span style="word-wrap:break-word; line-height:26px; font-family:黑体"><span style="font-size:18px"><strong>    }</strong></span></span></p>&#13;
+<p><span style="word-wrap:break-word; line-height:26px; font-family:黑体"><span style="font-size:18px"><strong><br />&#13;
+</strong></span></span></p>&#13;
+<p><span style="word-wrap:break-word; line-height:26px; font-family:黑体"><span style="font-size:18px"><strong>Schedule()函数的源码如下：</strong></span></span></p>&#13;
+<p><span style="word-wrap:break-word; line-height:26px; font-family:黑体"><span style="font-size:18px"><strong></strong></span></span></p><pre name="code" class="cpp">/*
+ * 调度的主要函数，研究一下到底是怎么样进行调度的
+ * __schedule() is the main scheduler function.
+ */
+void __sched __schedule(void)
+{
+    struct task_struct *prev, *next;
+    struct prio_array *array;
+    struct list_head *queue;
+    unsigned long long now;
+    unsigned long run_time;
+    int cpu, idx, new_prio;
+    long *switch_count;
+    struct rq *rq;
+
+    WARN_ON(system_state == SYSTEM_BOOTING);
+
+    /*
+     * Test if we are atomic. Since do_exit() needs to call into
+     * schedule() atomically, we ignore that path for now.
+     * Otherwise, whine if we are scheduling when we should not be.
+     */
+    if (unlikely(in_atomic() &amp;&amp; !current-&gt;exit_state)) {
+        stop_trace();
+        printk(KERN_ERR "BUG: scheduling while atomic: "
+            "%s/0x%08x/%d, CPU#%d\n",
+            current-&gt;comm, preempt_count(), current-&gt;pid,
+            smp_processor_id());
+        dump_stack();
+    }
+    profile_hit(SCHED_PROFILING, __builtin_return_address(0));
+    //禁止抢占
+
+    preempt_disable(); // FIXME: disable irqs here
+
+    prev = current;
+    release_kernel_lock(prev);
+    rq = this_rq();
+    
+
+//处理idle进程
+
+    /*
+     * The idle thread is not allowed to schedule!
+     * Remove this check after it has been exercised a bit.
+     */
+     //会有这种情况吗? idle进程就是当前进程，且状态不是TASK_RUNNING 
+
+    if (unlikely(prev == rq-&gt;idle) &amp;&amp; prev-&gt;state != TASK_RUNNING) {
+        printk(KERN_ERR "BUG: scheduling from the idle thread!\n");
+        dump_stack();
+    }
+
+    schedstat_inc(rq, sched_cnt); //rq-&gt;sched_cnt++
+
+    now = sched_clock(); //返回当前的时间(ns级别的)
+
+    if (likely((long long)(now - prev-&gt;timestamp) &lt; NS_MAX_SLEEP_AVG)) {
+        run_time = now - prev-&gt;timestamp;
+        if (unlikely((long long)(now - prev-&gt;timestamp) &lt; 0)) //可能发生吗? 怎么会出现这种情况呢?
+
+            run_time = 0;
+    } else
+        run_time = NS_MAX_SLEEP_AVG;
+
+    /*
+     * Tasks charged proportionately(相称的，成比例的) less run_time at high sleep_avg to
+     * delay them losing their interactive status
+     */
+    run_time /= (CURRENT_BONUS(prev) ? : 1);
+
+    cpu = smp_processor_id();
+    spin_lock_irq(&amp;rq-&gt;lock);
+
+    switch_count = &amp;prev-&gt;nvcsw; // TODO: temporary - to see it in vmstat
+
+    if ((prev-&gt;state &amp; ~TASK_RUNNING_MUTEX) &amp;&amp;
+            !(preempt_count() &amp; PREEMPT_ACTIVE)) {
+        switch_count = &amp;prev-&gt;nvcsw;
+        if (unlikely((prev-&gt;state &amp; TASK_INTERRUPTIBLE) &amp;&amp;
+                unlikely(signal_pending(prev))))
+            prev-&gt;state = TASK_RUNNING;
+        else {
+            if (prev-&gt;state == TASK_UNINTERRUPTIBLE) {
+                rq-&gt;nr_uninterruptible++;
+                incr_rt_nr_uninterruptible(prev, rq);
+            }
+            touch_softlockup_watchdog();
+            deactivate_task(prev, rq);
+        }
+    }
+    
+    if (preempt_count() &amp; PREEMPT_ACTIVE) //表明当前进程是否可以抢占
+
+        sub_preempt_count(PREEMPT_ACTIVE); //变成可抢占的
+
+        
+//从rq中删除掉
+
+    if (unlikely(prev-&gt;flags &amp; PF_DEAD)) {
+        if (prev-&gt;state != TASK_RUNNING) {
+            printk("prev-&gt;state: %ld != TASK_RUNNING??\n",
+                prev-&gt;state);
+            WARN_ON(1);
+        } else
+            deactivate_task(prev, rq); //已经dead了，那么进程状态肯定应该是running，然后从可运行队列中删除去
+
+        prev-&gt;state = EXIT_DEAD;
+    }
+
+#if defined(CONFIG_PREEMPT_RT) &amp;&amp; defined(CONFIG_SMP)
+    if (unlikely(atomic_read(&amp;rt_overload)))
+        balance_rt_tasks(rq, cpu);
+#endif
+
+    //如何调度到idle进程的代码
+
+    if (unlikely(!rq-&gt;nr_running)) { //这个运行队列里面的进程个数,包含了active和expired两个优先级队列里面的进程
+
+        idle_balance(cpu, rq); //与up无关
+
+        if (!rq-&gt;nr_running) {
+            next = rq-&gt;idle; //如果可运行队列里面的进程数为0，就调用idle进程
+
+            rq-&gt;expired_timestamp = 0;
+            wake_sleeping_dependent(cpu);
+            goto switch_tasks;
+        }
+    }
+//开始置换active队列和expired队列了
+
+    array = rq-&gt;active; 
+    //不太进程发生
+
+    if (unlikely(!array-&gt;nr_active)) { //如果active里面的进程个数是0，就要和expired队列置换
+
+        /*
+         * Switch the active and expired arrays.
+         */
+        schedstat_inc(rq, sched_switch);
+        rq-&gt;active = rq-&gt;expired;
+        rq-&gt;expired = array;
+        array = rq-&gt;active; //array 最终指向了expired queue
+
+        rq-&gt;expired_timestamp = 0;
+        rq-&gt;best_expired_prio = MAX_PRIO;
+    }
+
+//选择一个最合适的进程投入运行
+
+    idx = sched_find_first_bit(array-&gt;bitmap); //找到第一个优先级最高的那个index
+
+    queue = array-&gt;queue + idx;
+    next = list_entry(queue-&gt;next, struct task_struct, run_list); //选中队列中的第一个进程
+
+
+    if (!rt_task(next) &amp;&amp; interactive_sleep(next-&gt;sleep_type)) {
+        unsigned long long delta = now - next-&gt;timestamp;
+        if (unlikely((long long)(now - next-&gt;timestamp) &lt; 0))
+            delta = 0;
+
+        if (next-&gt;sleep_type == SLEEP_INTERACTIVE)
+            delta = delta * (ON_RUNQUEUE_WEIGHT * 128 / 100) / 128;
+
+        array = next-&gt;array;
+        new_prio = recalc_task_prio(next, next-&gt;timestamp + delta);
+
+        if (unlikely(next-&gt;prio != new_prio)) {
+            dequeue_task(next, array);
+            next-&gt;prio = new_prio;
+            enqueue_task(next, array);
+        }
+    }
+    next-&gt;sleep_type = SLEEP_NORMAL;
+    if (dependent_sleeper(cpu, rq, next))
+        next = rq-&gt;idle;
+
+
+
+//正式开始进程切换
+
+
+switch_tasks: //进程切换
+
+    if (next == rq-&gt;idle)
+        schedstat_inc(rq, sched_goidle);
+    prefetch(next);
+    prefetch_stack(next);
+    clear_tsk_need_resched(prev); // #define TIF_NEED_RESCHED    2
+
+    clear_tsk_need_resched_delayed(prev);
+    rcu_qsctr_inc(task_cpu(prev));
+
+    update_cpu_clock(prev, rq, now);
+
+    prev-&gt;sleep_avg -= run_time;
+    if ((long)prev-&gt;sleep_avg &lt;= 0)
+        prev-&gt;sleep_avg = 0;
+    prev-&gt;timestamp = prev-&gt;last_ran = now;
+
+    trace_all_runnable_tasks(rq);
+
+    sched_info_switch(prev, next);
+
+//开始进程切换了
+
+    if (likely(prev != next)) {
+        //一些队列本身的属性值的更新
+
+        next-&gt;timestamp = now;
+        rq-&gt;nr_switches++;
+        rq-&gt;curr = next;
+        ++*switch_count;
+
+        prepare_task_switch(rq, next);
+        MARK(kernel_sched_schedule, "%d %d %ld", 
+             prev-&gt;pid, next-&gt;pid, prev-&gt;state);
+        prev = context_switch(rq, prev, next);
+        barrier();
+        trace_special_pid(prev-&gt;pid, PRIO(prev), PRIO(current));
+        /*
+         * this_rq must be evaluated again because prev may have moved
+         * CPUs since it called schedule(), thus the 'rq' on its stack
+         * frame will be invalid.
+         */
+        finish_task_switch(this_rq(), prev);
+        __preempt_enable_no_resched();
+    } else {
+        __preempt_enable_no_resched();
+        spin_unlock(&amp;rq-&gt;lock);
+        trace_stop_sched_switched(next);
+    }
+
+    reacquire_kernel_lock(current);
+}
+-----接下来就是关于 如何从rq里面删除进程了。
+//这里的两个函数很关键的， 当把一个就绪队列里面的进程，删除， 就是调用的这两个函数。 
+从中，我们 可以看出，schedule（）函数 ，当发现当前进程的状态是INTERRUPTIBLE并且是有未决信号等待处理的（也就是他收到了一个信号，sig_pending=1） ， 那么就把当前这个进程的状态置于TASK_RUNNING ,但是请注意，这仅表示， 以后scheduler有可能再次调度当前这个进程而已。 这次肯定是调度另外一个了。 
+
+
+
+/*
+* Adding/removing a task to/from a priority array:
+*/
+static void dequeue_task(struct task_struct *p, struct prio_array *array) //¸Ã½ø³ÌÔÚÄ³¸öÓÅÏÈ¼¶¶ÓÁÐÀïÃæ
+
+{
+    array-&gt;nr_active--;
+    list_del(&amp;p-&gt;run_list);
+    if (list_empty(array-&gt;queue + p-&gt;prio))
+        __clear_bit(p-&gt;prio, array-&gt;bitmap);
+    dec_rt_tasks(p, array-&gt;rq);
+}
+
+
+/*
+* deactivate_task - remove a task from the runqueue.
+*/
+static void deactivate_task(struct task_struct *p, struct rq *rq)
+{
+    trace_special_pid(p-&gt;pid, PRIO(p), rq-&gt;nr_running);
+    dec_nr_running(p, rq);
+    dequeue_task(p, p-&gt;array);
+    p-&gt;array = NULL;
+}</pre><br />&#13;
+<span style="color:#ff0000">说明：</span>&#13;
+<p><span style="word-wrap:break-word; line-height:26px; font-family:黑体"><span style="font-size:18px"><strong><span style="color:#ff0000"><span style="font-family:arial,helvetica,sans-serif; line-height:28px">1：在进程却换前，scheduler做的事情</span><br style="font-family:arial,helvetica,sans-serif; line-height:28px" />&#13;
+<span style="font-family:arial,helvetica,sans-serif; line-height:28px">Schedule所作的事情是用某一个进程替换当前进程。</span><br style="font-family:arial,helvetica,sans-serif; line-height:28px" />&#13;
+<span style="font-family:arial,helvetica,sans-serif; line-height:28px">（1）    关闭内核抢占，初始化一些局部变量。</span><br style="font-family:arial,helvetica,sans-serif; line-height:28px" />&#13;
+<span style="font-family:arial,helvetica,sans-serif; line-height:28px">need_resched:</span><br style="font-family:arial,helvetica,sans-serif; line-height:28px" />&#13;
+<br style="font-family:arial,helvetica,sans-serif; line-height:28px" />&#13;
+<span style="font-family:arial,helvetica,sans-serif; line-height:28px">preempt_disable( );</span><br style="font-family:arial,helvetica,sans-serif; line-height:28px" />&#13;
+<span style="font-family:arial,helvetica,sans-serif; line-height:28px">prev = current;</span><br style="font-family:arial,helvetica,sans-serif; line-height:28px" />&#13;
+<span style="font-family:arial,helvetica,sans-serif; line-height:28px">rq = this_rq( );</span><br style="font-family:arial,helvetica,sans-serif; line-height:28px" />&#13;
+<span style="font-family:arial,helvetica,sans-serif; line-height:28px">当前进程current被保存在prev,和当前CPU相关的runqueue的地址保存在rq中。</span><br style="font-family:arial,helvetica,sans-serif; line-height:28px" />&#13;
+<span style="font-family:arial,helvetica,sans-serif; line-height:28px">（2）       检查prev没有持有big kernel lock.</span><br style="font-family:arial,helvetica,sans-serif; line-height:28px" />&#13;
+<span style="font-family:arial,helvetica,sans-serif; line-height:28px">if (prev-&gt;lock_depth &gt;= 0)</span><br style="font-family:arial,helvetica,sans-serif; line-height:28px" />&#13;
+<span style="font-family:arial,helvetica,sans-serif; line-height:28px">up(&amp;kernel_sem);</span><br style="font-family:arial,helvetica,sans-serif; line-height:28px" />&#13;
+<span style="font-family:arial,helvetica,sans-serif; line-height:28px">Schedule没有改变lock_depth的值，在prev唤醒自己执行的情况下，如果lock_depth的值不是负的，prev需要重新获取kernel_flag自旋锁。所以大内核锁在进程却换过程中是自动释放的和自动获取的。</span><br style="font-family:arial,helvetica,sans-serif; line-height:28px" />&#13;
+<span style="font-family:arial,helvetica,sans-serif; line-height:28px">（3）    调用sched_clock( )，读取TSC，并且将TSC转换成纳秒，得到的timestamp保存在now中，然后Schedule计算prev使用的时间片。</span><br style="font-family:arial,helvetica,sans-serif; line-height:28px" />&#13;
+<span style="font-family:arial,helvetica,sans-serif; line-height:28px">now = sched_clock( );</span><br style="font-family:arial,helvetica,sans-serif; line-height:28px" />&#13;
+<span style="font-family:arial,helvetica,sans-serif; line-height:28px">run_time = now - prev-&gt;timestamp;</span><br style="font-family:arial,helvetica,sans-serif; line-height:28px" />&#13;
+<span style="font-family:arial,helvetica,sans-serif; line-height:28px">if (run_time &gt; 1000000000)</span><br style="font-family:arial,helvetica,sans-serif; line-height:28px" />&#13;
+<span style="font-family:arial,helvetica,sans-serif; line-height:28px">    run_time = 1000000000;</span><br style="font-family:arial,helvetica,sans-serif; line-height:28px" />&#13;
+<span style="font-family:arial,helvetica,sans-serif; line-height:28px">（4）    在察看可运行进程的时候，schedule必须关闭当前CPU中断，并且获取自旋锁保护runqueue.</span><br style="font-family:arial,helvetica,sans-serif; line-height:28px" />&#13;
+<span style="font-family:arial,helvetica,sans-serif; line-height:28px">spin_lock_irq(&amp;rq-&gt;lock);</span><br style="font-family:arial,helvetica,sans-serif; line-height:28px" />&#13;
+<span style="font-family:arial,helvetica,sans-serif; line-height:28px">（5）    为了识别当前进程是否已经终止，schedule检查PF_DEAD标志。</span><br style="font-family:arial,helvetica,sans-serif; line-height:28px" />&#13;
+<span style="font-family:arial,helvetica,sans-serif; line-height:28px">if (prev-&gt;flags &amp; PF_DEAD)    prev-&gt;state = EXIT_DEAD;</span><br style="font-family:arial,helvetica,sans-serif; line-height:28px" />&#13;
+<span style="font-family:arial,helvetica,sans-serif; line-height:28px">（6）    Schedule检查prev的状态，如果它是不可运行的，并且在内核态没有被抢占，那么从runqueue删除它。但是，如果prev有非阻塞等待信号并且它的状态是TASK_INTERRUPTBLE,设置其状态为TASK_RUNNING，并且把它留在runqueue中。该动作和分配CPU给prev不一样，只是给prev一个重新选择执行的机会。</span><br style="font-family:arial,helvetica,sans-serif; line-height:28px" />&#13;
+<span style="font-family:arial,helvetica,sans-serif; line-height:28px">if (prev-&gt;state != TASK_RUNNING &amp;&amp;</span><br style="font-family:arial,helvetica,sans-serif; line-height:28px" />&#13;
+<span style="font-family:arial,helvetica,sans-serif; line-height:28px">    !(preempt_count() &amp; PREEMPT_ACTIVE)) {</span><br style="font-family:arial,helvetica,sans-serif; line-height:28px" />&#13;
+<span style="font-family:arial,helvetica,sans-serif; line-height:28px">    if (prev-&gt;state == TASK_INTERRUPTIBLE &amp;&amp; signal_pending(prev))</span><br style="font-family:arial,helvetica,sans-serif; line-height:28px" />&#13;
+<span style="font-family:arial,helvetica,sans-serif; line-height:28px">        prev-&gt;state = TASK_RUNNING;</span><br style="font-family:arial,helvetica,sans-serif; line-height:28px" />&#13;
+<span style="font-family:arial,helvetica,sans-serif; line-height:28px">    else {</span><br style="font-family:arial,helvetica,sans-serif; line-height:28px" />&#13;
+<span style="font-family:arial,helvetica,sans-serif; line-height:28px">        if (prev-&gt;state == TASK_UNINTERRUPTIBLE)</span><br style="font-family:arial,helvetica,sans-serif; line-height:28px" />&#13;
+<span style="font-family:arial,helvetica,sans-serif; line-height:28px">            rq-&gt;nr_uninterruptible++;</span><br style="font-family:arial,helvetica,sans-serif; line-height:28px" />&#13;
+<span style="font-family:arial,helvetica,sans-serif; line-height:28px">        deactivate_task(prev, rq);</span><br style="font-family:arial,helvetica,sans-serif; line-height:28px" />&#13;
+<span style="font-family:arial,helvetica,sans-serif; line-height:28px">    }</span><br style="font-family:arial,helvetica,sans-serif; line-height:28px" />&#13;
+<span style="font-family:arial,helvetica,sans-serif; line-height:28px">}</span><br style="font-family:arial,helvetica,sans-serif; line-height:28px" />&#13;
+<span style="font-family:arial,helvetica,sans-serif; line-height:28px">deactivate_task( )是从runqueue移除进程：</span><br style="font-family:arial,helvetica,sans-serif; line-height:28px" />&#13;
+<span style="font-family:arial,helvetica,sans-serif; line-height:28px">rq-&gt;nr_running--;</span><br style="font-family:arial,helvetica,sans-serif; line-height:28px" />&#13;
+<span style="font-family:arial,helvetica,sans-serif; line-height:28px">dequeue_task(p, p-&gt;array);</span><br style="font-family:arial,helvetica,sans-serif; line-height:28px" />&#13;
+<span style="font-family:arial,helvetica,sans-serif; line-height:28px">p-&gt;array = NULL;</span><br style="font-family:arial,helvetica,sans-serif; line-height:28px" />&#13;
+<span style="font-family:arial,helvetica,sans-serif; line-height:28px">（7）       检查runqueue中进程数，</span><br style="font-family:arial,helvetica,sans-serif; line-height:28px" />&#13;
+<span style="font-family:arial,helvetica,sans-serif; line-height:28px">A:如果有多个可运行进程，调用dependent_sleeper( )函数。一般情况下，该函数立即返回0，但是如果内核支持超线程技术，该函数检查将被运行的进程是否有比已经运行在同一个物理CPU上一个逻辑CPU上的兄弟进程的优先级低。如果是，schedule拒绝选择低优先级进程，而是执行swapper进程。</span><br style="font-family:arial,helvetica,sans-serif; line-height:28px" />&#13;
+<span style="font-family:arial,helvetica,sans-serif; line-height:28px">if (rq-&gt;nr_running) {    if (dependent_sleeper(smp_processor_id( ), rq)) {        next = rq-&gt;idle;        goto switch_tasks;    }}</span><br style="font-family:arial,helvetica,sans-serif; line-height:28px" />&#13;
+<span style="font-family:arial,helvetica,sans-serif; line-height:28px">B:如果没有可运行进程，调用idle_balance( )，从其他runqueue队列中移动一些进程到当前runqueue，idle_balance( )和load_balance( )相似。</span><br style="font-family:arial,helvetica,sans-serif; line-height:28px" />&#13;
+<span style="font-family:arial,helvetica,sans-serif; line-height:28px">if (!rq-&gt;nr_running) {    idle_balance(smp_processor_id( ), rq);    if (!rq-&gt;nr_running) {        next = rq-&gt;idle;        rq-&gt;expired_timestamp = 0;        wake_sleeping_dependent(smp_processor_id(&#13;
+ ), rq);        if (!rq-&gt;nr_running)            goto switch_tasks;    }}</span><br style="font-family:arial,helvetica,sans-serif; line-height:28px" />&#13;
+<span style="font-family:arial,helvetica,sans-serif; line-height:28px">如果idle_balance( )移动一些进程到当前runqueue失败，schedule( )调用wake_sleeping_dependent( )重新唤醒空闲CPU的可运行进程。</span><br style="font-family:arial,helvetica,sans-serif; line-height:28px" />&#13;
+<br style="font-family:arial,helvetica,sans-serif; line-height:28px" />&#13;
+<span style="font-family:arial,helvetica,sans-serif; line-height:28px">假设schedule( )已经决定runqueue中有可运行进程，那么它必须检查可运行进程中至少有一个进程是激活的。如果没有，交换runqueue中active 和expired域的内容，所有expired进程变成激活的，空数组准备接受以后expire的进程。</span><br style="font-family:arial,helvetica,sans-serif; line-height:28px" />&#13;
+<span style="font-family:arial,helvetica,sans-serif; line-height:28px">if (unlikely(!array-&gt;nr_active)) {</span><br style="font-family:arial,helvetica,sans-serif; line-height:28px" />&#13;
+<span style="font-family:arial,helvetica,sans-serif; line-height:28px">       /*</span><br style="font-family:arial,helvetica,sans-serif; line-height:28px" />&#13;
+<span style="font-family:arial,helvetica,sans-serif; line-height:28px">        * Switch the active and expired arrays.</span><br style="font-family:arial,helvetica,sans-serif; line-height:28px" />&#13;
+<span style="font-family:arial,helvetica,sans-serif; line-height:28px">        */</span><br style="font-family:arial,helvetica,sans-serif; line-height:28px" />&#13;
+<span style="font-family:arial,helvetica,sans-serif; line-height:28px">       schedstat_inc(rq, sched_switch);</span><br style="font-family:arial,helvetica,sans-serif; line-height:28px" />&#13;
+<span style="font-family:arial,helvetica,sans-serif; line-height:28px">       rq-&gt;active = rq-&gt;expired;</span><br style="font-family:arial,helvetica,sans-serif; line-height:28px" />&#13;
+<span style="font-family:arial,helvetica,sans-serif; line-height:28px">       rq-&gt;expired = array;</span><br style="font-family:arial,helvetica,sans-serif; line-height:28px" />&#13;
+<span style="font-family:arial,helvetica,sans-serif; line-height:28px">       array = rq-&gt;active;</span><br style="font-family:arial,helvetica,sans-serif; line-height:28px" />&#13;
+<span style="font-family:arial,helvetica,sans-serif; line-height:28px">       rq-&gt;expired_timestamp = 0;</span><br style="font-family:arial,helvetica,sans-serif; line-height:28px" />&#13;
+<span style="font-family:arial,helvetica,sans-serif; line-height:28px">       rq-&gt;best_expired_prio = MAX_PRIO;</span><br style="font-family:arial,helvetica,sans-serif; line-height:28px" />&#13;
+<span style="font-family:arial,helvetica,sans-serif; line-height:28px">    }</span><br style="font-family:arial,helvetica,sans-serif; line-height:28px" />&#13;
+<span style="font-family:arial,helvetica,sans-serif; line-height:28px">（8）    查找在active prio_array_t数组中的可运行进程。Schedule在active数组的位掩码中查找第一个非0位。当优先级列表不为0的时候，相应的位掩码北设置，所以第一个不为0的位标示一个有最合适进程运行的列表。然后列表中第一个进程描述符被获取。</span><br style="font-family:arial,helvetica,sans-serif; line-height:28px" />&#13;
+<span style="font-family:arial,helvetica,sans-serif; line-height:28px">idx = sched_find_first_bit(array-&gt;bitmap);</span><br style="font-family:arial,helvetica,sans-serif; line-height:28px" />&#13;
+<span style="font-family:arial,helvetica,sans-serif; line-height:28px">    queue = array-&gt;queue + idx;</span><br style="font-family:arial,helvetica,sans-serif; line-height:28px" />&#13;
+<span style="font-family:arial,helvetica,sans-serif; line-height:28px">    next = list_entry(queue-&gt;next, task_t, run_list);</span><br style="font-family:arial,helvetica,sans-serif; line-height:28px" />&#13;
+<span style="font-family:arial,helvetica,sans-serif; line-height:28px">    现在next指向将替换prev的进程描述符。</span><br style="font-family:arial,helvetica,sans-serif; line-height:28px" />&#13;
+<span style="font-family:arial,helvetica,sans-serif; line-height:28px">（Array）    检查next-&gt;activated，它标示唤醒进程的状态。</span><br style="font-family:arial,helvetica,sans-serif; line-height:28px" />&#13;
+<span style="font-family:arial,helvetica,sans-serif; line-height:28px">（10）   如果next是一个普通进程，并且是从TASK_INTERRUPTIBLE 或者TASK_STOPPED状态唤醒。Scheduler在进程的平均睡眠时间上加从进程加入到runqueue开始的等待时间。</span><br style="font-family:arial,helvetica,sans-serif; line-height:28px" />&#13;
+<br style="font-family:arial,helvetica,sans-serif; line-height:28px" />&#13;
+<span style="font-family:arial,helvetica,sans-serif; line-height:28px">if (!rt_task(next) &amp;&amp; next-&gt;activated &gt; 0) {</span><br style="font-family:arial,helvetica,sans-serif; line-height:28px" />&#13;
+<span style="font-family:arial,helvetica,sans-serif; line-height:28px">        unsigned long long delta = now - next-&gt;timestamp;</span><br style="font-family:arial,helvetica,sans-serif; line-height:28px" />&#13;
+<span style="font-family:arial,helvetica,sans-serif; line-height:28px">        if (unlikely((long long)(now - next-&gt;timestamp) </span><br style="font-family:arial,helvetica,sans-serif; line-height:28px" />&#13;
+<span style="font-family:arial,helvetica,sans-serif; line-height:28px">            delta = 0;</span><br style="font-family:arial,helvetica,sans-serif; line-height:28px" />&#13;
+<br style="font-family:arial,helvetica,sans-serif; line-height:28px" />&#13;
+<span style="font-family:arial,helvetica,sans-serif; line-height:28px">        if (next-&gt;activated == 1)</span><br style="font-family:arial,helvetica,sans-serif; line-height:28px" />&#13;
+<span style="font-family:arial,helvetica,sans-serif; line-height:28px">            delta = delta * (ON_RUNQUEUE_WEIGHT * 128 / 100) / 128;</span><br style="font-family:arial,helvetica,sans-serif; line-height:28px" />&#13;
+<br style="font-family:arial,helvetica,sans-serif; line-height:28px" />&#13;
+<span style="font-family:arial,helvetica,sans-serif; line-height:28px">        array = next-&gt;array;</span><br style="font-family:arial,helvetica,sans-serif; line-height:28px" />&#13;
+<span style="font-family:arial,helvetica,sans-serif; line-height:28px">        new_prio = recalc_task_prio(next, next-&gt;timestamp + delta);</span><br style="font-family:arial,helvetica,sans-serif; line-height:28px" />&#13;
+<br style="font-family:arial,helvetica,sans-serif; line-height:28px" />&#13;
+<span style="font-family:arial,helvetica,sans-serif; line-height:28px">        if (unlikely(next-&gt;prio != new_prio)) {</span><br style="font-family:arial,helvetica,sans-serif; line-height:28px" />&#13;
+<span style="font-family:arial,helvetica,sans-serif; line-height:28px">            dequeue_task(next, array);</span><br style="font-family:arial,helvetica,sans-serif; line-height:28px" />&#13;
+<span style="font-family:arial,helvetica,sans-serif; line-height:28px">            next-&gt;prio = new_prio;</span><br style="font-family:arial,helvetica,sans-serif; line-height:28px" />&#13;
+<span style="font-family:arial,helvetica,sans-serif; line-height:28px">            enqueue_task(next, array);</span><br style="font-family:arial,helvetica,sans-serif; line-height:28px" />&#13;
+<span style="font-family:arial,helvetica,sans-serif; line-height:28px">        } else</span><br style="font-family:arial,helvetica,sans-serif; line-height:28px" />&#13;
+<span style="font-family:arial,helvetica,sans-serif; line-height:28px">            requeue_task(next, array);</span><br style="font-family:arial,helvetica,sans-serif; line-height:28px" />&#13;
+<span style="font-family:arial,helvetica,sans-serif; line-height:28px">    }</span><br style="font-family:arial,helvetica,sans-serif; line-height:28px" />&#13;
+<span style="font-family:arial,helvetica,sans-serif; line-height:28px">    next-&gt;activated = 0;</span><br style="font-family:arial,helvetica,sans-serif; line-height:28px" />&#13;
+<span style="font-family:arial,helvetica,sans-serif; line-height:28px">Scheduler区分被中断或者被延迟函数唤醒的进程与被系统调用服务程序或者内核线程唤醒的进程。前者，Scheduler加整个runqueue等待时间，后者只加一部分时间。</span><br style="font-family:arial,helvetica,sans-serif; line-height:28px" />&#13;
+<span style="font-family:arial,helvetica,sans-serif; line-height:28px">2：进程却换时，Scheduler做的事情：</span><br style="font-family:arial,helvetica,sans-serif; line-height:28px" />&#13;
+<span style="font-family:arial,helvetica,sans-serif; line-height:28px">现在，Scheduler已经确定要运行的进程。</span><br style="font-family:arial,helvetica,sans-serif; line-height:28px" />&#13;
+<span style="font-family:arial,helvetica,sans-serif; line-height:28px">（1）       访问next的thread_info,它的地址保存在next进程描述符的顶部。</span><br style="font-family:arial,helvetica,sans-serif; line-height:28px" />&#13;
+<span style="font-family:arial,helvetica,sans-serif; line-height:28px">switch_tasks:</span><br style="font-family:arial,helvetica,sans-serif; line-height:28px" />&#13;
+<span style="font-family:arial,helvetica,sans-serif; line-height:28px">       if (next == rq-&gt;idle)</span><br style="font-family:arial,helvetica,sans-serif; line-height:28px" />&#13;
+<span style="font-family:arial,helvetica,sans-serif; line-height:28px">              schedstat_inc(rq, sched_goidle);</span><br style="font-family:arial,helvetica,sans-serif; line-height:28px" />&#13;
+<span style="font-family:arial,helvetica,sans-serif; line-height:28px">       prefetch(next)</span><br style="font-family:arial,helvetica,sans-serif; line-height:28px" />&#13;
+<span style="font-family:arial,helvetica,sans-serif; line-height:28px">（2）       在替换prev前，执行一些管理工作</span><br style="font-family:arial,helvetica,sans-serif; line-height:28px" />&#13;
+<span style="font-family:arial,helvetica,sans-serif; line-height:28px">clear_tsk_need_resched(prev);</span><br style="font-family:arial,helvetica,sans-serif; line-height:28px" />&#13;
+<span style="font-family:arial,helvetica,sans-serif; line-height:28px">    rcu_qsctr_inc(task_cpu(prev));</span><br style="font-family:arial,helvetica,sans-serif; line-height:28px" />&#13;
+<span style="font-family:arial,helvetica,sans-serif; line-height:28px">clear_tsk_need_resched清除prev的TIF_NEED_RESCHED，该动作只发生在Scheduler是被间接调用的情况。</span><br style="font-family:arial,helvetica,sans-serif; line-height:28px" />&#13;
+<span style="font-family:arial,helvetica,sans-serif; line-height:28px">（3）       减少prev的平均睡眠时间到进程使用的cpu时间片。</span><br style="font-family:arial,helvetica,sans-serif; line-height:28px" />&#13;
+<span style="font-family:arial,helvetica,sans-serif; line-height:28px">    prev-&gt;sleep_avg -= run_time;</span><br style="font-family:arial,helvetica,sans-serif; line-height:28px" />&#13;
+<span style="font-family:arial,helvetica,sans-serif; line-height:28px">    if ((long)prev-&gt;sleep_avg </span><br style="font-family:arial,helvetica,sans-serif; line-height:28px" />&#13;
+<span style="font-family:arial,helvetica,sans-serif; line-height:28px">        prev-&gt;sleep_avg = 0;</span><br style="font-family:arial,helvetica,sans-serif; line-height:28px" />&#13;
+<span style="font-family:arial,helvetica,sans-serif; line-height:28px">    prev-&gt;timestamp = prev-&gt;last_ran = now;</span><br style="font-family:arial,helvetica,sans-serif; line-height:28px" />&#13;
+<span style="font-family:arial,helvetica,sans-serif; line-height:28px">（4）       检查是否prev和next是同一个进程，如果为真，放弃进程却换，否则，执行（5）</span><br style="font-family:arial,helvetica,sans-serif; line-height:28px" />&#13;
+<span style="font-family:arial,helvetica,sans-serif; line-height:28px">   if (prev == next) {</span><br style="font-family:arial,helvetica,sans-serif; line-height:28px" />&#13;
+<span style="font-family:arial,helvetica,sans-serif; line-height:28px">    spin_unlock_irq(&amp;rq-&gt;lock);</span><br style="font-family:arial,helvetica,sans-serif; line-height:28px" />&#13;
+<span style="font-family:arial,helvetica,sans-serif; line-height:28px">    goto finish_schedule;</span><br style="font-family:arial,helvetica,sans-serif; line-height:28px" />&#13;
+<span style="font-family:arial,helvetica,sans-serif; line-height:28px">}</span><br style="font-family:arial,helvetica,sans-serif; line-height:28px" />&#13;
+<br style="font-family:arial,helvetica,sans-serif; line-height:28px" />&#13;
+<span style="font-family:arial,helvetica,sans-serif; line-height:28px">（5）       真正的进程却换</span><br style="font-family:arial,helvetica,sans-serif; line-height:28px" />&#13;
+<span style="font-family:arial,helvetica,sans-serif; line-height:28px">        next-&gt;timestamp = now;</span><br style="font-family:arial,helvetica,sans-serif; line-height:28px" />&#13;
+<span style="font-family:arial,helvetica,sans-serif; line-height:28px">        rq-&gt;nr_switches++;</span><br style="font-family:arial,helvetica,sans-serif; line-height:28px" />&#13;
+<span style="font-family:arial,helvetica,sans-serif; line-height:28px">        rq-&gt;curr = next;</span><br style="font-family:arial,helvetica,sans-serif; line-height:28px" />&#13;
+<span style="font-family:arial,helvetica,sans-serif; line-height:28px">        ++*switch_count;</span><br style="font-family:arial,helvetica,sans-serif; line-height:28px" />&#13;
+<br style="font-family:arial,helvetica,sans-serif; line-height:28px" />&#13;
+<span style="font-family:arial,helvetica,sans-serif; line-height:28px">        prepare_task_switch(rq, next);</span><br style="font-family:arial,helvetica,sans-serif; line-height:28px" />&#13;
+<span style="font-family:arial,helvetica,sans-serif; line-height:28px">        prev = context_switch(rq, prev, next);</span><br style="font-family:arial,helvetica,sans-serif; line-height:28px" />&#13;
+<span style="font-family:arial,helvetica,sans-serif; line-height:28px">context_switch建立了next的地址空间，进程描述符的active_mm指向进程使用的地址空间描述符，而mm指向进程拥有的地址空间描述符，通常二者是相同的。但是内核线程没有自己的地址空间，mm一直为NULL。如果next为内核线程，context_switch保证next使用prev的地址空间。如果next是一个正常的进程，context_switch使用next的替换prev的地址空间。</span><br style="font-family:arial,helvetica,sans-serif; line-height:28px" />&#13;
+<span style="font-family:arial,helvetica,sans-serif; line-height:28px">    struct mm_struct *mm = next-&gt;mm;</span><br style="font-family:arial,helvetica,sans-serif; line-height:28px" />&#13;
+<span style="font-family:arial,helvetica,sans-serif; line-height:28px">    struct mm_struct *oldmm = prev-&gt;active_mm;</span><br style="font-family:arial,helvetica,sans-serif; line-height:28px" />&#13;
+<br style="font-family:arial,helvetica,sans-serif; line-height:28px" />&#13;
+<span style="font-family:arial,helvetica,sans-serif; line-height:28px">    if (unlikely(!mm)) {</span><br style="font-family:arial,helvetica,sans-serif; line-height:28px" />&#13;
+<span style="font-family:arial,helvetica,sans-serif; line-height:28px">       next-&gt;active_mm = oldmm;</span><br style="font-family:arial,helvetica,sans-serif; line-height:28px" />&#13;
+<span style="font-family:arial,helvetica,sans-serif; line-height:28px">       atomic_inc(&amp;oldmm-&gt;mm_count);</span><br style="font-family:arial,helvetica,sans-serif; line-height:28px" />&#13;
+<span style="font-family:arial,helvetica,sans-serif; line-height:28px">       enter_lazy_tlb(oldmm, next);</span><br style="font-family:arial,helvetica,sans-serif; line-height:28px" />&#13;
+<span style="font-family:arial,helvetica,sans-serif; line-height:28px">    } else</span><br style="font-family:arial,helvetica,sans-serif; line-height:28px" />&#13;
+<span style="font-family:arial,helvetica,sans-serif; line-height:28px">       switch_mm(oldmm, mm, next);</span><br style="font-family:arial,helvetica,sans-serif; line-height:28px" />&#13;
+<span style="font-family:arial,helvetica,sans-serif; line-height:28px">如果prev是一个内核线程或者正在退出的进程，context_switch在runqueue的prev_mm中保存prev使用的内存空间。</span><br style="font-family:arial,helvetica,sans-serif; line-height:28px" />&#13;
+<span style="font-family:arial,helvetica,sans-serif; line-height:28px">    if (unlikely(!prev-&gt;mm)) {</span><br style="font-family:arial,helvetica,sans-serif; line-height:28px" />&#13;
+<span style="font-family:arial,helvetica,sans-serif; line-height:28px">       prev-&gt;active_mm = NULL;</span><br style="font-family:arial,helvetica,sans-serif; line-height:28px" />&#13;
+<span style="font-family:arial,helvetica,sans-serif; line-height:28px">       WARN_ON(rq-&gt;prev_mm);</span><br style="font-family:arial,helvetica,sans-serif; line-height:28px" />&#13;
+<span style="font-family:arial,helvetica,sans-serif; line-height:28px">       rq-&gt;prev_mm = oldmm;</span><br style="font-family:arial,helvetica,sans-serif; line-height:28px" />&#13;
+<span style="font-family:arial,helvetica,sans-serif; line-height:28px">    }</span><br style="font-family:arial,helvetica,sans-serif; line-height:28px" />&#13;
+<span style="font-family:arial,helvetica,sans-serif; line-height:28px">调用switch_to(prev, next, prev)进行prev和next的切换。（参见“进程间的切换“）。 3：进程切换后的工作（1）       finish_task_switch()：         struct mm_struct *mm = rq-&gt;prev_mm;         unsigned long prev_task_flags;    &#13;
+      rq-&gt;prev_mm = NULL;          prev_task_flags = prev-&gt;flags;         finish_arch_switch(prev);         finish_lock_switch(rq, prev);         if (mm)                 mmdrop(mm);         if (unlikely(prev_task_flags &amp; PF_DEAD))                 put_task_struct(prev)如果prev是内核线程，runqueue的prev_mm保存prev的内存空间描述符。Mmdrop减少内存空间的使用数，如果该数为0，该函数释放内存空间描述符，以及与之相关的页表和虚拟内存空间。finish_task_switch()还释放runqueue的自选锁，开中断。（2） &#13;
+      最后         prev = current;         if (unlikely(reacquire_kernel_lock(prev)                  goto need_resched_nonpreemptible;         preempt_enable_no_resched();         if (unlikely(test_thread_flag(TIF_NEED_RESCHED)))                 goto need_resched;</span><br style="font-family:arial,helvetica,sans-serif; line-height:28px" />&#13;
+<span style="font-family:arial,helvetica,sans-serif; line-height:28px">schedule获取大内核块，重新使内核可以抢占，并且检查是否其他进程设置了当前进程的TIF_NEED_RESCHED，如果真，重新执行schedule，否则该程序</span><span style="font-family:arial,helvetica,sans-serif; line-height:28px">结束</span></span><br />&#13;
+</strong></span></span></p>&#13;
+   &#13;

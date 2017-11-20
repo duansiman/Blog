@@ -1,0 +1,112 @@
+
+<p style="margin: 0in; font-size: 14pt;"><span style="font-family:KaiTi_GB2312;">   </span></p><p style="margin: 0in; font-size: 14pt;"><span style="font-family:KaiTi_GB2312;">    在多线程中，为了提高效率有些共享资源允许同时进行多个读的操作，但只允许一个写的操作，比如一个文件，只要其内容不变可以让多个线程同时读，不必做排他的锁定，排他的锁定只有在写的时候需要，以保证别的线程不会看到数据不完整的文件。这时候就需要使用读写锁。</span></p><p style="margin: 0in; font-size: 14pt;"><span style="font-family:KaiTi_GB2312;"><br /></span></p><p style="margin: 0in; font-size: 14pt;"><span style="font-family:KaiTi_GB2312;"></span></p><pre name="code" class="java">/**
+ * 简单读写锁demo
+ * @author hejingyuan
+ *
+ */
+public class ReadWriteLockTest {
+	public static void main(String[] args) {
+		final Queue3 q3 = new Queue3();
+		//创建几个线程
+		for(int i=0;i&lt;3;i++)
+		{
+			new Thread(){
+				public void run(){
+					while(true){
+						q3.get();						
+					}
+				}
+				
+			}.start();
+			
+			new Thread(){
+				public void run(){
+					while(true){
+						q3.put(new Random().nextInt(10000));
+					}
+				}			
+				
+			}.start();
+			
+		}
+		
+	}
+}
+
+class Queue3{
+	private Object data = null;//共享数据，只能有一个线程能写该数据，但可以有多个线程同时读该数据
+	//读写锁
+	ReadWriteLock rwl = new ReentrantReadWriteLock();
+	//读数据
+	public void get(){
+		rwl.readLock().lock();
+		try {
+			System.out.println(Thread.currentThread().getName() + " be ready to read data!");
+			Thread.sleep((long)(Math.random()*1000));
+			System.out.println(Thread.currentThread().getName() + "have read data :" + data);			
+		} catch (InterruptedException e) {
+			e.printStackTrace();
+		}finally{
+			rwl.readLock().unlock();
+		}
+	}
+	//写数据
+	public void put(Object data){
+
+		rwl.writeLock().lock();
+		try {
+			System.out.println(Thread.currentThread().getName() + " be ready to write data!");					
+			Thread.sleep((long)(Math.random()*1000));
+			this.data = data;		
+			System.out.println(Thread.currentThread().getName() + " have write data: " + data);					
+		} catch (InterruptedException e) {
+			e.printStackTrace();
+		}finally{
+			rwl.writeLock().unlock();
+		}
+		
+	
+	}
+}
+</pre><br /><br /><p></p><p style="margin: 0in; font-size: 14pt;"></p><p style="margin: 0in; font-size: 14pt;"><span style="font-family:KaiTi_GB2312;">运行结果：</span></p><p style="margin: 0in; font-size: 14pt;"><span style="font-family:KaiTi_GB2312;"> </span></p><p style="margin: 0in; font-size: 14pt;"><span style="font-family:KaiTi_GB2312;">Thread-0 be ready to readdata!</span></p><p style="margin: 0in; font-size: 14pt;"><span style="font-family:KaiTi_GB2312;">Thread-2 be ready to readdata!</span></p><p style="margin: 0in; font-size: 14pt;"><span style="font-family:KaiTi_GB2312;">Thread-2have read data:null</span></p><p style="margin: 0in; font-size: 14pt;"><span style="font-family:KaiTi_GB2312;">Thread-0have read data:null</span></p><p style="margin: 0in; font-size: 14pt;"><span style="font-family:KaiTi_GB2312;">Thread-1 be ready towrite data!</span></p><p style="margin: 0in; font-size: 14pt;"><span style="font-family:KaiTi_GB2312;">Thread-1 have write data:1021</span></p><p style="margin: 0in; font-size: 14pt;"><span style="font-family:KaiTi_GB2312;">Thread-1 be ready towrite data!</span></p><p style="margin: 0in; font-size: 14pt;"><span style="font-family:KaiTi_GB2312;">Thread-1 have write data:2887</span></p><p style="margin: 0in; font-size: 14pt;"><span style="font-family:KaiTi_GB2312;"> </span></p><p style="margin: 0in; font-size: 14pt;"><span style="font-family:KaiTi_GB2312;">看到这里不免有人会问，既然读的时候可以多人访问，那么为什么还要加读锁呢？</span></p><p style="margin:0in;font-size:14.0pt"><span style="font-family:KaiTi_GB2312;"><span lang="zh-CN" xml:lang="zh-CN">答：当然要加锁了，否则在写时去读,可能不正确</span><span lang="en-US" xml:lang="en-US">-</span><span lang="zh-CN" xml:lang="zh-CN">（写的时候不能去读）</span></span></p><p style="margin: 0in; font-size: 14pt;"><span style="font-family:KaiTi_GB2312;"> </span></p><p style="margin:0in;font-size:14.0pt"><span style="font-family:KaiTi_GB2312;"><span lang="zh-CN" xml:lang="zh-CN">读写锁</span><span lang="en-US" xml:lang="en-US">-</span><span lang="zh-CN" xml:lang="zh-CN">模拟缓存系统实现：</span></span></p><p style="margin:0in;font-size:14.0pt"><span style="font-family:KaiTi_GB2312;"><span lang="zh-CN" xml:lang="zh-CN"><br /></span></span></p><span style="font-family:KaiTi_GB2312;"></span><pre name="code" class="java">public class CacheDemo {
+
+	private Map&lt;String, Object&gt; cache = new HashMap&lt;String, Object&gt;();
+	public static void main(String[] args) {
+		
+
+	}
+
+	//定义读写锁
+	private ReadWriteLock rwl = new ReentrantReadWriteLock();
+	//读数据，使用读锁
+	public  Object getData(String key){
+		//添加读锁
+		rwl.readLock().lock();
+		Object value = null;
+		try{
+			value = cache.get(key);
+			if(value == null){
+				//释放读锁
+				rwl.readLock().unlock();
+				//加上写锁
+				rwl.writeLock().lock();
+				try{
+					//假设三个线程同时去获取写锁,我们知道只有第一个线程能够获取
+                    //那么其他两个线程只有等了,如果第一个线程按流程执行完后,刚才的两个线程可以得到写锁了,
+                    //然后接着就可以修改数据了(赋值).所以加上判断!
+					if(value==null){//为什么还要判断？
+						value = "aaaa";//实际是去queryDB();
+					}
+				}finally{
+					//释放写锁
+					rwl.writeLock().unlock();
+				}
+				rwl.readLock().lock();
+			}
+		}finally{
+			rwl.readLock().unlock();
+		}
+		return value;
+	}
+}
+</pre><br /><br /><p style="margin: 0in; font-size: 14pt;"></p><p style="margin: 0in; font-size: 14pt;"><span style="font-family:KaiTi_GB2312;">总结：</span></p><p style="margin: 0in; font-size: 14pt;"><span style="font-family:KaiTi_GB2312;"> </span></p><p style="margin: 0in; font-size: 14pt;"><span style="font-family:KaiTi_GB2312;"><span lang="zh-CN" xml:lang="zh-CN">    读写锁的作用为，当我们加上写锁时，其他线程被阻塞，只有一个写操作在执行，当我们加上读锁后，它是不会限制多个读线程去访问的。也就是</span><span lang="en-US" xml:lang="en-US">get</span><span lang="zh-CN" xml:lang="zh-CN">和</span><span lang="en-US" xml:lang="en-US">put</span><span lang="zh-CN" xml:lang="zh-CN">之间是互斥的，</span><span lang="en-US" xml:lang="en-US">put</span><span lang="zh-CN" xml:lang="zh-CN">与任何线程均为互斥，但是</span><span lang="en-US" xml:lang="en-US">get</span><span lang="zh-CN" xml:lang="zh-CN">与</span><span lang="en-US" xml:lang="en-US">get</span><span lang="zh-CN" xml:lang="zh-CN">线程间并不是互斥的。其实加读写锁的目的是同一把锁的读锁既可以与写锁互斥，读锁之间还可以共享。</span></span></p><br /><p style="margin: 0in; font-size: 14pt;"><br /></p><p style="margin: 0in; font-size: 14pt;"><br /></p>   &#13;

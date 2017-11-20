@@ -1,0 +1,100 @@
+
+<div style="font-family: Arial; line-height: 26px;"><span style="font-size:18px;"><strong>       idr在linux内核中指的就是整数ID管理机制，从本质上来说，这就是一种将整数ID号和特定指针关联在一起的机制。这个机制最早是在2003年2月加入内核的，当时是作为POSIX定时器的一个补丁。现在，在内核的很多地方都可以找到idr的身影。</strong></span></div><div style="font-family: Arial; line-height: 26px;"><span style="font-size:18px;"><strong>       idr机制适用在那些需要把某个整数和特定指针关联在一起的地方。举个例子，在I2C总线中，每个设备都有自己的地址，要想在总线上找到特定的设备，就必须要先发送该设备的地址。如果我们的PC是一个I2C总线上的主节点，那么要访问总线上的其他设备，首先要知道他们的ID号，同时要在pc的驱动程序中建立一个用于描述该设备的结构体。</strong></span></div><div style="font-family: Arial; line-height: 26px;"><span style="font-size:18px;"><strong>      此时，问题来了，我们怎么才能将这个设备的ID号和他的设备结构体联系起来呢？最简单的方法当然是通过数组进行索引，但如果ID号的范围很大(比如32位的ID号)，则用数组索引显然不可能；第二种方法是用链表，但如果网络中实际存在的设备较多，则链表的查询效率会很低。遇到这种清况，我们就可以采用idr机制，该机制内部采用radix树实现，可以很方便地将整数和指针关联起来，并且具有很高的搜索效率。</strong></span></div><div style="font-family: Arial; line-height: 26px;"><span style="font-size:18px;"><strong>(1)获得idr<br />要在代码中使用idr，首先要包括&lt;linux/idr.h&gt;。接下来，我们要在代码中分配idr结构体，并初始化：<br />    void idr_init(struct idr *idp);<br />其中idr定义如下：</strong></span></div><div style="font-family: Arial; line-height: 26px;"><pre name="code" class="cpp" style="font-size: 14px;">struct idr {
+        struct idr_layer *top;
+        struct idr_layer *id_free;
+        int               layers;
+        int               id_free_cnt;
+        spinlock_t        lock;
+};</pre><br /><div style="font-family: Arial; line-height: 26px;"><span style="font-size:18px;"><strong>/* idr是idr机制的核心结构体 */</strong></span></div><div style="font-family: Arial; line-height: 26px;"><span style="font-size:18px;"><strong>(2)为idr分配内存<br />int idr_pre_get(struct idr *idp, unsigned int gfp_mask);<br />每次通过idr获得ID号之前，需要先分配内存。<br />返回0表示错误，非零值代表正常</strong></span></div><div style="font-family: Arial; line-height: 26px;"><span style="font-size:18px;"><strong>(3)分配ID号并将ID号和指针关联<br />int idr_get_new(struct idr *idp, void *ptr, int *id);<br />int idr_get_new_above(struct idr *idp, void *ptr, int start_id, int *id);<br />idp: 之前通过idr_init初始化的idr指针<br />id:  由内核自动分配的ID号<br />ptr: 和ID号相关联的指针<br />start_id: 起始ID号。内核在分配ID号时，会从start_id开始。如果为I2C节点分配ID号，可以将设备地址作为start_id</strong></span></div><div style="font-family: Arial; line-height: 26px;"><span style="font-size:18px;"><strong>函数调用正常返回0，如果没有ID可以分配，则返回-ENOSPC</strong></span></div><div style="font-family: Arial; line-height: 26px;"><span style="font-size:18px;"><strong>在实际中，上述函数常常采用如下方式使用：</strong></span></div><pre name="code" class="cpp" style="font-size: 14px;">again:
+  if (idr_pre_get(&amp;my_idr, GFP_KERNEL) == 0) {
+    /* No memory, give up entirely */
+  }
+  spin_lock(&amp;my_lock);
+  result = idr_get_new(&amp;my_idr, &amp;target, &amp;id);
+  if (result == -EAGAIN) {
+    sigh();
+    spin_unlock(&amp;my_lock);
+    goto again;
+  }</pre><br /><div style="font-family: Arial; line-height: 26px;"><span style="font-size:18px;"><strong>(4)通过ID号搜索对应的指针<br />void *idr_find(struct idr *idp, int id);<br />返回值是和给定id相关联的指针，如果没有，则返回NULL</strong></span></div><div style="font-family: Arial; line-height: 26px;"><span style="font-size:18px;"><strong>(5)删除ID<br />要删除一个ID，使用：<br />void idr_remove(struct idr *idp, int id);</strong></span></div><div style="font-family: Arial; line-height: 26px;"><span style="font-size:18px;"><strong>通过上面这些方法，内核代码可以为子设备，inode生成对应的ID号。这些函数都定义在&lt;linux-2.6.xx/lib/idr.c&gt;中</strong></span></div><div style="font-family: Arial; line-height: 26px;"><span style="font-size:18px;"><strong><br />下面，我们通过分析I2C协议的核心代码，来看一看idr机制的实际应用：</strong></span></div><pre name="code" class="cpp" style="font-size: 14px;">&lt;linux-2.6.23/drivers/i2c/i2c-core.c&gt;
+...
+&lt;linux/idr.h&gt;   /* idr头文件 */
+...
+static DEFINE_IDR(i2c_adapter_idr); /* 声明idr */
+...
+/* 
+  采用动态总线号声明并注册一个i2c适配器(adapter)，可睡眠
+  针对总线号可动态指定的设备，如基于USB的i2c设备或pci卡
+ */
+int i2c_add_adapter(struct i2c_adapter *adapter)
+{
+        int     id, res = 0;
+retry:
+        if (idr_pre_get(&amp;i2c_adapter_idr, GFP_KERNEL) == 0)
+                return -ENOMEM;
+        mutex_lock(&amp;core_lists);
+        /* __i2c_first_dynamic_bus_num是当前系统允许的动态总线号的最大值 */
+        res = idr_get_new_above(&amp;i2c_adapter_idr, adapter,                 __i2c_first_dynamic_bus_num, &amp;id);
+        mutex_unlock(&amp;core_lists);
+        if (res &lt; 0) {
+                if (res == -EAGAIN)
+                        goto retry;
+                return res;
+        }
+        adapter-&gt;nr = id;
+        return i2c_register_adapter(adapter);
+}
+EXPORT_SYMBOL(i2c_add_adapter);
+
+/* 
+  采用静态总线号声明并注册一个i2c适配器(adapter)
+ */
+int i2c_add_numbered_adapter(struct i2c_adapter *adap)
+{
+        int     id;
+        int     status;
+        if (adap-&gt;nr &amp; ~MAX_ID_MASK)
+                return -EINVAL;
+retry:
+        if (idr_pre_get(&amp;i2c_adapter_idr, GFP_KERNEL) == 0)
+                return -ENOMEM;
+        mutex_lock(&amp;core_lists);
+        /* "above" here means "above or equal to", sigh;
+         * we need the "equal to" result to force the result
+         */
+        status = idr_get_new_above(&amp;i2c_adapter_idr, adap, adap-&gt;nr, &amp;id);
+        if (status == 0 &amp;&amp; id != adap-&gt;nr) {
+                status = -EBUSY;
+                idr_remove(&amp;i2c_adapter_idr, id);
+        }
+        mutex_unlock(&amp;core_lists);
+        if (status == -EAGAIN)
+                goto retry;
+        if (status == 0)
+                status = i2c_register_adapter(adap);
+        return status;
+}
+EXPORT_SYMBOL_GPL(i2c_add_numbered_adapter);
+
+/* 注销一个i2c适配器 */
+int i2c_del_adapter(struct i2c_adapter *adap)
+{
+  ...
+  /* free bus id */
+  idr_remove(&amp;i2c_adapter_idr, adap-&gt;nr);
+  ...
+  return res;
+}
+EXPORT_SYMBOL(i2c_del_adapter);
+
+/* 通过ID号获得i2c_adapter设备结构体 */
+struct i2c_adapter* i2c_get_adapter(int id)
+{
+        struct i2c_adapter *adapter;
+        mutex_lock(&amp;core_lists);
+        adapter = (struct i2c_adapter *)idr_find(&amp;i2c_adapter_idr, id);
+        if (adapter &amp;&amp; !try_module_get(adapter-&gt;owner))
+                adapter = NULL;
+        mutex_unlock(&amp;core_lists);
+        return adapter;
+}
+EXPORT_SYMBOL(i2c_get_adapter);</pre><br /><br /></div>   &#13;

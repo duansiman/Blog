@@ -1,0 +1,223 @@
+
+                <div class="markdown_views"><p><code>collect</code>应该说是<code>Stream</code>中最强大的终端操作了,使用其几乎能得到你想要的任意数据的聚合,下面好好分析该工具的用法.</p>
+
+<hr/>
+
+<p>在Stream接口中有如下两个方法</p>
+
+
+
+<pre class="prettyprint"><code class="language-java hljs ">  &lt;R&gt; R collect(Supplier&lt;R&gt; supplier,
+                  BiConsumer&lt;R, ? <span class="hljs-keyword">super</span> T&gt; accumulator,
+                  BiConsumer&lt;R, R&gt; combiner);
+
+ &lt;R, A&gt; R collect(Collector&lt;? <span class="hljs-keyword">super</span> T, A, R&gt; collector);</code></pre>
+
+<p>很明显第一种相当于简易实现版本,第二种为高级用法.更多更复杂的操作都封装到Collector接口中,并提供一些静态方法供使用者调用.下面逐一分析.</p>
+
+
+
+<h3 id="简易调用形式">简易调用形式</h3>
+
+<p>简易调用形式就是第一种接口,接口如下</p>
+
+
+
+<pre class="prettyprint"><code class="language-java hljs ">  &lt;R&gt; R collect(Supplier&lt;R&gt; supplier,
+                  BiConsumer&lt;R, ? <span class="hljs-keyword">super</span> T&gt; accumulator,
+                  BiConsumer&lt;R, R&gt; combiner);</code></pre>
+
+<p>调用方式如下,很明显第一个参数<code>supplier</code>为结果存放容器,第二个参数<code>accumulator</code>为结果如何添加到容器的操作,第三个参数<code>combiner</code>则为多个容器的聚合策略.</p>
+
+
+
+<pre class="prettyprint"><code class="language-java hljs ">String concat = stringStream.collect(StringBuilder::<span class="hljs-keyword">new</span>, StringBuilder::append,StringBuilder::append).toString();
+<span class="hljs-comment">//等价于上面,这样看起来应该更加清晰</span>
+String concat = stringStream.collect(() -&gt; <span class="hljs-keyword">new</span> StringBuilder(),(l, x) -&gt; l.append(x), (r1, r2) -&gt; r1.append(r2)).toString();</code></pre>
+
+<p>那么换一种,我想对一个List收集结果总和,按照Collect的要求,首先需要容器sum,然后添加操作 sum+x,聚合操作,sum1+sum2,那么就很容易写出来了,看完下面代码后好好体会下,然后再看高级用法.当然用sum方法收集是最佳解决方案,这里只是提供一种示例应用.</p>
+
+
+
+<pre class="prettyprint"><code class="language-java hljs "><span class="hljs-comment">// 由于基本类型传递为值传递,所以这里用Optional当做容器</span>
+<span class="hljs-keyword">final</span> Integer[] integers = Lists.newArrayList(<span class="hljs-number">1</span>, <span class="hljs-number">2</span>, <span class="hljs-number">3</span>, <span class="hljs-number">4</span>, <span class="hljs-number">5</span>)
+        .stream()
+        .collect(() -&gt; <span class="hljs-keyword">new</span> Integer[]{<span class="hljs-number">0</span>}, (a, x) -&gt; a[<span class="hljs-number">0</span>] += x, (a1, a2) -&gt; a1[<span class="hljs-number">0</span>] += a2[<span class="hljs-number">0</span>]);</code></pre>
+
+<p>那么再换一种,有一个<code>Person</code>类,其拥有type与name两个属性,那么使用<code>collect</code>把他收集到Map集合中,其中键为type,值为person的集合.如下代码所示,看明白了相信就掌握了该方法.</p>
+
+
+
+<pre class="prettyprint"><code class="language-java hljs ">   Lists.&lt;Person&gt;newArrayList().stream()
+        .collect(() -&gt; <span class="hljs-keyword">new</span> HashMap&lt;Integer,List&lt;Person&gt;&gt;(),
+            (h, x) -&gt; {
+              List&lt;Person&gt; value = h.getOrDefault(x.getType(), Lists.newArrayList());
+              value.add(x);
+              h.put(x.getType(), value);
+            },
+            HashMap::putAll
+        );</code></pre>
+
+
+
+<h3 id="collector高级调用">Collector高级调用</h3>
+
+<p><code>Collector</code>接口是使得<code>collect</code>操作强大的终极武器,对于绝大部分操作可以分解为旗下主要步骤,<strong>提供初始容器-&gt;加入元素到容器-&gt;并发下多容器聚合-&gt;对聚合后结果进行操作</strong>,同时<code>Collector</code>接口又提供了<code>of</code>静态方法帮助你最大化的定制自己的操作,官方也提供了<code>Collectors</code>这个类封装了大部分的常用收集操作. <br/>
+另外<code>CollectorImpl</code>为<code>Collector</code>的实现类,因为接口不可实例化,这里主要完成实例化操作.</p>
+
+
+
+<pre class="prettyprint"><code class="language-java hljs ">    <span class="hljs-comment">//初始容器</span>
+     Supplier&lt;A&gt; supplier();
+    <span class="hljs-comment">//加入到容器操作</span>
+    BiConsumer&lt;A, T&gt; accumulator();
+    <span class="hljs-comment">//多容器聚合操作</span>
+    BinaryOperator&lt;A&gt; combiner();
+    <span class="hljs-comment">//聚合后的结果操作</span>
+    Function&lt;A, R&gt; finisher();
+    <span class="hljs-comment">//操作中便于优化的状态字段</span>
+    Set&lt;Characteristics&gt; characteristics();</code></pre>
+
+
+
+<h3 id="collectors的方法封装">Collectors的方法封装</h3>
+
+<p><code>Collectors</code>作为官方提供的收集工具类,那么其很多操作都具有参考性质,能帮助我们更加理解<code>Collector</code>接口,万变不离其宗,最终只是上面五个函数接口的混合操作,下面来分析下官方是如何使用这几个接口的.</p>
+
+
+
+<h4 id="tolist">toList()</h4>
+
+<p>容器: <code>ArrayList::new</code> <br/>
+加入容器操作: <code>List::add</code> <br/>
+多容器合并: <code>left.addAll(right); return left;</code> <br/>
+聚合后的结果操作: 这里直接返回,因此无该操作,默认为<code>castingIdentity()</code> <br/>
+优化操作状态字段: <code>CH_ID</code> <br/>
+这样看起来很简单,那么对于Map,Set等操作都是类似的实现.</p>
+
+
+
+<pre class="prettyprint"><code class="language-java hljs ">   <span class="hljs-keyword">public</span> <span class="hljs-keyword">static</span> &lt;T&gt;
+    Collector&lt;T, ?, List&lt;T&gt;&gt; <span class="hljs-title">toList</span>() {
+        <span class="hljs-keyword">return</span> <span class="hljs-keyword">new</span> CollectorImpl&lt;&gt;((Supplier&lt;List&lt;T&gt;&gt;) ArrayList::<span class="hljs-keyword">new</span>, List::add,
+                                   (left, right) -&gt; { left.addAll(right); <span class="hljs-keyword">return</span> left; },
+                                   CH_ID);
+    }</code></pre>
+
+
+
+<h4 id="joining">joining()</h4>
+
+<p>容器: <code>StringBuilder::new</code> <br/>
+加入容器操作: <code>StringBuilder::append</code> <br/>
+多容器合并: <code>r1.append(r2); return r1;</code> <br/>
+聚合后的结果操作: <code>StringBuilder::toString</code> <br/>
+优化操作状态字段: <code>CH_NOID</code></p>
+
+
+
+<pre class="prettyprint"><code class="language-java hljs ">    <span class="hljs-keyword">public</span> <span class="hljs-keyword">static</span> Collector&lt;CharSequence, ?, String&gt; <span class="hljs-title">joining</span>() {
+        <span class="hljs-keyword">return</span> <span class="hljs-keyword">new</span> CollectorImpl&lt;CharSequence, StringBuilder, String&gt;(
+                StringBuilder::<span class="hljs-keyword">new</span>, StringBuilder::append,
+                (r1, r2) -&gt; { r1.append(r2); <span class="hljs-keyword">return</span> r1; },
+                StringBuilder::toString, CH_NOID);
+    }</code></pre>
+
+<p>下面来个复杂的</p>
+
+
+
+<h4 id="groupingby">groupingBy()</h4>
+
+<p><code>groupingBy</code>是<code>toMap</code>的一种高级方式,弥补了<code>toMap</code>对值无法提供多元化的收集操作,比如对于返回<code>Map&lt;T,List&lt;E&gt;&gt;</code>这样的形式<code>toMap</code>就不是那么顺手,那么<code>groupingBy</code>的重点就是对Key和Value值的处理封装.分析如下代码,其中<code>classifier</code>是对key值的处理,<code>mapFactory</code>则是指定Map的容器具体类型,<code>downstream</code>为对Value的收集操作,具体代码这里不做分析,无非是把值一个一个的put进指定容器.</p>
+
+
+
+<pre class="prettyprint"><code class="language-java hljs ">   <span class="hljs-keyword">public</span> <span class="hljs-keyword">static</span> &lt;T, K, D, A, M extends Map&lt;K, D&gt;&gt;
+    Collector&lt;T, ?, M&gt; <span class="hljs-title">groupingBy</span>(Function&lt;? <span class="hljs-keyword">super</span> T, ? extends K&gt; classifier,
+                                  Supplier&lt;M&gt; mapFactory,
+                                  Collector&lt;? <span class="hljs-keyword">super</span> T, A, D&gt; downstream) {
+       .......
+    }</code></pre>
+
+<p>对于之前用原生<code>collect</code>方法做的收集操作那么就可以很容易改写为groupBy形式</p>
+
+
+
+<pre class="prettyprint"><code class="language-java hljs "><span class="hljs-comment">//原生形式</span>
+   Lists.&lt;Person&gt;newArrayList().stream()
+        .collect(() -&gt; <span class="hljs-keyword">new</span> HashMap&lt;Integer,List&lt;Person&gt;&gt;(),
+            (h, x) -&gt; {
+              List&lt;Person&gt; value = h.getOrDefault(x.getType(), Lists.newArrayList());
+              value.add(x);
+              h.put(x.getType(), value);
+            },
+            HashMap::putAll
+        );
+<span class="hljs-comment">//groupBy形式</span>
+Lists.&lt;Person&gt;newArrayList().stream()
+        .collect(Collectors.groupingBy(Person::getType, HashMap::<span class="hljs-keyword">new</span>, Collectors.toList()));
+<span class="hljs-comment">//因为对值有了操作,因此我可以更加灵活的对值进行转换</span>
+Lists.&lt;Person&gt;newArrayList().stream()
+        .collect(Collectors.groupingBy(Person::getType, HashMap::<span class="hljs-keyword">new</span>, Collectors.mapping(Person::getName,Collectors.toSet())));</code></pre>
+
+
+
+<h4 id="reducing">reducing()</h4>
+
+<p><code>reducing</code>是针对单个值的收集,其返回结果不是集合家族的类型,而是单一的实体类T <br/>
+容器: <code>boxSupplier(identity)</code>,这里包裹用的是一个长度为1的Object[]数组,至于原因自然是值传递的锅 <br/>
+加入容器操作: <code>a[0] = op.apply(a[0], t)</code> <br/>
+多容器合并: <code>a[0] = op.apply(a[0], b[0]); return a;</code> <br/>
+聚合后的结果操作: 结果自然是Object[0]所包裹的数据<code>a -&gt; a[0]</code> <br/>
+优化操作状态字段: <code>CH_NOID</code> <br/>
+那么看到这里困惑是不是有一种恍然大悟的感觉,反正我是有的.</p>
+
+
+
+<pre class="prettyprint"><code class="language-java hljs ">  <span class="hljs-keyword">public</span> <span class="hljs-keyword">static</span> &lt;T&gt; Collector&lt;T, ?, T&gt;
+    <span class="hljs-title">reducing</span>(T identity, BinaryOperator&lt;T&gt; op) {
+        <span class="hljs-keyword">return</span> <span class="hljs-keyword">new</span> CollectorImpl&lt;&gt;(
+                boxSupplier(identity),
+                (a, t) -&gt; { a[<span class="hljs-number">0</span>] = op.apply(a[<span class="hljs-number">0</span>], t); },
+                (a, b) -&gt; { a[<span class="hljs-number">0</span>] = op.apply(a[<span class="hljs-number">0</span>], b[<span class="hljs-number">0</span>]); <span class="hljs-keyword">return</span> a; },
+                a -&gt; a[<span class="hljs-number">0</span>],
+                CH_NOID);
+    }</code></pre>
+
+<p>那么接下来就是对之前Collect的一些操作的改造</p>
+
+
+
+<pre class="prettyprint"><code class="language-java hljs "><span class="hljs-comment">//原生操作</span>
+<span class="hljs-keyword">final</span> Integer[] integers = Lists.newArrayList(<span class="hljs-number">1</span>, <span class="hljs-number">2</span>, <span class="hljs-number">3</span>, <span class="hljs-number">4</span>, <span class="hljs-number">5</span>)
+        .stream()
+        .collect(() -&gt; <span class="hljs-keyword">new</span> Integer[]{<span class="hljs-number">0</span>}, (a, x) -&gt; a[<span class="hljs-number">0</span>] += x, (a1, a2) -&gt; a1[<span class="hljs-number">0</span>] += a2[<span class="hljs-number">0</span>]);
+<span class="hljs-comment">//reducing操作</span>
+<span class="hljs-keyword">final</span> Integer collect = Lists.newArrayList(<span class="hljs-number">1</span>, <span class="hljs-number">2</span>, <span class="hljs-number">3</span>, <span class="hljs-number">4</span>, <span class="hljs-number">5</span>)
+        .stream()
+        .collect(Collectors.reducing(<span class="hljs-number">0</span>, Integer::sum));    
+<span class="hljs-comment">//当然Stream也提供了reduce操作</span>
+<span class="hljs-keyword">final</span> Integer collect = Lists.newArrayList(<span class="hljs-number">1</span>, <span class="hljs-number">2</span>, <span class="hljs-number">3</span>, <span class="hljs-number">4</span>, <span class="hljs-number">5</span>)
+        .stream().reduce(<span class="hljs-number">0</span>, Integer::sum)</code></pre>
+
+
+
+<h3 id="可能遇到的问题">可能遇到的问题</h3>
+
+<p>记录下生产中使用该工具遇到的一些小错误</p>
+
+
+
+<h4 id="tomap所产生的异常">toMap所产生的异常</h4>
+
+<p>toMap的操作主要如下代码,异常来自两个方面 <br/>
+1. 操作调用的是<code>map.merge</code>方法,该方法遇到value为null的情况会报npe,即使你使用的是hashMap可以接受null值,也照样报.搞不懂这里为什么这样设计. <br/>
+2. 未指定冲突合并策略,也就是第三个参数<code>BinaryOperator&lt;U&gt; mergeFunction</code>时遇到重复的key会直接抛<code>IllegalStateException</code>,因此需要注意.</p>
+
+
+
+<h3 id="总结">总结</h3>
+
+<p>到此对于<code>collect</code>的操作应该就很清晰了,希望通过这些例子能掌握核心,也就是<code>Collector</code>接口中那几个函数的作用,希望对你有帮助.</p><link rel="stylesheet" href="http://static.blog.csdn.net/public/res-min/markdown_views.css?v=2.0"/></div><link rel="stylesheet" href="http://static.blog.csdn.net/public/res-min/markdown_views.css?v=2.0"/>&#13;
+            

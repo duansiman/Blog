@@ -1,0 +1,104 @@
+
+        <div class="markdown_views"><p>首先我们定义一个可以在运行时动态的找出项目的路径WebAppRootKey,这么做的原因是为了在后面配置log4j输出文件路径的时候能随心配置。</p>
+
+<pre class="prettyprint"><code class=" hljs livecodeserver">&lt;context-<span class="hljs-built_in">param</span>&gt;
+         &lt;<span class="hljs-built_in">param</span>-name&gt;webAppRootKey&lt;/<span class="hljs-built_in">param</span>-name&gt;
+         &lt;<span class="hljs-built_in">param</span>-<span class="hljs-built_in">value</span>&gt;amt.root&lt;/<span class="hljs-built_in">param</span>-<span class="hljs-built_in">value</span>&gt;
+&lt;/context-<span class="hljs-built_in">param</span>&gt;</code></pre>
+
+<p>然后要定义项目log配置文件的路径以及log4j监听器</p>
+
+<pre class="prettyprint"><code class=" hljs xml"><span class="hljs-tag">&lt;<span class="hljs-title">context-param</span>&gt;</span> 
+        <span class="hljs-tag">&lt;<span class="hljs-title">param-name</span>&gt;</span>log4jConfigLocation<span class="hljs-tag">&lt;/<span class="hljs-title">param-name</span>&gt;</span> 
+        <span class="hljs-tag">&lt;<span class="hljs-title">param-value</span>&gt;</span>classpath:conf/log4j.xml<span class="hljs-tag">&lt;/<span class="hljs-title">param-value</span>&gt;</span> 
+<span class="hljs-tag">&lt;/<span class="hljs-title">context-param</span>&gt;</span> 
+
+    <span class="hljs-comment">&lt;!--定义LOG4J监听器--&gt;</span> 
+<span class="hljs-tag">&lt;<span class="hljs-title">listener</span>&gt;</span>
+    <span class="hljs-tag">&lt;<span class="hljs-title">listener-class</span>&gt;</span>org.springframework.web.util.Log4jConfigListener<span class="hljs-tag">&lt;/<span class="hljs-title">listener-class</span>&gt;</span> 
+<span class="hljs-tag">&lt;/<span class="hljs-title">listener</span>&gt;</span> </code></pre>
+
+<p>这样web.xml文件的配置完毕，然后就是log配置文件的具体配置文件：</p>
+
+<pre class="prettyprint"><code class=" hljs xml"><span class="hljs-pi">&lt;?xml version="1.0" encoding="UTF-8"?&gt;</span>
+<span class="hljs-doctype">&lt;!DOCTYPE log4j:configuration SYSTEM "log4j.dtd"&gt;</span>
+
+<span class="hljs-tag">&lt;<span class="hljs-title">log4j:configuration</span>&gt;</span>
+
+    <span class="hljs-comment">&lt;!-- 将日志信息输出到控制台 --&gt;</span>
+    <span class="hljs-tag">&lt;<span class="hljs-title">appender</span> <span class="hljs-attribute">name</span>=<span class="hljs-value">"ConsoleAppender"</span> <span class="hljs-attribute">class</span>=<span class="hljs-value">"org.apache.log4j.ConsoleAppender"</span>&gt;</span>
+        <span class="hljs-comment">&lt;!-- 设置日志输出的样式 --&gt;</span>
+        <span class="hljs-tag">&lt;<span class="hljs-title">layout</span> <span class="hljs-attribute">class</span>=<span class="hljs-value">"org.apache.log4j.PatternLayout"</span>&gt;</span>
+            <span class="hljs-comment">&lt;!-- 设置日志输出的格式 --&gt;</span>
+            <span class="hljs-tag">&lt;<span class="hljs-title">param</span> <span class="hljs-attribute">name</span>=<span class="hljs-value">"ConversionPattern"</span> <span class="hljs-attribute">value</span>=<span class="hljs-value">"[%d{yyyy-MM-dd HH:mm:ss:SSS}] [%-5p] [method:%l]%n%m%n%n"</span> /&gt;</span>
+        <span class="hljs-tag">&lt;/<span class="hljs-title">layout</span>&gt;</span>
+        <span class="hljs-comment">&lt;!--过滤器设置输出的级别--&gt;</span>
+        <span class="hljs-tag">&lt;<span class="hljs-title">filter</span> <span class="hljs-attribute">class</span>=<span class="hljs-value">"org.apache.log4j.varia.LevelRangeFilter"</span>&gt;</span>
+            <span class="hljs-comment">&lt;!-- 设置日志输出的最小级别 --&gt;</span>
+            <span class="hljs-tag">&lt;<span class="hljs-title">param</span> <span class="hljs-attribute">name</span>=<span class="hljs-value">"levelMin"</span> <span class="hljs-attribute">value</span>=<span class="hljs-value">"INFO"</span> /&gt;</span>
+            <span class="hljs-comment">&lt;!-- 设置日志输出的最大级别 --&gt;</span>
+            <span class="hljs-tag">&lt;<span class="hljs-title">param</span> <span class="hljs-attribute">name</span>=<span class="hljs-value">"levelMax"</span> <span class="hljs-attribute">value</span>=<span class="hljs-value">"ERROR"</span> /&gt;</span>
+            <span class="hljs-comment">&lt;!-- 设置日志输出的xxx，默认是false --&gt;</span>
+            <span class="hljs-tag">&lt;<span class="hljs-title">param</span> <span class="hljs-attribute">name</span>=<span class="hljs-value">"AcceptOnMatch"</span> <span class="hljs-attribute">value</span>=<span class="hljs-value">"true"</span> /&gt;</span>
+        <span class="hljs-tag">&lt;/<span class="hljs-title">filter</span>&gt;</span>
+    <span class="hljs-tag">&lt;/<span class="hljs-title">appender</span>&gt;</span>
+
+    <span class="hljs-comment">&lt;!-- 将日志信息输出到文件，可以配置多久产生一个新的日志信息文件 --&gt;</span>
+    <span class="hljs-tag">&lt;<span class="hljs-title">appender</span> <span class="hljs-attribute">name</span>=<span class="hljs-value">"rollingFile"</span> <span class="hljs-attribute">class</span>=<span class="hljs-value">"org.apache.log4j.DailyRollingFileAppender"</span>&gt;</span>
+        <span class="hljs-comment">&lt;!-- 设置日志信息输出文件全路径名 --&gt;</span>
+        <span class="hljs-tag">&lt;<span class="hljs-title">param</span> <span class="hljs-attribute">name</span>=<span class="hljs-value">"File"</span> <span class="hljs-attribute">value</span>=<span class="hljs-value">"${amt.root}/logs/spdbData.log"</span> /&gt;</span>
+        <span class="hljs-comment">&lt;!-- 设置日志每小时回滚一次，即产生一个新的日志文件 --&gt;</span>
+        <span class="hljs-tag">&lt;<span class="hljs-title">param</span> <span class="hljs-attribute">name</span>=<span class="hljs-value">"DatePattern"</span> <span class="hljs-attribute">value</span>=<span class="hljs-value">"'_'yyyy-MM-dd-HH'.log'"</span> /&gt;</span>
+        <span class="hljs-comment">&lt;!-- 设置日志输出的样式 --&gt;</span>
+        <span class="hljs-tag">&lt;<span class="hljs-title">layout</span> <span class="hljs-attribute">class</span>=<span class="hljs-value">"org.apache.log4j.PatternLayout"</span>&gt;</span>
+            <span class="hljs-comment">&lt;!-- 设置日志输出的格式 --&gt;</span>
+            <span class="hljs-tag">&lt;<span class="hljs-title">param</span> <span class="hljs-attribute">name</span>=<span class="hljs-value">"ConversionPattern"</span> <span class="hljs-attribute">value</span>=<span class="hljs-value">"[%d{yyyy-MM-dd HH:mm:ss:SSS}] [%-5p] [method:%l]%n%m%n%n"</span> /&gt;</span>
+        <span class="hljs-tag">&lt;/<span class="hljs-title">layout</span>&gt;</span>
+    <span class="hljs-tag">&lt;/<span class="hljs-title">appender</span>&gt;</span>
+
+
+    <span class="hljs-comment">&lt;!--
+     注意：
+     1：当additivity="false"时，root中的配置就失灵了，不遵循缺省的继承机制
+     2：logger中的name非常重要，它代表记录器的包的形式，有一定的包含关系，试验表明
+        2-1：当定义的logger的name同名时，只有最后的那一个才能正确的打印日志
+        2-2：当对应的logger含有包含关系时，比如：name=test.log4j.test8 和 name=test.log4j.test8.UseLog4j，则2-1的情况是一样的
+        2-3：logger的name表示所有的包含在此名的所有记录器都遵循同样的配置，name的值中的包含关系是指记录器的名称哟！注意啦！
+     3：logger中定义的level和appender中的filter定义的level的区间取交集
+     4：如果appender中的filter定义的 levelMin &gt; levelMax ，则打印不出日志信息
+     --&gt;</span>
+
+    <span class="hljs-comment">&lt;!--指定logger的设置，additivity指示是否遵循缺省的继承机制 --&gt;</span>
+    <span class="hljs-tag">&lt;<span class="hljs-title">logger</span> <span class="hljs-attribute">name</span>=<span class="hljs-value">"test.log4j.test8.UseLog4j_"</span> <span class="hljs-attribute">additivity</span>=<span class="hljs-value">"false"</span>&gt;</span>
+        <span class="hljs-tag">&lt;<span class="hljs-title">level</span> <span class="hljs-attribute">value</span> =<span class="hljs-value">"ERROR"</span>/&gt;</span>
+        <span class="hljs-tag">&lt;<span class="hljs-title">appender-ref</span> <span class="hljs-attribute">ref</span>=<span class="hljs-value">"rollingFile"</span>/&gt;</span>
+    <span class="hljs-tag">&lt;/<span class="hljs-title">logger</span>&gt;</span>
+
+    <span class="hljs-comment">&lt;!-- 根logger的设置--&gt;</span>
+    <span class="hljs-tag">&lt;<span class="hljs-title">root</span>&gt;</span>
+        <span class="hljs-tag">&lt;<span class="hljs-title">level</span> <span class="hljs-attribute">value</span> =<span class="hljs-value">"info"</span>/&gt;</span>
+        <span class="hljs-tag">&lt;<span class="hljs-title">appender-ref</span> <span class="hljs-attribute">ref</span>=<span class="hljs-value">"ConsoleAppender"</span>/&gt;</span>
+        <span class="hljs-tag">&lt;<span class="hljs-title">appender-ref</span> <span class="hljs-attribute">ref</span>=<span class="hljs-value">"rollingFile"</span>/&gt;</span>
+    <span class="hljs-tag">&lt;/<span class="hljs-title">root</span>&gt;</span>
+
+<span class="hljs-tag">&lt;/<span class="hljs-title">log4j:configuration</span>&gt;</span></code></pre>
+
+<p>项目结构如下：</p>
+
+<p><img src="http://img.blog.csdn.net/20170807153207542?watermark/2/text/aHR0cDovL2Jsb2cuY3Nkbi5uZXQvU21pbGVfTWlyYWNsZQ==/font/5a6L5L2T/fontsize/400/fill/I0JBQkFCMA==/dissolve/70/gravity/SouthEast" alt="这里写图片描述" title="" /></p>
+
+<p>一切准备就绪之后，项目一旦启动你就能在你规定的输出位置找到你每天或者每个小时的日志文件，log配置文件还可以进行拓展配置每个文件的大小以及文件出错时的回滚事宜，这里不做赘述。</p></div>&#13;
+        <script type="text/javascript">&#13;
+            $(function () {&#13;
+                $('pre.prettyprint code').each(function () {&#13;
+                    var lines = $(this).text().split('\n').length;&#13;
+                    var $numbering = $('&lt;ul/&gt;').addClass('pre-numbering').hide();&#13;
+                    $(this).addClass('has-numbering').parent().append($numbering);&#13;
+                    for (i = 1; i &lt;= lines; i++) {&#13;
+                        $numbering.append($('&lt;li/&gt;').text(i));&#13;
+                    };&#13;
+                    $numbering.fadeIn(1700);&#13;
+                });&#13;
+            });&#13;
+        </script>&#13;
+   &#13;

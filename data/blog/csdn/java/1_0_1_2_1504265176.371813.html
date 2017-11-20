@@ -1,0 +1,882 @@
+
+        <div class="markdown_views"><p><strong>摘要：</strong></p>
+
+<p>　　本人在前辈《从MVC到前后端分离（REST-个人也认为是目前比较流行和比较好的方式）》一文的基础上，实现了一个基于Spring的符合REST风格的完整Demo，具有MVC分层结构并实现前后端分离，该项目体现了一个具有REST风格项目的基本特征，即具有统一响应结构、 前后台数据流转机制(HTTP消息与Java对象的互相转化机制)、统一的异常处理机制、参数验证机制、Cors跨域请求机制以及鉴权机制。此外，该项目的完整源码可移步到我的Github参考，项目地址：<a href="https://github.com/githubofrico/RestSpringMVCDemo" target="_blank">https://github.com/githubofrico/RestSpringMVCDemo</a>。</p>
+
+<hr />
+
+<p><strong>版权声明与致谢：</strong></p>
+
+<p>　　本文原创作者：<a href="http://my.csdn.net/justloveyou_" target="_blank">书呆子Rico</a> <br />
+　　作者博客地址：<a href="http://blog.csdn.net/justloveyou_/" target="_blank">http://blog.csdn.net/justloveyou_/</a></p>
+
+<p>　　本文是在CSDN博友shao.bing的专栏的<a href="http://blog.csdn.net/shaobingj126/article/details/49420145" target="_blank">《从MVC到前后端分离（REST-个人也认为是目前比较流行和比较好的方式）》</a>一文基础上整理而成，实现了文中所述的REST框架并进行分享，相关源码移步至我的Github进行下载，项目地址：<a href="https://github.com/githubofrico/RestSpringMVCDemo" target="_blank">https://github.com/githubofrico/RestSpringMVCDemo</a>。</p>
+
+<p>　　本文旨在分享与交流，若涉及侵权，请留言或邮件(rico@tju.edu.cn)联系。</p>
+
+<hr />
+
+
+
+<h2 id="一-mvc-概述">一. MVC 概述</h2>
+
+<p><strong>1. 理解 MVC</strong></p>
+
+<p>　　MVC是一种经典的设计模式，全名为Model-View-Controller，即模型-视图-控制器。其中，模型是用于封装数据的载体，例如，在Java中一般通过一个简单的POJO（Plain Ordinary Java Object）来表示，其本质是一个普通的java Bean，包含一系列的成员变量及其getter/setter方法。对于视图而言，它更加偏重于展现，也就是说，视图决定了界面到底长什么样子，在Java中可通过JSP来充当视图，或者通过纯HTML的方式进行展现，而后者才是目前的主流。模型和视图需要通过控制器来进行粘合，例如，用户发送一个HTTP请求，此时该请求首先会进入控制器，然后控制器去获取数据并将其封装为模型，最后将模型传递到视图中进行展现。综上所述，MVC的交互过程如下图所示。</p>
+
+<p>　　　　　　　　　　　　　　<img src="http://static.zybuluo.com/Rico123/et4q5o2ok4ryi6dniwifvcx0/MVC.jpg" alt="MVC.jpg-21.5kB" title="" /></p>
+
+<hr />
+
+<p><strong>2. MVC 模式的优点与不足</strong></p>
+
+<p>　　MVC模式早在上个世纪70年代就诞生了，直到今天它依然存在，可见生命力相当之强。MVC模式最早应用于Smalltalk语言中，最后在其它许多开发语言中都得到了很好的应用。随着包括Struts、Spring MVC在内的MVC框架的出现，MVC模式真正落地，并使得开发更加高效、代码耦合度尽量减小、应用程序各部分的职责更加清晰。</p>
+
+<p>　　既然MVC模式这么好，难道它就没有不足的地方吗？我认为MVC至少有以下三点不足：</p>
+
+<ul>
+<li><p><font color="red">每次请求必须经过“控制器-&gt;模型-&gt;视图”这个流程，用户才能看到最终的展现的界面，这个过程似乎有些复杂；</font></p></li>
+<li><p><font color="red">实际上视图是依赖于模型的，换句话说，如果没有模型，视图也无法呈现出最终的效果；</font></p></li>
+<li><p><font color="red">渲染视图的过程是在服务端来完成的，最终呈现给浏览器的是带有模型的视图页面，性能无法得到很好的优化。</font></p>
+
+<p>　　为了使数据展现过程更加直接，并且提供更好的用户体验，我们有必要对MVC模式进行改进。不妨这样来尝试：<font color="red"><b>首先从浏览器发送AJAX请求，然后服务端接受该请求并返回JSON数据返回给浏览器，最后在浏览器中进行界面渲染。</b></font>改进后的MVC模式如下图所示：</p>
+
+<p>　　　　　　　　　　　　　　<img src="http://static.zybuluo.com/Rico123/yxk2m9upgn5kzi2027d4v4z5/MVC+%E5%89%8D%E5%90%8E%E7%AB%AF%E5%88%86%E7%A6%BB.jpg" alt="MVC+前后端分离.jpg-24.2kB" title="" /></p>
+
+<p>　　也就是说，我们输入的是AJAX请求，输出的是JSON数据，市面上有这样的技术来实现这个功能吗？答案是REST。</p>
+
+<p>　　REST全称是Representational State Transfer（表述性状态转移），它是Roy Fielding博士在2000年写的一篇关于软件架构风格的论文，此文一出，威震四方！国内外许多知名互联网公司纷纷开始采用这种轻量级的Web服务，大家习惯将其称为RESTful Web Services，或简称REST服务。]</p>
+
+<p>　　如果将浏览器这一端视为前端，而服务器那一端视为后端的话，可以将以上改进后的MVC模式简化为以下前后端分离模式，如下图所示：</p>
+
+<p>　　　　　　　　　　　　　　　　<img src="http://static.zybuluo.com/Rico123/v98uooq7qquiems7jvhdxm0c/%E5%89%8D%E5%90%8E%E7%AB%AF%E5%88%86%E7%A6%BB.jpg" alt="前后端分离.jpg-24.1kB" title="" /></p>
+
+<p>　　可见，<font color="red"><b>采用REST分格的架构可以使得前端关注界面展现，后端关注业务逻辑，分工明确，职责清晰。</b></font>那么，如何使用REST架构将应用程序进行前后端分离呢？我们接下来继续探讨，首先我们需要认识REST。</p></li>
+</ul>
+
+<hr />
+
+<h2 id="二-认识-rest">二. 认识 REST</h2>
+
+<p>　　REST本质上是使用URL来访问资源的一种方式。众所周知，URL(Uniform Resoure Locator:统一资源定位器)就是我们平常使用的请求地址了，其中包括两部分：请求方式与请求路径，比较常见的请求方式是GET与POST，但在REST中又提出了几种其它类型的请求方式，汇总起来有六种：GET、POST、PUT、DELETE、HEAD、OPTIONS。尤其是前四种，正好与CRUD（Create-Retrieve-Update-Delete，增删改查）四种操作相对应，例如，GET（查）、POST（增）、PUT（改）、DELETE（删），这正是REST与CRUD的异曲同工之妙！<font color="red"><b>需要强调的是，REST是面向资源(ROA)的，这里提到的资源，实际上就是我们常说的领域对象，在系统设计过程中，我们经常通过领域对象来进行数据建模。</b></font></p>
+
+<p>　　REST是一个无状态的架构模式，因为在任何时候都可以由客户端发出请求到服务端，最终返回自己想要的数据，当前请求不会受到上次请求的影响。也就是说，<font color="red"><b>服务端将内部资源发布REST服务，客户端通过URL来定位这些资源并通过HTTP协议来访问它们。</b></font>下面我们举几个例子对REST请求进行简单描述：</p>
+
+<p>　　　　　　　　　　　　　　　　<img src="http://static.zybuluo.com/Rico123/tvxzu6lipz7slnwwo2jkrhb3/REST%E4%BE%8B%E5%AD%90.jpg" alt="REST例子.jpg-41.7kB" title="" /></p>
+
+<p>　　可见，请求路径相同但请求方式不同，所代表的业务操作也不同，例如，/advertiser/1这个请求，带有GET、PUT、DELETE三种不同的请求方式，对应三种不同的业务操作。</p>
+
+<p>　　虽然REST看起来还是很简单的，实际上我们往往需要提供一个REST框架，让其实现前后端分离架构，让开发人员将精力集中在业务上，而并非那些具体的技术细节。下面我们将使用Java技术来实现这个REST框架，整体框架会基于Spring进行开发。</p>
+
+<hr />
+
+
+
+<h2 id="三-实现rest框架">三. 实现REST框架</h2>
+
+<p><strong>1、统一响应结构</strong></p>
+
+<p>　　使用REST框架实现前后端分离架构，我们需要首先确定返回的JSON响应结构是统一的，也就是说，每个REST请求将返回相同结构的JSON响应结构。不妨定义一个相对通用的JSON响应结构，其中包含两部分：元数据与返回值，其中，元数据表示操作是否成功与返回值消息等，返回值对应服务端方法所返回的数据。该JSON响应结构如下：</p>
+
+
+
+<pre class="prettyprint"><code class="language-json hljs ">    {
+        "<span class="hljs-attribute">meta</span>": <span class="hljs-value">{
+            "<span class="hljs-attribute">success</span>": <span class="hljs-value"><span class="hljs-literal">true</span></span>,
+            "<span class="hljs-attribute">message</span>": <span class="hljs-value"><span class="hljs-string">"ok"</span>
+        </span>}</span>,
+        "<span class="hljs-attribute">data</span>": <span class="hljs-value">...
+    </span>}</code></pre>
+
+<p>　　为了在框架中映射以上JSON响应结构，我们需要编写一个Response类与其对应：</p>
+
+
+
+<pre class="prettyprint"><code class="language-java hljs "><span class="hljs-javadoc">/**
+ * Title: 统一响应结构 
+ * Description:使用REST框架实现前后端分离架构，我们需要首先确定返回的JSON响应结构是统一的，
+ * 也就是说，每个REST请求将返回相同结构的JSON响应结构。不妨定义一个相对通用的JSON响应结构，其
+ * 中包含两部分：元数据与返回值，其中，元数据表示操作是否成功与返回值消息等，返回值对应服务端方法所返回的数据。
+ * { "meta": { "success": true, "message": "ok" }, "data": ... }
+ * 
+ *<span class="hljs-javadoctag"> @author</span> rico
+ *<span class="hljs-javadoctag"> @created</span> 2017年7月4日 下午5:06:00
+ */</span>
+<span class="hljs-keyword">public</span> <span class="hljs-class"><span class="hljs-keyword">class</span> <span class="hljs-title">Response</span> {</span>
+
+    <span class="hljs-keyword">private</span> <span class="hljs-keyword">static</span> <span class="hljs-keyword">final</span> String OK = <span class="hljs-string">"ok"</span>;
+    <span class="hljs-keyword">private</span> <span class="hljs-keyword">static</span> <span class="hljs-keyword">final</span> String ERROR = <span class="hljs-string">"error"</span>;
+
+    <span class="hljs-keyword">private</span> Meta meta;     <span class="hljs-comment">// 元数据</span>
+    <span class="hljs-keyword">private</span> Object data;   <span class="hljs-comment">// 响应内容</span>
+
+    <span class="hljs-keyword">public</span> Response <span class="hljs-title">success</span>() {
+        <span class="hljs-keyword">this</span>.meta = <span class="hljs-keyword">new</span> Meta(<span class="hljs-keyword">true</span>, OK);
+        <span class="hljs-keyword">return</span> <span class="hljs-keyword">this</span>;
+    }
+
+    <span class="hljs-keyword">public</span> Response <span class="hljs-title">success</span>(Object data) {
+        <span class="hljs-keyword">this</span>.meta = <span class="hljs-keyword">new</span> Meta(<span class="hljs-keyword">true</span>, OK);
+        <span class="hljs-keyword">this</span>.data = data;
+        <span class="hljs-keyword">return</span> <span class="hljs-keyword">this</span>;
+    }
+
+    <span class="hljs-keyword">public</span> Response <span class="hljs-title">failure</span>() {
+        <span class="hljs-keyword">this</span>.meta = <span class="hljs-keyword">new</span> Meta(<span class="hljs-keyword">false</span>, ERROR);
+        <span class="hljs-keyword">return</span> <span class="hljs-keyword">this</span>;
+    }
+
+    <span class="hljs-keyword">public</span> Response <span class="hljs-title">failure</span>(String message) {
+        <span class="hljs-keyword">this</span>.meta = <span class="hljs-keyword">new</span> Meta(<span class="hljs-keyword">false</span>, message);
+        <span class="hljs-keyword">return</span> <span class="hljs-keyword">this</span>;
+    }
+
+    <span class="hljs-keyword">public</span> Meta <span class="hljs-title">getMeta</span>() {
+        <span class="hljs-keyword">return</span> meta;
+    }
+
+    <span class="hljs-keyword">public</span> Object <span class="hljs-title">getData</span>() {
+        <span class="hljs-keyword">return</span> data;
+    }
+
+    <span class="hljs-javadoc">/**
+     * Title: 请求元数据
+     *<span class="hljs-javadoctag"> @author</span> rico
+     *<span class="hljs-javadoctag"> @created</span> 2017年7月4日 下午5:08:12
+     */</span>
+    <span class="hljs-keyword">public</span> <span class="hljs-class"><span class="hljs-keyword">class</span> <span class="hljs-title">Meta</span> {</span>
+
+        <span class="hljs-keyword">private</span> <span class="hljs-keyword">boolean</span> success;
+        <span class="hljs-keyword">private</span> String message;
+
+        <span class="hljs-keyword">public</span> <span class="hljs-title">Meta</span>(<span class="hljs-keyword">boolean</span> success) {
+            <span class="hljs-keyword">this</span>.success = success;
+        }
+
+        <span class="hljs-keyword">public</span> <span class="hljs-title">Meta</span>(<span class="hljs-keyword">boolean</span> success, String message) {
+            <span class="hljs-keyword">this</span>.success = success;
+            <span class="hljs-keyword">this</span>.message = message;
+        }
+
+        <span class="hljs-keyword">public</span> <span class="hljs-keyword">boolean</span> <span class="hljs-title">isSuccess</span>() {
+            <span class="hljs-keyword">return</span> success;
+        }
+
+        <span class="hljs-keyword">public</span> String <span class="hljs-title">getMessage</span>() {
+            <span class="hljs-keyword">return</span> message;
+        }
+    }
+}</code></pre>
+
+<p>　　以上Response类包括两类通用返回值消息：ok 与 error，还包括两个常用的操作方法：success( )与failure( )，通过一个内部类来展现元数据结构，我们在下文中多次会使用该Response类。</p>
+
+<p>　　实现该REST框架需要考虑许多问题，首当其冲的就是前后数据流转问题，即HTTP消息与Java对象之间的转化问题。</p>
+
+<hr />
+
+<p><strong>2、前后台数据流转</strong> <br />
+　　 <br />
+　　前后台数据流转问题具体指的是什么？不妨通过一些例子进行说明。比如，通过浏览器发送了一个普通的HTTP请求，该请求携带了一个JSON格式的参数，在服务端需要将该JSON参数转换为普通的Java对象；再比如，在服务端获取了数据，此时该数据是一个普通的Java对象，然后需要将这个Java对象转换为JSON字符串，并将其返回到浏览器中进行渲染，这个过程就涉及HTTP消息与Java对象之间的转化问题。</p>
+
+<p>　　实际上，Spring MVC已经为我们提供了这类转化特性，只需在Controller的方法参数中使用@RequestBody注解定义需要转化的参数即可；类似地，若需要对Controller的方法返回值进行转化，则需要在该返回值上使用@ResponseBody注解来定义，如以下代码片段：</p>
+
+
+
+<pre class="prettyprint"><code class="language-java hljs "><span class="hljs-annotation">@RequestMapping</span>(<span class="hljs-string">"/users"</span>)
+<span class="hljs-keyword">public</span> <span class="hljs-class"><span class="hljs-keyword">class</span> <span class="hljs-title">UserController</span> {</span>
+
+    <span class="hljs-keyword">private</span> UserService userService;
+
+    <span class="hljs-javadoc">/** Log4j日志处理(@author: rico) */</span>
+    <span class="hljs-keyword">private</span> <span class="hljs-keyword">static</span> <span class="hljs-keyword">final</span> Logger log = Logger.getLogger(UserController.class);
+
+    <span class="hljs-keyword">public</span> UserService <span class="hljs-title">getUserService</span>() {
+        <span class="hljs-keyword">return</span> userService;
+    }
+
+    <span class="hljs-annotation">@Resource</span>(name = <span class="hljs-string">"userService"</span>)
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">void</span> <span class="hljs-title">setUserService</span>(UserService userService) {
+        <span class="hljs-keyword">this</span>.userService = userService;
+    }
+
+    <span class="hljs-annotation">@RequestMapping</span>(value = <span class="hljs-string">"/user"</span>, method = RequestMethod.PUT, produces = <span class="hljs-string">"application/json"</span>, 
+            consumes = <span class="hljs-string">"application/json"</span>)
+    <span class="hljs-annotation">@ResponseBody</span>     <span class="hljs-comment">// 将 Java 对象转化为特定的HTTP消息</span>
+    <span class="hljs-keyword">public</span> User <span class="hljs-title">addUser</span>(@RequestBody User user) {  <span class="hljs-comment">// 将接收到的HTTP消息转化为Java对象</span>
+        userService.addUser(user);
+        log.debug(<span class="hljs-string">"添加用户 :"</span> + user);
+        <span class="hljs-keyword">return</span> user;
+    }
+}</code></pre>
+
+<p>　　 当然，@ResponseBody注解也可以定义在类上，这样所有的方法都继承了该特性。由于经常会使用到@ResponseBody注解，所以Spring提供了一个名为@RestController的注解来取代以上的@Controller注解，这样我们就可以省略返回值前面的@ResponseBody注解了，但参数前面的@RequestBody注解是无法省略的。实际上，看看Spring中对应@RestController注解的源码便可知晓：</p>
+
+
+
+<pre class="prettyprint"><code class="language-java hljs "><span class="hljs-annotation">@Target</span>({ElementType.TYPE})  
+<span class="hljs-annotation">@Retention</span>(RetentionPolicy.RUNTIME)  
+<span class="hljs-annotation">@Documented</span>  
+<span class="hljs-annotation">@Controller</span>  
+<span class="hljs-annotation">@ResponseBody</span>  
+<span class="hljs-keyword">public</span> @<span class="hljs-class"><span class="hljs-keyword">interface</span> <span class="hljs-title">RestController</span> {</span>  
+
+    String value() <span class="hljs-keyword">default</span> <span class="hljs-string">""</span>;  
+} </code></pre>
+
+<p>　　 可见，@RestController注解已经被@Controller与@ResponseBody注解定义过了，Spring框架会识别这类注解。需要注意的是，该特性在Spring 4.0中才引入。因此，我们可将以上代码进行如下改写：</p>
+
+
+
+<pre class="prettyprint"><code class="language-java hljs "><span class="hljs-annotation">@RestController</span>
+<span class="hljs-annotation">@RequestMapping</span>(<span class="hljs-string">"/users"</span>)
+<span class="hljs-keyword">public</span> <span class="hljs-class"><span class="hljs-keyword">class</span> <span class="hljs-title">UserController</span> {</span>
+
+    <span class="hljs-keyword">private</span> UserService userService;
+
+    <span class="hljs-javadoc">/** Log4j日志处理(@author: rico) */</span>
+    <span class="hljs-keyword">private</span> <span class="hljs-keyword">static</span> <span class="hljs-keyword">final</span> Logger log = Logger.getLogger(UserController.class);
+
+    <span class="hljs-keyword">public</span> UserService <span class="hljs-title">getUserService</span>() {
+        <span class="hljs-keyword">return</span> userService;
+    }
+
+    <span class="hljs-annotation">@Resource</span>(name = <span class="hljs-string">"userService"</span>)
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">void</span> <span class="hljs-title">setUserService</span>(UserService userService) {
+        <span class="hljs-keyword">this</span>.userService = userService;
+    }
+
+    <span class="hljs-annotation">@RequestMapping</span>(value = <span class="hljs-string">"/user"</span>, method = RequestMethod.PUT, produces = <span class="hljs-string">"application/json"</span>, 
+            consumes = <span class="hljs-string">"application/json"</span>)
+    <span class="hljs-keyword">public</span> User <span class="hljs-title">addUser</span>(@RequestBody User user) {  <span class="hljs-comment">// 将接收到的HTTP消息转化为Java对象</span>
+        userService.addUser(user);
+        log.debug(<span class="hljs-string">"添加用户 :"</span> + user);
+        <span class="hljs-keyword">return</span> user;
+    }
+}</code></pre>
+
+<p>　　 除了使用注解来定义消息转化行为以外，我们还需要添加Jackson包进行支持，Maven依赖如下：</p>
+
+
+
+<pre class="prettyprint"><code class="language-xml hljs "><span class="hljs-comment">&lt;!-- JSON: jackson --&gt;</span>
+<span class="hljs-tag">&lt;<span class="hljs-title">dependency</span>&gt;</span>
+    <span class="hljs-tag">&lt;<span class="hljs-title">groupId</span>&gt;</span>org.codehaus.jackson<span class="hljs-tag">&lt;/<span class="hljs-title">groupId</span>&gt;</span>
+    <span class="hljs-tag">&lt;<span class="hljs-title">artifactId</span>&gt;</span>jackson-core-asl<span class="hljs-tag">&lt;/<span class="hljs-title">artifactId</span>&gt;</span>
+    <span class="hljs-tag">&lt;<span class="hljs-title">version</span>&gt;</span>1.9.12<span class="hljs-tag">&lt;/<span class="hljs-title">version</span>&gt;</span>
+<span class="hljs-tag">&lt;/<span class="hljs-title">dependency</span>&gt;</span>
+<span class="hljs-tag">&lt;<span class="hljs-title">dependency</span>&gt;</span>
+    <span class="hljs-tag">&lt;<span class="hljs-title">groupId</span>&gt;</span>org.codehaus.jackson<span class="hljs-tag">&lt;/<span class="hljs-title">groupId</span>&gt;</span>
+    <span class="hljs-tag">&lt;<span class="hljs-title">artifactId</span>&gt;</span>jackson-mapper-lgpl<span class="hljs-tag">&lt;/<span class="hljs-title">artifactId</span>&gt;</span>
+    <span class="hljs-tag">&lt;<span class="hljs-title">version</span>&gt;</span>1.9.12<span class="hljs-tag">&lt;/<span class="hljs-title">version</span>&gt;</span>
+<span class="hljs-tag">&lt;/<span class="hljs-title">dependency</span>&gt;</span></code></pre>
+
+<p>　　 在Spring配置文件中添加以下配置即可：</p>
+
+
+
+<pre class="prettyprint"><code class="language-xml hljs ">    <span class="hljs-comment">&lt;!-- 该配置会自动注册RequestMappingHandlerMapping与RequestMappingHandlerAdapter两个Bean，
+    这是SpringMVC为@Controllers分发请求所必需的，并提供了数据绑定支持、@NumberFormatannotation支持、
+    @DateTimeFormat支持、@Valid支持、读写XML的支持和读写JSON的支持等功能。 --&gt;</span>
+    <span class="hljs-tag">&lt;<span class="hljs-title">mvc:annotation-driven</span> /&gt;</span></code></pre>
+
+<p>　　 通过以上过程，我们已经完成了一个基于SpringMVC的REST框架，只不过该框架还非常单薄，还缺乏很多关键性特性，尤其是异常处理。</p>
+
+<hr />
+
+<p><strong>3、处理异常行为</strong></p>
+
+<p>　　在Spring MVC中，我们可以使用AOP技术，编写一个全局的异常处理切面类，用它来统一处理所有的异常行为，在Spring 3.2中才开始提供。使用很简单，只需定义一个类，并通过@ControllerAdvice注解将其标注即可，同时需要使用@ResponseBody注解表示返回值可序列化为JSON字符串。代码如下：</p>
+
+
+
+<pre class="prettyprint"><code class="language-java hljs "><span class="hljs-javadoc">/**        
+ * Title: 全局异常处理切面    
+ * Description: 利用<span class="hljs-javadoctag"> @ControllerAdvice</span> +<span class="hljs-javadoctag"> @ExceptionHandler</span> 组合处理Controller层RuntimeException异常
+ *<span class="hljs-javadoctag"> @author</span> rico       
+ *<span class="hljs-javadoctag"> @created</span> 2017年7月4日 下午4:29:07    
+ */</span>      
+<span class="hljs-annotation">@ControllerAdvice</span>   <span class="hljs-comment">// 控制器增强</span>
+<span class="hljs-annotation">@ResponseBody</span>
+<span class="hljs-keyword">public</span> <span class="hljs-class"><span class="hljs-keyword">class</span> <span class="hljs-title">ExceptionAspect</span> {</span>
+
+    <span class="hljs-javadoc">/** Log4j日志处理(@author: rico) */</span>
+    <span class="hljs-keyword">private</span> <span class="hljs-keyword">static</span> <span class="hljs-keyword">final</span> Logger log = Logger.getLogger(ExceptionAspect.class);
+
+    <span class="hljs-javadoc">/**
+     * 400 - Bad Request
+     */</span>
+    <span class="hljs-annotation">@ResponseStatus</span>(HttpStatus.BAD_REQUEST)
+    <span class="hljs-annotation">@ExceptionHandler</span>(HttpMessageNotReadableException.class)
+    <span class="hljs-keyword">public</span> Response <span class="hljs-title">handleHttpMessageNotReadableException</span>(
+            HttpMessageNotReadableException e) {
+        log.error(<span class="hljs-string">"could_not_read_json..."</span>, e);
+        <span class="hljs-keyword">return</span> <span class="hljs-keyword">new</span> Response().failure(<span class="hljs-string">"could_not_read_json"</span>);
+    }
+
+    <span class="hljs-javadoc">/**
+     * 400 - Bad Request
+     */</span>
+    <span class="hljs-annotation">@ResponseStatus</span>(HttpStatus.BAD_REQUEST)
+    <span class="hljs-annotation">@ExceptionHandler</span>({MethodArgumentNotValidException.class})
+    <span class="hljs-keyword">public</span> Response <span class="hljs-title">handleValidationException</span>(MethodArgumentNotValidException e) {
+        log.error(<span class="hljs-string">"parameter_validation_exception..."</span>, e);
+        <span class="hljs-keyword">return</span> <span class="hljs-keyword">new</span> Response().failure(<span class="hljs-string">"parameter_validation_exception"</span>);
+    }
+
+    <span class="hljs-javadoc">/**
+     * 405 - Method Not Allowed。HttpRequestMethodNotSupportedException
+     * 是ServletException的子类,需要Servlet API支持
+     */</span>
+    <span class="hljs-annotation">@ResponseStatus</span>(HttpStatus.METHOD_NOT_ALLOWED)
+    <span class="hljs-annotation">@ExceptionHandler</span>(HttpRequestMethodNotSupportedException.class)
+    <span class="hljs-keyword">public</span> Response <span class="hljs-title">handleHttpRequestMethodNotSupportedException</span>(
+            HttpRequestMethodNotSupportedException e) {
+        log.error(<span class="hljs-string">"request_method_not_supported..."</span>, e);
+        <span class="hljs-keyword">return</span> <span class="hljs-keyword">new</span> Response().failure(<span class="hljs-string">"request_method_not_supported"</span>);
+    }
+
+    <span class="hljs-javadoc">/**
+     * 415 - Unsupported Media Type。HttpMediaTypeNotSupportedException
+     * 是ServletException的子类,需要Servlet API支持
+     */</span>
+    <span class="hljs-annotation">@ResponseStatus</span>(HttpStatus.UNSUPPORTED_MEDIA_TYPE)
+    <span class="hljs-annotation">@ExceptionHandler</span>({ HttpMediaTypeNotSupportedException.class })
+    <span class="hljs-keyword">public</span> Response <span class="hljs-title">handleHttpMediaTypeNotSupportedException</span>(Exception e) {
+        log.error(<span class="hljs-string">"content_type_not_supported..."</span>, e);
+        <span class="hljs-keyword">return</span> <span class="hljs-keyword">new</span> Response().failure(<span class="hljs-string">"content_type_not_supported"</span>);
+    }
+
+    <span class="hljs-javadoc">/**
+     * 500 - Internal Server Error
+     */</span>
+    <span class="hljs-annotation">@ResponseStatus</span>(HttpStatus.INTERNAL_SERVER_ERROR)
+    <span class="hljs-annotation">@ExceptionHandler</span>(TokenException.class)
+    <span class="hljs-keyword">public</span> Response <span class="hljs-title">handleTokenException</span>(Exception e) {
+        log.error(<span class="hljs-string">"Token is invaild..."</span>, e);
+        <span class="hljs-keyword">return</span> <span class="hljs-keyword">new</span> Response().failure(<span class="hljs-string">"Token is invaild"</span>);
+    }
+
+    <span class="hljs-javadoc">/**
+     * 500 - Internal Server Error
+     */</span>
+    <span class="hljs-annotation">@ResponseStatus</span>(HttpStatus.INTERNAL_SERVER_ERROR)
+    <span class="hljs-annotation">@ExceptionHandler</span>(Exception.class)
+    <span class="hljs-keyword">public</span> Response <span class="hljs-title">handleException</span>(Exception e) {
+        log.error(<span class="hljs-string">"Internal Server Error..."</span>, e);
+        <span class="hljs-keyword">return</span> <span class="hljs-keyword">new</span> Response().failure(<span class="hljs-string">"Internal Server Error"</span>);
+    }
+}
+</code></pre>
+
+<p>　　可见，在ExceptionAdvice类中包含一系列的异常处理方法，每个方法都通过@ResponseStatus注解定义了响应状态码，此外还通过@ExceptionHandler注解指定了具体需要拦截的异常类。以上过程只是包含了一部分的异常情况，若需处理其它异常，可添加方法具体的方法。需要注意的是，在运行时从上往下依次调用每个异常处理方法，匹配当前异常类型是否与@ExceptionHandler注解所定义的异常相匹配，若匹配，则执行该方法，同时忽略后续所有的异常处理方法，最终会返回经JSON序列化后的Response对象。</p>
+
+<hr />
+
+<p><strong>4、支持参数验证</strong></p>
+
+<p>　　我们回到上文所提到的示例，这里处理一个普通的PUT请求，代码如下：</p>
+
+
+
+<pre class="prettyprint"><code class="language-java hljs "><span class="hljs-annotation">@RestController</span>
+<span class="hljs-annotation">@RequestMapping</span>(<span class="hljs-string">"/users"</span>)
+<span class="hljs-keyword">public</span> <span class="hljs-class"><span class="hljs-keyword">class</span> <span class="hljs-title">UserController</span> {</span>
+
+    <span class="hljs-keyword">private</span> UserService userService;
+
+    <span class="hljs-javadoc">/** Log4j日志处理(@author: rico) */</span>
+    <span class="hljs-keyword">private</span> <span class="hljs-keyword">static</span> <span class="hljs-keyword">final</span> Logger log = Logger.getLogger(UserController.class);
+
+    <span class="hljs-keyword">public</span> UserService <span class="hljs-title">getUserService</span>() {
+        <span class="hljs-keyword">return</span> userService;
+    }
+
+    <span class="hljs-annotation">@Resource</span>(name = <span class="hljs-string">"userService"</span>)
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">void</span> <span class="hljs-title">setUserService</span>(UserService userService) {
+        <span class="hljs-keyword">this</span>.userService = userService;
+    }
+
+    <span class="hljs-annotation">@RequestMapping</span>(value = <span class="hljs-string">"/user"</span>, method = RequestMethod.PUT, produces = <span class="hljs-string">"application/json"</span>, 
+            consumes = <span class="hljs-string">"application/json"</span>)
+    <span class="hljs-keyword">public</span> User <span class="hljs-title">addUser</span>(@RequestBody User user) {  <span class="hljs-comment">// 将接收到的HTTP消息转化为Java对象</span>
+        userService.addUser(user);
+        log.debug(<span class="hljs-string">"添加用户 :"</span> + user);
+        <span class="hljs-keyword">return</span> user;
+    }
+
+    ...
+}</code></pre>
+
+<p>　　其中，User参数包含若干属性，通过以下类结构可见，它是一个传统的POJO：</p>
+
+
+
+<pre class="prettyprint"><code class="language-java hljs "><span class="hljs-keyword">public</span> <span class="hljs-class"><span class="hljs-keyword">class</span> <span class="hljs-title">User</span> <span class="hljs-keyword">implements</span> <span class="hljs-title">Serializable</span>{</span>
+
+    <span class="hljs-keyword">private</span> <span class="hljs-keyword">static</span> <span class="hljs-keyword">final</span> <span class="hljs-keyword">long</span> serialVersionUID = <span class="hljs-number">1</span>L;
+
+    <span class="hljs-keyword">private</span> <span class="hljs-keyword">int</span> id;
+    <span class="hljs-keyword">private</span> String uname;
+    <span class="hljs-keyword">private</span> String passwd;
+    <span class="hljs-keyword">private</span> String gentle;
+    <span class="hljs-keyword">private</span> String email;
+    <span class="hljs-keyword">private</span> String city;
+
+    <span class="hljs-keyword">public</span> <span class="hljs-title">User</span>() {
+        <span class="hljs-keyword">super</span>();
+    }
+
+    <span class="hljs-comment">// getter/setter</span>
+
+    <span class="hljs-comment">// toString</span>
+}</code></pre>
+
+<p>　　如果业务上需要确保User对象的uname属性必填，如何实现呢？若将这类参数验证的代码写死在Controller中，势必会与正常的业务逻辑搅在一起，导致责任不够单一，违背于“单一责任原则”。建议将其参数验证行为从Controller中剥离出来，放到另外的类中，这里仅通过@Valid注解来定义uname参数，并通过Bean Validation的参考实现Hibernate Validator的@NotEmpty注解来定义User类中的uname属性，就像下面这样：</p>
+
+
+
+<pre class="prettyprint"><code class="language-java hljs "><span class="hljs-annotation">@RestController</span>
+<span class="hljs-annotation">@RequestMapping</span>(<span class="hljs-string">"/users"</span>)
+<span class="hljs-keyword">public</span> <span class="hljs-class"><span class="hljs-keyword">class</span> <span class="hljs-title">UserController</span> {</span>
+
+    <span class="hljs-keyword">private</span> UserService userService;
+
+    <span class="hljs-javadoc">/** Log4j日志处理(@author: rico) */</span>
+    <span class="hljs-keyword">private</span> <span class="hljs-keyword">static</span> <span class="hljs-keyword">final</span> Logger log = Logger.getLogger(UserController.class);
+
+    <span class="hljs-keyword">public</span> UserService <span class="hljs-title">getUserService</span>() {
+        <span class="hljs-keyword">return</span> userService;
+    }
+
+    <span class="hljs-annotation">@Resource</span>(name = <span class="hljs-string">"userService"</span>)
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">void</span> <span class="hljs-title">setUserService</span>(UserService userService) {
+        <span class="hljs-keyword">this</span>.userService = userService;
+    }
+
+    <span class="hljs-annotation">@RequestMapping</span>(value = <span class="hljs-string">"/user"</span>, method = RequestMethod.PUT, produces = <span class="hljs-string">"application/json"</span>, 
+            consumes = <span class="hljs-string">"application/json"</span>)
+    <span class="hljs-keyword">public</span> User <span class="hljs-title">addUser</span>(@RequestBody  @Valid User user) {  <span class="hljs-comment">// 将接收到的HTTP消息转化为Java对象</span>
+        userService.addUser(user);
+        log.debug(<span class="hljs-string">"添加用户 :"</span> + user);
+        <span class="hljs-keyword">return</span> user;
+    }
+
+    ...
+}
+
+
+<span class="hljs-keyword">public</span> <span class="hljs-class"><span class="hljs-keyword">class</span> <span class="hljs-title">User</span> <span class="hljs-keyword">implements</span> <span class="hljs-title">Serializable</span>{</span>
+
+    <span class="hljs-keyword">private</span> <span class="hljs-keyword">static</span> <span class="hljs-keyword">final</span> <span class="hljs-keyword">long</span> serialVersionUID = <span class="hljs-number">1</span>L;
+
+    <span class="hljs-keyword">private</span> <span class="hljs-keyword">int</span> id;
+    <span class="hljs-annotation">@NotEmpty</span>
+    <span class="hljs-keyword">private</span> String uname;
+    <span class="hljs-keyword">private</span> String passwd;
+    <span class="hljs-keyword">private</span> String gentle;
+    <span class="hljs-keyword">private</span> String email;
+    <span class="hljs-keyword">private</span> String city;
+
+    <span class="hljs-keyword">public</span> <span class="hljs-title">User</span>() {
+        <span class="hljs-keyword">super</span>();
+    }
+
+    <span class="hljs-comment">// getter/setter</span>
+
+    <span class="hljs-comment">// toString</span>
+}</code></pre>
+
+<p>　　这里的@Valid注解实际上是Validation Bean规范提供的注解，该规范已由Hibernate Validator框架实现，因此需要添加以下Maven依赖到pom.xml文件中：</p>
+
+
+
+<pre class="prettyprint"><code class="language-xml hljs "><span class="hljs-tag">&lt;<span class="hljs-title">dependency</span>&gt;</span>  
+    <span class="hljs-tag">&lt;<span class="hljs-title">groupId</span>&gt;</span>org.hibernate<span class="hljs-tag">&lt;/<span class="hljs-title">groupId</span>&gt;</span>  
+    <span class="hljs-tag">&lt;<span class="hljs-title">artifactId</span>&gt;</span>hibernate-validator<span class="hljs-tag">&lt;/<span class="hljs-title">artifactId</span>&gt;</span>  
+    <span class="hljs-tag">&lt;<span class="hljs-title">version</span>&gt;</span>${hibernate-validator.version}<span class="hljs-tag">&lt;/<span class="hljs-title">version</span>&gt;</span>  
+<span class="hljs-tag">&lt;/<span class="hljs-title">dependency</span>&gt;</span>  </code></pre>
+
+<p>　　需要注意的是，Hibernate Validator与Hibernate没有任何依赖关系，唯一有联系的只是都属于JBoss公司的开源项目而已。然后，我们需要在Spring配置文件中开启该特性，需添加如下配置：</p>
+
+
+
+<pre class="prettyprint"><code class="language-xml hljs "><span class="hljs-tag">&lt;<span class="hljs-title">bean</span> <span class="hljs-attribute">class</span>=<span class="hljs-value">"org.springframework.validation.beanvalidation.MethodValidationPostProcessor"</span>/&gt;</span>  </code></pre>
+
+<p>　　最后，我们在全局异常处理类中添加对参数验证异常的处理方法，代码如下：</p>
+
+
+
+<pre class="prettyprint"><code class="language-java hljs "><span class="hljs-annotation">@ControllerAdvice</span>  
+<span class="hljs-annotation">@ResponseBody</span>  
+<span class="hljs-keyword">public</span> <span class="hljs-class"><span class="hljs-keyword">class</span> <span class="hljs-title">ExceptionAdvice</span> {</span>  
+
+    <span class="hljs-javadoc">/** 
+     * 400 - Bad Request 
+     */</span>  
+    <span class="hljs-annotation">@ResponseStatus</span>(HttpStatus.BAD_REQUEST)  
+    <span class="hljs-annotation">@ExceptionHandler</span>(ValidationException.class)  
+    <span class="hljs-keyword">public</span> Response <span class="hljs-title">handleValidationException</span>(ValidationException e) {  
+        logger.error(<span class="hljs-string">"参数验证失败"</span>, e);  
+        <span class="hljs-keyword">return</span> <span class="hljs-keyword">new</span> Response().failure(<span class="hljs-string">"validation_exception"</span>);  
+    }  
+}  </code></pre>
+
+<p>　　至此，REST框架已集成了Bean Validation特性，我们可以使用各种注解来完成所需的参数验证行为了。 <br />
+看似该框架可以在本地成功跑起来，整个架构包含两个应用，前端应用提供纯静态的HTML页面，后端应用发布REST API，前端需要通过AJAX调用后端发布的REST API，然而AJAX是不支持跨域访问的，也就是说，前后端两个应用必须在同一个域名下才能访问。这是非常严重的技术障碍，一定需要找到解决方案。</p>
+
+<hr />
+
+<p><strong>5、解决跨域问题</strong></p>
+
+<p>　　比如，前端应用为静态站点且部署在<a href="http://web.xxx.com" target="_blank">http://web.xxx.com</a>域下，后端应用发布REST API并部署在<a href="http://api.xxx.com" target="_blank">http://api.xxx.com</a>域下，如何使前端应用通过AJAX跨域访问后端应用呢？这需要使用到CORS技术来实现，这也是目前最好的解决方案了。</p>
+
+<p>　　CORS全称为Cross Origin Resource Sharing（跨域资源共享），服务端只需添加相关响应头信息，即可实现客户端发出AJAX跨域请求。</p>
+
+<p>　　CORS技术非常简单，易于实现，目前绝大多数浏览器均已支持该技术（IE8浏览器也支持了），服务端可通过任何编程语言来实现，只要能将CORS响应头写入response对象中即可。</p>
+
+<p>　　下面我们继续扩展REST框架，通过CORS技术实现AJAX跨域访问。首先，我们需要编写一个Filter，用于过滤所有的HTTP请求，并将CORS响应头写入response对象中，代码如下：</p>
+
+
+
+<pre class="prettyprint"><code class="language-java hljs "><span class="hljs-javadoc">/**        
+ * Title: 跨域访问处理(跨域资源共享)    
+ * Description: 解决前后端分离架构中的跨域问题
+ *<span class="hljs-javadoctag"> @author</span> rico       
+ *<span class="hljs-javadoctag"> @created</span> 2017年7月4日 下午5:00:09    
+ */</span>      
+<span class="hljs-keyword">public</span> <span class="hljs-class"><span class="hljs-keyword">class</span> <span class="hljs-title">CorsFilter</span> <span class="hljs-keyword">implements</span> <span class="hljs-title">Filter</span> {</span>
+
+    <span class="hljs-javadoc">/** Log4j日志处理(@author: rico) */</span>
+    <span class="hljs-keyword">private</span> <span class="hljs-keyword">static</span> <span class="hljs-keyword">final</span> Logger log = Logger.getLogger(UserController.class);
+
+    <span class="hljs-keyword">private</span> String allowOrigin;
+    <span class="hljs-keyword">private</span> String allowMethods;
+    <span class="hljs-keyword">private</span> String allowCredentials;
+    <span class="hljs-keyword">private</span> String allowHeaders;
+    <span class="hljs-keyword">private</span> String exposeHeaders;
+
+    <span class="hljs-annotation">@Override</span>
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">void</span> <span class="hljs-title">init</span>(FilterConfig filterConfig) <span class="hljs-keyword">throws</span> ServletException {
+        allowOrigin = filterConfig.getInitParameter(<span class="hljs-string">"allowOrigin"</span>);
+        allowMethods = filterConfig.getInitParameter(<span class="hljs-string">"allowMethods"</span>);
+        allowCredentials = filterConfig.getInitParameter(<span class="hljs-string">"allowCredentials"</span>);
+        allowHeaders = filterConfig.getInitParameter(<span class="hljs-string">"allowHeaders"</span>);
+        exposeHeaders = filterConfig.getInitParameter(<span class="hljs-string">"exposeHeaders"</span>);
+    }
+
+
+    <span class="hljs-javadoc">/** 
+     *<span class="hljs-javadoctag"> @description</span> 通过CORS技术实现AJAX跨域访问,只要将CORS响应头写入response对象中即可
+     *<span class="hljs-javadoctag"> @author</span> rico       
+     *<span class="hljs-javadoctag"> @created</span> 2017年7月4日 下午5:02:38      
+     *<span class="hljs-javadoctag"> @param</span> req
+     *<span class="hljs-javadoctag"> @param</span> res
+     *<span class="hljs-javadoctag"> @param</span> chain
+     *<span class="hljs-javadoctag"> @throws</span> IOException
+     *<span class="hljs-javadoctag"> @throws</span> ServletException     
+     *<span class="hljs-javadoctag"> @see</span> javax.servlet.Filter#doFilter(javax.servlet.ServletRequest, javax.servlet.ServletResponse, javax.servlet.FilterChain)     
+     */</span>  
+    <span class="hljs-annotation">@Override</span>
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">void</span> <span class="hljs-title">doFilter</span>(ServletRequest req, ServletResponse res,
+            FilterChain chain) <span class="hljs-keyword">throws</span> IOException, ServletException {
+        HttpServletRequest request = (HttpServletRequest) req;
+        HttpServletResponse response = (HttpServletResponse) res;
+        String currentOrigin = request.getHeader(<span class="hljs-string">"Origin"</span>);
+        log.debug(<span class="hljs-string">"currentOrigin : "</span> + currentOrigin);
+        <span class="hljs-keyword">if</span> (StringUtil.isNotEmpty(allowOrigin)) {
+            List&lt;String&gt; allowOriginList = Arrays
+                    .asList(allowOrigin.split(<span class="hljs-string">","</span>));
+            log.debug(<span class="hljs-string">"allowOriginList : "</span> + allowOrigin);
+            <span class="hljs-keyword">if</span> (CollectionUtil.isNotEmpty(allowOriginList)) {
+                <span class="hljs-keyword">if</span> (allowOriginList.contains(currentOrigin)) {
+                    response.setHeader(<span class="hljs-string">"Access-Control-Allow-Origin"</span>,
+                            currentOrigin);
+                }
+            }
+        }
+        <span class="hljs-keyword">if</span> (StringUtil.isNotEmpty(allowMethods)) {
+            response.setHeader(<span class="hljs-string">"Access-Control-Allow-Methods"</span>, allowMethods);
+        }
+        <span class="hljs-keyword">if</span> (StringUtil.isNotEmpty(allowCredentials)) {
+            response.setHeader(<span class="hljs-string">"Access-Control-Allow-Credentials"</span>,
+                    allowCredentials);
+        }
+        <span class="hljs-keyword">if</span> (StringUtil.isNotEmpty(allowHeaders)) {
+            response.setHeader(<span class="hljs-string">"Access-Control-Allow-Headers"</span>, allowHeaders);
+        }
+        <span class="hljs-keyword">if</span> (StringUtil.isNotEmpty(exposeHeaders)) {
+            response.setHeader(<span class="hljs-string">"Access-Control-Expose-Headers"</span>, exposeHeaders);
+        }
+        chain.doFilter(req, res);
+    }
+
+    <span class="hljs-annotation">@Override</span>
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">void</span> <span class="hljs-title">destroy</span>() {
+    }
+}</code></pre>
+
+<p>　　以上CorsFilter将从web.xml中读取相关Filter初始化参数，并将在处理HTTP请求时将这些参数写入对应的CORS响应头中，下面大致描述一下这些CORS响应头的意义：</p>
+
+<ul>
+<li><p>Access-Control-Allow-Origin：允许访问的客户端域名，例如：<a href="http://web.xxx.com" target="_blank">http://web.xxx.com</a>，若为*，则表示从任意域都能访问，即不做任何限制；</p></li>
+<li><p>Access-Control-Allow-Methods：允许访问的方法名，多个方法名用逗号分割，例如：GET,POST,PUT,DELETE,OPTIONS；</p></li>
+<li><p>Access-Control-Allow-Credentials：是否允许请求带有验证信息，若要获取客户端域下的cookie时，需要将其设置为true；</p></li>
+<li><p>Access-Control-Allow-Headers：允许服务端访问的客户端请求头，多个请求头用逗号分割，例如：Content-Type；</p></li>
+<li><p>Access-Control-Expose-Headers：允许客户端访问的服务端响应头，多个响应头用逗号分割。</p>
+
+<p>　需要注意的是，CORS规范中定义Access-Control-Allow-Origin只允许两种取值，要么为*，要么为具体的域名，也就是说，不支持同时配置多个域名。为了解决跨多个域的问题，需要在代码中做一些处理，这里将Filter初始化参数作为一个域名的集合（用逗号分隔），只需从当前请求中获取Origin请求头，就知道是从哪个域中发出的请求，若该请求在以上允许的域名集合中，则将其放入Access-Control-Allow-Origin响应头，这样跨多个域的问题就轻松解决了。以下是web.xml中配置CorsFilter的方法：</p></li>
+</ul>
+
+
+
+<pre class="prettyprint"><code class="language-xml hljs "><span class="hljs-comment">&lt;!-- 通过CORS技术实现AJAX跨域访问 --&gt;</span>
+    <span class="hljs-tag">&lt;<span class="hljs-title">filter</span>&gt;</span>
+        <span class="hljs-tag">&lt;<span class="hljs-title">filter-name</span>&gt;</span>corsFilter<span class="hljs-tag">&lt;/<span class="hljs-title">filter-name</span>&gt;</span>
+        <span class="hljs-tag">&lt;<span class="hljs-title">filter-class</span>&gt;</span>cn.edu.tju.rico.filter.CorsFilter<span class="hljs-tag">&lt;/<span class="hljs-title">filter-class</span>&gt;</span>
+        <span class="hljs-tag">&lt;<span class="hljs-title">init-param</span>&gt;</span>
+            <span class="hljs-tag">&lt;<span class="hljs-title">param-name</span>&gt;</span>allowOrigin<span class="hljs-tag">&lt;/<span class="hljs-title">param-name</span>&gt;</span>
+            <span class="hljs-tag">&lt;<span class="hljs-title">param-value</span>&gt;</span>http://localhost:8020<span class="hljs-tag">&lt;/<span class="hljs-title">param-value</span>&gt;</span>
+        <span class="hljs-tag">&lt;/<span class="hljs-title">init-param</span>&gt;</span>
+        <span class="hljs-tag">&lt;<span class="hljs-title">init-param</span>&gt;</span>
+            <span class="hljs-tag">&lt;<span class="hljs-title">param-name</span>&gt;</span>allowMethods<span class="hljs-tag">&lt;/<span class="hljs-title">param-name</span>&gt;</span>
+            <span class="hljs-tag">&lt;<span class="hljs-title">param-value</span>&gt;</span>GET,POST,PUT,DELETE,OPTIONS<span class="hljs-tag">&lt;/<span class="hljs-title">param-value</span>&gt;</span>
+        <span class="hljs-tag">&lt;/<span class="hljs-title">init-param</span>&gt;</span>
+        <span class="hljs-tag">&lt;<span class="hljs-title">init-param</span>&gt;</span>
+            <span class="hljs-tag">&lt;<span class="hljs-title">param-name</span>&gt;</span>allowCredentials<span class="hljs-tag">&lt;/<span class="hljs-title">param-name</span>&gt;</span>
+            <span class="hljs-tag">&lt;<span class="hljs-title">param-value</span>&gt;</span>true<span class="hljs-tag">&lt;/<span class="hljs-title">param-value</span>&gt;</span>
+        <span class="hljs-tag">&lt;/<span class="hljs-title">init-param</span>&gt;</span>
+        <span class="hljs-tag">&lt;<span class="hljs-title">init-param</span>&gt;</span>
+            <span class="hljs-tag">&lt;<span class="hljs-title">param-name</span>&gt;</span>allowHeaders<span class="hljs-tag">&lt;/<span class="hljs-title">param-name</span>&gt;</span>
+            <span class="hljs-tag">&lt;<span class="hljs-title">param-value</span>&gt;</span>Content-Type,X-Token<span class="hljs-tag">&lt;/<span class="hljs-title">param-value</span>&gt;</span>
+        <span class="hljs-tag">&lt;/<span class="hljs-title">init-param</span>&gt;</span>
+    <span class="hljs-tag">&lt;/<span class="hljs-title">filter</span>&gt;</span>
+    <span class="hljs-tag">&lt;<span class="hljs-title">filter-mapping</span>&gt;</span>
+        <span class="hljs-tag">&lt;<span class="hljs-title">filter-name</span>&gt;</span>corsFilter<span class="hljs-tag">&lt;/<span class="hljs-title">filter-name</span>&gt;</span>
+        <span class="hljs-tag">&lt;<span class="hljs-title">url-pattern</span>&gt;</span>/*<span class="hljs-tag">&lt;/<span class="hljs-title">url-pattern</span>&gt;</span>
+    <span class="hljs-tag">&lt;/<span class="hljs-title">filter-mapping</span>&gt;</span></code></pre>
+
+<p>　　完成以上过程即可实现AJAX跨域功能了，但似乎还存在另外一个问题，由于REST是无状态的，后端应用发布的REST API可在用户未登录的情况下被任意调用，这显然是不安全的，如何解决这个问题呢？我们需要为REST请求提供安全机制。</p>
+
+<hr />
+
+<p><strong>6、提供安全机制</strong></p>
+
+<p>　　解决REST安全调用问题，可以做得很复杂，也可以做得特简单，可按照以下过程提供REST安全机制：</p>
+
+<p>　　(1). 当用户登录成功后，在服务端生成一个token，并将其放入内存中（可放入JVM或Redis中），同时将该token返回到客户端；</p>
+
+<p>　　(2). 在客户端中将返回的token写入cookie中，并且每次请求时都将token随请求头一起发送到服务端；</p>
+
+<p>　　(3). 提供一个AOP切面，用于拦截所有的Controller方法，在切面中判断token的有效性；</p>
+
+<p>　　(4). 当登出时，只需清理掉cookie中的token即可，服务端token可设置过期时间，使其自行移除。</p>
+
+<p>　　首先，我们需要定义一个用于管理token的接口，包括创建token与检查token有效性的功能。代码如下：</p>
+
+
+
+<pre class="prettyprint"><code class="language-java hljs "><span class="hljs-javadoc">/**        
+ * Title: REST 鉴权   
+ * Description: 登录用户的身份鉴权
+ *<span class="hljs-javadoctag"> @author</span> rico       
+ *<span class="hljs-javadoctag"> @created</span> 2017年7月4日 下午4:41:43    
+ */</span>      
+<span class="hljs-keyword">public</span> <span class="hljs-class"><span class="hljs-keyword">interface</span> <span class="hljs-title">TokenManager</span> {</span>
+
+    String createToken(String username);  
+
+    <span class="hljs-keyword">boolean</span> checkToken(String token); 
+
+    <span class="hljs-keyword">void</span> deleteToken(String token);
+}</code></pre>
+
+<p>　　然后，我们可提供一个简单的TokenManager实现类，将token存储到JVM内存中。代码如下：</p>
+
+
+
+<pre class="prettyprint"><code class="language-java hljs "><span class="hljs-javadoc">/**        
+ * Title: TokenManager的默认实现    
+ * Description: 管理 Token
+ *<span class="hljs-javadoctag"> @author</span> rico       
+ *<span class="hljs-javadoctag"> @created</span> 2017年7月4日 下午4:41:32    
+ */</span>      
+<span class="hljs-keyword">public</span> <span class="hljs-class"><span class="hljs-keyword">class</span> <span class="hljs-title">DefaultTokenManager</span> <span class="hljs-keyword">implements</span> <span class="hljs-title">TokenManager</span> {</span>
+
+    <span class="hljs-javadoc">/** 将token存储到JVM内存(ConcurrentHashMap)中   (@author: rico) */</span>      
+    <span class="hljs-keyword">private</span> <span class="hljs-keyword">static</span> Map&lt;String, String&gt; tokenMap = <span class="hljs-keyword">new</span> ConcurrentHashMap&lt;String, String&gt;();
+
+    <span class="hljs-javadoc">/** 
+     *<span class="hljs-javadoctag"> @description</span> 利用UUID创建Token(用户登录时，创建Token)
+     *<span class="hljs-javadoctag"> @author</span> rico       
+     *<span class="hljs-javadoctag"> @created</span> 2017年7月4日 下午4:46:46      
+     *<span class="hljs-javadoctag"> @param</span> username
+     *<span class="hljs-javadoctag"> @return</span>     
+     *<span class="hljs-javadoctag"> @see</span> cn.edu.tju.rico.authorization.TokenManager#createToken(java.lang.String)     
+     */</span>  
+    <span class="hljs-keyword">public</span> String <span class="hljs-title">createToken</span>(String username) {
+        String token = CodecUtil.createUUID();
+        tokenMap.put(token, username);
+        <span class="hljs-keyword">return</span> token;
+    }
+
+
+    <span class="hljs-javadoc">/** 
+     *<span class="hljs-javadoctag"> @description</span> Token验证(用户登录验证)
+     *<span class="hljs-javadoctag"> @author</span> rico       
+     *<span class="hljs-javadoctag"> @created</span> 2017年7月4日 下午4:46:50      
+     *<span class="hljs-javadoctag"> @param</span> token
+     *<span class="hljs-javadoctag"> @return</span>     
+     *<span class="hljs-javadoctag"> @see</span> cn.edu.tju.rico.authorization.TokenManager#checkToken(java.lang.String)     
+     */</span>  
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">boolean</span> <span class="hljs-title">checkToken</span>(String token) {
+        <span class="hljs-keyword">return</span> !StringUtil.isEmpty(token) &amp;&amp; tokenMap.containsKey(token);
+    }
+
+
+    <span class="hljs-javadoc">/** 
+     *<span class="hljs-javadoctag"> @description</span> Token删除(用户登出时，删除Token)
+     *<span class="hljs-javadoctag"> @author</span> rico       
+     *<span class="hljs-javadoctag"> @created</span> 2017年7月4日 下午4:46:54      
+     *<span class="hljs-javadoctag"> @param</span> token     
+     *<span class="hljs-javadoctag"> @see</span> cn.edu.tju.rico.authorization.TokenManager#deleteToken(java.lang.String)     
+     */</span>  
+    <span class="hljs-annotation">@Override</span>
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">void</span> <span class="hljs-title">deleteToken</span>(String token) {
+        <span class="hljs-comment">// TODO Auto-generated method stub</span>
+        tokenMap.remove(token);
+    }
+}</code></pre>
+
+<p>　　需要注意的是，如果需要做到分布式集群，建议基于Redis提供一个实现类，将token存储到Redis中，并利用Redis与生俱来的特性，做到token的分布式一致性。 <br />
+然后，我们可以基于Spring AOP写一个切面类，用于拦截Controller类的方法，并从请求头中获取token，最后对token有效性进行判断。代码如下：</p>
+
+
+
+<pre class="prettyprint"><code class="language-java hljs "><span class="hljs-javadoc">/**
+ * Title:安全检查切面(是否登录检查) 
+ * Description: 通过验证Token维持登录状态
+ * 
+ *<span class="hljs-javadoctag"> @author</span> rico
+ *<span class="hljs-javadoctag"> @created</span> 2017年7月4日 下午4:32:34
+ */</span>
+<span class="hljs-annotation">@Component</span>
+<span class="hljs-annotation">@Aspect</span>
+<span class="hljs-keyword">public</span> <span class="hljs-class"><span class="hljs-keyword">class</span> <span class="hljs-title">SecurityAspect</span> {</span>
+
+    <span class="hljs-javadoc">/** Log4j日志处理(@author: rico) */</span>
+    <span class="hljs-keyword">private</span> <span class="hljs-keyword">static</span> <span class="hljs-keyword">final</span> Logger log = Logger.getLogger(SecurityAspect.class);
+
+    <span class="hljs-keyword">private</span> TokenManager tokenManager;
+
+    <span class="hljs-annotation">@Resource</span>(name = <span class="hljs-string">"tokenManager"</span>)
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">void</span> <span class="hljs-title">setTokenManager</span>(TokenManager tokenManager) {
+        <span class="hljs-keyword">this</span>.tokenManager = tokenManager;
+    }
+
+    <span class="hljs-annotation">@Around</span>(<span class="hljs-string">"@annotation(org.springframework.web.bind.annotation.RequestMapping)"</span>)
+    <span class="hljs-keyword">public</span> Object <span class="hljs-title">execute</span>(ProceedingJoinPoint pjp) <span class="hljs-keyword">throws</span> Throwable {
+        <span class="hljs-comment">// 从切点上获取目标方法</span>
+        MethodSignature methodSignature = (MethodSignature) pjp.getSignature();
+        log.debug(<span class="hljs-string">"methodSignature : "</span> + methodSignature);
+        Method method = methodSignature.getMethod();
+        log.debug(<span class="hljs-string">"Method : "</span> + method.getName() + <span class="hljs-string">" : "</span>
+                + method.isAnnotationPresent(IgnoreSecurity.class));
+        <span class="hljs-comment">// 若目标方法忽略了安全性检查,则直接调用目标方法</span>
+        <span class="hljs-keyword">if</span> (method.isAnnotationPresent(IgnoreSecurity.class)) {
+            <span class="hljs-keyword">return</span> pjp.proceed();
+        }
+
+        <span class="hljs-comment">// 从 request header 中获取当前 token</span>
+        String token = WebContextUtil.getRequest().getHeader(
+                Constants.DEFAULT_TOKEN_NAME);
+        <span class="hljs-comment">// 检查 token 有效性</span>
+        <span class="hljs-keyword">if</span> (!tokenManager.checkToken(token)) {
+            String message = String.format(<span class="hljs-string">"token [%s] is invalid"</span>, token);
+            log.debug(<span class="hljs-string">"message : "</span> + message);
+            <span class="hljs-keyword">throw</span> <span class="hljs-keyword">new</span> TokenException(message);
+        }
+        <span class="hljs-comment">// 调用目标方法</span>
+        <span class="hljs-keyword">return</span> pjp.proceed();
+    }
+}</code></pre>
+
+<p>　　若要使SecurityAspect生效，则需要在SpringMVC配置文件中添加如下Spring 配置：</p>
+
+
+
+<pre class="prettyprint"><code class="language-xml hljs ">    <span class="hljs-comment">&lt;!-- 启用注解扫描，并定义组件查找规则 ，mvc层只负责扫描@Controller、@ControllerAdvice --&gt;</span>
+    <span class="hljs-comment">&lt;!-- base-package 如果多个，用“,”分隔 --&gt;</span>
+    <span class="hljs-tag">&lt;<span class="hljs-title">context:component-scan</span> <span class="hljs-attribute">base-package</span>=<span class="hljs-value">"cn.edu.tju.rico"</span>
+        <span class="hljs-attribute">use-default-filters</span>=<span class="hljs-value">"false"</span>&gt;</span>
+        <span class="hljs-comment">&lt;!-- 扫描 @Controller --&gt;</span>
+        <span class="hljs-tag">&lt;<span class="hljs-title">context:include-filter</span> <span class="hljs-attribute">type</span>=<span class="hljs-value">"annotation"</span>
+            <span class="hljs-attribute">expression</span>=<span class="hljs-value">"org.springframework.stereotype.Controller"</span> /&gt;</span>
+        <span class="hljs-comment">&lt;!-- 控制器增强，使一个Contoller成为全局的异常处理类，类中用@ExceptionHandler方法注解的方法可以处理所有Controller发生的异常 --&gt;</span>
+        <span class="hljs-tag">&lt;<span class="hljs-title">context:include-filter</span> <span class="hljs-attribute">type</span>=<span class="hljs-value">"annotation"</span>
+            <span class="hljs-attribute">expression</span>=<span class="hljs-value">"org.springframework.web.bind.annotation.ControllerAdvice"</span> /&gt;</span>
+    <span class="hljs-tag">&lt;/<span class="hljs-title">context:component-scan</span>&gt;</span>
+
+    <span class="hljs-comment">&lt;!-- 支持Controller的AOP代理 --&gt;</span>
+    <span class="hljs-tag">&lt;<span class="hljs-title">aop:aspectj-autoproxy</span> /&gt;</span></code></pre>
+
+<p>最后，别忘了在web.xml中添加允许的X-Token响应头，配置如下：</p>
+
+
+
+<pre class="prettyprint"><code class="language-xml hljs "><span class="hljs-tag">&lt;<span class="hljs-title">init-param</span>&gt;</span>  
+    <span class="hljs-tag">&lt;<span class="hljs-title">param-name</span>&gt;</span>allowHeaders<span class="hljs-tag">&lt;/<span class="hljs-title">param-name</span>&gt;</span>  
+    <span class="hljs-tag">&lt;<span class="hljs-title">param-value</span>&gt;</span>Content-Type,X-Token<span class="hljs-tag">&lt;/<span class="hljs-title">param-value</span>&gt;</span>  
+<span class="hljs-tag">&lt;/<span class="hljs-title">init-param</span>&gt;</span>  </code></pre>
+
+<hr />
+
+
+
+<h2 id="四-关于demo部署的若干建议">四. 关于Demo部署的若干建议</h2>
+
+<p>　　本项目是一个使用Maven进行构建的项目，关于Maven的了解、使用推荐大家看孤傲苍狼的<a href="http://www.cnblogs.com/xdp-gacl/tag/Maven%E5%AD%A6%E4%B9%A0%E6%80%BB%E7%BB%93/" target="_blank">《Maven学习总结》</a>一系列博客；</p>
+
+<p>　　关于REST服务的调试推荐大家使用Postman这款工具，请大家自行下载与安装，具体见<a href="http://www.cnblogs.com/hubgit/p/6589701.html" target="_blank">《postman的安装与使用（模拟请求）》</a>；</p>
+
+<hr />
+
+
+
+<h2 id="五-总结">五. 总结</h2>
+
+<p>　　本文从经典的MVC模式开始，对MVC模式是什么以及该模式存在的不足进行了简述。然后引出了如何对MVC模式的改良，让其转变为前后端分离架构，以及解释了为何要进行前后端分离。最后通过REST服务将前后端进行解耦，并提供了一款基于Java的REST框架的主要实现过程，尤其是需要注意的核心技术问题及其解决方案。希望本文对正在探索前后端分离的读者们有所帮助，期待与大家共同探讨。 <br />
+　　</p>
+
+<hr />
+
+
+
+<h2 id="六-更多">六. 更多</h2>
+
+<p>　　本项目的全部完整源码可以在我的GitHub上找到，项目名为RestSpringMVCDemo，项目地址为：<a href="https://github.com/githubofrico/RestSpringMVCDemo" target="_blank">https://github.com/githubofrico/RestSpringMVCDemo</a>。</p>
+
+<p>　　更多关于REST的介绍，请移步我的博文<a href="http://blog.csdn.net/justloveyou_/article/details/73612999" target="_blank">《理解RESTful架构》</a>。</p>
+
+<p>　　更多关于 Java Web 方面的内容，请关注我的专栏 <a href="http://static.zybuluo.com/Rico123/et4q5o2ok4ryi6dniwifvcx0/MVC.jpg" target="_blank">《Java Web 成神之路》</a>。本专栏全面记录了Java Web开发相关知识，不但包括对http, servlet,session等基础知识的讲解，还包括对流行框架(SSM,SpringMVC等)、中间件(Redis等)等进阶知识的深入分析。笔者将持续跟进最新Web技术，期望对大家能够起到抛砖引玉的效果。</p>
+
+<hr />
+
+<blockquote>
+  <h2 id="引用">引用</h2>
+  
+  <p><a href="http://blog.csdn.net/shaobingj126/article/details/49420145" target="_blank"> 从MVC到前后端分离（REST-个人也认为是目前比较流行和比较好的方式）</a></p>
+</blockquote></div>&#13;
+        <script type="text/javascript">&#13;
+            $(function () {&#13;
+                $('pre.prettyprint code').each(function () {&#13;
+                    var lines = $(this).text().split('\n').length;&#13;
+                    var $numbering = $('&lt;ul/&gt;').addClass('pre-numbering').hide();&#13;
+                    $(this).addClass('has-numbering').parent().append($numbering);&#13;
+                    for (i = 1; i &lt;= lines; i++) {&#13;
+                        $numbering.append($('&lt;li/&gt;').text(i));&#13;
+                    };&#13;
+                    $numbering.fadeIn(1700);&#13;
+                });&#13;
+            });&#13;
+        </script>&#13;
+   &#13;

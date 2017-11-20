@@ -1,0 +1,439 @@
+
+        <div class="markdown_views"><h2 id="一传统数据库解决方案">一.传统数据库解决方案</h2>
+
+<p>对于数据库的连接,在java中简单的就是直接使用JDBC来控制数据库.传统的jdbc方式按照以下几步来操作数据库.</p>
+
+<p>1.加载驱动 2. 创建并获取连接 3. 创建jdbc statement对象  4.设置sql语句  5.设置sql语句参数 <br />
+6.执行sql并返回resultset结果  7.取出结果并释放连接</p>
+
+<p>传统的方法存在以下几点问题: <br />
+<strong>1.</strong> 数据库链接创建、释放频繁造成系统资源浪费从而影响系统性能，如果使用数据库链接池可解决此问题。 <br />
+<strong>2.</strong> Sql语句在代码中硬编码，造成代码不易维护，实际应用sql变化的可能较大，sql变动需要改变java代码。 <br />
+<strong>3.</strong> 使用preparedStatement向占有位符号传参数存在硬编码，因为sql语句的where条件不一定，可能多也可能少，修改sql还要修改代码，系统不易维护。 <br />
+<strong>4.</strong> 对结果集解析存在硬编码（查询列名），sql变化导致解析代码变化，系统不易维护，如果能将数据库记录封装成pojo对象解析比较方便。</p>
+
+<p>那么mybatis等框架的出现就是用来解决这些问题,解决方案就是重新对jdbc进行封装.</p>
+
+<hr />
+
+
+
+<h2 id="二mybatis介绍">二.mybatis介绍</h2>
+
+<p>MyBatis 本是apache的一个开源项目iBatis, 2010年这个项目由apache software foundation 迁移到了google code，并且改名为MyBatis，实质上Mybatis对ibatis进行一些改进。  <br />
+MyBatis是一个优秀的持久层框架，它对jdbc的操作数据库的过程进行封装，使开发者只需要关注 SQL 本身，而不需要花费精力去处理例如注册驱动、创建connection、创建statement、手动设置参数、结果集检索等jdbc繁杂的过程代码。 <br />
+Mybatis通过xml或注解的方式将要执行的各种statement（statement、preparedStatemnt、CallableStatement）配置起来，并通过java对象和statement中的sql进行映射生成最终执行的sql语句，最后由mybatis框架执行sql并将结果映射成java对象并返回。</p>
+
+<hr />
+
+
+
+<h2 id="三mybatis整体结构">三.mybatis整体结构</h2>
+
+<p><img src="http://img.blog.csdn.net/20160413224439815" alt="这里写图片描述" title="" /></p>
+
+<p><strong>1.</strong> SqlMapConfig.xml:mybatis的全局配置文件,配置了mybatis的运行环境等信息。 <br />
+mapper.xml文件即sql映射文件，文件中配置了操作数据库的sql语句。此文件需要在SqlMapConfig.xml中加载。 <br />
+<strong>2.</strong> SqlSessionFactry:会话工厂,用于创建会话 <br />
+<strong>3.</strong> SqlSession:会话,主要来进行数据库操作 <br />
+<strong>4.</strong> Executor:mybatis底层自定义了Executor执行器接口操作数据库，Executor接口有两个实现，一个是基本执行器、一个是缓存执行器。 <br />
+<strong>5.</strong> Mapped Statement也是mybatis一个底层封装对象，它包装了mybatis配置信息及sql映射信息等。mapper.xml文件中一个sql对应一个Mapped Statement对象，sql的id即是Mapped statement的id。 <br />
+<strong>6.</strong> Mapped Statement对sql执行输入参数进行定义，包括HashMap、基本类型、pojo，Executor通过Mapped Statement在执行sql前将输入的java对象映射至sql中，输入参数映射就是jdbc编程中对preparedStatement设置参数。 <br />
+<strong>7.</strong> Mapped Statement对sql执行输出结果进行定义，包括HashMap、基本类型、pojo，Executor通过Mapped Statement在执行sql后将输出结果映射至java对象中，输出结果映射过程相当于jdbc编程中对结果的解析处理过程。</p>
+
+<hr />
+
+
+
+<h2 id="四mybatis下载">四.mybatis下载</h2>
+
+<p>mybaits的代码由github.com管理，地址：<a href="https://github.com/mybatis/mybatis-3/releases">https://github.com/mybatis/mybatis-3/releases</a> <br />
+核心文件mybatis3.3.1.jar</p>
+
+<hr />
+
+
+
+<h2 id="五mybatis入门程序">五.mybatis入门程序</h2>
+
+
+
+<h3 id="1基本配置">1.基本配置</h3>
+
+<p>首先导入mysql的包,mybatis的包,log4j的包</p>
+
+<p>为了演示入门程序效果,所以在数据库中建立一张User表 <br />
+<img src="http://img.blog.csdn.net/20160413225107198" alt="这里写图片描述" title="" /></p>
+
+<p>在代码中写上model类</p>
+
+
+
+<pre class="prettyprint"><code class=" hljs cs"><span class="hljs-keyword">public</span> <span class="hljs-keyword">class</span> User {
+    <span class="hljs-keyword">private</span> <span class="hljs-keyword">int</span> id;
+    <span class="hljs-keyword">private</span> String username;
+    <span class="hljs-keyword">private</span> String password;
+    <span class="hljs-keyword">private</span> String nickname;
+    <span class="hljs-keyword">private</span> <span class="hljs-keyword">int</span> status;
+
+    <span class="hljs-comment">//省略get和set方法</span>
+
+    @Override
+    <span class="hljs-keyword">public</span> String <span class="hljs-title">toString</span>() {
+        <span class="hljs-keyword">return</span> <span class="hljs-string">"id:"</span>+id+<span class="hljs-string">"username:"</span>+username+<span class="hljs-string">"password:"</span>+password+<span class="hljs-string">"nickname:"</span>+nickname;
+    }
+}</code></pre>
+
+
+
+<h3 id="2配置log4j">2.配置log4j</h3>
+
+<p>使用log4j可以在调试mybatis的过程中省去很多麻烦,还可以直观的看到mybatis的sql语句. <br />
+首先把log4j的jar包导入到项目中,然后建立log4j.properties文件,按照官方文档写入配置</p>
+
+
+
+<pre class="prettyprint"><code class=" hljs avrasm">
+<span class="hljs-preprocessor"># Global logging configuration</span>
+<span class="hljs-preprocessor">#在开发环境中要设置为DEBUG,不然不会打印出信息</span>
+log4j<span class="hljs-preprocessor">.rootLogger</span>=DEBUG, stdout
+<span class="hljs-preprocessor"># Console output...</span>
+log4j<span class="hljs-preprocessor">.appender</span><span class="hljs-preprocessor">.stdout</span>=org<span class="hljs-preprocessor">.apache</span><span class="hljs-preprocessor">.log</span>4j<span class="hljs-preprocessor">.ConsoleAppender</span>
+log4j<span class="hljs-preprocessor">.appender</span><span class="hljs-preprocessor">.stdout</span><span class="hljs-preprocessor">.layout</span>=org<span class="hljs-preprocessor">.apache</span><span class="hljs-preprocessor">.log</span>4j<span class="hljs-preprocessor">.PatternLayout</span>
+log4j<span class="hljs-preprocessor">.appender</span><span class="hljs-preprocessor">.stdout</span><span class="hljs-preprocessor">.layout</span><span class="hljs-preprocessor">.ConversionPattern</span>=%<span class="hljs-number">5</span>p [%t] - %m%n</code></pre>
+
+<p>这样在运行过程中mybatis就会在控制台打出相应的日志了.</p>
+
+
+
+<h3 id="3配置sqlmapconfigxml">3.配置SqlMapConfig.xml</h3>
+
+<p>SqlMapConfig.xml配置很简单,从官方文档直接拷贝下来就可以了,具体在里面都有介绍</p>
+
+
+
+<pre class="prettyprint"><code class=" hljs xml"><span class="hljs-pi">&lt;?xml version="1.0" encoding="UTF-8" ?&gt;</span>
+<span class="hljs-doctype">&lt;!DOCTYPE configuration
+        PUBLIC "-//mybatis.org//DTD Config 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-config.dtd"&gt;</span>
+<span class="hljs-tag">&lt;<span class="hljs-title">configuration</span>&gt;</span>
+    <span class="hljs-comment">&lt;!-- 和spring整合后 environments配置将废除,交给spring管理--&gt;</span>
+    <span class="hljs-tag">&lt;<span class="hljs-title">environments</span> <span class="hljs-attribute">default</span>=<span class="hljs-value">"development"</span>&gt;</span>
+        <span class="hljs-tag">&lt;<span class="hljs-title">environment</span> <span class="hljs-attribute">id</span>=<span class="hljs-value">"development"</span>&gt;</span>
+            <span class="hljs-comment">&lt;!-- 使用jdbc事务管理--&gt;</span>
+            <span class="hljs-tag">&lt;<span class="hljs-title">transactionManager</span> <span class="hljs-attribute">type</span>=<span class="hljs-value">"JDBC"</span> /&gt;</span>
+            <span class="hljs-comment">&lt;!-- 数据库连接池,整合后一般使用第三方的连接池--&gt;</span>
+            <span class="hljs-tag">&lt;<span class="hljs-title">dataSource</span> <span class="hljs-attribute">type</span>=<span class="hljs-value">"POOLED"</span>&gt;</span>
+                <span class="hljs-tag">&lt;<span class="hljs-title">property</span> <span class="hljs-attribute">name</span>=<span class="hljs-value">"driver"</span> <span class="hljs-attribute">value</span>=<span class="hljs-value">"com.mysql.jdbc.Driver"</span> /&gt;</span>
+                <span class="hljs-tag">&lt;<span class="hljs-title">property</span> <span class="hljs-attribute">name</span>=<span class="hljs-value">"url"</span> <span class="hljs-attribute">value</span>=<span class="hljs-value">"jdbc:mysql://localhost:3306/shopdemo?characterEncoding=utf-8"</span> /&gt;</span>
+                <span class="hljs-tag">&lt;<span class="hljs-title">property</span> <span class="hljs-attribute">name</span>=<span class="hljs-value">"username"</span> <span class="hljs-attribute">value</span>=<span class="hljs-value">"root"</span> /&gt;</span>
+                <span class="hljs-tag">&lt;<span class="hljs-title">property</span> <span class="hljs-attribute">name</span>=<span class="hljs-value">"password"</span> <span class="hljs-attribute">value</span>=<span class="hljs-value">"7946521"</span> /&gt;</span>
+            <span class="hljs-tag">&lt;/<span class="hljs-title">dataSource</span>&gt;</span>
+        <span class="hljs-tag">&lt;/<span class="hljs-title">environment</span>&gt;</span>
+    <span class="hljs-tag">&lt;/<span class="hljs-title">environments</span>&gt;</span>
+
+    <span class="hljs-comment">&lt;!--配置mappeer映射--&gt;</span>
+    <span class="hljs-tag">&lt;<span class="hljs-title">mappers</span>&gt;</span>
+        <span class="hljs-tag">&lt;<span class="hljs-title">mapper</span> <span class="hljs-attribute">resource</span>=<span class="hljs-value">"mapper/User.xml"</span>/&gt;</span>
+    <span class="hljs-tag">&lt;/<span class="hljs-title">mappers</span>&gt;</span>
+
+<span class="hljs-tag">&lt;/<span class="hljs-title">configuration</span>&gt;</span></code></pre>
+
+
+
+<h3 id="4根据id查询用户精确查询单条数据">4.根据id查询用户(精确查询单条数据)</h3>
+
+<p>根据mybatis整体流程,配置完SqlMapConfig.xml之后是创建相应的model类的映射.这里我们为User创建User.xml文件,并写上sql语句</p>
+
+
+
+<pre class="prettyprint"><code class=" hljs xml"><span class="hljs-pi">&lt;?xml version="1.0" encoding="UTF-8" ?&gt;</span>
+<span class="hljs-doctype">&lt;!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+                "http://mybatis.org/dtd/mybatis-3-mapper.dtd"&gt;</span>
+<span class="hljs-comment">&lt;!--命名空间，用于隔离sql语句，后面会讲另一层非常重要的作用。--&gt;</span>
+<span class="hljs-tag">&lt;<span class="hljs-title">mapper</span> <span class="hljs-attribute">namespace</span>=<span class="hljs-value">"test"</span>&gt;</span>
+    <span class="hljs-comment">&lt;!--根据id查询出用户信息(查询一条数据)--&gt;</span>
+    <span class="hljs-tag">&lt;<span class="hljs-title">select</span> <span class="hljs-attribute">id</span>=<span class="hljs-value">"findUserById"</span> <span class="hljs-attribute">parameterType</span>=<span class="hljs-value">"int"</span> <span class="hljs-attribute">resultType</span>=<span class="hljs-value">"com.aust.model.User"</span>&gt;</span>
+        SELECT * FROM user WHERE id=#{id}
+    <span class="hljs-tag">&lt;/<span class="hljs-title">select</span>&gt;</span>
+<span class="hljs-tag">&lt;/<span class="hljs-title">mapper</span>&gt;</span></code></pre>
+
+<ul>
+<li><strong>id</strong>:标识当前sql,mybatis把sql语句封装到MappedStatement中,所以可以称为Statement的唯一标识</li>
+<li><strong>parameterType</strong>：指定输入参数类型，mybatis通过ognl从输入对象中获取参数值拼接在sql中。</li>
+<li><strong>resultType</strong>：指定输出结果类型，mybatis将sql查询结果的一行记录数据映射为resultType指定类型的对象。select下指定将<strong>单条</strong>数据映射成java对象</li>
+</ul>
+
+<p>接下来在SqlMapConfig.xml中配置mapper映射,再其里面加入下面配置</p>
+
+
+
+<pre class="prettyprint"><code class=" hljs xml"><span class="hljs-comment">&lt;!--配置mappeer映射--&gt;</span>
+    <span class="hljs-tag">&lt;<span class="hljs-title">mappers</span>&gt;</span>
+        <span class="hljs-tag">&lt;<span class="hljs-title">mapper</span> <span class="hljs-attribute">resource</span>=<span class="hljs-value">"mapper/User.xml"</span>/&gt;</span>
+    <span class="hljs-tag">&lt;/<span class="hljs-title">mappers</span>&gt;</span></code></pre>
+
+<p>然后写junit测试</p>
+
+
+
+<pre class="prettyprint"><code class=" hljs cs">    <span class="hljs-comment">//测试取出单个</span>
+    @Test
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">void</span> <span class="hljs-title">findUserTest</span>(){
+        <span class="hljs-comment">//用于加载mybatis配置文件的输入流</span>
+        InputStream <span class="hljs-keyword">is</span> = <span class="hljs-keyword">null</span>;
+        <span class="hljs-keyword">try</span> {
+            <span class="hljs-keyword">is</span> = Resources.getResourceAsStream(<span class="hljs-string">"SqlMapperConfig.xml"</span>);
+
+        } <span class="hljs-keyword">catch</span> (IOException e) {
+            System.<span class="hljs-keyword">out</span>.println(<span class="hljs-string">"加载mybatis配置文件出错"</span>);
+            e.printStackTrace();
+        }
+        <span class="hljs-comment">//获取会话工厂</span>
+        SqlSessionFactory factory = <span class="hljs-keyword">new</span> SqlSessionFactoryBuilder().build(<span class="hljs-keyword">is</span>);
+        <span class="hljs-comment">//获取会话</span>
+        SqlSession session = factory.openSession();
+        <span class="hljs-comment">//执行查询单条记录,返回的类型就是resultType</span>
+        <span class="hljs-comment">//第一个参数命名规则为: 命名空间+Statement id</span>
+        User u = session.selectOne(<span class="hljs-string">"test.findUserById"</span>,<span class="hljs-number">1</span>);
+        <span class="hljs-comment">//查询完要释放会话</span>
+        session.close();
+        System.<span class="hljs-keyword">out</span>.println(u.toString());
+    }</code></pre>
+
+<p>结果 <br />
+<img src="http://img.blog.csdn.net/20160413230951471" alt="这里写图片描述" title="" /></p>
+
+
+
+<h3 id="5根据姓名查询用户模糊查询多条数据">5.根据姓名查询用户(模糊查询多条数据)</h3>
+
+<p>和上面一样的操作,先写sql语句</p>
+
+
+
+<pre class="prettyprint"><code class=" hljs xml"><span class="hljs-comment">&lt;!--根据名称进行模糊查询(查询出多条数据)--&gt;</span>
+    <span class="hljs-tag">&lt;<span class="hljs-title">select</span> <span class="hljs-attribute">id</span>=<span class="hljs-value">"findUserByName"</span> <span class="hljs-attribute">parameterType</span>=<span class="hljs-value">"java.lang.String"</span> <span class="hljs-attribute">resultType</span>=<span class="hljs-value">"com.aust.model.User"</span>&gt;</span>
+    <span class="hljs-comment">&lt;!--markdown显示不出来美元符号,,,--&gt;</span>
+    SELECT * from user WHERE nickname LIKE '%美元符号{value}%'
+    <span class="hljs-tag">&lt;/<span class="hljs-title">select</span>&gt;</span></code></pre>
+
+<p>这里和上面区别大的是使用了${}来配置,不过<strong>本质都是ognl来获取的</strong></p>
+
+<ul>
+<li>#{}表示一个占位符号，通过#{}可以实现preparedStatement向占位符中设置值，自动进行java类型和jdbc类型转换，#{}可以有效防止sql注入。 #{}可以接收简单类型值或pojo属性值。 如果parameterType传输单个简单类型值，#{}括号中可以是value或其它名称。</li>
+<li>美元符号{}表示拼接sql串，通过美元符号{}可以将parameterType传入的内容拼接在sql中且不进行jdbc类型转换， 所以可能引起sql注入,美元符号{}可以接收简单类型值或pojo属性值，如果parameterType传输单个简单类型值，美元符号{}括号中只能是value。</li>
+</ul>
+
+<p>写junit测试类</p>
+
+
+
+<pre class="prettyprint"><code class=" hljs cs">    <span class="hljs-comment">//测试取出多个</span>
+    @Test
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">void</span> <span class="hljs-title">findUserByNameTest</span>(){
+        <span class="hljs-comment">//用于加载mybatis配置文件的输入流</span>
+        InputStream <span class="hljs-keyword">is</span> = <span class="hljs-keyword">null</span>;
+        <span class="hljs-keyword">try</span> {
+            <span class="hljs-keyword">is</span> = Resources.getResourceAsStream(<span class="hljs-string">"SqlMapperConfig.xml"</span>);
+
+        } <span class="hljs-keyword">catch</span> (IOException e) {
+            System.<span class="hljs-keyword">out</span>.println(<span class="hljs-string">"加载mybatis配置文件出错"</span>);
+            e.printStackTrace();
+        }
+        <span class="hljs-comment">//获取会话工厂</span>
+        SqlSessionFactory factory = <span class="hljs-keyword">new</span> SqlSessionFactoryBuilder().build(<span class="hljs-keyword">is</span>);
+        <span class="hljs-comment">//获取会话</span>
+        SqlSession session = factory.openSession();
+        <span class="hljs-comment">//查询多条数据返回值为list集合,list里面的类型是resultType配置的类型</span>
+        List&lt;User&gt; users = session.selectList(<span class="hljs-string">"test.findUserByName"</span>,<span class="hljs-string">"张"</span>);
+        session.close();
+        System.<span class="hljs-keyword">out</span>.println(users);
+    }</code></pre>
+
+<p>测试结果 <br />
+<img src="http://img.blog.csdn.net/20160413231904640" alt="这里写图片描述" title="" /></p>
+
+
+
+<h3 id="6插入一个用户并返回自增主键">6.插入一个用户,并返回自增主键</h3>
+
+<p>自增主键的返回,可以使用mysql的SELECT last_insert_id()函数,不过该sql要在insert语句之后才能执行</p>
+
+
+
+<pre class="prettyprint"><code class=" hljs xml">    <span class="hljs-comment">&lt;!--插入一个用户--&gt;</span>
+    <span class="hljs-tag">&lt;<span class="hljs-title">insert</span> <span class="hljs-attribute">id</span>=<span class="hljs-value">"insertUser"</span> <span class="hljs-attribute">parameterType</span>=<span class="hljs-value">"com.aust.model.User"</span>&gt;</span>
+      <span class="hljs-tag">&lt;<span class="hljs-title">selectKey</span> <span class="hljs-attribute">keyProperty</span>=<span class="hljs-value">"id"</span> <span class="hljs-attribute">resultType</span>=<span class="hljs-value">"java.lang.Integer"</span> <span class="hljs-attribute">order</span>=<span class="hljs-value">"AFTER"</span> &gt;</span>
+          SELECT last_insert_id()
+      <span class="hljs-tag">&lt;/<span class="hljs-title">selectKey</span>&gt;</span>
+        INSERT INTO user(username,password,nickname,status) VALUE (#{username},#{password},#{nickname},#{status})
+    <span class="hljs-tag">&lt;/<span class="hljs-title">insert</span>&gt;</span></code></pre>
+
+<ul>
+<li><strong>keyProperty</strong>:返回的主键存储在pojo中的哪个属性</li>
+<li><strong>order</strong>：selectKey的执行顺序，是相对与insert语句来说，由于mysql的自增原理执行完insert语句之后才将主键生成，所以这里selectKey的执行顺序为after</li>
+<li><strong>resultType</strong>:返回的主键是什么类型</li>
+<li><strong>LAST_INSERT_ID()</strong>:是mysql的函数，返回auto_increment自增列新记录id值。</li>
+</ul>
+
+<p>junit测试</p>
+
+
+
+<pre class="prettyprint"><code class=" hljs cs"><span class="hljs-comment">//测试插入数据</span>
+    @Test
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">void</span> <span class="hljs-title">insertUserTest</span>(){
+        <span class="hljs-comment">//用于加载mybatis配置文件的输入流</span>
+        InputStream <span class="hljs-keyword">is</span> = <span class="hljs-keyword">null</span>;
+        <span class="hljs-keyword">try</span> {
+            <span class="hljs-keyword">is</span> = Resources.getResourceAsStream(<span class="hljs-string">"SqlMapperConfig.xml"</span>);
+
+        } <span class="hljs-keyword">catch</span> (IOException e) {
+            System.<span class="hljs-keyword">out</span>.println(<span class="hljs-string">"加载mybatis配置文件出错"</span>);
+            e.printStackTrace();
+        }
+        <span class="hljs-comment">//获取会话工厂</span>
+        SqlSessionFactory factory = <span class="hljs-keyword">new</span> SqlSessionFactoryBuilder().build(<span class="hljs-keyword">is</span>);
+        <span class="hljs-comment">//获取会话</span>
+        SqlSession session = factory.openSession();
+        User u = <span class="hljs-keyword">new</span> User();
+        u.setUsername(<span class="hljs-string">"niuli"</span>);
+        u.setPassword(<span class="hljs-string">"123456"</span>);
+        u.setNickname(<span class="hljs-string">"牛李"</span>);
+        u.setStatus(<span class="hljs-number">2</span>);
+        <span class="hljs-comment">//返回的是受影响的行数</span>
+        <span class="hljs-keyword">int</span> a = session.insert(<span class="hljs-string">"test.insertUser"</span>,u);
+        System.<span class="hljs-keyword">out</span>.println(a);
+        <span class="hljs-comment">//提交事务</span>
+        session.commit();
+        session.close();
+        <span class="hljs-comment">//获取主键</span>
+        System.<span class="hljs-keyword">out</span>.println(<span class="hljs-string">"u id"</span>+u.getId());
+    }</code></pre>
+
+<p>测试结果 <br />
+<img src="http://img.blog.csdn.net/20160413232334504" alt="这里写图片描述" title="" /></p>
+
+
+
+<h3 id="7mybatis对于非自增主键">7.mybatis对于非自增主键</h3>
+
+<p>非自增主键和自增主键差不多,只是获取的函数和方式不同</p>
+
+
+
+<pre class="prettyprint"><code class=" hljs sql">需要增加通过<span class="hljs-operator"><span class="hljs-keyword">select</span> uuid()得到uuid值
+
+&lt;<span class="hljs-keyword">insert</span>  id=<span class="hljs-string">"insertUser"</span> parameterType=<span class="hljs-string">"cn.itcast.mybatis.po.User"</span>&gt;
+&lt;selectKey resultType=<span class="hljs-string">"java.lang.String"</span> <span class="hljs-keyword">order</span>=<span class="hljs-string">"BEFORE"</span> 
+keyProperty=<span class="hljs-string">"id"</span>&gt;
+<span class="hljs-keyword">select</span> uuid()
+&lt;/selectKey&gt;
+<span class="hljs-keyword">insert</span> <span class="hljs-keyword">into</span> <span class="hljs-keyword">user</span>(id,username,birthday,sex,address) 
+         <span class="hljs-keyword">values</span>(#{id},#{username},#{birthday},#{sex},#{address})
+&lt;/<span class="hljs-keyword">insert</span>&gt;
+注意这里使用的<span class="hljs-keyword">order</span>是“<span class="hljs-keyword">BEFORE</span>”</span></code></pre>
+
+
+
+<h3 id="8更新和删除用户">8.更新和删除用户</h3>
+
+<p>更新和删除操作差不多,就一起写了</p>
+
+
+
+<pre class="prettyprint"><code class=" hljs xml"><span class="hljs-comment">&lt;!--删除一个用户--&gt;</span>
+    <span class="hljs-tag">&lt;<span class="hljs-title">delete</span> <span class="hljs-attribute">id</span>=<span class="hljs-value">"deleteUser"</span> <span class="hljs-attribute">parameterType</span>=<span class="hljs-value">"int"</span>&gt;</span>
+      DELETE FROM user WHERE id =#{id}
+    <span class="hljs-tag">&lt;/<span class="hljs-title">delete</span>&gt;</span>
+    <span class="hljs-comment">&lt;!--更新用户--&gt;</span>
+    <span class="hljs-tag">&lt;<span class="hljs-title">update</span> <span class="hljs-attribute">id</span>=<span class="hljs-value">"updateUser"</span> <span class="hljs-attribute">parameterType</span>=<span class="hljs-value">"com.aust.model.User"</span>&gt;</span>
+      UPDATE user SET username=#{username},password=#{password},nickname=#{nickname} WHERE id = #{id}
+    <span class="hljs-tag">&lt;/<span class="hljs-title">update</span>&gt;</span></code></pre>
+
+<p>junit测试</p>
+
+
+
+<pre class="prettyprint"><code class=" hljs cs"><span class="hljs-comment">//测试删除用户</span>
+    @Test
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">void</span> <span class="hljs-title">deleteUserTest</span>(){
+        <span class="hljs-comment">//用于加载mybatis配置文件的输入流</span>
+        InputStream <span class="hljs-keyword">is</span> = <span class="hljs-keyword">null</span>;
+        <span class="hljs-keyword">try</span> {
+            <span class="hljs-keyword">is</span> = Resources.getResourceAsStream(<span class="hljs-string">"SqlMapperConfig.xml"</span>);
+
+        } <span class="hljs-keyword">catch</span> (IOException e) {
+            System.<span class="hljs-keyword">out</span>.println(<span class="hljs-string">"加载mybatis配置文件出错"</span>);
+            e.printStackTrace();
+        }
+        <span class="hljs-comment">//获取会话工厂</span>
+        SqlSessionFactory factory = <span class="hljs-keyword">new</span> SqlSessionFactoryBuilder().build(<span class="hljs-keyword">is</span>);
+        <span class="hljs-comment">//获取会话</span>
+        SqlSession session = factory.openSession();
+        <span class="hljs-comment">//返回的是受影响的行数</span>
+        <span class="hljs-keyword">int</span> a = session.delete(<span class="hljs-string">"test.deleteUser"</span>,<span class="hljs-number">10</span>);
+        System.<span class="hljs-keyword">out</span>.println(a);
+        <span class="hljs-comment">//提交事务</span>
+        session.commit();
+        session.close();
+    }
+
+    <span class="hljs-comment">//测试更新用户</span>
+    @Test
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">void</span> <span class="hljs-title">updateUserTest</span>(){
+        <span class="hljs-comment">//用于加载mybatis配置文件的输入流</span>
+        InputStream <span class="hljs-keyword">is</span> = <span class="hljs-keyword">null</span>;
+        <span class="hljs-keyword">try</span> {
+            <span class="hljs-keyword">is</span> = Resources.getResourceAsStream(<span class="hljs-string">"SqlMapperConfig.xml"</span>);
+
+        } <span class="hljs-keyword">catch</span> (IOException e) {
+            System.<span class="hljs-keyword">out</span>.println(<span class="hljs-string">"加载mybatis配置文件出错"</span>);
+            e.printStackTrace();
+        }
+        <span class="hljs-comment">//获取会话工厂</span>
+        SqlSessionFactory factory = <span class="hljs-keyword">new</span> SqlSessionFactoryBuilder().build(<span class="hljs-keyword">is</span>);
+        <span class="hljs-comment">//获取会话</span>
+        SqlSession session = factory.openSession();
+        User u = <span class="hljs-keyword">new</span> User();
+        u.setId(<span class="hljs-number">1</span>);
+        u.setUsername(<span class="hljs-string">"niuli"</span>);
+        u.setPassword(<span class="hljs-string">"123456"</span>);
+        u.setNickname(<span class="hljs-string">"牛李"</span>);
+        u.setStatus(<span class="hljs-number">2</span>);
+        <span class="hljs-comment">//返回的是受影响的行数</span>
+        <span class="hljs-keyword">int</span> a = session.update(<span class="hljs-string">"test.updateUser"</span>,u);
+        System.<span class="hljs-keyword">out</span>.println(a);
+        <span class="hljs-comment">//提交事务</span>
+        session.commit();
+        session.close();
+        <span class="hljs-comment">//获取主键</span>
+    }</code></pre>
+
+<hr />
+
+<p>一个mybatis的基本入门程序结束,项目结构如下 <br />
+<img src="http://img.blog.csdn.net/20160413233424597" alt="这里写图片描述" title="" /></p>
+
+<hr />
+
+<p>项目示例:</p>
+
+<p>SSM框架整合: <a href="https://github.com/nl101531/JavaWEB">https://github.com/nl101531/JavaWEB</a></p>
+
+<p>自己做的一个项目: <a href="https://github.com/nl101531/AUSTOJ">https://github.com/nl101531/AUSTOJ</a></p></div>&#13;
+        <script type="text/javascript">&#13;
+            $(function () {&#13;
+                $('pre.prettyprint code').each(function () {&#13;
+                    var lines = $(this).text().split('\n').length;&#13;
+                    var $numbering = $('&lt;ul/&gt;').addClass('pre-numbering').hide();&#13;
+                    $(this).addClass('has-numbering').parent().append($numbering);&#13;
+                    for (i = 1; i &lt;= lines; i++) {&#13;
+                        $numbering.append($('&lt;li/&gt;').text(i));&#13;
+                    };&#13;
+                    $numbering.fadeIn(1700);&#13;
+                });&#13;
+            });&#13;
+        </script>&#13;
+   &#13;

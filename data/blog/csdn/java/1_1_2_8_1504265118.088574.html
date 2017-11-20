@@ -1,0 +1,110 @@
+
+                <div class="markdown_views"><h1 id="freemarker从头开始maven构建">freemarker从头开始（Maven构建）</h1>
+
+<p>本章节主要讲解从Maven导入freemarker.jar，以及通过Java代码执行第一个freemarker应用：</p>
+
+<ul>
+<li><strong>构建Maven工程</strong></li>
+<li><strong>导入freemarker.jar</strong></li>
+<li><strong>编写第一个freemarker测试用例</strong></li>
+</ul>
+
+<hr/>
+
+<h2 id="环境">环境</h2>
+
+<ul>
+<li><strong>eclipse+JDK1.6+Maven</strong></li>
+</ul>
+
+<hr/>
+
+<h2 id="构建maven工程-1">构建Maven工程</h2>
+
+<blockquote>
+  <p>Maven是一个项目管理工具，它包含了一个项目对象模型 (Project Object Model)，一组标准集合，一个项目生命周期(Project Lifecycle)，一个依赖管理系统(Dependency Management System)，和用来运行定义在生命周期阶段(phase)中插件(plugin)目标(goal)的逻辑。当你使用Maven的时候，你用一个明确定义的项目对象模型来描述你的项目，然后Maven可以应用横切的逻辑，这些逻辑来自一组共享的（或者自定义的）插件。    —— <a href="http://baike.baidu.com/link?url=AHQRxj9bfn59nA0AOjtUByb6E0cLazKilVRXNDX9sjooT5xIovBPZaT4xnQPy2jigG7aKBUgLHjiAccyrKXl4K" target="_blank"> [ 百度百科 ]</a></p>
+</blockquote>
+
+<p>关于在eclipse创建Maven项目，在上一章节已有介绍。 <br/>
+下面给出链接地址： —— <a href="http://blog.csdn.net/s445320/article/details/50684318" target="_blank"> [ eclipse中新建maven项目 ]</a></p>
+
+<hr/>
+
+<h2 id="导入freemarkerjar">导入freemarker.jar</h2>
+
+<p>找到工程目录下的pom.xml文件，加入对freemarker的引用</p>
+
+
+
+<pre class="prettyprint"><code class=" hljs xml"><span class="hljs-tag">&lt;<span class="hljs-title">dependencies</span>&gt;</span>
+    <span class="hljs-tag">&lt;<span class="hljs-title">dependency</span>&gt;</span>
+      <span class="hljs-tag">&lt;<span class="hljs-title">groupId</span>&gt;</span>freemarker<span class="hljs-tag">&lt;/<span class="hljs-title">groupId</span>&gt;</span>
+      <span class="hljs-tag">&lt;<span class="hljs-title">artifactId</span>&gt;</span>freemarker<span class="hljs-tag">&lt;/<span class="hljs-title">artifactId</span>&gt;</span>
+      <span class="hljs-tag">&lt;<span class="hljs-title">version</span>&gt;</span>2.3.8<span class="hljs-tag">&lt;/<span class="hljs-title">version</span>&gt;</span>
+  <span class="hljs-tag">&lt;/<span class="hljs-title">dependency</span>&gt;</span></code></pre>
+
+<p>在pom.xml文件里引入freemarker的依赖之后，freemarker包会自动下载，并且当前工程的Maven Dependencies能即时看到更新的内容。 <br/>
+<img src="http://img.blog.csdn.net/20160218110405677" alt="freemarker包" title=""/></p>
+
+<hr/>
+
+<h2 id="编写第一个freemarker测试用例">编写第一个freemarker测试用例</h2>
+
+<ul>
+<li><strong>创建一个测试freemarker模板文件</strong> <br/>
+<img src="http://img.blog.csdn.net/20160218111221734" alt="模板文件" title=""/></li>
+</ul>
+
+<pre class="prettyprint"><code class=" hljs ruby">&lt;p&gt;
+<span class="hljs-regexp">//</span>显示信息<span class="hljs-symbol">:</span> <span class="hljs-variable">${</span>message}
+&lt;<span class="hljs-regexp">/p&gt;</span></code></pre>
+
+<ul>
+<li><strong>创建一个测试Java文件</strong> <br/>
+<img src="http://img.blog.csdn.net/20160218111330747" alt="执行文件" title=""/></li>
+</ul>
+
+<pre class="prettyprint"><code class=" hljs d"><span class="hljs-keyword">package</span> com.hongtaiyang.main;
+
+<span class="hljs-keyword">import</span> java.io.IOException;
+<span class="hljs-keyword">import</span> java.io.StringWriter;
+<span class="hljs-keyword">import</span> java.util.HashMap;
+<span class="hljs-keyword">import</span> java.util.Map;
+
+<span class="hljs-keyword">import</span> junit.framework.Test;
+<span class="hljs-keyword">import</span> freemarker.cache.ClassTemplateLoader;
+<span class="hljs-keyword">import</span> freemarker.<span class="hljs-keyword">template</span>.Configuration;
+<span class="hljs-keyword">import</span> freemarker.<span class="hljs-keyword">template</span>.DefaultObjectWrapper;
+<span class="hljs-keyword">import</span> freemarker.<span class="hljs-keyword">template</span>.Template;
+<span class="hljs-keyword">import</span> freemarker.<span class="hljs-keyword">template</span>.TemplateException;
+
+<span class="hljs-keyword">public</span> <span class="hljs-keyword">class</span> MainTest {
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">static</span> <span class="hljs-keyword">void</span> main(String[] args) {
+         Configuration configuration = <span class="hljs-keyword">new</span> Configuration();
+            configuration.setObjectWrapper(<span class="hljs-keyword">new</span> DefaultObjectWrapper());
+            configuration.setTemplateLoader(<span class="hljs-keyword">new</span> ClassTemplateLoader(Test.<span class="hljs-keyword">class</span>, <span class="hljs-string">"/com/hongtaiyang/test"</span>));
+            <span class="hljs-keyword">try</span> {
+                Template <span class="hljs-keyword">template</span> = configuration.getTemplate(<span class="hljs-string">"temp.ftl"</span>);
+                StringWriter writer = <span class="hljs-keyword">new</span> StringWriter();
+                Map&lt;String, Object&gt; context = <span class="hljs-keyword">new</span> HashMap&lt;String, Object&gt;();
+
+                context.put(<span class="hljs-string">"message"</span>, <span class="hljs-string">"我的第一个Maven_FreeMarker程序"</span>);
+
+                <span class="hljs-keyword">template</span>.process(context, writer);
+                System.<span class="hljs-keyword">out</span>.println(writer.toString());
+            } <span class="hljs-keyword">catch</span> (IOException e) {
+                <span class="hljs-comment">// TODO Auto-generated catch block</span>
+                e.printStackTrace();
+            } <span class="hljs-keyword">catch</span> (TemplateException e) {
+                <span class="hljs-comment">// TODO Auto-generated catch block</span>
+                e.printStackTrace();
+            }
+    }
+}
+</code></pre>
+
+<ul>
+<li><strong>执行结果</strong> <br/>
+<img src="http://img.blog.csdn.net/20160218111500846" alt="执行结果" title=""/></li>
+</ul><link rel="stylesheet" href="http://static.blog.csdn.net/public/res-min/markdown_views.css?v=1.0"/></div><link rel="stylesheet" href="http://static.blog.csdn.net/public/res-min/markdown_views.css?v=1.0"/>&#13;
+            

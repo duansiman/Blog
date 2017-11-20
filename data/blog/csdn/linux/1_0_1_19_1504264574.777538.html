@@ -1,0 +1,108 @@
+
+
+<p>1、Linux内存管理</p>&#13;
+<p>linux内存最小管理单位为页（page），通常一页为4kb。<br />&#13;
+linux系统中，在初始化时，内核为每个物理内存页建立一个page的管理结构，操作物理内存时实际上就是操作page页。<br />&#13;
+</p>&#13;
+<p>物理地址：出现在cpu地址总线上的寻址物理内存的地址信号，是地址变换的最终结果。<br />&#13;
+线性地址（虚拟地址）：在32位cpu架构上，可以表示4G的地址空间，也就是0x00000000-0xFFFFFFFF。<br />&#13;
+逻辑地址：实际上是一个相对地址，是程序代码经过编译之后在汇编程序中出现的地址。<br />&#13;
+</p>&#13;
+<p><br />&#13;
+linux内核地址转换：出现在机器语言指令（程序编译后得到的二进制机器码序列）中的内存地址都是逻辑地址，逻辑地址必须被转换为线性地址，MMU将线性地址转换成物理地址，最终实现对应物理内存的访问。在linux系统中，逻辑地址和线性地址（虚拟地址）是一致的。<br />&#13;
+</p>&#13;
+<p>2、实例代码</p>&#13;
+<p></p><pre code_snippet_id="128965" snippet_file_name="blog_20131226_1_2738481" name="code" class="objc">/**
+*Copyright (c) 2013.TianYuan
+*All rights reserved.
+*
+*文件名称: kernelspace.c
+*文件标识: 内核空间中内存的申请与释放
+*
+*当前版本：1.0
+*作者：wuyq 
+*
+*取代版本：xxx
+*原作者：xxx
+*完成日期：2013-11-18
+*/
+#include &lt;linux/init.h&gt;
+#include &lt;linux/module.h&gt;
+
+#include &lt;linux/fs.h&gt;
+#include &lt;linux/slab.h&gt;
+#include &lt;linux/vmalloc.h&gt;
+
+MODULE_LICENSE("GPL");
+#define	PAGE_NUM	4/*编码幻数*/
+
+unsigned char *kernelkmalloc = NULL;
+unsigned char *kernelpagemem = NULL;
+unsigned char *kernelvmalloc = NULL;
+
+static int __init kernelspace_init(void)
+{
+	int ret = -ENOMEM;
+	/*
+	*GFP_KERNEL:分配内存，分配过程中可能导致睡眠。
+	*GFP_ATOMIC:分配过程中不会导致睡眠。
+	*GFP_DMA:申请到的内存通常情况下，位于0~16M之间
+	*__GFP_HIGNMEM:申请高端内存（物理地址896M以上的）
+	*/
+	kernelkmalloc = (unsigned char *)kmalloc(100, GFP_KERNEL);
+	if(IS_ERR(kernelkmalloc)){
+		printk("kmalloc failed!\n");
+		ret = PTR_ERR(kernelkmalloc);
+		goto failure_kmalloc;
+	}
+	printk("kmalloc space :0x%lx!\n",(unsigned long)kernelkmalloc);
+	
+	kernelpagemem = (unsigned char *)__get_free_pages(GFP_KERNEL, PAGE_NUM);/*请求或释放的页数的2的幂*/
+	if(IS_ERR(kernelpagemem)){
+		printk("get_free_pages failed!\n");
+		ret = PTR_ERR(kernelpagemem);
+		goto failure_get_free_pages;
+	}
+	printk("get_free_pages address:0x%lx\n",(unsigned long)kernelpagemem);
+	
+	kernelvmalloc = (unsigned char *)vmalloc(1024*1024);
+	if(IS_ERR(kernelvmalloc)){
+		printk("vmalloc failed!\n");
+		ret = PTR_ERR(kernelvmalloc);
+		goto failure_vmalloc;
+	}
+	printk("vmalloc address: 0x%lx\n",(unsigned long)kernelvmalloc);
+	return 0;
+failure_vmalloc:
+	free_pages((unsigned long)kernelpagemem, PAGE_NUM);
+failure_get_free_pages:
+	kfree(kernelkmalloc);
+failure_kmalloc:
+	return ret;
+}
+
+static void __exit kernelspace_exit(void)
+{
+	vfree(kernelvmalloc);
+	free_pages((unsigned long)kernelpagemem, PAGE_NUM);
+	kfree(kernelkmalloc);
+}
+
+module_init(kernelspace_init);
+module_exit(kernelspace_exit);
+</pre><br />&#13;
+<pre code_snippet_id="128965" snippet_file_name="blog_20131226_2_6642959" name="code" class="objc">KERNELDIR ?=/root/Desktop/work/ldd3/linux-2.6.31_TX2440A
+PWD := $(shell pwd)
+obj-m += kernelspace.o
+
+default:
+	$(MAKE) -C $(KERNELDIR) M=$(PWD) modules
+
+clean:
+	@rm -f *.o *.ord* *.sy* *.mod.* *.ko
+</pre><br />&#13;
+<br />&#13;
+&#13;
+<p><br />&#13;
+</p>&#13;
+   &#13;

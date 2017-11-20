@@ -1,0 +1,111 @@
+
+                <div class="markdown_views"><h1 id="des加密-java">DES加密-JAVA</h1>
+
+
+
+<pre class="prettyprint"><code class=" hljs java"><span class="hljs-javadoc">/**
+* 密钥
+*/</span>
+<span class="hljs-keyword">private</span> <span class="hljs-keyword">static</span> <span class="hljs-keyword">final</span> <span class="hljs-keyword">byte</span>[] DES_KEY = { <span class="hljs-number">66</span>, <span class="hljs-number">127</span>, <span class="hljs-number">56</span>, <span class="hljs-number">33</span>, -<span class="hljs-number">32</span>, -<span class="hljs-number">55</span>, -<span class="hljs-number">128</span>, -<span class="hljs-number">65</span> };
+
+
+<span class="hljs-javadoc">/**
+* 数据加密，算法（DES）
+* 
+*<span class="hljs-javadoctag"> @param</span> data  要进行加密的数据
+*<span class="hljs-javadoctag"> @return</span> 加密后的数据
+*/</span>
+<span class="hljs-keyword">public</span> <span class="hljs-keyword">static</span> String <span class="hljs-title">encryptBasedDes</span>(String data) {
+    String encryptedData = <span class="hljs-keyword">null</span>;
+    <span class="hljs-keyword">try</span> {
+        <span class="hljs-comment">// DES算法要求有一个可信任的随机数源</span>
+        SecureRandom sr = <span class="hljs-keyword">new</span> SecureRandom();
+        DESKeySpec deskey = <span class="hljs-keyword">new</span> DESKeySpec(DES_KEY);
+        <span class="hljs-comment">// 创建一个密匙工厂，然后用它把DESKeySpec转换成一个SecretKey对象</span>
+        SecretKeyFactory keyFactory = SecretKeyFactory.getInstance(<span class="hljs-string">"DES"</span>);
+        SecretKey key = keyFactory.generateSecret(deskey);
+        <span class="hljs-comment">// 加密对象</span>
+        Cipher cipher = Cipher.getInstance(<span class="hljs-string">"DES"</span>);
+        cipher.init(Cipher.ENCRYPT_MODE, key, sr);
+        <span class="hljs-comment">// 加密，并把字节数组编码成字符串</span>
+        encryptedData = <span class="hljs-keyword">new</span> BASE64Encoder().encode(cipher.doFinal(data.getBytes()));
+        encryptedData = byte2hex(encryptedData.getBytes());
+    } <span class="hljs-keyword">catch</span> (Exception e) {
+        <span class="hljs-comment">// log.error("加密错误，错误信息：", e);</span>
+        <span class="hljs-keyword">throw</span> <span class="hljs-keyword">new</span> RuntimeException(<span class="hljs-string">"加密错误，错误信息："</span>, e);
+    }
+    <span class="hljs-keyword">return</span> encryptedData;
+}
+
+
+<span class="hljs-javadoc">/**
+* 数据解密，算法（DES）
+* 
+*<span class="hljs-javadoctag"> @param</span> cryptData
+*            加密数据
+*<span class="hljs-javadoctag"> @return</span> 解密后的数据
+*/</span>
+<span class="hljs-keyword">public</span> <span class="hljs-keyword">static</span> String <span class="hljs-title">decryptBasedDes</span>(String cryptData) {
+    String decryptedData = <span class="hljs-keyword">null</span>;
+    <span class="hljs-keyword">try</span> {
+        <span class="hljs-comment">// DES算法要求有一个可信任的随机数源</span>
+        SecureRandom sr = <span class="hljs-keyword">new</span> SecureRandom();
+        DESKeySpec deskey = <span class="hljs-keyword">new</span> DESKeySpec(DES_KEY);
+        <span class="hljs-comment">// 创建一个密匙工厂，然后用它把DESKeySpec转换成一个SecretKey对象</span>
+        SecretKeyFactory keyFactory = SecretKeyFactory.getInstance(<span class="hljs-string">"DES"</span>);
+        SecretKey key = keyFactory.generateSecret(deskey);
+        <span class="hljs-comment">// 解密对象</span>
+        Cipher cipher = Cipher.getInstance(<span class="hljs-string">"DES"</span>);
+        cipher.init(Cipher.DECRYPT_MODE, key, sr);
+        <span class="hljs-comment">// 把字符串解码为字节数组，并解密</span>
+        decryptedData = <span class="hljs-keyword">new</span> String(hex2byte(cryptData));
+        decryptedData = <span class="hljs-keyword">new</span> String(cipher.doFinal(<span class="hljs-keyword">new</span> sun.misc.BASE64Decoder().decodeBuffer(decryptedData)));
+    } <span class="hljs-keyword">catch</span> (Exception e) {
+        <span class="hljs-comment">// log.error("解密错误，错误信息：", e);</span>
+        <span class="hljs-keyword">throw</span> <span class="hljs-keyword">new</span> RuntimeException(<span class="hljs-string">"解密错误，错误信息："</span>, e);
+    }
+    <span class="hljs-keyword">return</span> decryptedData;
+}
+
+
+<span class="hljs-javadoc">/**
+* 二进制转字符串
+*<span class="hljs-javadoctag"> @param</span> b
+*<span class="hljs-javadoctag"> @return</span>
+*/</span>
+<span class="hljs-keyword">public</span> <span class="hljs-keyword">static</span> String <span class="hljs-title">byte2hex</span>(<span class="hljs-keyword">byte</span>[] b) {
+    String hs = <span class="hljs-string">""</span>;
+    String stmp = <span class="hljs-string">""</span>;
+    <span class="hljs-keyword">for</span> (<span class="hljs-keyword">int</span> n = <span class="hljs-number">0</span>; n &lt; b.length; n++) {
+        stmp = (java.lang.Integer.toHexString(b[n] &amp; <span class="hljs-number">0XFF</span>));
+        <span class="hljs-keyword">if</span> (stmp.length() == <span class="hljs-number">1</span>){
+            hs = hs + <span class="hljs-string">"0"</span> + stmp;
+        }<span class="hljs-keyword">else</span>{
+            hs = hs + stmp;
+        }
+    }
+    <span class="hljs-keyword">return</span> hs;
+}
+
+
+<span class="hljs-javadoc">/**
+* 字符串转二进制
+*<span class="hljs-javadoctag"> @param</span> str
+*<span class="hljs-javadoctag"> @return</span>
+*/</span>
+<span class="hljs-keyword">public</span> <span class="hljs-keyword">static</span> <span class="hljs-keyword">byte</span>[] <span class="hljs-title">hex2byte</span>(String str) { 
+    <span class="hljs-keyword">if</span> (str == <span class="hljs-keyword">null</span>) <span class="hljs-keyword">return</span> <span class="hljs-keyword">null</span>;
+    str = str.trim();
+    <span class="hljs-keyword">int</span> len = str.length();
+    <span class="hljs-keyword">if</span> (len == <span class="hljs-number">0</span> || len % <span class="hljs-number">2</span> == <span class="hljs-number">1</span>) <span class="hljs-keyword">return</span> <span class="hljs-keyword">null</span>;
+    <span class="hljs-keyword">byte</span>[] b = <span class="hljs-keyword">new</span> <span class="hljs-keyword">byte</span>[len / <span class="hljs-number">2</span>];
+    <span class="hljs-keyword">try</span> {
+        <span class="hljs-keyword">for</span> (<span class="hljs-keyword">int</span> i = <span class="hljs-number">0</span>; i &lt; str.length(); i += <span class="hljs-number">2</span>) {
+            b[i / <span class="hljs-number">2</span>] = (<span class="hljs-keyword">byte</span>) Integer.decode(<span class="hljs-string">"0x"</span> + str.substring(i, i + <span class="hljs-number">2</span>)).intValue();
+        }
+        <span class="hljs-keyword">return</span> b;
+    } <span class="hljs-keyword">catch</span> (Exception e) {
+        <span class="hljs-keyword">return</span> <span class="hljs-keyword">null</span>;
+    }
+}</code></pre><link rel="stylesheet" href="http://static.blog.csdn.net/public/res-min/markdown_views.css?v=1.0"/></div><link rel="stylesheet" href="http://static.blog.csdn.net/public/res-min/markdown_views.css?v=1.0"/>&#13;
+            

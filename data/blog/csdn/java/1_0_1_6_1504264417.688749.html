@@ -1,0 +1,266 @@
+
+        <div class="markdown_views"><h1 id="命令模式"><center> 命令模式</center></h1>
+
+<p>标签 ： Java与设计模式</p>
+
+<hr />
+
+<blockquote>
+  <p>在对象的结构和创建问题都解决了之后,就剩下对象的行为问题了: <strong>如果对象的行为设计的好,那么对象的行为就会更清晰,它们之间的协作效率就会提高</strong>. <br />
+  行为型模式共有11个可供研究,它们分别是:<strong><em>命令模式</em></strong>、<strong><em>解释器模式</em></strong>、<strong><em>访问者模式</em></strong>、<strong><em>模板方法模式</em></strong>、<strong><em>观察者模式</em></strong>、<strong><em>状态模式</em></strong>、<strong><em>策略模式</em></strong>、<strong><em>责任链模式</em></strong>、<strong><em>中介者模式</em></strong>、<strong><em>备忘录模式</em></strong>、<strong><em>迭代器模式</em></strong>.</p>
+</blockquote>
+
+<hr />
+
+
+
+<h2 id="命令模式-1">命令模式</h2>
+
+<blockquote>
+  <p>命令模式: 又称<strong>动作Action模式</strong>, 将请求封装为对象, 从而使我们可用不同的请求对客户进行参数化; 命令可用于将<strong>行为请求者</strong>与<strong>行为实现者</strong>解耦, 以适应变化(如: 对请求排队、记录日志、支持可撤销操作等). <br />
+  <img src="http://7xrgh9.com1.z0.glb.clouddn.com/16-9-1/86329710.jpg" alt="" title="" /> <br />
+  (图片来源: <a href="https://book.douban.com/subject/1052241/">设计模式: 可复用面向对象软件的基础</a>)</p>
+</blockquote>
+
+<hr />
+
+
+
+<h2 id="模式实现">模式实现</h2>
+
+<pre><code>案例:以饭店点菜为例-点餐
+客户不需要直接向大厨下达点菜命令, 而是通过给服务员书写菜单, 然后服务员再具体指挥大厨照单做菜, 菜单是一种'Command':
+</code></pre>
+
+<p><img src="http://7xrgh9.com1.z0.glb.clouddn.com/16-8-19/89574914.jpg" alt="" title="" /> <br />
+(案例来源: <a href="https://book.douban.com/subject/2334288/">大话设计模式</a>)</p>
+
+<hr />
+
+
+
+<h3 id="receiver">Receiver</h3>
+
+<blockquote>
+  <p>命令接收者: 提供很多方法调用, 负责执行与请求相关业务逻辑;</p>
+</blockquote>
+
+<p>厨师: 只负责做各种各样的菜.</p>
+
+
+
+<pre class="prettyprint"><code class=" hljs java"><span class="hljs-javadoc">/**
+ *<span class="hljs-javadoctag"> @author</span> jifang
+ *<span class="hljs-javadoctag"> @since</span> 16/8/19 上午10:01.
+ */</span>
+<span class="hljs-keyword">public</span> <span class="hljs-class"><span class="hljs-keyword">class</span> <span class="hljs-title">CookReceiver</span> {</span>
+
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">void</span> <span class="hljs-title">bakeMutton</span>() {
+        System.out.println(<span class="hljs-string">"厨师: 烤羊肉串"</span>);
+    }
+
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">void</span> <span class="hljs-title">backChickenWing</span>() {
+        System.out.println(<span class="hljs-string">"厨师: 烤鸡翅"</span>);
+    }
+}</code></pre>
+
+<hr />
+
+
+
+<h3 id="command">Command</h3>
+
+<blockquote>
+  <p>抽象命令接口: 类中对需要执行的操作进行声明, 且包含一个<strong>Receiver</strong>, 并公布一个<code>execute()</code>方法用来调用<strong>Receiver</strong>执行命令:</p>
+</blockquote>
+
+
+
+<pre class="prettyprint"><code class=" hljs java"><span class="hljs-javadoc">/**
+ *<span class="hljs-javadoctag"> @author</span> jifang
+ *<span class="hljs-javadoctag"> @since</span> 16/8/19 上午10:08.
+ */</span>
+<span class="hljs-keyword">public</span> <span class="hljs-keyword">abstract</span> <span class="hljs-class"><span class="hljs-keyword">class</span> <span class="hljs-title">Command</span> {</span>
+
+    <span class="hljs-keyword">protected</span> CookReceiver receiver;
+
+    <span class="hljs-keyword">public</span> <span class="hljs-title">Command</span>(CookReceiver receiver) {
+        <span class="hljs-keyword">this</span>.receiver = receiver;
+    }
+
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">abstract</span> <span class="hljs-keyword">void</span> <span class="hljs-title">execute</span>();
+}</code></pre>
+
+<hr />
+
+
+
+<h3 id="concretecommand">ConcreteCommand</h3>
+
+<blockquote>
+  <p>具体命令类: 实现<strong>Command</strong>内的抽象方法(调用<strong>Receiver</strong>提供的方法).</p>
+</blockquote>
+
+
+
+<pre class="prettyprint"><code class=" hljs scala"><span class="hljs-javadoc">/**
+ * 烤肉命令
+ */</span>
+<span class="hljs-class"><span class="hljs-keyword">class</span> <span class="hljs-title">BackMuttonCommand</span> <span class="hljs-keyword">extends</span> <span class="hljs-title">Command</span> {</span>
+
+    public BackMuttonCommand(CookReceiver receiver) {
+        <span class="hljs-keyword">super</span>(receiver);
+    }
+
+    <span class="hljs-annotation">@Override</span>
+    public void execute() {
+        <span class="hljs-keyword">this</span>.receiver.bakeMutton();
+    }
+}
+
+<span class="hljs-javadoc">/**
+ * 烤鸡翅命令
+ */</span>
+<span class="hljs-class"><span class="hljs-keyword">class</span> <span class="hljs-title">BackChickenWingCommand</span> <span class="hljs-keyword">extends</span> <span class="hljs-title">Command</span> {</span>
+
+    public BackChickenWingCommand(CookReceiver receiver) {
+        <span class="hljs-keyword">super</span>(receiver);
+    }
+
+    <span class="hljs-annotation">@Override</span>
+    public void execute() {
+        <span class="hljs-keyword">this</span>.receiver.backChickenWing();
+    }
+}</code></pre>
+
+<hr />
+
+
+
+<h3 id="invoker">Invoker</h3>
+
+<blockquote>
+  <p>请求的发起者: 内部包含<strong>Command</strong>聚集, 他通过命令对象来唤起<strong>Receiver</strong>执行请求. 一个调用者并不需要在设计时确定其接受者, 因此它只与抽象命令<strong>Command</strong>存在关联.通过调用<strong>Command</strong>的<code>execute()</code><strong>间接</strong>调用<strong>Receiver</strong>的相关操作:</p>
+</blockquote>
+
+
+
+<pre class="prettyprint"><code class=" hljs java"><span class="hljs-keyword">public</span> <span class="hljs-class"><span class="hljs-keyword">class</span> <span class="hljs-title">WaiterInvoker</span> {</span>
+
+    <span class="hljs-keyword">private</span> Queue&lt;Command&gt; queue = <span class="hljs-keyword">new</span> LinkedList&lt;&gt;();
+
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">void</span> <span class="hljs-title">addCommand</span>(Command command) {
+        <span class="hljs-keyword">if</span> (checkCommand(command)) {
+            queue.add(command);
+        }
+    }
+
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">void</span> <span class="hljs-title">cancelCommand</span>(Command command) {
+
+        <span class="hljs-comment">// 如果命令已经执行过, 则不予撤销</span>
+        <span class="hljs-keyword">if</span> (!queue.isEmpty()) {
+            queue.remove(command);
+        }
+    }
+
+    <span class="hljs-javadoc">/**
+     * 通知执行所有命令
+     */</span>
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">void</span> <span class="hljs-title">notifyExecute</span>() {
+        <span class="hljs-keyword">while</span> (!queue.isEmpty()) {
+            Command command = queue.poll();
+            command.execute();
+        }
+    }
+
+    <span class="hljs-keyword">private</span> <span class="hljs-keyword">boolean</span> <span class="hljs-title">checkCommand</span>(Command command) {
+
+        <span class="hljs-comment">// TODO 检查命令是否有效: 如当前原材料是否充足等</span>
+        <span class="hljs-keyword">return</span> <span class="hljs-keyword">true</span>;
+    }
+}</code></pre>
+
+<ul>
+<li>Client</li>
+</ul>
+
+
+
+<pre class="prettyprint"><code class=" hljs java"><span class="hljs-javadoc">/**
+ * Created by jifang on 15/12/3.
+ */</span>
+<span class="hljs-keyword">public</span> <span class="hljs-class"><span class="hljs-keyword">class</span> <span class="hljs-title">Client</span> {</span>
+
+    <span class="hljs-annotation">@Test</span>
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">void</span> <span class="hljs-title">client</span>() {
+        <span class="hljs-comment">// 开业准备</span>
+        WaiterInvoker waiter = <span class="hljs-keyword">new</span> WaiterInvoker();
+        CookReceiver cook = <span class="hljs-keyword">new</span> CookReceiver();
+        Command backMuttonOrder = <span class="hljs-keyword">new</span> BackMuttonCommand(cook);
+        Command backChickenWingOrder = <span class="hljs-keyword">new</span> BackChickenWingCommand(cook);
+
+        <span class="hljs-comment">// 接收订单</span>
+        waiter.addCommand(backMuttonOrder);
+        waiter.addCommand(backChickenWingOrder);
+
+        <span class="hljs-comment">// 在厨师制作完成之前还可以撤销订单</span>
+        waiter.cancelCommand(backMuttonOrder);
+
+        <span class="hljs-comment">// 通知执行</span>
+        waiter.notifyExecute();
+    }
+}</code></pre>
+
+<hr />
+
+
+
+<h2 id="小结">小结:</h2>
+
+<blockquote>
+  <p>命令模式把<strong>请求</strong>一个操作的对象与知道怎么<strong>执行</strong>一个操作的对象分隔开.</p>
+</blockquote>
+
+<ul>
+<li>优点 <br />
+<ol><li>较容易设计一个<strong>命令队列</strong>;</li>
+<li>较容易将命令<strong>记录日志</strong>;</li>
+<li>允许接受请求的一方决定是否要<strong>否决</strong>请求;</li>
+<li>较容易地实现对请求的<strong>撤销</strong>与<strong>重做</strong>;</li>
+<li>由于添加新的具体命令对其他类没有任何影响, 因此<strong>增加新的具体命令很容易</strong>;</li></ol></li>
+<li>场景: <br />
+<ol><li>Struts2 Action的调用过程;</li>
+<li>数据库事务机制;</li>
+<li>命令的撤销与恢复.</li></ol></li>
+</ul>
+
+<hr />
+
+<dl>
+<dt>参考:</dt>
+<dd><a href="http://blog.csdn.net/zhengzhb/article/details/7550895">23种设计模式（10）：命令模式</a></dd>
+
+<dd><a href="http://www.cnblogs.com/devinzhang/archive/2012/01/06/2315235.html">Java之命令模式（Command Pattern）</a></dd>
+
+<dd><a href="http://www.cnblogs.com/lzhp/p/3395320.html">命令模式（head first 设计模式5）</a></dd>
+
+<dd><a href="https://book.douban.com/subject/2334288/">大话设计模式</a></dd>
+
+<dd><a href="http://www.bjsxt.com/2014/down_0425/34.html">高淇讲设计模式</a></dd>
+</dl>
+
+<hr /></div>&#13;
+        <script type="text/javascript">&#13;
+            $(function () {&#13;
+                $('pre.prettyprint code').each(function () {&#13;
+                    var lines = $(this).text().split('\n').length;&#13;
+                    var $numbering = $('&lt;ul/&gt;').addClass('pre-numbering').hide();&#13;
+                    $(this).addClass('has-numbering').parent().append($numbering);&#13;
+                    for (i = 1; i &lt;= lines; i++) {&#13;
+                        $numbering.append($('&lt;li/&gt;').text(i));&#13;
+                    };&#13;
+                    $numbering.fadeIn(1700);&#13;
+                });&#13;
+            });&#13;
+        </script>&#13;
+   &#13;

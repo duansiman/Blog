@@ -1,0 +1,89 @@
+
+        <div class="markdown_views"><p>参考文章： <br />
+<a href="http://www.cnblogs.com/flyoung2008/p/3251826.html">http://www.cnblogs.com/flyoung2008/p/3251826.html</a> <br />
+<a href="http://weixiaolu.iteye.com/blog/1479656">http://weixiaolu.iteye.com/blog/1479656</a></p>
+
+
+
+<h1 id="1io">1.IO</h1>
+
+<p>在Client/Server模型中，Server往往需要同时处理大量来自Client的访问请求，因此Server端需采用支持高并发访问的架构。一种简单而又直接的解决方案是“one-thread-per-connection”。这是一种基于阻塞式I/O的多线程模型。在该模型中，Server为每个Client连接创建一个处理线程，每个处理线程阻塞式等待可能达到的数据，一旦数据到达，则立即处理请求、返回处理结果并再次进入等待状态。由于每个Client连接有一个单独的处理线程为其服务，因此可保证良好的响应时间。但当系统负载增大（并发请求增多）时，Server端需要的线程数会增加，这将成为系统扩展的瓶颈所在。</p>
+
+<p>我们知道阻塞I/O在调用InputStream.read()方法时是阻塞的，它会一直等到数据到来时（或超时）才会返回；同样，在调用ServerSocket.accept()方法时，也会一直阻塞到有客户端连接才会返回，每个客户端连接过来后，服务端都会启动一个线程去处理该客户端的请求。阻塞I/O的通信模型示意图如下：</p>
+
+<p><img src="http://img.blog.csdn.net/20160523105312841" alt="这里写图片描述" title="" /></p>
+
+<p>可以发现阻塞I/O存在一些缺点： <br />
+ 1. 当客户端多时，会创建大量的处理线程。且每个线程都要占用栈空间和一些CPU时间 <br />
+ 2. 阻塞可能带来频繁的上下文切换，且大部分上下文切换可能是无意义的。</p>
+
+
+
+<h1 id="2nio">2.NIO</h1>
+
+<p>NIO在原有的IO基本功能上提供了一些全新的功能：</p>
+
+<p>1.度路选择的非封锁式I/O设施 <br />
+2.支持强大的内存映射 <br />
+3.支持文件锁 <br />
+4.支持译码器 <br />
+5.支持使用正则表达式来进行设施匹配 </p>
+
+<p>在NIO中，所有的操作都是使用缓存区来处理，也就是说NIO的读写是基于缓存区来完成的,Buffer本身是一个线性的数据集（数据集中只能容纳某种特定类型的数据）</p>
+
+<p>Java NIO不但引入了全新的高效的I/O机制，同时引入了基于Reactor设计模式的多路复用异步模式。NIO包中主要包含以下几种抽象数据类型。</p>
+
+<ol>
+<li>Channel(通道)：NIO把它支持的I/O对象抽象为Channel。它模拟了通信连接，类似于原I/O中的流（Stream），用户可以通过它读取和写入数据。目前已知的实例类有SocketChannel、ServerSocketChannel、DatagramChannel、FileChannel等。</li>
+<li>Buffer(缓冲区)：Buffer是一块连续的内存区域，一般作为Channel收发数据的载体出现。所有数据都通过Buffer对象来处理。</li>
+<li>Selector(选择器)：Selector类提供了监控一个和多个通道当前状态的机制。只要Channel向Selector注册了某种特定的事件，Selector就会监听这些事件是否会发生，一旦发生某个事件，便会通知对应的Channel。使用选择器，借助单一线程，就可对数量庞大的活动I/O通道实施监控和维护。</li>
+</ol>
+
+<p><img src="http://img.blog.csdn.net/20160523105825046" alt="这里写图片描述" title="" /> <br />
+（注：每个线程的处理流程大概都是读取数据、解码、计算处理、编码、发送响应。）</p>
+
+<p>Java NIO的服务端只需启动一个专门的线程来处理所有的 IO 事件，这种通信模型是怎么实现的呢？呵呵，我们一起来探究它的奥秘吧。java NIO采用了双向通道（channel）进行数据传输，而不是单向的流（stream），在通道上可以注册我们感兴趣的事件。一共有以下四种事件：</p>
+
+<table>
+<thead>
+<tr>
+  <th>事件名</th>
+  <th>对应值</th>
+</tr>
+</thead>
+<tbody><tr>
+  <td>服务端接收客户端连接事件</td>
+  <td>SelectionKey.OP_ACCEPT(16)</td>
+</tr>
+<tr>
+  <td>客户端连接服务端事件</td>
+  <td>SelectionKey.OP_CONNECT(8)</td>
+</tr>
+<tr>
+  <td>读事件</td>
+  <td>SelectionKey.OP_READ(1)</td>
+</tr>
+<tr>
+  <td>写事件</td>
+  <td>SelectionKey.OP_WRITE(4)</td>
+</tr>
+</tbody></table>
+
+
+<p>服务端和客户端各自维护一个管理通道的对象，我们称之为selector，该对象能检测一个或多个通道 (channel) 上的事件。我们以服务端为例，如果服务端的selector上注册了读事件，某时刻客户端给服务端发送了一些数据，阻塞I/O这时会调用read()方法阻塞地读取数据，而NIO的服务端会在selector中添加一个读事件。服务端的处理线程会轮询地访问selector，如果访问selector时发现有感兴趣的事件到达，则处理这些事件，如果没有感兴趣的事件到达，则处理线程会一直阻塞直到感兴趣的事件到达为止。下面是我理解的java NIO的通信模型示意图：</p>
+
+<p><img src="http://img.blog.csdn.net/20160523111434943" alt="这里写图片描述" title="" /></p></div>&#13;
+        <script type="text/javascript">&#13;
+            $(function () {&#13;
+                $('pre.prettyprint code').each(function () {&#13;
+                    var lines = $(this).text().split('\n').length;&#13;
+                    var $numbering = $('&lt;ul/&gt;').addClass('pre-numbering').hide();&#13;
+                    $(this).addClass('has-numbering').parent().append($numbering);&#13;
+                    for (i = 1; i &lt;= lines; i++) {&#13;
+                        $numbering.append($('&lt;li/&gt;').text(i));&#13;
+                    };&#13;
+                    $numbering.fadeIn(1700);&#13;
+                });&#13;
+            });&#13;
+        </script>&#13;
+   &#13;

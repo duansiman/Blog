@@ -1,0 +1,1601 @@
+
+
+<h1><span style="font-size:14px">映射关系级别注解</span></h1>&#13;
+<h2><span style="font-size:14px">   一对一单向外键</span></h2>&#13;
+<div><span style="font-size:14px">           @OneToOne(cascade=CascadeType.ALL)<br />&#13;
+<span style="white-space:pre"></span>@JoinColumn(name="pid",unique=true)<br />&#13;
+<span style="white-space:pre"></span>注意：保存时应该先保存外键对象，在保存主表对象</span></div>&#13;
+<div><span style="font-size:14px">   实例：将环境配置好，所需要的包前边已经提到过，</span></div>&#13;
+<div><span style="font-size:14px"><br />&#13;
+</span></div>&#13;
+<div><span style="font-size:14px">      学生实体类：</span></div>&#13;
+<div><span style="font-size:14px">            </span><pre code_snippet_id="1733406" snippet_file_name="blog_20160628_1_5966050" name="code" class="java">package com.oto;
+
+import java.util.Date;
+
+import javax.persistence.CascadeType;
+import javax.persistence.Entity;//JPA注解
+import javax.persistence.GeneratedValue;
+import javax.persistence.Id;
+import javax.persistence.JoinColumn;
+import javax.persistence.OneToOne;
+
+/*
+ * 学生实体类
+ */
+@Entity
+public class Students {
+         private int sid; //学号
+         private IdCard card;//身份证
+         private String gender;//性别
+         private Date birthday;//出生日期
+         private String major;//专业
+         
+         public Students(){
+        	 
+         }
+
+		public Students(IdCard card,  String gender,
+				Date date, String major) {
+//			super();
+			this.card = card;
+			this.gender = gender;
+			this.birthday = date;
+			this.major = major;
+		}
+        @Id
+        @GeneratedValue
+        public int getSid() {
+			return sid;
+		}
+
+		public void setSid(int sid) {
+			this.sid = sid;
+		}
+
+		public String getGender() {
+			return gender;
+		}
+
+		public void setGender(String gender) {
+			this.gender = gender;
+		}
+
+		public Date getBirthday() {
+			return birthday;
+		}
+
+		public void setBirthday(Date birthday) {
+			this.birthday = birthday;
+		}
+
+		public String getMajor() {
+			return major;
+		}
+
+		public void setMajor(String major) {
+			this.major = major;
+		}
+        
+		@OneToOne(cascade=CascadeType.ALL)
+		@JoinColumn(name="pid",unique=true)
+		public IdCard getCard() {
+			return card;
+		}
+
+		public void setCard(IdCard card) {
+			this.card = card;
+		}
+
+
+         
+}
+</pre><br />&#13;
+</div>&#13;
+<div><span style="font-size:14px">身份证实体类：</span></div>&#13;
+<div><span style="font-size:14px"></span><pre code_snippet_id="1733406" snippet_file_name="blog_20160628_2_9488843" name="code" class="java">package com.oto;
+
+import javax.persistence.Column;
+import javax.persistence.Entity;
+import javax.persistence.GeneratedValue;
+import javax.persistence.Id;
+
+import org.hibernate.annotations.GenericGenerator;
+
+@Entity
+public class IdCard {
+	     @Id
+	     @GeneratedValue(generator="pid")
+	     @GenericGenerator(name="pid",strategy="assigned")
+	     @Column(length=18)
+         private String pid; //身份证号
+         private String sname;//姓名
+         
+         public IdCard(){
+        	 
+        	 
+         }
+         
+         
+		public IdCard(String pid, String sname) {
+			this.pid = pid;
+			this.sname = sname;
+		}
+
+
+		public String getPid() {
+			return pid;
+		}
+		public void setPid(String pid) {
+			this.pid = pid;
+		}
+		public String getSname() {
+			return sname;
+		}
+		public void setSname(String sname) {
+			this.sname = sname;
+		}
+         
+         
+}
+</pre>测试类：</div>&#13;
+<div><span style="font-size:14px">   </span><pre code_snippet_id="1733406" snippet_file_name="blog_20160628_3_8758495" name="code" class="java">package com.oto;
+
+import java.util.Date;
+
+import org.hibernate.Session;
+import org.hibernate.SessionFactory;
+import org.hibernate.Transaction;
+import org.hibernate.cfg.Configuration;
+import org.hibernate.service.ServiceRegistry;
+import org.hibernate.service.ServiceRegistryBuilder;
+import org.hibernate.tool.hbm2ddl.SchemaExport;
+import org.junit.Test;
+
+public class TestStudents {
+	@Test
+    public void testShemaExport(){
+ 	   //创建hibernate配置对象
+ 	   Configuration config = new Configuration().configure();
+ 	   //创建服务注册对象
+ 	   ServiceRegistry serviceRegistry = new ServiceRegistryBuilder().applySettings(config.getProperties()).buildServiceRegistry();
+        //生成SessionFactory
+ 	   SessionFactory sessionFactory = config.buildSessionFactory(serviceRegistry);
+        SchemaExport export = new SchemaExport(config);
+        export.create(true,true);
+    }
+	//往数据库中添加学生数据
+	@Test
+	public void addStudents(){
+		  //创建hibernate配置对象
+ 	   Configuration config = new Configuration().configure();
+ 	   //创建服务注册对象
+ 	   ServiceRegistry serviceRegistry = new ServiceRegistryBuilder().applySettings(config.getProperties()).buildServiceRegistry();
+        //生成SessionFactory
+ 	   SessionFactory sessionFactory = config.buildSessionFactory(serviceRegistry);
+       //创建会话
+ 	   Session session = sessionFactory.getCurrentSession();
+ 	   //创建事务
+ 	   Transaction tx = session.beginTransaction();
+ 	   IdCard card = new IdCard("123456789012345678","猪八戒");
+ 	   Students stu = new Students(card,"男",new Date(),"计算机");
+ 	   session.save(card);
+ 	   session.save(stu);
+ 	   tx.commit();
+	}
+}
+</pre><br />&#13;
+hibernate.cfg.xml中的配置：下面的使用的是同一个配置，下边的代码中不再列举，</div>&#13;
+<div><span style="font-size:14px">       </span><pre code_snippet_id="1733406" snippet_file_name="blog_20160628_4_6740608" name="code" class="html">&lt;!DOCTYPE hibernate-configuration PUBLIC
+	"-//Hibernate/Hibernate Configuration DTD 3.0//EN"
+	"http://www.hibernate.org/dtd/hibernate-configuration-3.0.dtd"&gt;
+
+&lt;hibernate-configuration&gt;
+	&lt;session-factory&gt;
+	&lt;property name="hibernate.dialect"&gt;org.hibernate.dialect.MySQLDialect&lt;/property&gt;
+		&lt;!-- 
+		&lt;property name="hibernate.connection.driver_class"&gt;com.mysql.jdbc.Driver&lt;/property&gt;
+		&lt;property name="hibernate.connection.url"&gt;jdbc:mysql:///hibernate_struts_stumanager&lt;/property&gt;
+		 --&gt;
+		&lt;property name="hibernate.connection.driver_class"&gt;com.mysql.jdbc.Driver&lt;/property&gt;
+		&lt;property name="hibernate.connection.url"&gt;jdbc:mysql://localhost:3306/mypage&lt;/property&gt;
+		
+		
+		&lt;property name="hibernate.connection.username"&gt;root&lt;/property&gt;
+		&lt;property name="hibernate.connection.password"&gt;root&lt;/property&gt;
+		&lt;property name="hibernate.show_sql"&gt;false&lt;/property&gt;
+		&lt;property name="hibernate.hbm2ddl.auto"&gt;create&lt;/property&gt;
+		&lt;property name="current_session_context_class"&gt;thread&lt;/property&gt;
+		&lt;!-- &lt;mapping class="com.oto.Students"/&gt;
+		&lt;mapping class="com.oto.IdCard"/&gt; --&gt;&lt;!-- 一对一单向外键关联 --&gt;
+		
+		&lt;!-- &lt;mapping class="com.oto_11.Students"/&gt;
+		&lt;mapping class="com.oto_11.IdCard"/&gt;  --&gt;        &lt;!--一对一双向外键关联  --&gt;
+		
+		&lt;!-- &lt;mapping class="com.mto.Students"/&gt;
+		&lt;mapping class="com.mto.ClassRoom"/&gt; --&gt;&lt;!--  多对一单向外键关联--&gt;
+		
+		&lt;!-- &lt;mapping class="com.otm.Students"/&gt;
+		&lt;mapping class="com.otm.ClassRoom"/&gt; --&gt;&lt;!-- 一对多单向外键关联 --&gt;
+		
+		&lt;!-- &lt;mapping class="com.otm_11.Students"/&gt;
+		&lt;mapping class="com.otm_11.ClassRoom"/&gt; --&gt;&lt;!-- 一对多双向外键 --&gt;
+		
+		&lt;!-- &lt;mapping class="com.mtm.Students"/&gt;
+		&lt;mapping class="com.mtm.Teachers"/&gt;  --&gt; &lt;!-- 多对多单向外键关联 --&gt;
+		
+		&lt;mapping class="com.mtm_11.Students"/&gt;
+		&lt;mapping class="com.mtm_11.Teachers"/&gt;   &lt;!-- 多对多双向外键关联 --&gt;
+	&lt;/session-factory&gt;
+&lt;/hibernate-configuration&gt;</pre><br />&#13;
+<h2><span style="font-size:14px">一对一双向外键关联</span></h2>&#13;
+<div><span style="font-size:14px">主控方的配置同一对一单向外键关联<br />&#13;
+<span style="white-space:pre"></span>@OneToOne(mappedBy="card")//被控方<br />&#13;
+<span style="white-space:pre"></span>双向关联，必须设置mappedBy属性。因为双向关联只能交给一方去控制，不可能在双方<br />&#13;
+<span style="white-space:pre"></span>都设置外键保存关联关系，否则双方都无法保存<br />&#13;
+</span></div>&#13;
+<div><span style="font-size:14px">实例：</span></div>&#13;
+<div><span style="font-size:14px">       学生实体类</span></div>&#13;
+<div><span style="font-size:14px"> </span><pre code_snippet_id="1733406" snippet_file_name="blog_20160628_5_1898822" name="code" class="java">package com.oto_11;
+
+import java.util.Date;
+
+import javax.persistence.CascadeType;
+import javax.persistence.Entity;//JPA注解
+import javax.persistence.GeneratedValue;
+import javax.persistence.Id;
+import javax.persistence.JoinColumn;
+import javax.persistence.OneToOne;
+
+/*
+ * 学生实体类
+ */
+@Entity
+public class Students {
+         private int sid; //学号
+         private IdCard card;//身份证
+         private String gender;//性别
+         private Date birthday;//出生日期
+         private String major;//专业
+         
+         public Students(){
+        	 
+         }
+
+		public Students(IdCard card,  String gender,
+				Date date, String major) {
+//			super();
+			this.card = card;
+			this.gender = gender;
+			this.birthday = date;
+			this.major = major;
+		}
+        @Id
+        @GeneratedValue
+        public int getSid() {
+			return sid;
+		}
+
+		public void setSid(int sid) {
+			this.sid = sid;
+		}
+
+		public String getGender() {
+			return gender;
+		}
+
+		public void setGender(String gender) {
+			this.gender = gender;
+		}
+
+		public Date getBirthday() {
+			return birthday;
+		}
+
+		public void setBirthday(Date birthday) {
+			this.birthday = birthday;
+		}
+
+		public String getMajor() {
+			return major;
+		}
+
+		public void setMajor(String major) {
+			this.major = major;
+		}
+        
+		@OneToOne(cascade=CascadeType.ALL)
+		@JoinColumn(name="pid",unique=true)
+		public IdCard getCard() {
+			return card;
+		}
+
+		public void setCard(IdCard card) {
+			this.card = card;
+		}
+
+
+         
+}
+</pre><br />&#13;
+</div>&#13;
+<span style="font-size:14px">身份证实体类：</span></div>&#13;
+<div><span style="font-size:14px">    </span><pre code_snippet_id="1733406" snippet_file_name="blog_20160628_6_4200117" name="code" class="java">package com.oto_11;
+
+import javax.persistence.Column;
+import javax.persistence.Entity;
+import javax.persistence.GeneratedValue;
+import javax.persistence.Id;
+import javax.persistence.OneToOne;
+
+import org.hibernate.annotations.GenericGenerator;
+
+@Entity
+public class IdCard {
+	     @Id
+	     @GeneratedValue(generator="pid")
+	     @GenericGenerator(name="pid",strategy="assigned")
+	     @Column(length=18)
+         private String pid; //身份证号
+         private String sname;//姓名
+         
+         @OneToOne(mappedBy="card")
+         private Students stu;
+         
+         public IdCard(){
+        	 
+        	 
+         }
+         
+         
+		public IdCard(String pid, String sname) {
+			this.pid = pid;
+			this.sname = sname;
+		}
+
+
+		public Students getStu() {
+			return stu;
+		}
+
+
+		public void setStu(Students stu) {
+			this.stu = stu;
+		}
+
+
+		public String getPid() {
+			return pid;
+		}
+		public void setPid(String pid) {
+			this.pid = pid;
+		}
+		public String getSname() {
+			return sname;
+		}
+		public void setSname(String sname) {
+			this.sname = sname;
+		}
+         
+         
+}
+</pre>测试类：</div>&#13;
+<div><span style="font-size:14px">   </span><pre code_snippet_id="1733406" snippet_file_name="blog_20160628_7_1866585" name="code" class="java">package com.oto_11;
+
+import java.util.Date;
+
+import org.hibernate.Session;
+import org.hibernate.SessionFactory;
+import org.hibernate.Transaction;
+import org.hibernate.cfg.Configuration;
+import org.hibernate.service.ServiceRegistry;
+import org.hibernate.service.ServiceRegistryBuilder;
+import org.hibernate.tool.hbm2ddl.SchemaExport;
+import org.junit.Test;
+
+public class TestStudents {
+	@Test
+    public void testShemaExport(){
+ 	   //创建hibernate配置对象
+ 	   Configuration config = new Configuration().configure();
+ 	   //创建服务注册对象
+ 	   ServiceRegistry serviceRegistry = new ServiceRegistryBuilder().applySettings(config.getProperties()).buildServiceRegistry();
+        //生成SessionFactory
+ 	   SessionFactory sessionFactory = config.buildSessionFactory(serviceRegistry);
+        SchemaExport export = new SchemaExport(config);
+        export.create(true,true);
+    }
+	@Test
+	public void addStudents(){
+		  //创建hibernate配置对象
+ 	   Configuration config = new Configuration().configure();
+ 	   //创建服务注册对象
+ 	   ServiceRegistry serviceRegistry = new ServiceRegistryBuilder().applySettings(config.getProperties()).buildServiceRegistry();
+        //生成SessionFactory
+ 	   SessionFactory sessionFactory = config.buildSessionFactory(serviceRegistry);
+       //创建会话
+ 	   Session session = sessionFactory.getCurrentSession();
+ 	   //创建事务
+ 	   Transaction tx = session.beginTransaction();
+ 	   IdCard card = new IdCard("123456789012345678","猪八戒");
+ 	   Students stu = new Students(card,"男",new Date(),"计算机");
+ 	   session.save(card);
+ 	   session.save(stu);
+ 	   tx.commit();
+	}
+}
+</pre><br />&#13;
+<h2><span style="font-size:14px">                一对一单向外键联合主键<br />&#13;
+</span><span style="font-size:14px"><span style="white-space:pre"></span>一对一双向外键联合主键</span></h2>&#13;
+</div>&#13;
+<div><span style="font-size:14px"> 创建主键类<br />&#13;
+<span style="white-space:pre"></span>主键类必须实现serializable接口，重写hashCode()和equals()方法。<br />&#13;
+<span style="white-space:pre"></span>主键类<br />&#13;
+<span style="white-space:pre"></span>     @Embeddable<br />&#13;
+<span style="white-space:pre"></span>实体类<br />&#13;
+<span style="white-space:pre"></span>     @EmbeddedId<br />&#13;
+</span></div>&#13;
+<div><span style="font-size:14px">                </span></div>&#13;
+<h2><span style="font-size:14px">多对一单向外键关联</span></h2>&#13;
+<div><span style="font-size:14px">       多方持有一方的引用<br />&#13;
+<span style="white-space:pre"></span>  @ManyToOne(cascade={CascadeType.ALL},<br />&#13;
+<span style="white-space:pre"></span>  fetch=FetchType.EAGER)<br />&#13;
+<span style="white-space:pre"></span>  @JoinColumn(name="cid",referencedColumnName="CID")</span></div>&#13;
+<div><span style="font-size:14px">学生实体类：</span></div>&#13;
+<div><span style="font-size:14px"> </span><pre code_snippet_id="1733406" snippet_file_name="blog_20160628_8_3960136" name="code" class="java">package com.mto;
+
+import java.util.Date;
+
+import javax.persistence.CascadeType;
+import javax.persistence.Entity;//JPA注解
+import javax.persistence.FetchType;
+import javax.persistence.GeneratedValue;
+import javax.persistence.Id;
+import javax.persistence.JoinColumn;
+import javax.persistence.ManyToOne;
+import javax.persistence.OneToOne;
+
+/*
+ * 学生实体类
+ */
+@Entity
+public class Students {
+         private int sid; //学号
+         private String gender;//性别
+         private Date birthday;//出生日期
+         private String major;//专业
+         private ClassRoom classroom;
+         private String sname;
+         
+         public Students(){
+        	 
+         }
+
+		public Students(String sname,  String gender,
+				Date date, String major) {
+//			super();
+            this.sname = sname;
+			this.gender = gender;
+			this.birthday = date;
+			this.major = major;
+		}
+        @Id
+        @GeneratedValue
+        public int getSid() {
+			return sid;
+		}
+
+		public void setSid(int sid) {
+			this.sid = sid;
+		}
+
+		public String getSname() {
+			return sname;
+		}
+
+		public void setSname(String sname) {
+			this.sname = sname;
+		}
+
+		public String getGender() {
+			return gender;
+		}
+
+		public void setGender(String gender) {
+			this.gender = gender;
+		}
+
+		public Date getBirthday() {
+			return birthday;
+		}
+
+		public void setBirthday(Date birthday) {
+			this.birthday = birthday;
+		}
+
+		public String getMajor() {
+			return major;
+		}
+
+		public void setMajor(String major) {
+			this.major = major;
+		}
+		@ManyToOne(cascade={CascadeType.ALL},fetch=FetchType.EAGER)
+		@JoinColumn(name="cid",referencedColumnName="CID")
+		public ClassRoom getClassroom() {
+			return classroom;
+		}
+
+		public void setClassroom(ClassRoom classroom) {
+			this.classroom = classroom;
+		}
+
+
+         
+}
+</pre><br />&#13;
+</div>&#13;
+<div><span style="font-size:14px">班级实体类：</span></div>&#13;
+<div><span style="font-size:14px"> </span><pre code_snippet_id="1733406" snippet_file_name="blog_20160628_9_754553" name="code" class="java">package com.mto;
+
+import javax.persistence.Column;
+import javax.persistence.Entity;
+import javax.persistence.GeneratedValue;
+import javax.persistence.Id;
+
+import org.hibernate.annotations.GenericGenerator;
+
+//班级实体类
+@Entity
+public class ClassRoom {
+	   @Id
+	   @GeneratedValue(generator="cid")
+	   @GenericGenerator(name="cid",strategy="assigned")
+	   @Column(length=4)
+       private String cid;//班级的编号
+       private String cname;//班级的名字
+       
+       public ClassRoom(){
+    	   
+       }
+       
+	public ClassRoom(String cid, String cname) {
+		this.cid = cid;
+		this.cname = cname;
+	}
+
+	public String getCid() {
+		return cid;
+	}
+	public void setCid(String cid) {
+		this.cid = cid;
+	}
+	public String getCname() {
+		return cname;
+	}
+	public void setCname(String cname) {
+		this.cname = cname;
+	}
+       
+       
+       
+}
+</pre>测试类：</div>&#13;
+<div><span style="font-size:14px">  </span><pre code_snippet_id="1733406" snippet_file_name="blog_20160628_10_372869" name="code" class="html">package com.mto;
+
+import java.util.Date;
+
+import org.hibernate.Session;
+import org.hibernate.SessionFactory;
+import org.hibernate.Transaction;
+import org.hibernate.cfg.Configuration;
+import org.hibernate.service.ServiceRegistry;
+import org.hibernate.service.ServiceRegistryBuilder;
+import org.hibernate.tool.hbm2ddl.SchemaExport;
+import org.junit.Test;
+
+public class TestStudents {
+	@Test
+    public void testShemaExport(){
+ 	   //创建hibernate配置对象
+ 	   Configuration config = new Configuration().configure();
+ 	   //创建服务注册对象
+ 	   ServiceRegistry serviceRegistry = new ServiceRegistryBuilder().applySettings(config.getProperties()).buildServiceRegistry();
+        //生成SessionFactory
+ 	   SessionFactory sessionFactory = config.buildSessionFactory(serviceRegistry);
+        SchemaExport export = new SchemaExport(config);
+        export.create(true,true);
+    }
+	//往数据库中添加学生数据
+	@Test
+	public void addStudents(){
+		  //创建hibernate配置对象
+ 	   Configuration config = new Configuration().configure();
+ 	   //创建服务注册对象
+ 	   ServiceRegistry serviceRegistry = new ServiceRegistryBuilder().applySettings(config.getProperties()).buildServiceRegistry();
+        //生成SessionFactory
+ 	   SessionFactory sessionFactory = config.buildSessionFactory(serviceRegistry);
+       //创建会话
+ 	   Session session = sessionFactory.getCurrentSession();
+ 	   //创建事务
+ 	   Transaction tx = session.beginTransaction();
+       //创建班级对象
+ 	   ClassRoom c1 = new ClassRoom("0001","软件工程");
+ 	   ClassRoom c2 = new ClassRoom("0002","通信工程");
+ 	   //创建学生对象
+ 	   Students s1 = new Students("小王","男",new Date(),"计算机");
+ 	   Students s2 = new Students("小黄","男",new Date(),"计算机");
+ 	   Students s3 = new Students("小花","女",new Date(),"计算机");
+ 	   Students s4 = new Students("小红","女",new Date(),"计算机");
+ 	   
+ 	   s1.setClassroom(c1);
+ 	   s2.setClassroom(c1);
+
+ 	   s3.setClassroom(c2);
+ 	   s4.setClassroom(c2);
+ 	   
+ 	   session.save(c1);
+ 	   session.save(c2);
+ 	   session.save(s1);
+ 	   session.save(s2);
+ 	   session.save(s3);
+ 	   session.save(s4);
+      tx.commit(); 	   
+	}
+}
+</pre>&#13;
+<h2><span style="font-size:14px">一对多单向外键关联</span></h2>&#13;
+</div>&#13;
+<div><span style="font-size:14px"> 一方持有多方的集合<br />&#13;
+<span style="white-space:pre"></span>  @OneToMany(cascade={cascadeType.ALL},fetch=FetchType.LAZY)<br />&#13;
+<span style="white-space:pre"></span>  @JoinColumn(name="cid")<br />&#13;
+</span></div>&#13;
+<div><span style="font-size:14px">     实例：</span></div>&#13;
+<div><span style="font-size:14px">学生实体类：</span></div>&#13;
+<div><span style="font-size:14px">       </span><pre code_snippet_id="1733406" snippet_file_name="blog_20160628_11_9991184" name="code" class="java">package com.otm;
+
+import java.util.Date;
+
+import javax.persistence.CascadeType;
+import javax.persistence.Entity;//JPA注解
+import javax.persistence.FetchType;
+import javax.persistence.GeneratedValue;
+import javax.persistence.Id;
+import javax.persistence.JoinColumn;
+import javax.persistence.ManyToOne;
+import javax.persistence.OneToOne;
+
+/*
+ * 学生实体类
+ */
+@Entity
+public class Students {
+         private int sid; //学号
+         private String gender;//性别
+         private Date birthday;//出生日期
+         private String major;//专业
+         private String sname;
+         
+         public Students(){
+        	 
+         }
+
+		public Students(String sname,  String gender,
+				Date date, String major) {
+//			super();
+            this.sname = sname;
+			this.gender = gender;
+			this.birthday = date;
+			this.major = major;
+		}
+        @Id
+        @GeneratedValue
+        public int getSid() {
+			return sid;
+		}
+
+		public void setSid(int sid) {
+			this.sid = sid;
+		}
+
+		public String getSname() {
+			return sname;
+		}
+
+		public void setSname(String sname) {
+			this.sname = sname;
+		}
+
+		public String getGender() {
+			return gender;
+		}
+
+		public void setGender(String gender) {
+			this.gender = gender;
+		}
+
+		public Date getBirthday() {
+			return birthday;
+		}
+
+		public void setBirthday(Date birthday) {
+			this.birthday = birthday;
+		}
+
+		public String getMajor() {
+			return major;
+		}
+
+		public void setMajor(String major) {
+			this.major = major;
+		}
+
+
+         
+}
+</pre>班级实体类：</div>&#13;
+<div><span style="font-size:14px">         </span><pre code_snippet_id="1733406" snippet_file_name="blog_20160628_12_9609500" name="code" class="java">package com.otm;
+
+import java.util.Set;
+
+import javax.persistence.CascadeType;
+import javax.persistence.Column;
+import javax.persistence.Entity;
+import javax.persistence.FetchType;
+import javax.persistence.GeneratedValue;
+import javax.persistence.Id;
+import javax.persistence.JoinColumn;
+import javax.persistence.OneToMany;
+
+import org.hibernate.annotations.GenericGenerator;
+
+//班级实体类
+@Entity
+public class ClassRoom {
+	   @Id
+	   @GeneratedValue(generator="cid")
+	   @GenericGenerator(name="cid",strategy="assigned")
+	   @Column(length=4)
+       private String cid;//班级的编号
+       private String cname;//班级的名字
+       
+       @OneToMany(cascade={CascadeType.ALL},fetch=FetchType.LAZY)
+	   @JoinColumn(name="cid")
+       private Set&lt;Students&gt; stus;//一方持有多方的集合
+       public ClassRoom(){
+    	   
+       }
+       
+	public ClassRoom(String cid, String cname) {
+		this.cid = cid;
+		this.cname = cname;
+	}
+
+	public String getCid() {
+		return cid;
+	}
+	public void setCid(String cid) {
+		this.cid = cid;
+	}
+	public String getCname() {
+		return cname;
+	}
+	public void setCname(String cname) {
+		this.cname = cname;
+	}
+
+	public Set&lt;Students&gt; getStus() {
+		return stus;
+	}
+
+	public void setStus(Set&lt;Students&gt; stus) {
+		this.stus = stus;
+	}
+       
+       
+       
+}
+</pre><br />&#13;
+</div>&#13;
+<div>测试类：</div>&#13;
+<div>      <pre code_snippet_id="1733406" snippet_file_name="blog_20160628_13_864020" name="code" class="java">package com.otm;
+
+import java.util.Date;
+import java.util.HashSet;
+import java.util.Set;
+
+import org.hibernate.Session;
+import org.hibernate.SessionFactory;
+import org.hibernate.Transaction;
+import org.hibernate.cfg.Configuration;
+import org.hibernate.service.ServiceRegistry;
+import org.hibernate.service.ServiceRegistryBuilder;
+import org.hibernate.tool.hbm2ddl.SchemaExport;
+import org.junit.Test;
+
+public class TestStudents {
+	@Test
+    public void testShemaExport(){
+ 	   //创建hibernate配置对象
+ 	   Configuration config = new Configuration().configure();
+ 	   //创建服务注册对象
+ 	   ServiceRegistry serviceRegistry = new ServiceRegistryBuilder().applySettings(config.getProperties()).buildServiceRegistry();
+        //生成SessionFactory
+ 	   SessionFactory sessionFactory = config.buildSessionFactory(serviceRegistry);
+        SchemaExport export = new SchemaExport(config);
+        export.create(true,true);
+    }
+	@Test
+	public void addStudents(){
+		  //创建hibernate配置对象
+ 	   Configuration config = new Configuration().configure();
+ 	   //创建服务注册对象
+ 	   ServiceRegistry serviceRegistry = new ServiceRegistryBuilder().applySettings(config.getProperties()).buildServiceRegistry();
+        //生成SessionFactory
+ 	   SessionFactory sessionFactory = config.buildSessionFactory(serviceRegistry);
+       //创建会话
+ 	   Session session = sessionFactory.getCurrentSession();
+ 	   //创建事务
+ 	   Transaction tx = session.beginTransaction();
+       //创建班级对象
+ 	   ClassRoom c1 = new ClassRoom("0001","软件工程");
+ 	   ClassRoom c2 = new ClassRoom("0002","通信工程");
+ 	   //创建学生对象
+ 	   Students s1 = new Students("小王","男",new Date(),"计算机");
+ 	   Students s2 = new Students("小黄","男",new Date(),"计算机");
+ 	   Students s3 = new Students("小花","女",new Date(),"计算机");
+ 	   Students s4 = new Students("小红","女",new Date(),"计算机");
+ 	   
+ 	   Set&lt;Students&gt; set1 = new HashSet&lt;Students&gt;();
+ 	   set1.add(s1);
+ 	   set1.add(s2);
+ 	   
+ 	   Set&lt;Students&gt; set2 = new HashSet&lt;Students&gt;();
+ 	   set2.add(s3);
+ 	   set2.add(s4);
+ 	   
+ 	   session.save(s1);
+ 	   session.save(s2);
+ 	   session.save(s3);
+ 	   session.save(s4);
+ 	   
+ 	   session.save(c1);
+ 	   session.save(c2);
+      tx.commit(); 	   
+	}
+}
+</pre><br />&#13;
+<h2>一对多双向外键关联</h2>&#13;
+<div>多方：多方持有一方的引用<br />&#13;
+<span style="white-space:pre"></span>@ManyToOne(cascade={CascadeType.ALL},fetch=FetchType.EAGER)<br />&#13;
+<span style="white-space:pre"></span>@JoinColumn(name="cid")<br />&#13;
+<span style="white-space:pre"></span>一方：一方持有多方的集合<br />&#13;
+<span style="white-space:pre"></span>@OneToMany(cascade={CascadeType.ALL},fetch=FetchType.LAZY)<br />&#13;
+<span style="white-space:pre"></span>@JoinColumn(name="cid")<br />&#13;
+</div>&#13;
+<div>        实例：</div>&#13;
+<div>      <pre code_snippet_id="1733406" snippet_file_name="blog_20160628_14_482336" name="code" class="java">package com.otm_11;
+
+import java.util.Date;
+
+import javax.persistence.CascadeType;
+import javax.persistence.Entity;//JPA注解
+import javax.persistence.FetchType;
+import javax.persistence.GeneratedValue;
+import javax.persistence.Id;
+import javax.persistence.JoinColumn;
+import javax.persistence.ManyToOne;
+import javax.persistence.OneToOne;
+
+/*
+ * 学生实体类
+ */
+@Entity
+public class Students {
+         private int sid; //学号
+         private String gender;//性别
+         private Date birthday;//出生日期
+         private String major;//专业
+         private String sname;//姓名
+         private ClassRoom classroom;
+         public Students(){
+        	 
+         }
+
+		public Students(String sname,  String gender,
+				Date date, String major) {
+//			super();
+            this.sname = sname;
+			this.gender = gender;
+			this.birthday = date;
+			this.major = major;
+		}
+        @Id
+        @GeneratedValue
+        public int getSid() {
+			return sid;
+		}
+
+		public void setSid(int sid) {
+			this.sid = sid;
+		}
+
+		public String getSname() {
+			return sname;
+		}
+
+		public void setSname(String sname) {
+			this.sname = sname;
+		}
+
+		public String getGender() {
+			return gender;
+		}
+
+		public void setGender(String gender) {
+			this.gender = gender;
+		}
+
+		public Date getBirthday() {
+			return birthday;
+		}
+
+		public void setBirthday(Date birthday) {
+			this.birthday = birthday;
+		}
+
+		public String getMajor() {
+			return major;
+		}
+
+		public void setMajor(String major) {
+			this.major = major;
+		}
+		@ManyToOne(cascade={CascadeType.ALL},fetch=FetchType.EAGER)
+		@JoinColumn(name="cid")
+		public ClassRoom getClassroom() {
+			return classroom;
+		}
+
+		public void setClassroom(ClassRoom classroom) {
+			this.classroom = classroom;
+		}
+
+     
+         
+}
+</pre><br />&#13;
+</div>&#13;
+</div>&#13;
+<div>班级实体类：</div>&#13;
+<div>  <pre code_snippet_id="1733406" snippet_file_name="blog_20160628_15_8672192" name="code" class="java">package com.otm_11;
+
+import java.util.Set;
+
+import javax.persistence.CascadeType;
+import javax.persistence.Column;
+import javax.persistence.Entity;
+import javax.persistence.FetchType;
+import javax.persistence.GeneratedValue;
+import javax.persistence.Id;
+import javax.persistence.JoinColumn;
+import javax.persistence.OneToMany;
+
+import org.hibernate.annotations.GenericGenerator;
+
+//班级实体类
+@Entity
+public class ClassRoom {
+	   @Id
+	   @GeneratedValue(generator="cid")
+	   @GenericGenerator(name="cid",strategy="assigned")
+	   @Column(length=4)
+       private String cid;//班级的编号
+       private String cname;//班级的名字
+       
+       @OneToMany(cascade={CascadeType.ALL},fetch=FetchType.LAZY)
+	   @JoinColumn(name="cid")
+       private Set&lt;Students&gt; stus;//一方持有多方的集合
+       public ClassRoom(){
+    	   
+       }
+       
+	public ClassRoom(String cid, String cname) {
+		this.cid = cid;
+		this.cname = cname;
+	}
+
+	public String getCid() {
+		return cid;
+	}
+	public void setCid(String cid) {
+		this.cid = cid;
+	}
+	public String getCname() {
+		return cname;
+	}
+	public void setCname(String cname) {
+		this.cname = cname;
+	}
+
+	public Set&lt;Students&gt; getStus() {
+		return stus;
+	}
+
+	public void setStus(Set&lt;Students&gt; stus) {
+		this.stus = stus;
+	}
+       
+       
+       
+}
+</pre>测试类：</div>&#13;
+<div> <pre code_snippet_id="1733406" snippet_file_name="blog_20160628_16_1878559" name="code" class="java">package com.mto_11;
+
+import java.util.Date;
+
+import org.hibernate.Session;
+import org.hibernate.SessionFactory;
+import org.hibernate.Transaction;
+import org.hibernate.cfg.Configuration;
+import org.hibernate.service.ServiceRegistry;
+import org.hibernate.service.ServiceRegistryBuilder;
+import org.hibernate.tool.hbm2ddl.SchemaExport;
+import org.junit.Test;
+
+import com.otm_11.ClassRoom;
+import com.otm_11.Students;
+
+public class TestStudents {
+	@Test
+    public void testShemaExport(){
+ 	   //创建hibernate配置对象
+ 	   Configuration config = new Configuration().configure();
+ 	   //创建服务注册对象
+ 	   ServiceRegistry serviceRegistry = new ServiceRegistryBuilder().applySettings(config.getProperties()).buildServiceRegistry();
+        //生成SessionFactory
+ 	   SessionFactory sessionFactory = config.buildSessionFactory(serviceRegistry);
+        SchemaExport export = new SchemaExport(config);
+        export.create(true,true);
+    }
+	@Test
+	public void addStudents(){
+		  //创建hibernate配置对象
+ 	   Configuration config = new Configuration().configure();
+ 	   //创建服务注册对象
+ 	   ServiceRegistry serviceRegistry = new ServiceRegistryBuilder().applySettings(config.getProperties()).buildServiceRegistry();
+        //生成SessionFactory
+ 	   SessionFactory sessionFactory = config.buildSessionFactory(serviceRegistry);
+       //创建会话
+ 	   Session session = sessionFactory.getCurrentSession();
+ 	   //创建事务
+ 	   Transaction tx = session.beginTransaction();
+       //创建班级对象
+ 	   ClassRoom c1 = new ClassRoom("0001","软件工程");
+ 	   ClassRoom c2 = new ClassRoom("0002","通信工程");
+ 	   //创建学生对象
+ 	   Students s1 = new Students("小王","男",new Date(),"计算机");
+ 	   Students s2 = new Students("小黄","男",new Date(),"计算机");
+ 	   Students s3 = new Students("小花","女",new Date(),"计算机");
+ 	   Students s4 = new Students("小红","女",new Date(),"计算机");
+ 	   
+ 	   s1.setClassroom(c1);
+ 	   s2.setClassroom(c1);
+
+ 	   s3.setClassroom(c2);
+ 	   s4.setClassroom(c2);
+ 	   
+ 	   session.save(c1);
+ 	   session.save(c2);
+ 	   session.save(s1);
+ 	   session.save(s2);
+ 	   session.save(s3);
+ 	   session.save(s4);
+      tx.commit(); 	   
+	}
+}
+</pre><br />&#13;
+<h2>多对多单向外键关联</h2>&#13;
+<div> 其中一个多方持有另一个多方的集合对象<br />&#13;
+<span style="white-space:pre"></span> 创建中间表<br />&#13;
+<span style="white-space:pre"></span> @MantToMany<br />&#13;
+<span style="white-space:pre"></span> @JoinTable(<br />&#13;
+<span style="white-space:pre"></span>     name="teachers_students",<br />&#13;
+<span style="white-space:pre"></span>     joinColumns={@JoinColumn(name="sid")},inverseJoinColumns={@JoinColumn(name="tid")}<br />&#13;
+<span style="white-space:pre"></span> )<br />&#13;
+</div>&#13;
+<div>实例：</div>&#13;
+<div>学生实体类：</div>&#13;
+<div><pre code_snippet_id="1733406" snippet_file_name="blog_20160628_17_9860671" name="code" class="java">package com.mtm;
+
+import java.util.Date;
+import java.util.Set;
+
+import javax.persistence.CascadeType;
+import javax.persistence.Entity;//JPA注解
+import javax.persistence.FetchType;
+import javax.persistence.GeneratedValue;
+import javax.persistence.Id;
+import javax.persistence.JoinColumn;
+import javax.persistence.JoinTable;
+import javax.persistence.ManyToMany;
+import javax.persistence.ManyToOne;
+import javax.persistence.OneToOne;
+
+/*
+ * 学生实体类
+ */
+@Entity
+public class Students {
+         private int sid; //学号
+         private String gender;//性别
+         private Date birthday;//出生日期
+         private String major;//专业
+         private String sname;//学生姓名
+         private Set&lt;Teachers&gt; teachers; //学生持有教师的集合
+         
+         public Students(){
+        	 
+         }
+
+		public Students(String sname,  String gender,
+				Date date, String major) {
+//			super();
+            this.sname = sname;
+			this.gender = gender;
+			this.birthday = date;
+			this.major = major;
+		}
+        @Id
+        @GeneratedValue
+        public int getSid() {
+			return sid;
+		}
+
+		public void setSid(int sid) {
+			this.sid = sid;
+		}
+
+		public String getSname() {
+			return sname;
+		}
+
+		public void setSname(String sname) {
+			this.sname = sname;
+		}
+
+		public String getGender() {
+			return gender;
+		}
+
+		public void setGender(String gender) {
+			this.gender = gender;
+		}
+
+		public Date getBirthday() {
+			return birthday;
+		}
+
+		public void setBirthday(Date birthday) {
+			this.birthday = birthday;
+		}
+
+		public String getMajor() {
+			return major;
+		}
+
+		public void setMajor(String major) {
+			this.major = major;
+		}
+		 @ManyToMany
+		  @JoinTable(
+		      name="teachers_students",
+		      joinColumns={@JoinColumn(name="sid")},
+		      inverseJoinColumns={@JoinColumn(name="tid")}
+		  )
+		public Set&lt;Teachers&gt; getTeachers() {
+			return teachers;
+		}
+
+		public void setTeachers(Set&lt;Teachers&gt; teachers) {
+			this.teachers = teachers;
+		}
+
+
+         
+}
+</pre><br />&#13;
+老师实体类：</div>&#13;
+<div> <pre code_snippet_id="1733406" snippet_file_name="blog_20160628_18_1638579" name="code" class="java">package com.mtm;
+
+import javax.persistence.Column;
+import javax.persistence.Entity;
+import javax.persistence.GeneratedValue;
+import javax.persistence.Id;
+
+import org.hibernate.annotations.GenericGenerator;
+
+//教师实体类
+@Entity
+public class Teachers {
+	      @Id
+	      @GeneratedValue(generator="tid")
+	      @GenericGenerator(name="tid",strategy="assigned")
+	      @Column(length=4)
+          private String tid;//教师id
+          private String tname;//教师名字
+          
+          public Teachers(){
+        	  
+          }
+          
+          
+		public Teachers(String tid, String tname) {
+//			super();
+			this.tid = tid;
+			this.tname = tname;
+		}
+
+
+		public String getTid() {
+			return tid;
+		}
+		public void setTid(String tid) {
+			this.tid = tid;
+		}
+		public String getTname() {
+			return tname;
+		}
+		public void setTname(String tname) {
+			this.tname = tname;
+		}
+          
+          
+}
+</pre><br />&#13;
+</div>&#13;
+<div>测试类：</div>&#13;
+<div><pre code_snippet_id="1733406" snippet_file_name="blog_20160628_19_7668844" name="code" class="java">package com.mtm;
+
+import java.util.Date;
+import java.util.HashSet;
+import java.util.Set;
+
+import org.hibernate.Session;
+import org.hibernate.SessionFactory;
+import org.hibernate.Transaction;
+import org.hibernate.cfg.Configuration;
+import org.hibernate.service.ServiceRegistry;
+import org.hibernate.service.ServiceRegistryBuilder;
+import org.hibernate.tool.hbm2ddl.SchemaExport;
+import org.junit.Test;
+
+
+public class TestStudents {
+	@Test
+    public void testShemaExport(){
+ 	   //创建hibernate配置对象
+ 	   Configuration config = new Configuration().configure();
+ 	   //创建服务注册对象
+ 	   ServiceRegistry serviceRegistry = new ServiceRegistryBuilder().applySettings(config.getProperties()).buildServiceRegistry();
+        //生成SessionFactory
+ 	   SessionFactory sessionFactory = config.buildSessionFactory(serviceRegistry);
+        SchemaExport export = new SchemaExport(config);
+        export.create(true,true);
+    }
+	@Test
+	public void addStudents(){
+		 //创建hibernate配置对象
+	 	   Configuration config = new Configuration().configure();
+	 	   //创建服务注册对象
+	 	   ServiceRegistry serviceRegistry = new ServiceRegistryBuilder().applySettings(config.getProperties()).buildServiceRegistry();
+	        //生成SessionFactory
+	 	   SessionFactory sessionFactory = config.buildSessionFactory(serviceRegistry);
+	 	   Session session = sessionFactory.getCurrentSession();
+	 	   Transaction tx = session.beginTransaction();
+	 	   
+	 	   //创建教师对象
+	 	   Teachers t1 = new Teachers("0001","张老师");
+	 	   Teachers t2 = new Teachers("0002","黄老师");
+	 	   Teachers t3 = new Teachers("0003","李老师");
+	 	   Teachers t4 = new Teachers("0004","王老师");
+	 	   
+	 	   Students s1 = new Students("张三","男",new Date(),"计算机");
+	 	   Students s2 = new Students("李四","男",new Date(),"计算机");
+	 	   Students s3 = new Students("王五","女",new Date(),"通信");
+	 	   Students s4 = new Students("赵六","女",new Date(),"通信");
+	 	   
+	 	   Set&lt;Teachers&gt; set1 = new HashSet&lt;Teachers&gt;();
+	 	   set1.add(t1);
+	 	   set1.add(t2);
+	 	   
+	 	   Set&lt;Teachers&gt; set2 = new HashSet&lt;Teachers&gt;();
+	 	   set2.add(t3);
+	 	   set2.add(t4);
+	 	   
+	 	   Set&lt;Teachers&gt; set3 = new HashSet&lt;Teachers&gt;();
+	 	   set3.add(t1);
+	 	   set3.add(t3);
+	 	   set3.add(t4);
+	 	   
+	 	   Set&lt;Teachers&gt; set4 = new HashSet&lt;Teachers&gt;();
+	 	   set4.add(t2);
+	 	   set4.add(t3);
+	 	   set4.add(t4);
+	 	   
+	 	   s1.setTeachers(set1);
+	 	   s2.setTeachers(set2);
+	 	   s3.setTeachers(set3);
+	 	   s4.setTeachers(set4);
+	 	   
+	 	   session.save(t1);
+	 	   session.save(t2);
+	 	   session.save(t3);
+	 	   session.save(t4);
+	 	   
+	 	   session.save(s1);
+	 	   session.save(s2);
+	 	   session.save(s3);
+	 	   session.save(s4);
+	 	   
+	 	   tx.commit();
+	}
+}
+</pre><br />&#13;
+<h2>多对多双向外键关联</h2>&#13;
+</div>&#13;
+<div>双方持有对方的集合对象，其中一方设置<br />&#13;
+<span style="white-space:pre"></span> //教师类<br />&#13;
+<span style="white-space:pre"></span> @ManyToMany(mappedBy="teachers")<br />&#13;
+<span style="white-space:pre"></span> 另一方<br />&#13;
+<span style="white-space:pre"></span> //学生类<br />&#13;
+<span style="white-space:pre"></span> @ManyToMany<br />&#13;
+<span style="white-space:pre"></span> @JoinTable(<br />&#13;
+<span style="white-space:pre"></span>    name="teachers_students",<br />&#13;
+<span style="white-space:pre"></span>    joinColumns={@JoinColumn(name="sid")},<br />&#13;
+<span style="white-space:pre"></span>    inverseJoinColumns={@JoinColumn(name="tid")}<br />&#13;
+<span style="white-space:pre"></span> )<br />&#13;
+</div>&#13;
+<div>实例：</div>&#13;
+<div>学生实体类：</div>&#13;
+<div> <pre code_snippet_id="1733406" snippet_file_name="blog_20160628_20_875211" name="code" class="java">package com.mtm_11;
+
+import java.util.Date;
+import java.util.Set;
+
+import javax.persistence.CascadeType;
+import javax.persistence.Entity;//JPA注解
+import javax.persistence.FetchType;
+import javax.persistence.GeneratedValue;
+import javax.persistence.Id;
+import javax.persistence.JoinColumn;
+import javax.persistence.JoinTable;
+import javax.persistence.ManyToMany;
+import javax.persistence.ManyToOne;
+import javax.persistence.OneToOne;
+
+/*
+ * 学生实体类
+ */
+@Entity
+public class Students {
+         private int sid; //学号
+         private String gender;//性别
+         private Date birthday;//出生日期
+         private String major;//专业
+         private String sname;//学生姓名
+         private Set&lt;Teachers&gt; teachers; //学生持有教师的集合
+         
+         public Students(){
+        	 
+         }
+
+		public Students(String sname,  String gender,
+				Date date, String major) {
+//			super();
+            this.sname = sname;
+			this.gender = gender;
+			this.birthday = date;
+			this.major = major;
+		}
+        @Id
+        @GeneratedValue
+        public int getSid() {
+			return sid;
+		}
+
+		public void setSid(int sid) {
+			this.sid = sid;
+		}
+
+		public String getSname() {
+			return sname;
+		}
+
+		public void setSname(String sname) {
+			this.sname = sname;
+		}
+
+		public String getGender() {
+			return gender;
+		}
+
+		public void setGender(String gender) {
+			this.gender = gender;
+		}
+
+		public Date getBirthday() {
+			return birthday;
+		}
+
+		public void setBirthday(Date birthday) {
+			this.birthday = birthday;
+		}
+
+		public String getMajor() {
+			return major;
+		}
+
+		public void setMajor(String major) {
+			this.major = major;
+		}
+		 @ManyToMany
+		  @JoinTable(
+		      name="teachers_students",
+		      joinColumns={@JoinColumn(name="sid")},
+		      inverseJoinColumns={@JoinColumn(name="tid")}
+		  )
+		public Set&lt;Teachers&gt; getTeachers() {
+			return teachers;
+		}
+
+		public void setTeachers(Set&lt;Teachers&gt; teachers) {
+			this.teachers = teachers;
+		}
+
+
+         
+}
+</pre>老师实体类：</div>&#13;
+<div>  <pre code_snippet_id="1733406" snippet_file_name="blog_20160628_21_2653117" name="code" class="java">package com.mtm_11;
+
+import java.util.Set;
+
+import javax.persistence.Column;
+import javax.persistence.Entity;
+import javax.persistence.GeneratedValue;
+import javax.persistence.Id;
+import javax.persistence.ManyToMany;
+
+import org.hibernate.annotations.GenericGenerator;
+
+//教师实体类
+@Entity
+public class Teachers {
+	      @Id
+	      @GeneratedValue(generator="tid")
+	      @GenericGenerator(name="tid",strategy="assigned")
+	      @Column(length=4)
+          private String tid;//教师id
+          private String tname;//教师名字
+          
+          @ManyToMany(mappedBy="teachers")
+          private Set&lt;Students&gt; stus;//教师持有学生的集合
+          
+          public Teachers(){
+        	  
+          }
+          
+          
+		public Teachers(String tid, String tname) {
+//			super();
+			this.tid = tid;
+			this.tname = tname;
+		}
+
+
+		public String getTid() {
+			return tid;
+		}
+		public void setTid(String tid) {
+			this.tid = tid;
+		}
+		public String getTname() {
+			return tname;
+		}
+		public void setTname(String tname) {
+			this.tname = tname;
+		}
+          
+          
+}
+</pre>测试类：</div>&#13;
+<div>  <pre code_snippet_id="1733406" snippet_file_name="blog_20160628_22_3351229" name="code" class="java">package com.mtm_11;
+
+import java.util.Date;
+import java.util.HashSet;
+import java.util.Set;
+
+import org.hibernate.Session;
+import org.hibernate.SessionFactory;
+import org.hibernate.Transaction;
+import org.hibernate.cfg.Configuration;
+import org.hibernate.service.ServiceRegistry;
+import org.hibernate.service.ServiceRegistryBuilder;
+import org.hibernate.tool.hbm2ddl.SchemaExport;
+import org.junit.Test;
+
+
+public class TestStudents {
+	@Test
+    public void testShemaExport(){
+ 	   //创建hibernate配置对象
+ 	   Configuration config = new Configuration().configure();
+ 	   //创建服务注册对象
+ 	   ServiceRegistry serviceRegistry = new ServiceRegistryBuilder().applySettings(config.getProperties()).buildServiceRegistry();
+        //生成SessionFactory
+ 	   SessionFactory sessionFactory = config.buildSessionFactory(serviceRegistry);
+        SchemaExport export = new SchemaExport(config);
+        export.create(true,true);
+    }
+	@Test
+	public void addStudents(){
+		 //创建hibernate配置对象
+	 	   Configuration config = new Configuration().configure();
+	 	   //创建服务注册对象
+	 	   ServiceRegistry serviceRegistry = new ServiceRegistryBuilder().applySettings(config.getProperties()).buildServiceRegistry();
+	        //生成SessionFactory
+	 	   SessionFactory sessionFactory = config.buildSessionFactory(serviceRegistry);
+	 	   Session session = sessionFactory.getCurrentSession();
+	 	   Transaction tx = session.beginTransaction();
+	 	   
+	 	   //创建教师对象
+	 	   Teachers t1 = new Teachers("0001","张老师");
+	 	   Teachers t2 = new Teachers("0002","黄老师");
+	 	   Teachers t3 = new Teachers("0003","李老师");
+	 	   Teachers t4 = new Teachers("0004","王老师");
+	 	   
+	 	   Students s1 = new Students("张三","男",new Date(),"计算机");
+	 	   Students s2 = new Students("李四","男",new Date(),"计算机");
+	 	   Students s3 = new Students("王五","女",new Date(),"通信");
+	 	   Students s4 = new Students("赵六","女",new Date(),"通信");
+	 	   
+	 	   Set&lt;Teachers&gt; set1 = new HashSet&lt;Teachers&gt;();
+	 	   set1.add(t1);
+	 	   set1.add(t2);
+	 	   
+	 	   Set&lt;Teachers&gt; set2 = new HashSet&lt;Teachers&gt;();
+	 	   set2.add(t3);
+	 	   set2.add(t4);
+	 	   
+	 	   Set&lt;Teachers&gt; set3 = new HashSet&lt;Teachers&gt;();
+	 	   set3.add(t1);
+	 	   set3.add(t3);
+	 	   set3.add(t4);
+	 	   
+	 	   Set&lt;Teachers&gt; set4 = new HashSet&lt;Teachers&gt;();
+	 	   set4.add(t2);
+	 	   set4.add(t3);
+	 	   set4.add(t4);
+	 	   
+	 	   s1.setTeachers(set1);
+	 	   s2.setTeachers(set2);
+	 	   s3.setTeachers(set3);
+	 	   s4.setTeachers(set4);
+	 	   
+	 	   session.save(t1);
+	 	   session.save(t2);
+	 	   session.save(t3);
+	 	   session.save(t4);
+	 	   
+	 	   session.save(s1);
+	 	   session.save(s2);
+	 	   session.save(s3);
+	 	   session.save(s4);
+	 	   
+	 	   tx.commit();
+	}
+}
+</pre>这里列举了几个简单的例子，大神直接略过啊~~~~</div>&#13;
+</div>&#13;
+   &#13;

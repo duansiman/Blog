@@ -1,0 +1,240 @@
+
+        <div class="markdown_views"><p>这是一个使用springMVC+spring+mybatis+bootstrap table做的分页流程,网上之前搜到的类似的教程实在太少了,所以就想着写一个大体的过程(没写的很详细),能帮助到一些人是最好的.</p>
+
+<hr />
+
+<p>先来一张完成图,可以搜索和按照制定列排序,这些都是操作都是从通过sql搜索出来的. <br />
+<img src="http://img.blog.csdn.net/20160425203943774" alt="这里写图片描述" title="" /></p>
+
+<hr />
+
+
+
+<h2 id="1bootstrap-table前端设计">1.bootstrap table前端设计</h2>
+
+<p>对于这种插件,官方例子一般都很详细,遇到不懂得应该去官网查例子,或者翻墙查,反正对百度搜索出来的垃圾不忍直视… <br />
+对于表格要注意以下几个问题: <br />
+1. 取出来的结果怎么提交给表格(通过ajax请求,返回json串) <br />
+2. 得到的json串怎么和表格字段相对应(通过data-field字段) <br />
+3. 怎么传递请求参数?怎么设计分页?(传递参数利用queryParams参数,设计分页主要是服务器要返回两个字段,total表示总数量,rows表示当前页数据条数和你搜出来的记录)</p>
+
+
+
+<pre class="prettyprint"><code class=" hljs xml"><span class="hljs-tag">&lt;<span class="hljs-title">div</span> <span class="hljs-attribute">class</span>=<span class="hljs-value">"wrapper wrapper-content"</span>&gt;</span>
+    <span class="hljs-tag">&lt;<span class="hljs-title">div</span> <span class="hljs-attribute">class</span>=<span class="hljs-value">"row"</span>&gt;</span>
+        <span class="hljs-tag">&lt;<span class="hljs-title">div</span> <span class="hljs-attribute">class</span>=<span class="hljs-value">"col-sm-12"</span>&gt;</span>
+            <span class="hljs-tag">&lt;<span class="hljs-title">div</span> <span class="hljs-attribute">class</span>=<span class="hljs-value">"animated fadeInRightBig"</span>&gt;</span>
+                <span class="hljs-comment">&lt;!--添加内容区域--&gt;</span>
+                <span class="hljs-tag">&lt;<span class="hljs-title">div</span> <span class="hljs-attribute">class</span>=<span class="hljs-value">"ibox-content"</span>&gt;</span>
+                    <span class="hljs-tag">&lt;<span class="hljs-title">h4</span> <span class="hljs-attribute">class</span>=<span class="hljs-value">"example-title"</span>&gt;</span>题目列表<span class="hljs-tag">&lt;/<span class="hljs-title">h4</span>&gt;</span>
+                    <span class="hljs-tag">&lt;<span class="hljs-title">div</span> <span class="hljs-attribute">class</span>=<span class="hljs-value">"btn-group hidden-xs"</span>  <span class="hljs-attribute">role</span>=<span class="hljs-value">"group"</span> <span class="hljs-attribute">id</span>=<span class="hljs-value">"exampleToolbar"</span>&gt;</span>
+                        <span class="hljs-tag">&lt;<span class="hljs-title">button</span> <span class="hljs-attribute">type</span>=<span class="hljs-value">"button"</span> <span class="hljs-attribute">class</span>=<span class="hljs-value">"btn btn-outline btn-default"</span>&gt;</span>
+                            <span class="hljs-tag">&lt;<span class="hljs-title">i</span> <span class="hljs-attribute">class</span>=<span class="hljs-value">"glyphicon glyphicon-plus"</span> <span class="hljs-attribute">aria-hidden</span>=<span class="hljs-value">"true"</span>&gt;</span><span class="hljs-tag">&lt;/<span class="hljs-title">i</span>&gt;</span>
+                        <span class="hljs-tag">&lt;/<span class="hljs-title">button</span>&gt;</span>
+                    <span class="hljs-tag">&lt;/<span class="hljs-title">div</span>&gt;</span>
+                    <span class="hljs-comment">&lt;!--添加题目表--&gt;</span>
+                    <span class="hljs-tag">&lt;<span class="hljs-title">table</span>  <span class="hljs-attribute">id</span>=<span class="hljs-value">"exampleTableToolbar3"</span> <span class="hljs-attribute">data-toggle</span>=<span class="hljs-value">"table"</span> &gt;</span>
+                        <span class="hljs-tag">&lt;<span class="hljs-title">thead</span>&gt;</span>
+                        <span class="hljs-tag">&lt;<span class="hljs-title">tr</span>&gt;</span>
+                        <span class="hljs-comment">&lt;!--data-field和你从数据库取出来的pojo类名相对应--&gt;</span>
+                            <span class="hljs-tag">&lt;<span class="hljs-title">th</span> <span class="hljs-attribute">data-field</span>=<span class="hljs-value">"id"</span> <span class="hljs-attribute">data-sortable</span>=<span class="hljs-value">"true"</span>&gt;</span>ID<span class="hljs-tag">&lt;/<span class="hljs-title">th</span>&gt;</span>
+                            <span class="hljs-tag">&lt;<span class="hljs-title">th</span> <span class="hljs-attribute">data-field</span>=<span class="hljs-value">"pro_name"</span>&gt;</span>标题<span class="hljs-tag">&lt;/<span class="hljs-title">th</span>&gt;</span>
+                            <span class="hljs-tag">&lt;<span class="hljs-title">th</span> <span class="hljs-attribute">data-field</span>=<span class="hljs-value">"pro_num"</span>&gt;</span>数据组数<span class="hljs-tag">&lt;/<span class="hljs-title">th</span>&gt;</span>
+                            <span class="hljs-tag">&lt;<span class="hljs-title">th</span> <span class="hljs-attribute">data-field</span>=<span class="hljs-value">"pro_path"</span>&gt;</span>数据路径<span class="hljs-tag">&lt;/<span class="hljs-title">th</span>&gt;</span>
+                            <span class="hljs-tag">&lt;<span class="hljs-title">th</span> <span class="hljs-attribute">data-field</span>=<span class="hljs-value">"cate_id"</span>&gt;</span>类别<span class="hljs-tag">&lt;/<span class="hljs-title">th</span>&gt;</span>
+                            <span class="hljs-tag">&lt;<span class="hljs-title">th</span> <span class="hljs-attribute">data-field</span>=<span class="hljs-value">"username"</span>&gt;</span>上传用户<span class="hljs-tag">&lt;/<span class="hljs-title">th</span>&gt;</span>
+                            <span class="hljs-tag">&lt;<span class="hljs-title">th</span> <span class="hljs-attribute">data-field</span>=<span class="hljs-value">"credits"</span> <span class="hljs-attribute">data-sortable</span>=<span class="hljs-value">"true"</span>&gt;</span>积分<span class="hljs-tag">&lt;/<span class="hljs-title">th</span>&gt;</span>
+                            <span class="hljs-tag">&lt;<span class="hljs-title">th</span> <span class="hljs-attribute">data-field</span>=<span class="hljs-value">"pro_pass"</span> <span class="hljs-attribute">data-sortable</span>=<span class="hljs-value">"true"</span>&gt;</span>提交次数<span class="hljs-tag">&lt;/<span class="hljs-title">th</span>&gt;</span>
+                            <span class="hljs-tag">&lt;<span class="hljs-title">th</span> <span class="hljs-attribute">data-field</span>=<span class="hljs-value">"pro_pass"</span> <span class="hljs-attribute">data-sortable</span>=<span class="hljs-value">"true"</span>&gt;</span>通过次数<span class="hljs-tag">&lt;/<span class="hljs-title">th</span>&gt;</span>
+                            <span class="hljs-tag">&lt;<span class="hljs-title">th</span> <span class="hljs-attribute">data-field</span>=<span class="hljs-value">"start_time"</span>&gt;</span>加入时间<span class="hljs-tag">&lt;/<span class="hljs-title">th</span>&gt;</span>
+                            <span class="vbscript">&lt;%--这里是用来编辑的,可以添加编辑,删除等按钮--%&gt;</span>
+                            <span class="hljs-tag">&lt;<span class="hljs-title">th</span> <span class="hljs-attribute">data-field</span>=<span class="hljs-value">"action"</span> <span class="hljs-attribute">data-formatter</span>=<span class="hljs-value">"actionFormatter"</span> <span class="hljs-attribute">data-events</span>=<span class="hljs-value">"actionEvents"</span>&gt;</span>Action<span class="hljs-tag">&lt;/<span class="hljs-title">th</span>&gt;</span>
+                        <span class="hljs-tag">&lt;/<span class="hljs-title">tr</span>&gt;</span>
+                        <span class="hljs-tag">&lt;/<span class="hljs-title">thead</span>&gt;</span>
+                    <span class="hljs-tag">&lt;/<span class="hljs-title">table</span>&gt;</span>
+                <span class="hljs-tag">&lt;/<span class="hljs-title">div</span>&gt;</span>
+                <span class="hljs-comment">&lt;!--添加题目表结束--&gt;</span>
+
+            <span class="hljs-tag">&lt;/<span class="hljs-title">div</span>&gt;</span>
+        <span class="hljs-tag">&lt;/<span class="hljs-title">div</span>&gt;</span></code></pre>
+
+<hr />
+
+
+
+<h2 id="2ajax请求json串">2.ajax请求json串</h2>
+
+<p>具体请求对于bootstrap table一般是放在js里面控制.</p>
+
+
+
+<pre class="prettyprint"><code class=" hljs lasso"><span class="hljs-built_in">var</span> table3 <span class="hljs-subst">=</span> $(<span class="hljs-string">"#exampleTableToolbar3"</span>);
+
+table3<span class="hljs-built_in">.</span>bootstrapTable({
+    url: <span class="hljs-string">"/system/getAllProblem"</span>,<span class="hljs-comment">//具体请求地址</span>
+    method: <span class="hljs-string">'post'</span>,<span class="hljs-comment">//请求方式</span>
+    <span class="hljs-keyword">cache</span>: <span class="hljs-literal">false</span>,                      <span class="hljs-comment">//是否使用缓存，默认为true，所以一般情况下需要设置一下这个属性（*）</span>
+    pagination: <span class="hljs-literal">true</span>,                  <span class="hljs-comment">//是否显示分页（*）</span>
+    search: <span class="hljs-subst">!</span><span class="hljs-number">0</span>,<span class="hljs-comment">//是否开启搜索框</span>
+    showRefresh: <span class="hljs-subst">!</span><span class="hljs-number">0</span>,<span class="hljs-comment">//是否显示刷新框</span>
+    sidePagination: <span class="hljs-string">"server"</span>,          <span class="hljs-comment">//分页方式：client客户端分页，server服务端分页（*）</span>
+    queryParams: queryParams,<span class="hljs-comment">//传递参数（*）</span>
+    pageSize: <span class="hljs-number">10</span>,                      <span class="hljs-comment">//每页的记录行数（*）</span>
+    showColumns: <span class="hljs-subst">!</span><span class="hljs-number">0</span>,<span class="hljs-comment">//是否显示columns按钮</span>
+    toolbar: <span class="hljs-string">"#exampleToolbar"</span>,<span class="hljs-comment">//对用的toolbar</span>
+    iconSize: <span class="hljs-string">"outline"</span>,
+    icons: {refresh: <span class="hljs-string">"glyphicon-repeat"</span>, columns: <span class="hljs-string">"glyphicon-list"</span>},<span class="hljs-comment">//对应按钮对应的字体图标</span>
+    uniqueId: <span class="hljs-string">"ID"</span><span class="hljs-comment">//主键id</span>
+});
+
+<span class="hljs-comment">//题目表参数传递</span>
+function queryParams(<span class="hljs-keyword">params</span>) {
+    <span class="hljs-keyword">return</span> {
+        limit:<span class="hljs-keyword">params</span><span class="hljs-built_in">.</span>limit,<span class="hljs-comment">//每页数据条数</span>
+        offset:<span class="hljs-keyword">params</span><span class="hljs-built_in">.</span>offset,<span class="hljs-comment">//当前页偏移</span>
+        <span class="hljs-keyword">order</span>:<span class="hljs-keyword">params</span><span class="hljs-built_in">.</span><span class="hljs-keyword">order</span>,<span class="hljs-comment">//排序</span>
+        ordername:<span class="hljs-keyword">params</span><span class="hljs-built_in">.</span>sort,<span class="hljs-comment">//需要排序的字段</span>
+        search:<span class="hljs-keyword">params</span><span class="hljs-built_in">.</span>search<span class="hljs-comment">//搜索的字段</span>
+    };
+}</code></pre>
+
+<p>随便测试下,就能看到的传递的字段,是json格式的,说明我们要查询10条记录,从第1条开始,按照id奖序,并且要查询带有字符p的相关数据 <br />
+<img src="http://img.blog.csdn.net/20160425210903969" alt="这里写图片描述" title="" /></p>
+
+<p>为了接收参数的方面,我们把上面的几个参数封装到pojo类中,当成一个工具类</p>
+
+
+
+<pre class="prettyprint"><code class=" hljs cs"><span class="hljs-keyword">public</span> <span class="hljs-keyword">class</span> PageUtil {
+    <span class="hljs-keyword">private</span> <span class="hljs-keyword">int</span> limit = <span class="hljs-number">10</span>;<span class="hljs-comment">//每页限制数,默认为10</span>
+    <span class="hljs-keyword">private</span> <span class="hljs-keyword">int</span> offset = <span class="hljs-number">1</span>;<span class="hljs-comment">//当前页偏移,默认为1</span>
+    <span class="hljs-keyword">private</span> String order;<span class="hljs-comment">//排序</span>
+    <span class="hljs-keyword">private</span> String ordername;<span class="hljs-comment">//排序列名称</span>
+    <span class="hljs-keyword">private</span> String search;<span class="hljs-comment">//搜索内容</span>
+
+    <span class="hljs-comment">//这里是模糊查询,所以需要对search字段改造下</span>
+        <span class="hljs-keyword">public</span> <span class="hljs-keyword">void</span> <span class="hljs-title">setSearch</span>(String search) {
+        <span class="hljs-keyword">this</span>.search = <span class="hljs-string">"%"</span>+search+<span class="hljs-string">"%"</span>;
+    }
+    <span class="hljs-comment">//省略get和set方法</span>
+}</code></pre>
+
+<hr />
+
+
+
+<h2 id="3mybatis对应的sql语句">3.mybatis对应的sql语句</h2>
+
+<p>基本查询语句,会根据PageUtil里面封装的值自动来查询</p>
+
+
+
+<pre class="prettyprint"><code class=" hljs xml">
+    <span class="hljs-comment">&lt;!--查询出所有题目--&gt;</span>
+    <span class="hljs-tag">&lt;<span class="hljs-title">select</span> <span class="hljs-attribute">id</span>=<span class="hljs-value">"findAllProblem"</span> <span class="hljs-attribute">resultType</span>=<span class="hljs-value">"com.aust.model.system.Problem"</span> <span class="hljs-attribute">parameterType</span>=<span class="hljs-value">"com.aust.util.PageUtil"</span>&gt;</span>
+        SELECT * FROM cum_problem
+        <span class="hljs-tag">&lt;<span class="hljs-title">where</span>&gt;</span>
+            <span class="hljs-tag">&lt;<span class="hljs-title">if</span> <span class="hljs-attribute">test</span>=<span class="hljs-value">"search != null"</span>&gt;</span>
+                (pro_name LIKE #{search} ) or (username LIKE #{search})
+            <span class="hljs-tag">&lt;/<span class="hljs-title">if</span>&gt;</span>
+        <span class="hljs-tag">&lt;/<span class="hljs-title">where</span>&gt;</span>
+        <span class="hljs-tag">&lt;<span class="hljs-title">if</span> <span class="hljs-attribute">test</span>=<span class="hljs-value">"ordername != null"</span>&gt;</span>
+            <span class="hljs-comment">&lt;!--这里使用$符号--&gt;</span>
+            ORDER BY ${ordername} ${order}
+        <span class="hljs-tag">&lt;/<span class="hljs-title">if</span>&gt;</span>
+    <span class="hljs-tag">&lt;/<span class="hljs-title">select</span>&gt;</span></code></pre>
+
+
+
+<h2 id="4spring管理的dao">4.spring管理的dao</h2>
+
+<p>DAO里面只要写上调用mybatis这个sql就可以了.具体错误什么的都由spring来处理.</p>
+
+
+
+<pre class="prettyprint"><code class=" hljs java"><span class="hljs-annotation">@Repository</span>(<span class="hljs-string">"CumProblemMapper"</span>)
+<span class="hljs-keyword">public</span> <span class="hljs-class"><span class="hljs-keyword">class</span> <span class="hljs-title">CumProblemMapper</span> {</span>
+
+    <span class="hljs-annotation">@Resource</span>(name = <span class="hljs-string">"sqlSessionTemplate"</span>)
+    <span class="hljs-keyword">private</span> SqlSessionTemplate sqlSessionTemplate;
+
+    <span class="hljs-keyword">public</span> List&lt;Problem&gt; <span class="hljs-title">findAllProblem</span>(PageUtil pageUtil){
+        <span class="hljs-keyword">return</span> sqlSessionTemplate.selectList(<span class="hljs-string">"cumProblemMapper.findAllProblem"</span>,pageUtil);
+    }
+}</code></pre>
+
+<hr />
+
+
+
+<h2 id="5springmvc管理的controller">5.springMVC管理的controller</h2>
+
+<p>写控制器要注意以下几点问题: <br />
+1. 如何接收传递过来的json数据(用@requestBody pageUtil) <br />
+2. 如何分页查询?(利用mybatis分页插件(PageHelper),或者直接在sql里面加上limit ?,?) <br />
+3. 分页查询后如何返回json数据?(利用@ResponseBody)</p>
+
+<p>解决了以下几个问题,那么控制器就可以设计如下:</p>
+
+
+
+<pre class="prettyprint"><code class=" hljs java"><span class="hljs-annotation">@Controller</span>
+<span class="hljs-annotation">@RequestMapping</span>(value = <span class="hljs-string">"/system"</span>)
+<span class="hljs-keyword">public</span> <span class="hljs-class"><span class="hljs-keyword">class</span> <span class="hljs-title">CumProblemController</span> {</span>
+    <span class="hljs-annotation">@Resource</span>(name = <span class="hljs-string">"CumProblemMapper"</span>)
+    <span class="hljs-keyword">private</span> CumProblemMapper cumProblemMapper;
+
+    <span class="hljs-javadoc">/**
+     * 进入问题列表
+     */</span>
+    <span class="hljs-annotation">@RequestMapping</span>(value = <span class="hljs-string">"/problem_list"</span>,method = RequestMethod.GET)
+    <span class="hljs-keyword">public</span> String <span class="hljs-title">getAllProblemList</span>(){
+        <span class="hljs-keyword">return</span> <span class="hljs-string">"system/problem_list"</span>;
+    }
+
+    <span class="hljs-javadoc">/**
+     * 得到全部的题目
+     *<span class="hljs-javadoctag"> @return</span>
+     */</span>
+    <span class="hljs-annotation">@RequestMapping</span>(value = <span class="hljs-string">"/getAllProblem"</span>,method = RequestMethod.POST)
+    <span class="hljs-keyword">public</span> @ResponseBody Map&lt;String,Object&gt; <span class="hljs-title">getAllProblem</span>(@RequestBody PageUtil pageUtil){
+        <span class="hljs-comment">//存储所有的信息,方面返回json串</span>
+        Map&lt;String,Object&gt; model = <span class="hljs-keyword">new</span> HashMap&lt;&gt;();
+        <span class="hljs-comment">//开始分页,传递的参数1为请求第几页,参数2为请求条数</span>
+        PageHelper.startPage(pageUtil.getOffset()/pageUtil.getLimit()+<span class="hljs-number">1</span>,pageUtil.getLimit());
+        <span class="hljs-comment">//查询</span>
+        List&lt;Problem&gt; list = cumProblemMapper.findAllProblem(pageUtil);
+        <span class="hljs-comment">//查询结果包装到map</span>
+        model.put(<span class="hljs-string">"total"</span>,info.getTotal());
+        <span class="hljs-comment">//查询结果包装到map</span>
+        model.put(<span class="hljs-string">"rows"</span>,list);
+        <span class="hljs-comment">//返回json串</span>
+        <span class="hljs-keyword">return</span> model;
+    }
+}</code></pre>
+
+<hr />
+
+<p>6.到此完成了分页功能,具体的很多参数你都可以另外再配置了,多参考官方文档,有问题请指出</p>
+
+<hr />
+
+<p>项目示例:</p>
+
+<p>SSM框架整合: <a href="https://github.com/nl101531/JavaWEB">https://github.com/nl101531/JavaWEB</a></p>
+
+<p>自己做的一个项目: <a href="https://github.com/nl101531/AUSTOJ">https://github.com/nl101531/AUSTOJ</a></p></div>&#13;
+        <script type="text/javascript">&#13;
+            $(function () {&#13;
+                $('pre.prettyprint code').each(function () {&#13;
+                    var lines = $(this).text().split('\n').length;&#13;
+                    var $numbering = $('&lt;ul/&gt;').addClass('pre-numbering').hide();&#13;
+                    $(this).addClass('has-numbering').parent().append($numbering);&#13;
+                    for (i = 1; i &lt;= lines; i++) {&#13;
+                        $numbering.append($('&lt;li/&gt;').text(i));&#13;
+                    };&#13;
+                    $numbering.fadeIn(1700);&#13;
+                });&#13;
+            });&#13;
+        </script>&#13;
+   &#13;

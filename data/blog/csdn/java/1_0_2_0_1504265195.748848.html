@@ -1,0 +1,143 @@
+
+        <div class="markdown_views"><p><strong>摘要：</strong></p>
+
+<p>　　URLDecoder 和 URLEncoder 用于完成普通字符串 和 application/x-www-form-urlencoded MIME 字符串之间的相互转换。在本文中，我们以使用URLDecoder解决GET请求中文乱码问题为场景说明 URLDecoder/URLEncoder 的用法，并给出了 application/x-www-form-urlencoded MIME 字符串的编码规则。</p>
+
+<hr />
+
+
+
+<h2 id="一-urldecoderurlencoder-使用场景概述">一. URLDecoder/URLEncoder 使用场景概述</h2>
+
+<p>　　<font color="DarkGreen"><b>URLDecoder 和 URLEncoder 用于完成普通字符串 和 application/x-www-form-urlencoded MIME 字符串之间的相互转换。</b></font>在介绍 application/x-www-form-urlencoded MIME 字符串之前，我们先考虑如下场景，如下图所示：</p>
+
+<p>　　　　　　　　　　　　<img src="http://static.zybuluo.com/Rico123/aiclevwfyv09uyllrhguxg0p/URL.png" alt="URL.png-14.8kB" title="" /></p>
+
+<p>　　我们知道，在我们向客户端发起请求时，浏览器会根据请求URL生成相应的请求报文发送给服务器。在这个过程中，如果我们在浏览器中的地址栏中所输入的URL包含中文字符时，浏览器首先会将这些中文字符进行编码然后再发送给服务器。实际上，浏览器会将它们转换为 application/x-www-form-urlencoded MIME 字符串，如下图所示：</p>
+
+<p>　　　　　　　　　　　　<img src="http://static.zybuluo.com/Rico123/06h9918ipdyztfyz8jz1oixz/%E8%BD%AC%E7%A0%81.png" alt="转码.png-48.7kB" title="" /></p>
+
+<p>　　更确切的，当URL地址里包含非西欧字符的字符串时，浏览器都会将这些非西欧字符串转换成application/x-www-form-urlencoded MIME 字符串。在开发过程中，我们可能涉及将普通字符串和这种特殊字符串的相关转换，这就需要使用 URLDecoder 和 URLEncoder类进行实现，其中：</p>
+
+<ul>
+<li><p><font color="blue">URLDecoder类包含一个decode(String s,String enc)静态方法，它可以将application/x-www-form-urlencoded MIME字符串转成普通字符串；</font></p></li>
+<li><p><font color="blue">URLEncoder类包含一个encode(String s,String enc)静态方法，它可以将普通字符串转换成application/x-www-form-urlencoded MIME字符串。</font></p>
+
+<p>　　下面程序示范了普通字符串转与 application/x-www-form-urlencoded MIME 字符串之间的转化。</p></li>
+</ul>
+
+
+
+<pre class="prettyprint"><code class="language-java hljs "><span class="hljs-keyword">public</span> <span class="hljs-class"><span class="hljs-keyword">class</span> <span class="hljs-title">URLDecoderTest</span> {</span>
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">static</span> <span class="hljs-keyword">void</span> <span class="hljs-title">main</span>(String[] args) <span class="hljs-keyword">throws</span> Exception {
+
+        <span class="hljs-comment">// 将application/x-www-form-urlencoded字符串转换成普通字符串</span>
+        <span class="hljs-comment">// 其中的字符串直接从上图所示窗口复制过来,chrome 默认用 UTF-8 字符集进行编码，所以也应该用对应的字符集解码</span>
+        System.out.println(<span class="hljs-string">"采用UTF-8字符集进行解码:"</span>);
+        String keyWord = URLDecoder.decode(<span class="hljs-string">"%E5%A4%A9%E6%B4%A5%E5%A4%A7%E5%AD%A6+Rico"</span>, <span class="hljs-string">"UTF-8"</span>);
+        System.out.println(keyWord);
+        System.out.println(<span class="hljs-string">"\n 采用GBK字符集进行解码:"</span>);
+        System.out.println(URLDecoder.decode(<span class="hljs-string">"%E5%A4%A9%E6%B4%A5%E5%A4%A7%E5%AD%A6+Rico"</span>, <span class="hljs-string">"GBK"</span>));
+
+        <span class="hljs-comment">// 将普通字符串转换成application/x-www-form-urlencoded字符串</span>
+        System.out.println(<span class="hljs-string">"\n 采用utf-8字符集:"</span>);
+        String urlStr = URLEncoder.encode(<span class="hljs-string">"天津大学"</span>, <span class="hljs-string">"utf-8"</span>);
+        System.out.println(urlStr);
+        System.out.println(<span class="hljs-string">"\n 采用GBK字符集:"</span>);
+        String urlStr2 = URLEncoder.encode(<span class="hljs-string">"天津大学"</span>, <span class="hljs-string">"GBK"</span>);
+        System.out.println(urlStr2);
+    }
+}<span class="hljs-comment">/* Output: 
+        采用UTF-8字符集进行解码:
+        天津大学 Rico
+
+        采用GBK字符集进行解码:
+        澶╂触澶у Rico
+
+        采用utf-8字符集:
+        %E5%A4%A9%E6%B4%A5%E5%A4%A7%E5%AD%A6
+
+        采用GBK字符集:
+        %CC%EC%BD%F2%B4%F3%D1%A7
+ */</span><span class="hljs-comment">//:~</span></code></pre>
+
+<p>　　特别地，<font color="blue"><b>仅包含西欧字符的普通字符串和application/x-www-form-urlencoded MIME字符串无须转换，而包含中文字符的普通字符串则需要转换，转换的方法是每个中文字符占2个字节，每个字节可以转换成2个十六进制的数字，所以每个中文字符将转换成“%XX%XX”的形式。</b></font>当然，采用不同的字符集时，每个中文字符对应的字节数并不完全相同，所以使用URLEncoder和URLDecoder进行转换时也需要指定字符集。特别地，<font color="DarkGreen"><b>字符串应以同样的字符集进行编码和解码，否则会产生意想不到的结果</b></font>，如上述程序示例所示。</p>
+
+<hr />
+
+
+
+<h2 id="二-解决get请求中文乱码问题">二. 解决GET请求中文乱码问题</h2>
+
+<p>　　URLDecoder的一个应用场景就是解决GET请求的中文乱码问题，如下述代码所示：</p>
+
+
+
+<pre class="prettyprint"><code class="language-jsp hljs xml"><span class="vbscript">&lt;%@page import=<span class="hljs-string">"java.net.URLDecoder"</span>%&gt;</span>
+<span class="vbscript">&lt;%@ page language=<span class="hljs-string">"java"</span> import=<span class="hljs-string">"java.util.*"</span> pageEncoding=<span class="hljs-string">"UTF-8"</span>%&gt;</span>
+<span class="hljs-tag">&lt;<span class="hljs-title">html</span>&gt;</span>
+<span class="hljs-tag">&lt;<span class="hljs-title">head</span>&gt;</span>
+    <span class="hljs-tag">&lt;<span class="hljs-title">title</span>&gt;</span>Test<span class="hljs-tag">&lt;/<span class="hljs-title">title</span>&gt;</span>
+<span class="hljs-tag">&lt;/<span class="hljs-title">head</span>&gt;</span>
+<span class="hljs-tag">&lt;<span class="hljs-title">body</span>&gt;</span>
+    <span class="vbscript">&lt;%
+        <span class="hljs-built_in">String</span> param1 = <span class="hljs-built_in">request</span>.getQueryString();
+        <span class="hljs-built_in">String</span> param2 = URLDecoder.decode(param1, <span class="hljs-string">"utf-8"</span>);
+        out.print(param2.<span class="hljs-built_in">split</span>(<span class="hljs-string">"="</span>)[<span class="hljs-number">1</span>] + <span class="hljs-string">"&lt;br&gt;"</span>);
+    %&gt;</span>
+<span class="hljs-tag">&lt;/<span class="hljs-title">body</span>&gt;</span>
+<span class="hljs-tag">&lt;/<span class="hljs-title">html</span>&gt;</span></code></pre>
+
+<p>　　特别需要注意的是，<font color="red">&gt;使用此方式对GET请求参数进行解码时，我们必须先对 request.getQueryString 方法的返回值(例如，“name=摩羯西门吹雪”)进行解码，然后再从中取出我们所需要的参数值。</font>如果先取出参数值，然后再对参数值进行解码，则我们将得到乱码，如下图所示：</p>
+
+<p>　　　　　　　　　　　　<img src="http://static.zybuluo.com/Rico123/dzah44rtuoh8tndllyjw56sk/%E4%B9%B1%E7%A0%81.png" alt="乱码.png-21.5kB" title="" /></p>
+
+<p>　　此外，<font color="blue"><b>对于包含中文字符的POST请求参数，我们只需在获取请求参数前通过以下代码语句进行转码即可：</b></font></p>
+
+
+
+<pre class="prettyprint"><code class="language-java hljs ">    request.setCharacterEncoding(<span class="hljs-string">"utf-8"</span>);</code></pre>
+
+<hr />
+
+
+
+<h2 id="三-urlencoder-urldecoder">三. URLEncoder &amp; URLDecoder</h2>
+
+<p>　　对 String 编码时，使用以下规则： </p>
+
+<ul>
+<li><font color="blue">字母、数字和字符， “a” 到 “z”、”A” 到 “Z” 和 “0” 到 “9” 保持不变；</font></li>
+<li><font color="blue">特殊字符 “.”、”-“、”*” 和 “_” 保持不变；</font></li>
+<li><p><font color="blue">空格字符 ” ” 转换为一个加号 “+”。</font></p>
+
+<p>　　除此之外，所有的其他字符都是不安全的。因此需要使用一些编码机制将它们转换为一个或多个字节，每个字节用一个包含 3 个字符的字符串 “%xy” 表示，其中 xy 为该字节的两位十六进制表示形式，推荐的编码机制是 UTF-8。例如，使用 UTF-8 编码机制，字符串 “The string ü@foo-bar” 将转换为 “The+string+%C3%BC%40foo-bar”，因为在 UTF-8 中，字符 ü 编码为两个字节，C3 （十六进制）和 BC （十六进制），字符 @ 编码为一个字节 40 （十六进制）。 </p>
+
+<p>　　关于 URLDecoder 类的使用，转换过程正好与 URLEncoder 类使用的过程相反，此不赘述。</p></li>
+</ul>
+
+<hr />
+
+<p>　　关于JSP中文乱码更多的介绍，包括 页面乱码、参数乱码、表单乱码、源文件乱码 等知识，见我的另外两篇博客：<a href="http://blog.csdn.net/justloveyou_/article/details/58048879">《JSP中文乱码问题终极解决方案(上)》</a> 和 <a href="http://blog.csdn.net/justloveyou_/article/details/55827718">《JSP中文乱码问题终极解决方案(下)》</a>。 </p>
+
+<hr />
+
+<blockquote>
+  <h2 id="引用">引用</h2>
+  
+  <p><a href="http://asflex.iteye.com/blog/356028">使用URLDecoder和URLEncoder对中文进行处理</a></p>
+</blockquote></div>&#13;
+        <script type="text/javascript">&#13;
+            $(function () {&#13;
+                $('pre.prettyprint code').each(function () {&#13;
+                    var lines = $(this).text().split('\n').length;&#13;
+                    var $numbering = $('&lt;ul/&gt;').addClass('pre-numbering').hide();&#13;
+                    $(this).addClass('has-numbering').parent().append($numbering);&#13;
+                    for (i = 1; i &lt;= lines; i++) {&#13;
+                        $numbering.append($('&lt;li/&gt;').text(i));&#13;
+                    };&#13;
+                    $numbering.fadeIn(1700);&#13;
+                });&#13;
+            });&#13;
+        </script>&#13;
+   &#13;

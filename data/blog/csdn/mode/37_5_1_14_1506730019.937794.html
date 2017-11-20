@@ -1,0 +1,214 @@
+
+                <div class="markdown_views"><h3 id="意图">意图</h3>
+
+<p>将命令写成类 <br/>
+命令模式是从界面设计中提取出来的一种分离耦合，提高重用性的方法，可以分离显示逻辑和业务逻辑的耦合。 <br/>
+将一个请求封装成一个对象，从而使你可以用不同的请求对客户进行参数化；对请求队列或记录请求日志，以及支持可撤销的操作。</p>
+
+
+
+<h3 id="适用性">适用性</h3>
+
+<ol>
+<li>抽象出执行的动作以参数化某对象。你可用过程语言中的回调函数表达这种参数化机制。所谓回调函数是指函数现在某处注册，而它将在稍后某个需要的时候被调用。Command模式是回调机制的一个面向对象的替代品。</li>
+<li>在不同的时刻指定、排列和执行请求。一个Command对象可以有一个与初始请求无关的生存期。如果一个请求的接收者可用一种与地址空间无关的方式表达，那么就可将负责请求的命令对象传送给另一个不同的进程并在那儿实现该请求。</li>
+<li>支持取消操作。Command的Excute操作可实施操作前将状态存储起来，在取消该操作时这个状态用来消除该操作的影响。Command接口必须添加一个Unexecute操作，该操作取消上一次Execute调用的效果。执行的命令被存储在一个历史列表中。可通过向后和向前遍历这一列表并分别调用Unexecute和Execute来实现重数不限的“取消”和“重做”。</li>
+<li>支持修改日志，这样当系统崩溃时，这些修改可以被重做一遍。在Command接口中添加装载操作和存储操作，可以用来保持变动的一个一致的修改日志。从崩溃中恢复的过程包括从磁盘中重新读入记录下来的命令并用Execute操作重新执行它们。</li>
+<li>用构建在原语操作上的高层操作构造一个系统。这样一种结构在支持事务的信息系统中很常见。一个事务封装了对数据的一组变动。Command模式提供了对事务进行建模的方法。Command有一个公共的接口，使得你可以用同一种方式调用所有的事务。同时使用该模式也易于添加新事务以扩展系统。</li>
+</ol>
+
+
+
+<h3 id="结构">结构</h3>
+
+<p><img title="" alt="这里写图片描述" src="http://img.blog.csdn.net/20170413083903671?watermark/2/text/aHR0cDovL2Jsb2cuY3Nkbi5uZXQvc2xkODgwMzEx/font/5a6L5L2T/fontsize/400/fill/I0JBQkFCMA==/dissolve/70/gravity/SouthEast"/></p>
+
+
+
+<h3 id="参与者">参与者</h3>
+
+
+
+<h4 id="command">Command</h4>
+
+<p>1.声明执行操作的接口</p>
+
+
+
+<h4 id="concretecommand">ConcreteCommand</h4>
+
+<ol>
+<li>将一个接收者对象绑定于一个动作</li>
+<li>调用接收者相应的操作，以实现Execute（以实现命令角色声明的执行操作接口）</li>
+</ol>
+
+
+
+<h4 id="client">Client</h4>
+
+<p>1.创建一个具体命令对象并设定它的接收者</p>
+
+
+
+<h4 id="invoker">Invoker</h4>
+
+<p>1.要求该命令执行这个请求（调用命令对象执行这个请求）</p>
+
+
+
+<h4 id="receiver">Receiver</h4>
+
+<p>1.知道如何实施与执行一个请求相关的操作。任何类都可能作为一个接收者。</p>
+
+
+
+<h3 id="代码">代码</h3>
+
+
+
+<h4 id="command-1">Command</h4>
+
+
+
+<pre class="prettyprint"><code class="language-java hljs "><span class="hljs-keyword">public</span> <span class="hljs-class"><span class="hljs-keyword">interface</span> <span class="hljs-title">Command</span> {</span>
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">void</span> <span class="hljs-title">execute</span>();
+}
+</code></pre>
+
+
+
+<h4 id="concretecommand-1">ConcreteCommand</h4>
+
+
+
+<pre class="prettyprint"><code class="language-java hljs "><span class="hljs-keyword">public</span> <span class="hljs-class"><span class="hljs-keyword">class</span> <span class="hljs-title">DrawCommand</span> <span class="hljs-keyword">implements</span> <span class="hljs-title">Command</span> {</span>
+    <span class="hljs-keyword">private</span> Drawable drawable;
+    <span class="hljs-keyword">private</span> String position;
+    <span class="hljs-keyword">public</span> <span class="hljs-title">DrawCommand</span>(Drawable drawable,String position){
+        <span class="hljs-keyword">this</span>.drawable = drawable;
+        <span class="hljs-keyword">this</span>.position = position;
+    }
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">void</span> <span class="hljs-title">execute</span>() {
+        drawable.draw(position);
+    }
+}
+<span class="hljs-keyword">public</span> <span class="hljs-class"><span class="hljs-keyword">class</span> <span class="hljs-title">MacroCommand</span> <span class="hljs-keyword">implements</span> <span class="hljs-title">Command</span> {</span>
+    <span class="hljs-keyword">private</span> Stack&lt;Command&gt; commands = <span class="hljs-keyword">new</span> Stack&lt;Command&gt;();
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">void</span> <span class="hljs-title">execute</span>() {
+        <span class="hljs-keyword">for</span>(Command command:commands){
+            command.execute();
+        }
+    }
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">void</span> <span class="hljs-title">append</span>(Command command){
+        <span class="hljs-keyword">if</span>(command!=<span class="hljs-keyword">null</span>){
+            commands.push(command);
+        }
+    }
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">void</span> <span class="hljs-title">undo</span>(){
+        <span class="hljs-keyword">if</span>(!commands.isEmpty()){
+            commands.pop();
+        }
+    }
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">void</span> <span class="hljs-title">clear</span>(){
+        commands.clear();
+    }
+}
+</code></pre>
+
+
+
+<h4 id="receiver-1">Receiver</h4>
+
+
+
+<pre class="prettyprint"><code class="language-java hljs "><span class="hljs-keyword">public</span> <span class="hljs-class"><span class="hljs-keyword">interface</span> <span class="hljs-title">Drawable</span> {</span>
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">void</span> <span class="hljs-title">draw</span>(String position);
+}
+<span class="hljs-keyword">public</span> <span class="hljs-class"><span class="hljs-keyword">class</span> <span class="hljs-title">DrawCanvas</span> <span class="hljs-keyword">implements</span> <span class="hljs-title">Drawable</span> {</span>
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">void</span> <span class="hljs-title">draw</span>(String position) {
+        System.out.println(<span class="hljs-string">"=======DrawCanvas======"</span>+position);
+    }
+}
+</code></pre>
+
+<h4 id="client-1">Client</h4>
+
+
+
+<pre class="prettyprint"><code class="language-java hljs "><span class="hljs-keyword">public</span> <span class="hljs-class"><span class="hljs-keyword">class</span> <span class="hljs-title">Main</span> {</span>
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">static</span> <span class="hljs-keyword">void</span> <span class="hljs-title">main</span>(String[] args) {
+        MacroCommand macroCommand = <span class="hljs-keyword">new</span> MacroCommand();
+        macroCommand.append(<span class="hljs-keyword">new</span> DrawCommand(<span class="hljs-keyword">new</span> DrawCanvas(),<span class="hljs-string">"hello"</span>));
+        macroCommand.append(<span class="hljs-keyword">new</span> DrawCommand(<span class="hljs-keyword">new</span> DrawCanvas(),<span class="hljs-string">"world"</span>));
+        macroCommand.append(<span class="hljs-keyword">new</span> DrawCommand(<span class="hljs-keyword">new</span> DrawCanvas(),<span class="hljs-string">"124"</span>));
+        macroCommand.append(<span class="hljs-keyword">new</span> DrawCommand(<span class="hljs-keyword">new</span> DrawCanvas(),<span class="hljs-string">"456"</span>));
+        macroCommand.execute();
+    }
+}
+</code></pre>
+
+<h3 id="协作">协作</h3>
+
+<ol>
+<li>Client创建一个ConcreteCommand对象并指定它的Receiver对象。</li>
+<li>某Invoker对象存储该ConcreteCommand对象</li>
+<li>该Invoker通过调用Command对象的Execute操作来提交一个请求。若该命令是可撤销的，ConcreteCommand就在执行Execute操作之前存储当前状态以用于取消该命令</li>
+<li>ConcreteCommand对象对它的Receiver的一些操作以执行该请求。 <br/>
+<img title="" alt="这里写图片描述" src="http://img.blog.csdn.net/20170413084546639?watermark/2/text/aHR0cDovL2Jsb2cuY3Nkbi5uZXQvc2xkODgwMzEx/font/5a6L5L2T/fontsize/400/fill/I0JBQkFCMA==/dissolve/70/gravity/SouthEast"/> <br/>
+上图展示了这些对象之间的交互。它说明了Command是如何将调用者和接收者（以及它执行的请求）解耦的。</li>
+</ol>
+
+<h3 id="优点">优点</h3>
+
+<ol>
+<li>Command模式将调用操作的请求对象与知道如何实现该操作的接收对象解耦。</li>
+<li>Command是头等的对象。它们可像其他的对象一样被操纵和扩展。</li>
+<li>具体命令角色可以被不同的请求角色重用</li>
+<li>你可将多个命令装配成一个复合命令。一般来说，复合命令时Composite模式的一个实例。</li>
+<li>增加新的Command很容易，因为者无需改变已有的类。</li>
+</ol>
+
+<h3 id="缺点">缺点</h3>
+
+<p>使用命令模式可能会导致某些系统有过多的具体命令类。因为针对每一个命令都需要设计一个具体命令类，因此某些系统可能需要大量具体命令类，这将影响命令模式的使用。</p>
+
+<h3 id="实现">实现</h3>
+
+<h4 id="一个命令对象应达到何种智能程度">一个命令对象应达到何种智能程度</h4>
+
+<p>命令对象的能力可大可小。一个极端是它仅确定一个接收者和执行该请求的动作。另一个极端是它自己实现所有功能，根本不需要额外的接收者对象。当需要定义与已有的类无关的命令，当没有合适的接收者，或当一个命令隐式地知道它的接收者时，可以使用后一极端方式。例如，创建另一个应用窗口的命令对象本身可能和任何其他的对象一样有能力创建该窗口。在这两个极端间的情况是命令对象有足够的信息可以动态的找到它们的接收者。</p>
+
+<h4 id="支持取消undo和重做redo">支持取消（undo）和重做（redo）</h4>
+
+<p>如果Command提供方法逆转（reverse）它们操作的执行，就可支持取消和重做功能。为达到这个目的，ConcreteCommand类可能需要存储额外的状态信息。这个状态包括： <br/>
+1.  接收者对象，它真正执行处理该请求的各操作。 <br/>
+2.  接收者上执行操作的参数 <br/>
+3.  如果处理请求的操作会改变接收者对象中的某些值，那么这些值必须先存储起来。接收者还必须提供一些操作，以使该命令可将接收者恢复到它先前的状态。 <br/>
+若应用只支持一次取消操作，那么只需存储最近一次被执行的命令。而若要支持多级的取消和重做，就需要有一个已被执行命令的历史列表，该表列的最大长度决定了取消和重做的次数。历史表列存储了已被执行的命令序列。向后遍历该表列并逆向执行（reverse-executing）命令是取消它们的结果；向前遍历并执行命令是重执行它们。 <br/>
+有时可能不得不将一个可撤销的命令在它可以被放入列表中之前先拷贝下来。这是因为执行原来的请求的命令对象将在稍后执行其他的请求。如果命令的状态在各次调用之间会发生变化，那就必须进行拷贝以区分相同命令的不同调用。 <br/>
+例如，一个删除选定对象的删除命令在它每次被执行时，必须存储不同的对象集合。因此该删除命令对象在执行后必须被拷贝，并且将该拷贝放入历史表列中。如果该命令的状态在执行时从不改变，则不需要拷贝，而仅需将一个对该命令的引用放入历史表列中。在放入历史表列中之前必须被拷贝的那些Command起着原型的作用。</p>
+
+<h4 id="避免取消操作过程中的错误积累">避免取消操作过程中的错误积累</h4>
+
+<p>在实现一个可靠的、能保持原先语义的取消/重做机制时，可能会遇到滞后影响问题。由于命令重复的执行、取消执行，和重执行的过程可能会积累错误，以致一个应用的状态最终偏离初始值。这就有必要在Command中存入更多的信息来保证这些对象可被精确地复原成它们的初始状态。这里可使用Memento模式来让该Command访问这些信息而不暴露其他对象的内部信息。</p>
+
+<h3 id="经典例子">经典例子</h3>
+
+<p>Swing、Struts、页面设计中的各种按钮功能</p>
+
+<h3 id="相关模式">相关模式</h3>
+
+<h4 id="composite-pattern">Composite Pattern</h4>
+
+<p>在宏命令（macro command）时，有时会用到组合模式。</p>
+
+<h4 id="memento-pattern">Memento Pattern</h4>
+
+<p>在存储Command参与者的记录时，有时会用到Memento Pattern。用来保持某个状态，命令用这一状态来取消它的效果。</p>
+
+<h4 id="prototype-pattern">Prototype Pattern</h4>
+
+<p>预复制已发生的事件（产生的命令）时，有时会用到Prototype Pattern。在被放入历史表列前必须被拷贝的命令起到一种原型的作用</p>
+
+<p><font color="#0099ff" face="黑体" size="3">敬请期待“解释器模式（Interpreter Pattern，类行为型模式）”</font></p><link rel="stylesheet" href="http://static.blog.csdn.net/public/res-min/markdown_views.css?v=2.0"/></div><link rel="stylesheet" href="http://static.blog.csdn.net/public/res-min/markdown_views.css?v=2.0"/>&#13;
+            

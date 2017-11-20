@@ -1,0 +1,46 @@
+
+                
+<p><span style="font-size:18px">我感觉学习操作系统首先要从内存分配和管理入手。首先我们应该知道现代操作系统是以页为单位进行内存管理的，32位体系结构支持4KB的页，而64位体系结构支持8KB的页。页是用来分配的，如何才能进行高效和充分的利用，这是内存管理单元（MMU）应当仔细考虑的。</span></p>&#13;
+<p><span style="font-size:18px"><br/>&#13;
+</span></p>&#13;
+<p><span style="font-size:18px"><strong><u>页分配</u></strong></span></p>&#13;
+<p><span style="font-size:18px">内核用结构体struct page表示每个物理页。内核用这一结构来管理系统中所有的页，因为内核需要知道一个页是否空闲（也就是页有没有被分配），如果页已经被分配，内核需要知道谁拥有这个页，拥有者可能是用户空间进程、动态分配的内核数据、静态内核代码或页高速缓存。我们用页表来统一管理所有的struct page。另外内核用区对具有相似特性的页进行分组。主要是存在下面两种制约：</span></p>&#13;
+<p/>&#13;
+<ul>&#13;
+<li><span style="font-size:18px">一些硬件只能用某些特定的内存地址执行DMA（直接内存访问）</span></li><li><span style="font-size:18px">一些体系结构的内存的物理寻址范围比虚拟寻址范围大得多。这样，就有一些内存不能永久地映射到内核空间（高端内存）</span></li></ul>&#13;
+<div><span style="font-size:18px">于是Linux划分了一下四个区：</span></div>&#13;
+<div>&#13;
+<ul>&#13;
+<li><span style="font-size:18px">ZONE_DMA——这个区包含的页能用来执行DMA操作。</span></li><li><span style="font-size:18px">ZONE_DMA32——同上，不过只能被32位设备访问。</span></li><li><span style="font-size:18px">ZONE_NORMAL——这个区包含的都是能正常映射的页。</span></li><li><span style="font-size:18px">ZONE_HIGHEM——高端内存，其中的页并不能永久映射到内核地址空间。</span></li></ul>&#13;
+</div>&#13;
+<p/>&#13;
+<p><span style="font-size:18px"><br/>&#13;
+</span></p>&#13;
+<p><span style="font-size:18px"><strong><u>slab层</u></strong></span></p>&#13;
+<p><span style="font-size:18px">用于频繁使用的数据结构的缓存，且避免因频繁分配和使用导致的内存碎片。</span><span style="font-size:18px">slab层是由高速缓存组成的，而每个高速缓存可以由多个slab组成，slab由一个或多个物理上连续的页组成。每个slab都包含一些缓存的数据结构。</span><span style="font-size:18px">这样说还是很抽象，举个inode的例子。</span></p>&#13;
+<p><span style="font-size:18px">inode是磁盘文件在内存中的体现，会频繁地进行创建和释放，所以有必要进行缓存管理。在这里高速缓存是inode_cachep，它由多个slab组成，而每个slab包含尽可能多的struct inode对象。所以当我们需要一个新的inode结构时，不必现创建，只需从部分满或空的slab返回一个指向已分配但未使用的inode结构的指针即可。当内核使用完这个inode对象时，slab分配器就把该对象标记为空闲，留给后来者。</span></p>&#13;
+<p><span style="font-size:18px">再举个进程控制块的例子。</span></p>&#13;
+<p><span style="font-size:18px">我们知道进程在不停地创建和消除，而用struct task_struct去管理一个进程，不停的创建和释放task_struct会很费时。所以内核初始化期间，在fork_init()中着手创建高速缓存：</span></p>&#13;
+<p/>&#13;
+<pre code_snippet_id="387694" snippet_file_name="blog_20140611_1_3352452" name="code" class="cpp">struct kmem_cache *task_struct_cachep;(内核用这个全局变量存放指向task_struct高速缓存的指针)
+task_struct_cachep = kmem_cache_create("task_struct",
+                                        sizeof(struct task_struct),
+                                        ARCH_MIN_TASKALIGN,
+                                        SLAB_PANIC | SLAB_NOTRACK,
+                                        NULL);</pre><br/>&#13;
+<span style="font-size:18px">这样当我们创建进程（执行fork）时，只需从这个高速缓存中索取即可：<br/>&#13;
+<br/>&#13;
+</span><pre code_snippet_id="387694" snippet_file_name="blog_20140611_2_2403953" name="code" class="cpp">struct task_struct *tsk;
+tsk = kmem_cache_alloc(task_struct_cachep, GFP_KERNEL);
+if(!tsk) return NULL;</pre><br/>&#13;
+<p/>&#13;
+<p><span style="font-size:18px"><strong><u>内核栈</u></strong></span></p>&#13;
+<p><span style="font-size:18px">我们在进程时要注意节省栈资源，要控制函数内的局部变量，尽量不要出现大型数组或大型结构体。尤其对于内核栈，一旦造成溢出，就会影响到内核数据（如thread_info）。所以应当优先考虑动态分配。另外一个进程的内核栈和中断栈是分开的，这样可以减轻内核栈的负担（一个内核栈只占1页或2页）。</span></p>&#13;
+<p><span style="font-size:18px"><br/>&#13;
+</span></p>&#13;
+<p><span style="font-size:18px"><br/>&#13;
+</span></p>&#13;
+<p><br/>&#13;
+</p>&#13;
+<link rel="stylesheet" href="http://static.blog.csdn.net/public/res-min/markdown_views.css?v=1.0"/>&#13;
+            

@@ -1,0 +1,87 @@
+
+
+<h1>前言</h1>&#13;
+<div>        类加载技术是java运行的核心部分之一，虽然对于开发来说运用到此技术的地方不多，但是作为JAVAEE防盗版技术的组成部分之一，这一部分对于研发来说也需要着重了解。</div>&#13;
+<div>本文分析对象针对于：JDK1.7</div>&#13;
+<div><br />&#13;
+</div>&#13;
+<h1>JVM预定义的三种类加载器</h1>&#13;
+<div>1.启动类加载器：启动类装入器是用<span style="color:#ff0000"><strong>本地代码</strong></span>实现的类装入器，它负责将<span style="color:#3333ff"><strong>JRE/lib</strong></span>下面的核心类库或<strong><span style="color:#3333ff">-Xbootclasspath</span></strong>选项指定的jar包加载到内存中。由于其涉及到虚拟机本地实现细节，开发者<strong><span style="color:#ff0000">无法直接获取到启动类加载器的引用</span></strong>。</div>&#13;
+<div><br />&#13;
+</div>&#13;
+<div>2.扩展类加载器：扩展类加载器是由Sun的ExtClassLoader（sun.misc.Launcher$ExtClassLoader）实现的。它负责将<span style="color:#3333ff"><strong>JRE/lib/ext</strong></span>或者由系统变量<span style="color:#3333ff"><strong>-Djava.ext.dir</strong></span>指定位置中的类库加载到内存中。开发者可以直接使用标准扩展类加载器。</div>&#13;
+<div><br />&#13;
+</div>&#13;
+<div>3.系统类加载器：系统类加载器是由 Sun的 AppClassLoader（sun.misc.Launcher$AppClassLoader）实现的。它负责将系统类路径<span style="color:#3333ff"><strong>java -classpath</strong></span>或<span style="color:#3333ff"><strong>-Djava.class.path</strong></span>变量所指的目录下的类库加载到内存中。开发者可以直接使用系统类加载器。</div>&#13;
+<div><br />&#13;
+</div>&#13;
+<h1>类加载的双亲委派机制</h1>&#13;
+<div>        JVM在加载类时默认采用的是<span style="color:#ff0000"><strong>双亲委派机制</strong></span>。通俗的讲，就是某个特定的类加载器在接到加载类的请求时，首先将加载任务委托给父类加载器，依次递归，如果父类加载器可以完成类加载任务，就成功返回；只有父类加载器无法完成此加载任务时，才自己去加载。关于虚拟机默认的双亲委派机制，我们可以从系统类加载器和扩展类加载器为例作简单分析。<br />&#13;
+</div>&#13;
+<div style="text-align:center"><img src="http://img.blog.csdn.net/20170118113453320?watermark/2/text/aHR0cDovL2Jsb2cuY3Nkbi5uZXQvbGVlMjcyNjE2/font/5a6L5L2T/fontsize/400/fill/I0JBQkFCMA==/dissolve/70/gravity/Center" border="1" alt="" /><br />&#13;
+</div>&#13;
+<div style="text-align:center"><span style="font-size:10px">图1.1 ExtClassLoader和AppClassLoader继承结构图</span></div>&#13;
+<div><br />&#13;
+</div>&#13;
+<div>        由图1.1可以看到，扩展类加载器和系统类加载器的层次结构一致，并且查看源码可知，系统类加载器的构造器和扩展类加载器的构造器在创建时最终都会调用ClassLoader的带参构造器，并将父构造器注册到其中（图1.2）。</div>&#13;
+<div style="text-align:center"><img src="http://img.blog.csdn.net/20170118114531622?watermark/2/text/aHR0cDovL2Jsb2cuY3Nkbi5uZXQvbGVlMjcyNjE2/font/5a6L5L2T/fontsize/400/fill/I0JBQkFCMA==/dissolve/70/gravity/Center" border="1" alt="" /><br />&#13;
+</div>&#13;
+<div style="text-align:center">图1.2 扩展类加载器的构建过程，指定父类加载器为null</div>&#13;
+<div style="text-align:justify">由于可以看出来，扩展类加载器在构建时候就指定了父加载器，并且ClassLoader类的parent方法权限为private，并且没有提供setter方法。并且扩展类加载器的父加载器被设置为了null。</div>&#13;
+<div style="text-align:justify">        同理，系统类加载器的父加载器被设置为了ExtClassLoader（图1.3）。</div>&#13;
+<div style="text-align:center"><img src="http://img.blog.csdn.net/20170118115453907?watermark/2/text/aHR0cDovL2Jsb2cuY3Nkbi5uZXQvbGVlMjcyNjE2/font/5a6L5L2T/fontsize/400/fill/I0JBQkFCMA==/dissolve/70/gravity/Center" border="1" alt="" /><br />&#13;
+</div>&#13;
+<div style="text-align:center">图1.3 <span style="text-align:center">系统类加载器的构建过程，指定父类加载器为ExtClassLoader</span></div>&#13;
+<div style="text-align:left"><span style="text-align:center">        用代码来检测一下：</span></div>&#13;
+<div style="text-align:left"><pre name="code" class="java">package com.noryar.classloader.test;
+public class ClassLoaderTest {
+	public static void main(String[] args) {
+		System.out.println("系统类加载器为："+ClassLoader.getSystemClassLoader());
+		System.out.println("扩展类加载器为："+ClassLoader.getSystemClassLoader().getParent());
+		System.out.println("启动类加载器为："+ClassLoader.getSystemClassLoader().getParent().getParent());
+	}
+}</pre><br />&#13;
+</div>&#13;
+<div style="text-align:left">        运行结果如下，符合预期：</div>&#13;
+<div style="text-align:left"><pre name="code" class="plain">系统类加载器为：sun.misc.Launcher$AppClassLoader@1b31c23
+扩展类加载器为：sun.misc.Launcher$ExtClassLoader@1fc7b3a
+启动类加载器为：null</pre><br />&#13;
+</div>&#13;
+<div style="text-align:left">        OK，说了这么多，接下来介绍一下双亲委派机制的实现。首先我们分析一下ClassLoader这个抽象类的几个重要方法。</div>&#13;
+<div style="text-align:left"><pre name="code" class="java">public abstract class ClassLoader {
+    // 用指定的二进制名称加载类，它会通知JVM去解析类信息。
+    public Class&lt;?&gt; loadClass(String name) throws ClassNotFoundException {
+        return loadClass(name, false);
+    }
+
+    // 用指定的二进制名称加载类，具体的实现流程如下：
+    // 1. 使用findLoadedClass(String)方法来检测该类是否已被加载
+    // 2. 调用父加载器的loadClass(String)方法，这里就是双亲委派机制的实现逻辑
+    // 3. 调用findClass来寻找类
+    protected Class&lt;?&gt; loadClass(String name, boolean resolve)
+        throws ClassNotFoundException
+    {
+        ....
+    }
+    
+    // 使用指定的二进制名称寻找类。该应当在ClassLoader的子类中进行重写，并且会被loadClass方法调用。
+    protected Class&lt;?&gt; findClass(String name) throws ClassNotFoundException {
+        throw new ClassNotFoundException(name);
+    }
+    
+    // 将字节码文件转换成实体类，被findClass方法调用
+    // 次方法调用本地方法，因此在开发中无需复写。
+    protected final Class&lt;?&gt; defineClass(String name, byte[] b, int off, int len,
+                                         ProtectionDomain protectionDomain)
+        throws ClassFormatError
+    {
+        ....
+     }
+}</pre>        检查发现ClassLoader的子类只对loadClass方法进行了扩展（主要是增加了一些校验），并没有对其调用机理做根本改变，因此，双亲委派机制的实现只要分析ClassLoader的loadClass(String name, boolean resolve)方法即可。下面是该方法的具体实现（图1.4）。</div>&#13;
+<div style="text-align:center"><img src="http://img.blog.csdn.net/20170118134757953?watermark/2/text/aHR0cDovL2Jsb2cuY3Nkbi5uZXQvbGVlMjcyNjE2/font/5a6L5L2T/fontsize/400/fill/I0JBQkFCMA==/dissolve/70/gravity/Center" border="1" alt="" /><br />&#13;
+</div>&#13;
+<div style="text-align:center">图1.4 ClassLoader的loadClass方法实现</div>&#13;
+<div style="text-align:left">综上所述，当一个类需要加载的时候，当前类加载器就会一级一级的调用系统类加载器-&gt;扩展类加载器-&gt;启动类加载器进行加载，并且最终由启动类加载器首先尝试加载，加载失败在给扩展类加载器加载，失败在给系统类加载，失败给当前类加载器加载。任意一级加载成功则直接返回，如果都失败，则抛出ClassNotFoundException异常。</div>&#13;
+<div style="text-align:left"><br />&#13;
+</div>&#13;
+   &#13;

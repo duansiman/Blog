@@ -1,0 +1,342 @@
+
+
+<p>        看完李老师的第13章微内核设计，心里痒痒的，也就按照他的思路写了简单的“微内核”。其实这也不能说是微内核，因为该内核还没涉及到特权级、调用门、任务，更别说进程管理和文件系统了，不过我想这至少是一个好的开始的。下面来分享下这个所谓的微内核中的框架和各个重要模块：</p>&#13;
+<p>        框架：分为三部分，引导内核程序，微内核程序，用户程序；</p>&#13;
+<p>        运行顺序：</p>&#13;
+<p>        开机：上电开机启动后，CPU执行BIOS检查硬件及把0号扇区内容加载到0x7c00位置上，然后检查下这个扇区是否有效（最后2个字节是否为0xaa55），如果有效就把CPU的控制权转交给0x7c00代码上去执行；这也就表明引导内核程序要加载到0号扇区，并且要记得该程序的起始基地址是0x7c00。</p>&#13;
+<p>        引导内核程序：内核引导程序要做的事很简单，按步骤来说：1、设计GDT，把引导程序中要用到的各个段，做成段描述符保存到GDT中；2、做其他进入保护模式前的工作，然后进入保护模式；3、把微内核代码全部加载到指定内存位置；4、根据微内核的头部信息把微内核中的段描述符加到GDT中；5、远跳转到微内核的代码入口处，开始执行微内核代码；</p>&#13;
+<p>        微内核程序：微内核程序就稍微复杂点了，还是按步骤分析下：1、设计一个打印例程，就是把字符串打印到屏幕终端，用来显示一些提示信息；2、后面都是用来加载用户程序了，其实说到底微内核就是为各个用户程序提供环境，和加载执行用户程序，不过这简单的里面却还是比较复杂的；3、首先只加载用户程序的头部程序到内核临时内存中，然后分析整个用户程序的大小，最后把所有的用户程序都加载到指定位置；4、在上一步中还漏了一步，就是当指定用户程序大小后，需要向内核申请一个同样大小的空间用来存放它。其实这就是简单内存管理；5、开始为用户程序中的段设计成段描述符，并且加入到GDT中。因为还没有涉及到任务，所以不用LDT，直接加入到GDT中；6、重定位例程符号表，这个符号有点类似驱动模块中的那种符号，就是把内核例程（例程其实就是一个过程，高级语言中所谓的函数）的段选择子和偏移量和符号绑定。7、这是最后一步，当然是跳转到用户去执行了；</p>&#13;
+<p>        用户程序：用户程序非常的简单：1、定义头部信息，这个头部信息包含了整个程序的一些信息，是和调用者之间的协议。我猜想在一般的高级语言中是使用链接器来添加这个头信息的；2、就是验证下这些重定位好的符号是否能正常工作，即用户程序能不能调用微内核例程；3、调用终止例程，把控制权交还给微内核，微内核将睡眠；</p>&#13;
+<p>        大概的框架和流程已经分析完，那么来看看几个重要的模块：</p>&#13;
+<p></p>&#13;
+<p><br />&#13;
+        第一、打印字符例程；</p>&#13;
+<p>        功        能：把字符串输出到屏幕，并且移动光标；这个有点像printf函数</p>&#13;
+<p>        入口参数：ds:ebx 要打印的字符串内存位置</p>&#13;
+<p>        返回参数：无</p>&#13;
+<p>        说        明：1、这个例程和前面打印字符不太一样，前面打印例程不会移动光标（光标是要靠程序设置的），当然也可以调用BIOS中断来打印；2、这是个远调用（返回为retf）调用时要带上段选择子；</p>&#13;
+<p></p>&#13;
+<pre name="code" class="plain">;------print_string例程----------------------------
+;输入：ds:ebx 
+print_string:
+
+	push ecx 
+.getc:
+	mov cl , [ebx]
+	cmp cl , 0x00
+	jz .exit
+	call print_0xd
+	inc ebx 
+	jmp .getc
+.exit:
+	pop ecx 
+	retf       ;段间调用要用retf
+	
+print_0xd:
+	push eax 
+	push ebx 
+	push edx 
+	push ds 
+	push es
+;	pushad ;把全部寄存器入栈
+	
+	;获取光标位置
+	mov dx , 0x3d4
+	mov al , 0x0e
+	out dx , al 
+	inc dx 
+	in  al , dx 
+	mov ah , al 
+	
+	dec dx 
+	mov al , 0xf
+	out dx , al 
+	inc dx 
+	in  al , dx 
+	mov bx , ax 
+	
+	cmp cl , 0xd ;回车
+	jnz print_0xa 
+	mov bl , 80
+	div bl 
+	mul bl
+	mov bx , ax 
+	jmp set_cursor
+
+print_0xa:
+	cmp cl , 0xa ;换行
+	jnz print_other
+	add bx , 80
+	jmp roll_screan
+
+print_other:
+	mov eax , global_view_seg_sel
+	mov es  , eax 
+	shl bx , 1
+	mov [es:bx],cl 
+	shr bx , 1 
+	inc bx 
+	
+roll_screan:
+	cmp bx , 2000
+	jl set_cursor
+	mov eax , global_view_seg_sel
+	mov es  , eax 
+	mov ds  , eax
+	cld 
+	mov edi , 0x00 
+	mov esi , 0xa0
+	mov ecx , 1920
+	rep movsd
+	
+	mov bx , 1920
+	mov ecx , 80
+.cls: 
+	mov word[es:edi],0x0720
+	add edi , 2
+	loop .cls 
+	
+set_cursor:
+	mov dx , 0x3d4
+	mov al , 0xe
+	out dx , al 
+	inc dx 
+	mov al , bh
+	out dx , al 
+	
+	dec dx 
+	mov al , 0xf
+	out dx , al 
+	inc dx 
+	mov al , bl 
+	out dx , al 
+
+;	popad
+	pop es 
+	pop ds 
+	pop edx 
+	pop ebx 
+	pop eax 
+	ret </pre>&#13;
+<p>        第二个、读取硬盘程序；</p>&#13;
+<p>        功       能：从指定硬盘扇区中读取程序到指定内存中</p>&#13;
+<p>        入口参数：1、eax指定硬盘扇区；2、ds:ebx指定内容加载到内存的起始地址</p>&#13;
+<p>        返回参数：无</p>&#13;
+<p>        说        明：1、其实这里也可以设置ebx为返回参数，即：返回加载完程序的最后一个字节位置；2、该过程是用来远调用（返回为retf，即调用时要带段选择子）是在微内核中做为例程调用的。在引导程序中也有读取硬盘数据的过程，那个是用来近调用的（返回ret）</p>&#13;
+<p></p>&#13;
+<pre name="code" class="plain">;-----------读取硬盘数据----------------
+read_disk:
+			;输入 eax  输出 ds:ebx 
+	push eax
+	push ebx ;返回起始位置
+	push ecx 
+	push edx 
+	
+	push ebx  ;可以对需要的寄存器进行压栈，当要使用时再弹出来，这样可以防止在操作中损坏参数
+	push eax 
+	
+	mov dx , 0x1f2
+	mov al , 0x1 
+	out dx , al  
+	
+	inc dx   ;0x1f3
+	pop eax 
+	out dx , al 
+	
+	inc dx   ;0x1f4
+	mov al , ah 
+	out dx , al 
+	
+	inc dx   ;0x1f5
+	shr eax , 16
+	out dx , al 
+	
+	inc dx   ;0x1f6
+	or ah , 0xe0
+	mov al , ah 
+	out dx , al 
+	
+	inc dx   ;0x1f7
+	mov al , 0x20 
+	out dx , al 
+	
+.waits:	
+	in al , dx 
+	and al , 0x88
+	cmp al , 0x8
+	jnz .waits 
+
+	;开始切回到内核数据段
+	pop ebx 
+	
+	mov ecx , 256 
+	mov dx , 0x1f0
+read_char:
+	in ax , dx 
+	mov [ebx] , ax
+	add ebx , 2 
+	loop read_char
+	
+	pop edx 
+	pop ecx 
+	pop ebx 
+	pop eax 
+	
+	retf
+;end read_disk</pre>&#13;
+<p></p>&#13;
+<p>        第三、内存申请例程；</p>&#13;
+<p>        功        能：在内核内存中分配指定大小的内存，这是个简单的内存管理例程，就是依次往后申请内存，不回收。</p>&#13;
+<p>        入口参数：ecx 指要申请的内存数量（字节单位，内存中都是以字节为单位）</p>&#13;
+<p>        出口参数：ecx 指申请到的内存起始地址</p>&#13;
+<p>        说       明：这里做的仅仅是返回一个四字节对齐的起始地址，然后偏移ecx字节数</p>&#13;
+<p></p>&#13;
+<pre name="code" class="plain">;-----------内存申请--------------------
+require_memory:
+			;输入申请数量：ecx，返回基地址:ecx 
+    push eax 
+	push ebx  
+	push ds  
+	
+	mov eax , core_data_seg_sel
+	mov ds  , eax 
+	
+	mov ebx , [memory_start]
+	push ebx 
+	
+	add ebx , ecx 
+	mov eax , ebx
+	;4字节对齐
+	and eax , 0xfffffffc
+	add eax , 4 
+	test ebx , 0x3
+	cmovnz ebx , eax
+	
+	mov [memory_start] , ebx 
+	pop ecx 
+	
+	pop ds 
+	pop ebx 
+	pop eax 
+	retf
+;end require_memory</pre>&#13;
+<p>        第四、段描述符的构造；</p>&#13;
+<p>        功        能：为指定段做成一个段描述符</p>&#13;
+<p>        输入参数：eax 段基地址；ebx  段界限；ecx 段属性</p>&#13;
+<p>        输出参数：edx:eax  64字节的段描述符</p>&#13;
+<p>        说        明：根据段基地址和界限及属性凑成一个段描述符</p>&#13;
+<p></p><pre name="code" class="plain">;--------------构造描述符---------------------
+make_descriptor:
+			;输入 eax段地址；ebx段界限；ecx段属性
+			;输出 edx:eax 
+	mov edx , eax
+	
+	shl eax , 16
+	or  ax , bx    ;低32位构造好
+	
+	and edx , 0xffff0000
+	rol edx , 8
+	bswap edx 
+	
+	xor bx , bx 
+	or edx , ebx 
+	or edx , ecx 
+	retf 
+
+;make_descriptor end 
+</pre>        第五、设置全局描述符表&#13;
+<p>        功        能：把第四个过程中得到的edx:eax段描述符放到全局描述符表中<br />&#13;
+        输入参数：edx:eax  段描述符表</p>&#13;
+<p>        输出参数：eax 段选择子</p>&#13;
+<p>        说        明：首先获取到全局描述符表的基地址和偏移量；然后根据偏移量算出下一个表中描述符起始地址；最后把输入参数中的段描述表写入全局描述符表中相应位置；还有一个功能就是根据偏移量算出刚加入全局描述符表中的那个描述符的选择子；</p>&#13;
+<p></p><pre name="code" class="plain">;-----------------设置全局描述符表----------------
+setup_descriptor:
+			;输入描述符 edx:eax
+	push ebx 
+	push ecx 
+	push edx 
+	push ds 
+	push es 
+	
+	mov ebx , core_data_seg_sel
+	mov ds  , ebx 
+	
+	mov ebx , global_data_seg_sel
+	mov es  , ebx 
+	
+	sgdt [pgdt]
+	
+	movzx ebx , word[pgdt]
+	inc bx 
+	add ebx , [pgdt+0x02]
+	
+	mov [es:ebx+0x00] , eax  
+	mov [es:ebx+0x04] , edx 
+	
+	add word[pgdt],8
+	lgdt [pgdt]
+	
+	;开始计算该段的选择子
+	mov ax , [pgdt]
+	xor dx , dx 
+	mov bx , 8
+	div bx 
+	shl ax , 3
+	
+	pop es 
+	pop ds 
+	pop edx 
+	pop ecx 
+	pop ebx 
+	retf
+;end setup_descriptor</pre>        第六、重定位符号&#13;
+<p>        功        能：重定位符号，把内核中的例程和用户程序中的例程符号进行绑定<br />&#13;
+        输入参数：</p>&#13;
+<p>        输出参数：无</p>&#13;
+<p>        说        明：输入参数没有写，是因为下面这个不是做为一个单独的过程。如果作为一个单独的过程，输入参数可以是：eax 表示用户程序符号表的起始地址；ebx 微内核程序符号表的起始地址；简单介绍下实现步骤：通过两次循环，来匹配符号。以用户程序符号表为外循环，每次都读取一个符号，循环读取完所有符号；内循环则是读取微内核的符号表；当每一次读取外循环中的一个符号时，则需要循环读取微内核中的符号表，然后与之匹配，若成功，则把微内核中该符号对应的段选择子和偏移量都写入到用户程序的匹配符号中（替换掉原先的符号名，如：替换掉@printString）</p>&#13;
+<p></p><pre name="code" class="plain"> 	;重定位salt
+	mov eax , [edi+0x04]
+	mov es  , eax 
+	
+	mov eax , core_data_seg_sel
+	mov ds  , eax 
+	
+	cld 
+	
+	;先提取用户符号
+	mov ecx , [es:0x24]
+	mov edi , 0x28 
+@1:
+	push ecx 
+	push edi
+	
+	;提取内核的符号比较
+	mov ecx , salt_items
+	mov esi , salt 
+@2:
+	push edi 
+	push esi 
+	push ecx 
+	
+	mov ecx , 64
+	repe cmpsd
+	jnz @3
+	mov eax , [esi]
+	mov [es:edi-256],eax 
+	mov ax , [esi+4]
+	mov [es:edi-252],ax 
+	
+@3:
+	pop ecx
+	pop esi 
+	add esi , salt_item_len
+	pop edi 
+	loop @2
+	
+	pop edi 
+	add edi , 256
+	pop ecx 
+	loop @1</pre>        以上就是做一个微内核所涉及的过程了，其实这只是一个操作系统（也不能说是操作系统）的最初最初的雏形；以后还要添加特权级、进程管理、文件系统、内存管理等等，革命尚未成功，同志还须努力；&#13;
+<br />&#13;
+<p></p>&#13;
+   &#13;

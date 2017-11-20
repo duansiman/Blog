@@ -1,0 +1,224 @@
+
+        <div class="markdown_views"><h1 id="策略模式"><center>  策略模式</center></h1>
+
+<p>标签 ： Java与设计模式</p>
+
+<hr />
+
+<blockquote>
+  <p>策略模式: 定义一系列的算法, 将其一个个<strong>封装</strong>起来, 并使它们可相互替换, 使得算法可独立于使用它的客户而变化.  <br />
+  <img src="http://7xrgh9.com1.z0.glb.clouddn.com/16-8-29/87222512.jpg" alt="" title="" /> <br />
+  (图片来源: <a href="https://book.douban.com/subject/1052241/">设计模式: 可复用面向对象软件的基础</a>) <br />
+  策略模式对应于解决某一问题的一个<strong>算法族</strong>, 允许用户从该算法族中任选一个算法解决该问题, 同时可以方便的更换算法或者增加新的算法. 并由客户端决定调用哪个算法(核心: <strong>分离算法, 选择实现</strong>).</p>
+</blockquote>
+
+<hr />
+
+
+
+<h2 id="模式实现">模式实现</h2>
+
+<pre><code>案例: 商场打折 -策略可以简单分为: 原价购买、满减、返利三种策略:
+</code></pre>
+
+<p><img src="http://7xrgh9.com1.z0.glb.clouddn.com/16-8-29/71102869.jpg" alt="" title="" /></p>
+
+<hr />
+
+
+
+<h3 id="strategy">Strategy</h3>
+
+<p>抽象策略: 定义算法族中所有算法的公共接口, <strong>Context</strong>使用这个接口来调用<strong>ConcreteStrategy</strong>定义的算法:</p>
+
+
+
+<pre class="prettyprint"><code class=" hljs java"><span class="hljs-javadoc">/**
+ *<span class="hljs-javadoctag"> @author</span> jifang
+ *<span class="hljs-javadoctag"> @since</span> 16/8/29 下午7:43.
+ */</span>
+<span class="hljs-keyword">public</span> <span class="hljs-class"><span class="hljs-keyword">interface</span> <span class="hljs-title">Strategy</span> {</span>
+
+    <span class="hljs-keyword">double</span> acceptCash(<span class="hljs-keyword">double</span> money);
+}</code></pre>
+
+<hr />
+
+
+
+<h3 id="concretestrategy">ConcreteStrategy</h3>
+
+<p>具体策略: 以<strong>Strategy</strong>接口实现某具体算法或行为:</p>
+
+
+
+<pre class="prettyprint"><code class=" hljs axapta"><span class="hljs-comment">// 正常收费</span>
+<span class="hljs-class"><span class="hljs-keyword">class</span> <span class="hljs-title">Normal</span> <span class="hljs-inheritance"><span class="hljs-keyword">implements</span></span> <span class="hljs-title">Strategy</span> {</span>
+
+    @Override
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">double</span> acceptCash(<span class="hljs-keyword">double</span> money) {
+        <span class="hljs-keyword">return</span> money;
+    }
+}
+
+<span class="hljs-comment">// 打折收费</span>
+<span class="hljs-class"><span class="hljs-keyword">class</span> <span class="hljs-title">Discount</span> <span class="hljs-inheritance"><span class="hljs-keyword">implements</span></span> <span class="hljs-title">Strategy</span> {</span>
+
+    <span class="hljs-keyword">private</span> <span class="hljs-keyword">double</span> rate;
+
+    <span class="hljs-keyword">public</span> Discount(<span class="hljs-keyword">double</span> rate) {
+        <span class="hljs-keyword">if</span> (rate &gt; <span class="hljs-number">1.0</span>) {
+            <span class="hljs-keyword">throw</span> <span class="hljs-keyword">new</span> RuntimeException(<span class="hljs-string">"折扣力度怎么能大于1.0?"</span>);
+        }
+        <span class="hljs-keyword">this</span>.rate = rate;
+    }
+
+    @Override
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">double</span> acceptCash(<span class="hljs-keyword">double</span> money) {
+        <span class="hljs-keyword">return</span> money * rate;
+    }
+}
+
+<span class="hljs-comment">// 返利收费</span>
+<span class="hljs-class"><span class="hljs-keyword">class</span> <span class="hljs-title">Rebate</span> <span class="hljs-inheritance"><span class="hljs-keyword">implements</span></span> <span class="hljs-title">Strategy</span> {</span>
+
+    <span class="hljs-keyword">private</span> <span class="hljs-keyword">double</span> cashState;
+
+    <span class="hljs-keyword">private</span> <span class="hljs-keyword">double</span> cashReturn;
+
+    <span class="hljs-keyword">public</span> Rebate(<span class="hljs-keyword">double</span> cashState, <span class="hljs-keyword">double</span> cashReturn) {
+        <span class="hljs-keyword">this</span>.cashState = cashState;
+        <span class="hljs-keyword">this</span>.cashReturn = cashReturn;
+    }
+
+    @Override
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">double</span> acceptCash(<span class="hljs-keyword">double</span> money) {
+        <span class="hljs-keyword">if</span> (money &gt; cashState) {
+            money -= Math.floor(money / cashState) * cashReturn;
+        }
+        <span class="hljs-keyword">return</span> money;
+    }
+}</code></pre>
+
+<hr />
+
+
+
+<h3 id="context">Context</h3>
+
+<ul>
+<li><strong>上下文</strong>:  <br />
+<ul><li>维护一个<strong>Strategy</strong>对象的引用;</li>
+<li>定义一个接口让<strong>Strategy</strong>访问它的数据;</li></ul></li>
+</ul>
+
+
+
+<pre class="prettyprint"><code class=" hljs cs"><span class="hljs-keyword">public</span> <span class="hljs-keyword">class</span> Context {
+
+    <span class="hljs-keyword">private</span> Strategy strategy;
+
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">void</span> <span class="hljs-title">setStrategy</span>(Type type, <span class="hljs-keyword">double</span>... args) {
+        <span class="hljs-keyword">if</span> (type == Type.NORMAL) {
+            strategy = <span class="hljs-keyword">new</span> Normal();
+        } <span class="hljs-keyword">else</span> <span class="hljs-keyword">if</span> (type == Type.DISCOUNT) {
+            strategy = <span class="hljs-keyword">new</span> Discount(args[<span class="hljs-number">0</span>]);
+        } <span class="hljs-keyword">else</span> <span class="hljs-keyword">if</span> (type == Type.REBATE) {
+            strategy = <span class="hljs-keyword">new</span> Rebate(args[<span class="hljs-number">0</span>], args[<span class="hljs-number">1</span>]);
+        }
+    }
+
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">double</span> <span class="hljs-title">getResult</span>(<span class="hljs-keyword">double</span> money) {
+        <span class="hljs-keyword">return</span> strategy.acceptCash(money);
+    }
+
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">enum</span> Type {
+        NORMAL(<span class="hljs-number">0</span>, <span class="hljs-string">"正常"</span>),
+        DISCOUNT(<span class="hljs-number">1</span>, <span class="hljs-string">"打折"</span>),
+        REBATE(<span class="hljs-number">2</span>, <span class="hljs-string">"返利"</span>);
+
+        <span class="hljs-keyword">private</span> <span class="hljs-keyword">int</span> <span class="hljs-keyword">value</span>;
+
+        <span class="hljs-keyword">private</span> String desc;
+
+        Type(<span class="hljs-keyword">int</span> <span class="hljs-keyword">value</span>, String desc) {
+            <span class="hljs-keyword">this</span>.<span class="hljs-keyword">value</span> = <span class="hljs-keyword">value</span>;
+            <span class="hljs-keyword">this</span>.desc = desc;
+        }
+    }
+}</code></pre>
+
+<blockquote>
+  <p>注: 将客户端需要选择具体<strong>Strategy</strong>的任务交给<strong>Context</strong>完成:  <br />
+  在<strong>基础策略模式</strong>中,<strong>选择所用具体Strategy实现</strong>的职责由Client承担, 并将其传递给<strong>Context</strong>, 这种方案对Client的负担较重, 因此将<strong>Context</strong>与<strong>简单工厂</strong>融合, 选择算法实现的工作改由<strong>Context</strong>负责.</p>
+</blockquote>
+
+<ul>
+<li>Client <br />
+仅与<strong>Context</strong>交互: 通常有一系列的<strong>ConcreteStrategy</strong>可供选择.</li>
+</ul>
+
+
+
+<pre class="prettyprint"><code class=" hljs avrasm">public class Client {
+
+    @Test
+    public void client() {
+        double money = <span class="hljs-number">1000</span><span class="hljs-comment">;</span>
+        Context context = new Context()<span class="hljs-comment">;</span>
+        context<span class="hljs-preprocessor">.setStrategy</span>(Context<span class="hljs-preprocessor">.Type</span><span class="hljs-preprocessor">.NORMAL</span>)<span class="hljs-comment">;</span>
+        System<span class="hljs-preprocessor">.out</span><span class="hljs-preprocessor">.println</span>(<span class="hljs-string">"原价: ["</span> + context<span class="hljs-preprocessor">.getResult</span>(money) + <span class="hljs-string">"]"</span>)<span class="hljs-comment">;</span>
+
+
+        context<span class="hljs-preprocessor">.setStrategy</span>(Context<span class="hljs-preprocessor">.Type</span><span class="hljs-preprocessor">.REBATE</span>, <span class="hljs-number">100</span>, <span class="hljs-number">20</span>)<span class="hljs-comment">;</span>
+        System<span class="hljs-preprocessor">.out</span><span class="hljs-preprocessor">.println</span>(<span class="hljs-string">"满100返20: ["</span> + context<span class="hljs-preprocessor">.getResult</span>(money) + <span class="hljs-string">"]"</span>)<span class="hljs-comment">;</span>
+
+        context<span class="hljs-preprocessor">.setStrategy</span>(Context<span class="hljs-preprocessor">.Type</span><span class="hljs-preprocessor">.DISCOUNT</span>, <span class="hljs-number">0.8</span>)<span class="hljs-comment">;</span>
+        System<span class="hljs-preprocessor">.out</span><span class="hljs-preprocessor">.println</span>(<span class="hljs-string">"6折优惠: ["</span> + context<span class="hljs-preprocessor">.getResult</span>(money) + <span class="hljs-string">"]"</span>)<span class="hljs-comment">;</span>
+    }
+}</code></pre>
+
+<hr />
+
+
+
+<h2 id="小结">小结</h2>
+
+<ul>
+<li><p>作用</p>
+
+<ul><li>析取算法: <strong>Strategy</strong>接口为<strong>Context</strong>定义了一个可重用的算法/行为, 继承/实现其有助于析取出算法族的公共功能, 且可<strong>减少算法与Client间的耦合</strong>.</li>
+<li>消除条件语句: 避免将不同行为堆砌在一个类中, 将行为封装在独立的<strong>Strategy</strong>实现中, 可在<strong>Client</strong>中消除条件语句.</li>
+<li>简化单元测试: 每个算法都有自己的类, 可以单独测试.</li></ul></li>
+<li><p>场景</p>
+
+<ul><li>当使用一个算法的不同<strong>变体</strong>, 且这些变体可以实现为一个<strong>算法族</strong>时;</li>
+<li>算法的客户不需要知晓其内部数据, 策略模式可以避免暴露复杂的、与算法相关的数据结构;</li>
+<li>一个类定义了多种行为, 且这些行为以多个条件语句形式出现, 可将相关行为各自的<strong>Strategy</strong>(如: Servlet-api <code>service()</code>方法).</li></ul></li>
+<li>相关模式 <br />
+Flyweight: <strong>Strategy</strong>对象经常是很好的轻量级对象.</li>
+</ul>
+
+<hr />
+
+<ul>
+<li><em>by</em> 翡青 <br />
+<ul><li>博客: <a href="http://blog.csdn.net/zjf280441589">翡青的技术周刊</a> - <a href="http://blog.csdn.net/zjf280441589">http://blog.csdn.net/zjf280441589</a></li>
+<li>微博: <a href="http://weibo.com/u/3319050953">翡青jf</a> - <a href="http://weibo.com/u/3319050953">http://weibo.com/u/3319050953</a></li></ul></li>
+</ul>
+
+<hr /></div>&#13;
+        <script type="text/javascript">&#13;
+            $(function () {&#13;
+                $('pre.prettyprint code').each(function () {&#13;
+                    var lines = $(this).text().split('\n').length;&#13;
+                    var $numbering = $('&lt;ul/&gt;').addClass('pre-numbering').hide();&#13;
+                    $(this).addClass('has-numbering').parent().append($numbering);&#13;
+                    for (i = 1; i &lt;= lines; i++) {&#13;
+                        $numbering.append($('&lt;li/&gt;').text(i));&#13;
+                    };&#13;
+                    $numbering.fadeIn(1700);&#13;
+                });&#13;
+            });&#13;
+        </script>&#13;
+   &#13;

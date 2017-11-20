@@ -1,0 +1,112 @@
+
+        <div class="markdown_views"><p>从<a href="http://blog.csdn.net/odeviloo/article/details/51459887">上篇文章</a>我们已经对Socket有了初步的认识，现在我们就通过一个例子来实现。</p>
+
+
+
+<h1 id="1服务端">1.服务端</h1>
+
+<p>通信，首先需要的就是服务端，如果没有服务端，我们和谁通信？通过以下代码我们来创建一个服务端</p>
+
+
+
+<pre class="prettyprint"><code class=" hljs axapta">        ServerSocket <span class="hljs-keyword">server</span> = <span class="hljs-keyword">null</span>;
+        System.out.println(<span class="hljs-string">"应用启动....."</span>);
+        <span class="hljs-keyword">try</span> {
+            <span class="hljs-keyword">server</span> = <span class="hljs-keyword">new</span> ServerSocket(<span class="hljs-number">7456</span>);<span class="hljs-comment">//绑定本地的端口号</span>
+            <span class="hljs-keyword">while</span> (<span class="hljs-keyword">true</span>) {<span class="hljs-comment">//循环，可以多次建立连接</span>
+                Socket connection = <span class="hljs-keyword">null</span>;
+                <span class="hljs-keyword">try</span> {
+                    <span class="hljs-comment">// 接收一个连接,在没有客户端访问的时候，accept会一直阻塞</span>
+                    connection = <span class="hljs-keyword">server</span>.accept();
+                    <span class="hljs-comment">// 获取连接的客户端的地址</span>
+                    System.out.println(<span class="hljs-string">"一个连接建立"</span> + connection.getInetAddress());
+                    <span class="hljs-comment">// 从连接中获取输出流</span>
+                    Writer out = <span class="hljs-keyword">new</span> OutputStreamWriter(connection.getOutputStream());
+                    Date <span class="hljs-keyword">date</span> = <span class="hljs-keyword">new</span> Date();
+                    out.write(<span class="hljs-keyword">date</span>.toString() + <span class="hljs-string">"\r\n"</span>);
+                    <span class="hljs-comment">// 输出流都会有一个缓冲区，比如有一个1024字节的缓冲区</span>
+                    <span class="hljs-comment">// 如果缓冲区中的数据量不足1024，那么就会等待，而不会将数据发送给客户端</span>
+                    <span class="hljs-comment">// 使用flush()则将缓冲区中的数据强制发送</span>
+                    out.flush();
+                    connection.close();
+                } <span class="hljs-keyword">finally</span> {
+                    <span class="hljs-comment">// 必须手动关闭掉</span>
+                    <span class="hljs-keyword">if</span> (connection != <span class="hljs-keyword">null</span>)
+                        connection.close();
+                }
+            }
+        } <span class="hljs-keyword">catch</span> (IOException e) {
+            e.printStackTrace();
+        } <span class="hljs-keyword">finally</span> {
+            <span class="hljs-keyword">try</span> {
+                <span class="hljs-keyword">if</span> (<span class="hljs-keyword">server</span> != <span class="hljs-keyword">null</span>)
+                    <span class="hljs-keyword">server</span>.close();
+            } <span class="hljs-keyword">catch</span> (IOException e) {
+                e.printStackTrace();
+            }
+        }</code></pre>
+
+
+
+<h1 id="2客户端">2.客户端</h1>
+
+
+
+<pre class="prettyprint"><code class=" hljs cs">        Socket socket = <span class="hljs-keyword">null</span>;
+        <span class="hljs-keyword">try</span> {
+            <span class="hljs-comment">// 连接地址和端口号,地址用于找到主机，端口号用于找到对应应用</span>
+            socket = <span class="hljs-keyword">new</span> Socket(<span class="hljs-string">"localhost"</span>, <span class="hljs-number">7456</span>);
+            InputStreamReader reader = <span class="hljs-keyword">new</span> InputStreamReader(socket.getInputStream());
+            <span class="hljs-keyword">int</span> c;
+            <span class="hljs-keyword">while</span> ((c = reader.read()) != -<span class="hljs-number">1</span>) {
+                System.<span class="hljs-keyword">out</span>.print((<span class="hljs-keyword">char</span>) c);
+            }
+        } <span class="hljs-keyword">catch</span> (Exception e) {
+            e.printStackTrace();
+        } <span class="hljs-keyword">finally</span> {
+            <span class="hljs-keyword">try</span> {
+                <span class="hljs-keyword">if</span> (socket != <span class="hljs-keyword">null</span>)
+                    socket.close();
+            } <span class="hljs-keyword">catch</span> (IOException e) {
+                e.printStackTrace();
+            }
+        }</code></pre>
+
+
+
+<h1 id="3连接和使用">3.连接和使用</h1>
+
+<p>首先运行服务端代码，效果如下:</p>
+
+
+
+<pre class="prettyprint"><code class=" hljs lasso">应用启动<span class="hljs-attribute">...</span><span class="hljs-built_in">..</span></code></pre>
+
+<p>再启动客户端，服务端控制台如下：</p>
+
+
+
+<pre class="prettyprint"><code class=" hljs lasso">应用启动<span class="hljs-attribute">...</span><span class="hljs-built_in">..</span>
+一个连接建立/<span class="hljs-number">127.0</span><span class="hljs-number">.0</span><span class="hljs-number">.1</span></code></pre>
+
+<p>回到客户端控制台，内容如下：</p>
+
+
+
+<pre class="prettyprint"><code class=" hljs css"><span class="hljs-tag">Fri</span> <span class="hljs-tag">May</span> 20 14<span class="hljs-pseudo">:41</span><span class="hljs-pseudo">:31</span> <span class="hljs-tag">CST</span> 2016</code></pre>
+
+<p><strong><em>源码位置：</em></strong><a href="https://github.com/oDevilo/Java-Network">https://github.com/oDevilo/Java-Network</a></p></div>&#13;
+        <script type="text/javascript">&#13;
+            $(function () {&#13;
+                $('pre.prettyprint code').each(function () {&#13;
+                    var lines = $(this).text().split('\n').length;&#13;
+                    var $numbering = $('&lt;ul/&gt;').addClass('pre-numbering').hide();&#13;
+                    $(this).addClass('has-numbering').parent().append($numbering);&#13;
+                    for (i = 1; i &lt;= lines; i++) {&#13;
+                        $numbering.append($('&lt;li/&gt;').text(i));&#13;
+                    };&#13;
+                    $numbering.fadeIn(1700);&#13;
+                });&#13;
+            });&#13;
+        </script>&#13;
+   &#13;

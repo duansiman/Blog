@@ -1,0 +1,210 @@
+
+
+<p><span style="font-family:KaiTi_GB2312; font-size:18px">在上篇文章中，我们讲述了最常见也是最简单的单例设计模式&lt;<a target="_blank" href="http://blog.csdn.net/majinggogogo/article/details/71012133">常用Java设计模式系列（1）- 单例模式</a>&gt;，在这篇文章中，我们继续设计模式之旅，来讲第二个比较常见的设计模式，那就是原型模式。</span></p>&#13;
+<p><span style="font-family:KaiTi_GB2312; font-size:18px"><br />&#13;
+</span></p>&#13;
+<p><span style="font-family:KaiTi_GB2312; font-size:18px">什么是原型模式呢？</span></p>&#13;
+<p><span style="font-family:KaiTi_GB2312; font-size:18px">原型模式属于对象的创建模式，通过一个原型对象，我们可以创建出更多同类型的对象，避免每次创建同一类型的对象时都是使用new关键字进行创建。</span></p>&#13;
+<p><span style="font-family:KaiTi_GB2312; font-size:18px"><br />&#13;
+</span></p>&#13;
+<p><span style="font-family:KaiTi_GB2312; font-size:18px">简单原型模式的框架大致如下所示：</span></p>&#13;
+<p><span style="font-family:KaiTi_GB2312; font-size:18px"><img src="http://img.blog.csdn.net/20170501112956985?watermark/2/text/aHR0cDovL2Jsb2cuY3Nkbi5uZXQvbWFqaW5nZ29nb2dv/font/5a6L5L2T/fontsize/400/fill/I0JBQkFCMA==/dissolve/70/gravity/Center" alt="" /></span></p>&#13;
+<p><span style="font-family:KaiTi_GB2312; font-size:18px">从上图可以看出，整个模式中设计及三种角色，分别如下：</span></p>&#13;
+<p><span style="font-family:KaiTi_GB2312; font-size:18px">（1）客户角色：（提出创建对象的客户类）</span></p>&#13;
+<p><span style="font-family:KaiTi_GB2312; font-size:18px">（2）抽象原型角色：这是一个抽象角色，一般由一个接口或者抽象类来进行实现</span></p>&#13;
+<p><span style="font-family:KaiTi_GB2312; font-size:18px">（3）具体原型角色：能被复制的对象，需要实现抽象原型角色中定义的复制自身能力的接口</span></p>&#13;
+<p><span style="font-family:KaiTi_GB2312; font-size:18px"><br />&#13;
+</span></p>&#13;
+<p><span style="font-family:KaiTi_GB2312; font-size:18px">下面我们简单的通过Java示例代码来进行说明。</span></p>&#13;
+<p></p>&#13;
+<pre code_snippet_id="2365367" snippet_file_name="blog_20170501_1_6753694" name="code" class="java"><span style="font-family:KaiTi_GB2312;font-size:18px;">package com.majing.test.designpattern.prototype;
+
+import java.io.Serializable;
+import java.util.List;
+
+public abstract class Prototype implements Cloneable,Serializable{
+
+	private static final long serialVersionUID = 6373322365181226285L;
+
+	private String name;
+	
+	private int age;
+	
+	private List&lt;String&gt; interests;
+
+	public String getName() {
+		return name;
+	}
+
+	public void setName(String name) {
+		this.name = name;
+	}
+
+	public int getAge() {
+		return age;
+	}
+
+	public void setAge(int age) {
+		this.age = age;
+	}
+
+	public List&lt;String&gt; getInterests() {
+		return interests;
+	}
+
+	public void setInterests(List&lt;String&gt; interests) {
+		this.interests = interests;
+	}
+
+	@Override
+	public String toString() {
+		return "Prototype [name=" + name + ", age=" + age + ", interests=" + interests + "]";
+	}
+	
+	
+
+}
+</span></pre><span style="font-family:KaiTi_GB2312; font-size:18px"><br />&#13;
+下面是具体原型类定义：</span>&#13;
+<p></p>&#13;
+<p></p>&#13;
+<pre code_snippet_id="2365367" snippet_file_name="blog_20170501_2_1813632" name="code" class="java"><span style="font-family:KaiTi_GB2312;font-size:18px;">package com.majing.test.designpattern.prototype;
+
+public class ConcretePrototype1 extends Prototype {
+
+	private static final long serialVersionUID = 1060689305923602305L;
+
+	@Override
+	protected Prototype clone() throws CloneNotSupportedException {
+		return (Prototype)super.clone();
+	}
+	
+	
+}
+</span></pre><span style="font-family:KaiTi_GB2312; font-size:18px">下面给出客户角色（也就是使用原型模式提出创建对象请求的类）：</span>&#13;
+<p></p>&#13;
+<p></p>&#13;
+<pre code_snippet_id="2365367" snippet_file_name="blog_20170501_3_4463590" name="code" class="java"><span style="font-family:KaiTi_GB2312;font-size:18px;">package com.majing.test.designpattern.prototype;
+
+import java.util.ArrayList;
+import java.util.List;
+
+public class Client {
+	public static void main(String[] args) throws CloneNotSupportedException {
+		shallowCopy();
+	}
+	
+	public static void shallowCopy() throws CloneNotSupportedException{
+		ConcretePrototype1 concretePrototype1 = new ConcretePrototype1();
+		concretePrototype1.setName("majing");
+		concretePrototype1.setAge(29);
+		List&lt;String&gt; interests = new ArrayList&lt;String&gt;();
+		interests.add("军事");
+		interests.add("上网");
+		concretePrototype1.setInterests(interests);
+		
+		ConcretePrototype1 copyPrototype = (ConcretePrototype1)concretePrototype1.clone();
+		System.out.println("通过原型模式拷贝（浅拷贝）：");
+		System.out.println(copyPrototype.getName());
+		System.out.println(copyPrototype.getAge());
+		System.out.println(copyPrototype.getInterests());
+		
+		System.out.println("修改原型实例的内容：");
+		concretePrototype1.getInterests().remove("上网");
+		
+		System.out.println("修改后：");
+		System.out.println(copyPrototype.getName());
+		System.out.println(copyPrototype.getAge());
+		System.out.println(copyPrototype.getInterests());
+	}
+}
+</span></pre><span style="font-family:KaiTi_GB2312; font-size:18px"><br />&#13;
+运行上面的代码后，我们贴出运行的结果：</span>&#13;
+<p></p>&#13;
+<p><span style="font-family:KaiTi_GB2312; font-size:18px"><img src="http://img.blog.csdn.net/20170501114501428?watermark/2/text/aHR0cDovL2Jsb2cuY3Nkbi5uZXQvbWFqaW5nZ29nb2dv/font/5a6L5L2T/fontsize/400/fill/I0JBQkFCMA==/dissolve/70/gravity/Center" alt="" /></span></p>&#13;
+<p><span style="font-family:KaiTi_GB2312; font-size:18px">从上面的运行结果看，我们可以看到，通过原型对象拷贝出来的对象其实和原对象还是有关联的，对原型对象的修改会影响到通过他复制出来的对象（反之亦然）。这是为什么呢？</span></p>&#13;
+<p><span style="font-family:KaiTi_GB2312; font-size:18px">其实，还是因为我们这里的实现其实实现的是浅拷贝。</span></p>&#13;
+<p><span style="font-family:KaiTi_GB2312; font-size:18px">什么是浅拷贝呢？浅拷贝是和深拷贝而言的。对于浅拷贝，Java基础类型会和原型对象保持独立，但是对于引用类型，被拷贝者其实是和拷贝者共同指向同一个引用，其实指向的是同一块堆地址。而对于深拷贝，则会给拷贝者的引用类型重新分配内存空间，被拷贝者其实是和拷贝者中的引用类型指向的是不同的堆空间地址。下面我们给出深拷贝的一种实现，看看效果如何：</span></p>&#13;
+<p></p>&#13;
+<pre code_snippet_id="2365367" snippet_file_name="blog_20170501_4_9306159" name="code" class="java"><span style="font-family:KaiTi_GB2312;font-size:18px;">package com.majing.test.designpattern.prototype;
+
+import java.io.ByteArrayInputStream;
+import java.io.ByteArrayOutputStream;
+import java.io.IOException;
+import java.io.ObjectInputStream;
+import java.io.ObjectOutputStream;
+
+public class ConcretePrototype2 extends Prototype {
+
+	private static final long serialVersionUID = -5479395220936927123L;
+
+	@Override
+	protected Object clone() throws CloneNotSupportedException {
+		try {
+			//将对象写到流里
+			ByteArrayOutputStream bos = new ByteArrayOutputStream();
+			ObjectOutputStream oos = new ObjectOutputStream(bos);
+			oos.writeObject(this);
+			//从流里读回来
+			ByteArrayInputStream bis = new ByteArrayInputStream(bos.toByteArray());
+			ObjectInputStream ois = new ObjectInputStream(bis);
+			return ois.readObject();
+		} catch (ClassNotFoundException e) {
+			e.printStackTrace();
+		} catch (IOException e) {
+			e.printStackTrace();
+		}
+		return null;
+	}
+	
+}
+</span></pre><span style="font-family:KaiTi_GB2312; font-size:18px"><br />&#13;
+这里通过序列化的方式将对象状态先保存，再进行反序列化从而完成新对象的创建。我们稍微修改下之前的客户角色代码：</span>&#13;
+<p></p>&#13;
+<p></p>&#13;
+<pre code_snippet_id="2365367" snippet_file_name="blog_20170501_5_7496015" name="code" class="java"><span style="font-family:KaiTi_GB2312;font-size:18px;">package com.majing.test.designpattern.prototype;
+
+import java.util.ArrayList;
+import java.util.List;
+
+public class Client {
+	public static void main(String[] args) throws CloneNotSupportedException {
+		deepCopy();
+	}
+	
+	public static void deepCopy() throws CloneNotSupportedException{
+		ConcretePrototype2 concretePrototype2 = new ConcretePrototype2();
+		concretePrototype2.setName("majing");
+		concretePrototype2.setAge(29);
+		List&lt;String&gt; interests = new ArrayList&lt;String&gt;();
+		interests.add("军事");
+		interests.add("上网");
+		concretePrototype2.setInterests(interests);
+		
+		ConcretePrototype2 copyPrototype = (ConcretePrototype2)concretePrototype2.clone();
+		System.out.println("通过原型模式拷贝（深拷贝）：");
+		System.out.println(copyPrototype.getName());
+		System.out.println(copyPrototype.getAge());
+		System.out.println(copyPrototype.getInterests());
+		
+		System.out.println("修改原型实例的内容：");
+		concretePrototype2.getInterests().remove("上网");
+		
+		System.out.println("修改后：");
+		System.out.println(copyPrototype.getName());
+		System.out.println(copyPrototype.getAge());
+		System.out.println(copyPrototype.getInterests());
+	}
+}
+</span></pre><span style="font-family:KaiTi_GB2312; font-size:18px"><br />&#13;
+运行后我们得到如下的结果：</span>&#13;
+<p></p>&#13;
+<p><span style="font-family:KaiTi_GB2312; font-size:18px"><img src="http://img.blog.csdn.net/20170501115916792?watermark/2/text/aHR0cDovL2Jsb2cuY3Nkbi5uZXQvbWFqaW5nZ29nb2dv/font/5a6L5L2T/fontsize/400/fill/I0JBQkFCMA==/dissolve/70/gravity/Center" alt="" /></span></p>&#13;
+<p><span style="font-family:KaiTi_GB2312; font-size:18px">从这里我们可以看到，通过深拷贝，被拷贝者和拷贝者两者之间已经完全独立了，不会相互影响。当然这里只是给出一个简单的示例说明，实际使用过程中还要根据实际情况进行适当的调整。</span></p>&#13;
+<p><span style="font-family:KaiTi_GB2312; font-size:18px"><br />&#13;
+</span></p>&#13;
+<p><span style="font-family:KaiTi_GB2312; font-size:18px">至此，关于原型模式的相关说明已经全部讲述完毕，如果想了解我最新的博文，请关注我的博客，谢谢。如果您愿意打赏我，可扫描下方二维码，对您的打赏我表示感谢。<img alt="吐舌头" src="http://static.blog.csdn.net/xheditor/xheditor_emot/default/tongue.gif" /></span></p>&#13;
+<p><span style="font-family:KaiTi_GB2312; font-size:18px"><img src="http://img.blog.csdn.net/20170430151631454" alt="" width="177" height="190" /><img src="http://img.blog.csdn.net/20170430151912379" alt="" width="176" height="187" /></span></p>&#13;
+<span style="font-family:KaiTi_GB2312; font-size:18px"><br />&#13;
+</span>&#13;
+   &#13;

@@ -1,0 +1,622 @@
+
+        <div class="markdown_views"><p>写了一个app小软件，重点不在于软件，软件bug挺多，也没去修改。 <br />
+这个小软件只是为了更好的说明和了解设计模块而做的。 <br />
+<strong>Java 程序设计–包结构</strong> <br />
+Java程序设计的系统体系结构很大一部分都体现在包结构上 <br />
+大家看看我的这个小软件的分层： <br />
+<img src="http://img.blog.csdn.net/20160406020440722" alt="" title="" /></p>
+
+<p>结构还是挺清楚的。 <br />
+<strong>一种典型的Java应用程序的包结构：</strong> <br />
+前缀.应用或项目的名称.模块组合.模块内部的技术实现 <br />
+<strong>说明：</strong>  <br />
+1、前缀：是网站域名的倒写，去掉www（如，Sun公司（非JDK级别）的东西：com.sun.* ）。 <br />
+2、其中模块组合又由系统、子系统、模块、组件等构成（具体情况根据项目的大小而定，如果项目很大，那么就多分几层。 <br />
+3、模块内部的技术实现一般由：表现层、逻辑层、数据层等构成。  <br />
+对于许多类都要使用的公共模块或公共类，可以再独立建立一个包，取名common或base，把这些公共类都放在其中。 <br />
+对于功能上的公用模块或公共类可建立util或tool包，放入其中。 <br />
+如本例的util包。</p>
+
+<p>设计与实现的常用方式、DAO的基本功能 <br />
+<strong>★ 设计的时候：从大到小</strong> <br />
+先把一个大问题分解成一系列的小问题。或者说是把一个大系统分解成多个小系统，小系统再继续进行往下分解，直到分解到自己能够掌控时，再进行动手实现。</p>
+
+<p><strong>★ 实现的时候：从小到大</strong> <br />
+先实现组件，进行测试通过了，再把几个组件实现合成模块，进行测试通过，然后继续往上扩大。</p>
+
+<p><strong>★ 最典型的DAO接口通常具有的功能</strong> <br />
+新增功能、修改功能、删除功能、按照主要的键值进行查询、获取所有值的功能、按照条件进行查询的功能。 <br />
+<img src="http://img.blog.csdn.net/20160406020832098" alt="" title="" /></p>
+
+<p><strong>★ 一个通用DAO接口模板</strong></p>
+
+<p><strong>★ UserVO 和 UserQueryVO的区别</strong> <br />
+UserVO封装数据记录，而UserQueryVO用于封装查询条件。</p>
+
+<p><img src="http://img.blog.csdn.net/20160406020916567" alt="" title="" /></p>
+
+<p>下面的为那个小软件实现这些设计模式的简单汇总： <br />
+（含分层思想，值对象，工厂方法，Dao组件，面向接口编程）</p>
+
+<p>main方法类： <br />
+UserClient ：</p>
+
+
+
+<pre class="prettyprint"><code class=" hljs java"><span class="hljs-keyword">package</span> cn.hncu.app;
+
+<span class="hljs-keyword">import</span> cn.hncu.app.ui.UserAddPanel;
+
+
+<span class="hljs-keyword">public</span> <span class="hljs-class"><span class="hljs-keyword">class</span> <span class="hljs-title">UserClient</span> <span class="hljs-keyword">extends</span> <span class="hljs-title">javax</span>.<span class="hljs-title">swing</span>.<span class="hljs-title">JFrame</span> {</span>
+
+
+    <span class="hljs-keyword">public</span> <span class="hljs-title">UserClient</span>(){
+        <span class="hljs-keyword">super</span>(<span class="hljs-string">"chx"</span>);
+        <span class="hljs-keyword">this</span>.setDefaultCloseOperation(EXIT_ON_CLOSE);
+        <span class="hljs-keyword">this</span>.setBounds(<span class="hljs-number">100</span>, <span class="hljs-number">100</span>, <span class="hljs-number">800</span>, <span class="hljs-number">600</span>);
+        <span class="hljs-keyword">this</span>.setContentPane(<span class="hljs-keyword">new</span> UserAddPanel(<span class="hljs-keyword">this</span>));
+
+        <span class="hljs-keyword">this</span>.setVisible(<span class="hljs-keyword">true</span>);
+
+    }
+
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">static</span> <span class="hljs-keyword">void</span> <span class="hljs-title">main</span>(String[] args) {
+        <span class="hljs-keyword">new</span> UserClient();
+    }
+
+}</code></pre>
+
+<p>公用模块类  utils类： <br />
+FileIO ：</p>
+
+
+
+<pre class="prettyprint"><code class=" hljs java"><span class="hljs-keyword">package</span> cn.hncu.app.utils;
+
+<span class="hljs-keyword">import</span> java.io.FileInputStream;
+<span class="hljs-keyword">import</span> java.io.FileNotFoundException;
+<span class="hljs-keyword">import</span> java.io.FileOutputStream;
+<span class="hljs-keyword">import</span> java.io.IOException;
+<span class="hljs-keyword">import</span> java.io.ObjectInputStream;
+<span class="hljs-keyword">import</span> java.io.ObjectOutputStream;
+<span class="hljs-keyword">import</span> java.util.ArrayList;
+<span class="hljs-keyword">import</span> java.util.List;
+
+<span class="hljs-keyword">public</span> <span class="hljs-class"><span class="hljs-keyword">class</span> <span class="hljs-title">FileIO</span> {</span>
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">static</span> Object[] <span class="hljs-title">read</span>(String fileName){
+        List&lt;Object&gt; list = <span class="hljs-keyword">new</span> ArrayList&lt;Object&gt;();
+        ObjectInputStream objIn=<span class="hljs-keyword">null</span>;
+        <span class="hljs-keyword">try</span> {
+            objIn = <span class="hljs-keyword">new</span> ObjectInputStream(<span class="hljs-keyword">new</span> FileInputStream(fileName));
+            Object obj;
+            <span class="hljs-comment">//※※对象流的读不能用available()来判断，而应该用异常来确定是否读到结束</span>
+            <span class="hljs-keyword">while</span>(<span class="hljs-keyword">true</span>){
+                obj=objIn.readObject();
+                list.add(obj);  
+            }
+
+        } <span class="hljs-keyword">catch</span> (FileNotFoundException e) {
+            e.printStackTrace();
+        } <span class="hljs-keyword">catch</span> (IOException e) {
+            <span class="hljs-comment">//读到文件末尾，就是出异常，通过这来判断是否读到结束。</span>
+            <span class="hljs-comment">//因此，本程序中，这里是正常的文件读取结束，不是我们之前认为的出异常--所以不输出异常信息</span>
+        } <span class="hljs-keyword">catch</span> (ClassNotFoundException e) {
+            <span class="hljs-comment">//读到文件末尾，就是出异常，通过这来判断是否读到结束。</span>
+            <span class="hljs-comment">//因此，本程序中，这里是正常的文件读取结束，不是我们之前认为的出异常--所以不输出异常信息</span>
+        }<span class="hljs-keyword">finally</span>{
+            <span class="hljs-keyword">if</span>(objIn!=<span class="hljs-keyword">null</span>){
+                <span class="hljs-keyword">try</span> {
+                    objIn.close();
+                } <span class="hljs-keyword">catch</span> (IOException e) {
+                    e.printStackTrace();
+                }
+            }
+
+        }
+
+        Object[] objs = list.toArray();
+        <span class="hljs-keyword">if</span>(objs==<span class="hljs-keyword">null</span>){
+            objs=<span class="hljs-keyword">new</span> Object[<span class="hljs-number">0</span>];
+        }
+        <span class="hljs-keyword">return</span> objs;
+    }
+
+
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">static</span> <span class="hljs-keyword">boolean</span> <span class="hljs-title">write</span>(String fileName,Object obj){
+        ObjectOutputStream objOut =<span class="hljs-keyword">null</span>;
+        <span class="hljs-keyword">try</span> {
+            objOut=<span class="hljs-keyword">new</span> ObjectOutputStream(<span class="hljs-keyword">new</span> FileOutputStream(fileName,<span class="hljs-keyword">true</span>));
+            <span class="hljs-comment">//new FileOutputStream(fileName,true),有true的存在代表是添加而不是覆盖</span>
+            objOut.writeObject(obj);
+        } <span class="hljs-keyword">catch</span> (Exception e) {
+            e.printStackTrace();
+            <span class="hljs-keyword">return</span> <span class="hljs-keyword">false</span>;
+        }<span class="hljs-keyword">finally</span>{
+            <span class="hljs-keyword">if</span>(objOut!=<span class="hljs-keyword">null</span>){
+                <span class="hljs-keyword">try</span> {
+                    objOut.close();
+                } <span class="hljs-keyword">catch</span> (IOException e) {
+                    e.printStackTrace();
+                }
+            }
+        }
+
+        <span class="hljs-keyword">return</span> <span class="hljs-keyword">true</span>;
+    }
+
+
+}
+</code></pre>
+
+<p><strong>值对象：</strong> <br />
+<strong>封装数据记录</strong>: <br />
+User：</p>
+
+
+
+<pre class="prettyprint"><code class=" hljs java"><span class="hljs-keyword">package</span> cn.hncu.app.vo;
+
+<span class="hljs-keyword">import</span> java.io.Serializable;
+
+<span class="hljs-keyword">public</span> <span class="hljs-class"><span class="hljs-keyword">class</span> <span class="hljs-title">User</span> <span class="hljs-keyword">implements</span> <span class="hljs-title">Serializable</span>{</span><span class="hljs-comment">//一定要实现这个接口啊！！！</span>
+    <span class="hljs-keyword">private</span> String name;
+    <span class="hljs-keyword">private</span> <span class="hljs-keyword">int</span> age;
+
+    <span class="hljs-keyword">public</span> <span class="hljs-title">User</span>(String name, <span class="hljs-keyword">int</span> age) {
+        <span class="hljs-keyword">this</span>.name = name;
+        <span class="hljs-keyword">this</span>.age = age;
+    }
+
+    <span class="hljs-keyword">public</span> <span class="hljs-title">User</span>() {
+    }
+
+    <span class="hljs-keyword">public</span> String <span class="hljs-title">getName</span>() {
+        <span class="hljs-keyword">return</span> name;
+    }
+
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">void</span> <span class="hljs-title">setName</span>(String name) {
+        <span class="hljs-keyword">this</span>.name = name;
+    }
+
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">int</span> <span class="hljs-title">getAge</span>() {
+        <span class="hljs-keyword">return</span> age;
+    }
+
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">void</span> <span class="hljs-title">setAge</span>(<span class="hljs-keyword">int</span> age) {
+        <span class="hljs-keyword">this</span>.age = age;
+    }
+
+    <span class="hljs-annotation">@Override</span>
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">int</span> <span class="hljs-title">hashCode</span>() {
+        <span class="hljs-keyword">final</span> <span class="hljs-keyword">int</span> prime = <span class="hljs-number">31</span>;
+        <span class="hljs-keyword">int</span> result = <span class="hljs-number">1</span>;
+        result = prime * result + age;
+        result = prime * result + ((name == <span class="hljs-keyword">null</span>) ? <span class="hljs-number">0</span> : name.hashCode());
+        <span class="hljs-keyword">return</span> result;
+    }
+
+    <span class="hljs-annotation">@Override</span>
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">boolean</span> <span class="hljs-title">equals</span>(Object obj) {
+        <span class="hljs-keyword">if</span> (<span class="hljs-keyword">this</span> == obj)
+            <span class="hljs-keyword">return</span> <span class="hljs-keyword">true</span>;
+        <span class="hljs-keyword">if</span> (obj == <span class="hljs-keyword">null</span>)
+            <span class="hljs-keyword">return</span> <span class="hljs-keyword">false</span>;
+        <span class="hljs-keyword">if</span> (getClass() != obj.getClass())
+            <span class="hljs-keyword">return</span> <span class="hljs-keyword">false</span>;
+        User other = (User) obj;
+        <span class="hljs-keyword">if</span> (age != other.age)
+            <span class="hljs-keyword">return</span> <span class="hljs-keyword">false</span>;
+        <span class="hljs-keyword">if</span> (name == <span class="hljs-keyword">null</span>) {
+            <span class="hljs-keyword">if</span> (other.name != <span class="hljs-keyword">null</span>)
+                <span class="hljs-keyword">return</span> <span class="hljs-keyword">false</span>;
+        } <span class="hljs-keyword">else</span> <span class="hljs-keyword">if</span> (!name.equals(other.name))
+            <span class="hljs-keyword">return</span> <span class="hljs-keyword">false</span>;
+        <span class="hljs-keyword">return</span> <span class="hljs-keyword">true</span>;
+    }
+
+    <span class="hljs-annotation">@Override</span>
+    <span class="hljs-keyword">public</span> String <span class="hljs-title">toString</span>() {
+        <span class="hljs-keyword">return</span>  name + <span class="hljs-string">","</span> + age;
+    }
+}
+</code></pre>
+
+<p><strong>封装查询条件:</strong></p>
+
+<p>UserQueryVO ：</p>
+
+
+
+<pre class="prettyprint"><code class=" hljs java"><span class="hljs-keyword">package</span> cn.hncu.app.vo;
+
+<span class="hljs-keyword">public</span> <span class="hljs-class"><span class="hljs-keyword">class</span> <span class="hljs-title">UserQueryVO</span> <span class="hljs-keyword">extends</span> <span class="hljs-title">User</span>{</span>
+    <span class="hljs-keyword">private</span> String age2;<span class="hljs-comment">//年龄段查找</span>
+
+    <span class="hljs-keyword">public</span> String <span class="hljs-title">getAge2</span>() {
+        <span class="hljs-keyword">return</span> age2;
+    }
+
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">void</span> <span class="hljs-title">setAge2</span>(String age2) {
+        <span class="hljs-keyword">this</span>.age2 = age2;
+    }
+
+
+
+}
+</code></pre>
+
+<p><strong>Dao类（数据层）：</strong></p>
+
+<p>接口UserDAO ：</p>
+
+
+
+<pre class="prettyprint"><code class=" hljs java"><span class="hljs-keyword">package</span> cn.hncu.app.dao.dao;
+
+<span class="hljs-keyword">import</span> java.util.Collection;
+
+<span class="hljs-keyword">import</span> cn.hncu.app.vo.User;
+<span class="hljs-keyword">import</span> cn.hncu.app.vo.UserQueryVO;
+
+
+<span class="hljs-keyword">public</span> <span class="hljs-class"><span class="hljs-keyword">interface</span> <span class="hljs-title">UserDAO</span> {</span>
+    <span class="hljs-keyword">public</span> Object[] <span class="hljs-title">getAllUsers</span>();
+
+    <span class="hljs-comment">//增删改</span>
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">boolean</span> <span class="hljs-title">addUser</span>(User user);
+
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">boolean</span> <span class="hljs-title">delete</span>(User user);<span class="hljs-comment">//有时参数也可以用：id</span>
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">boolean</span> <span class="hljs-title">update</span>(User user);
+
+
+    <span class="hljs-comment">//3个查询</span>
+    <span class="hljs-keyword">public</span> User <span class="hljs-title">getByUserId</span>(String uuid);<span class="hljs-comment">//查单个</span>
+    <span class="hljs-keyword">public</span> Collection&lt;User&gt; <span class="hljs-title">getAll</span>();<span class="hljs-comment">//查全</span>
+    <span class="hljs-keyword">public</span> Collection&lt;User&gt; <span class="hljs-title">geByCondition</span>(UserQueryVO qvo);
+    <span class="hljs-comment">//只写了接口，并没有具体去应用。。。。这里主要学方法</span>
+}
+</code></pre>
+
+<p>工厂方法UserDaoFactory ：</p>
+
+
+
+<pre class="prettyprint"><code class=" hljs avrasm">package cn<span class="hljs-preprocessor">.hncu</span><span class="hljs-preprocessor">.app</span><span class="hljs-preprocessor">.dao</span><span class="hljs-preprocessor">.factory</span><span class="hljs-comment">;</span>
+
+import cn<span class="hljs-preprocessor">.hncu</span><span class="hljs-preprocessor">.app</span><span class="hljs-preprocessor">.dao</span><span class="hljs-preprocessor">.dao</span><span class="hljs-preprocessor">.UserDAO</span><span class="hljs-comment">;</span>
+import cn<span class="hljs-preprocessor">.hncu</span><span class="hljs-preprocessor">.app</span><span class="hljs-preprocessor">.dao</span><span class="hljs-preprocessor">.impl</span><span class="hljs-preprocessor">.UserDaoFileIO</span><span class="hljs-comment">;</span>
+
+public class UserDaoFactory {
+    public static UserDAO getUserDAO(){
+        return new UserDaoFileIO()<span class="hljs-comment">;</span>
+    }
+
+
+}
+</code></pre>
+
+<p>实现类 UserDaoFileIO ：</p>
+
+
+
+<pre class="prettyprint"><code class=" hljs java"><span class="hljs-keyword">package</span> cn.hncu.app.dao.impl;
+
+<span class="hljs-keyword">import</span> java.util.Collection;
+
+<span class="hljs-keyword">import</span> cn.hncu.app.dao.dao.UserDAO;
+<span class="hljs-keyword">import</span> cn.hncu.app.utils.FileIO;
+<span class="hljs-keyword">import</span> cn.hncu.app.vo.User;
+<span class="hljs-keyword">import</span> cn.hncu.app.vo.UserQueryVO;
+
+<span class="hljs-keyword">public</span> <span class="hljs-class"><span class="hljs-keyword">class</span> <span class="hljs-title">UserDaoFileIO</span> <span class="hljs-keyword">implements</span> <span class="hljs-title">UserDAO</span>{</span>
+    <span class="hljs-keyword">private</span> <span class="hljs-keyword">static</span> <span class="hljs-keyword">final</span> String FILE_NAME = <span class="hljs-string">"user.txt"</span>;
+    <span class="hljs-annotation">@Override</span>
+    <span class="hljs-keyword">public</span> Object[] <span class="hljs-title">getAllUsers</span>() {
+        <span class="hljs-keyword">return</span> FileIO.read(FILE_NAME);
+    }
+
+    <span class="hljs-annotation">@Override</span>
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">boolean</span> <span class="hljs-title">addUser</span>(User user) {
+        <span class="hljs-keyword">return</span> FileIO.write(FILE_NAME, user);
+    }
+
+    <span class="hljs-annotation">@Override</span>
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">boolean</span> <span class="hljs-title">delete</span>(User user) {
+        <span class="hljs-keyword">return</span> <span class="hljs-keyword">false</span>;
+    }
+
+    <span class="hljs-annotation">@Override</span>
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">boolean</span> <span class="hljs-title">update</span>(User user) {
+        <span class="hljs-keyword">return</span> <span class="hljs-keyword">false</span>;
+    }
+
+    <span class="hljs-annotation">@Override</span>
+    <span class="hljs-keyword">public</span> User <span class="hljs-title">getByUserId</span>(String uuid) {
+        <span class="hljs-keyword">return</span> <span class="hljs-keyword">null</span>;
+    }
+
+    <span class="hljs-annotation">@Override</span>
+    <span class="hljs-keyword">public</span> Collection&lt;User&gt; <span class="hljs-title">getAll</span>() {
+        <span class="hljs-keyword">return</span> <span class="hljs-keyword">null</span>;
+    }
+
+    <span class="hljs-annotation">@Override</span>
+    <span class="hljs-keyword">public</span> Collection&lt;User&gt; <span class="hljs-title">geByCondition</span>(UserQueryVO qvo) {
+        <span class="hljs-keyword">return</span> <span class="hljs-keyword">null</span>;
+    }
+
+}
+</code></pre>
+
+<p><strong>逻辑层：</strong> <br />
+接口UserEbi ：</p>
+
+
+
+<pre class="prettyprint"><code class=" hljs java"><span class="hljs-keyword">package</span> cn.hncu.app.business.ebi;
+
+<span class="hljs-keyword">import</span> cn.hncu.app.vo.User;
+
+<span class="hljs-keyword">public</span> <span class="hljs-class"><span class="hljs-keyword">interface</span> <span class="hljs-title">UserEbi</span> {</span>
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">boolean</span> <span class="hljs-title">addUser</span>(User user);
+    <span class="hljs-keyword">public</span> Object[] <span class="hljs-title">getAllUser</span>();
+}
+</code></pre>
+
+<p>工厂类UserEbiFactory ：</p>
+
+
+
+<pre class="prettyprint"><code class=" hljs avrasm">package cn<span class="hljs-preprocessor">.hncu</span><span class="hljs-preprocessor">.app</span><span class="hljs-preprocessor">.business</span><span class="hljs-preprocessor">.factory</span><span class="hljs-comment">;</span>
+
+import cn<span class="hljs-preprocessor">.hncu</span><span class="hljs-preprocessor">.app</span><span class="hljs-preprocessor">.business</span><span class="hljs-preprocessor">.ebi</span><span class="hljs-preprocessor">.UserEbi</span><span class="hljs-comment">;</span>
+import cn<span class="hljs-preprocessor">.hncu</span><span class="hljs-preprocessor">.app</span><span class="hljs-preprocessor">.business</span><span class="hljs-preprocessor">.impl</span><span class="hljs-preprocessor">.UserEbo</span><span class="hljs-comment">;</span>
+public class UserEbiFactory {
+    public static UserEbi getUserEbi(){
+        return new UserEbo()<span class="hljs-comment">;</span>
+    }
+}
+</code></pre>
+
+<p>实现类UserEbo ：</p>
+
+
+
+<pre class="prettyprint"><code class=" hljs java"><span class="hljs-keyword">package</span> cn.hncu.app.business.impl;
+
+<span class="hljs-keyword">import</span> cn.hncu.app.business.ebi.UserEbi;
+<span class="hljs-keyword">import</span> cn.hncu.app.dao.dao.UserDAO;
+<span class="hljs-keyword">import</span> cn.hncu.app.dao.factory.UserDaoFactory;
+<span class="hljs-keyword">import</span> cn.hncu.app.vo.User;
+
+<span class="hljs-keyword">public</span> <span class="hljs-class"><span class="hljs-keyword">class</span> <span class="hljs-title">UserEbo</span> <span class="hljs-keyword">implements</span> <span class="hljs-title">UserEbi</span>{</span>
+
+    <span class="hljs-annotation">@Override</span>
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">boolean</span> <span class="hljs-title">addUser</span>(User user) {
+        UserDAO userDao = UserDaoFactory.getUserDAO();
+        <span class="hljs-keyword">return</span> userDao.addUser(user);
+    }
+
+    <span class="hljs-annotation">@Override</span>
+    <span class="hljs-keyword">public</span> Object[] <span class="hljs-title">getAllUser</span>() {
+        UserDAO userDao = UserDaoFactory.getUserDAO();
+        <span class="hljs-keyword">return</span> userDao.getAllUsers();
+    }
+
+}
+</code></pre>
+
+<p><strong>表现层：</strong></p>
+
+<p><strong>UserAddPanel 类：</strong></p>
+
+
+
+<pre class="prettyprint"><code class=" hljs java"><span class="hljs-comment">/*
+ * UserAddPanel.java
+ *
+ * Created on __DATE__, __TIME__
+ */</span>
+
+<span class="hljs-keyword">package</span> cn.hncu.app.ui;
+
+<span class="hljs-keyword">import</span> javax.swing.JFrame;
+<span class="hljs-keyword">import</span> javax.swing.JOptionPane;
+
+<span class="hljs-keyword">import</span> cn.hncu.app.business.ebi.UserEbi;
+<span class="hljs-keyword">import</span> cn.hncu.app.business.factory.UserEbiFactory;
+<span class="hljs-keyword">import</span> cn.hncu.app.vo.User;
+
+<span class="hljs-javadoc">/**
+ *
+ *<span class="hljs-javadoctag"> @author</span>  __USER__
+ */</span>
+<span class="hljs-keyword">public</span> <span class="hljs-class"><span class="hljs-keyword">class</span> <span class="hljs-title">UserAddPanel</span> <span class="hljs-keyword">extends</span> <span class="hljs-title">javax</span>.<span class="hljs-title">swing</span>.<span class="hljs-title">JPanel</span> {</span>
+    <span class="hljs-keyword">private</span> JFrame mainFrame = <span class="hljs-keyword">null</span>;
+
+    <span class="hljs-javadoc">/** Creates new form UserAddPanel */</span>
+    <span class="hljs-keyword">public</span> <span class="hljs-title">UserAddPanel</span>(JFrame mainFrame) {
+        <span class="hljs-keyword">this</span>.mainFrame = mainFrame;
+        initComponents();
+    }
+
+    <span class="hljs-javadoc">/** This method is called from within the constructor to
+     * initialize the form.
+     * WARNING: Do NOT modify this code. The content of this method is
+     * always regenerated by the Form Editor.
+     */</span>
+    <span class="hljs-comment">//GEN-BEGIN:initComponents</span>
+    <span class="hljs-comment">// &lt;editor-fold defaultstate="collapsed" desc="Generated Code"&gt;</span>
+    <span class="hljs-keyword">private</span> <span class="hljs-keyword">void</span> <span class="hljs-title">initComponents</span>() {
+
+        jLabel1 = <span class="hljs-keyword">new</span> javax.swing.JLabel();
+        jLabel2 = <span class="hljs-keyword">new</span> javax.swing.JLabel();
+        jButton1 = <span class="hljs-keyword">new</span> javax.swing.JButton();
+        tfdAge = <span class="hljs-keyword">new</span> javax.swing.JTextField();
+        tfdName = <span class="hljs-keyword">new</span> javax.swing.JTextField();
+
+        setMinimumSize(<span class="hljs-keyword">new</span> java.awt.Dimension(<span class="hljs-number">800</span>, <span class="hljs-number">600</span>));
+        setLayout(<span class="hljs-keyword">null</span>);
+
+        jLabel1.setText(<span class="hljs-string">"\u5e74\u9f84\uff1a"</span>);
+        add(jLabel1);
+        jLabel1.setBounds(<span class="hljs-number">170</span>, <span class="hljs-number">200</span>, <span class="hljs-number">50</span>, <span class="hljs-number">40</span>);
+
+        jLabel2.setText(<span class="hljs-string">"\u59d3\u540d\uff1a"</span>);
+        add(jLabel2);
+        jLabel2.setBounds(<span class="hljs-number">170</span>, <span class="hljs-number">120</span>, <span class="hljs-number">50</span>, <span class="hljs-number">40</span>);
+
+        jButton1.setText(<span class="hljs-string">"\u6dfb\u52a0"</span>);
+        jButton1.addActionListener(<span class="hljs-keyword">new</span> java.awt.event.ActionListener() {
+            <span class="hljs-keyword">public</span> <span class="hljs-keyword">void</span> <span class="hljs-title">actionPerformed</span>(java.awt.event.ActionEvent evt) {
+                jButton1ActionPerformed(evt);
+            }
+        });
+        add(jButton1);
+        jButton1.setBounds(<span class="hljs-number">240</span>, <span class="hljs-number">330</span>, <span class="hljs-number">170</span>, <span class="hljs-number">60</span>);
+        add(tfdAge);
+        tfdAge.setBounds(<span class="hljs-number">210</span>, <span class="hljs-number">210</span>, <span class="hljs-number">170</span>, <span class="hljs-number">30</span>);
+        add(tfdName);
+        tfdName.setBounds(<span class="hljs-number">210</span>, <span class="hljs-number">130</span>, <span class="hljs-number">170</span>, <span class="hljs-number">30</span>);
+    }<span class="hljs-comment">// &lt;/editor-fold&gt;</span>
+    <span class="hljs-comment">//GEN-END:initComponents</span>
+
+    <span class="hljs-keyword">private</span> <span class="hljs-keyword">void</span> <span class="hljs-title">jButton1ActionPerformed</span>(java.awt.event.ActionEvent evt) {
+        <span class="hljs-comment">//1收集参数 </span>
+        String name = tfdName.getText();
+        String strAge = tfdAge.getText();
+        <span class="hljs-keyword">int</span> age = Integer.parseInt(strAge);<span class="hljs-comment">//简单的转换成一个整型数了。</span>
+
+        <span class="hljs-comment">//2组织参数</span>
+        <span class="hljs-comment">//User user = new User(name, age);</span>
+        User user = <span class="hljs-keyword">new</span> User();
+        user.setAge(age);
+        user.setName(name);
+
+
+        <span class="hljs-comment">//3调用逻辑层---通过接口</span>
+        UserEbi userEbi = UserEbiFactory.getUserEbi();
+        <span class="hljs-keyword">boolean</span> isSuccess=userEbi.addUser(user);
+
+        <span class="hljs-comment">//4导向不同页面</span>
+        <span class="hljs-keyword">if</span>(isSuccess){
+            JOptionPane.showMessageDialog(<span class="hljs-keyword">this</span>, <span class="hljs-string">"恭喜，添加成功!"</span>);
+            <span class="hljs-keyword">this</span>.mainFrame.setContentPane(<span class="hljs-keyword">new</span> UserListPanel(mainFrame));
+            <span class="hljs-keyword">this</span>.mainFrame.validate();
+        }<span class="hljs-keyword">else</span>{
+            JOptionPane.showMessageDialog(<span class="hljs-keyword">this</span>, <span class="hljs-string">"祝贺，添加失败!"</span>);
+        }
+
+
+    }
+
+    <span class="hljs-comment">//GEN-BEGIN:variables</span>
+    <span class="hljs-comment">// Variables declaration - do not modify</span>
+    <span class="hljs-keyword">private</span> javax.swing.JButton jButton1;
+    <span class="hljs-keyword">private</span> javax.swing.JLabel jLabel1;
+    <span class="hljs-keyword">private</span> javax.swing.JLabel jLabel2;
+    <span class="hljs-keyword">private</span> javax.swing.JTextField tfdAge;
+    <span class="hljs-keyword">private</span> javax.swing.JTextField tfdName;
+    <span class="hljs-comment">// End of variables declaration//GEN-END:variables</span>
+
+}</code></pre>
+
+<p><strong>UserListPanel 类：</strong></p>
+
+
+
+<pre class="prettyprint"><code class=" hljs java"><span class="hljs-comment">/*
+ * UserListPanel.java
+ *
+ * Created on __DATE__, __TIME__
+ */</span>
+
+<span class="hljs-keyword">package</span> cn.hncu.app.ui;
+
+<span class="hljs-keyword">import</span> javax.swing.JFrame;
+
+<span class="hljs-keyword">import</span> cn.hncu.app.business.ebi.UserEbi;
+<span class="hljs-keyword">import</span> cn.hncu.app.business.factory.UserEbiFactory;
+
+<span class="hljs-javadoc">/**
+ *
+ *<span class="hljs-javadoctag"> @author</span>  __USER__
+ */</span>
+<span class="hljs-keyword">public</span> <span class="hljs-class"><span class="hljs-keyword">class</span> <span class="hljs-title">UserListPanel</span> <span class="hljs-keyword">extends</span> <span class="hljs-title">javax</span>.<span class="hljs-title">swing</span>.<span class="hljs-title">JPanel</span> {</span>
+    <span class="hljs-keyword">private</span> JFrame mainFrame = <span class="hljs-keyword">null</span>;
+
+    <span class="hljs-javadoc">/** Creates new form UserListPanel */</span>
+    <span class="hljs-keyword">public</span> <span class="hljs-title">UserListPanel</span>(JFrame mainFrame) {
+        <span class="hljs-keyword">this</span>.mainFrame = mainFrame;
+        initComponents();
+        myInitDatas();
+
+    }
+
+    <span class="hljs-keyword">private</span> <span class="hljs-keyword">void</span> <span class="hljs-title">myInitDatas</span>() {
+        UserEbi userEbi = UserEbiFactory.getUserEbi();
+        Object[] objs = userEbi.getAllUser();
+        <span class="hljs-keyword">this</span>.listUsers.setListData(objs);
+    }
+
+    <span class="hljs-javadoc">/** This method is called from within the constructor to
+     * initialize the form.
+     * WARNING: Do NOT modify this code. The content of this method is
+     * always regenerated by the Form Editor.
+     */</span>
+    <span class="hljs-comment">//GEN-BEGIN:initComponents</span>
+    <span class="hljs-comment">// &lt;editor-fold defaultstate="collapsed" desc="Generated Code"&gt;</span>
+    <span class="hljs-keyword">private</span> <span class="hljs-keyword">void</span> <span class="hljs-title">initComponents</span>() {
+
+        jScrollPane1 = <span class="hljs-keyword">new</span> javax.swing.JScrollPane();
+        listUsers = <span class="hljs-keyword">new</span> javax.swing.JList();
+        jLabel1 = <span class="hljs-keyword">new</span> javax.swing.JLabel();
+
+        setMinimumSize(<span class="hljs-keyword">new</span> java.awt.Dimension(<span class="hljs-number">800</span>, <span class="hljs-number">600</span>));
+        setLayout(<span class="hljs-keyword">null</span>);
+
+        listUsers.setModel(<span class="hljs-keyword">new</span> javax.swing.AbstractListModel() {
+            String[] strings = { <span class="hljs-string">""</span> };
+
+            <span class="hljs-keyword">public</span> <span class="hljs-keyword">int</span> <span class="hljs-title">getSize</span>() {
+                <span class="hljs-keyword">return</span> strings.length;
+            }
+
+            <span class="hljs-keyword">public</span> Object <span class="hljs-title">getElementAt</span>(<span class="hljs-keyword">int</span> i) {
+                <span class="hljs-keyword">return</span> strings[i];
+            }
+        });
+        jScrollPane1.setViewportView(listUsers);
+
+        add(jScrollPane1);
+        jScrollPane1.setBounds(<span class="hljs-number">170</span>, <span class="hljs-number">170</span>, <span class="hljs-number">410</span>, <span class="hljs-number">210</span>);
+
+        jLabel1.setText(<span class="hljs-string">"\u4fe1\u606f"</span>);
+        add(jLabel1);
+        jLabel1.setBounds(<span class="hljs-number">350</span>, <span class="hljs-number">90</span>, <span class="hljs-number">70</span>, <span class="hljs-number">50</span>);
+    }<span class="hljs-comment">// &lt;/editor-fold&gt;</span>
+    <span class="hljs-comment">//GEN-END:initComponents</span>
+
+    <span class="hljs-comment">//GEN-BEGIN:variables</span>
+    <span class="hljs-comment">// Variables declaration - do not modify</span>
+    <span class="hljs-keyword">private</span> javax.swing.JLabel jLabel1;
+    <span class="hljs-keyword">private</span> javax.swing.JScrollPane jScrollPane1;
+    <span class="hljs-keyword">private</span> javax.swing.JList listUsers;
+    <span class="hljs-comment">// End of variables declaration//GEN-END:variables</span>
+
+}</code></pre></div>&#13;
+        <script type="text/javascript">&#13;
+            $(function () {&#13;
+                $('pre.prettyprint code').each(function () {&#13;
+                    var lines = $(this).text().split('\n').length;&#13;
+                    var $numbering = $('&lt;ul/&gt;').addClass('pre-numbering').hide();&#13;
+                    $(this).addClass('has-numbering').parent().append($numbering);&#13;
+                    for (i = 1; i &lt;= lines; i++) {&#13;
+                        $numbering.append($('&lt;li/&gt;').text(i));&#13;
+                    };&#13;
+                    $numbering.fadeIn(1700);&#13;
+                });&#13;
+            });&#13;
+        </script>&#13;
+   &#13;

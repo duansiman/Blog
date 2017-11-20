@@ -1,0 +1,170 @@
+
+        <div class="markdown_views"><p><font color="browm">介绍：</font>将对象组合成树形结构，以表示“部分-整体”的层次结构。使得用户对单个对象和组合对象的使用具有一致性。说白了，就是想要客户端忽略组合对象与单个对象的差异，组合对象是由一个个独立对象组成。</p>
+
+<p><font color="green">场景：</font>文件系统由目录（文件夹）和文件组成。目录的内容可以是文件，也可以是目录。或者xml中一个标签是另外一些标签的父标签，但是又是别人的子标签。</p>
+
+<h1 id="一角色及作用">一、角色及作用</h1>
+
+<table>
+<thead>
+<tr>
+  <th>角色</th>
+  <th>作用</th>
+</tr>
+</thead>
+<tbody><tr>
+  <td>基类对象</td>
+  <td>定义子类需要实现的不同功能块</td>
+</tr>
+<tr>
+  <td>结构对象</td>
+  <td>实现功能，可以向其中再继续添加或者删除对象</td>
+</tr>
+<tr>
+  <td>最终对象</td>
+  <td>相当于一个txt文件，不能添加或删除</td>
+</tr>
+</tbody></table>
+
+
+
+
+<h1 id="二实现简单xml">二、实现简单xml</h1>
+
+<p><font color="green">场景：</font>我们平时常用的dom4j框架其实其中就使用了组合模式来实现各个节点。我们就大致模仿，制作一个简单的xml框架。</p>
+
+<p><strong>标签的基类</strong></p>
+
+<pre class="prettyprint"><code class=" hljs cs"><span class="hljs-keyword">public</span> <span class="hljs-keyword">abstract</span> <span class="hljs-keyword">class</span> Element {
+    String name;
+
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">abstract</span> <span class="hljs-keyword">void</span> <span class="hljs-title">add</span>(Element e);
+
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">abstract</span> <span class="hljs-keyword">void</span> <span class="hljs-title">remove</span>(Element e);
+
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">abstract</span> <span class="hljs-keyword">void</span> <span class="hljs-title">show</span>();
+}</code></pre>
+
+<p><strong>结构对象</strong></p>
+
+
+
+<pre class="prettyprint"><code class=" hljs java"><span class="hljs-keyword">public</span> <span class="hljs-class"><span class="hljs-keyword">class</span> <span class="hljs-title">ElementCell</span> <span class="hljs-keyword">extends</span> <span class="hljs-title">Element</span> {</span>
+
+    <span class="hljs-keyword">private</span> List&lt;Element&gt; childElement = <span class="hljs-keyword">new</span> ArrayList&lt;Element&gt;();
+
+    <span class="hljs-keyword">public</span> <span class="hljs-title">ElementCell</span>(String name) {
+        <span class="hljs-keyword">this</span>.name = name;
+    }
+
+    <span class="hljs-annotation">@Override</span>
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">void</span> <span class="hljs-title">add</span>(Element e) {
+        childElement.add(e);
+    }
+
+    <span class="hljs-annotation">@Override</span>
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">void</span> <span class="hljs-title">remove</span>(Element e) {
+        childElement.remove(e);
+    }
+
+    <span class="hljs-annotation">@Override</span>
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">void</span> <span class="hljs-title">show</span>() {
+        System.out.println(<span class="hljs-string">"&lt;"</span> + name + <span class="hljs-string">"&gt;"</span>);
+        <span class="hljs-keyword">for</span> (Element element : childElement) {
+            element.show();
+        }
+        System.out.println(<span class="hljs-string">"&lt;/"</span> + name + <span class="hljs-string">"&gt;"</span>);
+    }
+
+}</code></pre>
+
+<p><strong>最终对象</strong></p>
+
+
+
+<pre class="prettyprint"><code class=" hljs java"><span class="hljs-keyword">public</span> <span class="hljs-class"><span class="hljs-keyword">class</span> <span class="hljs-title">ElementEnd</span> <span class="hljs-keyword">extends</span> <span class="hljs-title">Element</span> {</span>
+
+    <span class="hljs-keyword">public</span> <span class="hljs-title">ElementEnd</span>(String name) {
+        <span class="hljs-keyword">this</span>.name = name;
+    }
+
+    <span class="hljs-annotation">@Override</span>
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">void</span> <span class="hljs-title">add</span>(Element e) {
+        System.out.println(<span class="hljs-string">"此标签下不能再插入子标签"</span>);
+    }
+
+    <span class="hljs-annotation">@Override</span>
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">void</span> <span class="hljs-title">remove</span>(Element e) {
+        System.out.println(<span class="hljs-string">"此标签下不能删除子标签"</span>);
+    }
+
+    <span class="hljs-annotation">@Override</span>
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">void</span> <span class="hljs-title">show</span>() {
+        System.out.println(<span class="hljs-string">"&lt;"</span> + name + <span class="hljs-string">"&gt;"</span>);
+        System.out.println(<span class="hljs-string">"&lt;/"</span> + name + <span class="hljs-string">"&gt;"</span>);
+    }
+}</code></pre>
+
+
+
+<h1 id="三测试xml生成">三、测试xml生成</h1>
+
+
+
+<pre class="prettyprint"><code class=" hljs avrasm">Element root = new ElementCell(<span class="hljs-string">"root"</span>)<span class="hljs-comment">;</span>
+Element c1 = new ElementCell(<span class="hljs-string">"c1"</span>)<span class="hljs-comment">;</span>
+root<span class="hljs-preprocessor">.add</span>(c1)<span class="hljs-comment">;</span>
+root<span class="hljs-preprocessor">.add</span>(new ElementCell(<span class="hljs-string">"c2"</span>))<span class="hljs-comment">;</span>
+c1<span class="hljs-preprocessor">.add</span>(new ElementCell(<span class="hljs-string">"c11"</span>))<span class="hljs-comment">;</span>
+Element e1 = new ElementEnd(<span class="hljs-string">"end1"</span>)<span class="hljs-comment">;</span>
+c1<span class="hljs-preprocessor">.add</span>(e1)<span class="hljs-comment">;</span>
+e1<span class="hljs-preprocessor">.add</span>(new ElementEnd(<span class="hljs-string">"123"</span>))<span class="hljs-comment">;</span>
+
+root<span class="hljs-preprocessor">.show</span>()<span class="hljs-comment">;</span>
+System<span class="hljs-preprocessor">.out</span><span class="hljs-preprocessor">.println</span>(<span class="hljs-string">"========"</span>)<span class="hljs-comment">;</span>
+root<span class="hljs-preprocessor">.remove</span>(c1)<span class="hljs-comment">;</span>
+root<span class="hljs-preprocessor">.show</span>()<span class="hljs-comment">;</span></code></pre>
+
+<p>输出示例</p>
+
+
+
+<pre class="prettyprint"><code class=" hljs xml">此标签下不能再插入子标签
+<span class="hljs-tag">&lt;<span class="hljs-title">root</span>&gt;</span>
+<span class="hljs-tag">&lt;<span class="hljs-title">c1</span>&gt;</span>
+<span class="hljs-tag">&lt;<span class="hljs-title">c11</span>&gt;</span>
+<span class="hljs-tag">&lt;/<span class="hljs-title">c11</span>&gt;</span>
+<span class="hljs-tag">&lt;<span class="hljs-title">end1</span>&gt;</span>
+<span class="hljs-tag">&lt;/<span class="hljs-title">end1</span>&gt;</span>
+<span class="hljs-tag">&lt;/<span class="hljs-title">c1</span>&gt;</span>
+<span class="hljs-tag">&lt;<span class="hljs-title">c2</span>&gt;</span>
+<span class="hljs-tag">&lt;/<span class="hljs-title">c2</span>&gt;</span>
+<span class="hljs-tag">&lt;/<span class="hljs-title">root</span>&gt;</span>
+========
+<span class="hljs-tag">&lt;<span class="hljs-title">root</span>&gt;</span>
+<span class="hljs-tag">&lt;<span class="hljs-title">c2</span>&gt;</span>
+<span class="hljs-tag">&lt;/<span class="hljs-title">c2</span>&gt;</span>
+<span class="hljs-tag">&lt;/<span class="hljs-title">root</span>&gt;</span>
+</code></pre>
+
+<p><font color="red">总结：</font>这样很好的生成了一个xml形式的文件。大家可以参考着再写文件系统的例子。</p>
+
+<hr />
+
+<p><strong><em>更多模式：</em></strong><a href="http://blog.csdn.net/odeviloo/article/details/52382338">一天一个设计模式—分类与六大原则</a></p>
+
+<p><strong><em>更多源码：</em></strong> <a href="https://github.com/oDevilo/Java-Base">https://github.com/oDevilo/Java-Base</a></p></div>&#13;
+        <script type="text/javascript">&#13;
+            $(function () {&#13;
+                $('pre.prettyprint code').each(function () {&#13;
+                    var lines = $(this).text().split('\n').length;&#13;
+                    var $numbering = $('&lt;ul/&gt;').addClass('pre-numbering').hide();&#13;
+                    $(this).addClass('has-numbering').parent().append($numbering);&#13;
+                    for (i = 1; i &lt;= lines; i++) {&#13;
+                        $numbering.append($('&lt;li/&gt;').text(i));&#13;
+                    };&#13;
+                    $numbering.fadeIn(1700);&#13;
+                });&#13;
+            });&#13;
+        </script>&#13;
+   &#13;

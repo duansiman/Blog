@@ -1,0 +1,282 @@
+
+        <div class="markdown_views"><h1 id="组合模式"><center> 组合模式</center></h1>
+
+<p>标签 ： Java与设计模式</p>
+
+<hr />
+
+<blockquote>
+  <p>组合模式: 将对象组合成树形结构以表示<strong>‘部分-整体’</strong>的层次结构, 使得用户对单个对象和组合对象的使用具有一致性.</p>
+</blockquote>
+
+<ul>
+<li>解析 <br />
+<ul><li>组合模式描述了如何将容器和叶子节点进行递归组合, 使用户在使用时可一致的对待容器和叶子, 为处理树形结构提供了完美的解决方案.</li>
+<li>当容器对象的指定方法被调用时, 将遍历整个树形结构, 并执行调用. 整个过程递归处理. <br />
+<img src="http://7xrgh9.com1.z0.glb.clouddn.com/16-8-24/45322983.jpg" alt="" title="" /> <br />
+(图片来源: <a href="https://book.douban.com/subject/1052241/">设计模式: 可复用面向对象软件的基础</a>)</li></ul></li>
+</ul>
+
+<hr />
+
+
+
+<h2 id="模式实现">模式实现</h2>
+
+<pre><code>案例: 杀毒软件
+</code></pre>
+
+<p><img src="http://7xrgh9.com1.z0.glb.clouddn.com/16-8-24/80205061.jpg" alt="" title="" /> <br />
+使对文件(Image/Text/Video/…)杀毒与对文件夹(Folder)的杀毒暴露统一接口.</p>
+
+<hr />
+
+
+
+<h3 id="component">Component</h3>
+
+<ul>
+<li>为<strong>组合模式</strong>中的对象声明接口, 在适当情况下, 实现所有类共有接口的默认行为.</li>
+<li>声明一个接口用于访问和管理<strong>Component</strong>子组件.</li>
+</ul>
+
+
+
+<pre class="prettyprint"><code class=" hljs java"><span class="hljs-javadoc">/**
+ *<span class="hljs-javadoctag"> @author</span> jifang
+ *<span class="hljs-javadoctag"> @since</span> 16/8/24 上午10:19.
+ */</span>
+<span class="hljs-keyword">public</span> <span class="hljs-keyword">abstract</span> <span class="hljs-class"><span class="hljs-keyword">class</span> <span class="hljs-title">AbstractFileComponent</span> {</span>
+
+    <span class="hljs-keyword">protected</span> String name;
+
+    <span class="hljs-keyword">protected</span> <span class="hljs-title">AbstractFileComponent</span>(String name) {
+        <span class="hljs-keyword">this</span>.name = name;
+    }
+
+    <span class="hljs-keyword">protected</span> <span class="hljs-keyword">void</span> <span class="hljs-title">printDepth</span>(<span class="hljs-keyword">int</span> depth) {
+        <span class="hljs-keyword">for</span> (<span class="hljs-keyword">int</span> i = <span class="hljs-number">0</span>; i &lt; depth; ++i) {
+            System.out.print(<span class="hljs-string">'-'</span>);
+        }
+    }
+
+    <span class="hljs-keyword">protected</span> <span class="hljs-keyword">abstract</span> <span class="hljs-keyword">void</span> <span class="hljs-title">add</span>(AbstractFileComponent component);
+
+    <span class="hljs-keyword">protected</span> <span class="hljs-keyword">abstract</span> <span class="hljs-keyword">void</span> <span class="hljs-title">remove</span>(AbstractFileComponent component);
+
+    <span class="hljs-keyword">protected</span> <span class="hljs-keyword">abstract</span> <span class="hljs-keyword">void</span> <span class="hljs-title">killVirus</span>(<span class="hljs-keyword">int</span> depth);
+}</code></pre>
+
+<hr />
+
+
+
+<h3 id="leaf">Leaf</h3>
+
+<ul>
+<li>叶子对象: 定义没有有分支节点的行为:</li>
+</ul>
+
+
+
+<pre class="prettyprint"><code class=" hljs axapta"><span class="hljs-class"><span class="hljs-keyword">class</span> <span class="hljs-title">ImageFileLeaf</span> <span class="hljs-inheritance"><span class="hljs-keyword">extends</span></span> <span class="hljs-title">AbstractFileComponent</span> {</span>
+
+    <span class="hljs-keyword">public</span> ImageFileLeaf(String name) {
+        <span class="hljs-keyword">super</span>(name);
+    }
+
+    @Override
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">void</span> add(AbstractFileComponent component) {
+        <span class="hljs-keyword">throw</span> <span class="hljs-keyword">new</span> NotImplementedException(<span class="hljs-keyword">this</span>.getClass() + <span class="hljs-string">" not implemented this method"</span>);
+    }
+
+    @Override
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">void</span> remove(AbstractFileComponent component) {
+        <span class="hljs-keyword">throw</span> <span class="hljs-keyword">new</span> NotImplementedException(<span class="hljs-keyword">this</span>.getClass() + <span class="hljs-string">" not implemented this method"</span>);
+    }
+
+    @Override
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">void</span> killVirus(<span class="hljs-keyword">int</span> depth) {
+        printDepth(depth);
+        System.out.println(<span class="hljs-string">"图片文件 ["</span> + name + <span class="hljs-string">"]杀毒"</span>);
+    }
+}
+
+<span class="hljs-class"><span class="hljs-keyword">class</span> <span class="hljs-title">TextFileLeaf</span> <span class="hljs-inheritance"><span class="hljs-keyword">extends</span></span> <span class="hljs-title">AbstractFileComponent</span> {</span>
+
+    <span class="hljs-keyword">public</span> TextFileLeaf(String name) {
+        <span class="hljs-keyword">super</span>(name);
+    }
+
+    @Override
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">void</span> add(AbstractFileComponent component) {
+        <span class="hljs-keyword">throw</span> <span class="hljs-keyword">new</span> NotImplementedException(<span class="hljs-keyword">this</span>.getClass() + <span class="hljs-string">" not implemented this method"</span>);
+    }
+
+    @Override
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">void</span> remove(AbstractFileComponent component) {
+        <span class="hljs-keyword">throw</span> <span class="hljs-keyword">new</span> NotImplementedException(<span class="hljs-keyword">this</span>.getClass() + <span class="hljs-string">" not implemented this method"</span>);
+    }
+
+    @Override
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">void</span> killVirus(<span class="hljs-keyword">int</span> depth) {
+        printDepth(depth);
+        System.out.println(<span class="hljs-string">"文本文件 ["</span> + name + <span class="hljs-string">"]杀毒"</span>);
+    }
+}
+
+<span class="hljs-class"><span class="hljs-keyword">class</span> <span class="hljs-title">VideoFileLeaf</span> <span class="hljs-inheritance"><span class="hljs-keyword">extends</span></span> <span class="hljs-title">AbstractFileComponent</span> {</span>
+
+    <span class="hljs-keyword">public</span> VideoFileLeaf(String name) {
+        <span class="hljs-keyword">super</span>(name);
+    }
+
+    @Override
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">void</span> add(AbstractFileComponent component) {
+        <span class="hljs-keyword">throw</span> <span class="hljs-keyword">new</span> NotImplementedException(<span class="hljs-keyword">this</span>.getClass() + <span class="hljs-string">" not implemented this method"</span>);
+    }
+
+    @Override
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">void</span> remove(AbstractFileComponent component) {
+        <span class="hljs-keyword">throw</span> <span class="hljs-keyword">new</span> NotImplementedException(<span class="hljs-keyword">this</span>.getClass() + <span class="hljs-string">" not implemented this method"</span>);
+    }
+
+    @Override
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">void</span> killVirus(<span class="hljs-keyword">int</span> depth) {
+        printDepth(depth);
+        System.out.println(<span class="hljs-string">"视频文件 ["</span> + name + <span class="hljs-string">"]杀毒"</span>);
+    }
+}</code></pre>
+
+<hr />
+
+
+
+<h3 id="composite">Composite</h3>
+
+<ul>
+<li>容器对象: 定义有分支节点的行为, 用来存储子部件, 实现与子部件有关的操作:</li>
+</ul>
+
+
+
+<pre class="prettyprint"><code class=" hljs java"><span class="hljs-keyword">public</span> <span class="hljs-class"><span class="hljs-keyword">class</span> <span class="hljs-title">FolderFileComposite</span> <span class="hljs-keyword">extends</span> <span class="hljs-title">AbstractFileComponent</span> {</span>
+
+    <span class="hljs-keyword">private</span> List&lt;AbstractFileComponent&gt; components = <span class="hljs-keyword">new</span> LinkedList&lt;&gt;();
+
+    <span class="hljs-keyword">public</span> <span class="hljs-title">FolderFileComposite</span>(String name) {
+        <span class="hljs-keyword">super</span>(name);
+    }
+
+    <span class="hljs-annotation">@Override</span>
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">void</span> <span class="hljs-title">add</span>(AbstractFileComponent component) {
+        components.add(component);
+    }
+
+    <span class="hljs-annotation">@Override</span>
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">void</span> <span class="hljs-title">remove</span>(AbstractFileComponent component) {
+        components.remove(component);
+    }
+
+    <span class="hljs-annotation">@Override</span>
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">void</span> <span class="hljs-title">killVirus</span>(<span class="hljs-keyword">int</span> depth) {
+        printDepth(depth);
+        System.out.println(<span class="hljs-string">"目录 ["</span> + name + <span class="hljs-string">"]杀毒"</span>);
+
+        <span class="hljs-keyword">for</span> (AbstractFileComponent component : components) {
+            component.killVirus(depth + <span class="hljs-number">2</span>);
+        }
+    }
+}</code></pre>
+
+<ul>
+<li>Client</li>
+</ul>
+
+
+
+<pre class="prettyprint"><code class=" hljs cs"><span class="hljs-keyword">public</span> <span class="hljs-keyword">class</span> Client {
+
+    @Test
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">void</span> <span class="hljs-title">client</span>() {
+        ImageFileLeaf image = <span class="hljs-keyword">new</span> ImageFileLeaf(<span class="hljs-string">"九寨沟.jpg"</span>);
+        VideoFileLeaf video = <span class="hljs-keyword">new</span> VideoFileLeaf(<span class="hljs-string">"龙门飞甲.rmvb"</span>);
+        TextFileLeaf text = <span class="hljs-keyword">new</span> TextFileLeaf(<span class="hljs-string">"解忧杂货店.txt"</span>);
+
+        FolderFileComposite home = <span class="hljs-keyword">new</span> FolderFileComposite(<span class="hljs-string">"/home"</span>);
+        home.add(image);
+        home.add(video);
+        home.add(text);
+
+        FolderFileComposite root = <span class="hljs-keyword">new</span> FolderFileComposite(<span class="hljs-string">"/"</span>);
+        root.add(home);
+        root.add(<span class="hljs-keyword">new</span> TextFileLeaf(<span class="hljs-string">"/authorized_keys"</span>));
+        root.add(<span class="hljs-keyword">new</span> FolderFileComposite(<span class="hljs-string">"/etc"</span>));
+
+        root.killVirus(<span class="hljs-number">0</span>);
+
+    }
+}</code></pre>
+
+<blockquote>
+  <p>上面的实现方式是<strong>透明方式</strong>: 直接在<strong>Component</strong>中声明<code>add()</code>/<code>remove()</code>. 这样做的好处是叶节点和枝节点对于外界没有任何区别, 他们具有完全一致的行为接口. 但问题是对叶节点实现<code>add()</code>/<code>remove()</code>没有任何意义. 所以还有另一种实现方式<strong>安全方式</strong>, 也就是在<strong>Component</strong>中不去声明<code>add()</code>/<code>remove()</code>, 而是在<strong>Composite</strong>声明所有用来管理子类对象的方法, 不过由于不够透明, 所以叶节点与枝节点将不具有相同接口, 客户端调用需要作出相应判断, 带来了不便, 关于该问题的详细信息可参考: <a href="http://haolloyin.blog.51cto.com/1177454/347308/">组合模式（Composite）的安全模式与透明模式</a>.</p>
+</blockquote>
+
+<hr />
+
+
+
+<h2 id="小结">小结</h2>
+
+<ul>
+<li>组合模式定义了<strong>基本对象</strong>和<strong>组合对象</strong>的类层次结构, 基本对象可以被组合成更复杂的组合对象, 而这个组合对象又可以被组合, 这样不断地递归下去, 这样在客户代码中任何用到基本对象的地方都可以使用组合对象.</li>
+<li>用户不用关心到底是处理一个<strong>叶节点</strong>还是处理一个<strong>枝节点</strong>, 也用不着为定义组合而写一些选择判断语句.</li>
+</ul>
+
+<blockquote>
+  <p>总的来说: 组合模式让用户可以一致地使用<strong>组合结构</strong>和<strong>单个对象</strong>.</p>
+</blockquote>
+
+<ul>
+<li>场景 <br />
+当需求中是体现<strong>部分</strong>与<strong>整体</strong>层次的结构时, 以及希望用户可以忽略组合对象与单个对象的不同, 统一地使用<strong>组合</strong>中的所有对象时, 就应该考虑使用组合模式了: <br />
+<ul><li>操作系统资源管理器</li>
+<li>GUI容器视图</li>
+<li>XML文件解析</li>
+<li>OA系统中组织机构处理</li>
+<li>Junit单元测试框架 <br />
+<ul><li>TestCase(叶子)、TestUnite(容器)、Test接口(抽象)</li></ul></li></ul></li>
+</ul>
+
+<hr />
+
+<dl>
+<dt>参考</dt>
+<dd><a href="https://book.douban.com/subject/1052241/">设计模式: 可复用面向对象软件的基础</a></dd>
+
+<dd><a href="https://book.douban.com/subject/2334288/">大话设计模式</a></dd>
+
+<dd><a href="http://www.bjsxt.com/2014/down_0425/34.html">高淇讲设计模式</a></dd>
+
+<dd><a href="http://blog.csdn.net/hfmbook/article/details/7693069">JAVA设计模式十七–Composite(组合模式)</a></dd>
+
+<dd><a href="http://www.cnblogs.com/doubleliang/archive/2011/12/27/2304104.html">设计模式系列-组合模式</a></dd>
+
+<dd><a href="http://haolloyin.blog.51cto.com/1177454/347308/">组合模式(Composite)的安全模式与透明模式</a></dd>
+</dl>
+
+<hr /></div>&#13;
+        <script type="text/javascript">&#13;
+            $(function () {&#13;
+                $('pre.prettyprint code').each(function () {&#13;
+                    var lines = $(this).text().split('\n').length;&#13;
+                    var $numbering = $('&lt;ul/&gt;').addClass('pre-numbering').hide();&#13;
+                    $(this).addClass('has-numbering').parent().append($numbering);&#13;
+                    for (i = 1; i &lt;= lines; i++) {&#13;
+                        $numbering.append($('&lt;li/&gt;').text(i));&#13;
+                    };&#13;
+                    $numbering.fadeIn(1700);&#13;
+                });&#13;
+            });&#13;
+        </script>&#13;
+   &#13;

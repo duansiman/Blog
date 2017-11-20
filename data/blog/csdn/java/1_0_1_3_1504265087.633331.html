@@ -1,0 +1,611 @@
+
+
+<span style="font-family:KaiTi_GB2312; font-size:18px">    说到JNDI，即熟悉又陌生，熟悉在经常使用，如EJB3.0中的@EJB注入，底层实现即是JNDI的方式；喜闻乐见的：</span><pre code_snippet_id="464434" snippet_file_name="blog_20140905_1_9582089" name="code" class="java">Context ctx=new InitialContext();
+Object obj=(Object)ctx.lookup("java:comp/env/XXX");</pre>&#13;
+<p><span style="font-family:KaiTi_GB2312; font-size:18px">更是最常用的方式。说它陌生，是因为，对于JNDI，我们仅限于基本的使用，本文就是带领大家进入JNDI分析阶段。</span></p>&#13;
+<h1><span style="font-family:KaiTi_GB2312; font-size:18px">JNDI作用</span></h1>&#13;
+<p><span style="font-family:KaiTi_GB2312; font-size:18px">    以数据源为例。</span></p>&#13;
+<h2><span style="font-family:KaiTi_GB2312; font-size:18px">    未使用JNDI</span></h2>&#13;
+<p><span style="font-family:KaiTi_GB2312; font-size:18px">    如果我们没有使用JNDI，代码如下</span></p>&#13;
+<p><span style="font-family:KaiTi_GB2312; font-size:18px"></span></p>&#13;
+<pre code_snippet_id="464434" snippet_file_name="blog_20140905_2_585438" name="code" class="java">Connection conn=null;
+try {
+  Class.forName("com.mysql.jdbc.Driver",
+                true, Thread.currentThread().getContextClassLoader());
+  conn=DriverManager.getConnection("jdbc:mysql://MyDBServer?user=qingfeng&amp;password=mingyue");
+  /* 使用conn并进行SQL操作 */
+  ......
+  conn.close();
+} 
+catch(Exception e) {
+  e.printStackTrace();
+} 
+finally {
+  if(conn!=null) {
+    try {
+      conn.close();
+    } catch(SQLException e) {}
+  }
+}</pre><span style="font-family:KaiTi_GB2312; font-size:18px">    这种方法有很大的问题，如果数据库变了怎么办？如果口令变了怎么办？写的太死，灵活性差。</span>&#13;
+<p></p>&#13;
+<h2><span style="font-family:KaiTi_GB2312; font-size:18px">    使用JNDI</span></h2>&#13;
+<p><span style="font-family:KaiTi_GB2312; font-size:18px">    在来看看使用了JNDI的方式。</span></p>&#13;
+<h3><span style="font-family:KaiTi_GB2312; font-size:18px">    配置</span></h3>&#13;
+<p><span style="font-family:KaiTi_GB2312; font-size:18px"></span></p>&#13;
+<pre code_snippet_id="464434" snippet_file_name="blog_20140905_3_6332296" name="code" class="html">&lt;?xml version="1.0" encoding="UTF-8"?&gt;
+&lt;datasources&gt;
+&lt;local-tx-datasource&gt;
+    &lt;jndi-name&gt;MySqlDS&lt;/jndi-name&gt;
+    &lt;connection-url&gt;jdbc:mysql://localhost:3306/lw&lt;/connection-url&gt;
+    &lt;driver-class&gt;com.mysql.jdbc.Driver&lt;/driver-class&gt;
+    &lt;user-name&gt;root&lt;/user-name&gt;
+    &lt;password&gt;rootpassword&lt;/password&gt;
+&lt;exception-sorter-class-name&gt;org.jboss.resource.adapter.jdbc.vendor.MySQLExceptionSorter&lt;/exception-sorter-class-name&gt;
+    &lt;metadata&gt;
+       &lt;type-mapping&gt;mySQL&lt;/type-mapping&gt;
+    &lt;/metadata&gt;
+&lt;/local-tx-datasource&gt;
+&lt;/datasources&gt;</pre>&#13;
+<h3><span style="font-family:KaiTi_GB2312; font-size:18px">    使用</span></h3>&#13;
+<span style="font-family:KaiTi_GB2312; font-size:18px"></span><pre code_snippet_id="464434" snippet_file_name="blog_20140905_4_5426441" name="code" class="java">Connection conn=null;
+try {
+  Context ctx=new InitialContext();
+  Object datasourceRef=ctx.lookup("java:MySqlDS"); //引用数据源
+  DataSource ds=(Datasource)datasourceRef;
+  conn=ds.getConnection();
+  /* 使用conn进行数据库SQL操作 */
+  ......
+  c.close();
+} 
+catch(Exception e) {
+  e.printStackTrace();
+} 
+finally {
+  if(conn!=null) {
+    try {
+      conn.close();
+    } catch(SQLException e) { }
+  }
+}</pre>&#13;
+<h2><span style="font-family:KaiTi_GB2312; font-size:18px">    小结</span></h2>&#13;
+<p></p>&#13;
+<p><span style="font-family:KaiTi_GB2312; font-size:18px">    使用JNDI，可以将代码和数据库配置分离，降低了耦合，使得程序更灵活，可以</span><span style="font-family:KaiTi_GB2312; font-size:18px">看到JNDI的使用方式：</span></p>&#13;
+<p></p>&#13;
+<ul>&#13;
+<li><span style="font-family:KaiTi_GB2312; font-size:18px">定义内容（名称，内容）</span></li><li><span style="font-family:KaiTi_GB2312; font-size:18px">根据名称使用内容</span></li></ul>&#13;
+<span style="font-family:KaiTi_GB2312; font-size:18px"></span>&#13;
+<p></p>&#13;
+<p><span style="font-family:KaiTi_GB2312; font-size:18px">    这只是JNDI的用处之一，你可以使用</span><span style="font-family:KaiTi_GB2312; font-size:18px">JNDI配置和使用更多内容，知道大概怎么使用，开始介绍JNDI。</span></p>&#13;
+<h1><span style="font-family:KaiTi_GB2312; font-size:18px">JNDI</span></h1>&#13;
+<span style="font-family:KaiTi_GB2312; font-size:18px">    JNDI（Java Naming and Directory Interface）Java 命名与目录接口，JavaEE规范中重要的规范之一，前面的文章说到过：每一个规范都是对编程某一方面的抽象定义，JNDI定位于：定义、查找。它为编程人员提供了一个统一的方式，不管是目录、文件、注册表、对象、配置等等，我们可以只根据它们的名字就可以以统一的方式操作他们。<br />&#13;
+</span>&#13;
+<h2><span style="font-family:KaiTi_GB2312; font-size:18px">    规范源码</span></h2>&#13;
+<p><span style="font-family:KaiTi_GB2312; font-size:18px">    规范位于命名空间javax.naming下：</span></p>&#13;
+<p><span style="font-family:KaiTi_GB2312; font-size:18px">    <img src="http://img.blog.csdn.net/20140804101221890?watermark/2/text/aHR0cDovL2Jsb2cuY3Nkbi5uZXQvbGlkYXRnYg==/font/5a6L5L2T/fontsize/400/fill/I0JBQkFCMA==/dissolve/70/gravity/SouthEast" alt="" /></span></p>&#13;
+<span style="font-family:KaiTi_GB2312; font-size:18px">    上面是部分规范源代码，由上图可以知道，JNDI规范分为5部分：<br />&#13;
+    * javax.naming<br />&#13;
+    * javax.naming.directory<br />&#13;
+    * javax.naming.event<br />&#13;
+    * javax.naming.ldap<br />&#13;
+    * javax.naming.spi <br />&#13;
+<br />&#13;
+    从更宏观的方面来说，JNDI规范分为两部分，API和SPI：<br />&#13;
+</span>&#13;
+<ul>&#13;
+<li><span style="font-family:KaiTi_GB2312; font-size:18px">API：编程人员可见的接口，可以直接使用</span></li><li><span style="font-family:KaiTi_GB2312; font-size:18px">SPI：API底层的实现接口，对编程人员不可见</span></li></ul>&#13;
+<h2><span style="font-family:KaiTi_GB2312; font-size:18px">    架构图</span></h2>&#13;
+<p><span style="font-family:KaiTi_GB2312; font-size:18px">    JNDI宏观架构图如下：</span></p>&#13;
+<p><span style="font-family:KaiTi_GB2312; font-size:18px">    <img src="http://img.blog.csdn.net/20140804101403703?watermark/2/text/aHR0cDovL2Jsb2cuY3Nkbi5uZXQvbGlkYXRnYg==/font/5a6L5L2T/fontsize/400/fill/I0JBQkFCMA==/dissolve/70/gravity/SouthEast" alt="" /><br />&#13;
+</span></p>&#13;
+<p><span style="font-family:KaiTi_GB2312; font-size:18px">    如上</span><span style="font-family:KaiTi_GB2312; font-size:18px">，各种厂商提供的产品，他们的命名和目录服务的标准不一致，各个目录服务采用的访问协议也不一样（跟JDBC类同），如果直接访问，需要编写不同的java代码。因此需要JNDI SPI，它能动态的插入这些命名和目录服务，能够将其协议专属的目录产品集成到系统中</span><span style="font-family:KaiTi_GB2312; font-size:18px">使得开发人员只需要知道名字，即可获取到操作各种类型的内容。</span></p>&#13;
+<p><span style="font-family:KaiTi_GB2312; font-size:18px">    当前JNDI支持的操作类型为：DNS、XNam 、Novell目录服务、LDAP(轻型目录访问协议)、 CORBA对象服务、文件系统、Windows注册表、RMI、DSML、NIS。</span></p>&#13;
+<h1><span style="font-family:KaiTi_GB2312; font-size:18px">源码分析</span></h1>&#13;
+<span style="font-family:KaiTi_GB2312; font-size:18px">    JNDI只是规范，所以我们编程还是需要具体实现，当然一般各种容器、服务器都会提供实现，本文我们以Tomcat为例。<br />&#13;
+    首先是下载tomcat源码，可以从<a target="_blank" href="http://download.csdn.net/detail/lidaasky/7711279">《Tomcat 8.0.10源码》</a>，也可以从Tomcat官方SVN下载源码：http://svn.apache.org/repos/asf/tomcat/。在下载的源码中，JNDI的相关实现位于\java\org\apache\naming下，我们此处只分析最核心的一个类，也就是我们经常使用的Context&#13;
+ ctx=new InitialContext();中的“InitailContext”，在Tomcat中是NamingContext.java：<br />&#13;
+</span><pre code_snippet_id="464434" snippet_file_name="blog_20140905_5_4761350" name="code" class="java">/**
+ * Catalina JNDI Context implementation.
+ *
+ * @author Remy Maucherat
+ */
+public class NamingContext implements Context {
+
+    // -------------------------------------------------------------- Constants
+
+    /**
+     * Name parser for this context.
+     */
+    protected static final NameParser nameParser = new NameParserImpl();
+
+    private static final org.apache.juli.logging.Log log =
+        org.apache.juli.logging.LogFactory.getLog(NamingContext.class);
+
+    // ----------------------------------------------------------- Constructors
+
+    /**
+     * Builds a naming context using the given environment.
+     */
+    public NamingContext(Hashtable&lt;String,Object&gt; env, String name,
+            HashMap&lt;String,NamingEntry&gt; bindings) throws NamingException {
+
+        this.env = new Hashtable&lt;&gt;();
+        // FIXME ? Could be put in the environment ?
+        this.name = name;
+        // Populating the environment hashtable
+        if (env != null ) {
+            Enumeration&lt;String&gt; envEntries = env.keys();
+            while (envEntries.hasMoreElements()) {
+                String entryName = envEntries.nextElement();
+                addToEnvironment(entryName, env.get(entryName));
+            }
+        }
+        this.bindings = bindings;
+    }
+    // ----------------------------------------------------- Instance Variables
+	
+    /**
+     * Environment.
+     */
+    protected final Hashtable&lt;String,Object&gt; env;
+    /**
+     * The string manager for this package.
+     */
+    protected static final StringManager sm = StringManager.getManager(Constants.Package);
+    /**
+     * Bindings in this Context.
+     */
+    protected final HashMap&lt;String,NamingEntry&gt; bindings;
+    /**
+     * Name of the associated Catalina Context.
+     */
+    protected final String name;
+    /**
+     * Determines if an attempt to write to a read-only context results in an
+     * exception or if the request is ignored.
+     */
+    private boolean exceptionOnFailedWrite = true;
+	
+    // -------------------------------------------------------- Context Methods
+    @Override
+    public void unbind(Name name) throws NamingException {
+
+        if (!checkWritable()) {
+            return;
+        }
+
+        while ((!name.isEmpty()) &amp;&amp; (name.get(0).length() == 0))
+            name = name.getSuffix(1);
+        if (name.isEmpty())
+            throw new NamingException
+                (sm.getString("namingContext.invalidName"));
+
+        NamingEntry entry = bindings.get(name.get(0));
+
+        if (entry == null) {
+            throw new NameNotFoundException
+                (sm.getString("namingContext.nameNotBound", name, name.get(0)));
+        }
+
+        if (name.size() &gt; 1) {
+            if (entry.type == NamingEntry.CONTEXT) {
+                ((Context) entry.value).unbind(name.getSuffix(1));
+            } else {
+                throw new NamingException
+                    (sm.getString("namingContext.contextExpected"));
+            }
+        } else {
+            bindings.remove(name.get(0));
+        }
+
+    }
+    @Override
+    public void rename(Name oldName, Name newName)
+        throws NamingException {
+        Object value = lookup(oldName);
+        bind(newName, value);
+        unbind(oldName);
+    }
+	
+    @Override
+    public NamingEnumeration&lt;NameClassPair&gt; list(Name name)
+        throws NamingException {
+        // Removing empty parts
+        while ((!name.isEmpty()) &amp;&amp; (name.get(0).length() == 0))
+            name = name.getSuffix(1);
+        if (name.isEmpty()) {
+            return new NamingContextEnumeration(bindings.values().iterator());
+        }
+
+        NamingEntry entry = bindings.get(name.get(0));
+
+        if (entry == null) {
+            throw new NameNotFoundException
+                (sm.getString("namingContext.nameNotBound", name, name.get(0)));
+        }
+
+        if (entry.type != NamingEntry.CONTEXT) {
+            throw new NamingException
+                (sm.getString("namingContext.contextExpected"));
+        }
+        return ((Context) entry.value).list(name.getSuffix(1));
+    }
+
+    /**
+     * Enumerates the names bound in the named context, along with the
+     * objects bound to them. The contents of any subcontexts are not
+     * included.
+     * &lt;p&gt;
+     * If a binding is added to or removed from this context, its effect on
+     * an enumeration previously returned is undefined.
+     *
+     * @param name the name of the context to list
+     * @return an enumeration of the bindings in this context.
+     * Each element of the enumeration is of type Binding.
+     * @exception NamingException if a naming exception is encountered
+     */
+    @Override
+    public NamingEnumeration&lt;Binding&gt; listBindings(Name name)
+        throws NamingException {
+        // Removing empty parts
+        while ((!name.isEmpty()) &amp;&amp; (name.get(0).length() == 0))
+            name = name.getSuffix(1);
+        if (name.isEmpty()) {
+            return new NamingContextBindingsEnumeration(bindings.values().iterator(), this);
+        }
+
+        NamingEntry entry = bindings.get(name.get(0));
+
+        if (entry == null) {
+            throw new NameNotFoundException
+                (sm.getString("namingContext.nameNotBound", name, name.get(0)));
+        }
+
+        if (entry.type != NamingEntry.CONTEXT) {
+            throw new NamingException
+                (sm.getString("namingContext.contextExpected"));
+        }
+        return ((Context) entry.value).listBindings(name.getSuffix(1));
+    }
+
+
+
+    /**
+     * @param name the name of the context to be destroyed; may not be empty
+     * @exception NameNotFoundException if an intermediate context does not
+     * exist
+     * @exception NotContextException if the name is bound but does not name
+     * a context, or does not name a context of the appropriate type
+     */
+    @Override
+    public void destroySubcontext(Name name) throws NamingException {
+
+        if (!checkWritable()) {
+            return;
+        }
+
+        while ((!name.isEmpty()) &amp;&amp; (name.get(0).length() == 0))
+            name = name.getSuffix(1);
+        if (name.isEmpty())
+            throw new NamingException
+                (sm.getString("namingContext.invalidName"));
+
+        NamingEntry entry = bindings.get(name.get(0));
+
+        if (entry == null) {
+            throw new NameNotFoundException
+                (sm.getString("namingContext.nameNotBound", name, name.get(0)));
+        }
+
+        if (name.size() &gt; 1) {
+            if (entry.type == NamingEntry.CONTEXT) {
+                ((Context) entry.value).destroySubcontext(name.getSuffix(1));
+            } else {
+                throw new NamingException
+                    (sm.getString("namingContext.contextExpected"));
+            }
+        } else {
+            if (entry.type == NamingEntry.CONTEXT) {
+                ((Context) entry.value).close();
+                bindings.remove(name.get(0));
+            } else {
+                throw new NotContextException
+                    (sm.getString("namingContext.contextExpected"));
+            }
+        }
+
+    }
+
+    /**
+     * Creates and binds a new context. Creates a new context with the given
+     * name and binds it in the target context (that named by all but
+     * terminal atomic component of the name). All intermediate contexts and
+     * the target context must already exist.
+     *
+     * @param name the name of the context to create; may not be empty
+     * @return the newly created context
+     * @exception NameAlreadyBoundException if name is already bound
+     * @exception javax.naming.directory.InvalidAttributesException if creation
+     * of the sub-context requires specification of mandatory attributes
+     * @exception NamingException if a naming exception is encountered
+     */
+    @Override
+    public Context createSubcontext(Name name) throws NamingException {
+        if (!checkWritable()) {
+            return null;
+        }
+
+        NamingContext newContext = new NamingContext(env, this.name);
+        bind(name, newContext);
+
+        newContext.setExceptionOnFailedWrite(getExceptionOnFailedWrite());
+
+        return newContext;
+    }
+
+
+    /**
+     * Adds a new environment property to the environment of this context. If
+     * the property already exists, its value is overwritten.
+     *
+     * @param propName the name of the environment property to add; may not
+     * be null
+     * @param propVal the value of the property to add; may not be null
+     * @exception NamingException if a naming exception is encountered
+     */
+    @Override
+    public Object addToEnvironment(String propName, Object propVal)
+        throws NamingException {
+        return env.put(propName, propVal);
+    }
+
+    /**
+     * Removes an environment property from the environment of this context.
+     *
+     * @param propName the name of the environment property to remove;
+     * may not be null
+     * @exception NamingException if a naming exception is encountered
+     */
+    @Override
+    public Object removeFromEnvironment(String propName)
+        throws NamingException {
+        return env.remove(propName);
+    }
+
+    /**
+     * Retrieves the environment in effect for this context. See class
+     * description for more details on environment properties.
+     * The caller should not make any changes to the object returned: their
+     * effect on the context is undefined. The environment of this context
+     * may be changed using addToEnvironment() and removeFromEnvironment().
+     *
+     * @return the environment of this context; never null
+     * @exception NamingException if a naming exception is encountered
+     */
+    @Override
+    public Hashtable&lt;?,?&gt; getEnvironment()
+        throws NamingException {
+        return env;
+    }
+
+    /**
+     * Closes this context. This method releases this context's resources
+     * immediately, instead of waiting for them to be released automatically
+     * by the garbage collector.
+     * This method is idempotent: invoking it on a context that has already
+     * been closed has no effect. Invoking any other method on a closed
+     * context is not allowed, and results in undefined behaviour.
+     *
+     * @exception NamingException if a naming exception is encountered
+     */
+    @Override
+    public void close() throws NamingException {
+        if (!checkWritable()) {
+            return;
+        }
+        env.clear();
+    }
+
+
+    /**
+     * Retrieves the full name of this context within its own namespace.
+     * &lt;p&gt;
+     * Many naming services have a notion of a "full name" for objects in
+     * their respective namespaces. For example, an LDAP entry has a
+     * distinguished name, and a DNS record has a fully qualified name. This
+     * method allows the client application to retrieve this name. The string
+     * returned by this method is not a JNDI composite name and should not be
+     * passed directly to context methods. In naming systems for which the
+     * notion of full name does not make sense,
+     * OperationNotSupportedException is thrown.
+     *
+     * @return this context's name in its own namespace; never null
+     * @exception OperationNotSupportedException if the naming system does
+     * not have the notion of a full name
+     * @exception NamingException if a naming exception is encountered
+     */
+    @Override
+    public String getNameInNamespace()
+        throws NamingException {
+        throw  new OperationNotSupportedException
+            (sm.getString("namingContext.noAbsoluteName"));
+        //FIXME ?
+    }
+
+
+    // ------------------------------------------------------ Protected Methods
+
+    /**
+     * Retrieves the named object.
+     *
+     * @param name the name of the object to look up
+     * @param resolveLinks If true, the links will be resolved
+     * @return the object bound to name
+     * @exception NamingException if a naming exception is encountered
+     */
+    protected Object lookup(Name name, boolean resolveLinks)
+        throws NamingException {
+
+        // Removing empty parts
+        while ((!name.isEmpty()) &amp;&amp; (name.get(0).length() == 0))
+            name = name.getSuffix(1);
+        if (name.isEmpty()) {
+            // If name is empty, a newly allocated naming context is returned
+            return new NamingContext(env, this.name, bindings);
+        }
+
+        NamingEntry entry = bindings.get(name.get(0));
+
+        if (entry == null) {
+            throw new NameNotFoundException
+                (sm.getString("namingContext.nameNotBound", name, name.get(0)));
+        }
+
+        if (name.size() &gt; 1) {
+            // If the size of the name is greater that 1, then we go through a
+            // number of subcontexts.
+            if (entry.type != NamingEntry.CONTEXT) {
+                throw new NamingException
+                    (sm.getString("namingContext.contextExpected"));
+            }
+            return ((Context) entry.value).lookup(name.getSuffix(1));
+        } else {
+            if ((resolveLinks) &amp;&amp; (entry.type == NamingEntry.LINK_REF)) {
+                String link = ((LinkRef) entry.value).getLinkName();
+                if (link.startsWith(".")) {
+                    // Link relative to this context
+                    return lookup(link.substring(1));
+                } else {
+                    return (new InitialContext(env)).lookup(link);
+                }
+            } else if (entry.type == NamingEntry.REFERENCE) {
+                try {
+                    Object obj = NamingManager.getObjectInstance
+                        (entry.value, name, this, env);
+                    if(entry.value instanceof ResourceRef) {
+                        boolean singleton = Boolean.parseBoolean(
+                                    (String) ((ResourceRef) entry.value).get(
+                                        "singleton").getContent());
+                        if (singleton) {
+                            entry.type = NamingEntry.ENTRY;
+                            entry.value = obj;
+                        }
+                    }
+                    return obj;
+                } catch (NamingException e) {
+                    throw e;
+                } catch (Exception e) {
+                    log.warn(sm.getString
+                             ("namingContext.failResolvingReference"), e);
+                    throw new NamingException(e.getMessage());
+                }
+            } else {
+                return entry.value;
+            }
+        }
+
+    }
+
+    /**
+     * Binds a name to an object. All intermediate contexts and the target
+     * context (that named by all but terminal atomic component of the name)
+     * must already exist.
+     *
+     * @param name the name to bind; may not be empty
+     * @param obj the object to bind; possibly null
+     * @param rebind if true, then perform a rebind (ie, overwrite)
+     * @exception NameAlreadyBoundException if name is already bound
+     * @exception javax.naming.directory.InvalidAttributesException if object
+     * did not supply all mandatory attributes
+     * @exception NamingException if a naming exception is encountered
+     */
+    protected void bind(Name name, Object obj, boolean rebind)
+        throws NamingException {
+
+        if (!checkWritable()) {
+            return;
+        }
+
+        while ((!name.isEmpty()) &amp;&amp; (name.get(0).length() == 0))
+            name = name.getSuffix(1);
+        if (name.isEmpty())
+            throw new NamingException
+                (sm.getString("namingContext.invalidName"));
+
+        NamingEntry entry = bindings.get(name.get(0));
+
+        if (name.size() &gt; 1) {
+            if (entry == null) {
+                throw new NameNotFoundException(sm.getString(
+                        "namingContext.nameNotBound", name, name.get(0)));
+            }
+            if (entry.type == NamingEntry.CONTEXT) {
+                if (rebind) {
+                    ((Context) entry.value).rebind(name.getSuffix(1), obj);
+                } else {
+                    ((Context) entry.value).bind(name.getSuffix(1), obj);
+                }
+            } else {
+                throw new NamingException
+                    (sm.getString("namingContext.contextExpected"));
+            }
+        } else {
+            if ((!rebind) &amp;&amp; (entry != null)) {
+                throw new NameAlreadyBoundException
+                    (sm.getString("namingContext.alreadyBound", name.get(0)));
+            } else {
+                // Getting the type of the object and wrapping it within a new
+                // NamingEntry
+                Object toBind =
+                    NamingManager.getStateToBind(obj, name, this, env);
+                if (toBind instanceof Context) {
+                    entry = new NamingEntry(name.get(0), toBind,
+                                            NamingEntry.CONTEXT);
+                } else if (toBind instanceof LinkRef) {
+                    entry = new NamingEntry(name.get(0), toBind,
+                                            NamingEntry.LINK_REF);
+                } else if (toBind instanceof Reference) {
+                    entry = new NamingEntry(name.get(0), toBind,
+                                            NamingEntry.REFERENCE);
+                } else if (toBind instanceof Referenceable) {
+                    toBind = ((Referenceable) toBind).getReference();
+                    entry = new NamingEntry(name.get(0), toBind,
+                                            NamingEntry.REFERENCE);
+                } else {
+                    entry = new NamingEntry(name.get(0), toBind,
+                                            NamingEntry.ENTRY);
+                }
+                bindings.put(name.get(0), entry);
+            }
+        }
+
+    }
+}</pre><span style="font-family:KaiTi_GB2312; font-size:18px">    如上的代码是我精简后的代码（源码966行），删除了各种Overload的函数和其他辅助函数，精简后的函数可以概括为以下几个：<br />&#13;
+</span>&#13;
+<ul>&#13;
+<li><span style="font-family:KaiTi_GB2312; font-size:18px">bind/rebind：绑定一项内容到上下文</span></li><li><span style="font-family:KaiTi_GB2312; font-size:18px">unbind：取消绑定某项内容</span></li><li><span style="font-family:KaiTi_GB2312; font-size:18px">lookup：根据名字查找一项内容</span></li><li><span style="font-family:KaiTi_GB2312; font-size:18px">rename：重命名某项内容</span></li><li><span style="font-family:KaiTi_GB2312; font-size:18px">NamingEnumeration：枚举绑定的内容</span></li><li><span style="font-family:KaiTi_GB2312; font-size:18px">destroySubcontext：销毁子上下文</span></li><li><span style="font-family:KaiTi_GB2312; font-size:18px">createSubcontext：创建子上下文</span></li><li><span style="font-family:KaiTi_GB2312; font-size:18px">addToEnvironment：添加设置参数</span></li><li><span style="font-family:KaiTi_GB2312; font-size:18px">removeFromEnvironment：移除某项设置参数</span></li><li><span style="font-family:KaiTi_GB2312; font-size:18px">getEnvironment：得到某项设置参数</span></li><li><span style="font-family:KaiTi_GB2312; font-size:18px">Close:清空环境变量env的设置</span></li></ul>&#13;
+<span style="font-family:KaiTi_GB2312; font-size:18px">    如果再抽象一步，可以看到，这些函数都是对上面源码中：</span><pre code_snippet_id="464434" snippet_file_name="blog_20140905_6_9428412" name="code" class="java">/**
+* Environment.
+*/
+protected final Hashtable&lt;String,Object&gt; env;
+/**
+* Bindings in this Context.
+*/
+protected final HashMap&lt;String,NamingEntry&gt; bindings;
+/**
+* Name of the associated Catalina Context.
+*/</pre><span style="font-family:KaiTi_GB2312; font-size:18px">这两个成员变量的各种操作，这两个成员变量为：<br />&#13;
+</span>&#13;
+<ul>&#13;
+<li><span style="font-family:KaiTi_GB2312; font-size:18px">env：初始化上下文使用的变量集合，是一个Hashtable</span></li><li><span style="font-family:KaiTi_GB2312; font-size:18px">bindings：我们常操作的name-object对，是一个HashMap</span></li></ul>&#13;
+<p><span style="font-family:KaiTi_GB2312; font-size:18px">     我们知道JNDI提供的是一个树状的结构，它的最顶是一个initialContext节点，下面就是绑定的一些对象或是一些subContext，用JNDI树可以查找到树中每一个节点上内容引用，但是Tomcat的HashMap如何提供树状组织？从<span style="font-family:KaiTi_GB2312; font-size:18px">createSubcontext的源代码可以看到，它调用了如上代码类的构造函数，重新构造了一个Context对象，然后再放到<span style="font-family:KaiTi_GB2312; font-size:18px">bindings中，同时存有一个指向父上下文的名称。</span></span></span></p>&#13;
+<p><span style="font-family:KaiTi_GB2312; font-size:18px">    另外，JNDI支持分布式，我们知道JNDI在服务器如Jboss中是以服务的形式存在，配置jboss提供的文件，我们可以访问其他jboss上的JNDI服务，从而获取其他Jboss中的内容：</span></p>&#13;
+<p><span style="font-family:KaiTi_GB2312; font-size:18px"></span></p>&#13;
+<pre code_snippet_id="464434" snippet_file_name="blog_20140905_7_9635373" name="code" class="html">java.naming.factory.initial=org.jnp.interfaces.NamingContextFactory  
+java.naming.factory.url.pkgs=org.jboss.naming:org.jnp.interfaces  
+java.naming.provider.url=jnp://localhost:1099</pre>&#13;
+<p></p>&#13;
+<h1><span style="font-family:KaiTi_GB2312; font-size:18px">总结</span></h1>&#13;
+<span style="font-family:KaiTi_GB2312; font-size:18px">    JNDI的定位是如何方便、统一的定义和访问资源，其API就效果看来，相当于外观模式，屏蔽了底层注册表、对象等不同访问方式之间的差异，另外@EJB注入底层使用的是JNDI实现，这个在EJB有关的文章中再细说。<br />&#13;
+<br />&#13;
+</span><br />&#13;
+   &#13;

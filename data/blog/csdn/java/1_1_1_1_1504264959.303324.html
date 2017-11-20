@@ -1,0 +1,78 @@
+
+        <div class="markdown_views"><h1 id="maven-依赖">maven 依赖</h1>
+
+<p>在maven项目中，一些基础的jar包被引用多次是很常见的事情。maven选择jar的版本是基于 <br />
+－　依赖深度浅的　比如Ｃ项目依赖xml.jar。Ｃ依赖的Ｂ也引入了xml.jar。那么优先选择Ｃ中指定的 <br />
+－　如果依赖深度一样，第一次依赖的jar被选中</p>
+
+<p>实际项目开发，一般是exclude掉Ｂ项目中的xml.jar，在Ｃ项目中显示指定xml.jar的版本。</p>
+
+
+
+<pre class="prettyprint"><code class=" hljs xml"><span class="hljs-tag">&lt;<span class="hljs-title">dependency</span>&gt;</span>
+    <span class="hljs-tag">&lt;<span class="hljs-title">groupId</span>&gt;</span>ｂ<span class="hljs-tag">&lt;/<span class="hljs-title">groupId</span>&gt;</span>
+    <span class="hljs-tag">&lt;<span class="hljs-title">artifactId</span>&gt;</span>ｔｅｓｔ<span class="hljs-tag">&lt;/<span class="hljs-title">artifactId</span>&gt;</span>
+    <span class="hljs-tag">&lt;<span class="hljs-title">version</span>&gt;</span>1.0<span class="hljs-tag">&lt;/<span class="hljs-title">version</span>&gt;</span>
+    <span class="hljs-tag">&lt;<span class="hljs-title">exclusions</span>&gt;</span>
+        <span class="hljs-tag">&lt;<span class="hljs-title">exclusion</span>&gt;</span>
+            <span class="hljs-tag">&lt;<span class="hljs-title">groupId</span>&gt;</span>xml<span class="hljs-tag">&lt;/<span class="hljs-title">group</span>&gt;</span>
+            <span class="hljs-tag">&lt;<span class="hljs-title">artifactId</span>&gt;</span>xml<span class="hljs-tag">&lt;/<span class="hljs-title">artifactId</span>&gt;</span>
+        <span class="hljs-tag">&lt;/<span class="hljs-title">exclusion</span>&gt;</span>
+    <span class="hljs-tag">&lt;/<span class="hljs-title">exclusions</span>&gt;</span>
+<span class="hljs-tag">&lt;/<span class="hljs-title">dependency</span>&gt;</span>
+<span class="hljs-tag">&lt;<span class="hljs-title">dependency</span>&gt;</span>
+    <span class="hljs-tag">&lt;<span class="hljs-title">groupId</span>&gt;</span>xml<span class="hljs-tag">&lt;/<span class="hljs-title">group</span>&gt;</span>
+    <span class="hljs-tag">&lt;<span class="hljs-title">artifactId</span>&gt;</span>xml<span class="hljs-tag">&lt;/<span class="hljs-title">artifactId</span>&gt;</span>
+    <span class="hljs-tag">&lt;<span class="hljs-title">version</span>&gt;</span> 2.2<span class="hljs-tag">&lt;/<span class="hljs-title">version</span>&gt;</span>
+<span class="hljs-tag">&lt;/<span class="hljs-title">dependency</span>&gt;</span></code></pre>
+
+
+
+<h1 id="问题">问题</h1>
+
+<p>按照上面的原则对xml-apis.1.0.b进行升级到xml-apis.1.4。但是始终exclude不出去xml-apis1.0.b <br />
+<code>mvn dependency:tree</code></p>
+
+<p>看到xml-apis.1.0.的来源已经不是依赖的项目中引入的，而是在根路径下。</p>
+
+<p>这个颠覆了对maven的认知。</p>
+
+<p><img src="http://img.blog.csdn.net/20170701112345119?watermark/2/text/aHR0cDovL2Jsb2cuY3Nkbi5uZXQvRlMxMzYwNDcyMTc0/font/5a6L5L2T/fontsize/400/fill/I0JBQkFCMA==/dissolve/70/gravity/SouthEast" alt="这里写图片描述" title="" /></p>
+
+<p>看了下xml-apis这个，就知道版本有多混乱了，2.0.2的比1.4的还要先发布。</p>
+
+
+
+<h1 id="解决">解决</h1>
+
+<p>直接引入了xerces xercesImpl 2.10.0.这个jar包中有xml-apis1.4.01版本</p>
+
+
+
+<pre class="prettyprint"><code class=" hljs xml"><span class="hljs-tag">&lt;<span class="hljs-title">dependency</span>&gt;</span>
+    <span class="hljs-tag">&lt;<span class="hljs-title">groupId</span>&gt;</span>xerces<span class="hljs-tag">&lt;/<span class="hljs-title">groupId</span>&gt;</span>
+    <span class="hljs-tag">&lt;<span class="hljs-title">artifactId</span>&gt;</span>xercesImpl<span class="hljs-tag">&lt;/<span class="hljs-title">artifactId</span>&gt;</span>
+    <span class="hljs-tag">&lt;<span class="hljs-title">version</span>&gt;</span>2.10.0<span class="hljs-tag">&lt;/<span class="hljs-title">version</span>&gt;</span>
+<span class="hljs-tag">&lt;/<span class="hljs-title">dependency</span>&gt;</span></code></pre>
+
+
+
+<h1 id="参考">参考</h1>
+
+<p><a href="http://javamoods.blogspot.com/2009/06/maven-how-relocated-artifacts-can-ruin.html">http://javamoods.blogspot.com/2009/06/maven-how-relocated-artifacts-can-ruin.html</a> <br />
+<a href="https://stackoverflow.com/questions/11677572/dealing-with-xerces-hell-in-java-maven?answertab=votes">https://stackoverflow.com/questions/11677572/dealing-with-xerces-hell-in-java-maven?answertab=votes</a> <br />
+<a href="https://gxnotes.com/article/29548.html">https://gxnotes.com/article/29548.html</a></p></div>&#13;
+        <script type="text/javascript">&#13;
+            $(function () {&#13;
+                $('pre.prettyprint code').each(function () {&#13;
+                    var lines = $(this).text().split('\n').length;&#13;
+                    var $numbering = $('&lt;ul/&gt;').addClass('pre-numbering').hide();&#13;
+                    $(this).addClass('has-numbering').parent().append($numbering);&#13;
+                    for (i = 1; i &lt;= lines; i++) {&#13;
+                        $numbering.append($('&lt;li/&gt;').text(i));&#13;
+                    };&#13;
+                    $numbering.fadeIn(1700);&#13;
+                });&#13;
+            });&#13;
+        </script>&#13;
+   &#13;

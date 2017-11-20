@@ -1,0 +1,1012 @@
+
+        <div class="markdown_views"><p>这是一套独立的定时系统，暂时不涉及与外界三方系统的交互，如有需求可自己根据场景来修改。</p>
+
+<p><strong>配置</strong></p>
+
+<p>项目基于spring4+mybatis3+quartz2.2.1来构建的，pom文件如下：</p>
+
+
+
+<pre class="prettyprint"><code class=" hljs xml"><span class="hljs-tag">&lt;<span class="hljs-title">project</span> <span class="hljs-attribute">xmlns</span>=<span class="hljs-value">"http://maven.apache.org/POM/4.0.0"</span> <span class="hljs-attribute">xmlns:xsi</span>=<span class="hljs-value">"http://www.w3.org/2001/XMLSchema-instance"</span> <span class="hljs-attribute">xsi:schemaLocation</span>=<span class="hljs-value">"http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd"</span>&gt;</span>
+  <span class="hljs-tag">&lt;<span class="hljs-title">modelVersion</span>&gt;</span>4.0.0<span class="hljs-tag">&lt;/<span class="hljs-title">modelVersion</span>&gt;</span>
+  <span class="hljs-tag">&lt;<span class="hljs-title">groupId</span>&gt;</span>com.spdb<span class="hljs-tag">&lt;/<span class="hljs-title">groupId</span>&gt;</span>
+  <span class="hljs-tag">&lt;<span class="hljs-title">artifactId</span>&gt;</span>spdbTimer<span class="hljs-tag">&lt;/<span class="hljs-title">artifactId</span>&gt;</span>
+  <span class="hljs-tag">&lt;<span class="hljs-title">version</span>&gt;</span>0.0.1<span class="hljs-tag">&lt;/<span class="hljs-title">version</span>&gt;</span>
+  <span class="hljs-tag">&lt;<span class="hljs-title">packaging</span>&gt;</span>war<span class="hljs-tag">&lt;/<span class="hljs-title">packaging</span>&gt;</span>
+
+  <span class="hljs-tag">&lt;<span class="hljs-title">properties</span>&gt;</span>  
+        <span class="hljs-comment">&lt;!-- spring版本号 --&gt;</span>  
+        <span class="hljs-tag">&lt;<span class="hljs-title">spring.version</span>&gt;</span>4.0.2.RELEASE<span class="hljs-tag">&lt;/<span class="hljs-title">spring.version</span>&gt;</span>  
+        <span class="hljs-comment">&lt;!-- mybatis版本号 --&gt;</span>  
+        <span class="hljs-tag">&lt;<span class="hljs-title">mybatis.version</span>&gt;</span>3.2.6<span class="hljs-tag">&lt;/<span class="hljs-title">mybatis.version</span>&gt;</span>  
+        <span class="hljs-comment">&lt;!-- log4j日志文件管理包版本 --&gt;</span>  
+        <span class="hljs-tag">&lt;<span class="hljs-title">slf4j.version</span>&gt;</span>1.7.7<span class="hljs-tag">&lt;/<span class="hljs-title">slf4j.version</span>&gt;</span>  
+        <span class="hljs-tag">&lt;<span class="hljs-title">log4j.version</span>&gt;</span>1.2.17<span class="hljs-tag">&lt;/<span class="hljs-title">log4j.version</span>&gt;</span> 
+        <span class="hljs-tag">&lt;<span class="hljs-title">comLog.version</span>&gt;</span>1.1.1<span class="hljs-tag">&lt;/<span class="hljs-title">comLog.version</span>&gt;</span>
+        <span class="hljs-tag">&lt;<span class="hljs-title">jackson.version</span>&gt;</span>1.9.13<span class="hljs-tag">&lt;/<span class="hljs-title">jackson.version</span>&gt;</span>
+        <span class="hljs-tag">&lt;<span class="hljs-title">webVersion</span>&gt;</span>3.0<span class="hljs-tag">&lt;/<span class="hljs-title">webVersion</span>&gt;</span>
+  <span class="hljs-tag">&lt;/<span class="hljs-title">properties</span>&gt;</span>  
+    <span class="hljs-tag">&lt;<span class="hljs-title">dependencies</span>&gt;</span> 
+      <span class="hljs-tag">&lt;<span class="hljs-title">dependency</span>&gt;</span>
+            <span class="hljs-tag">&lt;<span class="hljs-title">groupId</span>&gt;</span>org.apache.shiro<span class="hljs-tag">&lt;/<span class="hljs-title">groupId</span>&gt;</span>
+            <span class="hljs-tag">&lt;<span class="hljs-title">artifactId</span>&gt;</span>shiro-spring<span class="hljs-tag">&lt;/<span class="hljs-title">artifactId</span>&gt;</span>
+            <span class="hljs-tag">&lt;<span class="hljs-title">version</span>&gt;</span>1.2.3<span class="hljs-tag">&lt;/<span class="hljs-title">version</span>&gt;</span>
+       <span class="hljs-tag">&lt;/<span class="hljs-title">dependency</span>&gt;</span> 
+       <span class="hljs-tag">&lt;<span class="hljs-title">dependency</span>&gt;</span>
+            <span class="hljs-tag">&lt;<span class="hljs-title">groupId</span>&gt;</span>com.fasterxml.jackson.core<span class="hljs-tag">&lt;/<span class="hljs-title">groupId</span>&gt;</span>
+            <span class="hljs-tag">&lt;<span class="hljs-title">artifactId</span>&gt;</span>jackson-core<span class="hljs-tag">&lt;/<span class="hljs-title">artifactId</span>&gt;</span>
+            <span class="hljs-tag">&lt;<span class="hljs-title">version</span>&gt;</span>2.8.6<span class="hljs-tag">&lt;/<span class="hljs-title">version</span>&gt;</span>
+        <span class="hljs-tag">&lt;/<span class="hljs-title">dependency</span>&gt;</span>
+        <span class="hljs-tag">&lt;<span class="hljs-title">dependency</span>&gt;</span>
+            <span class="hljs-tag">&lt;<span class="hljs-title">groupId</span>&gt;</span>com.fasterxml.jackson.module<span class="hljs-tag">&lt;/<span class="hljs-title">groupId</span>&gt;</span>
+            <span class="hljs-tag">&lt;<span class="hljs-title">artifactId</span>&gt;</span>jackson-module-jaxb-annotations<span class="hljs-tag">&lt;/<span class="hljs-title">artifactId</span>&gt;</span>
+            <span class="hljs-tag">&lt;<span class="hljs-title">version</span>&gt;</span>2.8.6<span class="hljs-tag">&lt;/<span class="hljs-title">version</span>&gt;</span>
+        <span class="hljs-tag">&lt;/<span class="hljs-title">dependency</span>&gt;</span>
+        <span class="hljs-tag">&lt;<span class="hljs-title">dependency</span>&gt;</span>  
+            <span class="hljs-tag">&lt;<span class="hljs-title">groupId</span>&gt;</span>junit<span class="hljs-tag">&lt;/<span class="hljs-title">groupId</span>&gt;</span>  
+            <span class="hljs-tag">&lt;<span class="hljs-title">artifactId</span>&gt;</span>junit<span class="hljs-tag">&lt;/<span class="hljs-title">artifactId</span>&gt;</span>  
+            <span class="hljs-tag">&lt;<span class="hljs-title">version</span>&gt;</span>4.11<span class="hljs-tag">&lt;/<span class="hljs-title">version</span>&gt;</span>  
+            <span class="hljs-comment">&lt;!-- 表示开发的时候引入，发布的时候不会加载此包 --&gt;</span>  
+            <span class="hljs-tag">&lt;<span class="hljs-title">scope</span>&gt;</span>test<span class="hljs-tag">&lt;/<span class="hljs-title">scope</span>&gt;</span>  
+        <span class="hljs-tag">&lt;/<span class="hljs-title">dependency</span>&gt;</span>  
+        <span class="hljs-tag">&lt;<span class="hljs-title">dependency</span>&gt;</span>
+            <span class="hljs-tag">&lt;<span class="hljs-title">groupId</span>&gt;</span>net.sf.json-lib<span class="hljs-tag">&lt;/<span class="hljs-title">groupId</span>&gt;</span>
+            <span class="hljs-tag">&lt;<span class="hljs-title">artifactId</span>&gt;</span>json-lib<span class="hljs-tag">&lt;/<span class="hljs-title">artifactId</span>&gt;</span>
+            <span class="hljs-tag">&lt;<span class="hljs-title">version</span>&gt;</span>2.4<span class="hljs-tag">&lt;/<span class="hljs-title">version</span>&gt;</span>
+            <span class="hljs-tag">&lt;<span class="hljs-title">classifier</span>&gt;</span>jdk15<span class="hljs-tag">&lt;/<span class="hljs-title">classifier</span>&gt;</span><span class="hljs-comment">&lt;!--指定jdk版本 --&gt;</span>
+        <span class="hljs-tag">&lt;/<span class="hljs-title">dependency</span>&gt;</span>
+        <span class="hljs-comment">&lt;!-- mybatis核心包 --&gt;</span>  
+        <span class="hljs-comment">&lt;!-- https://mvnrepository.com/artifact/com.mchange/c3p0 --&gt;</span>
+        <span class="hljs-tag">&lt;<span class="hljs-title">dependency</span>&gt;</span>
+            <span class="hljs-tag">&lt;<span class="hljs-title">groupId</span>&gt;</span>com.mchange<span class="hljs-tag">&lt;/<span class="hljs-title">groupId</span>&gt;</span>
+            <span class="hljs-tag">&lt;<span class="hljs-title">artifactId</span>&gt;</span>c3p0<span class="hljs-tag">&lt;/<span class="hljs-title">artifactId</span>&gt;</span>
+            <span class="hljs-tag">&lt;<span class="hljs-title">version</span>&gt;</span>0.9.5.2<span class="hljs-tag">&lt;/<span class="hljs-title">version</span>&gt;</span>
+        <span class="hljs-tag">&lt;/<span class="hljs-title">dependency</span>&gt;</span>
+        <span class="hljs-tag">&lt;<span class="hljs-title">dependency</span>&gt;</span>  
+            <span class="hljs-tag">&lt;<span class="hljs-title">groupId</span>&gt;</span>org.mybatis<span class="hljs-tag">&lt;/<span class="hljs-title">groupId</span>&gt;</span>  
+            <span class="hljs-tag">&lt;<span class="hljs-title">artifactId</span>&gt;</span>mybatis<span class="hljs-tag">&lt;/<span class="hljs-title">artifactId</span>&gt;</span>  
+            <span class="hljs-tag">&lt;<span class="hljs-title">version</span>&gt;</span>${mybatis.version}<span class="hljs-tag">&lt;/<span class="hljs-title">version</span>&gt;</span>  
+        <span class="hljs-tag">&lt;/<span class="hljs-title">dependency</span>&gt;</span>  
+        <span class="hljs-comment">&lt;!-- mybatis/spring包 --&gt;</span>  
+        <span class="hljs-tag">&lt;<span class="hljs-title">dependency</span>&gt;</span>  
+            <span class="hljs-tag">&lt;<span class="hljs-title">groupId</span>&gt;</span>org.mybatis<span class="hljs-tag">&lt;/<span class="hljs-title">groupId</span>&gt;</span>  
+            <span class="hljs-tag">&lt;<span class="hljs-title">artifactId</span>&gt;</span>mybatis-spring<span class="hljs-tag">&lt;/<span class="hljs-title">artifactId</span>&gt;</span>  
+            <span class="hljs-tag">&lt;<span class="hljs-title">version</span>&gt;</span>1.2.2<span class="hljs-tag">&lt;/<span class="hljs-title">version</span>&gt;</span>  
+        <span class="hljs-tag">&lt;/<span class="hljs-title">dependency</span>&gt;</span>  
+        <span class="hljs-comment">&lt;!-- https://mvnrepository.com/artifact/javax.servlet/javax.servlet-api --&gt;</span>
+        <span class="hljs-tag">&lt;<span class="hljs-title">dependency</span>&gt;</span>
+            <span class="hljs-tag">&lt;<span class="hljs-title">groupId</span>&gt;</span>javax.servlet<span class="hljs-tag">&lt;/<span class="hljs-title">groupId</span>&gt;</span>
+            <span class="hljs-tag">&lt;<span class="hljs-title">artifactId</span>&gt;</span>javax.servlet-api<span class="hljs-tag">&lt;/<span class="hljs-title">artifactId</span>&gt;</span>
+            <span class="hljs-tag">&lt;<span class="hljs-title">version</span>&gt;</span>3.1.0<span class="hljs-tag">&lt;/<span class="hljs-title">version</span>&gt;</span>
+            <span class="hljs-tag">&lt;<span class="hljs-title">scope</span>&gt;</span>provided<span class="hljs-tag">&lt;/<span class="hljs-title">scope</span>&gt;</span>
+        <span class="hljs-tag">&lt;/<span class="hljs-title">dependency</span>&gt;</span>
+        <span class="hljs-comment">&lt;!-- 导入java ee jar 包 --&gt;</span>  
+        <span class="hljs-tag">&lt;<span class="hljs-title">dependency</span>&gt;</span>  
+            <span class="hljs-tag">&lt;<span class="hljs-title">groupId</span>&gt;</span>javax<span class="hljs-tag">&lt;/<span class="hljs-title">groupId</span>&gt;</span>  
+            <span class="hljs-tag">&lt;<span class="hljs-title">artifactId</span>&gt;</span>javaee-api<span class="hljs-tag">&lt;/<span class="hljs-title">artifactId</span>&gt;</span>  
+            <span class="hljs-tag">&lt;<span class="hljs-title">version</span>&gt;</span>7.0<span class="hljs-tag">&lt;/<span class="hljs-title">version</span>&gt;</span>  
+        <span class="hljs-tag">&lt;/<span class="hljs-title">dependency</span>&gt;</span>  
+        <span class="hljs-comment">&lt;!-- 导入Mysql数据库链接jar包 --&gt;</span>  
+        <span class="hljs-tag">&lt;<span class="hljs-title">dependency</span>&gt;</span>  
+            <span class="hljs-tag">&lt;<span class="hljs-title">groupId</span>&gt;</span>mysql<span class="hljs-tag">&lt;/<span class="hljs-title">groupId</span>&gt;</span>  
+            <span class="hljs-tag">&lt;<span class="hljs-title">artifactId</span>&gt;</span>mysql-connector-java<span class="hljs-tag">&lt;/<span class="hljs-title">artifactId</span>&gt;</span>  
+            <span class="hljs-tag">&lt;<span class="hljs-title">version</span>&gt;</span>5.1.30<span class="hljs-tag">&lt;/<span class="hljs-title">version</span>&gt;</span>  
+        <span class="hljs-tag">&lt;/<span class="hljs-title">dependency</span>&gt;</span>  
+        <span class="hljs-comment">&lt;!-- 导入dbcp的jar包，用来在applicationContext.xml中配置数据库 --&gt;</span>  
+        <span class="hljs-tag">&lt;<span class="hljs-title">dependency</span>&gt;</span>  
+            <span class="hljs-tag">&lt;<span class="hljs-title">groupId</span>&gt;</span>commons-dbcp<span class="hljs-tag">&lt;/<span class="hljs-title">groupId</span>&gt;</span>  
+            <span class="hljs-tag">&lt;<span class="hljs-title">artifactId</span>&gt;</span>commons-dbcp<span class="hljs-tag">&lt;/<span class="hljs-title">artifactId</span>&gt;</span>  
+            <span class="hljs-tag">&lt;<span class="hljs-title">version</span>&gt;</span>1.2.2<span class="hljs-tag">&lt;/<span class="hljs-title">version</span>&gt;</span>  
+        <span class="hljs-tag">&lt;/<span class="hljs-title">dependency</span>&gt;</span>  
+        <span class="hljs-comment">&lt;!-- JSTL标签类 --&gt;</span>  
+        <span class="hljs-tag">&lt;<span class="hljs-title">dependency</span>&gt;</span>  
+            <span class="hljs-tag">&lt;<span class="hljs-title">groupId</span>&gt;</span>jstl<span class="hljs-tag">&lt;/<span class="hljs-title">groupId</span>&gt;</span>  
+            <span class="hljs-tag">&lt;<span class="hljs-title">artifactId</span>&gt;</span>jstl<span class="hljs-tag">&lt;/<span class="hljs-title">artifactId</span>&gt;</span>  
+            <span class="hljs-tag">&lt;<span class="hljs-title">version</span>&gt;</span>1.2<span class="hljs-tag">&lt;/<span class="hljs-title">version</span>&gt;</span>  
+        <span class="hljs-tag">&lt;/<span class="hljs-title">dependency</span>&gt;</span>  
+        <span class="hljs-comment">&lt;!-- 日志文件管理包 --&gt;</span>  
+        <span class="hljs-comment">&lt;!-- log start --&gt;</span>  
+        <span class="hljs-tag">&lt;<span class="hljs-title">dependency</span>&gt;</span>  
+            <span class="hljs-tag">&lt;<span class="hljs-title">groupId</span>&gt;</span>log4j<span class="hljs-tag">&lt;/<span class="hljs-title">groupId</span>&gt;</span>  
+            <span class="hljs-tag">&lt;<span class="hljs-title">artifactId</span>&gt;</span>log4j<span class="hljs-tag">&lt;/<span class="hljs-title">artifactId</span>&gt;</span>  
+            <span class="hljs-tag">&lt;<span class="hljs-title">version</span>&gt;</span>${log4j.version}<span class="hljs-tag">&lt;/<span class="hljs-title">version</span>&gt;</span>  
+        <span class="hljs-tag">&lt;/<span class="hljs-title">dependency</span>&gt;</span>  
+        <span class="hljs-tag">&lt;<span class="hljs-title">dependency</span>&gt;</span>
+            <span class="hljs-tag">&lt;<span class="hljs-title">groupId</span>&gt;</span>commons-logging<span class="hljs-tag">&lt;/<span class="hljs-title">groupId</span>&gt;</span>
+            <span class="hljs-tag">&lt;<span class="hljs-title">artifactId</span>&gt;</span>commons-logging<span class="hljs-tag">&lt;/<span class="hljs-title">artifactId</span>&gt;</span>
+            <span class="hljs-tag">&lt;<span class="hljs-title">version</span>&gt;</span>${comLog.version}<span class="hljs-tag">&lt;/<span class="hljs-title">version</span>&gt;</span>
+        <span class="hljs-tag">&lt;/<span class="hljs-title">dependency</span>&gt;</span>
+        <span class="hljs-tag">&lt;<span class="hljs-title">dependency</span>&gt;</span>
+            <span class="hljs-tag">&lt;<span class="hljs-title">groupId</span>&gt;</span>org.slf4j<span class="hljs-tag">&lt;/<span class="hljs-title">groupId</span>&gt;</span>
+            <span class="hljs-tag">&lt;<span class="hljs-title">artifactId</span>&gt;</span>slf4j-api<span class="hljs-tag">&lt;/<span class="hljs-title">artifactId</span>&gt;</span>
+            <span class="hljs-tag">&lt;<span class="hljs-title">version</span>&gt;</span>${slf4j.version}<span class="hljs-tag">&lt;/<span class="hljs-title">version</span>&gt;</span>
+        <span class="hljs-tag">&lt;/<span class="hljs-title">dependency</span>&gt;</span>
+        <span class="hljs-tag">&lt;<span class="hljs-title">dependency</span>&gt;</span>
+            <span class="hljs-tag">&lt;<span class="hljs-title">groupId</span>&gt;</span>org.slf4j<span class="hljs-tag">&lt;/<span class="hljs-title">groupId</span>&gt;</span>
+            <span class="hljs-tag">&lt;<span class="hljs-title">artifactId</span>&gt;</span>slf4j-log4j12<span class="hljs-tag">&lt;/<span class="hljs-title">artifactId</span>&gt;</span>
+            <span class="hljs-tag">&lt;<span class="hljs-title">version</span>&gt;</span>${slf4j.version}<span class="hljs-tag">&lt;/<span class="hljs-title">version</span>&gt;</span>
+        <span class="hljs-tag">&lt;/<span class="hljs-title">dependency</span>&gt;</span>
+        <span class="hljs-tag">&lt;<span class="hljs-title">dependency</span>&gt;</span>
+            <span class="hljs-tag">&lt;<span class="hljs-title">groupId</span>&gt;</span>org.codehaus.jackson<span class="hljs-tag">&lt;/<span class="hljs-title">groupId</span>&gt;</span>
+            <span class="hljs-tag">&lt;<span class="hljs-title">artifactId</span>&gt;</span>jackson-core-asl<span class="hljs-tag">&lt;/<span class="hljs-title">artifactId</span>&gt;</span>
+            <span class="hljs-tag">&lt;<span class="hljs-title">version</span>&gt;</span>${jackson.version}<span class="hljs-tag">&lt;/<span class="hljs-title">version</span>&gt;</span>
+        <span class="hljs-tag">&lt;/<span class="hljs-title">dependency</span>&gt;</span>
+        <span class="hljs-tag">&lt;<span class="hljs-title">dependency</span>&gt;</span>
+            <span class="hljs-tag">&lt;<span class="hljs-title">groupId</span>&gt;</span>org.codehaus.jackson<span class="hljs-tag">&lt;/<span class="hljs-title">groupId</span>&gt;</span>
+            <span class="hljs-tag">&lt;<span class="hljs-title">artifactId</span>&gt;</span>jackson-core-lgpl<span class="hljs-tag">&lt;/<span class="hljs-title">artifactId</span>&gt;</span>
+            <span class="hljs-tag">&lt;<span class="hljs-title">version</span>&gt;</span>${jackson.version}<span class="hljs-tag">&lt;/<span class="hljs-title">version</span>&gt;</span>
+        <span class="hljs-tag">&lt;/<span class="hljs-title">dependency</span>&gt;</span>
+        <span class="hljs-tag">&lt;<span class="hljs-title">dependency</span>&gt;</span>
+            <span class="hljs-tag">&lt;<span class="hljs-title">groupId</span>&gt;</span>org.codehaus.jackson<span class="hljs-tag">&lt;/<span class="hljs-title">groupId</span>&gt;</span>
+            <span class="hljs-tag">&lt;<span class="hljs-title">artifactId</span>&gt;</span>jackson-jaxrs<span class="hljs-tag">&lt;/<span class="hljs-title">artifactId</span>&gt;</span>
+            <span class="hljs-tag">&lt;<span class="hljs-title">version</span>&gt;</span>${jackson.version}<span class="hljs-tag">&lt;/<span class="hljs-title">version</span>&gt;</span>
+        <span class="hljs-tag">&lt;/<span class="hljs-title">dependency</span>&gt;</span>
+        <span class="hljs-tag">&lt;<span class="hljs-title">dependency</span>&gt;</span>
+            <span class="hljs-tag">&lt;<span class="hljs-title">groupId</span>&gt;</span>org.codehaus.jackson<span class="hljs-tag">&lt;/<span class="hljs-title">groupId</span>&gt;</span>
+            <span class="hljs-tag">&lt;<span class="hljs-title">artifactId</span>&gt;</span>jackson-mapper-asl<span class="hljs-tag">&lt;/<span class="hljs-title">artifactId</span>&gt;</span>
+            <span class="hljs-tag">&lt;<span class="hljs-title">version</span>&gt;</span>${jackson.version}<span class="hljs-tag">&lt;/<span class="hljs-title">version</span>&gt;</span>
+        <span class="hljs-tag">&lt;/<span class="hljs-title">dependency</span>&gt;</span>
+        <span class="hljs-tag">&lt;<span class="hljs-title">dependency</span>&gt;</span>
+            <span class="hljs-tag">&lt;<span class="hljs-title">groupId</span>&gt;</span>org.codehaus.jackson<span class="hljs-tag">&lt;/<span class="hljs-title">groupId</span>&gt;</span>
+            <span class="hljs-tag">&lt;<span class="hljs-title">artifactId</span>&gt;</span>jackson-mapper-lgpl<span class="hljs-tag">&lt;/<span class="hljs-title">artifactId</span>&gt;</span>
+            <span class="hljs-tag">&lt;<span class="hljs-title">version</span>&gt;</span>${jackson.version}<span class="hljs-tag">&lt;/<span class="hljs-title">version</span>&gt;</span>
+        <span class="hljs-tag">&lt;/<span class="hljs-title">dependency</span>&gt;</span>
+        <span class="hljs-tag">&lt;<span class="hljs-title">dependency</span>&gt;</span>
+            <span class="hljs-tag">&lt;<span class="hljs-title">groupId</span>&gt;</span>org.codehaus.jackson<span class="hljs-tag">&lt;/<span class="hljs-title">groupId</span>&gt;</span>
+            <span class="hljs-tag">&lt;<span class="hljs-title">artifactId</span>&gt;</span>jackson-smile<span class="hljs-tag">&lt;/<span class="hljs-title">artifactId</span>&gt;</span>
+            <span class="hljs-tag">&lt;<span class="hljs-title">version</span>&gt;</span>${jackson.version}<span class="hljs-tag">&lt;/<span class="hljs-title">version</span>&gt;</span>
+        <span class="hljs-tag">&lt;/<span class="hljs-title">dependency</span>&gt;</span>
+        <span class="hljs-tag">&lt;<span class="hljs-title">dependency</span>&gt;</span>
+            <span class="hljs-tag">&lt;<span class="hljs-title">groupId</span>&gt;</span>org.codehaus.jackson<span class="hljs-tag">&lt;/<span class="hljs-title">groupId</span>&gt;</span>
+            <span class="hljs-tag">&lt;<span class="hljs-title">artifactId</span>&gt;</span>jackson-xc<span class="hljs-tag">&lt;/<span class="hljs-title">artifactId</span>&gt;</span>
+            <span class="hljs-tag">&lt;<span class="hljs-title">version</span>&gt;</span>${jackson.version}<span class="hljs-tag">&lt;/<span class="hljs-title">version</span>&gt;</span>
+        <span class="hljs-tag">&lt;/<span class="hljs-title">dependency</span>&gt;</span>       
+
+        <span class="hljs-comment">&lt;!-- spring 核心jar包 --&gt;</span>
+        <span class="hljs-tag">&lt;<span class="hljs-title">dependency</span>&gt;</span>
+            <span class="hljs-tag">&lt;<span class="hljs-title">groupId</span>&gt;</span>org.springframework<span class="hljs-tag">&lt;/<span class="hljs-title">groupId</span>&gt;</span>
+            <span class="hljs-tag">&lt;<span class="hljs-title">artifactId</span>&gt;</span>spring-aop<span class="hljs-tag">&lt;/<span class="hljs-title">artifactId</span>&gt;</span>
+            <span class="hljs-tag">&lt;<span class="hljs-title">version</span>&gt;</span>${spring.version}<span class="hljs-tag">&lt;/<span class="hljs-title">version</span>&gt;</span>
+        <span class="hljs-tag">&lt;/<span class="hljs-title">dependency</span>&gt;</span>
+        <span class="hljs-tag">&lt;<span class="hljs-title">dependency</span>&gt;</span>
+            <span class="hljs-tag">&lt;<span class="hljs-title">groupId</span>&gt;</span>org.springframework<span class="hljs-tag">&lt;/<span class="hljs-title">groupId</span>&gt;</span>
+            <span class="hljs-tag">&lt;<span class="hljs-title">artifactId</span>&gt;</span>spring-beans<span class="hljs-tag">&lt;/<span class="hljs-title">artifactId</span>&gt;</span>
+            <span class="hljs-tag">&lt;<span class="hljs-title">version</span>&gt;</span>${spring.version}<span class="hljs-tag">&lt;/<span class="hljs-title">version</span>&gt;</span>
+        <span class="hljs-tag">&lt;/<span class="hljs-title">dependency</span>&gt;</span>
+        <span class="hljs-tag">&lt;<span class="hljs-title">dependency</span>&gt;</span>
+            <span class="hljs-tag">&lt;<span class="hljs-title">groupId</span>&gt;</span>org.springframework<span class="hljs-tag">&lt;/<span class="hljs-title">groupId</span>&gt;</span>
+            <span class="hljs-tag">&lt;<span class="hljs-title">artifactId</span>&gt;</span>spring-context-support<span class="hljs-tag">&lt;/<span class="hljs-title">artifactId</span>&gt;</span>
+            <span class="hljs-tag">&lt;<span class="hljs-title">version</span>&gt;</span>${spring.version}<span class="hljs-tag">&lt;/<span class="hljs-title">version</span>&gt;</span>
+        <span class="hljs-tag">&lt;/<span class="hljs-title">dependency</span>&gt;</span>
+        <span class="hljs-tag">&lt;<span class="hljs-title">dependency</span>&gt;</span>
+            <span class="hljs-tag">&lt;<span class="hljs-title">groupId</span>&gt;</span>org.springframework<span class="hljs-tag">&lt;/<span class="hljs-title">groupId</span>&gt;</span>
+            <span class="hljs-tag">&lt;<span class="hljs-title">artifactId</span>&gt;</span>spring-context<span class="hljs-tag">&lt;/<span class="hljs-title">artifactId</span>&gt;</span>
+            <span class="hljs-tag">&lt;<span class="hljs-title">version</span>&gt;</span>${spring.version}<span class="hljs-tag">&lt;/<span class="hljs-title">version</span>&gt;</span>
+        <span class="hljs-tag">&lt;/<span class="hljs-title">dependency</span>&gt;</span>
+        <span class="hljs-tag">&lt;<span class="hljs-title">dependency</span>&gt;</span>
+            <span class="hljs-tag">&lt;<span class="hljs-title">groupId</span>&gt;</span>org.springframework<span class="hljs-tag">&lt;/<span class="hljs-title">groupId</span>&gt;</span>
+            <span class="hljs-tag">&lt;<span class="hljs-title">artifactId</span>&gt;</span>spring-core<span class="hljs-tag">&lt;/<span class="hljs-title">artifactId</span>&gt;</span>
+            <span class="hljs-tag">&lt;<span class="hljs-title">version</span>&gt;</span>${spring.version}<span class="hljs-tag">&lt;/<span class="hljs-title">version</span>&gt;</span>
+        <span class="hljs-tag">&lt;/<span class="hljs-title">dependency</span>&gt;</span>
+        <span class="hljs-tag">&lt;<span class="hljs-title">dependency</span>&gt;</span>
+            <span class="hljs-tag">&lt;<span class="hljs-title">groupId</span>&gt;</span>org.springframework<span class="hljs-tag">&lt;/<span class="hljs-title">groupId</span>&gt;</span>
+            <span class="hljs-tag">&lt;<span class="hljs-title">artifactId</span>&gt;</span>spring-expression<span class="hljs-tag">&lt;/<span class="hljs-title">artifactId</span>&gt;</span>
+            <span class="hljs-tag">&lt;<span class="hljs-title">version</span>&gt;</span>${spring.version}<span class="hljs-tag">&lt;/<span class="hljs-title">version</span>&gt;</span>
+        <span class="hljs-tag">&lt;/<span class="hljs-title">dependency</span>&gt;</span>
+        <span class="hljs-tag">&lt;<span class="hljs-title">dependency</span>&gt;</span>
+            <span class="hljs-tag">&lt;<span class="hljs-title">groupId</span>&gt;</span>org.springframework<span class="hljs-tag">&lt;/<span class="hljs-title">groupId</span>&gt;</span>
+            <span class="hljs-tag">&lt;<span class="hljs-title">artifactId</span>&gt;</span>spring-web<span class="hljs-tag">&lt;/<span class="hljs-title">artifactId</span>&gt;</span>
+            <span class="hljs-tag">&lt;<span class="hljs-title">version</span>&gt;</span>${spring.version}<span class="hljs-tag">&lt;/<span class="hljs-title">version</span>&gt;</span>
+        <span class="hljs-tag">&lt;/<span class="hljs-title">dependency</span>&gt;</span>
+        <span class="hljs-tag">&lt;<span class="hljs-title">dependency</span>&gt;</span>
+            <span class="hljs-tag">&lt;<span class="hljs-title">groupId</span>&gt;</span>org.springframework<span class="hljs-tag">&lt;/<span class="hljs-title">groupId</span>&gt;</span>
+            <span class="hljs-tag">&lt;<span class="hljs-title">artifactId</span>&gt;</span>spring-tx<span class="hljs-tag">&lt;/<span class="hljs-title">artifactId</span>&gt;</span>
+            <span class="hljs-tag">&lt;<span class="hljs-title">version</span>&gt;</span>${spring.version}<span class="hljs-tag">&lt;/<span class="hljs-title">version</span>&gt;</span>
+        <span class="hljs-tag">&lt;/<span class="hljs-title">dependency</span>&gt;</span>
+        <span class="hljs-tag">&lt;<span class="hljs-title">dependency</span>&gt;</span>
+            <span class="hljs-tag">&lt;<span class="hljs-title">groupId</span>&gt;</span>org.springframework<span class="hljs-tag">&lt;/<span class="hljs-title">groupId</span>&gt;</span>
+            <span class="hljs-tag">&lt;<span class="hljs-title">artifactId</span>&gt;</span>spring-webmvc<span class="hljs-tag">&lt;/<span class="hljs-title">artifactId</span>&gt;</span>
+            <span class="hljs-tag">&lt;<span class="hljs-title">version</span>&gt;</span>${spring.version}<span class="hljs-tag">&lt;/<span class="hljs-title">version</span>&gt;</span>
+        <span class="hljs-tag">&lt;/<span class="hljs-title">dependency</span>&gt;</span>
+        <span class="hljs-tag">&lt;<span class="hljs-title">dependency</span>&gt;</span>
+            <span class="hljs-tag">&lt;<span class="hljs-title">groupId</span>&gt;</span>org.springframework<span class="hljs-tag">&lt;/<span class="hljs-title">groupId</span>&gt;</span>
+            <span class="hljs-tag">&lt;<span class="hljs-title">artifactId</span>&gt;</span>spring-webmvc-portlet<span class="hljs-tag">&lt;/<span class="hljs-title">artifactId</span>&gt;</span>
+            <span class="hljs-tag">&lt;<span class="hljs-title">version</span>&gt;</span>${spring.version}<span class="hljs-tag">&lt;/<span class="hljs-title">version</span>&gt;</span>
+        <span class="hljs-tag">&lt;/<span class="hljs-title">dependency</span>&gt;</span>
+        <span class="hljs-comment">&lt;!-- https://mvnrepository.com/artifact/org.springframework/spring-jdbc --&gt;</span>
+        <span class="hljs-tag">&lt;<span class="hljs-title">dependency</span>&gt;</span>
+            <span class="hljs-tag">&lt;<span class="hljs-title">groupId</span>&gt;</span>org.springframework<span class="hljs-tag">&lt;/<span class="hljs-title">groupId</span>&gt;</span>
+            <span class="hljs-tag">&lt;<span class="hljs-title">artifactId</span>&gt;</span>spring-jdbc<span class="hljs-tag">&lt;/<span class="hljs-title">artifactId</span>&gt;</span>
+            <span class="hljs-tag">&lt;<span class="hljs-title">version</span>&gt;</span>${spring.version}<span class="hljs-tag">&lt;/<span class="hljs-title">version</span>&gt;</span>
+        <span class="hljs-tag">&lt;/<span class="hljs-title">dependency</span>&gt;</span>
+                <span class="hljs-comment">&lt;!-- mybatis分页插件 --&gt;</span>
+        <span class="hljs-tag">&lt;<span class="hljs-title">dependency</span>&gt;</span>
+            <span class="hljs-tag">&lt;<span class="hljs-title">groupId</span>&gt;</span>com.github.pagehelper<span class="hljs-tag">&lt;/<span class="hljs-title">groupId</span>&gt;</span>
+            <span class="hljs-tag">&lt;<span class="hljs-title">artifactId</span>&gt;</span>pagehelper<span class="hljs-tag">&lt;/<span class="hljs-title">artifactId</span>&gt;</span>
+            <span class="hljs-tag">&lt;<span class="hljs-title">version</span>&gt;</span>4.0.0<span class="hljs-tag">&lt;/<span class="hljs-title">version</span>&gt;</span>
+        <span class="hljs-tag">&lt;/<span class="hljs-title">dependency</span>&gt;</span>
+        <span class="hljs-comment">&lt;!-- SQLSERVER连接包 --&gt;</span>
+        <span class="hljs-tag">&lt;<span class="hljs-title">dependency</span>&gt;</span>
+             <span class="hljs-tag">&lt;<span class="hljs-title">groupId</span>&gt;</span>net.sourceforge.jtds<span class="hljs-tag">&lt;/<span class="hljs-title">groupId</span>&gt;</span>
+             <span class="hljs-tag">&lt;<span class="hljs-title">artifactId</span>&gt;</span>jtds<span class="hljs-tag">&lt;/<span class="hljs-title">artifactId</span>&gt;</span>
+             <span class="hljs-tag">&lt;<span class="hljs-title">version</span>&gt;</span>1.3.1<span class="hljs-tag">&lt;/<span class="hljs-title">version</span>&gt;</span>
+         <span class="hljs-tag">&lt;/<span class="hljs-title">dependency</span>&gt;</span>
+
+        <span class="hljs-tag">&lt;<span class="hljs-title">dependency</span>&gt;</span>
+            <span class="hljs-tag">&lt;<span class="hljs-title">groupId</span>&gt;</span>org.aspectj<span class="hljs-tag">&lt;/<span class="hljs-title">groupId</span>&gt;</span>
+            <span class="hljs-tag">&lt;<span class="hljs-title">artifactId</span>&gt;</span>aspectjweaver<span class="hljs-tag">&lt;/<span class="hljs-title">artifactId</span>&gt;</span>
+            <span class="hljs-tag">&lt;<span class="hljs-title">version</span>&gt;</span>1.6.8<span class="hljs-tag">&lt;/<span class="hljs-title">version</span>&gt;</span>
+        <span class="hljs-tag">&lt;/<span class="hljs-title">dependency</span>&gt;</span>
+        <span class="hljs-tag">&lt;<span class="hljs-title">dependency</span>&gt;</span>
+            <span class="hljs-tag">&lt;<span class="hljs-title">groupId</span>&gt;</span>joda-time<span class="hljs-tag">&lt;/<span class="hljs-title">groupId</span>&gt;</span>
+            <span class="hljs-tag">&lt;<span class="hljs-title">artifactId</span>&gt;</span>joda-time<span class="hljs-tag">&lt;/<span class="hljs-title">artifactId</span>&gt;</span>
+            <span class="hljs-tag">&lt;<span class="hljs-title">version</span>&gt;</span>2.7<span class="hljs-tag">&lt;/<span class="hljs-title">version</span>&gt;</span>
+        <span class="hljs-tag">&lt;/<span class="hljs-title">dependency</span>&gt;</span>
+        <span class="hljs-tag">&lt;<span class="hljs-title">dependency</span>&gt;</span>
+            <span class="hljs-tag">&lt;<span class="hljs-title">groupId</span>&gt;</span>commons-lang<span class="hljs-tag">&lt;/<span class="hljs-title">groupId</span>&gt;</span>
+            <span class="hljs-tag">&lt;<span class="hljs-title">artifactId</span>&gt;</span>commons-lang<span class="hljs-tag">&lt;/<span class="hljs-title">artifactId</span>&gt;</span>
+            <span class="hljs-tag">&lt;<span class="hljs-title">version</span>&gt;</span>2.6<span class="hljs-tag">&lt;/<span class="hljs-title">version</span>&gt;</span>
+        <span class="hljs-tag">&lt;/<span class="hljs-title">dependency</span>&gt;</span>
+        <span class="hljs-comment">&lt;!-- 格式化对象，方便输出日志 --&gt;</span>  
+        <span class="hljs-tag">&lt;<span class="hljs-title">dependency</span>&gt;</span>  
+            <span class="hljs-tag">&lt;<span class="hljs-title">groupId</span>&gt;</span>com.alibaba<span class="hljs-tag">&lt;/<span class="hljs-title">groupId</span>&gt;</span>  
+            <span class="hljs-tag">&lt;<span class="hljs-title">artifactId</span>&gt;</span>fastjson<span class="hljs-tag">&lt;/<span class="hljs-title">artifactId</span>&gt;</span>  
+            <span class="hljs-tag">&lt;<span class="hljs-title">version</span>&gt;</span>1.1.41<span class="hljs-tag">&lt;/<span class="hljs-title">version</span>&gt;</span>  
+        <span class="hljs-tag">&lt;/<span class="hljs-title">dependency</span>&gt;</span>  
+        <span class="hljs-comment">&lt;!-- log end --&gt;</span>  
+        <span class="hljs-comment">&lt;!-- 上传组件包 --&gt;</span>  
+        <span class="hljs-tag">&lt;<span class="hljs-title">dependency</span>&gt;</span>  
+            <span class="hljs-tag">&lt;<span class="hljs-title">groupId</span>&gt;</span>commons-fileupload<span class="hljs-tag">&lt;/<span class="hljs-title">groupId</span>&gt;</span>  
+            <span class="hljs-tag">&lt;<span class="hljs-title">artifactId</span>&gt;</span>commons-fileupload<span class="hljs-tag">&lt;/<span class="hljs-title">artifactId</span>&gt;</span>  
+            <span class="hljs-tag">&lt;<span class="hljs-title">version</span>&gt;</span>1.3.1<span class="hljs-tag">&lt;/<span class="hljs-title">version</span>&gt;</span>  
+        <span class="hljs-tag">&lt;/<span class="hljs-title">dependency</span>&gt;</span>  
+        <span class="hljs-tag">&lt;<span class="hljs-title">dependency</span>&gt;</span>  
+            <span class="hljs-tag">&lt;<span class="hljs-title">groupId</span>&gt;</span>commons-io<span class="hljs-tag">&lt;/<span class="hljs-title">groupId</span>&gt;</span>  
+            <span class="hljs-tag">&lt;<span class="hljs-title">artifactId</span>&gt;</span>commons-io<span class="hljs-tag">&lt;/<span class="hljs-title">artifactId</span>&gt;</span>  
+            <span class="hljs-tag">&lt;<span class="hljs-title">version</span>&gt;</span>2.4<span class="hljs-tag">&lt;/<span class="hljs-title">version</span>&gt;</span>  
+        <span class="hljs-tag">&lt;/<span class="hljs-title">dependency</span>&gt;</span>  
+        <span class="hljs-tag">&lt;<span class="hljs-title">dependency</span>&gt;</span>  
+            <span class="hljs-tag">&lt;<span class="hljs-title">groupId</span>&gt;</span>commons-codec<span class="hljs-tag">&lt;/<span class="hljs-title">groupId</span>&gt;</span>  
+            <span class="hljs-tag">&lt;<span class="hljs-title">artifactId</span>&gt;</span>commons-codec<span class="hljs-tag">&lt;/<span class="hljs-title">artifactId</span>&gt;</span>  
+            <span class="hljs-tag">&lt;<span class="hljs-title">version</span>&gt;</span>1.9<span class="hljs-tag">&lt;/<span class="hljs-title">version</span>&gt;</span>  
+        <span class="hljs-tag">&lt;/<span class="hljs-title">dependency</span>&gt;</span>
+        <span class="hljs-comment">&lt;!-- spring-ldap-core --&gt;</span>
+        <span class="hljs-tag">&lt;<span class="hljs-title">dependency</span>&gt;</span>  
+            <span class="hljs-tag">&lt;<span class="hljs-title">groupId</span>&gt;</span>com.sun<span class="hljs-tag">&lt;/<span class="hljs-title">groupId</span>&gt;</span>  
+            <span class="hljs-tag">&lt;<span class="hljs-title">artifactId</span>&gt;</span>ldapbp<span class="hljs-tag">&lt;/<span class="hljs-title">artifactId</span>&gt;</span>  
+            <span class="hljs-tag">&lt;<span class="hljs-title">version</span>&gt;</span>1.0<span class="hljs-tag">&lt;/<span class="hljs-title">version</span>&gt;</span>  
+        <span class="hljs-tag">&lt;/<span class="hljs-title">dependency</span>&gt;</span>  
+        <span class="hljs-tag">&lt;<span class="hljs-title">dependency</span>&gt;</span>
+            <span class="hljs-tag">&lt;<span class="hljs-title">groupId</span>&gt;</span>org.springframework.ldap<span class="hljs-tag">&lt;/<span class="hljs-title">groupId</span>&gt;</span>
+            <span class="hljs-tag">&lt;<span class="hljs-title">artifactId</span>&gt;</span>spring-ldap-core<span class="hljs-tag">&lt;/<span class="hljs-title">artifactId</span>&gt;</span>
+            <span class="hljs-tag">&lt;<span class="hljs-title">version</span>&gt;</span>2.3.1.RELEASE<span class="hljs-tag">&lt;/<span class="hljs-title">version</span>&gt;</span>
+        <span class="hljs-tag">&lt;/<span class="hljs-title">dependency</span>&gt;</span>
+        <span class="hljs-comment">&lt;!-- httpclient --&gt;</span>
+        <span class="hljs-tag">&lt;<span class="hljs-title">dependency</span>&gt;</span>
+            <span class="hljs-tag">&lt;<span class="hljs-title">groupId</span>&gt;</span>org.apache.httpcomponents<span class="hljs-tag">&lt;/<span class="hljs-title">groupId</span>&gt;</span>
+            <span class="hljs-tag">&lt;<span class="hljs-title">artifactId</span>&gt;</span>httpclient<span class="hljs-tag">&lt;/<span class="hljs-title">artifactId</span>&gt;</span>
+            <span class="hljs-tag">&lt;<span class="hljs-title">version</span>&gt;</span>4.5.2<span class="hljs-tag">&lt;/<span class="hljs-title">version</span>&gt;</span>
+        <span class="hljs-tag">&lt;/<span class="hljs-title">dependency</span>&gt;</span>
+          <span class="hljs-comment">&lt;!-- org.quartz-scheduler/quartz --&gt;</span>
+        <span class="hljs-tag">&lt;<span class="hljs-title">dependency</span>&gt;</span>
+            <span class="hljs-tag">&lt;<span class="hljs-title">groupId</span>&gt;</span>org.quartz-scheduler<span class="hljs-tag">&lt;/<span class="hljs-title">groupId</span>&gt;</span>
+            <span class="hljs-tag">&lt;<span class="hljs-title">artifactId</span>&gt;</span>quartz<span class="hljs-tag">&lt;/<span class="hljs-title">artifactId</span>&gt;</span>
+            <span class="hljs-tag">&lt;<span class="hljs-title">version</span>&gt;</span>2.2.1<span class="hljs-tag">&lt;/<span class="hljs-title">version</span>&gt;</span>
+        <span class="hljs-tag">&lt;/<span class="hljs-title">dependency</span>&gt;</span>
+    <span class="hljs-tag">&lt;/<span class="hljs-title">dependencies</span>&gt;</span>  
+
+    <span class="hljs-tag">&lt;<span class="hljs-title">profiles</span>&gt;</span>
+        <span class="hljs-tag">&lt;<span class="hljs-title">profile</span>&gt;</span>
+            <span class="hljs-tag">&lt;<span class="hljs-title">id</span>&gt;</span>dev<span class="hljs-tag">&lt;/<span class="hljs-title">id</span>&gt;</span>
+            <span class="hljs-tag">&lt;<span class="hljs-title">activation</span>&gt;</span>
+                <span class="hljs-tag">&lt;<span class="hljs-title">activeByDefault</span>&gt;</span>true<span class="hljs-tag">&lt;/<span class="hljs-title">activeByDefault</span>&gt;</span>
+            <span class="hljs-tag">&lt;/<span class="hljs-title">activation</span>&gt;</span>   
+            <span class="hljs-tag">&lt;<span class="hljs-title">properties</span>&gt;</span>
+                <span class="hljs-tag">&lt;<span class="hljs-title">env</span>&gt;</span>dev<span class="hljs-tag">&lt;/<span class="hljs-title">env</span>&gt;</span>
+            <span class="hljs-tag">&lt;/<span class="hljs-title">properties</span>&gt;</span>
+        <span class="hljs-tag">&lt;/<span class="hljs-title">profile</span>&gt;</span>
+        <span class="hljs-tag">&lt;<span class="hljs-title">profile</span>&gt;</span>
+            <span class="hljs-tag">&lt;<span class="hljs-title">id</span>&gt;</span>test<span class="hljs-tag">&lt;/<span class="hljs-title">id</span>&gt;</span>
+            <span class="hljs-tag">&lt;<span class="hljs-title">properties</span>&gt;</span>
+                <span class="hljs-tag">&lt;<span class="hljs-title">env</span>&gt;</span>test<span class="hljs-tag">&lt;/<span class="hljs-title">env</span>&gt;</span>
+            <span class="hljs-tag">&lt;/<span class="hljs-title">properties</span>&gt;</span>
+        <span class="hljs-tag">&lt;/<span class="hljs-title">profile</span>&gt;</span>
+        <span class="hljs-tag">&lt;<span class="hljs-title">profile</span>&gt;</span>
+            <span class="hljs-tag">&lt;<span class="hljs-title">id</span>&gt;</span>online<span class="hljs-tag">&lt;/<span class="hljs-title">id</span>&gt;</span>     
+            <span class="hljs-tag">&lt;<span class="hljs-title">properties</span>&gt;</span>
+                <span class="hljs-tag">&lt;<span class="hljs-title">env</span>&gt;</span>online<span class="hljs-tag">&lt;/<span class="hljs-title">env</span>&gt;</span>
+            <span class="hljs-tag">&lt;/<span class="hljs-title">properties</span>&gt;</span>
+        <span class="hljs-tag">&lt;/<span class="hljs-title">profile</span>&gt;</span>
+    <span class="hljs-tag">&lt;/<span class="hljs-title">profiles</span>&gt;</span>
+
+   <span class="hljs-tag">&lt;<span class="hljs-title">build</span>&gt;</span>
+    <span class="hljs-tag">&lt;<span class="hljs-title">finalName</span>&gt;</span>${project.artifactId}-${project.version}<span class="hljs-tag">&lt;/<span class="hljs-title">finalName</span>&gt;</span>
+    <span class="hljs-tag">&lt;<span class="hljs-title">sourceDirectory</span>&gt;</span>${basedir}/src/main/java<span class="hljs-tag">&lt;/<span class="hljs-title">sourceDirectory</span>&gt;</span>
+    <span class="hljs-tag">&lt;<span class="hljs-title">outputDirectory</span>&gt;</span>${basedir}/src/main/webapp/WEB-INF/classes<span class="hljs-tag">&lt;/<span class="hljs-title">outputDirectory</span>&gt;</span>
+    <span class="hljs-tag">&lt;<span class="hljs-title">plugins</span>&gt;</span>
+       <span class="hljs-tag">&lt;<span class="hljs-title">plugin</span>&gt;</span>
+            <span class="hljs-tag">&lt;<span class="hljs-title">groupId</span>&gt;</span>org.apache.maven.plugins<span class="hljs-tag">&lt;/<span class="hljs-title">groupId</span>&gt;</span>
+            <span class="hljs-tag">&lt;<span class="hljs-title">artifactId</span>&gt;</span>maven-compiler-plugin<span class="hljs-tag">&lt;/<span class="hljs-title">artifactId</span>&gt;</span>
+            <span class="hljs-tag">&lt;<span class="hljs-title">version</span>&gt;</span>3.0<span class="hljs-tag">&lt;/<span class="hljs-title">version</span>&gt;</span>
+                <span class="hljs-tag">&lt;<span class="hljs-title">configuration</span>&gt;</span>
+                    <span class="hljs-tag">&lt;<span class="hljs-title">source</span>&gt;</span>1.7<span class="hljs-tag">&lt;/<span class="hljs-title">source</span>&gt;</span>
+                    <span class="hljs-tag">&lt;<span class="hljs-title">target</span>&gt;</span>1.7<span class="hljs-tag">&lt;/<span class="hljs-title">target</span>&gt;</span>
+                    <span class="hljs-tag">&lt;<span class="hljs-title">encoding</span>&gt;</span>UTF-8<span class="hljs-tag">&lt;/<span class="hljs-title">encoding</span>&gt;</span>
+                <span class="hljs-tag">&lt;/<span class="hljs-title">configuration</span>&gt;</span>
+            <span class="hljs-tag">&lt;/<span class="hljs-title">plugin</span>&gt;</span>
+
+            <span class="hljs-tag">&lt;<span class="hljs-title">plugin</span>&gt;</span>
+                <span class="hljs-tag">&lt;<span class="hljs-title">artifactId</span>&gt;</span>maven-resources-plugin<span class="hljs-tag">&lt;/<span class="hljs-title">artifactId</span>&gt;</span>
+                <span class="hljs-tag">&lt;<span class="hljs-title">executions</span>&gt;</span>
+                    <span class="hljs-tag">&lt;<span class="hljs-title">execution</span>&gt;</span>
+                        <span class="hljs-tag">&lt;<span class="hljs-title">id</span>&gt;</span>copy-resources<span class="hljs-tag">&lt;/<span class="hljs-title">id</span>&gt;</span>
+                        <span class="hljs-tag">&lt;<span class="hljs-title">phase</span>&gt;</span>process-resources<span class="hljs-tag">&lt;/<span class="hljs-title">phase</span>&gt;</span>
+                        <span class="hljs-tag">&lt;<span class="hljs-title">goals</span>&gt;</span>
+                            <span class="hljs-tag">&lt;<span class="hljs-title">goal</span>&gt;</span>copy-resources<span class="hljs-tag">&lt;/<span class="hljs-title">goal</span>&gt;</span>
+                        <span class="hljs-tag">&lt;/<span class="hljs-title">goals</span>&gt;</span>
+                        <span class="hljs-tag">&lt;<span class="hljs-title">configuration</span>&gt;</span>
+                            <span class="hljs-tag">&lt;<span class="hljs-title">overwrite</span>&gt;</span>true<span class="hljs-tag">&lt;/<span class="hljs-title">overwrite</span>&gt;</span>
+                            <span class="hljs-tag">&lt;<span class="hljs-title">sourceDirectory</span>&gt;</span>${basedir}/src/main/java<span class="hljs-tag">&lt;/<span class="hljs-title">sourceDirectory</span>&gt;</span>
+                            <span class="hljs-tag">&lt;<span class="hljs-title">outputDirectory</span>&gt;</span>${basedir}/src/main/webapp/WEB-INF/classes<span class="hljs-tag">&lt;/<span class="hljs-title">outputDirectory</span>&gt;</span>
+                            <span class="hljs-tag">&lt;<span class="hljs-title">resources</span>&gt;</span>
+                                <span class="hljs-tag">&lt;<span class="hljs-title">resource</span>&gt;</span>
+                                    <span class="hljs-tag">&lt;<span class="hljs-title">directory</span>&gt;</span>src/main/resources/env/${env}<span class="hljs-tag">&lt;/<span class="hljs-title">directory</span>&gt;</span>
+                                    <span class="hljs-tag">&lt;<span class="hljs-title">targetPath</span>&gt;</span>${basedir}/src/main/webapp/WEB-INF/classes/conf<span class="hljs-tag">&lt;/<span class="hljs-title">targetPath</span>&gt;</span>
+                                <span class="hljs-tag">&lt;/<span class="hljs-title">resource</span>&gt;</span>
+                            <span class="hljs-tag">&lt;/<span class="hljs-title">resources</span>&gt;</span>
+                        <span class="hljs-tag">&lt;/<span class="hljs-title">configuration</span>&gt;</span>
+                    <span class="hljs-tag">&lt;/<span class="hljs-title">execution</span>&gt;</span>
+                <span class="hljs-tag">&lt;/<span class="hljs-title">executions</span>&gt;</span>
+            <span class="hljs-tag">&lt;/<span class="hljs-title">plugin</span>&gt;</span>
+    <span class="hljs-tag">&lt;/<span class="hljs-title">plugins</span>&gt;</span>
+  <span class="hljs-tag">&lt;/<span class="hljs-title">build</span>&gt;</span>
+<span class="hljs-tag">&lt;/<span class="hljs-title">project</span>&gt;</span></code></pre>
+
+<p><strong>好处及实现</strong></p>
+
+<p>整个项目通过无配置文件无手动添加bean组件的方式自动加载任务并执行，具体的实现核心如下：</p>
+
+
+
+<pre class="prettyprint"><code class=" hljs avrasm">package <span class="hljs-keyword">com</span><span class="hljs-preprocessor">.spdb</span><span class="hljs-preprocessor">.hs</span><span class="hljs-preprocessor">.base</span><span class="hljs-preprocessor">.quartz</span><span class="hljs-comment">;</span>
+
+import java<span class="hljs-preprocessor">.util</span><span class="hljs-preprocessor">.ArrayList</span><span class="hljs-comment">;</span>
+import java<span class="hljs-preprocessor">.util</span><span class="hljs-preprocessor">.List</span><span class="hljs-comment">;</span>
+import java<span class="hljs-preprocessor">.util</span><span class="hljs-preprocessor">.Map</span><span class="hljs-comment">;</span>
+import java<span class="hljs-preprocessor">.util</span><span class="hljs-preprocessor">.Set</span><span class="hljs-comment">;</span>
+
+import org<span class="hljs-preprocessor">.apache</span><span class="hljs-preprocessor">.commons</span><span class="hljs-preprocessor">.lang</span><span class="hljs-preprocessor">.StringUtils</span><span class="hljs-comment">;</span>
+import org<span class="hljs-preprocessor">.apache</span><span class="hljs-preprocessor">.log</span>4j<span class="hljs-preprocessor">.Logger</span><span class="hljs-comment">;</span>
+import org<span class="hljs-preprocessor">.quartz</span><span class="hljs-preprocessor">.CronScheduleBuilder</span><span class="hljs-comment">;</span>
+import org<span class="hljs-preprocessor">.quartz</span><span class="hljs-preprocessor">.CronTrigger</span><span class="hljs-comment">;</span>
+import org<span class="hljs-preprocessor">.quartz</span><span class="hljs-preprocessor">.Job</span><span class="hljs-comment">;</span>
+import org<span class="hljs-preprocessor">.quartz</span><span class="hljs-preprocessor">.JobBuilder</span><span class="hljs-comment">;</span>
+import org<span class="hljs-preprocessor">.quartz</span><span class="hljs-preprocessor">.JobDetail</span><span class="hljs-comment">;</span>
+import org<span class="hljs-preprocessor">.quartz</span><span class="hljs-preprocessor">.JobKey</span><span class="hljs-comment">;</span>
+import org<span class="hljs-preprocessor">.quartz</span><span class="hljs-preprocessor">.Scheduler</span><span class="hljs-comment">;</span>
+import org<span class="hljs-preprocessor">.quartz</span><span class="hljs-preprocessor">.SchedulerException</span><span class="hljs-comment">;</span>
+import org<span class="hljs-preprocessor">.quartz</span><span class="hljs-preprocessor">.TriggerBuilder</span><span class="hljs-comment">;</span>
+import org<span class="hljs-preprocessor">.springframework</span><span class="hljs-preprocessor">.beans</span><span class="hljs-preprocessor">.factory</span><span class="hljs-preprocessor">.annotation</span><span class="hljs-preprocessor">.Autowired</span><span class="hljs-comment">;</span>
+import org<span class="hljs-preprocessor">.springframework</span><span class="hljs-preprocessor">.context</span><span class="hljs-preprocessor">.ApplicationContext</span><span class="hljs-comment">;</span>
+import org<span class="hljs-preprocessor">.springframework</span><span class="hljs-preprocessor">.context</span><span class="hljs-preprocessor">.ApplicationListener</span><span class="hljs-comment">;</span>
+import org<span class="hljs-preprocessor">.springframework</span><span class="hljs-preprocessor">.context</span><span class="hljs-preprocessor">.event</span><span class="hljs-preprocessor">.ContextRefreshedEvent</span><span class="hljs-comment">;</span>
+
+import <span class="hljs-keyword">com</span><span class="hljs-preprocessor">.spdb</span><span class="hljs-preprocessor">.hs</span><span class="hljs-preprocessor">.base</span><span class="hljs-preprocessor">.annotation</span><span class="hljs-preprocessor">.QuartzJob</span><span class="hljs-comment">;</span>
+import <span class="hljs-keyword">com</span><span class="hljs-preprocessor">.spdb</span><span class="hljs-preprocessor">.hs</span><span class="hljs-preprocessor">.timer</span><span class="hljs-preprocessor">.model</span><span class="hljs-preprocessor">.SchedulerJob</span><span class="hljs-comment">;</span>
+import <span class="hljs-keyword">com</span><span class="hljs-preprocessor">.spdb</span><span class="hljs-preprocessor">.hs</span><span class="hljs-preprocessor">.timer</span><span class="hljs-preprocessor">.service</span><span class="hljs-preprocessor">.iservice</span><span class="hljs-preprocessor">.ISchedulerJobService</span><span class="hljs-comment">;</span>
+
+public class QuartzJobSchedulerListener implements ApplicationListener&lt;ContextRefreshedEvent&gt;  {
+
+    private Logger log = Logger<span class="hljs-preprocessor">.getLogger</span>(QuartzJobSchedulerListener<span class="hljs-preprocessor">.class</span>)<span class="hljs-comment">;</span>
+
+    @Autowired
+    private Scheduler scheduler<span class="hljs-comment">;</span>
+    @Autowired
+    private ISchedulerJobService jobService<span class="hljs-comment">;</span>
+
+    @Override
+    public void onApplicationEvent(ContextRefreshedEvent event) {
+
+        try {
+              ApplicationContext applicationContext = event<span class="hljs-preprocessor">.getApplicationContext</span>()<span class="hljs-comment">;    </span>
+              loadCronTriggers(applicationContext)<span class="hljs-comment">;</span>
+        } catch (Exception e) {
+            log<span class="hljs-preprocessor">.error</span>(e<span class="hljs-preprocessor">.getMessage</span>(),e)<span class="hljs-comment">;</span>
+        }
+    }
+
+    @SuppressWarnings(<span class="hljs-string">"unchecked"</span>)
+    private void loadCronTriggers(ApplicationContext applicationContext) {
+        //获取所有有注解QuartzJob的Job
+          Map&lt;String,Object&gt; quartzJobBeans = applicationContext<span class="hljs-preprocessor">.getBeansWithAnnotation</span>(QuartzJob<span class="hljs-preprocessor">.class</span>)<span class="hljs-comment">;</span>
+          //获取所有job名字
+          <span class="hljs-keyword">Set</span>&lt;String&gt; jobNames = quartzJobBeans<span class="hljs-preprocessor">.keySet</span>()<span class="hljs-comment">;</span>
+          List&lt;SchedulerJob&gt; jobList = new ArrayList&lt;SchedulerJob&gt;()<span class="hljs-comment">;</span>
+
+          try {
+                    for (String jobName : jobNames) {
+                             //反射获取任务类对象，并获取注解信息,入库
+                              Object obj = quartzJobBeans<span class="hljs-preprocessor">.get</span>(jobName)<span class="hljs-comment">;</span>
+                              if(obj<span class="hljs-preprocessor">.getClass</span>()<span class="hljs-preprocessor">.isAnnotationPresent</span>(QuartzJob<span class="hljs-preprocessor">.class</span>)){
+                                  QuartzJob quartzJob = obj<span class="hljs-preprocessor">.getClass</span>()<span class="hljs-preprocessor">.getAnnotation</span>(QuartzJob<span class="hljs-preprocessor">.class</span>)<span class="hljs-comment">;</span>
+                                  String cronExp = quartzJob<span class="hljs-preprocessor">.cron</span>()<span class="hljs-comment">;</span>
+                                  String groupName = quartzJob<span class="hljs-preprocessor">.groupName</span>()<span class="hljs-comment">;</span>
+                                  String desc = quartzJob<span class="hljs-preprocessor">.desc</span>()<span class="hljs-comment">;</span>
+                                //检查数据库存在性，不存在则添加
+                                  if(jobService<span class="hljs-preprocessor">.getByNameAndGroup</span>(jobName,groupName)==null){
+                                      jobList<span class="hljs-preprocessor">.add</span>(addJob(jobName, quartzJob, desc))<span class="hljs-comment">;</span>
+                                  }
+
+                                  //判断执行器中此任务是否存在不存在则添加到执行器中
+                                 if(!isJobExist(jobName, groupName)){
+                                  JobKey jobKey = new JobKey(jobName, groupName)<span class="hljs-comment">;</span>
+                                  JobDetail job = JobBuilder
+                                                                 <span class="hljs-preprocessor">.newJob</span>((Class&lt;? extends Job&gt;)obj<span class="hljs-preprocessor">.getClass</span>())
+                                                                 <span class="hljs-preprocessor">.withIdentity</span>(jobKey)
+                                                                 <span class="hljs-preprocessor">.build</span>()<span class="hljs-comment">;</span>
+
+                                  CronTrigger cronTrigger = TriggerBuilder
+                                                                                    <span class="hljs-preprocessor">.newTrigger</span>()
+                                                                                    <span class="hljs-preprocessor">.withIdentity</span>(jobName + <span class="hljs-string">"_trigger"</span>, groupName)
+                                                                                    <span class="hljs-preprocessor">.withSchedule</span>(CronScheduleBuilder<span class="hljs-preprocessor">.cronSchedule</span>(cronExp))
+                                                                                    <span class="hljs-preprocessor">.build</span>()<span class="hljs-comment">;</span>
+
+
+                                  scheduler<span class="hljs-preprocessor">.scheduleJob</span>(job, cronTrigger)<span class="hljs-comment">;</span>
+
+                                }
+                          }
+                      }
+
+                     //入库定时任务
+                     if(jobList<span class="hljs-preprocessor">.size</span>()&gt;<span class="hljs-number">0</span>){
+                          try {
+                                  Integer count = jobService<span class="hljs-preprocessor">.addLst</span>(jobList)<span class="hljs-comment">;</span>
+                                  if(count==<span class="hljs-number">0</span>){
+                                      //插入失败
+                                      log<span class="hljs-preprocessor">.error</span>(<span class="hljs-string">"定时任务入库失败......."</span>)<span class="hljs-comment">;</span>
+                                  }
+                            } catch (Exception e) {
+                                log<span class="hljs-preprocessor">.error</span>(e<span class="hljs-preprocessor">.getMessage</span>(), e)<span class="hljs-comment">;</span>
+                            }
+                      }
+                } catch (SchedulerException e) {
+                    log<span class="hljs-preprocessor">.error</span>(e<span class="hljs-preprocessor">.getMessage</span>())<span class="hljs-comment">;</span>
+                }             
+
+    }
+
+    private boolean isJobExist(String jobName, String groupName) {
+
+        try {
+                return  scheduler<span class="hljs-preprocessor">.checkExists</span>(new JobKey(jobName,groupName))<span class="hljs-comment">;</span>
+            } catch (SchedulerException e) {
+                log<span class="hljs-preprocessor">.error</span>(e<span class="hljs-preprocessor">.getMessage</span>(), e)<span class="hljs-comment">;</span>
+                return false<span class="hljs-comment">;</span>
+            }
+    }
+
+    private SchedulerJob addJob(String jobName, QuartzJob quartzJob, String desc) {
+          SchedulerJob schedulerJob = new SchedulerJob()<span class="hljs-comment">;</span>
+          schedulerJob<span class="hljs-preprocessor">.setCronExp</span>(quartzJob<span class="hljs-preprocessor">.cron</span>())<span class="hljs-comment">;</span>
+          schedulerJob<span class="hljs-preprocessor">.setJobGroup</span>(quartzJob<span class="hljs-preprocessor">.groupName</span>())<span class="hljs-comment">;</span>
+          schedulerJob<span class="hljs-preprocessor">.setJobName</span>(jobName)<span class="hljs-comment">;</span>
+          schedulerJob<span class="hljs-preprocessor">.setJobDesc</span>(StringUtils<span class="hljs-preprocessor">.isNotBlank</span>(desc)?desc:null)<span class="hljs-comment">;</span>
+          return schedulerJob<span class="hljs-comment">;</span>
+    }
+
+}
+</code></pre>
+
+<p>可以很清楚的看到我们这个类是ApplicationListener的实现类，ApplicationListener的实现类表示在spring容器完全加载完成后自动回去干的事，不需要我们管理，那么我们就可以通过自定义注解的方式让我们的任务执行类配置这个注解通过applicationContext.getBeansWithAnnotation(QuartzJob.class);来获取所有拥有这个直接的任务实现类。此注解的配置如下，由于要入库，所以此注解需要的其实就是以往我们需要在配置文件中添加的一些信息：</p>
+
+<pre class="prettyprint"><code class=" hljs java"><span class="hljs-keyword">package</span> com.spdb.hs.base.annotation;
+
+<span class="hljs-keyword">import</span> java.lang.annotation.ElementType;
+<span class="hljs-keyword">import</span> java.lang.annotation.Retention;
+<span class="hljs-keyword">import</span> java.lang.annotation.RetentionPolicy;
+<span class="hljs-keyword">import</span> java.lang.annotation.Target;
+
+<span class="hljs-javadoc">/**
+ * 用注解来反射读取注解中的cron表达式，用来在web启动的时候自动录入数据库
+ *<span class="hljs-javadoctag"> @author</span> zhy
+ *
+ */</span>
+<span class="hljs-annotation">@Retention</span>(RetentionPolicy.RUNTIME)
+<span class="hljs-annotation">@Target</span>(ElementType.TYPE)
+<span class="hljs-keyword">public</span> @<span class="hljs-class"><span class="hljs-keyword">interface</span> <span class="hljs-title">QuartzJob</span> {</span>
+    String cron();<span class="hljs-comment">//表达式</span>
+    String groupName();<span class="hljs-comment">//任务组名</span>
+    String desc();<span class="hljs-comment">//任务描述</span>
+
+}
+</code></pre>
+
+<p>具体的任务执行类：</p>
+
+
+
+<pre class="prettyprint"><code class=" hljs avrasm">package <span class="hljs-keyword">com</span><span class="hljs-preprocessor">.spdb</span><span class="hljs-preprocessor">.hs</span><span class="hljs-preprocessor">.timer</span><span class="hljs-preprocessor">.job</span><span class="hljs-comment">;</span>
+
+import java<span class="hljs-preprocessor">.util</span><span class="hljs-preprocessor">.Date</span><span class="hljs-comment">;</span>
+
+import org<span class="hljs-preprocessor">.quartz</span><span class="hljs-preprocessor">.JobExecutionContext</span><span class="hljs-comment">;</span>
+import org<span class="hljs-preprocessor">.quartz</span><span class="hljs-preprocessor">.JobExecutionException</span><span class="hljs-comment">;</span>
+import org<span class="hljs-preprocessor">.springframework</span><span class="hljs-preprocessor">.scheduling</span><span class="hljs-preprocessor">.quartz</span><span class="hljs-preprocessor">.QuartzJobBean</span><span class="hljs-comment">;</span>
+import org<span class="hljs-preprocessor">.springframework</span><span class="hljs-preprocessor">.stereotype</span><span class="hljs-preprocessor">.Component</span><span class="hljs-comment">;</span>
+
+import <span class="hljs-keyword">com</span><span class="hljs-preprocessor">.spdb</span><span class="hljs-preprocessor">.hs</span><span class="hljs-preprocessor">.base</span><span class="hljs-preprocessor">.annotation</span><span class="hljs-preprocessor">.QuartzJob</span><span class="hljs-comment">;</span>
+import <span class="hljs-keyword">com</span><span class="hljs-preprocessor">.spdb</span><span class="hljs-preprocessor">.hs</span><span class="hljs-preprocessor">.base</span><span class="hljs-preprocessor">.constants</span><span class="hljs-preprocessor">.QuartzJobGroupConstants</span><span class="hljs-comment">;</span>
+
+@QuartzJob( cron=<span class="hljs-string">"0/15 * * * * ?"</span>,groupName=QuartzJobGroupConstants<span class="hljs-preprocessor">.GROUP</span>_GET, desc = <span class="hljs-string">"测试专用"</span>)
+@Component
+public class MyTestJob extends QuartzJobBean {
+
+    protected void executeInternal(JobExecutionContext context) throws JobExecutionException {
+        System<span class="hljs-preprocessor">.out</span><span class="hljs-preprocessor">.println</span>(<span class="hljs-string">"THE FIRST JOB HAS RUN AND THE TIME IS :"</span> + new Date()<span class="hljs-preprocessor">.toString</span>())<span class="hljs-comment">;</span>
+
+    }
+
+}
+</code></pre>
+
+<p>基于此配置你就可以实现在项目启动完成后定时任务的自动入库与执行，由于任务祖名和触发器组名要区分开来，你可以在操作触发器的时候加个自定义后缀，我们这里添加的是”_trigger”,效果如下：</p>
+
+
+
+<pre class="prettyprint"><code class=" hljs avrasm"> scheduler<span class="hljs-preprocessor">.resumeTrigger</span>(TriggerKey<span class="hljs-preprocessor">.triggerKey</span>(jobName+<span class="hljs-string">"_trigger"</span>, groupName))<span class="hljs-comment">;// 重启触发器  </span>
+</code></pre>
+
+<p>这些配置好后，我们只需要向外提供修改指定任务时间和暂停启动指定任务的接口即可做到定时任务的系统不重启更新，这其中涉及到quartz底层自己管理的11张数据表，我们可以不用管他，以及一张我自定义的统筹任务表，这些表在 ：<a href="http://download.csdn.net/detail/smile_miracle/9912914" target="_blank">定时任务整合项目</a>中有sql文件，你可以转换成你需要的sql。</p>
+
+<p>具体修改流程其实就是一个restful风格的请求</p>
+
+<p><strong>Controller</strong></p>
+
+
+
+<pre class="prettyprint"><code class=" hljs java"><span class="hljs-keyword">package</span> com.spdb.hs.timer.controller;
+
+<span class="hljs-keyword">import</span> org.apache.log4j.Logger;
+<span class="hljs-keyword">import</span> org.springframework.beans.factory.annotation.Autowired;
+<span class="hljs-keyword">import</span> org.springframework.stereotype.Controller;
+<span class="hljs-keyword">import</span> org.springframework.web.bind.annotation.RequestMapping;
+<span class="hljs-keyword">import</span> org.springframework.web.bind.annotation.RequestParam;
+<span class="hljs-keyword">import</span> org.springframework.web.bind.annotation.ResponseBody;
+
+<span class="hljs-keyword">import</span> com.spdb.hs.timer.service.iservice.ISchedulerJobService;
+<span class="hljs-keyword">import</span> com.spdb.hs.timer.vo.PacketHead;
+<span class="hljs-keyword">import</span> com.spdb.hs.timer.vo.ResultVo;
+
+<span class="hljs-annotation">@Controller</span>
+<span class="hljs-annotation">@RequestMapping</span>(value=<span class="hljs-string">"/qrtz"</span>)
+<span class="hljs-keyword">public</span> <span class="hljs-class"><span class="hljs-keyword">class</span> <span class="hljs-title">QuartzController</span> {</span>
+
+    <span class="hljs-keyword">private</span> Logger log = Logger.getLogger(QuartzController.class);
+
+    <span class="hljs-annotation">@Autowired</span>
+    <span class="hljs-keyword">private</span> ISchedulerJobService shedulerJobService;
+
+    <span class="hljs-javadoc">/**   
+    *    
+    * 方法描述：   
+    * 创建人：zhy   
+    * 创建时间：2017年7月27日 下午3:48:01    
+    * 修改时间：2017年7月27日 下午3:48:01   
+    * Description：  修改指定定时任务执行时间
+    *    
+    */</span>
+    <span class="hljs-annotation">@RequestMapping</span>(<span class="hljs-string">"upd"</span>)
+    <span class="hljs-annotation">@ResponseBody</span>
+    <span class="hljs-keyword">public</span> ResultVo <span class="hljs-title">doUpdate</span>(@<span class="hljs-title">RequestParam</span>(value=<span class="hljs-string">"jobName"</span>,required=<span class="hljs-keyword">true</span>) String jobName,
+                                                     <span class="hljs-annotation">@RequestParam</span>(value=<span class="hljs-string">"groupName"</span>,required=<span class="hljs-keyword">true</span>) String groupName,
+                                                     <span class="hljs-annotation">@RequestParam</span>(value=<span class="hljs-string">"cronExp"</span>,required=<span class="hljs-keyword">true</span>) String cronExp){
+        ResultVo vo = <span class="hljs-keyword">new</span> ResultVo();
+        <span class="hljs-keyword">try</span> {
+            <span class="hljs-keyword">boolean</span> flag = shedulerJobService.updSchedulerJob(jobName,groupName,cronExp);
+            <span class="hljs-keyword">if</span>(flag){
+                <span class="hljs-keyword">return</span> vo;
+            }<span class="hljs-keyword">else</span>{
+                vo.setErrorCode(PacketHead.JSON_ERR_BAD);
+                vo.setErrorMsg(<span class="hljs-string">"更新定时任务失败......."</span>);
+                <span class="hljs-keyword">return</span> vo;
+            }
+        } <span class="hljs-keyword">catch</span> (Exception e) {
+            log.error(e.getMessage(), e);
+            vo.setErrorCode(PacketHead.JSON_ERR_SYS);
+            vo.setErrorMsg(<span class="hljs-string">"更新定时任务失败......."</span>);
+            <span class="hljs-keyword">return</span> vo;
+        } 
+    }
+
+    <span class="hljs-javadoc">/**   
+    *    
+    * 方法描述：   
+    * 创建人：zhy 
+    * 创建时间：2017年7月27日 下午3:50:12   
+    * 修改时间：2017年7月27日 下午3:50:12   
+    * Description：  移除指定定时任务
+    *    
+    */</span>
+    <span class="hljs-annotation">@RequestMapping</span>(<span class="hljs-string">"remove"</span>)
+    <span class="hljs-annotation">@ResponseBody</span>
+    <span class="hljs-keyword">public</span> ResultVo <span class="hljs-title">doRemove</span>(@<span class="hljs-title">RequestParam</span>(value=<span class="hljs-string">"jobName"</span>,required=<span class="hljs-keyword">true</span>) String jobName,
+                                                      <span class="hljs-annotation">@RequestParam</span>(value=<span class="hljs-string">"groupName"</span>,required=<span class="hljs-keyword">true</span>) String groupName){
+
+                  ResultVo vo = <span class="hljs-keyword">new</span> ResultVo();
+                  <span class="hljs-keyword">try</span> {
+                        <span class="hljs-keyword">boolean</span> flag = shedulerJobService.removeJob(jobName,groupName);
+                         <span class="hljs-keyword">if</span>(flag){
+                              <span class="hljs-keyword">return</span> vo;
+                          }<span class="hljs-keyword">else</span>{
+                              vo.setErrorCode(PacketHead.JSON_ERR_BAD);
+                              vo.setErrorMsg(<span class="hljs-string">"定时任务移除失败......"</span>);
+                              <span class="hljs-keyword">return</span> vo;
+                          }
+                    } <span class="hljs-keyword">catch</span> (Exception e) {
+                        log.error(e.getMessage(), e);
+                        vo.setErrorCode(PacketHead.JSON_ERR_SYS);
+                        vo.setErrorMsg(<span class="hljs-string">"更新定时任务失败......."</span>);
+                        <span class="hljs-keyword">return</span> vo;
+                    }
+    }
+
+    <span class="hljs-javadoc">/**   
+    *    
+    * 方法描述：   
+    * 创建人：zhy 
+    * 创建时间：2017年7月27日 下午3:58:57   
+    * 修改时间：2017年7月27日 下午3:58:57   
+    * Description：  停止指定定时任务
+    *    
+    */</span>
+    <span class="hljs-annotation">@RequestMapping</span>(<span class="hljs-string">"pause"</span>)
+    <span class="hljs-annotation">@ResponseBody</span>
+    <span class="hljs-keyword">public</span> ResultVo <span class="hljs-title">doPause</span>(@<span class="hljs-title">RequestParam</span>(value=<span class="hljs-string">"jobName"</span>,required=<span class="hljs-keyword">true</span>) String jobName,
+                                                  <span class="hljs-annotation">@RequestParam</span>(value=<span class="hljs-string">"groupName"</span>,required=<span class="hljs-keyword">true</span>) String groupName){
+
+                 ResultVo vo = <span class="hljs-keyword">new</span> ResultVo();
+                 <span class="hljs-keyword">try</span> {
+                        <span class="hljs-keyword">boolean</span> flag = shedulerJobService.pauseJob(jobName,groupName);
+                        <span class="hljs-keyword">if</span>(flag){
+                              <span class="hljs-keyword">return</span> vo;
+                          }<span class="hljs-keyword">else</span>{
+                              vo.setErrorCode(PacketHead.JSON_ERR_BAD);
+                              vo.setErrorMsg(<span class="hljs-string">"定时任务停止失败......"</span>);
+                              <span class="hljs-keyword">return</span> vo;
+                          }
+                } <span class="hljs-keyword">catch</span> (Exception e) {
+                    log.error(e.getMessage(), e);
+                    vo.setErrorCode(PacketHead.JSON_ERR_SYS);
+                    vo.setErrorMsg(<span class="hljs-string">"更新定时任务失败......."</span>);
+                    <span class="hljs-keyword">return</span> vo;
+                }
+    }
+
+    <span class="hljs-javadoc">/**   
+    *    
+    * 方法描述：   
+    * 创建人：zhy 
+    * 创建时间：2017年7月27日 下午3:58:57   
+    * 修改时间：2017年7月27日 下午3:58:57   
+    * Description：  停止指定定时任务
+    *    
+    */</span>
+    <span class="hljs-annotation">@RequestMapping</span>(<span class="hljs-string">"resume"</span>)
+    <span class="hljs-annotation">@ResponseBody</span>
+    <span class="hljs-keyword">public</span> ResultVo <span class="hljs-title">doResume</span>(@<span class="hljs-title">RequestParam</span>(value=<span class="hljs-string">"jobName"</span>,required=<span class="hljs-keyword">true</span>) String jobName,
+                                                  <span class="hljs-annotation">@RequestParam</span>(value=<span class="hljs-string">"groupName"</span>,required=<span class="hljs-keyword">true</span>) String groupName){
+
+                 ResultVo vo = <span class="hljs-keyword">new</span> ResultVo();
+                 <span class="hljs-keyword">try</span> {
+                        <span class="hljs-keyword">boolean</span> flag = shedulerJobService.resumeJob(jobName,groupName);
+                        <span class="hljs-keyword">if</span>(flag){
+                              <span class="hljs-keyword">return</span> vo;
+                          }<span class="hljs-keyword">else</span>{
+                              vo.setErrorCode(PacketHead.JSON_ERR_BAD);
+                              vo.setErrorMsg(<span class="hljs-string">"定时任务停止失败......"</span>);
+                              <span class="hljs-keyword">return</span> vo;
+                          }
+                } <span class="hljs-keyword">catch</span> (Exception e) {
+                    log.error(e.getMessage(), e);
+                    vo.setErrorCode(PacketHead.JSON_ERR_SYS);
+                    vo.setErrorMsg(<span class="hljs-string">"更新定时任务失败......."</span>);
+                    <span class="hljs-keyword">return</span> vo;
+                }
+    }
+
+    <span class="hljs-javadoc">/**   
+    *    
+    * 方法描述：   
+    * 创建人：zhy 
+    * 创建时间：2017年7月27日 下午4:25:45   
+    * 修改时间：2017年7月27日 下午4:25:45   
+    * Description：  停止所有定时任务
+    *    
+    */</span>
+    <span class="hljs-annotation">@RequestMapping</span>(<span class="hljs-string">"shutdown"</span>)
+    <span class="hljs-annotation">@ResponseBody</span>
+    <span class="hljs-keyword">public</span> ResultVo <span class="hljs-title">doShutDown</span>(){
+           ResultVo vo = <span class="hljs-keyword">new</span> ResultVo();
+           <span class="hljs-keyword">try</span> {
+            <span class="hljs-keyword">boolean</span> flag = shedulerJobService.shutDownAll();
+            <span class="hljs-keyword">if</span>(flag){
+                      <span class="hljs-keyword">return</span> vo;
+                  }<span class="hljs-keyword">else</span>{
+                      vo.setErrorCode(PacketHead.JSON_ERR_BAD);
+                      vo.setErrorMsg(<span class="hljs-string">"定时任务停止失败......"</span>);
+                      <span class="hljs-keyword">return</span> vo;
+                  }
+        } <span class="hljs-keyword">catch</span> (Exception e) {
+            log.error(e.getMessage(), e);
+            vo.setErrorCode(PacketHead.JSON_ERR_SYS);
+            vo.setErrorMsg(<span class="hljs-string">"更新定时任务失败......."</span>);
+            <span class="hljs-keyword">return</span> vo;
+        }
+
+    }
+
+    <span class="hljs-javadoc">/**   
+    *    
+    * 方法描述：   
+    * 创建人：zhy 
+    * 创建时间：2017年7月27日 下午4:25:45   
+    * 修改时间：2017年7月27日 下午4:25:45   
+    * Description：  开始所有定时任务
+    *    
+    */</span>
+    <span class="hljs-annotation">@RequestMapping</span>(<span class="hljs-string">"startAll"</span>)
+    <span class="hljs-annotation">@ResponseBody</span>
+    <span class="hljs-keyword">public</span> ResultVo <span class="hljs-title">doStartAll</span>(){
+           ResultVo vo = <span class="hljs-keyword">new</span> ResultVo();
+           <span class="hljs-keyword">try</span> {
+            <span class="hljs-keyword">boolean</span> flag = shedulerJobService.startAll();
+            <span class="hljs-keyword">if</span>(flag){
+                      <span class="hljs-keyword">return</span> vo;
+                  }<span class="hljs-keyword">else</span>{
+                      vo.setErrorCode(PacketHead.JSON_ERR_BAD);
+                      vo.setErrorMsg(<span class="hljs-string">"定时任务停止失败......"</span>);
+                      <span class="hljs-keyword">return</span> vo;
+                  }
+        } <span class="hljs-keyword">catch</span> (Exception e) {
+            log.error(e.getMessage(), e);
+            vo.setErrorCode(PacketHead.JSON_ERR_SYS);
+            vo.setErrorMsg(<span class="hljs-string">"更新定时任务失败......."</span>);
+            <span class="hljs-keyword">return</span> vo;
+        }
+
+    }
+
+}
+</code></pre>
+
+<p><strong>具体实现层</strong></p>
+
+
+
+<pre class="prettyprint"><code class=" hljs java"><span class="hljs-keyword">package</span> com.spdb.hs.timer.service.impl;
+
+<span class="hljs-keyword">import</span> java.util.List;
+
+<span class="hljs-keyword">import</span> org.apache.log4j.Logger;
+<span class="hljs-keyword">import</span> org.quartz.CronScheduleBuilder;
+<span class="hljs-keyword">import</span> org.quartz.CronTrigger;
+<span class="hljs-keyword">import</span> org.quartz.JobKey;
+<span class="hljs-keyword">import</span> org.quartz.Scheduler;
+<span class="hljs-keyword">import</span> org.quartz.SchedulerException;
+<span class="hljs-keyword">import</span> org.quartz.Trigger;
+<span class="hljs-keyword">import</span> org.quartz.TriggerBuilder;
+<span class="hljs-keyword">import</span> org.quartz.TriggerKey;
+<span class="hljs-keyword">import</span> org.springframework.beans.factory.annotation.Autowired;
+<span class="hljs-keyword">import</span> org.springframework.stereotype.Service;
+
+<span class="hljs-keyword">import</span> com.spdb.hs.timer.dao.SchedulerJobDao;
+<span class="hljs-keyword">import</span> com.spdb.hs.timer.model.SchedulerJob;
+<span class="hljs-keyword">import</span> com.spdb.hs.timer.service.iservice.ISchedulerJobService;
+
+<span class="hljs-annotation">@Service</span>
+<span class="hljs-keyword">public</span> <span class="hljs-class"><span class="hljs-keyword">class</span> <span class="hljs-title">SchdelerJobService</span> <span class="hljs-keyword">implements</span> <span class="hljs-title">ISchedulerJobService</span> {</span>
+
+    <span class="hljs-keyword">private</span> Logger log = Logger.getLogger(SchdelerJobService.class);
+
+    <span class="hljs-annotation">@Autowired</span>
+    <span class="hljs-keyword">private</span> SchedulerJobDao schedulerJobDao;
+    <span class="hljs-annotation">@Autowired</span>
+    <span class="hljs-keyword">private</span> Scheduler scheduler;
+
+    <span class="hljs-annotation">@Override</span>
+    <span class="hljs-keyword">public</span> SchedulerJob <span class="hljs-title">getByNameAndGroup</span>(String jobName, String jobGroup) {
+        <span class="hljs-keyword">return</span> schedulerJobDao.findByNameAndGroup(jobName,jobGroup);
+    }
+
+    <span class="hljs-annotation">@Override</span>
+    <span class="hljs-keyword">public</span> Integer <span class="hljs-title">addLst</span>(List&lt;SchedulerJob&gt; jobList) {
+        <span class="hljs-keyword">return</span> schedulerJobDao.insertLst(jobList);
+    }
+
+    <span class="hljs-annotation">@Override</span>
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">boolean</span> <span class="hljs-title">updSchedulerJob</span>(String jobName, String groupName, String cronExp) {
+        <span class="hljs-keyword">boolean</span> flag = <span class="hljs-keyword">false</span>;
+        <span class="hljs-keyword">try</span> {
+            <span class="hljs-comment">//修改当前执行器中相应的定时任务时间</span>
+            <span class="hljs-keyword">if</span>(!scheduler.checkExists(<span class="hljs-keyword">new</span> JobKey(jobName,groupName))){
+                <span class="hljs-keyword">return</span> flag;
+            }<span class="hljs-keyword">else</span>{
+                CronTrigger trigger = (CronTrigger) scheduler.getTrigger(TriggerKey.triggerKey(jobName+<span class="hljs-string">"_trigger"</span>,groupName));
+                <span class="hljs-keyword">if</span>(trigger==<span class="hljs-keyword">null</span>){
+                    <span class="hljs-keyword">return</span> flag;
+                }<span class="hljs-keyword">else</span>{
+                     String oldCronExp= trigger.getCronExpression();
+                     <span class="hljs-keyword">if</span>(!oldCronExp.equalsIgnoreCase(cronExp)){
+                            <span class="hljs-comment">// 触发器  </span>
+                            TriggerBuilder&lt;Trigger&gt; triggerBuilder = TriggerBuilder.newTrigger();
+                            <span class="hljs-comment">// 触发器名,触发器组  </span>
+                            triggerBuilder.withIdentity(jobName+<span class="hljs-string">"_trigger"</span>,groupName);
+                            triggerBuilder.startNow();
+                            <span class="hljs-comment">// 触发器时间设定  </span>
+                            triggerBuilder.withSchedule(CronScheduleBuilder.cronSchedule(cronExp));
+                            <span class="hljs-comment">// 创建Trigger对象</span>
+                            trigger = (CronTrigger) triggerBuilder.build();
+                            <span class="hljs-comment">// 修改一个任务的触发时间</span>
+                            scheduler.rescheduleJob(TriggerKey.triggerKey(jobName+<span class="hljs-string">"_trigger"</span>,groupName), trigger);
+                     }
+                }
+            }
+
+            <span class="hljs-comment">//修改主表记录数据</span>
+            SchedulerJob schedulerJob = schedulerJobDao.findByNameAndGroup(jobName, groupName);
+            <span class="hljs-keyword">if</span>(schedulerJob!=<span class="hljs-keyword">null</span>){
+                schedulerJob.setCronExp(cronExp);
+                Integer count = schedulerJobDao.modifyJob(schedulerJob);
+                <span class="hljs-keyword">if</span>(count==<span class="hljs-number">1</span>){
+                    flag = <span class="hljs-keyword">true</span>;
+                }<span class="hljs-keyword">else</span>{
+                     log.error(<span class="hljs-string">" The Error Count is :"</span> + count);
+                 }
+            }
+
+        } <span class="hljs-keyword">catch</span> (SchedulerException e) {
+             <span class="hljs-keyword">throw</span> <span class="hljs-keyword">new</span> RuntimeException(e); 
+        }
+        <span class="hljs-keyword">return</span> flag;
+    }
+
+    <span class="hljs-annotation">@Override</span>
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">boolean</span> <span class="hljs-title">removeJob</span>(String jobName, String groupName) {
+        <span class="hljs-keyword">boolean</span> flag = <span class="hljs-keyword">false</span>;
+        <span class="hljs-keyword">try</span> {
+                 <span class="hljs-keyword">if</span>(scheduler.checkExists(JobKey.jobKey(jobName, groupName))){
+                 scheduler.pauseTrigger(TriggerKey.triggerKey(jobName+<span class="hljs-string">"_trigger"</span>, groupName));<span class="hljs-comment">// 停止触发器  </span>
+                 scheduler.unscheduleJob(TriggerKey.triggerKey(jobName+<span class="hljs-string">"_trigger"</span>, groupName));<span class="hljs-comment">// 移除触发器  </span>
+                 scheduler.deleteJob(JobKey.jobKey(jobName, groupName));<span class="hljs-comment">// 删除任务 </span>
+
+                <span class="hljs-comment">//修改主表记录数据</span>
+                SchedulerJob schedulerJob = schedulerJobDao.findByNameAndGroup(jobName, groupName);
+                <span class="hljs-keyword">if</span>(schedulerJob!=<span class="hljs-keyword">null</span>){
+                    schedulerJob.setJobStatus(Short.valueOf(<span class="hljs-string">"2"</span>));<span class="hljs-comment">//0 启用，1 暂定使用  2 不再使用</span>
+                    Integer count = schedulerJobDao.modifyJob(schedulerJob);
+                    <span class="hljs-keyword">if</span>(count==<span class="hljs-number">1</span>){
+                        flag = <span class="hljs-keyword">true</span>;
+                    }<span class="hljs-keyword">else</span>{
+                         log.error(<span class="hljs-string">" The Error Count is :"</span> + count);
+                     }
+                }
+              }
+            } <span class="hljs-keyword">catch</span> (Exception e) {
+                 <span class="hljs-keyword">throw</span> <span class="hljs-keyword">new</span> RuntimeException(e); 
+            }
+            <span class="hljs-keyword">return</span> flag;
+        }
+
+    <span class="hljs-annotation">@Override</span>
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">boolean</span> <span class="hljs-title">pauseJob</span>(String jobName, String groupName) {
+        <span class="hljs-keyword">boolean</span> flag = <span class="hljs-keyword">false</span>;
+        <span class="hljs-keyword">try</span> {
+                 <span class="hljs-keyword">if</span>(scheduler.checkExists(JobKey.jobKey(jobName, groupName))){
+                     scheduler.pauseTrigger(TriggerKey.triggerKey(jobName+<span class="hljs-string">"_trigger"</span>, groupName));<span class="hljs-comment">// 停止触发器  </span>
+                     <span class="hljs-comment">//修改主表记录数据</span>
+                    SchedulerJob schedulerJob = schedulerJobDao.findByNameAndGroup(jobName, groupName);
+                    <span class="hljs-keyword">if</span>(schedulerJob!=<span class="hljs-keyword">null</span>){
+                        schedulerJob.setJobStatus(Short.valueOf(<span class="hljs-string">"1"</span>));<span class="hljs-comment">//0 启用，1 暂定使用  2 不再使用</span>
+                        Integer count = schedulerJobDao.modifyJob(schedulerJob);
+                        <span class="hljs-keyword">if</span>(count==<span class="hljs-number">1</span>){
+                            flag = <span class="hljs-keyword">true</span>;
+                        }<span class="hljs-keyword">else</span>{
+                             log.error(<span class="hljs-string">" The Error Count is :"</span> + count);
+                         }
+                    }
+                 }
+            } <span class="hljs-keyword">catch</span> (Exception e) {
+                 <span class="hljs-keyword">throw</span> <span class="hljs-keyword">new</span> RuntimeException(e); 
+            }
+            <span class="hljs-keyword">return</span> flag;
+        }
+
+    <span class="hljs-annotation">@Override</span>
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">boolean</span> <span class="hljs-title">resumeJob</span>(String jobName, String groupName) {
+        <span class="hljs-keyword">boolean</span> flag = <span class="hljs-keyword">false</span>;
+        <span class="hljs-keyword">try</span> {
+                 <span class="hljs-keyword">if</span>(scheduler.checkExists(JobKey.jobKey(jobName, groupName))){
+                     scheduler.resumeTrigger(TriggerKey.triggerKey(jobName+<span class="hljs-string">"_trigger"</span>, groupName));<span class="hljs-comment">// 重启触发器  </span>
+                     <span class="hljs-comment">//修改主表记录数据</span>
+                    SchedulerJob schedulerJob = schedulerJobDao.findByNameAndGroup(jobName, groupName);
+                    <span class="hljs-keyword">if</span>(schedulerJob!=<span class="hljs-keyword">null</span>){
+                        schedulerJob.setJobStatus(Short.valueOf(<span class="hljs-string">"0"</span>));<span class="hljs-comment">//0 启用，1 暂定使用  2 不再使用</span>
+                        Integer count = schedulerJobDao.modifyJob(schedulerJob);
+                        <span class="hljs-keyword">if</span>(count==<span class="hljs-number">1</span>){
+                            flag = <span class="hljs-keyword">true</span>;
+                        }<span class="hljs-keyword">else</span>{
+                             log.error(<span class="hljs-string">" The Error Count is :"</span> + count);
+                         }
+                    }
+                 }
+            } <span class="hljs-keyword">catch</span> (Exception e) {
+                 <span class="hljs-keyword">throw</span> <span class="hljs-keyword">new</span> RuntimeException(e); 
+            }
+            <span class="hljs-keyword">return</span> flag;
+    }
+
+    <span class="hljs-annotation">@Override</span>
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">boolean</span> <span class="hljs-title">shutDownAll</span>() {
+        <span class="hljs-keyword">boolean</span> flag = <span class="hljs-keyword">false</span>;
+         <span class="hljs-keyword">try</span> {
+                 <span class="hljs-keyword">if</span> (!scheduler.isShutdown()) {  
+                        scheduler.pauseAll();
+                        scheduler.shutdown();
+                    }   
+                 <span class="hljs-comment">//修改主表记录数据,将所有任务的任务状态改为停止状态</span>
+                 Integer count = schedulerJobDao.pauseAll();
+                 <span class="hljs-keyword">if</span>(count&gt;<span class="hljs-number">0</span>){
+                     <span class="hljs-comment">//修改成功</span>
+                     flag = <span class="hljs-keyword">true</span>;
+                 }<span class="hljs-keyword">else</span>{
+                     log.error(<span class="hljs-string">" The Error Count is :"</span> + count);
+                 }
+                } <span class="hljs-keyword">catch</span> (SchedulerException e) {
+                    <span class="hljs-keyword">throw</span> <span class="hljs-keyword">new</span> RuntimeException(e); 
+                }  
+        <span class="hljs-keyword">return</span> flag;
+    }
+
+    <span class="hljs-annotation">@Override</span>
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">boolean</span> <span class="hljs-title">startAll</span>() {
+        <span class="hljs-keyword">boolean</span> flag = <span class="hljs-keyword">false</span>;
+         <span class="hljs-keyword">try</span> {
+                 <span class="hljs-keyword">if</span> (!scheduler.isStarted()) {  
+                        scheduler.start();
+                    }   
+                 <span class="hljs-comment">//修改主表记录数据,将所有任务的任务状态改为停止状态</span>
+                 Integer count = schedulerJobDao.startAll();
+                 <span class="hljs-keyword">if</span>(count&gt;<span class="hljs-number">0</span>){
+                     <span class="hljs-comment">//修改成功</span>
+                     flag = <span class="hljs-keyword">true</span>;
+                 }<span class="hljs-keyword">else</span>{
+                     log.error(<span class="hljs-string">" The Error Count is :"</span> + count);
+                 }
+                } <span class="hljs-keyword">catch</span> (SchedulerException e) {
+                    <span class="hljs-keyword">throw</span> <span class="hljs-keyword">new</span> RuntimeException(e); 
+                }  
+        <span class="hljs-keyword">return</span> flag;
+    }
+}
+</code></pre>
+
+<p>数据库11张表都是由Quartz自己维护的，我们不需要维护这些东西，只需要维护我们自定义的一张统筹表，我们可以根据这张表联查在页面上显示定时任务数量，状态以及不重启自动修改定时时间。</p>
+
+<p>整个项目已经过实战，由于简单化，没有加上资源访问限制，这里可以根据自己的业务需求自己添加。</p>
+
+<p>注：如果是添加了新的定时任务的话，由于源码的不同步，暂时是达不到不重启自动添加的效果，如果您有好的处理方法请留言交流谢谢</p></div>&#13;
+        <script type="text/javascript">&#13;
+            $(function () {&#13;
+                $('pre.prettyprint code').each(function () {&#13;
+                    var lines = $(this).text().split('\n').length;&#13;
+                    var $numbering = $('&lt;ul/&gt;').addClass('pre-numbering').hide();&#13;
+                    $(this).addClass('has-numbering').parent().append($numbering);&#13;
+                    for (i = 1; i &lt;= lines; i++) {&#13;
+                        $numbering.append($('&lt;li/&gt;').text(i));&#13;
+                    };&#13;
+                    $numbering.fadeIn(1700);&#13;
+                });&#13;
+            });&#13;
+        </script>&#13;
+   &#13;

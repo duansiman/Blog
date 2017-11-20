@@ -1,0 +1,384 @@
+
+        <div class="markdown_views"><p>在配置spring集成httpclient之前我们先说一下Jsonp，这是一种基于页面script标签的src属性实现的跨域请求，相比于httpclient，jsonp有两点很大的缺点，首先，它只能发送get请求，如果发送post请求会造成请求无法解析获取不到数据的问题，再者，如果返回的数据你没有经过配置相应的编码文件来处理你拿到的则会是一堆乱码，这中问题对于httpclient则没那么多约束，他是一个封装了http协议的jar包，基本的请求方法get post put delete他都能实现，当然你得在web.xml文件中配置相应的filter拦截器拦截请求后再设好编码，一般返回的参数都是json字符串，而我们只需要导入jackson或者flexjson或者别的jar包来解析这对象把他转换成你所需要的数据即可。下面来说说httpclient和spring整合的具体配置，不多说直接上代码：</p>
+
+<p><strong>导依赖</strong></p>
+
+
+
+<pre class="prettyprint"><code class=" hljs xml"><span class="hljs-tag">&lt;<span class="hljs-title">dependency</span>&gt;</span>
+    <span class="hljs-tag">&lt;<span class="hljs-title">groupId</span>&gt;</span>org.apache.httpcomponents<span class="hljs-tag">&lt;/<span class="hljs-title">groupId</span>&gt;</span>
+    <span class="hljs-tag">&lt;<span class="hljs-title">artifactId</span>&gt;</span>httpclient<span class="hljs-tag">&lt;/<span class="hljs-title">artifactId</span>&gt;</span>
+    <span class="hljs-tag">&lt;<span class="hljs-title">version</span>&gt;</span>4.5.2<span class="hljs-tag">&lt;/<span class="hljs-title">version</span>&gt;</span>
+<span class="hljs-tag">&lt;/<span class="hljs-title">dependency</span>&gt;</span></code></pre>
+
+<p><strong>applicationContext.xml文件导入HttpClient.properties</strong></p>
+
+
+
+<pre class="prettyprint"><code class=" hljs xml"><span class="hljs-pi">&lt;?xml version="1.0" encoding="UTF-8"?&gt;</span>
+<span class="hljs-tag">&lt;<span class="hljs-title">beans</span> <span class="hljs-attribute">xmlns</span>=<span class="hljs-value">"http://www.springframework.org/schema/beans"</span>
+    <span class="hljs-attribute">xmlns:context</span>=<span class="hljs-value">"http://www.springframework.org/schema/context"</span> <span class="hljs-attribute">xmlns:p</span>=<span class="hljs-value">"http://www.springframework.org/schema/p"</span>
+    <span class="hljs-attribute">xmlns:aop</span>=<span class="hljs-value">"http://www.springframework.org/schema/aop"</span> <span class="hljs-attribute">xmlns:tx</span>=<span class="hljs-value">"http://www.springframework.org/schema/tx"</span>
+    <span class="hljs-attribute">xmlns:xsi</span>=<span class="hljs-value">"http://www.w3.org/2001/XMLSchema-instance"</span>
+    <span class="hljs-attribute">xsi:schemaLocation</span>=<span class="hljs-value">"http://www.springframework.org/schema/beans http://www.springframework.org/schema/beans/spring-beans-4.0.xsd
+    http://www.springframework.org/schema/context http://www.springframework.org/schema/context/spring-context-4.0.xsd
+    http://www.springframework.org/schema/aop http://www.springframework.org/schema/aop/spring-aop-4.0.xsd http://www.springframework.org/schema/tx http://www.springframework.org/schema/tx/spring-tx-4.0.xsd
+    http://www.springframework.org/schema/util http://www.springframework.org/schema/util/spring-util-4.0.xsd"</span>&gt;</span>
+
+    <span class="hljs-comment">&lt;!-- 配置注解扫描器 --&gt;</span>
+    <span class="hljs-tag">&lt;<span class="hljs-title">context:component-scan</span> <span class="hljs-attribute">base-package</span>=<span class="hljs-value">"com.lyt.usermanage.service"</span>/&gt;</span>
+
+    <span class="hljs-comment">&lt;!-- 加载资源文件 --&gt;</span>
+    <span class="hljs-tag">&lt;<span class="hljs-title">bean</span> <span class="hljs-attribute">class</span>=<span class="hljs-value">"org.springframework.beans.factory.config.PropertyPlaceholderConfigurer"</span>&gt;</span>
+        <span class="hljs-comment">&lt;!-- 配置资源文件 --&gt;</span>
+        <span class="hljs-tag">&lt;<span class="hljs-title">property</span> <span class="hljs-attribute">name</span>=<span class="hljs-value">"locations"</span>&gt;</span>
+            <span class="hljs-tag">&lt;<span class="hljs-title">list</span>&gt;</span>
+                <span class="hljs-tag">&lt;<span class="hljs-title">value</span>&gt;</span>classpath:jdbc.properties<span class="hljs-tag">&lt;/<span class="hljs-title">value</span>&gt;</span>
+                <span class="hljs-tag">&lt;<span class="hljs-title">value</span>&gt;</span>classpath:httpclient.properties<span class="hljs-tag">&lt;/<span class="hljs-title">value</span>&gt;</span>
+            <span class="hljs-tag">&lt;/<span class="hljs-title">list</span>&gt;</span>
+        <span class="hljs-tag">&lt;/<span class="hljs-title">property</span>&gt;</span>
+    <span class="hljs-tag">&lt;/<span class="hljs-title">bean</span>&gt;</span>
+    <span class="hljs-comment">&lt;!-- 配置连接池，数据源 --&gt;</span>
+    <span class="hljs-tag">&lt;<span class="hljs-title">bean</span> <span class="hljs-attribute">id</span>=<span class="hljs-value">"dataSource"</span> <span class="hljs-attribute">class</span>=<span class="hljs-value">"com.mchange.v2.c3p0.ComboPooledDataSource"</span>
+        <span class="hljs-attribute">destroy-method</span>=<span class="hljs-value">"close"</span>&gt;</span>
+        <span class="hljs-tag">&lt;<span class="hljs-title">property</span> <span class="hljs-attribute">name</span>=<span class="hljs-value">"driverClass"</span> <span class="hljs-attribute">value</span>=<span class="hljs-value">"${driver}"</span>&gt;</span><span class="hljs-tag">&lt;/<span class="hljs-title">property</span>&gt;</span>
+        <span class="hljs-tag">&lt;<span class="hljs-title">property</span> <span class="hljs-attribute">name</span>=<span class="hljs-value">"jdbcUrl"</span> <span class="hljs-attribute">value</span>=<span class="hljs-value">"${url}"</span>&gt;</span><span class="hljs-tag">&lt;/<span class="hljs-title">property</span>&gt;</span>
+        <span class="hljs-tag">&lt;<span class="hljs-title">property</span> <span class="hljs-attribute">name</span>=<span class="hljs-value">"user"</span> <span class="hljs-attribute">value</span>=<span class="hljs-value">"${username}"</span>&gt;</span><span class="hljs-tag">&lt;/<span class="hljs-title">property</span>&gt;</span>
+        <span class="hljs-tag">&lt;<span class="hljs-title">property</span> <span class="hljs-attribute">name</span>=<span class="hljs-value">"password"</span> <span class="hljs-attribute">value</span>=<span class="hljs-value">"${password}"</span>&gt;</span><span class="hljs-tag">&lt;/<span class="hljs-title">property</span>&gt;</span>
+    <span class="hljs-tag">&lt;/<span class="hljs-title">bean</span>&gt;</span>
+<span class="hljs-tag">&lt;/<span class="hljs-title">beans</span>&gt;</span></code></pre>
+
+<p><strong>spring-httpclient.xml配置</strong></p>
+
+
+
+<pre class="prettyprint"><code class=" hljs xml"><span class="hljs-pi">&lt;?xml version="1.0" encoding="UTF-8"?&gt;</span>
+<span class="hljs-tag">&lt;<span class="hljs-title">beans</span> <span class="hljs-attribute">xmlns</span>=<span class="hljs-value">"http://www.springframework.org/schema/beans"</span>
+    <span class="hljs-attribute">xmlns:context</span>=<span class="hljs-value">"http://www.springframework.org/schema/context"</span>
+    <span class="hljs-attribute">xmlns:p</span>=<span class="hljs-value">"http://www.springframework.org/schema/p"</span> 
+    <span class="hljs-attribute">xmlns:aop</span>=<span class="hljs-value">"http://www.springframework.org/schema/aop"</span>
+    <span class="hljs-attribute">xmlns:tx</span>=<span class="hljs-value">"http://www.springframework.org/schema/tx"</span>
+    <span class="hljs-attribute">xmlns:xsi</span>=<span class="hljs-value">"http://www.w3.org/2001/XMLSchema-instance"</span>
+    <span class="hljs-attribute">xsi:schemaLocation</span>=<span class="hljs-value">"http://www.springframework.org/schema/beans http://www.springframework.org/schema/beans/spring-beans-4.0.xsd
+    http://www.springframework.org/schema/context http://www.springframework.org/schema/context/spring-context-4.0.xsd
+    http://www.springframework.org/schema/aop http://www.springframework.org/schema/aop/spring-aop-4.0.xsd http://www.springframework.org/schema/tx http://www.springframework.org/schema/tx/spring-tx-3.0.xsd
+    http://www.springframework.org/schema/util http://www.springframework.org/schema/util/spring-util-4.0.xsd"</span>&gt;</span>
+
+    <span class="hljs-comment">&lt;!-- 定义httpclient连接池 --&gt;</span>
+    <span class="hljs-tag">&lt;<span class="hljs-title">bean</span> <span class="hljs-attribute">id</span>=<span class="hljs-value">"httpClientConnectionManager"</span> <span class="hljs-attribute">class</span>=<span class="hljs-value">"org.apache.http.impl.conn.PoolingHttpClientConnectionManager"</span> <span class="hljs-attribute">destroy-method</span>=<span class="hljs-value">"close"</span>&gt;</span>
+        <span class="hljs-comment">&lt;!-- 设置连接总数 --&gt;</span>
+        <span class="hljs-tag">&lt;<span class="hljs-title">property</span> <span class="hljs-attribute">name</span>=<span class="hljs-value">"maxTotal"</span> <span class="hljs-attribute">value</span>=<span class="hljs-value">"${http.pool.maxTotal}"</span>&gt;</span><span class="hljs-tag">&lt;/<span class="hljs-title">property</span>&gt;</span>
+        <span class="hljs-comment">&lt;!-- 设置每个地址的并发数 --&gt;</span>
+        <span class="hljs-tag">&lt;<span class="hljs-title">property</span> <span class="hljs-attribute">name</span>=<span class="hljs-value">"defaultMaxPerRoute"</span> <span class="hljs-attribute">value</span>=<span class="hljs-value">"${http.pool.defaultMaxPerRoute}"</span>&gt;</span><span class="hljs-tag">&lt;/<span class="hljs-title">property</span>&gt;</span>
+    <span class="hljs-tag">&lt;/<span class="hljs-title">bean</span>&gt;</span>
+
+    <span class="hljs-comment">&lt;!-- 定义 HttpClient工厂，这里使用HttpClientBuilder构建--&gt;</span>
+    <span class="hljs-tag">&lt;<span class="hljs-title">bean</span> <span class="hljs-attribute">id</span>=<span class="hljs-value">"httpClientBuilder"</span> <span class="hljs-attribute">class</span>=<span class="hljs-value">"org.apache.http.impl.client.HttpClientBuilder"</span> <span class="hljs-attribute">factory-method</span>=<span class="hljs-value">"create"</span>&gt;</span>
+        <span class="hljs-tag">&lt;<span class="hljs-title">property</span> <span class="hljs-attribute">name</span>=<span class="hljs-value">"connectionManager"</span> <span class="hljs-attribute">ref</span>=<span class="hljs-value">"httpClientConnectionManager"</span>&gt;</span><span class="hljs-tag">&lt;/<span class="hljs-title">property</span>&gt;</span>
+    <span class="hljs-tag">&lt;/<span class="hljs-title">bean</span>&gt;</span>
+
+    <span class="hljs-comment">&lt;!-- 得到httpClient的实例 --&gt;</span>
+    <span class="hljs-tag">&lt;<span class="hljs-title">bean</span> <span class="hljs-attribute">id</span>=<span class="hljs-value">"httpClient"</span> <span class="hljs-attribute">factory-bean</span>=<span class="hljs-value">"httpClientBuilder"</span> <span class="hljs-attribute">factory-method</span>=<span class="hljs-value">"build"</span>/&gt;</span>
+
+    <span class="hljs-comment">&lt;!-- 定期清理无效的连接 --&gt;</span>
+    <span class="hljs-tag">&lt;<span class="hljs-title">bean</span> <span class="hljs-attribute">class</span>=<span class="hljs-value">"com.lyt.usermanage.thread.IdleConnectionEvictor"</span> <span class="hljs-attribute">destroy-method</span>=<span class="hljs-value">"shutdown"</span>&gt;</span>
+        <span class="hljs-tag">&lt;<span class="hljs-title">constructor-arg</span> <span class="hljs-attribute">index</span>=<span class="hljs-value">"0"</span> <span class="hljs-attribute">ref</span>=<span class="hljs-value">"httpClientConnectionManager"</span>/&gt;</span>
+        <span class="hljs-tag">&lt;<span class="hljs-title">constructor-arg</span> <span class="hljs-attribute">index</span>=<span class="hljs-value">"1"</span> <span class="hljs-attribute">value</span>=<span class="hljs-value">"${http.maxIdleTime}"</span>/&gt;</span>
+        <span class="hljs-tag">&lt;<span class="hljs-title">constructor-arg</span> <span class="hljs-attribute">index</span>=<span class="hljs-value">"2"</span> <span class="hljs-attribute">value</span>=<span class="hljs-value">"MINUTES"</span>/&gt;</span>
+    <span class="hljs-tag">&lt;/<span class="hljs-title">bean</span>&gt;</span>
+
+    <span class="hljs-comment">&lt;!-- 定义requestConfig的工厂 --&gt;</span>
+    <span class="hljs-tag">&lt;<span class="hljs-title">bean</span> <span class="hljs-attribute">id</span>=<span class="hljs-value">"requestConfigBuilder"</span> <span class="hljs-attribute">class</span>=<span class="hljs-value">"org.apache.http.client.config.RequestConfig.Builder"</span>&gt;</span>
+        <span class="hljs-comment">&lt;!-- 从连接池中获取到连接的最长时间 --&gt;</span>
+        <span class="hljs-tag">&lt;<span class="hljs-title">property</span> <span class="hljs-attribute">name</span>=<span class="hljs-value">"connectionRequestTimeout"</span> <span class="hljs-attribute">value</span>=<span class="hljs-value">"${http.request.connectionRequestTimeout}"</span>/&gt;</span>
+        <span class="hljs-comment">&lt;!-- 创建连接的最长时间 --&gt;</span>
+        <span class="hljs-tag">&lt;<span class="hljs-title">property</span> <span class="hljs-attribute">name</span>=<span class="hljs-value">"connectTimeout"</span> <span class="hljs-attribute">value</span>=<span class="hljs-value">"${http.request.connectTimeout}"</span>/&gt;</span>
+        <span class="hljs-comment">&lt;!-- 数据传输的最长时间 --&gt;</span>
+        <span class="hljs-tag">&lt;<span class="hljs-title">property</span> <span class="hljs-attribute">name</span>=<span class="hljs-value">"socketTimeout"</span> <span class="hljs-attribute">value</span>=<span class="hljs-value">"${http.request.socketTimeout}"</span>/&gt;</span>
+        <span class="hljs-comment">&lt;!-- 提交请求前测试连接是否可用 --&gt;</span>
+        <span class="hljs-tag">&lt;<span class="hljs-title">property</span> <span class="hljs-attribute">name</span>=<span class="hljs-value">"staleConnectionCheckEnabled"</span> <span class="hljs-attribute">value</span>=<span class="hljs-value">"${http.request.staleConnectionCheckEnabled}"</span>/&gt;</span>
+    <span class="hljs-tag">&lt;/<span class="hljs-title">bean</span>&gt;</span> 
+
+    <span class="hljs-comment">&lt;!-- 得到requestConfig实例 --&gt;</span>
+    <span class="hljs-tag">&lt;<span class="hljs-title">bean</span> <span class="hljs-attribute">id</span>=<span class="hljs-value">"requestConfig"</span> <span class="hljs-attribute">factory-bean</span>=<span class="hljs-value">"requestConfigBuilder"</span> <span class="hljs-attribute">factory-method</span>=<span class="hljs-value">"build"</span> /&gt;</span>
+
+
+<span class="hljs-tag">&lt;/<span class="hljs-title">beans</span>&gt;</span>
+
+
+<span class="hljs-tag">&lt;/<span class="hljs-title">beans</span>&gt;</span>
+</code></pre>
+
+<p><strong>httpclient.properties文件配置</strong></p>
+
+
+
+<pre class="prettyprint"><code class=" hljs avrasm"><span class="hljs-preprocessor">#从连接池中获取到连接的最长时间</span>
+http<span class="hljs-preprocessor">.request</span><span class="hljs-preprocessor">.connectionRequestTimeout</span>=<span class="hljs-number">500</span>
+<span class="hljs-preprocessor">#设置链接超时</span>
+http<span class="hljs-preprocessor">.request</span><span class="hljs-preprocessor">.connectTimeout</span>=<span class="hljs-number">5000</span>
+<span class="hljs-preprocessor">#数据传输的最长时间</span>
+http<span class="hljs-preprocessor">.request</span><span class="hljs-preprocessor">.socketTimeout</span>=<span class="hljs-number">30000</span>
+<span class="hljs-preprocessor">#提交请求前测试连接是否可用</span>
+http<span class="hljs-preprocessor">.request</span><span class="hljs-preprocessor">.staleConnectionCheckEnabled</span>=true
+<span class="hljs-preprocessor">#设置连接总数</span>
+http<span class="hljs-preprocessor">.pool</span><span class="hljs-preprocessor">.maxTotal</span>=<span class="hljs-number">200</span>
+<span class="hljs-preprocessor">#设置每个地址的并发数</span>
+http<span class="hljs-preprocessor">.pool</span><span class="hljs-preprocessor">.defaultMaxPerRoute</span>=<span class="hljs-number">100</span>
+<span class="hljs-preprocessor">#设置定时清除无效链接时间</span>
+http<span class="hljs-preprocessor">.maxIdleTime</span>=<span class="hljs-number">1</span>
+
+</code></pre>
+
+<p><strong>清除无效链接线程类</strong></p>
+
+
+
+<pre class="prettyprint"><code class=" hljs java"><span class="hljs-keyword">package</span> com.lyt.common.httpclient;
+
+<span class="hljs-keyword">import</span> org.apache.http.conn.HttpClientConnectionManager;
+
+<span class="hljs-keyword">public</span> <span class="hljs-class"><span class="hljs-keyword">class</span> <span class="hljs-title">IdleConnectionEvictor</span> <span class="hljs-keyword">extends</span> <span class="hljs-title">Thread</span> {</span>
+
+    <span class="hljs-keyword">private</span> <span class="hljs-keyword">final</span> HttpClientConnectionManager connMgr;
+
+    <span class="hljs-keyword">private</span> <span class="hljs-keyword">volatile</span> <span class="hljs-keyword">boolean</span> shutdown;
+
+    <span class="hljs-keyword">public</span> <span class="hljs-title">IdleConnectionEvictor</span>(HttpClientConnectionManager connMgr) {
+        <span class="hljs-keyword">this</span>.connMgr = connMgr;
+        <span class="hljs-keyword">this</span>.start();
+    }
+
+    <span class="hljs-annotation">@Override</span>
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">void</span> <span class="hljs-title">run</span>() {
+        <span class="hljs-keyword">try</span> {
+            <span class="hljs-keyword">while</span> (!shutdown) {
+                <span class="hljs-keyword">synchronized</span> (<span class="hljs-keyword">this</span>) {
+                    wait(<span class="hljs-number">5000</span>);
+                    <span class="hljs-comment">// 关闭失效的连接</span>
+                    connMgr.closeExpiredConnections();
+                }
+            }
+        } <span class="hljs-keyword">catch</span> (InterruptedException ex) {
+            <span class="hljs-comment">// 结束</span>
+        }
+    }
+
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">void</span> <span class="hljs-title">shutdown</span>() {
+        shutdown = <span class="hljs-keyword">true</span>;
+        <span class="hljs-keyword">synchronized</span> (<span class="hljs-keyword">this</span>) {
+            notifyAll();
+        }
+    }
+
+}
+</code></pre>
+
+<p>具体的标签属性都做了备注，设置成你需要的即可。还有本人遇到一个问题那就是我自己写的清除无效链接的线程类无法已bean文件的方式配置在整合文件里面不知道为什么？求大神解答，报的错误是：</p>
+
+<p><img src="http://img.blog.csdn.net/20161124141042302" alt="这里写图片描述" title="" /></p>
+
+<p>最后则是对doGet（）和doPost（）请求方法的httpclient工具类的封装,直接上码：</p>
+
+
+
+<pre class="prettyprint"><code class=" hljs java"><span class="hljs-keyword">package</span> com.lyt.usermanage.service;
+
+<span class="hljs-keyword">import</span> java.io.IOException;
+<span class="hljs-keyword">import</span> java.net.URISyntaxException;
+<span class="hljs-keyword">import</span> java.util.ArrayList;
+<span class="hljs-keyword">import</span> java.util.List;
+<span class="hljs-keyword">import</span> java.util.Map;
+
+<span class="hljs-keyword">import</span> org.apache.commons.lang3.StringUtils;
+<span class="hljs-keyword">import</span> org.apache.http.NameValuePair;
+<span class="hljs-keyword">import</span> org.apache.http.client.ClientProtocolException;
+<span class="hljs-keyword">import</span> org.apache.http.client.config.RequestConfig;
+<span class="hljs-keyword">import</span> org.apache.http.client.entity.UrlEncodedFormEntity;
+<span class="hljs-keyword">import</span> org.apache.http.client.methods.CloseableHttpResponse;
+<span class="hljs-keyword">import</span> org.apache.http.client.methods.HttpGet;
+<span class="hljs-keyword">import</span> org.apache.http.client.methods.HttpPost;
+<span class="hljs-keyword">import</span> org.apache.http.client.utils.URIBuilder;
+<span class="hljs-keyword">import</span> org.apache.http.entity.ContentType;
+<span class="hljs-keyword">import</span> org.apache.http.entity.StringEntity;
+<span class="hljs-keyword">import</span> org.apache.http.impl.client.CloseableHttpClient;
+<span class="hljs-keyword">import</span> org.apache.http.message.BasicNameValuePair;
+<span class="hljs-keyword">import</span> org.apache.http.util.EntityUtils;
+<span class="hljs-keyword">import</span> org.springframework.beans.BeansException;
+<span class="hljs-keyword">import</span> org.springframework.beans.factory.BeanFactory;
+<span class="hljs-keyword">import</span> org.springframework.beans.factory.BeanFactoryAware;
+<span class="hljs-keyword">import</span> org.springframework.beans.factory.annotation.Autowired;
+<span class="hljs-keyword">import</span> org.springframework.stereotype.Service;
+
+<span class="hljs-keyword">import</span> com.lyt.usermanage.model.HttpResult;
+
+<span class="hljs-javadoc">/**
+ * 专门发送http请求的
+ *<span class="hljs-javadoctag"> @author</span> Administrator
+ *
+ */</span>
+<span class="hljs-annotation">@Service</span>
+<span class="hljs-keyword">public</span> <span class="hljs-class"><span class="hljs-keyword">class</span> <span class="hljs-title">ApiService</span> <span class="hljs-keyword">implements</span> <span class="hljs-title">BeanFactoryAware</span>{</span>
+
+<span class="hljs-comment">/*  @Autowired
+    private  CloseableHttpClient httpclient;
+
+*/</span>  
+    <span class="hljs-annotation">@Autowired</span>(required=<span class="hljs-keyword">false</span>)
+    <span class="hljs-keyword">private</span> RequestConfig requestConfig;
+    <span class="hljs-javadoc">/**
+     * 
+     *<span class="hljs-javadoctag"> @return</span> 响应体的内容
+     *<span class="hljs-javadoctag"> @throws</span> IOException 
+     *<span class="hljs-javadoctag"> @throws</span> ClientProtocolException 
+     */</span>
+    <span class="hljs-keyword">public</span> String <span class="hljs-title">doGet</span>(String url) <span class="hljs-keyword">throws</span> ClientProtocolException, IOException{
+
+        <span class="hljs-comment">// 创建http GET请求</span>
+        HttpGet httpGet = <span class="hljs-keyword">new</span> HttpGet(url);
+        httpGet.setConfig(requestConfig);<span class="hljs-comment">//设置请求参数</span>
+        CloseableHttpResponse response = <span class="hljs-keyword">null</span>;
+        <span class="hljs-keyword">try</span> {
+            <span class="hljs-comment">// 执行请求</span>
+            response = <span class="hljs-keyword">this</span>.getHttpClient().execute(httpGet);
+            <span class="hljs-comment">// 判断返回状态是否为200</span>
+            <span class="hljs-keyword">if</span> (response.getStatusLine().getStatusCode() == <span class="hljs-number">200</span>) {
+                String content = EntityUtils.toString(response.getEntity(), <span class="hljs-string">"UTF-8"</span>);
+<span class="hljs-comment">//                System.out.println("内容长度："+content.length());</span>
+                <span class="hljs-keyword">return</span> content;
+            }
+        } <span class="hljs-keyword">finally</span> {
+            <span class="hljs-keyword">if</span> (response != <span class="hljs-keyword">null</span>) {
+                response.close();
+            }
+            <span class="hljs-comment">//httpclient.close();</span>
+        }
+        <span class="hljs-keyword">return</span> <span class="hljs-keyword">null</span>;
+    }
+
+    <span class="hljs-javadoc">/**
+     * 带有参数的get请求
+     *<span class="hljs-javadoctag"> @param</span> url
+     *<span class="hljs-javadoctag"> @return</span>
+     *<span class="hljs-javadoctag"> @throws</span> URISyntaxException 
+     *<span class="hljs-javadoctag"> @throws</span> IOException 
+     *<span class="hljs-javadoctag"> @throws</span> ClientProtocolException 
+     */</span>
+    <span class="hljs-keyword">public</span> String <span class="hljs-title">doGet</span>(String url , Map&lt;String, String&gt; params) <span class="hljs-keyword">throws</span> URISyntaxException, ClientProtocolException, IOException{
+        URIBuilder uriBuilder = <span class="hljs-keyword">new</span> URIBuilder(url);
+        <span class="hljs-keyword">if</span>(params != <span class="hljs-keyword">null</span>){
+            <span class="hljs-keyword">for</span>(String key : params.keySet()){
+                uriBuilder.setParameter(key, params.get(key));
+            }
+        }<span class="hljs-comment">//http://xxx?ss=ss</span>
+        <span class="hljs-keyword">return</span> <span class="hljs-keyword">this</span>.doGet(uriBuilder.build().toString());
+    }
+    <span class="hljs-javadoc">/**
+     * 带有参数的post请求
+     *<span class="hljs-javadoctag"> @param</span> url
+     *<span class="hljs-javadoctag"> @param</span> params
+     *<span class="hljs-javadoctag"> @return</span>
+     *<span class="hljs-javadoctag"> @throws</span> IOException 
+     *<span class="hljs-javadoctag"> @throws</span> ClientProtocolException 
+     */</span>
+    <span class="hljs-keyword">public</span> HttpResult <span class="hljs-title">doPost</span>(String url , Map&lt;String, String&gt; params) <span class="hljs-keyword">throws</span> ClientProtocolException, IOException{
+
+
+        <span class="hljs-comment">// 创建http POST请求</span>
+        HttpPost httpPost = <span class="hljs-keyword">new</span> HttpPost(url);
+        httpPost.setConfig(requestConfig);
+        <span class="hljs-keyword">if</span>(params != <span class="hljs-keyword">null</span>){
+
+            <span class="hljs-comment">// 设置2个post参数，一个是scope、一个是q</span>
+            List&lt;NameValuePair&gt; parameters = <span class="hljs-keyword">new</span> ArrayList&lt;NameValuePair&gt;(<span class="hljs-number">0</span>);
+
+            <span class="hljs-keyword">for</span>(String key : params.keySet()){
+                parameters.add(<span class="hljs-keyword">new</span> BasicNameValuePair(key, params.get(key)));
+            }
+            <span class="hljs-comment">// 构造一个form表单式的实体</span>
+            UrlEncodedFormEntity formEntity = <span class="hljs-keyword">new</span> UrlEncodedFormEntity(parameters);
+            <span class="hljs-comment">// 将请求实体设置到httpPost对象中</span>
+            httpPost.setEntity(formEntity);
+        }
+
+        CloseableHttpResponse response = <span class="hljs-keyword">null</span>;
+        <span class="hljs-keyword">try</span> {
+            <span class="hljs-comment">// 执行请求</span>
+            response = <span class="hljs-keyword">this</span>.getHttpClient().execute(httpPost);
+            <span class="hljs-comment">// 判断返回状态是否为200</span>
+            <span class="hljs-comment">/*if (response.getStatusLine().getStatusCode() == 200) {
+                String content = EntityUtils.toString(response.getEntity(), "UTF-8");
+                System.out.println(content);
+            }*/</span>
+            <span class="hljs-keyword">return</span> <span class="hljs-keyword">new</span> HttpResult(response.getStatusLine().getStatusCode(),EntityUtils.toString(response.getEntity(), <span class="hljs-string">"UTF-8"</span>));
+        } <span class="hljs-keyword">finally</span> {
+            <span class="hljs-keyword">if</span> (response != <span class="hljs-keyword">null</span>) {
+                response.close();
+            }
+            <span class="hljs-comment">//httpclient.close();</span>
+        }
+    }
+
+    <span class="hljs-keyword">public</span> HttpResult <span class="hljs-title">doPostJson</span>(String url , String json) <span class="hljs-keyword">throws</span> ClientProtocolException, IOException{
+         <span class="hljs-comment">// 创建http POST请求</span>
+        HttpPost httpPost = <span class="hljs-keyword">new</span> HttpPost(url);
+        httpPost.setConfig(requestConfig);
+        <span class="hljs-keyword">if</span>(StringUtils.isNotBlank(json)){
+            <span class="hljs-comment">//标识出传递的参数是 application/json</span>
+            StringEntity stringEntity = <span class="hljs-keyword">new</span> StringEntity(json, ContentType.APPLICATION_JSON);
+            httpPost.setEntity(stringEntity);
+        }
+
+        CloseableHttpResponse response = <span class="hljs-keyword">null</span>;
+        <span class="hljs-keyword">try</span> {
+            <span class="hljs-comment">// 执行请求</span>
+            response = <span class="hljs-keyword">this</span>.getHttpClient().execute(httpPost);
+            <span class="hljs-comment">// 判断返回状态是否为200</span>
+            <span class="hljs-comment">/*if (response.getStatusLine().getStatusCode() == 200) {
+                String content = EntityUtils.toString(response.getEntity(), "UTF-8");
+                System.out.println(content);
+            }*/</span>
+            <span class="hljs-keyword">return</span> <span class="hljs-keyword">new</span> HttpResult(response.getStatusLine().getStatusCode(),EntityUtils.toString(response.getEntity(), <span class="hljs-string">"UTF-8"</span>));
+        } <span class="hljs-keyword">finally</span> {
+            <span class="hljs-keyword">if</span> (response != <span class="hljs-keyword">null</span>) {
+                response.close();
+            }
+            <span class="hljs-comment">//httpclient.close();</span>
+        }
+    }
+
+    <span class="hljs-javadoc">/**
+     * 没有参数的post请求
+     *<span class="hljs-javadoctag"> @throws</span> IOException 
+     *<span class="hljs-javadoctag"> @throws</span> ClientProtocolException 
+     */</span>
+    <span class="hljs-keyword">public</span> HttpResult <span class="hljs-title">doPost</span>(String url) <span class="hljs-keyword">throws</span> ClientProtocolException, IOException{
+        <span class="hljs-keyword">return</span> <span class="hljs-keyword">this</span>.doPost(url, <span class="hljs-keyword">null</span>);
+    }
+
+    <span class="hljs-keyword">private</span> BeanFactory beanFactory;
+
+    <span class="hljs-annotation">@Override</span>
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">void</span> <span class="hljs-title">setBeanFactory</span>(BeanFactory beanFactory) <span class="hljs-keyword">throws</span> BeansException {
+        <span class="hljs-keyword">this</span>.beanFactory = beanFactory;
+    }
+
+    <span class="hljs-keyword">private</span> CloseableHttpClient <span class="hljs-title">getHttpClient</span>(){
+        <span class="hljs-keyword">return</span> <span class="hljs-keyword">this</span>.beanFactory.getBean(CloseableHttpClient.class);
+    }
+}
+</code></pre></div>&#13;
+        <script type="text/javascript">&#13;
+            $(function () {&#13;
+                $('pre.prettyprint code').each(function () {&#13;
+                    var lines = $(this).text().split('\n').length;&#13;
+                    var $numbering = $('&lt;ul/&gt;').addClass('pre-numbering').hide();&#13;
+                    $(this).addClass('has-numbering').parent().append($numbering);&#13;
+                    for (i = 1; i &lt;= lines; i++) {&#13;
+                        $numbering.append($('&lt;li/&gt;').text(i));&#13;
+                    };&#13;
+                    $numbering.fadeIn(1700);&#13;
+                });&#13;
+            });&#13;
+        </script>&#13;
+   &#13;

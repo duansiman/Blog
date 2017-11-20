@@ -1,0 +1,970 @@
+
+<div style="word-wrap: break-word; font-family: &#x5B8B;&#x4F53;, Arial; line-height: 26px;"><span style="font-size:18px;"><strong>所谓进程就是程序执行时的一个实例. 它是现代操作系统中一个很重要的抽象,我们从进程的生命周期:创建,执行,消亡来分析一下Linux上的进程管理实现.</strong></span></div><div style="word-wrap: break-word; font-family: &#x5B8B;&#x4F53;, Arial; line-height: 26px;"><span style="font-size:18px;"><strong>一:前言</strong></span></div><div style="word-wrap: break-word; font-family: &#x5B8B;&#x4F53;, Arial; line-height: 26px;"><span style="font-size:18px;"><strong>进程管理结构;</strong></span></div><div style="word-wrap: break-word; font-family: &#x5B8B;&#x4F53;, Arial; line-height: 26px;"><span style="font-size:18px;"><strong>在内核中,每一个进程对应一个task.就是以前所讲的PCB.它的结构如下(include/linux/sched.h):</strong></span></div><div style="word-wrap: break-word; font-family: &#x5B8B;&#x4F53;, Arial; line-height: 26px;"><pre name="code" class="cpp"><span style="font-size:18px;"><strong>struct task_struct {
+    volatile long state;   /* -1 unrunnable, 0 runnable, &gt;0 stopped */
+     void *stack;
+     atomic_t usage;
+     unsigned int flags;    /* per process flags, defined below */
+     unsigned int ptrace;
+ 
+     int lock_depth;        /* BKL lock depth */
+     ……
+     ……
+}</strong></span></pre><span style="font-size:18px;"><strong><br /></strong></span><div style="word-wrap: break-word; font-family: 宋体, Arial; line-height: 26px;"><span style="font-size:18px;"><strong>由于这个结构包含了进程的所有信息,所以十分庞大,我们在以后的分析中再来分析各成员的含义。</strong></span></div><div style="word-wrap: break-word; font-family: 宋体, Arial; line-height: 26px;"><span style="font-size:18px;"><strong>Task_struct的存放：</strong></span></div><div style="word-wrap: break-word; font-family: 宋体, Arial; line-height: 26px;"><span style="font-size:18px;"><strong>在系统运行过程中，进程切换十分频繁，所以我们需要一种方式能够快速获得当前进程的task_struct。linux的task_struct存放如下图所示：</strong></span></div><div style="word-wrap: break-word; font-family: 宋体, Arial; line-height: 26px;"><span style="font-size:18px;"><strong> </strong></span></div><div style="word-wrap: break-word; font-family: 宋体, Arial; line-height: 26px;"><div align="center" style="word-wrap: break-word;"><span style="font-size:18px;"><strong><img src="http://blogimg.chinaunix.net/blog/upfile2/080411165613.jpg" width="500" border="0" style="word-wrap: break-word; border: 0px;" alt="" /></strong></span></div></div><div style="word-wrap: break-word; font-family: 宋体, Arial; line-height: 26px;"><span style="font-size:18px;"><strong>如上图所示：进程内核堆栈底部存放着struct thread_struct.该结构中有一个成员指向当前进程的task_struct.在内核中有一个获取当前进程的thread_struct 的宏。它的定义如下：</strong></span></div><pre name="code" class="cpp"><span style="font-size:18px;"><strong>#define GET_THREAD_INFO(reg) \
+     movl $THREAD, reg; \
+     andl %esp, reg
+THREAD_SIZE定义如下：
+#ifdef CONFIG_4KSTACKS
+#define THREAD_SIZE            (4096)
+#else
+#define THREAD_SIZE         (8192)
+#endif</strong></span></pre><div style="word-wrap: break-word; font-family: 宋体, Arial; line-height: 26px;"><span style="font-size:18px;"><strong>我们讨论常规的8K栈的情况。-THREAD_SIZE即为：0xFFFFE000.因为栈本身是页面对齐的.所以只要把低13位屏弊掉就是thread_struct.的地址.</strong></span></div><div style="word-wrap: break-word; font-family: 宋体, Arial; line-height: 26px;"><span style="font-size:18px;"><strong>进程链表:</strong></span></div><div style="word-wrap: break-word; font-family: 宋体, Arial; line-height: 26px;"><span style="font-size:18px;"><strong>每一个进程都有父进程,相应的每个进程都会管理自己的子进程.在linux系统中,所有进程都是由init进程派生而来.init进程的进程描述符由init_task静态生成.它的定义如下所示:</strong></span></div><pre name="code" class="cpp"><span style="font-size:18px;"><strong>struct task_struct init_task = INIT_TASK(init_task);
+#define INIT_TASK(tsk) \
+{                                         \
+     .state        = 0,                        \
+     .stack        = &amp;init_thread_info,                 \
+     .usage        = ATOMIC_INIT(2),                \
+     ……
+     ……
+     .dirties = INIT_PROP_LOCAL_SINGLE(dirties),             \
+     INIT_TRACE_IRQFLAGS                            \
+     INIT_LOCKDEP                              \
+}</strong></span></pre><span style="font-size:18px;"><strong><br /></strong></span><div style="word-wrap: break-word; font-family: 宋体, Arial; line-height: 26px;"><span style="font-size:18px;"><strong>每个进程都有一个parent指向它的父进程,都有一个children指针指向它的子进程.上面代码将init进程描述符的parent指针指向其本身.children指针为一个初始化的空链表.</strong></span></div><div style="word-wrap: break-word; font-family: 宋体, Arial; line-height: 26px;"><span style="font-size:18px;"><strong>综上所述,我们只要从init_task的children链表中遍历,就可以找到系统中所有的用户进程.这是由do_each_thread宏实现的.代码如下所示:</strong></span></div><div style="word-wrap: break-word; font-family: 宋体, Arial; line-height: 26px;"><span style="font-size:18px;"><strong>#define do_each_thread(g, t) \</strong></span></div><div style="word-wrap: break-word; font-family: 宋体, Arial; line-height: 26px;"><span style="font-size:18px;"><strong>     for (g = t = &amp;init_task ; (g = t = next_task(g)) != &amp;init_task ; ) do</strong></span></div><div style="word-wrap: break-word; font-family: 宋体, Arial; line-height: 26px;"><span style="font-size:18px;"><strong>next_task定义如下所示:</strong></span></div><div style="word-wrap: break-word; font-family: 宋体, Arial; line-height: 26px;"><span style="font-size:18px;"><strong>#define next_task(p)   list_entry(rcu_dereference((p)-&gt;tasks.next), struct task_struct, tasks)</strong></span></div><div style="word-wrap: break-word; font-family: 宋体, Arial; line-height: 26px;"><span style="font-size:18px;"><strong>不过,用这种方法去寻找一个进程太浪费时间了.所以在根据条件寻找进程的话一般使用哈希表</strong></span></div><div style="word-wrap: break-word; font-family: 宋体, Arial; line-height: 26px;"><span style="font-size:18px;"><strong>二:创建进程</strong></span></div><div style="word-wrap: break-word; font-family: 宋体, Arial; line-height: 26px;"><span style="font-size:18px;"><strong>在用户空间创建进程的接口为:fork(),vfork(),clone()接下来我们看下在linux内核中是如何处理这些请求的.</strong></span></div><div style="word-wrap: break-word; font-family: 宋体, Arial; line-height: 26px;"><span style="font-size:18px;"><strong>上述几个接口在经过系统调用进入内核,在内核中的相应处理函数为:sys_fork().sys_vfork().sys_clone()/如下所示:</strong></span></div><pre name="code" class="cpp"><span style="font-size:18px;"><strong>asmlinkage int sys_fork(struct pt_regs regs)
+{
+     return do_fork(SIGCHLD, regs.esp, ®s, 0, NULL, NULL);
+}
+ 
+asmlinkage int sys_clone(struct pt_regs regs)
+{
+     unsigned long clone_flags;
+     unsigned long newsp;
+     int __user *parent_tidptr, *child_tidptr;
+ 
+     clone_flags = regs.ebx;
+     newsp = regs.ecx;
+     parent_tidptr = (int __user *)regs.edx;
+     child_tidptr = (int __user *)regs.edi;
+     if (!newsp)
+         newsp = regs.esp;
+     return do_fork(clone_flags, newsp, ®s, 0, parent_tidptr, child_tidptr);
+}
+ 
+asmlinkage int sys_vfork(struct pt_regs regs)
+{
+     return do_fork(CLONE_VFORK | CLONE_VM | SIGCHLD, regs.esp, ®s, 0, NULL, NULL);
+}</strong></span></pre><span style="font-size:18px;"><strong><br /><span style="font-family: 宋体, Arial; line-height: 26px;">从上面可以看出几种调用都会进入同一个接口:do_fork.不同的时,所带的标志不同/标志的含义如下:</span></strong></span></div><div style="word-wrap: break-word; font-family: &#x5B8B;&#x4F53;, Arial; line-height: 26px;"><pre name="code" class="cpp"><span style="font-size:18px;"><strong>#define SIGCHLD        17
+#define CLONE_VM   0x00000100    /* set if VM shared between processes */
+#define CLONE_VFORK    0x00004000    /* set if the parent wants the child to wake it up on mm_release */</strong></span></pre><span style="font-size:18px;"><strong><br /></strong></span><div style="word-wrap: break-word; font-family: 宋体, Arial; line-height: 26px;"><span style="font-size:18px;"><strong>从上可以看出.最低的两位通常表示信号位,即子进程终止的时候应该向父进程发送的信号.一般为SIGCHLD</strong></span></div><div style="word-wrap: break-word; font-family: 宋体, Arial; line-height: 26px;"><span style="font-size:18px;"><strong>其余的位是共享位. 设置CLONE_VM时,子进程会跟父进程共享VM区域. CLONE_VFORK标志设置时.子进程运行时会使父进程投入睡眠,直到子进程不再使用父进程的内存或者子进程退出去才会将父进程唤醒.这样做是因为父子进程共享同一个地址区域,所以,创建进程完后,子进程退出,父进程找不到自己的返回地址.</strong></span></div><div style="word-wrap: break-word; font-family: 宋体, Arial; line-height: 26px;"><span style="font-size:18px;"><strong>Clone会设置自己的标志,并且可以指定自己的栈的地址/</strong></span></div><div style="word-wrap: break-word; font-family: 宋体, Arial; line-height: 26px;"><span style="font-size:18px;"><strong>转入到do_fork():</strong></span></div><pre name="code" class="cpp"><span style="font-size:18px;"><strong>long do_fork(unsigned long clone_flags,
+           unsigned long stack_start,
+           struct pt_regs *regs,
+           unsigned long stack_size,
+           int __user *parent_tidptr,
+           int __user *child_tidptr)
+{
+     struct task_struct *p;
+     int trace = 0;
+     //分配一个新的pid
+     struct pid *pid = alloc_pid();
+     long nr;
+ 
+     if (!pid)
+         return -EAGAIN;
+     nr = pid-&gt;nr;
+     //如果当前进程被跟踪,子进程如果设置了相关被跟踪标志,则设置CLONE_PTRACE位
+     if (unlikely(current-&gt;ptrace)) {
+         trace = fork_traceflag (clone_flags);
+         if (trace)
+              clone_flags |= CLONE_PTRACE;
+     }
+ 
+     //copy父进程的一些信息
+     p = copy_process(clone_flags, stack_start, regs, stack_size, parent_tidptr, child_tidptr, pid);
+     if (!IS_ERR(p)) {
+         struct completion vfork;
+ 
+         //如果带有CLONE_VFORK标志.赋值并初始化vfork_done
+         if (clone_flags &amp; CLONE_VFORK) {
+              p-&gt;vfork_done = &amp;vfork;
+              init_completion(&amp;vfork);
+         }
+ 
+         //如果进子进程被跟踪,或者子进程初始化成STOP状态
+         //则发送SIGSTOP信号.由于子进程现在还没有运行,信号不能被处理
+         //所以设置TIF_SIGPENDING标志
+         if ((p-&gt;ptrace &amp; PT_PTRACED) || (clone_flags &amp; CLONE_STOPPED)) {
+              /*
+               * We'll start up with an immediate SIGSTOP.
+               */
+              sigaddset(&amp;p-&gt;pending.signal, SIGSTOP);
+              set_tsk_thread_flag(p, TIF_SIGPENDING);
+         }
+        
+         //如果子进程末定义CLONE_STOPPED标志,将其置为RUNNING.等待下一次调度
+         //否则将子进程状态更改为TASK_STOPPED
+         if (!(clone_flags &amp; CLONE_STOPPED))
+              wake_up_new_task(p, clone_flags);
+         else
+              p-&gt;state = TASK_STOPPED;
+ 
+         //如果子进程被定义,通发送通告
+         if (unlikely (trace)) {
+              current-&gt;ptrace_message = nr;
+              ptrace_notify ((trace &lt;&lt; 8) | SIGTRAP);
+         }
+ 
+         //如果定义了CLONE_VFORK标志.则将当前进程投入睡眠
+         if (clone_flags &amp; CLONE_VFORK) {
+              freezer_do_not_count();
+              wait_for_completion(&amp;vfork);
+              freezer_count();
+              if (unlikely (current-&gt;ptrace &amp; PT_TRACE_VFORK_DONE)) {
+                   current-&gt;ptrace_message = nr;
+                   ptrace_notify ((PTRACE_EVENT_VFORK_DONE &lt;&lt; 8) | SIGTRAP);
+              }
+         }
+     } else {
+         //如果copy父进程相关信息失败了.释放分配的pid
+         free_pid(pid);
+         nr = PTR_ERR(p);
+     }
+     return nr;
+}
+我们在开始的时候分析过VFORK标志的作用，在这里我们注意一下VFORK标志的处理：
+long do_fork(unsigned long clone_flags,
+           unsigned long stack_start,
+           struct pt_regs *regs,
+           unsigned long stack_size,
+           int __user *parent_tidptr,
+           int __user *child_tidptr)
+{
+     ……
+     ……
+     /*
+         static inline void init_completion(struct completion *x)
+{
+     //done标志为0。表示子进程还没有将父进程唤醒
+     x-&gt;done = 0;
+     //初始化一个等待队列
+     init_waitqueue_head(&amp;x-&gt;wait);
+}
+      */
+     if (clone_flags &amp; CLONE_VFORK) {
+          p-&gt;vfork_done = &amp;vfork;
+         init_completion(&amp;vfork);
+     }
+     ……
+     ……
+     //如果定义了CLONE_VFORK标志.则将当前进程投入睡眠
+         if (clone_flags &amp; CLONE_VFORK) {
+              freezer_do_not_count();
+              wait_for_completion(&amp;vfork);
+              freezer_count();
+              if (unlikely (current-&gt;ptrace &amp; PT_TRACE_VFORK_DONE)) {
+                   current-&gt;ptrace_message = nr;
+                   ptrace_notify ((PTRACE_EVENT_VFORK_DONE &lt;&lt; 8) | SIGTRAP);
+              }
+         }
+     ……
+}
+跟踪一下wait_for_completion（）：
+void fastcall __sched wait_for_completion(struct completion *x)
+{
+     might_sleep();
+ 
+     spin_lock_irq(&amp;x-&gt;wait.lock);
+     if (!x-&gt;done) {
+         //初始化一个等待队列
+         DECLARE_WAITQUEUE(wait, current);
+ 
+         wait.flags |= WQ_FLAG_EXCLUSIVE;
+         //将其加入到子进程的等待队列
+         __add_wait_queue_tail(&amp;x-&gt;wait, &amp;wait);
+         do {
+              //设置进程状态为TASK_UNINTERRUPTIBLE
+              __set_current_state(TASK_UNINTERRUPTIBLE);
+              spin_unlock_irq(&amp;x-&gt;wait.lock);
+              //重新调度
+              //一般来说，在这里的时候就会退出当前进程，去调度另外的进程，直到被子进程唤醒
+              schedule();
+              spin_lock_irq(&amp;x-&gt;wait.lock);
+         } while (!x-&gt;done);   //一直到x-&gt;done标志被设置。这里是为了防止异常情况将进程唤醒
+         //从等待队列中移除
+         __remove_wait_queue(&amp;x-&gt;wait, &amp;wait);
+     }
+     x-&gt;done--;
+     spin_unlock_irq(&amp;x-&gt;wait.lock);
+}
+接着分析do_fork(),copy_proces（）是它的核心函数。重点分析一下：
+static struct task_struct *copy_process(unsigned long clone_flags,
+                       unsigned long stack_start,
+                       struct pt_regs *regs,
+                       unsigned long stack_size,
+                       int __user *parent_tidptr,
+                       int __user *child_tidptr,
+                       struct pid *pid)
+{
+     int retval;
+     struct task_struct *p = NULL;
+ 
+     //clone_flags参数的有效性判断
+ 
+     //不能同时定义CLONE_NEWNS,CLONE_FS
+     if ((clone_flags &amp; (CLONE_NEWNS|CLONE_FS)) == (CLONE_NEWNS|CLONE_FS))
+         return ERR_PTR(-EINVAL);
+ //如果定义CLONE_THREAD,则必须要定义CLONE_SIGHAND
+     if ((clone_flags &amp; CLONE_THREAD) &amp;&amp; !(clone_flags &amp; CLONE_SIGHAND))
+         return ERR_PTR(-EINVAL);
+ //如果定义CLONE_SIGHAND,则必须要定义CLONE_VM
+     if ((clone_flags &amp; CLONE_SIGHAND) &amp;&amp; !(clone_flags &amp; CLONE_VM))
+         return ERR_PTR(-EINVAL);
+ 
+     retval = security_task_create(clone_flags);
+     if (retval)
+         goto fork_out;
+ 
+     retval = -ENOMEM;
+     //从父进程中复制出一个task
+     p = dup_task_struct(current);
+     if (!p)
+         goto fork_out;
+ 
+     rt_mutex_init_task(p);
+ 
+#ifdef CONFIG_TRACE_IRQFLAGS
+     DEBUG_LOCKS_WARN_ON(!p-&gt;hardirqs_enabled);
+     DEBUG_LOCKS_WARN_ON(!p-&gt;softirqs_enabled);
+#endif
+     retval = -EAGAIN;
+ 
+     //如果用户的进程总数超过了限制
+     if (atomic_read(&amp;p-&gt;user-&gt;processes) &gt;=
+              p-&gt;signal-&gt;rlim[RLIMIT_NPROC].rlim_cur) {
+         if (!capable(CAP_SYS_ADMIN) &amp;&amp; !capable(CAP_SYS_RESOURCE) &amp;&amp;
+             p-&gt;user != current-&gt;nsproxy-&gt;user_ns-&gt;root_user)
+              goto bad_fork_free;
+     }
+ 
+     //更新进程用户的相关计数
+     atomic_inc(&amp;p-&gt;user-&gt;__count);
+     atomic_inc(&amp;p-&gt;user-&gt;processes);
+     get_group_info(p-&gt;group_info);
+      //当前进程数是否大于系统规定的最大进程数
+     if (nr_threads &gt;= max_threads)
+         goto bad_fork_cleanup_count;
+ 
+     //加载进程的相关执行模块
+     if (!try_module_get(task_thread_info(p)-&gt;exec_domain-&gt;module))
+         goto bad_fork_cleanup_count;
+ 
+     if (p-&gt;binfmt &amp;&amp; !try_module_get(p-&gt;binfmt-&gt;module))
+         goto bad_fork_cleanup_put_domain;
+ 
+     //子进程还在进行初始化,没有execve
+     p-&gt;did_exec = 0;
+     delayacct_tsk_init(p); /* Must remain after dup_task_struct() */
+ 
+     //copy父进程的所有标志,除了PF_SUPERPRIV(超级权限)
+     //置子进程的PF_FORKNOEXEC标志,表示正在被FORK
+     copy_flags(clone_flags, p);
+ 
+     //赋值子进程的pid
+     p-&gt;pid = pid_nr(pid);
+     retval = -EFAULT;
+     if (clone_flags &amp; CLONE_PARENT_SETTID)
+         if (put_user(p-&gt;pid, parent_tidptr))
+              goto bad_fork_cleanup_delays_binfmt;
+ 
+     //初始化子进程的几个链表
+     INIT_LIST_HEAD(&amp;p-&gt;children);
+     INIT_LIST_HEAD(&amp;p-&gt;sibling);
+     p-&gt;vfork_done = NULL;
+     spin_lock_init(&amp;p-&gt;alloc_lock);
+ 
+     //父进程的TIF_SIGPENDING被复制进了子进程,这个标志表示有末处理的信号
+     //这个标志子进程是不需要的
+     clear_tsk_thread_flag(p, TIF_SIGPENDING);
+     init_sigpending(&amp;p-&gt;pending);
+ 
+     //初始化子进程的time
+     p-&gt;utime = cputime_zero;
+     p-&gt;stime = cputime_zero;
+     p-&gt;prev_utime = cputime_zero;
+……
+……
+//tgid = pid
+     p-&gt;tgid = p-&gt;pid;
+     if (clone_flags &amp; CLONE_THREAD)
+         p-&gt;tgid = current-&gt;tgid;
+ 
+     //copy父进程的其它资源.比例打开的文件,信号,VM等等
+     if ((retval = security_task_alloc(p)))
+          goto bad_fork_cleanup_policy;
+     if ((retval = audit_alloc(p)))
+         goto bad_fork_cleanup_security;
+     /* copy all the process information */
+     if ((retval = copy_semundo(clone_flags, p)))
+         goto bad_fork_cleanup_audit;
+     if ((retval = copy_files(clone_flags, p)))
+         goto bad_fork_cleanup_semundo;
+     if ((retval = copy_fs(clone_flags, p)))
+         goto bad_fork_cleanup_files;
+     if ((retval = copy_sighand(clone_flags, p)))
+         goto bad_fork_cleanup_fs;
+     if ((retval = copy_signal(clone_flags, p)))
+         goto bad_fork_cleanup_sighand;
+     if ((retval = copy_mm(clone_flags, p)))
+         goto bad_fork_cleanup_signal;
+     if ((retval = copy_keys(clone_flags, p)))
+         goto bad_fork_cleanup_mm;
+     if ((retval = copy_namespaces(clone_flags, p)))
+         goto bad_fork_cleanup_keys;
+     retval = copy_thread(0, clone_flags, stack_start, stack_size, p, regs);
+     if (retval)
+         goto bad_fork_cleanup_namespaces;
+ 
+     p-&gt;set_child_tid = (clone_flags &amp; CLONE_CHILD_SETTID) ? child_tidptr : NULL;
+     /*
+      * Clear TID on mm_release()?
+      */
+     p-&gt;clear_child_tid = (clone_flags &amp; CLONE_CHILD_CLEARTID) ? child_tidptr: NULL;
+     p-&gt;robust_list = NULL;
+#ifdef CONFIG_COMPAT
+     p-&gt;compat_robust_list = NULL;
+#endif
+     INIT_LIST_HEAD(&amp;p-&gt;pi_state_list);
+     p-&gt;pi_state_cache = NULL;
+ 
+     /*
+      * sigaltstack should be cleared when sharing the same VM
+      */
+     if ((clone_flags &amp; (CLONE_VM|CLONE_VFORK)) == CLONE_VM)
+         p-&gt;sas_ss_sp = p-&gt;sas_ss_size = 0;
+ 
+     /*
+      * Syscall tracing should be turned off in the child regardless
+      * of CLONE_PTRACE.
+      */
+     clear_tsk_thread_flag(p, TIF_SYSCALL_TRACE);
+#ifdef TIF_SYSCALL_EMU
+     clear_tsk_thread_flag(p, TIF_SYSCALL_EMU);
+#endif
+ 
+     /* Our parent execution domain becomes current domain
+        These must match for thread signalling to apply */
+     p-&gt;parent_exec_id = p-&gt;self_exec_id;
+ 
+     /* ok, now we should be set up.. */
+     //exit_signal: 子进程退出时给父进程发送的信号
+     p-&gt;exit_signal = (clone_flags &amp; CLONE_THREAD) ? -1 : (clone_flags &amp; CSIGNAL);
+     //pdeath_signal:进程退出时.给其下的子进程发送的信号
+     p-&gt;pdeath_signal = 0;
+     p-&gt;exit_state = 0;
+ 
+     ……
+     ……
+ 
+     if (likely(p-&gt;pid)) {
+         add_parent(p);
+         if (unlikely(p-&gt;ptrace &amp; PT_PTRACED))
+              __ptrace_link(p, current-&gt;parent);
+ 
+         if (thread_group_leader(p)) {
+              p-&gt;signal-&gt;tty = current-&gt;signal-&gt;tty;
+              p-&gt;signal-&gt;pgrp = process_group(current);
+              set_signal_session(p-&gt;signal, process_session(current));
+              attach_pid(p, PIDTYPE_PGID, task_pgrp(current));
+              attach_pid(p, PIDTYPE_SID, task_session(current));
+ 
+              list_add_tail_rcu(&amp;p-&gt;tasks, &amp;init_task.tasks);
+              __get_cpu_var(process_counts)++;
+         }
+         attach_pid(p, PIDTYPE_PID, pid);
+         //当前进程数递增
+         nr_threads++;
+     }
+ 
+     //被fork的进程数计数递增
+     total_forks++;
+     spin_unlock(¤t-&gt;sighand-&gt;siglock);
+     write_unlock_irq(&amp;tasklist_lock);
+     proc_fork_connector(p);
+     return p;
+ 
+……
+……
+}</strong></span></pre><span style="font-size:18px;"><strong><br /></strong></span><div style="word-wrap: break-word; font-family: 宋体, Arial; line-height: 26px;"><span style="font-size:18px;"><strong>这个函数比较复杂，里面涉及到了内核的很多子系统，我们暂时只分析与内存相关的部份，其它的子系统待专题分析的时候再讨论。请关注本站更新 ^_^.分析一下里面调用的几个重要的子函数。</strong></span></div><div><pre name="code" class="cpp"><span style="font-size:18px;"><strong>static struct task_struct *dup_task_struct(struct task_struct *orig)
+{
+     struct task_struct *tsk;
+     struct thread_info *ti;
+ 
+     //保存FPU信息,并设置TS标志
+     prepare_to_copy(orig);
+ 
+     //分配一个进程描述符
+     tsk = alloc_task_struct();
+     if (!tsk)
+         return NULL;
+ 
+     //分配thread_info
+     ti = alloc_thread_info(tsk);
+     if (!ti) {
+         //如果分配thread_info失败.则释放分配的task  
+         free_task_struct(tsk);
+         return NULL;
+     }
+ 
+     //复制task信息
+     *tsk = *orig;
+     //使task-&gt;stack指向thread_info
+     tsk-&gt;stack = ti;
+     //copy父进程的thread_info信息
+     //并使thread_info.task指向task
+     setup_thread_stack(tsk, orig);
+ 
+#ifdef CONFIG_CC_STACKPROTECTOR
+     tsk-&gt;stack_canary = get_random_int();
+#endif
+ 
+     /* One for us, one for whoever does the "release_task()" (usually parent) */
+     atomic_set(&amp;tsk-&gt;usage,2);
+     atomic_set(&amp;tsk-&gt;fs_excl, 0);
+#ifdef CONFIG_BLK_DEV_IO_TRACE
+     tsk-&gt;btrace_seq = 0;
+#endif
+     tsk-&gt;splice_pipe = NULL;
+     return tsk;
+}</strong></span></pre><span style="font-size:18px;"><strong><br /></strong></span><div style="word-wrap: break-word; font-family: 宋体, Arial; line-height: 26px;"><span style="font-size:18px;"><strong>如果进程使用了FPU，MMX，XMM寄存器，就会将进程flag设置TS_USEDFPU标志位。在fork子过程的时候，这几个寄存器的值子进程是不需要的，所以没必要复制到子进程中。为了避免不必要的保存，I386采取了特殊的机制。在CR0中有一个特殊的标志位：TS。当这个标志被设置,如果要访问FPU，MMX，XMM就会产生一个设备通用保护异常。对于父进程来说，它对这几个特殊处理器的处理如下：</strong></span></div><div style="word-wrap: break-word; font-family: 宋体, Arial; line-height: 26px;"><span style="font-size:18px;"><strong>如果进程使用了FPU，MMX，XMM寄存器(看父进程是否设置了TS_USEDFPU位)，就会将寄存器里的值保存起来，并设置TS标志。</strong></span></div><div style="word-wrap: break-word; font-family: 宋体, Arial; line-height: 26px;"><span style="font-size:18px;"><strong>如果父进程以后要使用MMX，XMM，FPU等寄存器，由于TS标志被设置，就产生一个异常，再由异常处理程序从task的相关字段中恢复这几个寄存器的值(如果task相关字段有保存这几个特殊寄存器值的话)，或者将这几个寄存器初始化。</strong></span></div><div style="word-wrap: break-word; font-family: 宋体, Arial; line-height: 26px;"><span style="font-size:18px;"><strong>上述的这个过程是由prepare_to_copy()进行处理的。具体代码如下：</strong></span></div><pre name="code" class="cpp"><span style="font-size:18px;"><strong>void prepare_to_copy(struct task_struct *tsk)
+{
+     unlazy_fpu(tsk);
+}
+Unlazy_fpu() à __unlazy_fpu():
+#define __unlazy_fpu( tsk ) do {               \
+     //如果使用了MMX，M，FPU寄存器
+     if (task_thread_info(tsk)-&gt;status &amp; TS_USEDFPU) {  \
+         //保存相关寄存器
+         __save_init_fpu(tsk);                \
+         //设置TS
+         stts();                          \
+     } else                               \
+         tsk-&gt;fpu_counter = 0;                \
+} while (0)</strong></span></pre><span style="font-size:18px;"><strong><br /></strong></span><div style="word-wrap: break-word; font-family: 宋体, Arial; line-height: 26px;"><span style="font-size:18px;"><strong>值得注意的是thread_info的内存分配。如下所示：</strong></span></div><div style="word-wrap: break-word; font-family: 宋体, Arial; line-height: 26px;"><span style="font-size:18px;"><strong>#define alloc_thread_info(tsk) ((struct thread_info *) \</strong></span></div><div style="word-wrap: break-word; font-family: 宋体, Arial; line-height: 26px;"><span style="font-size:18px;"><strong>     __get_free_pages(GFP_KERNEL, get_order(THREAD_SIZE)))</strong></span></div><div style="word-wrap: break-word; font-family: 宋体, Arial; line-height: 26px;"><span style="font-size:18px;"><strong>也就是说给thread_info分配了THREAD_SIZE(8K)的空间，回忆一下之前所分析的进程描述符的存放。</strong></span></div><div style="word-wrap: break-word; font-family: 宋体, Arial; line-height: 26px;"><span style="font-size:18px;"><strong>子进程要运行的话，必须要有自己的进程空间。这个进程空间或者是共享父进程的，或者是拥有自己独立的，为是在copy_mm（）处理的：</strong></span></div><pre name="code" class="cpp"><span style="font-size:18px;"><strong>static int copy_mm(unsigned long clone_flags, struct task_struct * tsk)
+{
+     struct mm_struct * mm, *oldmm;
+     int retval;
+ 
+     //初始化task中与VMA有关的成员
+     tsk-&gt;min_flt = tsk-&gt;maj_flt = 0;
+     tsk-&gt;nvcsw = tsk-&gt;nivcsw = 0;
+ 
+     //task是从父进程COPY过来的,所以将mm.active_mm设成NULL
+     tsk-&gt;mm = NULL;
+     tsk-&gt;active_mm = NULL;
+ 
+     /*
+      * Are we cloning a kernel thread?
+      *
+      * We need to steal a active VM for that..
+      */
+     oldmm = current-&gt;mm;
+     if (!oldmm)
+         return 0;
+ 
+     //如果设置了CLONE_VM标志,也就是父子进程共享同一个内存空间
+     //只要增加父进程的MM引用计数即可
+     if (clone_flags &amp; CLONE_VM) {
+         atomic_inc(&amp;oldmm-&gt;mm_users);
+         mm = oldmm;
+         goto good_mm;
+     }
+ 
+     //如果没有定义CLONE_VM.那就将父进程的VM复制过来.增加映射的页面的使用
+     //计数,并且将页面设为只读.如果父子进程中任意一个去改写页面,就会产生一个
+     //页面异常,由do_page_fault分配一个新的页面.并将旧页面的只读标志去了
+     //详情请参考本站的另一篇文章《linux内存管理之页面异常处理》
+     retval = -ENOMEM;
+     mm = dup_mm(tsk);
+     if (!mm)
+         goto fail_nomem;
+ 
+good_mm:
+     /* Initializing for Swap token stuff */
+     mm-&gt;token_priority = 0;
+     mm-&gt;last_interval = 0;
+ 
+     //设置task的mm,active_mm字段
+     tsk-&gt;mm = mm;
+     tsk-&gt;active_mm = mm;
+     return 0;
+ 
+fail_nomem:
+     return retval;
+}</strong></span></pre><span style="font-size:18px;"><strong><br /><span style="font-family: 宋体, Arial; line-height: 26px;">先思考一个问题，复制父进程的映射关系时，要不要把父进程的映射关系全部都COPY过来呢？其实它对于父进程的内核空间映射，子进程是不需要的。所以只需要将父进程的用户空间的映射关系复制过来即可。接着看代码。Dup_mm的实现如下所示：</span><br /></strong></span></div><div><span style="font-family: 宋体, Arial; line-height: 26px;"><span style="font-size:18px;"><strong></strong></span></span><pre name="code" class="cpp">static struct mm_struct *dup_mm(struct task_struct *tsk)
+{
+     struct mm_struct *mm, *oldmm = current-&gt;mm;
+     int err;
+ 
+     //如果当前进程的MM不存在,出错退出
+     if (!oldmm)
+         return NULL;
+ 
+     //为mm为配一个存储空间
+     mm = allocate_mm();
+     if (!mm)
+         goto fail_nomem;
+     //复制当前进程的mm
+     memcpy(mm, oldmm, sizeof(*mm));
+ 
+     /* Initializing for Swap token stuff */
+     mm-&gt;token_priority = 0;
+     mm-&gt;last_interval = 0;
+ 
+     //mm初始化
+     if (!mm_init(mm))
+         goto fail_nomem;
+ 
+     if (init_new_context(tsk, mm))
+         goto fail_nocontext;
+     //具体的复制过程
+     err = dup_mmap(mm, oldmm);
+     if (err)
+         goto free_pt;
+ 
+     mm-&gt;hiwater_rss = get_mm_rss(mm);
+     mm-&gt;hiwater_vm = mm-&gt;total_vm;
+ 
+     return mm;
+ 
+free_pt:
+     mmput(mm);
+ 
+fail_nomem:
+     return NULL;
+ 
+fail_nocontext:
+     /*
+      * If init_new_context() failed, we cannot use mmput() to free the mm
+      * because it calls destroy_context()
+      */
+     mm_free_pgd(mm);
+     free_mm(mm);
+     return NULL;
+}</pre><br /><span style="font-family: 宋体, Arial; line-height: 26px;">我们先来看一下mm的初始化。它是在mm_init中完成的。代码如下：</span><br /></div><div><span style="font-family: 宋体, Arial; line-height: 26px;"><span style="font-family: 宋体, Arial; line-height: 26px;"><span style="font-size:18px;"><strong></strong></span></span></span><pre name="code" class="cpp">static struct mm_struct * mm_init(struct mm_struct * mm)
+{
+     //初始化mm相关字段
+     atomic_set(&amp;mm-&gt;mm_users, 1);
+     atomic_set(&amp;mm-&gt;mm_count, 1);
+     init_rwsem(&amp;mm-&gt;mmap_sem);
+     INIT_LIST_HEAD(&amp;mm-&gt;mmlist);
+     mm-&gt;flags = (current-&gt;mm) ? current-&gt;mm-&gt;flags
+                     : MMF_DUMP_FILTER_DEFAULT;
+     mm-&gt;core_waiters = 0;
+     mm-&gt;nr_ptes = 0;
+     set_mm_counter(mm, file_rss, 0);
+     set_mm_counter(mm, anon_rss, 0);
+     spin_lock_init(&amp;mm-&gt;page_table_lock);
+     rwlock_init(&amp;mm-&gt;ioctx_list_lock);
+     mm-&gt;ioctx_list = NULL;
+     mm-&gt;free_area_cache = TASK_UNMAPPED_BASE;
+     mm-&gt;cached_hole_size = ~0UL;
+ 
+     //为子进程分配并初始PGD
+     if (likely(!mm_alloc_pgd(mm))) {
+         mm-&gt;def_flags = 0;
+         return mm;
+     }
+     free_mm(mm);
+     return NULL;
+}
+Mm_alloc_pgd的实现如下：
+static inline int mm_alloc_pgd(struct mm_struct * mm)
+{
+     mm-&gt;pgd = pgd_alloc(mm);
+     if (unlikely(!mm-&gt;pgd))
+         return -ENOMEM;
+     return 0;
+}
+ 
+pgd_t *pgd_alloc(struct mm_struct *mm)
+{
+     int i;
+     pgd_t *pgd = quicklist_alloc(0, GFP_KERNEL, pgd_ctor);
+ 
+     if (PTRS_PER_PMD == 1 || !pgd)
+         return pgd;
+     //从0开始到UNSHARED_PTRS_PER_PGD,建立PGD-&gt;PMD的映射
+     for (i = 0; i &lt; UNSHARED_PTRS_PER_PGD; ++i) {
+         pmd_t *pmd = pmd_cache_alloc(i);
+ 
+         if (!pmd)
+              goto out_oom;
+ 
+         paravirt_alloc_pd(__pa(pmd) &gt;&gt; PAGE_SHIFT);
+         set_pgd(&amp;pgd[i], __pgd(1 + __pa(pmd)));
+     }
+     return pgd;
+ 
+out_oom:
+     for (i--; i &gt;= 0; i--) {
+         pgd_t pgdent = pgd[i];
+         void* pmd = (void *)__va(pgd_val(pgdent)-1);
+         paravirt_release_pd(__pa(pmd) &gt;&gt; PAGE_SHIFT);
+         pmd_cache_free(pmd, i);
+     }
+     quicklist_free(0, pgd_dtor, pgd);
+     return NULL;
+}</pre><br /><div style="word-wrap: break-word; font-family: 宋体, Arial; line-height: 26px;">UNSHARED_PTRS_PER_PGD：表示用户空间的地址区域大小，从这里可以看出。只是分配了进程用户空间的PGD与PMD。这也初步印证了我们上面所说的。那，如果子进程陷入到内核态，需要访问内核空间怎么办呢？那就把init_mm的内核映射拷贝过去就行了。这一过程是由异面异常处理程序完成的。</div><div style="word-wrap: break-word; font-family: 宋体, Arial; line-height: 26px;">返回dup_mm（）。具体的映射复制过程是由dup_mmap()完成的，代码如下：</div><pre name="code" class="cpp">static inline int dup_mmap(struct mm_struct *mm, struct mm_struct *oldmm)
+{
+     struct vm_area_struct *mpnt, *tmp, **pprev;
+     struct rb_node **rb_link, *rb_parent;
+     int retval;
+     unsigned long charge;
+     struct mempolicy *pol;
+ 
+     //防止并发操作,加锁
+     down_write(&amp;oldmm-&gt;mmap_sem);
+     //在x86上,这个函数为空函数
+     flush_cache_dup_mm(oldmm);
+     /*
+      * Not linked in yet - no deadlock potential:
+      */
+      //加锁
+     down_write_nested(&amp;mm-&gt;mmap_sem, SINGLE_DEPTH_NESTING);
+ 
+     mm-&gt;locked_vm = 0;
+     mm-&gt;mmap = NULL;
+     mm-&gt;mmap_cache = NULL;
+     mm-&gt;free_area_cache = oldmm-&gt;mmap_base;
+     mm-&gt;cached_hole_size = ~0UL;
+     mm-&gt;map_count = 0;
+     cpus_clear(mm-&gt;cpu_vm_mask);
+     mm-&gt;mm_rb = RB_ROOT;
+     rb_link = &amp;mm-&gt;mm_rb.rb_node;
+     rb_parent = NULL;
+     pprev = &amp;mm-&gt;mmap;
+ 
+     //遍历父进程的vma, 将其copy到子进程
+     for (mpnt = oldmm-&gt;mmap; mpnt; mpnt = mpnt-&gt;vm_next) {
+         struct file *file;
+ 
+         if (mpnt-&gt;vm_flags &amp; VM_DONTCOPY) {
+              long pages = vma_pages(mpnt);
+              mm-&gt;total_vm -= pages;
+              vm_stat_account(mm, mpnt-&gt;vm_flags, mpnt-&gt;vm_file,
+                                     -pages);
+              continue;
+         }
+         charge = 0;
+         if (mpnt-&gt;vm_flags &amp; VM_ACCOUNT) {
+              unsigned int len = (mpnt-&gt;vm_end - mpnt-&gt;vm_start) &gt;&gt; PAGE_SHIFT;
+              if (security_vm_enough_memory(len))
+                   goto fail_nomem;
+              charge = len;
+         }
+         tmp = kmem_cache_alloc(vm_area_cachep, GFP_KERNEL);
+         if (!tmp)
+              goto fail_nomem;
+         *tmp = *mpnt;
+         pol = mpol_copy(vma_policy(mpnt));
+         retval = PTR_ERR(pol);
+         if (IS_ERR(pol))
+              goto fail_nomem_policy;
+         vma_set_policy(tmp, pol);
+         tmp-&gt;vm_flags &amp;= ~VM_LOCKED;
+         tmp-&gt;vm_mm = mm;
+         tmp-&gt;vm_next = NULL;
+         anon_vma_link(tmp);
+         file = tmp-&gt;vm_file;
+         //映射到了一个文件
+         if (file) {
+              struct inode *inode = file-&gt;f_path.dentry-&gt;d_inode;
+              get_file(file);
+              if (tmp-&gt;vm_flags &amp; VM_DENYWRITE)
+                   atomic_dec(&amp;inode-&gt;i_writecount);
+     
+              /* insert tmp into the share list, just after mpnt */
+              spin_lock(&amp;file-&gt;f_mapping-&gt;i_mmap_lock);
+              tmp-&gt;vm_truncate_count = mpnt-&gt;vm_truncate_count;
+              flush_dcache_mmap_lock(file-&gt;f_mapping);
+              vma_prio_tree_add(tmp, mpnt);
+              flush_dcache_mmap_unlock(file-&gt;f_mapping);
+              spin_unlock(&amp;file-&gt;f_mapping-&gt;i_mmap_lock);
+         }
+ 
+         /*
+          * Link in the new vma and copy the page table entries.
+          */
+         *pprev = tmp;
+         pprev = &amp;tmp-&gt;vm_next;
+ 
+         //插入到mm的vma树
+         __vma_link_rb(mm, tmp, rb_link, rb_parent);
+         rb_link = &amp;tmp-&gt;vm_rb.rb_right;
+         rb_parent = &amp;tmp-&gt;vm_rb;
+ 
+         //递增子进程的map_count计数
+         mm-&gt;map_count++;
+         //COPY具体的映射关系
+         retval = copy_page_range(mm, oldmm, mpnt);
+ 
+         //由于VMA新加入MM. 如果VMA有open操作,运行之
+         if (tmp-&gt;vm_ops &amp;&amp; tmp-&gt;vm_ops-&gt;open)
+              tmp-&gt;vm_ops-&gt;open(tmp);
+ 
+         if (retval)
+              goto out;
+     }
+     /* a new mm has just been created */
+     arch_dup_mmap(oldmm, mm);
+     retval = 0;
+out:
+     up_write(&amp;mm-&gt;mmap_sem);
+     flush_tlb_mm(oldmm);
+     up_write(&amp;oldmm-&gt;mmap_sem);
+     return retval;
+fail_nomem_policy:
+     kmem_cache_free(vm_area_cachep, tmp);
+fail_nomem:
+     retval = -ENOMEM;
+     vm_unacct_memory(charge);
+     goto out;
+}</pre><br /><div style="word-wrap: break-word; font-family: 宋体, Arial; line-height: 26px;">由于父子进程的用户空间是一样的，将VMA直接COPY过去即可，因为PGD不相同，具体的映射关系还要一层层往下面找，这是由copy_page_range（）完成的。</div><div><br /></div><pre name="code" class="cpp">//copy src_mm的页面映射关面到dst_mm
+int copy_page_range(struct mm_struct *dst_mm, struct mm_struct *src_mm,
+         struct vm_area_struct *vma)
+{
+     pgd_t *src_pgd, *dst_pgd;
+     unsigned long next;
+     unsigned long addr = vma-&gt;vm_start;
+     unsigned long end = vma-&gt;vm_end;
+ 
+     /*
+      * Don't copy ptes where a page fault will fill them correctly.
+      * Fork becomes much lighter when there are big shared or private
+      * readonly mappings. The tradeoff is that copy_page_range is more
+      * efficient than faulting.
+      */
+     if (!(vma-&gt;vm_flags &amp; (VM_HUGETLB|VM_NONLINEAR|VM_PFNMAP|VM_INSERTPAGE))) {
+         if (!vma-&gt;anon_vma)
+              return 0;
+     }
+ 
+     //没有定义CONFIG_HUGETLB_PAGE标志的时候,这个函数返回0
+     if (is_vm_hugetlb_page(vma))
+         return copy_hugetlb_page_range(dst_mm, src_mm, vma);
+ 
+     dst_pgd = pgd_offset(dst_mm, addr);
+     src_pgd = pgd_offset(src_mm, addr);
+     do {
+         next = pgd_addr_end(addr, end);
+         //src_pgd没有映射?
+         if (pgd_none_or_clear_bad(src_pgd))
+              continue;
+         //pud是新加的一个四层映射
+         if (copy_pud_range(dst_mm, src_mm, dst_pgd, src_pgd,
+                            vma, addr, next))
+              return -ENOMEM;
+     } while (dst_pgd++, src_pgd++, addr = next, addr != end);
+     return 0;
+}</pre><br /><span style="font-family: 宋体, Arial; line-height: 26px;">从pgd-&gt;pud-&gt;pmd-&gt;pte.一直沿着映射关系到PTE。因为我们在前面说过，初始化mm的时候，已经建立了从PGD到PMD的映射关系，我们直接转到PTE项的处理,它是在copy_page_range()—&gt;</span><span style="font-family: 'Times New Roman'; word-wrap: break-word; line-height: 26px;"></span><span style="font-family: 宋体, Arial; line-height: 26px;">copy_pud_range()àcopy_pmd_range()àcopy_pte_range():</span><br /></div><div><span style="font-family: 宋体, Arial; line-height: 26px;"><span style="font-family: 宋体, Arial; line-height: 26px;"><span style="font-family: 宋体, Arial; line-height: 26px;"><span style="font-size:18px;"><strong></strong></span></span></span></span><pre name="code" class="cpp">static int copy_pte_range(struct mm_struct *dst_mm, struct mm_struct *src_mm,
+         pmd_t *dst_pmd, pmd_t *src_pmd, struct vm_area_struct *vma,
+         unsigned long addr, unsigned long end)
+{
+     pte_t *src_pte, *dst_pte;
+     spinlock_t *src_ptl, *dst_ptl;
+     int progress = 0;
+     int rss[2];
+ 
+again:
+     rss[1] = rss[0] = 0;
+ 
+     //申请pte
+     dst_pte = pte_alloc_map_lock(dst_mm, dst_pmd, addr, &amp;dst_ptl);
+     if (!dst_pte)
+         return -ENOMEM;
+     src_pte = pte_offset_map_nested(src_pmd, addr);
+     src_ptl = pte_lockptr(src_mm, src_pmd);
+     spin_lock_nested(src_ptl, SINGLE_DEPTH_NESTING);
+     arch_enter_lazy_mmu_mode();
+ 
+     do {
+         /*
+          * We are holding two locks at this point - either of them
+          * could generate latencies in another task on another CPU.
+          */
+         if (progress &gt;= 32) {
+              progress = 0;
+              if (need_resched() ||
+                  need_lockbreak(src_ptl) ||
+                  need_lockbreak(dst_ptl))
+                   break;
+         }
+ 
+         //源pte没有映射到具体页面
+         if (pte_none(*src_pte)) {
+              progress++;
+              continue;
+         }
+         //copy页面到dst_pte
+         copy_one_pte(dst_mm, src_mm, dst_pte, src_pte, vma, addr, rss);
+         progress += 8;
+     } while (dst_pte++, src_pte++, addr += PAGE_SIZE, addr != end);
+ 
+     arch_leave_lazy_mmu_mode();
+     spin_unlock(src_ptl);
+     pte_unmap_nested(src_pte - 1);
+     add_mm_rss(dst_mm, rss[0], rss[1]);
+     pte_unmap_unlock(dst_pte - 1, dst_ptl);
+     cond_resched();
+     if (addr != end)
+         goto again;
+     return 0;
+}</pre><br /><span style="font-family: 宋体, Arial; line-height: 26px;">copy_one_pte()的代码如下：</span><br /></div><div><span style="font-family: 宋体, Arial; line-height: 26px;"><span style="font-family: 宋体, Arial; line-height: 26px;"><span style="font-family: 宋体, Arial; line-height: 26px;"><span style="font-family: 宋体, Arial; line-height: 26px;"><span style="font-size:18px;"><strong></strong></span></span></span></span></span><pre name="code" class="cpp">static inline void
+copy_one_pte(struct mm_struct *dst_mm, struct mm_struct *src_mm,
+         pte_t *dst_pte, pte_t *src_pte, struct vm_area_struct *vma,
+         unsigned long addr, int *rss)
+{
+     unsigned long vm_flags = vma-&gt;vm_flags;
+     pte_t pte = *src_pte;
+     struct page *page;
+ 
+     /* pte contains position in swap or file, so copy. */
+     //映射的页面不在内存,可能被交换出去了
+     if (unlikely(!pte_present(pte))) {
+         if (!pte_file(pte)) {
+              swp_entry_t entry = pte_to_swp_entry(pte);
+ 
+              swap_duplicate(entry);
+              /* make sure dst_mm is on swapoff's mmlist. */
+              if (unlikely(list_empty(&amp;dst_mm-&gt;mmlist))) {
+                   spin_lock(&amp;mmlist_lock);
+                   if (list_empty(&amp;dst_mm-&gt;mmlist))
+                       list_add(&amp;dst_mm-&gt;mmlist,
+                             &amp;src_mm-&gt;mmlist);
+                   spin_unlock(&amp;mmlist_lock);
+              }
+              if (is_write_migration_entry(entry) &amp;&amp;
+                       is_cow_mapping(vm_flags)) {
+                   /*
+                    * COW mappings require pages in both parent
+                    * and child to be set to read.
+                    */
+                   make_migration_entry_read(&amp;entry);
+                   pte = swp_entry_to_pte(entry);
+                   set_pte_at(src_mm, addr, src_pte, pte);
+              }
+         }
+         goto out_set_pte;
+     }
+ 
+     /*
+      * If it's a COW mapping, write protect it both
+      * in the parent and the child
+      */
+      //只有在is_cow_mapping()为真的情况下,才会设置成可写权限
+     if (is_cow_mapping(vm_flags)) {
+         ptep_set_wrprotect(src_mm, addr, src_pte);
+         pte = pte_wrprotect(pte);
+     }
+ 
+     /*
+      * If it's a shared mapping, mark it clean in
+      * the child
+      */
+     if (vm_flags &amp; VM_SHARED)
+         pte = pte_mkclean(pte);
+     pte = pte_mkold(pte);
+     //找到具体的映射页面
+     page = vm_normal_page(vma, addr, pte);
+     //找到了映射的页面
+     if (page) {
+         //递增页面的引用计数
+         get_page(page);
+         page_dup_rmap(page, vma, addr);
+         rss[!!PageAnon(page)]++;
+     }
+ 
+out_set_pte:
+     //将dst_pte映射到这个页面
+     set_pte_at(dst_mm, addr, dst_pte, pte);
+}</pre><br /><div style="word-wrap: break-word; font-family: 宋体, Arial; line-height: 26px;">到这里为止，进程的运行内间已经设置好了。但子进程的怎么返回到用户空间呢？这是在copy_process()—&gt;<span style="font-family: 'Times New Roman'; word-wrap: break-word;"> </span>copy_thread（）中完成的。</div><div><br /></div><pre name="code" class="cpp">int copy_thread(int nr, unsigned long clone_flags, unsigned long esp,
+     unsigned long unused,
+     struct task_struct * p, struct pt_regs * regs)
+{
+     struct pt_regs * childregs;
+     struct task_struct *tsk;
+     int err;
+ 
+     //子进程的内核堆栈起点
+     childregs = task_pt_regs(p);
+     //将父进程的regs参数赋值到子进程的内核堆栈
+     //regs参数:里面存放的是父进程陷入内核后的各寄存器的值
+     *childregs = *regs;
+     //eax:返回值. 将其设为0,子进程返回到用户空间后,它的返回值是0
+     childregs-&gt;eax = 0;
+     //esp:子进程的用户堆栈指针位置
+     childregs-&gt;esp = esp;
+ 
+     //子进程内核堆栈位置
+     p-&gt;thread.esp = (unsigned long) childregs;
+     //子进程内核堆栈指针位置
+     p-&gt;thread.esp0 = (unsigned long) (childregs+1);
+     //子进程要执行的下一条指令.对应子进程从系统空间返回用户空间
+     p-&gt;thread.eip = (unsigned long) ret_from_fork;
+ 
+     savesegment(gs,p-&gt;thread.gs);
+ 
+     tsk = current;
+     if (unlikely(test_tsk_thread_flag(tsk, TIF_IO_BITMAP))) {
+         p-&gt;thread.io_bitmap_ptr = kmemdup(tsk-&gt;thread.io_bitmap_ptr,
+                            IO_BITMAP_BYTES, GFP_KERNEL);
+         if (!p-&gt;thread.io_bitmap_ptr) {
+              p-&gt;thread.io_bitmap_max = 0;
+              return -ENOMEM;
+         }
+         set_tsk_thread_flag(p, TIF_IO_BITMAP);
+     }
+ 
+     /*
+      * Set a new TLS for the child thread?
+      */
+     if (clone_flags &amp; CLONE_SETTLS) {
+         struct desc_struct *desc;
+         struct user_desc info;
+         int idx;
+ 
+         err = -EFAULT;
+         if (copy_from_user(&amp;info, (void __user *)childregs-&gt;esi, sizeof(info)))
+              goto out;
+         err = -EINVAL;
+         if (LDT_empty(&amp;info))
+              goto out;
+ 
+         idx = info.entry_number;
+         if (idx &lt; GDT_ENTRY_TLS_MIN || idx &gt; GDT_ENTRY_TLS_MAX)
+              goto out;
+ 
+         desc = p-&gt;thread.tls_array + idx - GDT_ENTRY_TLS_MIN;
+         desc-&gt;a = LDT_entry_a(&amp;info);
+         desc-&gt;b = LDT_entry_b(&amp;info);
+     }
+ 
+     err = 0;
+ out:
+     if (err &amp;&amp; p-&gt;thread.io_bitmap_ptr) {
+         kfree(p-&gt;thread.io_bitmap_ptr);
+         p-&gt;thread.io_bitmap_max = 0;
+     }
+     return err;
+}</pre><br /><div style="word-wrap: break-word; font-family: 宋体, Arial; line-height: 26px;">我们在之前分析到。Thead_info分配得是一个THREAD_SIZE大小的空间。现在看下它怎么样初始化。</div><div style="word-wrap: break-word; font-family: 宋体, Arial; line-height: 26px;">先看下task_pt_regs这个宏：</div><pre name="code" class="cpp">#define task_pt_regs(task)                                             \
+({                                                                     \
+       struct pt_regs *__regs__;                                       \
+     // #define task_stack_page(task) ((task)-&gt;stack) 即thrad_info
+       __regs__ = (struct pt_regs *)(KSTK_TOP(task_stack_page(task))-8); \
+       __regs__ - 1;                                                   \
+})
+#define KSTK_TOP(info)                                                 \
+({                                                                     \
+       unsigned long *__ptr = (unsigned long *)(info);                 \
+     //即：__ptr += THREAD_SIZE
+    
+         //#define THREAD_SIZE_LONGS      (THREAD_SIZE/sizeof(unsigned long))
+       (unsigned long)(&amp;__ptr[THREAD_SIZE_LONGS]);                     \
+})</pre><br /><div style="word-wrap: break-word; font-family: 宋体, Arial; line-height: 26px;"><div style="word-wrap: break-word;">参照下面的这个图：</div><div style="word-wrap: break-word;"> </div><div style="word-wrap: break-word;"> </div><div align="center" style="word-wrap: break-word;"><img src="http://blogimg.chinaunix.net/blog/upfile2/080411165746.jpg" width="500" border="0" style="word-wrap: break-word; border: 0px;" alt="" /></div></div><div style="word-wrap: break-word; font-family: 宋体, Arial; line-height: 26px;"><div style="word-wrap: break-word;"><div style="word-wrap: break-word;">明确了栈顶与当前栈指针位置之后<span style="font-family:Times New Roman;word-wrap: break-word;">,</span>把父进程的<span style="font-family:Times New Roman;word-wrap: break-word;">pt_regs</span>放入栈的顶部<span style="font-family:Times New Roman;word-wrap: break-word;">,</span>这样实际上构造了一次系统调用<span style="font-family:Times New Roman;word-wrap: break-word;">.,</span>这样子进程被调度之后就可以沿父进程的路径返回<span style="font-family:Times New Roman;word-wrap: break-word;">.</span>为了区分子进程跟父进程<span style="font-family:Times New Roman;word-wrap: break-word;">,</span>把子进程的返回值设为了<span style="font-family:Times New Roman;word-wrap: break-word;">0.</span>我们可以思考一下<span style="font-family:Times New Roman;word-wrap: break-word;">: </span>为什么上面要空<span style="font-family:Times New Roman;word-wrap: break-word;">8</span>个空间呢<span style="font-family:Times New Roman;word-wrap: break-word;">?</span>这是因为在中断发生时<span style="font-family:Times New Roman;word-wrap: break-word;">.</span>如果优先级别一样就不会把<span style="font-family:Times New Roman;word-wrap: break-word;">SS,ESP</span>压入内核栈<span style="font-family:Times New Roman;word-wrap: break-word;">,</span>这时候<span style="font-family:Times New Roman;word-wrap: break-word;">pt_regs</span>结构体中的<span style="font-family:Times New Roman;word-wrap: break-word;">esp,xss</span>不存在<span style="font-family:Times New Roman;word-wrap: break-word;">,</span>为了防止非法访问<span style="font-family:Times New Roman;word-wrap: break-word;">,</span>总在内核栈上空<span style="font-family:Times New Roman;word-wrap: break-word;">8</span>个字节<span style="font-family:Times New Roman;word-wrap: break-word;">.</span></div></div></div><br /></div><span style="font-size:18px;"><strong><br /></strong></span><br /></div>   &#13;

@@ -1,0 +1,439 @@
+
+                
+<p><br/>&#13;
+</p>&#13;
+<h1>   <strong>前言</strong></h1>&#13;
+<p><span style="white-space:pre"/></p>&#13;
+<p>       前段时间突然想用SpringMVC结合Ext做一个框架原型，整合后发现SpringMVC配合Ext简直天衣无缝，当然SpringMVC结合别的UI框架应该也是天衣无缝的。SpringMVC比Struts2确实要强大很多，特别对于Ext框架JSON数据的完美支撑，开发起来相当舒服。Spring3整合Hibernate4的时候可能有点问题，跟Spring2+Hibernate3有很大的区别，区别在于Hibernate4实现了对事务的管理，所以Spring针对Hibernate4就没有提供HibernateDaoSupport这个类。</p>&#13;
+<p><span style="white-space:pre"/><span style="white-space:pre"/><span style="white-space:pre"/>       整合有个原则是分框架的整合，比如我们先整合Spring、再整合SpringMVC接着整合Hibernate</p>&#13;
+<h1>   整合Spring</h1>&#13;
+<p><span style="white-space:pre"/></p>&#13;
+<p>        整合的第一步将Jar引入到工程里面来，引入之后更改配置项目配置。下面是项目的web.xml文件的详细信息：</p>&#13;
+<p/>&#13;
+<pre name="code" class="html">&lt;?xml version="1.0" encoding="UTF-8"?&gt;
+&lt;web-app version="2.5" xmlns="http://java.sun.com/xml/ns/javaee"
+	xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+	xsi:schemaLocation="http://java.sun.com/xml/ns/javaee 
+	http://java.sun.com/xml/ns/javaee/web-app_2_5.xsd"&gt;
+    &lt;!-- log4j 配置  开始 --&gt;
+    &lt;context-param&gt;
+        &lt;param-name&gt;log4jConfigLocation&lt;/param-name&gt;
+		&lt;param-value&gt;/WEB-INF/classes/com/avicit/resource/log4j/log4j.properties&lt;/param-value&gt;
+    &lt;/context-param&gt;
+    &lt;context-param&gt;
+        &lt;param-name&gt;log4jRefreshInterval&lt;/param-name&gt;
+        &lt;param-value&gt;600000&lt;/param-value&gt;
+    &lt;/context-param&gt;
+    &lt;context-param&gt;
+        &lt;param-name&gt;webAppRootKey&lt;/param-name&gt;
+        &lt;param-value&gt;fes.root&lt;/param-value&gt;
+    &lt;/context-param&gt;
+    &lt;listener&gt;
+        &lt;listener-class&gt;org.springframework.web.util.Log4jConfigListener&lt;/listener-class&gt;
+    &lt;/listener&gt;
+    &lt;!-- log4j 配置  结束 --&gt;
+
+    &lt;!-- 设置servlet编码开始 --&gt;
+    &lt;filter&gt;
+        &lt;filter-name&gt;CharacterEncodingFilter&lt;/filter-name&gt;
+        &lt;filter-class&gt;org.springframework.web.filter.CharacterEncodingFilter&lt;/filter-class&gt;
+        &lt;init-param&gt;
+            &lt;param-name&gt;encoding&lt;/param-name&gt;
+            &lt;param-value&gt;utf-8&lt;/param-value&gt;
+        &lt;/init-param&gt;
+        &lt;init-param&gt;
+            &lt;param-name&gt;forceEncoding&lt;/param-name&gt;
+            &lt;param-value&gt;true&lt;/param-value&gt;
+        &lt;/init-param&gt;
+    &lt;/filter&gt;
+
+    &lt;filter-mapping&gt;
+        &lt;filter-name&gt;CharacterEncodingFilter&lt;/filter-name&gt;
+        &lt;url-pattern&gt;/*&lt;/url-pattern&gt;
+    &lt;/filter-mapping&gt;
+    
+    &lt;!-- 设置servlet编码结束 --&gt;
+    
+    &lt;!-- 设置BackURL开始 --&gt;    
+    &lt;filter&gt;
+        &lt;filter-name&gt;BackURLFilter&lt;/filter-name&gt;
+        &lt;filter-class&gt;com.avicit.framework.web.filter.BackURLFilter&lt;/filter-class&gt;
+    &lt;/filter&gt;
+
+    &lt;filter-mapping&gt;
+        &lt;filter-name&gt;BackURLFilter&lt;/filter-name&gt;
+        &lt;url-pattern&gt;/*&lt;/url-pattern&gt;
+    &lt;/filter-mapping&gt;
+    &lt;!-- 设置BackURL结束 --&gt;    
+    
+    &lt;!-- Spring配置文件开始  --&gt;    
+    &lt;context-param&gt;
+        &lt;param-name&gt;contextConfigLocation&lt;/param-name&gt;
+        &lt;param-value&gt;classpath*:com/avicit/resource/spring/spring-base.xml&lt;/param-value&gt;
+    &lt;/context-param&gt;
+
+    &lt;listener&gt;
+        &lt;listener-class&gt;org.springframework.web.context.ContextLoaderListener&lt;/listener-class&gt;
+    &lt;/listener&gt;
+    &lt;!-- Spring配置文件结束 --&gt;
+        
+    &lt;filter&gt;
+        &lt;filter-name&gt;openSessionInVieFilter&lt;/filter-name&gt;
+        &lt;filter-class&gt;org.springframework.orm.hibernate4.support.OpenSessionInViewFilter&lt;/filter-class&gt;
+    &lt;/filter&gt;
+    &lt;filter-mapping&gt;
+        &lt;filter-name&gt;openSessionInVieFilter&lt;/filter-name&gt;
+        &lt;servlet-name&gt;spring&lt;/servlet-name&gt;
+    &lt;/filter-mapping&gt;
+
+    &lt;!-- 浏览器不支持put,delete等method,由该filter将/blog?_method=delete转换为标准的http delete方法 --&gt;
+    &lt;filter&gt;
+        &lt;filter-name&gt;HiddenHttpMethodFilter&lt;/filter-name&gt;
+        &lt;filter-class&gt;org.springframework.web.filter.HiddenHttpMethodFilter&lt;/filter-class&gt;
+    &lt;/filter&gt;
+    &lt;filter-mapping&gt;
+        &lt;filter-name&gt;HiddenHttpMethodFilter&lt;/filter-name&gt;
+        &lt;servlet-name&gt;spring&lt;/servlet-name&gt;
+    &lt;/filter-mapping&gt;
+
+
+    &lt;servlet&gt;
+        &lt;servlet-name&gt;spring-dispatcher&lt;/servlet-name&gt;
+        &lt;servlet-class&gt;org.springframework.web.servlet.DispatcherServlet&lt;/servlet-class&gt;
+           &lt;init-param&gt;
+			&lt;param-name&gt;contextConfigLocation&lt;/param-name&gt;
+			&lt;param-value&gt;classpath*:com/avicit/resource/spring/spring-dispather.xml&lt;/param-value&gt;
+        &lt;/init-param&gt;
+        &lt;load-on-startup&gt;1&lt;/load-on-startup&gt;
+    &lt;/servlet&gt;
+
+    &lt;servlet-mapping&gt;
+        &lt;servlet-name&gt;spring-dispatcher&lt;/servlet-name&gt;
+        &lt;url-pattern&gt;/&lt;/url-pattern&gt;
+    &lt;/servlet-mapping&gt;
+	&lt;error-page&gt;
+		&lt;error-code&gt;500&lt;/error-code&gt;
+		&lt;location&gt;/error.jsp?code=500&lt;/location&gt;
+	&lt;/error-page&gt;
+
+	&lt;error-page&gt;
+		&lt;error-code&gt;404&lt;/error-code&gt;
+		&lt;location&gt;/error.jsp?code=404&lt;/location&gt;
+	&lt;/error-page&gt;
+	&lt;error-page&gt;
+		&lt;error-code&gt;405&lt;/error-code&gt;
+		&lt;location&gt;/error.jsp?code=405&lt;/location&gt;
+	&lt;/error-page&gt;
+	&lt;error-page&gt;
+		&lt;error-code&gt;406&lt;/error-code&gt;
+		&lt;location&gt;/error.jsp?code=406&lt;/location&gt;
+	&lt;/error-page&gt;
+	&lt;error-page&gt;
+		&lt;error-code&gt;415&lt;/error-code&gt;
+		&lt;location&gt;/error.jsp?code=415&lt;/location&gt;
+	&lt;/error-page&gt;
+	&lt;error-page&gt;
+		&lt;error-code&gt;400&lt;/error-code&gt;
+		&lt;location&gt;/error.jsp?code=400&lt;/location&gt;
+	&lt;/error-page&gt;
+
+    &lt;welcome-file-list&gt;
+        &lt;welcome-file&gt;/index&lt;/welcome-file&gt;
+    &lt;/welcome-file-list&gt;
+
+&lt;/web-app&gt;
+</pre><br/>&#13;
+<span style="white-space:pre"/><span style="white-space:pre"/>其实Spring的配置跟以前没多大区别，关键就是设置Spring的启动监听器和Spring配置文件的地址，下面是spring-base.xml的内容：&#13;
+<p/>&#13;
+<p/>&#13;
+<pre name="code" class="html">&lt;?xml version="1.0" encoding="UTF-8"?&gt;
+&lt;beans xmlns="http://www.springframework.org/schema/beans"
+       xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+       xmlns:aop="http://www.springframework.org/schema/aop"
+       xmlns:tx="http://www.springframework.org/schema/tx"
+       xmlns:context="http://www.springframework.org/schema/context"
+       xsi:schemaLocation="
+       http://www.springframework.org/schema/beans http://www.springframework.org/schema/beans/spring-beans-3.1.xsd
+       http://www.springframework.org/schema/aop http://www.springframework.org/schema/aop/spring-aop-3.1.xsd
+       http://www.springframework.org/schema/tx http://www.springframework.org/schema/tx/spring-tx-3.1.xsd
+       http://www.springframework.org/schema/context http://www.springframework.org/schema/context/spring-context-3.1.xsd
+       "&gt;
+
+    &lt;!-- 扫描注解Bean --&gt;
+    &lt;context:component-scan base-package="com.avicit"&gt;
+        &lt;context:exclude-filter type="annotation" expression="org.springframework.stereotype.Controller"/&gt;
+    &lt;/context:component-scan&gt;
+
+    &lt;bean id="propertyConfigurer" class="org.springframework.beans.factory.config.PropertyPlaceholderConfigurer"&gt;
+        &lt;property name="locations"&gt;
+            &lt;list&gt;
+            	&lt;value&gt;classpath*:com/avicit/resource/jdbc/jdbc.properties&lt;/value&gt;
+            	&lt;value&gt;classpath*:com/avicit/resource/hibernate/hibernate.properties&lt;/value&gt;
+            &lt;/list&gt;
+        &lt;/property&gt;
+    &lt;/bean&gt;
+
+ 
+    &lt;!-- 国际化的消息资源文件 --&gt;
+    &lt;bean id="messageSource" class="org.springframework.context.support.ReloadableResourceBundleMessageSource"&gt;
+        &lt;property name="basenames"&gt;
+            &lt;list&gt;
+                &lt;!-- 在web环境中一定要定位到classpath 否则默认到当前web应用下找  --&gt;
+                &lt;value&gt;classpath:com/avicit/resource/message/messages&lt;/value&gt;
+            &lt;/list&gt;
+        &lt;/property&gt;
+        &lt;property name="defaultEncoding" value="UTF-8"/&gt;
+        &lt;property name="cacheSeconds" value="60"/&gt;
+    &lt;/bean&gt;
+    
+    &lt;import resource="classpath*:com/avicit/resource/spring/spring-dao.xml"/&gt;
+
+&lt;/beans&gt;</pre><br/>&#13;
+<span style="white-space:pre"/><span style="white-space:pre"/><span style="white-space:pre"/>这一段配置也没有什么特别地方，加载jdbc.properties数据库配置和hiberate.properties配置文件、设置扫描Annotation注册Bean的包，但是下面有段配置可能不是很熟悉：&#13;
+<p/>&#13;
+<p/>&#13;
+<pre name="code" class="html">    &lt;context:component-scan base-package="com.avicit"&gt;
+        &lt;context:exclude-filter type="annotation" expression="org.springframework.stereotype.Controller"/&gt;
+    &lt;/context:component-scan&gt;</pre><br/>&#13;
+<span style="white-space:pre"/><span style="white-space:pre"/><span style="white-space:pre"/>这里设置了不扫描的Annotation的类型，这是因为org.springframework.stereotype.Controller是SpringMVC的控制器的注解，使用这个注解注册的Bean在SpringMVC容器启动的时候已经实例化了，所以在Spring容器里面就不需要进行实例化了。&#13;
+<p/>&#13;
+<h1><span style="white-space:pre"/>   整合SpringMVC</h1>&#13;
+<p><span style="white-space:pre"/></p>&#13;
+<p><span style="white-space:pre"/><span style="white-space:pre"/>在web.xml文件的配置中可以看到这么一段配置：</p>&#13;
+<p/>&#13;
+<pre name="code" class="html">    &lt;servlet&gt;
+        &lt;servlet-name&gt;spring-dispatcher&lt;/servlet-name&gt;
+        &lt;servlet-class&gt;org.springframework.web.servlet.DispatcherServlet&lt;/servlet-class&gt;
+           &lt;init-param&gt;
+			&lt;param-name&gt;contextConfigLocation&lt;/param-name&gt;
+			&lt;param-value&gt;classpath*:com/avicit/resource/spring/spring-dispather.xml&lt;/param-value&gt;
+        &lt;/init-param&gt;
+        &lt;load-on-startup&gt;1&lt;/load-on-startup&gt;
+    &lt;/servlet&gt;
+
+    &lt;servlet-mapping&gt;
+        &lt;servlet-name&gt;spring-dispatcher&lt;/servlet-name&gt;
+        &lt;url-pattern&gt;/&lt;/url-pattern&gt;
+    &lt;/servlet-mapping&gt;</pre><br/>&#13;
+<span style="white-space:pre"/>&#13;
+<p><span style="white-space:pre"/><span style="white-space:pre"/>这个就是SpringMVC的配置，配置SpringMVC的容器也可以说是调度器，下面看下spring-dispather.xml中的配置：</p>&#13;
+<p/>&#13;
+<pre name="code" class="html">&lt;beans xmlns="http://www.springframework.org/schema/beans"
+	xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:p="http://www.springframework.org/schema/p"
+	xmlns:context="http://www.springframework.org/schema/context"
+	xmlns:util="http://www.springframework.org/schema/util" xmlns:mvc="http://www.springframework.org/schema/mvc"
+	xsi:schemaLocation="
+        http://www.springframework.org/schema/util
+        http://www.springframework.org/schema/util/spring-util-3.1.xsd
+        http://www.springframework.org/schema/beans 
+        http://www.springframework.org/schema/beans/spring-beans-3.1.xsd
+        http://www.springframework.org/schema/context 
+        http://www.springframework.org/schema/context/spring-context-3.1.xsd
+        http://www.springframework.org/schema/mvc
+       http://www.springframework.org/schema/mvc/spring-mvc-3.1.xsd"&gt;
+
+	&lt;!-- 会自动注册了validator ConversionService --&gt;
+	&lt;mvc:annotation-driven validator="validator"
+		conversion-service="conversion-service" /&gt;
+
+	&lt;!-- 以下 validator ConversionService 在使用 mvc:annotation-driven 会 自动注册 --&gt;
+	&lt;bean id="validator"
+		class="org.springframework.validation.beanvalidation.LocalValidatorFactoryBean"&gt;
+		&lt;property name="providerClass" value="org.hibernate.validator.HibernateValidator" /&gt;
+		&lt;!-- 如果不加默认到 使用classpath下的 ValidationMessages.properties --&gt;
+		&lt;property name="validationMessageSource" ref="messageSource" /&gt;
+	&lt;/bean&gt;
+	&lt;bean id="conversion-service"
+		class="org.springframework.format.support.FormattingConversionServiceFactoryBean" /&gt;
+
+
+	&lt;!-- 开启controller注解支持 --&gt;
+	&lt;!-- 注：如果base-package=com.avicit 则注解事务不起作用 TODO 读源码 --&gt;
+	&lt;context:component-scan base-package="com.avicit"&gt;
+		&lt;context:include-filter type="annotation"
+			expression="org.springframework.stereotype.Controller" /&gt;
+		&lt;context:exclude-filter type="annotation"
+			expression="org.springframework.stereotype.Service" /&gt;
+	&lt;/context:component-scan&gt;
+
+	&lt;mvc:resources mapping="/**" location="/" /&gt;
+	&lt;mvc:interceptors&gt;
+		&lt;mvc:interceptor&gt;
+			&lt;mvc:mapping path="/*" /&gt;
+			&lt;bean
+				class="com.avicit.framework.interceptor.dispatcher.HandlerDispatcherContextInterceptor"&gt;&lt;/bean&gt;
+		&lt;/mvc:interceptor&gt;
+		&lt;mvc:interceptor&gt;
+			&lt;mvc:mapping path="/*" /&gt;
+			&lt;bean
+				class="com.avicit.framework.interceptor.pagination.HandlerPaginationInterceptor"&gt;&lt;/bean&gt;
+		&lt;/mvc:interceptor&gt;
+	&lt;/mvc:interceptors&gt;
+
+	&lt;mvc:view-controller path="/" view-name="forward:/index" /&gt;
+	&lt;!-- 当在web.xml 中 DispatcherServlet使用 &lt;url-pattern&gt;/&lt;/url-pattern&gt; 映射时，能映射静态资源 --&gt;
+
+	&lt;bean
+		class="org.springframework.web.servlet.mvc.annotation.DefaultAnnotationHandlerMapping" /&gt;
+
+	&lt;bean id="handlerAdapter"
+		class="org.springframework.web.servlet.mvc.annotation.AnnotationMethodHandlerAdapter"&gt;
+	&lt;/bean&gt;
+
+
+	&lt;bean
+		class="org.springframework.web.servlet.view.ContentNegotiatingViewResolver"&gt;
+		&lt;property name="mediaTypes"&gt;
+			&lt;map&gt;
+				&lt;entry key="json" value="application/json" /&gt;
+				&lt;entry key="xml" value="application/xml" /&gt;
+				&lt;entry key="html" value="text/html" /&gt;
+			&lt;/map&gt;
+		&lt;/property&gt;
+		&lt;property name="viewResolvers"&gt;
+			&lt;list&gt;
+				&lt;bean class="org.springframework.web.servlet.view.BeanNameViewResolver" /&gt;
+				&lt;bean class="org.springframework.web.servlet.view.UrlBasedViewResolver"&gt;
+					&lt;property name="viewClass" value="org.springframework.web.servlet.view.JstlView" /&gt;
+					&lt;property name="prefix" value="/" /&gt;
+					&lt;property name="suffix" value=".jsp" /&gt;
+				&lt;/bean&gt;
+			&lt;/list&gt;
+		&lt;/property&gt;
+	&lt;/bean&gt;
+
+	&lt;!-- 控制器异常处理 --&gt;
+	&lt;bean id="exceptionResolver"
+		class="org.springframework.web.servlet.handler.SimpleMappingExceptionResolver"&gt;
+		&lt;property name="exceptionMappings"&gt;
+			&lt;props&gt;
+				&lt;prop key="java.lang.Exception"&gt;
+					error
+				&lt;/prop&gt;
+			&lt;/props&gt;
+		&lt;/property&gt;
+	&lt;/bean&gt;
+
+&lt;/beans&gt;
+</pre><br/>&#13;
+<span style="white-space:pre"/>这一部分配置是依据官方来的文档来的，大家看看文档就可以明白这段配置，在这里就不赘述了。但是这里有很关键的一处配置是官方文档没有提到的，也是整合Hiberate4中关键的配置，如果没有配置Hibernate肯定跑不起来，这段配置：&#13;
+<p/>&#13;
+<p><span style="white-space:pre"/></p>&#13;
+<pre name="code" class="html">	&lt;!-- 开启controller注解支持 --&gt;
+	&lt;!-- 注：如果base-package=com.avicit 则注解事务不起作用 TODO 读源码 --&gt;
+	&lt;context:component-scan base-package="com.avicit"&gt;
+		&lt;context:include-filter type="annotation"
+			expression="org.springframework.stereotype.Controller" /&gt;
+		&lt;context:exclude-filter type="annotation"
+			expression="org.springframework.stereotype.Service" /&gt;
+	&lt;/context:component-scan&gt;</pre><span style="white-space:pre"/>&#13;
+<p/>&#13;
+<p><span style="white-space:pre"/><span style="white-space:pre"/>这里配置了扫描Controller，通过Controller注解注册的Bean是SpringMVC的控制器，但是为什么要排除Service注解呢？这是因为通过Service注册的Bean是要进行事务处理的。要生成动态代理进行事务控制，所以如果不排除的话，Service注册的Bean是不带事务处理的。所以在整合Hibernate的时候就会报没有事务的异常。</p>&#13;
+<h1>   整合Hibernate</h1>&#13;
+<p><span style="white-space:pre"/></p>&#13;
+<p><span style="white-space:pre"/>Hibernate在Spring中如何配置，也就是spring-dao.xml：</p>&#13;
+<p/>&#13;
+<pre name="code" class="html">&lt;?xml version="1.0" encoding="UTF-8"?&gt;
+&lt;beans xmlns="http://www.springframework.org/schema/beans"
+	xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:p="http://www.springframework.org/schema/p"
+	xmlns:context="http://www.springframework.org/schema/context"
+	xmlns:aop="http://www.springframework.org/schema/aop" xmlns:tx="http://www.springframework.org/schema/tx"
+
+	xsi:schemaLocation="
+        http://www.springframework.org/schema/beans http://www.springframework.org/schema/beans/spring-beans-3.0.xsd
+        http://www.springframework.org/schema/context  http://www.springframework.org/schema/context/spring-context-3.0.xsd
+        http://www.springframework.org/schema/aop http://www.springframework.org/schema/aop/spring-aop-3.0.xsd
+        http://www.springframework.org/schema/tx http://www.springframework.org/schema/tx/spring-tx-3.0.xsd"&gt;
+
+	&lt;bean id="dataSource" class="org.logicalcobwebs.proxool.ProxoolDataSource"&gt;
+		&lt;property name="alias" value="proxoolDataSource" /&gt;
+		&lt;property name="driver" value="${jdbc.driver}" /&gt;
+		&lt;property name="driverUrl" value="${jdbc.url}" /&gt;
+		&lt;property name="user" value="${jdbc.username}" /&gt;
+		&lt;property name="password" value="${jdbc.password}" /&gt;
+		&lt;property name="maximumConnectionCount" value="${jdbc.maximum.connection.count}" /&gt;
+		&lt;property name="minimumConnectionCount" value="${jdbc.minimum.connection.count}" /&gt;
+		&lt;property name="statistics" value="${jdbc.statistics}" /&gt;
+		&lt;property name="simultaneousBuildThrottle" value="${jdbc.simultaneous.build.throttle}" /&gt;
+	&lt;/bean&gt;
+
+	&lt;bean id="sessionFactory"
+		class="org.springframework.orm.hibernate4.LocalSessionFactoryBean"&gt;
+		&lt;property name="dataSource" ref="dataSource" /&gt;
+		&lt;property name="packagesToScan" value="com.avicit" /&gt;
+		&lt;property name="hibernateProperties"&gt;
+			&lt;props&gt;
+				&lt;prop key="hibernate.dialect"&gt;${hibernate.dialect}&lt;/prop&gt;
+				&lt;prop key="hibernate.show_sql"&gt;${hibernate.show_sql}&lt;/prop&gt;
+				&lt;prop key="hibernate.format_sql"&gt;true&lt;/prop&gt;
+				&lt;prop key="hibernate.query.substitutions"&gt;${hibernate.query.substitutions}&lt;/prop&gt;
+				&lt;prop key="hibernate.default_batch_fetch_size"&gt;${hibernate.default_batch_fetch_size}&lt;/prop&gt;
+				&lt;prop key="hibernate.max_fetch_depth"&gt;${hibernate.max_fetch_depth}&lt;/prop&gt;
+				&lt;prop key="hibernate.generate_statistics"&gt;${hibernate.generate_statistics}&lt;/prop&gt;
+				&lt;prop key="hibernate.bytecode.use_reflection_optimizer"&gt;${hibernate.bytecode.use_reflection_optimizer}&lt;/prop&gt;
+
+				&lt;prop key="hibernate.cache.use_second_level_cache"&gt;${hibernate.cache.use_second_level_cache}&lt;/prop&gt;
+				&lt;prop key="hibernate.cache.use_query_cache"&gt;${hibernate.cache.use_query_cache}&lt;/prop&gt;
+				&lt;prop key="hibernate.cache.region.factory_class"&gt;${hibernate.cache.region.factory_class}&lt;/prop&gt;
+				&lt;prop key="net.sf.ehcache.configurationResourceName"&gt;${net.sf.ehcache.configurationResourceName}&lt;/prop&gt;
+				&lt;prop key="hibernate.cache.use_structured_entries"&gt;${hibernate.cache.use_structured_entries}&lt;/prop&gt;
+			&lt;/props&gt;
+		&lt;/property&gt;
+	&lt;/bean&gt;
+
+	&lt;bean id="lookupResolver" class="com.avicit.framework.support.matchrule.context.HibernateMatchRuleResolver"&gt;
+		&lt;property name="packagesToScan" value="com.avicit.fes.*" /&gt;
+	&lt;/bean&gt;
+
+	&lt;!-- 开启AOP监听 只对当前配置文件有效 --&gt;
+	&lt;aop:aspectj-autoproxy expose-proxy="true" /&gt;
+
+	&lt;!-- 开启注解事务 只对当前配置文件有效 --&gt;
+	&lt;tx:annotation-driven transaction-manager="txManager" /&gt;
+
+	&lt;bean id="txManager"
+		class="org.springframework.orm.hibernate4.HibernateTransactionManager"&gt;
+		&lt;property name="sessionFactory" ref="sessionFactory" /&gt;
+	&lt;/bean&gt;
+
+	&lt;tx:advice id="txAdvice" transaction-manager="txManager"&gt;
+		&lt;tx:attributes&gt;
+			&lt;tx:method name="save*" propagation="REQUIRED" /&gt;
+			&lt;tx:method name="add*" propagation="REQUIRED" /&gt;
+			&lt;tx:method name="create*" propagation="REQUIRED" /&gt;
+			&lt;tx:method name="insert*" propagation="REQUIRED" /&gt;
+			&lt;tx:method name="update*" propagation="REQUIRED" /&gt;
+			&lt;tx:method name="merge*" propagation="REQUIRED" /&gt;
+			&lt;tx:method name="del*" propagation="REQUIRED" /&gt;
+			&lt;tx:method name="remove*" propagation="REQUIRED" /&gt;
+			&lt;tx:method name="put*" propagation="REQUIRED" /&gt;
+			&lt;tx:method name="use*" propagation="REQUIRED" /&gt;
+			&lt;!--hibernate4必须配置为开启事务 否则 getCurrentSession()获取不到 --&gt;
+			&lt;tx:method name="get*" propagation="REQUIRED" read-only="true" /&gt;
+			&lt;tx:method name="count*" propagation="REQUIRED" read-only="true" /&gt;
+			&lt;tx:method name="find*" propagation="REQUIRED" read-only="true" /&gt;
+			&lt;tx:method name="list*" propagation="REQUIRED" read-only="true" /&gt;
+			&lt;tx:method name="*" read-only="true" /&gt;
+		&lt;/tx:attributes&gt;
+	&lt;/tx:advice&gt;
+	&lt;aop:config expose-proxy="true"&gt;
+		&lt;!-- 只对业务逻辑层实施事务 --&gt;
+		&lt;aop:pointcut id="txPointcut"
+			expression="execution(* com.avicit..service..*.*(..))" /&gt;
+		&lt;aop:advisor advice-ref="txAdvice" pointcut-ref="txPointcut" /&gt;
+	&lt;/aop:config&gt;
+&lt;/beans&gt;
+</pre><br/>&#13;
+<p/>&#13;
+<p><span style="white-space:pre"/><span style="white-space:pre"/>Hibernate的配置跟Hibernate3没有很大的区别，唯一的区别就是所有的操作都必须开启事务。</p>&#13;
+<h1>   关于Ext的整合</h1>&#13;
+<p><span style="white-space:pre"/><span style="white-space:pre"/>Spring3＋Hibernate4的框架整合差不多，后面会写如何实现SpringMVC整合Ext，Ext的Grid组件提供了RESTful方式的访问而SpringMVC也支持这种访问。如何处理对Ext的分页，如何返回json数据给Ext，那才是更有意思的部分。</p>&#13;
+<p><img src="http://blog.csdn.net/leecho571/article/details/8042839" alt=""/><img src="http://img.my.csdn.net/uploads/201210/06/1349499358_2605.jpg" alt=""/><br/>&#13;
+</p>&#13;
+<p><span style="white-space:pre"/></p>&#13;
+<h1>   实例下载</h1>&#13;
+<p><a href="http://download.csdn.net/detail/leecho571/4619860"><span style="white-space:pre"/>http://download.csdn.net/detail/leecho571/4619860</a>实例下载<br/>&#13;
+</p>&#13;
+<p/>&#13;
+<link rel="stylesheet" href="http://static.blog.csdn.net/public/res-min/markdown_views.css?v=1.0"/>&#13;
+            

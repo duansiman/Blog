@@ -1,0 +1,89 @@
+
+
+<p align="center"><span style="font-family:KaiTi_GB2312; font-size:18px">本系列的目标读者，是熟知设计模式，能够<u>随手</u>给出该模式的Java演示代码的程序员。</span></p>&#13;
+<p align="center"><span style="font-family:KaiTi_GB2312; font-size:18px"> </span></p>&#13;
+<p>接<a target="_blank" href="http://blog.csdn.net/yqj2065/article/details/8566378"><span style="color:rgb(59,89,152)">2.2.2装配厂模式</span></a> </p>&#13;
+<p> </p>&#13;
+<h1><span style="color:rgb(255,0,0); font-size:18px"><strong>为什么产品没有抽象类</strong></span></h1>&#13;
+<p><strong>装配厂模式(builder pattern)</strong>的适用场景也是构建复杂产品，它包含多个成员变量表示的对象。例如美女是个复杂对象，由年龄(范围)、职业/profession、身高/len和肤色/complexion等数据描述。</p>&#13;
+<p></p>&#13;
+<pre name="code" class="java">例程 2 12抽象Builder
+package creational.builder;
+public abstract class MMBuilder{
+    public void setAge(int age){}//
+    public void setProfession(String profession ){}//职业
+    public void setSurface(String... s){};//外表
+}
+</pre>&#13;
+<p></p>&#13;
+<p>注意，比较伪建造者模式的例程2-9，抽象类如MMBuilder中<strong>没有</strong>定义返回产品的方法getResult()。原因是MMBuilder的两个子类分别是婚姻介绍所/MarriageBureau和画家/Painter，它们<strong><span style="color:#ff0000">按照相同的生产流程construct()或build()</span></strong>以自己的方式/方法挑选或创建产品，婚姻介绍所挑选出真实的MM对象，而画家创建一个卡通或美女肖像/Portrait。</p>&#13;
+<p>这就是[GoF·3.2.8]中回答“<strong><span style="color:#ff0000"><span style="font-size:18px">为什么产品没有抽象类</span></span></strong>”的原因。具体的build生产的产品差异太大，以至不构成产品族。抽象类MMBuilder并不知道最终的产品的类型，如果让它返回一个Object或某种标记接口没有意义。因而它不包含GetResult()这种工厂方法。</p>&#13;
+<p>抽象类MMBuilder中的方法均为空方法，作用如同Java GUI中的适配器，参考[3.1]中介绍的伪适配器模式。</p>&#13;
+由于按照相同的生产流程construct()生产，因而MM和Portrait的成员变量基本相似。这些数据的构想，来自于范伟的一句台词：“二十八，白领，大个，白”。<br />&#13;
+<br />&#13;
+<p align="center"><img alt="" src="http://img.my.csdn.net/uploads/201302/06/1360165827_7155.PNG" /></p>&#13;
+<p align="center">建造者模式-2<br />&#13;
+</p>&#13;
+<p>建造者模式的主要意义在于保证Director类的稳定。Director封装复杂对象的生成算法，而“<span style="font-size:24px; color:rgb(51,0,51)"><strong>算法应该独立于该对象的组成部分以及它们的装配方式</strong></span>”。</p>&#13;
+<p></p>&#13;
+<pre name="code" class="java">package creational.builder;
+/**
+ * 
+ * @author yqj2065
+ * @version 0.1
+ */
+public class MMDirector{
+    private MMBuilder builder;
+    public MMDirector(MMBuilder builder){
+        this.builder =builder;
+    }
+    public void build(int age1,int age2,String profession,String len,String complexion){
+        builder.setAge(age1);
+        builder.setAge(age2);
+        builder.setProfession(profession);
+        builder.setSurface(len,complexion);
+    }
+}</pre><br />&#13;
+<br />&#13;
+<p></p>&#13;
+<p>因此，可以为Director的算法配置不同的具体builder而生成不同的对象如MM对象或肖像/Portrait对象；也可以由多个复杂对象的生成算法如Director、Director2共享同一个builder以复用对象的装配方式。</p>&#13;
+<p>在这种建造者模式的场景中，Client要依赖Director、各种具体builder以及各种产品。</p>&#13;
+<pre class="java" name="code">package 建造者模式;
+
+/**
+ * Client.java.
+ * 
+ * @author yqj2065
+ * @version 0.1
+ */
+public class Client{
+    public static void test(){
+        MarriageBureau builder = new MarriageBureau();
+        MMDirector director = new MMDirector(builder);
+        director.build(28,30,"白领","大个","白");
+        MM mm =builder.getMM();
+        mm.say();
+        
+        Painter b = new Painter();
+        MMDirector d = new MMDirector(b);
+        d.build(28,30,"白领","大个","白");
+        Portrait mm2 =b.getPortrait();
+        mm2.copy();
+        mm2.copy();
+        System.out.println(mm2.toString());
+    }    
+}</pre>&#13;
+<p><br />&#13;
+输出：<br />&#13;
+我是MM，28~ 30 白领 大个 白<br />&#13;
+我是相片0<br />&#13;
+我是相片1<br />&#13;
+28 白领 大个 白<br />&#13;
+</p>&#13;
+<p> </p>&#13;
+<p>从中你要充分注意Director类的作用。建造者模式(builder pattern)的主要意义在于保证<strong><span style="color:#990000">Director类的稳定</span></strong>，</p>&#13;
+<p>而产品可以是标具体的建造者创建的美女对象或美女相片对象（非产品族）。装配方式由具体的建造者封装。</p>&#13;
+<p>  </p>&#13;
+<p><a target="_blank" href="http://blog.csdn.net/yqj2065/article/details/8592375" style="text-align:center"><img src="http://img.blog.csdn.net/20140919170809965?watermark/2/text/aHR0cDovL2Jsb2cuY3Nkbi5uZXQveXFqMjA2NQ==/font/5a6L5L2T/fontsize/400/fill/I0JBQkFCMA==/dissolve/70/gravity/SouthEast" alt="" /></a><br />&#13;
+</p>&#13;
+   &#13;

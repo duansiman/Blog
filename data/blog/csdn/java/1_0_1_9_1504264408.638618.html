@@ -1,0 +1,225 @@
+
+        <div class="markdown_views"><h1 id="外观模式"><center> 外观模式</center></h1>
+
+<p>标签 ： Java与设计模式</p>
+
+<hr />
+
+<blockquote>
+  <p>外观模式: 又称<strong>门面模式</strong>: <strong>外观Facade</strong>为子系统的一组接口提供一个<strong>一致界面</strong>,使得这组子系统易于使用(通过引入一个新的<strong>外观角色</strong>降低原系统复杂度,同时降低客户类与子系统的耦合度). <br />
+  <img src="http://7xrgh9.com1.z0.glb.clouddn.com/16-9-1/57042551.jpg" alt="" title="" /> <br />
+  图片来源: <a href="https://book.douban.com/subject/1052241/">设计模式: 可复用面向对象软件的基础</a>.</p>
+</blockquote>
+
+<hr />
+
+
+
+<h2 id="实现">实现</h2>
+
+<pre><code>案例需求: 租房
+</code></pre>
+
+<p>有过自己找房租房经历的同学能够体会得到找房是件很痛苦的事, 不光要挨个小区跑而且还要跟(二)房东讨价还价. 于是后来学聪明了, 不再自己挨门挨户的磨嘴皮子, 而是直接找像<em>链家</em>、<em>我爱我家</em>这样的房屋中介, 他们手上握有一定的房源, 我们只需付给他们一笔佣金, 他们便可以代我们跟房东讲价, 而且他们大都很专业, 省时间又省钱. 此时<strong>房屋中介</strong>就是一个<strong>外观Facade</strong>, 而房屋的出租户就是<strong>子系统SubSystem</strong>: <br />
+<img src="http://7xrgh9.com1.z0.glb.clouddn.com/16-8-23/86975454.jpg" alt="" title="" /></p>
+
+<ul>
+<li>Facade <br />
+
+
+<blockquote>
+  外观类: <strong>知道哪些子系统负责处理请求</strong>, 将客户的请求代理给适当的子系统对象:</blockquote></li>
+  </ul>
+  
+
+
+<pre class="prettyprint"><code class=" hljs cs"><span class="hljs-keyword">public</span> <span class="hljs-keyword">class</span> MediumFacade {
+
+    <span class="hljs-keyword">private</span> CuiYuanApartment cuiyuan;
+
+    <span class="hljs-keyword">private</span> XiXiApartment xixi;
+
+    <span class="hljs-keyword">private</span> XiHuApartment xihu;
+
+    <span class="hljs-keyword">public</span> <span class="hljs-title">MediumFacade</span>() {
+        cuiyuan = <span class="hljs-keyword">new</span> CuiYuanApartment(<span class="hljs-string">"翠苑小区"</span>, <span class="hljs-number">900</span>, <span class="hljs-number">1</span>);
+        xixi = <span class="hljs-keyword">new</span> XiXiApartment(<span class="hljs-string">"西溪花园"</span>, <span class="hljs-number">1200</span>, <span class="hljs-number">1</span>);
+        xihu = <span class="hljs-keyword">new</span> XiHuApartment(<span class="hljs-string">"西湖小区"</span>, <span class="hljs-number">2600</span>, <span class="hljs-number">1</span>);
+    }
+
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">void</span> <span class="hljs-title">rentingHouse</span>(<span class="hljs-keyword">double</span> price) {
+        <span class="hljs-comment">// 价钱合适而且有房可组</span>
+        <span class="hljs-keyword">if</span> (price &gt;= cuiyuan.getPrice() &amp;&amp; cuiyuan.getStatus() != <span class="hljs-number">0</span>) {
+            System.<span class="hljs-keyword">out</span>.println(<span class="hljs-string">"预订"</span> + cuiyuan.getLocation());
+            cuiyuan.setStatus(<span class="hljs-number">0</span>);
+        } <span class="hljs-keyword">else</span> <span class="hljs-keyword">if</span> (price &gt;= xixi.getPrice() &amp;&amp; xixi.getStatus() != <span class="hljs-number">0</span>) {
+            System.<span class="hljs-keyword">out</span>.println(<span class="hljs-string">"预订"</span> + xixi.getLocation());
+            xixi.setStatus(<span class="hljs-number">0</span>);
+        } <span class="hljs-keyword">else</span> <span class="hljs-keyword">if</span> (price &gt;= xihu.getPrice() &amp;&amp; xihu.getStatus() != <span class="hljs-number">0</span>) {
+            System.<span class="hljs-keyword">out</span>.println(<span class="hljs-string">"预订"</span> + xihu.getLocation());
+            xihu.setStatus(<span class="hljs-number">0</span>);
+        } <span class="hljs-keyword">else</span> {
+            System.<span class="hljs-keyword">out</span>.println(<span class="hljs-string">"出价太低/没有房源 ..."</span>);
+        }
+    }
+}</code></pre>
+
+
+
+<ul>
+<li>SubSystem <br />
+
+
+<blockquote>
+  子系统集合: 实现子系统功能, 处理<strong>Facade对象</strong>指派的任务(注意子系统内没有任何<strong>Facade</strong>信息,即没有任何<strong>Facade对象</strong>引用):</blockquote></li>
+  </ul>
+  
+
+
+<pre class="prettyprint"><code class=" hljs java"><span class="hljs-javadoc">/**
+ *<span class="hljs-javadoctag"> @author</span> jifang
+ *<span class="hljs-javadoctag"> @since</span> 16/8/23 上午10:12.
+ */</span>
+<span class="hljs-keyword">public</span> <span class="hljs-class"><span class="hljs-keyword">class</span> <span class="hljs-title">XiHuApartment</span> {</span>
+
+    <span class="hljs-keyword">private</span> String location;
+
+    <span class="hljs-keyword">private</span> <span class="hljs-keyword">double</span> price;
+
+    <span class="hljs-keyword">private</span> <span class="hljs-keyword">int</span> status;
+
+    <span class="hljs-keyword">public</span> <span class="hljs-title">XiHuApartment</span>(String location, <span class="hljs-keyword">double</span> price, <span class="hljs-keyword">int</span> status) {
+        <span class="hljs-keyword">this</span>.location = location;
+        <span class="hljs-keyword">this</span>.price = price;
+        <span class="hljs-keyword">this</span>.status = status;
+    }
+
+    <span class="hljs-keyword">public</span> String <span class="hljs-title">getLocation</span>() {
+        <span class="hljs-keyword">return</span> location;
+    }
+
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">double</span> <span class="hljs-title">getPrice</span>() {
+        <span class="hljs-keyword">return</span> price;
+    }
+
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">int</span> <span class="hljs-title">getStatus</span>() {
+        <span class="hljs-keyword">return</span> status;
+    }
+
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">void</span> <span class="hljs-title">setStatus</span>(<span class="hljs-keyword">int</span> status) {
+        <span class="hljs-keyword">this</span>.status = status;
+    }
+}
+
+class XiXiApartment {
+    <span class="hljs-keyword">private</span> String location;
+
+    <span class="hljs-keyword">private</span> <span class="hljs-keyword">double</span> price;
+
+    <span class="hljs-keyword">private</span> <span class="hljs-keyword">int</span> status;
+
+    <span class="hljs-keyword">public</span> <span class="hljs-title">XiXiApartment</span>(String location, <span class="hljs-keyword">double</span> price, <span class="hljs-keyword">int</span> status) {
+        <span class="hljs-keyword">this</span>.location = location;
+        <span class="hljs-keyword">this</span>.price = price;
+        <span class="hljs-keyword">this</span>.status = status;
+    }
+
+    <span class="hljs-keyword">public</span> String <span class="hljs-title">getLocation</span>() {
+        <span class="hljs-keyword">return</span> location;
+    }
+
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">double</span> <span class="hljs-title">getPrice</span>() {
+        <span class="hljs-keyword">return</span> price;
+    }
+
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">int</span> <span class="hljs-title">getStatus</span>() {
+        <span class="hljs-keyword">return</span> status;
+    }
+
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">void</span> <span class="hljs-title">setStatus</span>(<span class="hljs-keyword">int</span> status) {
+        <span class="hljs-keyword">this</span>.status = status;
+    }
+}
+
+class CuiYuanApartment {
+
+    <span class="hljs-keyword">private</span> String location;
+
+    <span class="hljs-keyword">private</span> <span class="hljs-keyword">double</span> price;
+
+    <span class="hljs-keyword">private</span> <span class="hljs-keyword">int</span> status;
+
+    <span class="hljs-keyword">public</span> <span class="hljs-title">CuiYuanApartment</span>(String location, <span class="hljs-keyword">double</span> price, <span class="hljs-keyword">int</span> status) {
+        <span class="hljs-keyword">this</span>.location = location;
+        <span class="hljs-keyword">this</span>.price = price;
+        <span class="hljs-keyword">this</span>.status = status;
+    }
+
+    <span class="hljs-keyword">public</span> String <span class="hljs-title">getLocation</span>() {
+        <span class="hljs-keyword">return</span> location;
+    }
+
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">double</span> <span class="hljs-title">getPrice</span>() {
+        <span class="hljs-keyword">return</span> price;
+    }
+
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">int</span> <span class="hljs-title">getStatus</span>() {
+        <span class="hljs-keyword">return</span> status;
+    }
+
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">void</span> <span class="hljs-title">setStatus</span>(<span class="hljs-keyword">int</span> status) {
+        <span class="hljs-keyword">this</span>.status = status;
+    }
+}</code></pre>
+
+
+
+<ul>
+<li>Client <br />
+这样, Client只需跟一个房屋中介联系并给出我们的报价, 他们便会帮我们联系所有符合的房东:</li>
+</ul>
+
+
+
+<pre class="prettyprint"><code class=" hljs cs"><span class="hljs-keyword">public</span> <span class="hljs-keyword">class</span> Client {
+
+    @Test
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">void</span> <span class="hljs-title">client</span>() {
+        MediumFacade facade = <span class="hljs-keyword">new</span> MediumFacade();
+        facade.rentingHouse(<span class="hljs-number">800</span>);
+    }
+}</code></pre>
+
+<hr />
+
+
+
+<h2 id="小结">小结</h2>
+
+<blockquote>
+  <p>有过面向对象开发经验的同学 即使没有听说过<strong>外观模式</strong>, 也完全有可能使用过他, 因为他完美的体现了<strong>依赖倒转原则</strong>和<strong>迪米特法则</strong>的思想, 是非常常用的模式之一.</p>
+</blockquote>
+
+<ul>
+<li>使用 <br />
+<img src="http://7xrgh9.com1.z0.glb.clouddn.com/16-8-23/71265005.jpg" alt="" title="" /> <br />
+<ul><li>首先 在设计初期, 应该有意识的进行层次分离, 比如经典的三层架构, 层与层之间建立<strong>Facade</strong>, 这样可以为复杂的子系统提供一个简单的接口, 使耦合度大大降低.</li>
+<li>其次 在开发阶段, 子系统往往因为不断的重构而变得越来越复杂, 增加<strong>Facade</strong>可以提供一个简单的接口, 减少模块间依赖.</li>
+<li>第三 在维护一个遗留系统时, 可能这个系统已经非常难以维护和扩展了, 但因为它包含非常重要的功能, <strong>新的需求必须依赖它</strong>, 此时可以为新系统开发一个<strong>Facade</strong>, 为设计粗糙或高复杂度的遗留代码提供一个的比较<strong>清晰简单</strong>的接口, 让新系统与<strong>Facade</strong>交互, 而<strong>Facade</strong>与遗留代码交互所有繁杂的工作.</li></ul></li>
+</ul>
+
+<hr /></div>&#13;
+        <script type="text/javascript">&#13;
+            $(function () {&#13;
+                $('pre.prettyprint code').each(function () {&#13;
+                    var lines = $(this).text().split('\n').length;&#13;
+                    var $numbering = $('&lt;ul/&gt;').addClass('pre-numbering').hide();&#13;
+                    $(this).addClass('has-numbering').parent().append($numbering);&#13;
+                    for (i = 1; i &lt;= lines; i++) {&#13;
+                        $numbering.append($('&lt;li/&gt;').text(i));&#13;
+                    };&#13;
+                    $numbering.fadeIn(1700);&#13;
+                });&#13;
+            });&#13;
+        </script>&#13;
+   &#13;

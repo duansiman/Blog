@@ -1,0 +1,259 @@
+
+
+<p><span style="font-size:18px">       在上篇博客中，大家和我一起研究了AOP的基本实现，但是，也给大家遗留了很多问题，在这篇博客，咱们一起研究如何针对这些问题进行持续的优化，看看在咱们的手里，AOP会成长为一个什么样的东西！</span></p>&#13;
+<h1><span style="font-size:18px">回顾：</span></h1>&#13;
+<p><span style="font-size:18px">看看上篇博客中，咱们一起实现的AOP类图：</span></p>&#13;
+<p><span style="font-size:18px"><img src="http://img.blog.csdn.net/20150531135032627?watermark/2/text/aHR0cDovL2Jsb2cuY3Nkbi5uZXQveHZzaHU=/font/5a6L5L2T/fontsize/400/fill/I0JBQkFCMA==/dissolve/70/gravity/Center" alt="" /><br />&#13;
+</span></p>&#13;
+<p><span style="font-size:18px"><br />&#13;
+</span></p>&#13;
+<p><span style="font-size:18px">咱们看看在CGLIB类里的问题</span></p>&#13;
+<p></p>&#13;
+<pre code_snippet_id="679747" snippet_file_name="blog_20150531_1_2666852" name="code" class="java">&lt;span style="font-size:18px;"&gt;public class CGLibDynamicProxy implements MethodInterceptor {  
+ 
+    private static CGLibDynamicProxy instance = new CGLibDynamicProxy();  
+ 
+    
+    private CGLibDynamicProxy() {  
+    }  
+ 
+    public static CGLibDynamicProxy getInstance() {  
+        return instance;  
+    }  
+ 
+    @SuppressWarnings("unchecked")  
+    public &lt;T&gt; T getProxy(Class&lt;T&gt; cls) {  
+        return (T) Enhancer.create(cls, this);  
+    }  
+ 
+    @Override 
+    public Object intercept(Object target, Method method, Object[] args, MethodProxy proxy) throws Throwable {  
+        before();  
+        Object result = proxy.invokeSuper(target, args);  
+        after();  
+        return result;  
+    }  
+ 
+  private void before() {  
+        System.out.println("Before");  
+    }  
+ 
+    private void after() {  
+        System.out.println("After");  
+    } 
+	
+	
+}</pre>&#13;
+<p></p>&#13;
+<p><span style="font-size:18px"><br />&#13;
+</span></p>&#13;
+<h1><span style="font-size:18px">1，扩展服务</span></h1>&#13;
+<span style="font-size:18px"><br />&#13;
+        这样我们的扩展就会变得困难，大家试想一下这个场景，我们写好的业务，需要增加一个功能，就要写一个代理类，功能的变化，也必须修改代码，这就给我们的代码维护带来了很大的负担！如果我们要第一次要扩展2个方法，写了代理，下一次扩展3个，写了代理，下一次扩展1个写了代理，下一次不想要第一次的第2个方法了，怎么办？的确，这样的维护，是我们不想看到的，所以，我们将扩展的公共服务放到了一个容器中，大家看类图：</span>&#13;
+<p><span style="font-size:18px"><img src="http://img.blog.csdn.net/20150531140414748?watermark/2/text/aHR0cDovL2Jsb2cuY3Nkbi5uZXQveHZzaHU=/font/5a6L5L2T/fontsize/400/fill/I0JBQkFCMA==/dissolve/70/gravity/Center" alt="" /><br />&#13;
+</span></p>&#13;
+<p><span style="font-size:18px"><br />&#13;
+</span></p>&#13;
+<h2><span style="font-size:18px">1.1封装公共服务类：</span></h2>&#13;
+<p></p>&#13;
+<pre code_snippet_id="679747" snippet_file_name="blog_20150531_2_1766708" name="code" class="java">&lt;span style="font-size:18px;"&gt;public class ProxyMehds  {
+	//盛放方法执行前的对象的容器
+	private  HashMap&lt;String,Object&gt; beforBeans;
+    private  HashMap&lt;String,Object&gt; afterBeans;
+	
+    //配制方法执行前要执行哪些方法
+	private  HashMap&lt;String,String&gt; beforMethods;
+    private  HashMap&lt;String,String&gt; afterMethods;
+    
+    @Override
+    public void beforeBean()  {  
+    	
+    	
+    	try{
+    		
+    	
+	    	for (HashMap.Entry&lt;String, Object&gt; entry : beforBeans.entrySet()) {
+	
+	    	    String objectKey = entry.getKey();
+	    	    Object objectValure = entry.getValue();
+	    	    Method beforMehod = objectValure.getClass().getMethod(beforMethods.get(objectKey));
+	    	    beforMehod.invoke(objectValure);
+	
+	    	}
+    	
+    	}catch(Exception ex){
+    		ex.printStackTrace();
+    	}
+    	//Method sAge = c.getMethod("setAge");
+    }  
+ 
+    @Override
+    public void afterBean() {  
+    
+    	try{
+    		
+    	
+	    	for (HashMap.Entry&lt;String, Object&gt; entry : afterBeans.entrySet()) {
+	
+	    	    String objectKey = entry.getKey();
+	    	    Object objectValure = entry.getValue();
+	    	    Method beforMehod = objectValure.getClass().getMethod(afterMethods.get(objectKey));
+	    	    beforMehod.invoke(objectValure);
+	
+	    	}
+    	
+    	}catch(Exception ex){
+    		ex.printStackTrace();
+    	}
+    	
+    	
+    }
+
+	public HashMap&lt;String, Object&gt; getBeforBeans() {
+		return beforBeans;
+	}
+
+	public void setBeforBeans(HashMap&lt;String, Object&gt; beforBeans) {
+		this.beforBeans = beforBeans;
+	}
+
+	public HashMap&lt;String, Object&gt; getAfterBeans() {
+		return afterBeans;
+	}
+
+	public void setAfterBeans(HashMap&lt;String, Object&gt; afterBeans) {
+		this.afterBeans = afterBeans;
+	}
+
+	public HashMap&lt;String, String&gt; getBeforMethods() {
+		return beforMethods;
+	}
+
+	public void setBeforMethods(HashMap&lt;String, String&gt; beforMethods) {
+		this.beforMethods = beforMethods;
+	}
+
+	public HashMap&lt;String, String&gt; getAfterMethods() {
+		return afterMethods;
+	}
+
+	public void setAfterMethods(HashMap&lt;String, String&gt; afterMethods) {
+		this.afterMethods = afterMethods;
+	}
+
+	
+}&lt;/span&gt;</pre><span style="font-size:18px"><br />&#13;
+</span>&#13;
+<p></p>&#13;
+<h2><span style="font-size:18px">1.2封装代理类：</span></h2>&#13;
+<p></p>&#13;
+<p></p>&#13;
+<pre code_snippet_id="679747" snippet_file_name="blog_20150531_3_1672576" name="code" class="java">&lt;span style="font-size:18px;"&gt;public class CGLibDynamicProxy implements MethodInterceptor {  
+ 
+    private static CGLibDynamicProxy instance = new CGLibDynamicProxy();  
+ 
+    private ProxyMehds proxyMehds;
+    
+    
+    
+    private CGLibDynamicProxy() {  
+    }  
+ 
+    public static CGLibDynamicProxy getInstance() {  
+        return instance;  
+    }  
+ 
+    @SuppressWarnings("unchecked")  
+    public &lt;T&gt; T getProxy(Class&lt;T&gt; cls) {  
+        return (T) Enhancer.create(cls, this);  
+    }  
+ 
+    
+    
+    @Override 
+    public Object intercept(Object target, Method method, Object[] args, MethodProxy proxy) throws Throwable {  
+    	proxyMehds.beforeBean();  
+        Object result = proxy.invokeSuper(target, args);  
+        proxyMehds.afterBean();  
+        System.out.println("");
+        
+        return result;  
+    }
+
+	public ProxyMehds getProxyMehds() {
+		return proxyMehds;
+	}
+
+	public void setProxyMehds(ProxyMehds proxyMehds) {
+		this.proxyMehds = proxyMehds;
+	}  
+ 
+    
+    
+}&lt;/span&gt;</pre>&#13;
+<p></p>&#13;
+<h2><span style="font-size:18px">1.3服务类：</span></h2>&#13;
+<p></p>&#13;
+<p></p>&#13;
+<pre code_snippet_id="679747" snippet_file_name="blog_20150531_4_6038547" name="code" class="java">&lt;span style="font-size:18px;"&gt;public class AspectClass1 {
+	public void SayHello(){
+		System.out.println("This is AspectClass1.SayHello!");
+	}
+}&lt;/span&gt;</pre><span style="font-size:18px"><br />&#13;
+<br />&#13;
+</span>&#13;
+<p></p>&#13;
+<p><span style="font-size:18px"><br />&#13;
+</span></p>&#13;
+<h2><span style="font-size:18px">1.4客户端：</span></h2>&#13;
+<p></p>&#13;
+<pre code_snippet_id="679747" snippet_file_name="blog_20150531_5_8943038" name="code" class="java">&lt;span style="font-size:18px;"&gt;public class Client {
+	public static void main(String[] args) { 
+		
+		HashMap&lt;String,Object&gt; beforBeans;
+	    HashMap&lt;String,Object&gt; afterBeans;
+		
+		HashMap&lt;String,String&gt; beforMethods;
+	    HashMap&lt;String,String&gt; afterMethods;
+	    
+	    beforMethods=new HashMap();
+    	beforBeans=new HashMap();
+    	beforBeans.put("AspectClass1", new AspectClass1());
+    	
+    	beforMethods.put("AspectClass1", "SayHello");
+    	beforMethods.put("AspectClass2", "SayGoodBye");
+    	
+    	afterMethods=new HashMap();
+    	afterBeans=new HashMap();
+    	afterBeans.put("AspectClass3", new AspectClass3());
+    	afterBeans.put("AspectClass4", new AspectClass4());
+    	afterMethods.put("AspectClass3", "SayHi");
+    	afterMethods.put("AspectClass4", "Eat");
+    	
+    	ProxyMehds proxyMehds =new ProxyMehds();
+    	proxyMehds.setBeforBeans(beforBeans);
+    	proxyMehds.setBeforMethods(beforMethods);
+    	proxyMehds.setAfterBeans(afterBeans);
+    	proxyMehds.setAfterMethods(afterMethods);
+    	
+		//实例代理类
+        CGLibDynamicProxy cglib =CGLibDynamicProxy.getInstance();
+        
+        //接受切面
+        cglib.setProxyMehds(proxyMehds);
+        
+        //接受要代理的对象
+        Greeting greeting = cglib.getProxy(GreetingImpl.class);
+        
+        //执行对象的某个方法
+        greeting.sayHello("Jack");  
+    } 
+}&lt;/span&gt;</pre><span style="font-size:18px"><br />&#13;
+</span>&#13;
+<p></p>&#13;
+<h1><span style="font-size:18px">总结：</span></h1>&#13;
+<p></p>&#13;
+<p><span style="font-size:18px">        这样封装之后的好处是什么呢，就是我们的服务不再固定，而是在代理中定义了一个空壳子，这样每次使用，都是复用的空壳子，也是我们常说的框架，而后期的服务类是后加入的，在客户端动态初始化制定的，这样我们的扩展就变得方便，写好一个类，我们就可以直接配置下xml（类似于客户端的组装）就可以实现这样的功能！让功能的扩充变得简单！<br />&#13;
+        在代码的实现上，功能实现是编写代码的第一步，而我们的大多程序员都做到了第一步，想要获得更高的薪水，就要有些和其他人不一样的东西，那么，这时候，业务来理解水平，抽象能力，实现能力，优化能力，逐渐在以后的晋升中起到至关重要的作用，而这些能力有一个公共的父类，就是全局观，在全局上考虑问题，包含时间与空间两个方向，当时间长了，变化怎么办？人数多了，数据量大了怎么办？</span></p>&#13;
+<p><span style="font-size:18px">        成为一个优秀的架构人员，我们要学习的还有很多！</span></p>&#13;
+   &#13;

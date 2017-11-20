@@ -1,0 +1,248 @@
+
+
+<p>        前面已经大概的分析了下高速缓存区相关知识，这里再来分析下几个重要的函数；</p>&#13;
+<p>        1、清缓存：把缓存区数据和设备进行同步</p>&#13;
+<p>        sys_sync(void)函数：首先把i节点从内存中写入到缓存块中（ 把i节点写入缓存块函数：sync_inodes(void)，从内存inode_table[]  i节点数组中扫描修改过的i节点，然后根据i节点号把所处的整块逻辑块都读取到缓存块中，接着把内存中修改过的i节点存放到缓存块相应位置）；扫描缓存区中所有缓存头结构，如果已经修改过就发出设备写请求，就会把修改过的缓存块写入到设备磁盘块中；</p>&#13;
+<p>        sync_dev(int dev)函数是对指定的块设备进行数据同步，而上面的是对所有缓存区进行数据同步，因为两个清缓存函数类似，所以就挑一个具有代表性的分析下：</p>&#13;
+<p></p>&#13;
+<pre name="code" class="cpp">//对指定设备进行高速缓存区数据和设备上数据进行同步
+//这里采用先让修改的缓存数据和设备块数据同步，
+//然后把i节点写入到高速缓存区中，最后再次让缓存区和设备块数据同步。
+//这样做是，第一次同步，可以把脏块同步干净，然后把i节点写入高速缓存区中，
+//这时候同步i节点就变的简单了。最后同步i节点和因为i节点写入而变脏的块
+int sync_dev(int dev)
+{
+	int i;
+	struct buffer_head * bh;
+
+	bh = start_buffer;//得到缓存区开始地址
+	for (i=0 ; i&lt;NR_BUFFERS ; i++,bh++) {//扫描所有的缓存头
+		if (bh-&gt;b_dev != dev)//判断是否为指定的设备
+			continue;
+		wait_on_buffer(bh);//检查是否有锁
+		if (bh-&gt;b_dev == dev &amp;&amp; bh-&gt;b_dirt)//因为上一步很可能要等待解锁，在这期间缓存块可能被修改，所以最好要再次判断
+			ll_rw_block(WRITE,bh);//调用写请求函数
+	}
+	sync_inodes();//把内存中改变过的i节点写入到缓存区中
+	bh = start_buffer;//步骤和上面一样
+	for (i=0 ; i&lt;NR_BUFFERS ; i++,bh++) {
+		if (bh-&gt;b_dev != dev)
+			continue;
+		wait_on_buffer(bh);
+		if (bh-&gt;b_dev == dev &amp;&amp; bh-&gt;b_dirt)
+			ll_rw_block(WRITE,bh);
+	}
+	return 0;
+}</pre>&#13;
+<p></p>&#13;
+<p><br />&#13;
+</p>&#13;
+        2、缓存块插入到双链表/hash链表中，从双链表/hash链表中删除缓存块&#13;
+<p>        static inline void remove_from_queues(struct buffer_head * bh)；从链表中删除缓存块，这没有什么技巧，都是些简单的链表操作；重点看下插入链表，先调整双链表，这里把插入的缓存块放到链表最后，所以会有：越靠近free_list指针的缓存头就越久没有使用（到时候查找空闲缓存头时就更有效率）；然后再调整下hash链表，这个hash链表不是一一映射的，而是hash链表（或者说hash数组表），可以查看下：<a target="_blank" href="http://blog.csdn.net/yuzhihui_no1/article/details/43677663">http://blog.csdn.net/yuzhihui_no1/article/details/43677663</a></p>&#13;
+<p></p>&#13;
+<pre name="code" class="cpp">//将指定缓冲区插入空闲链表尾并放入hash队列中
+static inline void insert_into_queues(struct buffer_head * bh)
+{
+/* put at end of free list；  放到空闲链表尾部，free_list是头指针*/
+	bh-&gt;b_next_free = free_list;
+	bh-&gt;b_prev_free = free_list-&gt;b_prev_free;
+	free_list-&gt;b_prev_free-&gt;b_next_free = bh;
+	free_list-&gt;b_prev_free = bh;
+/* put the buffer in new hash-queue if it has a device */
+//如果他是个块设备，那么插入新hash队列中
+	bh-&gt;b_prev = NULL;
+	bh-&gt;b_next = NULL;
+	if (!bh-&gt;b_dev)//判断是否是块设备
+		return;
+	//这个hash队列的插入是从头开始插入的；如果要从尾部插入，则要循环判断到位null
+	bh-&gt;b_next = hash(bh-&gt;b_dev,bh-&gt;b_blocknr);//插入到得到的hash值队列的第一块，也就是首地址
+	hash(bh-&gt;b_dev,bh-&gt;b_blocknr) = bh;//hash组指针要指向对应hash值队列
+	bh-&gt;b_next-&gt;b_prev = bh;//处理bh第一个hash项的前指针
+}</pre><br />&#13;
+        3、查找缓存块号&#13;
+<p></p>&#13;
+<p>        查找缓存块号基本是使用hash方法来得到的，因为hash方法就像查字典一样，经过几个步骤后就能很快的查找到；而双链表必须要一个个的去匹配，就像从字典的第一页开始一样一页一页的查看，效率明显低很多；</p>&#13;
+<p>        <span style="background-color:rgb(255,255,51)">注：find_buffer(int dev, int block)和get_hash_table(int dev, int block)这两个函数都是在查找已经存在的缓存块（根据设备号和逻辑块号可以查找到），而getblk(int dev, int block)函数是先查找是否已经存放，如果不存在就会从双链表中获取个空闲缓存块，然后进行设置，并且放入到hash链表中；</span></p>&#13;
+<p>        find_buffer(int dev, int block)函数，这个函数主要是让设备号dev和逻辑块号block通过hash()函数来得到hash链表头节点，然后遍历整个链表来得到具体的某个缓存块。注意hash()函数得到的是一类缓存块，而不是具体的某个缓存块，也所以是hash链表而不是hash表，这是个基础函数（所谓基础函数就是用来被其他函数包装调用的），只负责查找到具体的缓存块，而不管该缓存块是否被使用，或者上锁。</p>&#13;
+<p>        get_hash_table(int dev, int block)函数，是包装了上面的find_buffer()函数得到的。先通过find_buff()函数得到缓存头，然后对缓存块引用，再等待该缓存块解锁，再次判断是否是想要的缓存块（因为等待解锁期间，可能会有进程对缓存块修改），如果缓存头结构没变，那返回缓存头结构；如果变了，递减引用，重新再查找。函数中用了一个死循环（搞不懂用死循环为什么不用while(1)，而是用for(;;)，个人感觉用while(1)通俗易懂），把上面一系列操作都放在死循环中，“要么死掉，要么找到”&#13;
+ 这函数太执著了。</p>&#13;
+<p>        下面才是终极查找缓存块号函数（《爱情公寓》中吕子乔的经典台词：终极.....）getblk(int dev, int block)，这个函数设计的非常好，多次判断，最后得到一个干净的空闲缓存块。还有个我觉得很好的就是他设计了权重：锁的权重为1，修改标志的权重为2，如果上锁了就等待下所以花的时间少；但如果修改过了，那得和设备数据同步（向块设备上写数据是比较慢的），完了后还得再判断下是否上锁；所以最后再没有完全干净（引用为0，干净，不上锁）的情况下，找到一个综合权重小的也是个不错选择。</p>&#13;
+<p></p>&#13;
+<pre name="code" class="cpp"> //同时判断缓存区的修改标志和锁定标志，并且定义修改标志权重比锁标志大
+#define BADNESS(bh) (((bh)-&gt;b_dirt&lt;&lt;1)+(bh)-&gt;b_lock)
+
+//获取高速缓存中指定的缓存块
+//检查指定设备号和缓存块号的缓存区是否已经存在高速缓存中，如果存在返回相应缓存区头指针退出；
+//如果不存在就需要在缓存中设置一个对应设备号和块号的新项，返回对应指针
+struct buffer_head * getblk(int dev,int block)
+{
+	struct buffer_head * tmp, * bh;
+
+repeat:
+	if (bh = get_hash_table(dev,block))
+		return bh;//如果在hash链表中幸运的查找到了缓存块，谢天谢地可以不用走下面的漫长道路了
+
+// 如果上面没有查找到，那么就意味着所需要的缓存块压根就没有在hash链表中
+// 这里就需要注意了：在初始化时，所有的缓存头结构都用循环双链表串起来了，所以叫做空闲双链表
+// 但是hash链表中初始化时全部置为null，当需要的时候才把缓存头加到hash链表中
+
+        //因此 下面是在循环双链表中找一个空闲缓存头，加入到hash表中使用
+	tmp = free_list;//从链表头开始，因为这是一条LRU链表
+	//空闲块条件  引用计数为0，干净块，没上锁
+	do {
+		if (tmp-&gt;b_count)//这是硬条件，如果有别的进程使用，则换下一个
+			continue;
+		//其实下面是寻找干净块，没上锁
+//下面这个刚还是我是没有理解透彻，后来反复看了下才看懂其中奥妙（也许聪明的你一下子就看懂了我所谓的奥妙）
+//if()中的!bh是为bh = NULL，做处理的；BADNESS(tmp)&lt;BADNESS(bh)其实这个我开始没看懂，我觉得下面不是有if (!BADNESS(tmp))判断了吗？
+//其实不然，if (!BADNESS(tmp))这一步如果能够退出，那再好不过了，表示没有上锁，也没有修改过的空闲块；
+//而如果上面的那一步没有退出，这个BADNESS(tmp)&lt;BADNESS(bh)就派上用场了，这样可以得到一个修改和上锁的综合权重最小的空闲块
+
+		if (!bh || BADNESS(tmp)&lt;BADNESS(bh)) {
+			bh = tmp;
+			if (!BADNESS(tmp))
+				break;
+		}
+/* and repeat until we find something good */
+	} while ((tmp = tmp-&gt;b_next_free) != free_list);
+	if (!bh) {//如果发现所有缓存区都在使用，那么任务将会睡眠在buffer_wait队列上
+		sleep_on(&amp;buffer_wait);
+		goto repeat;//有wake_up()唤醒后再查找空闲缓存区
+	}
+	//这里已经获取到合适的空闲缓存块，但要检查下是否被上锁
+	wait_on_buffer(bh);
+	if (bh-&gt;b_count)//如果被其他进程占用，那么又得重新找一块缓存块
+		goto repeat;
+	while (bh-&gt;b_dirt) {//如果该缓存区有修改数据，
+		sync_dev(bh-&gt;b_dev);//同步到指定的设备上
+		wait_on_buffer(bh);//等待解锁
+		if (bh-&gt;b_count)
+			goto repeat;//又被占用，则再次查找一个合适的空闲缓存块
+	}
+/* NOTE!! While we slept waiting for this block, somebody else might */
+/* already have added "this" block to the cache. check it */
+//检查在进程睡眠时，是否有其他进程把该空闲的缓存块放入到使用中
+	if (find_buffer(dev,block))
+		goto repeat;//重新查找
+/* OK, FINALLY we know that this buffer is the only one of it's kind, */
+/* and that it's unused (b_count=0), unlocked (b_lock=0), and clean */
+    //对最后查找到的空闲缓存块进行设置
+	bh-&gt;b_count=1;
+	bh-&gt;b_dirt=0;
+	bh-&gt;b_uptodate=0;
+	remove_from_queues(bh);//把该缓存头拿出来，因为要改变设备号和缓存块号，所以在hash队列中位置要改变
+	bh-&gt;b_dev=dev;
+	bh-&gt;b_blocknr=block;
+	insert_into_queues(bh);//修改完dev和block后再次插入到正确的地方
+	return bh;
+}</pre><br />&#13;
+        4、从设备上读取数据到缓存中&#13;
+<p>         bread(int dev,int block)函数是从设备上读取一个逻辑块内容到缓存块上，其操作过程大概就是通过 getblk(dev, block)函数得到一个缓存块，如果这个缓存块数据是有效的就直接返回缓存块。其实通过get_hash_table(dev, block)函数得到的缓存块会和dev设备上的block号逻辑块一一对应的，就算没找到也会从free链表中申请一个和它一一对应的缓存块；如果缓存块上的数据是无效的，那么就要向设备发送读数据请求，把逻辑块上的数据读取到缓存块上，返回缓存块；</p>&#13;
+<p>        bread_page(unsigned long address, int dev, int b[4])函数是一次性读取四块逻辑块数据到缓存块中，然后再从缓存块中拷贝到指定内存中；</p>&#13;
+<p></p>&#13;
+<pre name="code" class="cpp"> //同时读取四块缓存块数据到指定内存中，每一块是1024，一个页就是4096，所以就是4块缓存块内容
+ //参数:address是内存地址；dev设备号；b[4]4个设备数据块号
+void bread_page(unsigned long address,int dev,int b[4])
+{
+	struct buffer_head * bh[4];
+	int i;
+	for (i=0 ; i&lt;4 ; i++)
+		if (b[i]) {
+			if (bh[i] = getblk(dev,b[i]))//获取到指定设备和有效块号的缓存块
+				if (!bh[i]-&gt;b_uptodate)//如果缓存块中数据无效，则发读设备请求
+					ll_rw_block(READ,bh[i]);
+		} else
+			bh[i] = NULL;//块号无效则不需要管，把对应的缓存块置为null
+			//下面是将4块缓存区的内容复制到指定内存位置上
+	for (i=0 ; i&lt;4 ; i++,address += BLOCK_SIZE)
+		if (bh[i]) {//缓存块有效
+			wait_on_buffer(bh[i]);//等待解锁
+			if (bh[i]-&gt;b_uptodate)//如果数据有效
+				COPYBLK((unsigned long) bh[i]-&gt;b_data,address);//复制内容到address上
+			brelse(bh[i]);//释放掉缓存区
+		}
+}</pre>        struct buffer_head * breada(int dev,int first, ...)函数会预先读取几个数据块到缓存块中，但其实现的原理和上面两个函数类似，唯一不同的就是该函数使用了，可变参数列表技术，巧妙的实现预读取多个数据块数据；<br />&#13;
+<pre name="code" class="cpp">//和bread函数类似，但是该函数会预先读取一些块，可变参数列表  最后一个参数要为负数
+ //函数参数是个可变参数，是一系列指定的块号，成功返回第一块的缓存块头指针，否则返回null
+struct buffer_head * breada(int dev,int first, ...)
+{
+	va_list args;
+	struct buffer_head * bh, *tmp;
+
+	va_start(args,first);
+	if (!(bh=getblk(dev,first)))//查看第一块设备号和块号指定的缓存块
+		panic("bread: getblk returned NULL\n");
+	if (!bh-&gt;b_uptodate)
+		ll_rw_block(READ,bh);//如果缓存块的数据无效则发送读数据请求
+
+		//顺序获取到其他数据块，和上面一样操作，但是退化掉引用
+	while ((first=va_arg(args,int))&gt;=0) {
+		tmp=getblk(dev,first);
+		if (tmp) {
+			if (!tmp-&gt;b_uptodate)
+				ll_rw_block(READA,bh);
+			tmp-&gt;b_count--;
+		}
+	}
+	va_end(args);
+	wait_on_buffer(bh);//等待第一个缓存块解锁
+	if (bh-&gt;b_uptodate)//如果数据有效则返回第一个缓存块头指针
+		return bh;
+	brelse(bh);//否则释放缓存块，返回null
+	return (NULL);
+}</pre>&#13;
+<p></p>&#13;
+<p><br />&#13;
+</p>&#13;
+        5、缓存区初始化函数&#13;
+<p>        虽然在前面一篇blog中分析了缓存区初始化的代码，但是这里还是得看下他，因为这个函数设计的真的很好。<br />&#13;
+</p>&#13;
+<pre name="code" class="cpp">//缓存区初始化函数
+//参数:buffer_end指向缓存区内存的末端；对于系统有16MB内存，缓存为4MB；8MB--2MB
+void buffer_init(long buffer_end)
+{
+	struct buffer_head * h = start_buffer;
+	void * b;
+	int i;
+
+	if (buffer_end == 1&lt;&lt;20)//640k~1M用于显存和BIOS ROM；高端地址应该设置为b=640kb
+		b = (void *) (640*1024);
+	else
+		b = (void *) buffer_end;//否则高地址还是设置buffer_end
+
+	//下面代码用来初始化缓存区，建立空闲缓存区环链表，并获取系统中缓存块的数目
+	//高端划分1k大小的缓存块，低端设置相应的缓存块头部结果指向高端缓存块
+	while ( (b -= BLOCK_SIZE) &gt;= ((void *) (h+1)) ) {
+		h-&gt;b_dev = 0;//使用该缓存区的设备号
+		h-&gt;b_dirt = 0;//修改标志
+		h-&gt;b_count = 0;//引用计数
+		h-&gt;b_lock = 0;//锁标志
+		h-&gt;b_uptodate = 0;//有效标志
+		h-&gt;b_wait = NULL;
+		h-&gt;b_next = NULL;
+		h-&gt;b_prev = NULL;
+		h-&gt;b_data = (char *) b;//指向末尾的缓存块
+		h-&gt;b_prev_free = h-1;
+		h-&gt;b_next_free = h+1;
+		h++;	//接着到下一个缓存头
+		NR_BUFFERS++;//缓存块计数
+		if (b == (void *) 0x100000)//如果地址b递减到了1M，则跳到640kb处，因为这段地址被BIOS ROM和显存使用
+			b = (void *) 0xA0000;
+	}
+	h--;//指向最后一个有效缓存头结构
+	free_list = start_buffer;//空闲指针指向第一个头结构
+	free_list-&gt;b_prev_free = h;//做个循环链表
+	h-&gt;b_next_free = free_list;
+	for (i=0;i&lt;NR_HASH;i++)//初始化hash表
+		hash_table[i]=NULL;
+}</pre>&#13;
+<p></p>&#13;
+<p></p>&#13;
+<div>        转载请注明作者和原文出处，原文地址：<a target="_blank" href="http://blog.csdn.net/yuzhihui_no1/article/details/43703153">http://blog.csdn.net/yuzhihui_no1/article/details/43703153</a></div>&#13;
+<div>&#13;
+<p style="margin-top:0px; margin-bottom:0px; padding-top:0px; padding-bottom:0px">&#13;
+        如果有什么不正确之处，欢迎大家指正，一起努力，共同学习！！</p>&#13;
+</div>&#13;
+<br />&#13;
+<p></p>&#13;
+   &#13;

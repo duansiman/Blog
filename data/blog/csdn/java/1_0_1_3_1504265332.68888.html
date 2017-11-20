@@ -1,0 +1,190 @@
+
+        <div class="markdown_views"><p>上一篇学习了Spring Security是如何拦截请求,并把请求转向到Filter链的,该篇就主要学习下这些Filter链的节点的作用.</p>
+
+<hr />
+
+<p>下面是之前配置的内容,本文也是对这些内容 的执行分析.</p>
+
+
+
+<pre class="prettyprint"><code class="language-xml hljs "><span class="hljs-tag">&lt;<span class="hljs-title">security:http</span> &gt;</span>
+        <span class="hljs-tag">&lt;<span class="hljs-title">security:intercept-url</span> <span class="hljs-attribute">pattern</span>=<span class="hljs-value">"/**"</span> <span class="hljs-attribute">access</span>=<span class="hljs-value">"hasRole('ROLE_USER')"</span>/&gt;</span>
+        <span class="hljs-tag">&lt;<span class="hljs-title">security:form-login</span>/&gt;</span>
+        <span class="hljs-tag">&lt;<span class="hljs-title">security:http-basic</span>/&gt;</span>
+        <span class="hljs-tag">&lt;<span class="hljs-title">security:logout</span>/&gt;</span>
+    <span class="hljs-tag">&lt;/<span class="hljs-title">security:http</span>&gt;</span>
+
+    <span class="hljs-tag">&lt;<span class="hljs-title">security:authentication-manager</span>&gt;</span>
+        <span class="hljs-tag">&lt;<span class="hljs-title">security:authentication-provider</span>&gt;</span>
+            <span class="hljs-tag">&lt;<span class="hljs-title">security:user-service</span>&gt;</span>
+                <span class="hljs-tag">&lt;<span class="hljs-title">security:user</span> <span class="hljs-attribute">name</span>=<span class="hljs-value">"user"</span> <span class="hljs-attribute">password</span>=<span class="hljs-value">"123456"</span> <span class="hljs-attribute">authorities</span>=<span class="hljs-value">"ROLE_USER"</span>/&gt;</span>
+                <span class="hljs-tag">&lt;<span class="hljs-title">security:user</span> <span class="hljs-attribute">name</span>=<span class="hljs-value">"admin"</span> <span class="hljs-attribute">password</span>=<span class="hljs-value">"123456"</span> <span class="hljs-attribute">authorities</span>=<span class="hljs-value">"ROLE_USER, ROLE_ADMIN"</span>/&gt;</span>
+            <span class="hljs-tag">&lt;/<span class="hljs-title">security:user-service</span>&gt;</span>
+        <span class="hljs-tag">&lt;/<span class="hljs-title">security:authentication-provider</span>&gt;</span>
+    <span class="hljs-tag">&lt;/<span class="hljs-title">security:authentication-manager</span>&gt;</span></code></pre>
+
+
+
+<h3 id="1filter链的由来">1.Filter链的由来</h3>
+
+<p>由上文可知每一个<code>security:http</code>标签实际上对应的是一个<code>SecurityFilterChain</code>的类,也就是一条Filter链,可以通过其http属性指明其作用的URL,否则作用域全部的URL,如下配置,该security:http会产生一个对/login下的所有请求Filter链.</p>
+
+
+
+<pre class="prettyprint"><code class="language-xml hljs ">    <span class="hljs-tag">&lt;<span class="hljs-title">security:http</span> <span class="hljs-attribute">pattern</span>=<span class="hljs-value">"/login/**"</span>&gt;</span>
+        ******
+    <span class="hljs-tag">&lt;/<span class="hljs-title">security:http</span>&gt;</span></code></pre>
+
+<p>打个断点可以很清楚的看到该Filter链 <br />
+<img src="http://oobu4m7ko.bkt.clouddn.com/1498283386.png?imageMogr2/thumbnail/!70p" alt="" title="" /></p>
+
+
+
+<h3 id="2securitycontextpersistencefilter">2.SecurityContextPersistenceFilter</h3>
+
+<p>该类在所有的Filter之前,是从<code>SecurityContextRepository</code>中取出用户认证信息,默认实现类为<code>HttpSessionSecurityContextRepository</code>,其会从Session中取出已认证用户的信息,提高效率,避免每一次请求都要查询用户认证信息. <br />
+取出之后会放入<code>SecurityContextHolder</code>中,以便其他filter使用,该类使用ThreadLocal存储用户认证信息,保证了线程之间的信息隔离,最后再finally中清除该信息. <br />
+可以配置http的<code>security-context-repository-ref</code>属性来自己控制获取到已认证用户信息的方式,比如使用redis存储session等.</p>
+
+
+
+<h3 id="3webasyncmanagerintegrationfilter">3.WebAsyncManagerIntegrationFilter</h3>
+
+<p>提供了对securityContext和WebAsyncManager的集成,其会把SecurityContext设置到异步线程中,使其也能获取到用户上下文认证信息.</p>
+
+
+
+<h3 id="4headerwriterfilter">4.HeaderWriterFilter</h3>
+
+<p>其会往该请求的Header中添加相应的信息,在http标签内部使用<code>security:headers</code>来控制.</p>
+
+
+
+<h3 id="5csrffilter">5.CsrfFilter</h3>
+
+<p>Csrf,跨站请求伪造,了解不是很深,只知道B网站使用A网站的可信Cookie发起请求,从而完成认证,伪造出正当请求. <br />
+验证方式是通过客户端传来的token与服务端存储的token进行对比,来判断是否为伪造请求,有兴趣的可以查看源代码研究下.</p>
+
+
+
+<h3 id="6logoutfilter">6.LogoutFilter</h3>
+
+<p>匹配URL,默认为<code>/logout</code>,匹配成功后则用户退出,清除认证信息.</p>
+
+
+
+<h3 id="7usernamepasswordauthenticationfilter">7.UsernamePasswordAuthenticationFilter</h3>
+
+<p>登录认证过滤器,默认是对<code>/login</code>的POST请求进行认证,首先该方法会先调用<code>attemptAuthentication</code>尝试认证获取一个<code>Authentication</code>的认证对象,然后通过<code>sessionStrategy.onAuthentication</code>执行持久化,也就是保存认证信息,转向下一个Filter,最后调用<code>successfulAuthentication</code>执行认证后事件.</p>
+
+<p><strong>attemptAuthentication</strong> <br />
+该方法是认证的主要方法,认证是委托配置的<code>authentication-manager</code>-&gt;<code>authentication-provider</code>进行. <br />
+比如对于该Demo配置的为如下,则默认使用的manager为<code>ProviderManager</code>,使用的provider为<code>DaoAuthenticationProvider</code>,userDetailService为<code>InMemoryUserDetailsManager</code>也就是从内存中获取用户认证信息,也就是下面xml配置的user与admin信息.</p>
+
+
+
+<pre class="prettyprint"><code class="language-xml hljs ">    <span class="hljs-tag">&lt;<span class="hljs-title">security:authentication-manager</span>&gt;</span>
+        <span class="hljs-tag">&lt;<span class="hljs-title">security:authentication-provider</span>&gt;</span>
+            <span class="hljs-tag">&lt;<span class="hljs-title">security:user-service</span>&gt;</span>
+                <span class="hljs-tag">&lt;<span class="hljs-title">security:user</span> <span class="hljs-attribute">name</span>=<span class="hljs-value">"user"</span> <span class="hljs-attribute">password</span>=<span class="hljs-value">"123456"</span> <span class="hljs-attribute">authorities</span>=<span class="hljs-value">"ROLE_USER"</span>/&gt;</span>
+                <span class="hljs-tag">&lt;<span class="hljs-title">security:user</span> <span class="hljs-attribute">name</span>=<span class="hljs-value">"admin"</span> <span class="hljs-attribute">password</span>=<span class="hljs-value">"123456"</span> <span class="hljs-attribute">authorities</span>=<span class="hljs-value">"ROLE_USER, ROLE_ADMIN"</span>/&gt;</span>
+            <span class="hljs-tag">&lt;/<span class="hljs-title">security:user-service</span>&gt;</span>
+        <span class="hljs-tag">&lt;/<span class="hljs-title">security:authentication-provider</span>&gt;</span>
+    <span class="hljs-tag">&lt;/<span class="hljs-title">security:authentication-manager</span>&gt;</span></code></pre>
+
+<p>认证基本流程为<code>UserDeatilService</code>根据用户名获取到认证用户的信息,然后通过<code>UserDetailsChecker.check</code>对用户进行状态校验,最后通过<code>additionalAuthenticationChecks</code>方法对用户进行密码校验成功后完成认证.返回一个认证对象.</p>
+
+<p>都是面向接口编程,所以用户可以很轻松的扩展自己的验证方式.</p>
+
+
+
+<h3 id="8defaultloginpagegeneratingfilter">8.DefaultLoginPageGeneratingFilter</h3>
+
+<p>当请求为登录请求时,生成简单的登录页面返回</p>
+
+
+
+<h3 id="9basicauthenticationfilter">9.BasicAuthenticationFilter</h3>
+
+<p>Http Basci认证的支持,该认证会把用户名密码使用base64编码后放入header中传输,如下所示,认证成功后会把用户信息放入<code>SecurityContextHolder</code>中.</p>
+
+
+
+<pre class="prettyprint"><code class="language-xml hljs "> * Authorization: Basic QWxhZGRpbjpvcGVuIHNlc2FtZQ==</code></pre>
+
+
+
+<h3 id="10requestcacheawarefilter">10.RequestCacheAwareFilter</h3>
+
+<p>恢复被打断的请求,具体未研究</p>
+
+
+
+<h3 id="11securitycontextholderawarerequestfilter">11.SecurityContextHolderAwareRequestFilter</h3>
+
+<p>针对Servlet api不同版本做的一些包装</p>
+
+
+
+<h3 id="12anonymousauthenticationfilter">12.AnonymousAuthenticationFilter</h3>
+
+<p>当<code>SecurityContextHolder</code>中认证信息为空,则会创建一个匿名用户存入到<code>SecurityContextHolder</code>中</p>
+
+
+
+<h3 id="13sessionmanagementfilter">13.SessionManagementFilter</h3>
+
+<p>与登录认证拦截时作用一样,持久化用户登录信息,可以保存到session中,也可以保存到cookie或者redis中.</p>
+
+
+
+<h3 id="14exceptiontranslationfilter">14.ExceptionTranslationFilter</h3>
+
+<p>异常拦截,其处在Filter链后部分,只能拦截其后面的节点并且着重处理<code>AuthenticationException</code>与<code>AccessDeniedException</code>两个异常.</p>
+
+
+
+<h3 id="15filtersecurityinterceptor">15.FilterSecurityInterceptor</h3>
+
+<p>主要是授权验证,方法为<code>beforeInvocation</code>,在其中调用</p>
+
+
+
+<pre class="prettyprint"><code class="language-java hljs ">Collection&lt;ConfigAttribute&gt; attributes = <span class="hljs-keyword">this</span>.obtainSecurityMetadataSource()
+                .getAttributes(object);</code></pre>
+
+<p>获取到所配置资源访问的授权信息,对于上述配置,获取到的则为<code>hasRole('ROLE_USER')</code>,然后根据<code>SecurityContextHolder</code>中存储的用户信息来决定其是否有权限,没权限则返回403,具体想了解可以关注<code>HttpConfigurationBuilder.createFilterSecurityInterceptor()</code>方法,分析其创建流程加载了哪些数据,或者分析<code>SecurityExpressionOperations</code>的子类,其是权限鉴定的实现方法.</p>
+
+
+
+<h3 id="总结">总结</h3>
+
+<p>整个认证授权流程如下图所示,图是网上盗的 <br />
+<img src="http://oobu4m7ko.bkt.clouddn.com/1498318805.png?imageMogr2/thumbnail/!70p" alt="" title="" /></p>
+
+<p>因为是学习方面,使用的不是很多,如有错误请指出,以防误人子弟. <br />
+简单来说,作为用户需要关心的地方是 <br />
+1. 登录验证<code>UsernamePasswordAuthenticationFilter</code> <br />
+2. 访问验证<code>BasicAuthenticationFilter</code> <br />
+3. 权限验证<code>FilterSecurityInterceptor</code> <br />
+下一篇则讲述利用这三个验证实现JWT验证.</p>
+
+<p>关于这些过滤器更详细的内容可参考博客: <a href="http://www.iteye.com/blogs/subjects/spring_security" target="_blank">http://www.iteye.com/blogs/subjects/spring_security</a></p>
+
+<blockquote>
+  <p>github地址:  <a href="https://github.com/nl101531/JavaWEB" target="_blank">https://github.com/nl101531/JavaWEB</a></p>
+</blockquote></div>&#13;
+        <script type="text/javascript">&#13;
+            $(function () {&#13;
+                $('pre.prettyprint code').each(function () {&#13;
+                    var lines = $(this).text().split('\n').length;&#13;
+                    var $numbering = $('&lt;ul/&gt;').addClass('pre-numbering').hide();&#13;
+                    $(this).addClass('has-numbering').parent().append($numbering);&#13;
+                    for (i = 1; i &lt;= lines; i++) {&#13;
+                        $numbering.append($('&lt;li/&gt;').text(i));&#13;
+                    };&#13;
+                    $numbering.fadeIn(1700);&#13;
+                });&#13;
+            });&#13;
+        </script>&#13;
+   &#13;

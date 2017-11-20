@@ -1,0 +1,137 @@
+
+        <div class="markdown_views"><p>最近公司项目在用jersey做api接口,遂来学习一下,学习的第一步,先运行起来一个项目,也就是环境配置好.</p>
+
+
+
+<h2 id="1环境配置">1.环境配置</h2>
+
+<p>对于IDEA来说可以直接引用包方式建立,这样的话在新建项目的时候勾选上WEB Application和RESTFUL WEB Service两个选项即可,不过maven流行起来,博主选择使用maven建立.</p>
+
+<p>在pom.xml中引入:</p>
+
+
+
+<pre class="prettyprint"><code class=" hljs xml">      <span class="hljs-comment">&lt;!--jersey--&gt;</span>
+        <span class="hljs-tag">&lt;<span class="hljs-title">dependency</span>&gt;</span>
+            <span class="hljs-tag">&lt;<span class="hljs-title">groupId</span>&gt;</span>org.glassfish.jersey.containers<span class="hljs-tag">&lt;/<span class="hljs-title">groupId</span>&gt;</span>
+            <span class="hljs-tag">&lt;<span class="hljs-title">artifactId</span>&gt;</span>jersey-container-servlet<span class="hljs-tag">&lt;/<span class="hljs-title">artifactId</span>&gt;</span>
+            <span class="hljs-tag">&lt;<span class="hljs-title">version</span>&gt;</span>2.6<span class="hljs-tag">&lt;/<span class="hljs-title">version</span>&gt;</span>
+        <span class="hljs-tag">&lt;/<span class="hljs-title">dependency</span>&gt;</span></code></pre>
+
+<p>这里要说明下,2.x之后的jerser都归入glassfish下面了,以前的org.sun那个用的比较少了.引入后可以使用IDEA查看maven关系图,你会发现引入这的这个坐标包含了基本开发的全部依赖.</p>
+
+
+
+<h2 id="2编写helloworld">2.编写helloworld</h2>
+
+
+
+<pre class="prettyprint"><code class=" hljs java"><span class="hljs-keyword">package</span> cn.mrdear.controller;
+
+<span class="hljs-keyword">import</span> javax.ws.rs.GET;
+<span class="hljs-keyword">import</span> javax.ws.rs.Path;
+<span class="hljs-keyword">import</span> javax.ws.rs.Produces;
+<span class="hljs-keyword">import</span> javax.ws.rs.core.MediaType;
+
+<span class="hljs-javadoc">/**
+ *<span class="hljs-javadoctag"> @author</span> Niu Li
+ *<span class="hljs-javadoctag"> @date</span> 2016/7/24
+ */</span>
+<span class="hljs-annotation">@Path</span>(<span class="hljs-string">"/hello"</span>)
+<span class="hljs-keyword">public</span> <span class="hljs-class"><span class="hljs-keyword">class</span> <span class="hljs-title">HelloWorldController</span> {</span>
+
+    <span class="hljs-annotation">@GET</span>
+    <span class="hljs-annotation">@Produces</span>(MediaType.TEXT_PLAIN)<span class="hljs-comment">//指定返回类型为text_plain</span>
+    <span class="hljs-keyword">public</span> String <span class="hljs-title">helloWorld</span>(){
+
+        <span class="hljs-keyword">return</span> <span class="hljs-string">"hello world!"</span>;
+    }
+}</code></pre>
+
+
+
+<h2 id="3编写application">3.编写Application</h2>
+
+
+
+<pre class="prettyprint"><code class=" hljs java"><span class="hljs-keyword">import</span> org.glassfish.jersey.filter.LoggingFilter;
+<span class="hljs-keyword">import</span> org.glassfish.jersey.server.ResourceConfig;
+
+<span class="hljs-javadoc">/**
+ *<span class="hljs-javadoctag"> @author</span> Niu Li
+ *<span class="hljs-javadoctag"> @date</span> 2016/7/24
+ */</span>
+<span class="hljs-keyword">public</span> <span class="hljs-class"><span class="hljs-keyword">class</span> <span class="hljs-title">RESTApplication</span> <span class="hljs-keyword">extends</span> <span class="hljs-title">ResourceConfig</span> {</span>
+    <span class="hljs-keyword">public</span> <span class="hljs-title">RESTApplication</span>() {
+        <span class="hljs-comment">//给出要扫描的包,也就是上面heloword所在的包,扫描多个包使用分号隔开</span>
+        packages(<span class="hljs-string">"cn.mrdear.controller"</span>);
+        <span class="hljs-comment">//打开日志,便于调试</span>
+        register(LoggingFilter.class);
+    }
+}</code></pre>
+
+
+
+<h2 id="4配置webxml">4.配置web.xml</h2>
+
+
+
+<pre class="prettyprint"><code class=" hljs xml"><span class="hljs-doctype">&lt;!DOCTYPE web-app PUBLIC
+ "-//Sun Microsystems, Inc.//DTD Web Application 2.3//EN"
+ "http://java.sun.com/dtd/web-app_2_3.dtd" &gt;</span>
+
+<span class="hljs-tag">&lt;<span class="hljs-title">web-app</span>&gt;</span>
+  <span class="hljs-tag">&lt;<span class="hljs-title">display-name</span>&gt;</span>Archetype Created Web Application<span class="hljs-tag">&lt;/<span class="hljs-title">display-name</span>&gt;</span>
+
+  <span class="hljs-tag">&lt;<span class="hljs-title">servlet</span>&gt;</span>
+    <span class="hljs-tag">&lt;<span class="hljs-title">servlet-name</span>&gt;</span>jerseyServlet<span class="hljs-tag">&lt;/<span class="hljs-title">servlet-name</span>&gt;</span>
+    <span class="hljs-tag">&lt;<span class="hljs-title">servlet-class</span>&gt;</span>org.glassfish.jersey.servlet.ServletContainer<span class="hljs-tag">&lt;/<span class="hljs-title">servlet-class</span>&gt;</span>
+    <span class="hljs-tag">&lt;<span class="hljs-title">init-param</span>&gt;</span>
+      <span class="hljs-tag">&lt;<span class="hljs-title">param-name</span>&gt;</span>javax.ws.rs.Application<span class="hljs-tag">&lt;/<span class="hljs-title">param-name</span>&gt;</span>
+      <span class="hljs-comment">&lt;!--Application地址--&gt;</span>
+      <span class="hljs-tag">&lt;<span class="hljs-title">param-value</span>&gt;</span>cn.mrdear.application.RESTApplication<span class="hljs-tag">&lt;/<span class="hljs-title">param-value</span>&gt;</span>
+    <span class="hljs-tag">&lt;/<span class="hljs-title">init-param</span>&gt;</span>
+    <span class="hljs-tag">&lt;<span class="hljs-title">load-on-startup</span>&gt;</span>1<span class="hljs-tag">&lt;/<span class="hljs-title">load-on-startup</span>&gt;</span>
+  <span class="hljs-tag">&lt;/<span class="hljs-title">servlet</span>&gt;</span>
+
+  <span class="hljs-tag">&lt;<span class="hljs-title">servlet-mapping</span>&gt;</span>
+    <span class="hljs-tag">&lt;<span class="hljs-title">servlet-name</span>&gt;</span>jerseyServlet<span class="hljs-tag">&lt;/<span class="hljs-title">servlet-name</span>&gt;</span>
+    <span class="hljs-comment">&lt;!--过滤的路径名--&gt;</span>
+    <span class="hljs-tag">&lt;<span class="hljs-title">url-pattern</span>&gt;</span>/*<span class="hljs-tag">&lt;/<span class="hljs-title">url-pattern</span>&gt;</span>
+  <span class="hljs-tag">&lt;/<span class="hljs-title">servlet-mapping</span>&gt;</span>
+
+<span class="hljs-tag">&lt;/<span class="hljs-title">web-app</span>&gt;</span></code></pre>
+
+
+
+<h2 id="5启动项目测试">5.启动项目测试</h2>
+
+<p><img src="http://img.blog.csdn.net/20160724105655218" alt="这里写图片描述" title="" /></p>
+
+<p>到此一个简单的helloword运行成功了</p>
+
+<p>可以在后台日志看到Jersey的请求流程</p>
+
+<p>参考资料: <br />
+<a href="https://waylau.gitbooks.io/jersey-2-user-guide/content/">https://waylau.gitbooks.io/jersey-2-user-guide/content/</a> <br />
+<a href="https://jersey.java.net/documentation/latest/">https://jersey.java.net/documentation/latest/</a></p>
+
+<hr />
+
+<p>项目示例:</p>
+
+<p>SJM框架整合: <a href="https://github.com/nl101531/JavaWEB">https://github.com/nl101531/JavaWEB</a></p></div>&#13;
+        <script type="text/javascript">&#13;
+            $(function () {&#13;
+                $('pre.prettyprint code').each(function () {&#13;
+                    var lines = $(this).text().split('\n').length;&#13;
+                    var $numbering = $('&lt;ul/&gt;').addClass('pre-numbering').hide();&#13;
+                    $(this).addClass('has-numbering').parent().append($numbering);&#13;
+                    for (i = 1; i &lt;= lines; i++) {&#13;
+                        $numbering.append($('&lt;li/&gt;').text(i));&#13;
+                    };&#13;
+                    $numbering.fadeIn(1700);&#13;
+                });&#13;
+            });&#13;
+        </script>&#13;
+   &#13;

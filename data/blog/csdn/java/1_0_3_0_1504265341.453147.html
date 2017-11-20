@@ -1,0 +1,249 @@
+
+        <div class="markdown_views"><p>最近在做项目,用此贴记录遇到的一些小问题</p>
+
+
+
+<h2 id="1关于json">1.关于json</h2>
+
+<p>首先需要引入3个包,我看网上有人说只需要两个,但是我没成功,引入3个之后才没问题的 <br />
+<img src="http://img.blog.csdn.net/20160422203022024" alt="这里写图片描述" title="" /></p>
+
+<p>关于json的返回格式,如果想增加内容的话最好用一个map集合包裹住,最近用bootstrap table做分页,要求返回的json格式如下: <br />
+也就是说要增加”total”: 792,”rows”:这些东西,后面返回的是对象集合.</p>
+
+
+
+<pre class="prettyprint"><code class=" hljs json">{"<span class="hljs-attribute">total</span>": <span class="hljs-value"><span class="hljs-number">792</span></span>,"<span class="hljs-attribute">rows</span>": <span class="hljs-value">[{"<span class="hljs-attribute">id</span>":<span class="hljs-value"><span class="hljs-number">1</span></span>,"<span class="hljs-attribute">name</span>":<span class="hljs-value"><span class="hljs-string">"test1"</span></span>,"<span class="hljs-attribute">price</span>":<span class="hljs-value"><span class="hljs-string">"$1"</span></span>},{"<span class="hljs-attribute">id</span>":<span class="hljs-value"><span class="hljs-number">2</span></span>,"<span class="hljs-attribute">name</span>":<span class="hljs-value"><span class="hljs-string">"test2"</span></span>,"<span class="hljs-attribute">price</span>":<span class="hljs-value"><span class="hljs-string">"$2"</span></span>},{"<span class="hljs-attribute">id</span>":<span class="hljs-value"><span class="hljs-number">3</span></span>,"<span class="hljs-attribute">name</span>":<span class="hljs-value"><span class="hljs-string">"test3"</span></span>,"<span class="hljs-attribute">price</span>":<span class="hljs-value"><span class="hljs-string">"$3"</span></span>},{"<span class="hljs-attribute">id</span>":<span class="hljs-value"><span class="hljs-number">4</span></span>,"<span class="hljs-attribute">name</span>":<span class="hljs-value"><span class="hljs-string">"test4"</span></span>,"<span class="hljs-attribute">price</span>":<span class="hljs-value"><span class="hljs-string">"$4"</span></span>},{"<span class="hljs-attribute">id</span>":<span class="hljs-value"><span class="hljs-number">5</span></span>,"<span class="hljs-attribute">name</span>":<span class="hljs-value"><span class="hljs-string">"test5"</span></span>,"<span class="hljs-attribute">price</span>":<span class="hljs-value"><span class="hljs-string">"$5"</span></span>},{"<span class="hljs-attribute">id</span>":<span class="hljs-value"><span class="hljs-number">6</span></span>,"<span class="hljs-attribute">name</span>":<span class="hljs-value"><span class="hljs-string">"test6"</span></span>,"<span class="hljs-attribute">price</span>":<span class="hljs-value"><span class="hljs-string">"$6"</span></span>},{"<span class="hljs-attribute">id</span>":<span class="hljs-value"><span class="hljs-number">7</span></span>,"<span class="hljs-attribute">name</span>":<span class="hljs-value"><span class="hljs-string">"test7"</span></span>,"<span class="hljs-attribute">price</span>":<span class="hljs-value"><span class="hljs-string">"$7"</span></span>},{"<span class="hljs-attribute">id</span>":<span class="hljs-value"><span class="hljs-number">8</span></span>,"<span class="hljs-attribute">name</span>":<span class="hljs-value"><span class="hljs-string">"test8"</span></span>,"<span class="hljs-attribute">price</span>":<span class="hljs-value"><span class="hljs-string">"$8"</span></span>},{"<span class="hljs-attribute">id</span>":<span class="hljs-value"><span class="hljs-number">9</span></span>,"<span class="hljs-attribute">name</span>":<span class="hljs-value"><span class="hljs-string">"test9"</span></span>,"<span class="hljs-attribute">price</span>":<span class="hljs-value"><span class="hljs-string">"$9"</span></span>},{"<span class="hljs-attribute">id</span>":<span class="hljs-value"><span class="hljs-number">10</span></span>,"<span class="hljs-attribute">name</span>":<span class="hljs-value"><span class="hljs-string">"test10"</span></span>,"<span class="hljs-attribute">price</span>":<span class="hljs-value"><span class="hljs-string">"$10"</span></span>}]</span>}</code></pre>
+
+<p>因此我用map包裹住</p>
+
+
+
+<pre class="prettyprint"><code class=" hljs lasso">    @RequestMapping(value <span class="hljs-subst">=</span> <span class="hljs-string">"/getAllUser"</span>,method <span class="hljs-subst">=</span> RequestMethod<span class="hljs-built_in">.</span>POST)
+    <span class="hljs-keyword">public</span> @ResponseBody <span class="hljs-built_in">Map</span><span class="hljs-subst">&lt;</span><span class="hljs-built_in">String</span>,Object<span class="hljs-subst">&gt;</span> getAllCumUser(@RequestBody PageUtil pageUtil){
+        <span class="hljs-built_in">Map</span><span class="hljs-subst">&lt;</span><span class="hljs-built_in">String</span>,Object<span class="hljs-subst">&gt;</span> model <span class="hljs-subst">=</span> <span class="hljs-literal">new</span> HashMap<span class="hljs-subst">&lt;&gt;</span>();
+        <span class="hljs-comment">//这里引入分页机制</span>
+        PageHelper<span class="hljs-built_in">.</span>startPage(pageUtil<span class="hljs-built_in">.</span>getOffset()/pageUtil<span class="hljs-built_in">.</span>getLimit()<span class="hljs-subst">+</span><span class="hljs-number">1</span>,pageUtil<span class="hljs-built_in">.</span>getLimit());
+        <span class="hljs-built_in">List</span><span class="hljs-subst">&lt;</span>CumUser<span class="hljs-subst">&gt;</span> <span class="hljs-built_in">list</span> <span class="hljs-subst">=</span> cumUserMapper<span class="hljs-built_in">.</span>findAllUser(pageUtil);
+        PageInfo<span class="hljs-subst">&lt;</span>CumUser<span class="hljs-subst">&gt;</span> info <span class="hljs-subst">=</span> <span class="hljs-literal">new</span> PageInfo<span class="hljs-subst">&lt;&gt;</span>(<span class="hljs-built_in">list</span>);
+        <span class="hljs-comment">//这样做就可以返回上述那种格式的json了</span>
+        model<span class="hljs-built_in">.</span>put(<span class="hljs-string">"total"</span>,info<span class="hljs-built_in">.</span>getTotal());
+        model<span class="hljs-built_in">.</span>put(<span class="hljs-string">"rows"</span>,<span class="hljs-built_in">list</span>);
+        <span class="hljs-keyword">return</span> model;
+    }</code></pre>
+
+<p>关于接收json <br />
+可以用一个对象类来承载,在里面写上json的key这个属性值,实现set方法,spring MVC会自动注入值的</p>
+
+<hr />
+
+
+
+<h2 id="2ajax删除用户小例子">2.ajax删除用户小例子</h2>
+
+
+
+<pre class="prettyprint"><code class=" hljs javascript"><span class="hljs-keyword">if</span> (confirm(<span class="hljs-string">"确定删除该用户?"</span>)){
+
+            <span class="hljs-comment">//必须在这里设置一下,不然传输格式有问题</span>
+            $.ajaxSetup({
+                contentType : <span class="hljs-string">'application/json'</span>
+            });
+            $.ajax(
+                {
+                    type: <span class="hljs-string">'post'</span>,<span class="hljs-comment">//这里改为get也可以正常执行</span>
+                    url: <span class="hljs-string">'/system/cum_user_delete'</span>,
+                    contentType:<span class="hljs-string">"application/json;charset=utf-8"</span>,
+                    data: <span class="hljs-built_in">JSON</span>.stringify(row),
+                    success:<span class="hljs-function"><span class="hljs-keyword">function</span> <span class="hljs-params">(data)</span> {</span>
+                        <span class="hljs-keyword">if</span> (data.delete == <span class="hljs-literal">true</span>){
+                            <span class="hljs-comment">//删除后刷新操作</span>
+                            $(<span class="hljs-string">"#exampleTableToolbar2"</span>).bootstrapTable(<span class="hljs-string">"refresh"</span>,{silent: <span class="hljs-literal">true</span>});
+                        }<span class="hljs-keyword">else</span> {
+                            alert(<span class="hljs-string">"系统出错,删除失败,可查看tomcat日志解决"</span>)
+                        }
+                    }
+                }
+            )
+        }</code></pre>
+
+<p>对应的spring MVC控制器</p>
+
+
+
+<pre class="prettyprint"><code class=" hljs lasso">    @RequestMapping(value <span class="hljs-subst">=</span> <span class="hljs-string">"/cum_user_delete"</span>,method <span class="hljs-subst">=</span> RequestMethod<span class="hljs-built_in">.</span>POST)
+    <span class="hljs-keyword">public</span> @ResponseBody <span class="hljs-built_in">Map</span><span class="hljs-subst">&lt;</span><span class="hljs-built_in">String</span>,Boolean<span class="hljs-subst">&gt;</span> deleteUserById(@RequestBody CumUser user){
+       cumUserMapper<span class="hljs-built_in">.</span>deleteUserById(user<span class="hljs-built_in">.</span>getId());
+        <span class="hljs-built_in">Map</span><span class="hljs-subst">&lt;</span><span class="hljs-built_in">String</span>,Boolean<span class="hljs-subst">&gt;</span> maps <span class="hljs-subst">=</span> <span class="hljs-literal">new</span> HashMap<span class="hljs-subst">&lt;&gt;</span>();
+        maps<span class="hljs-built_in">.</span>put(<span class="hljs-string">"delete"</span>,<span class="hljs-literal">true</span>);
+        <span class="hljs-keyword">return</span> maps;
+    }</code></pre>
+
+<hr />
+
+
+
+<h2 id="3关于textarea乱码问题">3.关于textarea乱码问题</h2>
+
+<p>最近写项目,表单其他控件都不乱码,就这个textarea有问题,提交方法是post,最后只能手动转码才能解决这个问题</p>
+
+
+
+<pre class="prettyprint"><code class=" hljs javascript"><span class="hljs-built_in">String</span> name= <span class="hljs-keyword">new</span> <span class="hljs-built_in">String</span>(problem.getPro_content().getBytes(<span class="hljs-string">"ISO8859-1"</span>),<span class="hljs-string">"UTF-8"</span>);</code></pre>
+
+
+
+<h2 id="4关于json无法解析http415错误">4.关于JSON无法解析http415错误</h2>
+
+<p>spring MVC提示如下</p>
+
+
+
+<pre class="prettyprint"><code class=" hljs lua">org.springframework.web.HttpMediaTypeNotSupportedException: Content <span class="hljs-built_in">type</span> <span class="hljs-string">'application/x-www-form-urlencoded;charset=UTF-8'</span> <span class="hljs-keyword">not</span> supported 
+org.springframework.web.HttpMediaTypeNotSupportedException: Content <span class="hljs-built_in">type</span> <span class="hljs-string">'application/x-www-form-urlencoded;charset=UTF-8'</span> <span class="hljs-keyword">not</span> supported 
+org.springframework.web.HttpMediaTypeNotSupportedException: Content <span class="hljs-built_in">type</span> <span class="hljs-string">'application/x-www-form-urlencoded;charset=UTF-8'</span> <span class="hljs-keyword">not</span> supported</code></pre>
+
+<p>可能为两个原因,一个是包的问题,需要导入3个包</p>
+
+
+
+<pre class="prettyprint"><code class=" hljs xml"><span class="hljs-tag">&lt;<span class="hljs-title">dependency</span>&gt;</span>
+      <span class="hljs-tag">&lt;<span class="hljs-title">groupId</span>&gt;</span>org.codehaus.jackson<span class="hljs-tag">&lt;/<span class="hljs-title">groupId</span>&gt;</span>
+      <span class="hljs-tag">&lt;<span class="hljs-title">artifactId</span>&gt;</span>jackson-mapper-asl<span class="hljs-tag">&lt;/<span class="hljs-title">artifactId</span>&gt;</span>
+      <span class="hljs-tag">&lt;<span class="hljs-title">version</span>&gt;</span>1.9.13<span class="hljs-tag">&lt;/<span class="hljs-title">version</span>&gt;</span>
+    <span class="hljs-tag">&lt;/<span class="hljs-title">dependency</span>&gt;</span>
+    <span class="hljs-tag">&lt;<span class="hljs-title">dependency</span>&gt;</span>
+      <span class="hljs-tag">&lt;<span class="hljs-title">groupId</span>&gt;</span>com.fasterxml.jackson.core<span class="hljs-tag">&lt;/<span class="hljs-title">groupId</span>&gt;</span>
+      <span class="hljs-tag">&lt;<span class="hljs-title">artifactId</span>&gt;</span>jackson-databind<span class="hljs-tag">&lt;/<span class="hljs-title">artifactId</span>&gt;</span>
+      <span class="hljs-tag">&lt;<span class="hljs-title">version</span>&gt;</span>2.7.4<span class="hljs-tag">&lt;/<span class="hljs-title">version</span>&gt;</span>
+    <span class="hljs-tag">&lt;/<span class="hljs-title">dependency</span>&gt;</span>
+    <span class="hljs-tag">&lt;<span class="hljs-title">dependency</span>&gt;</span>
+      <span class="hljs-tag">&lt;<span class="hljs-title">groupId</span>&gt;</span>com.fasterxml.jackson.core<span class="hljs-tag">&lt;/<span class="hljs-title">groupId</span>&gt;</span>
+      <span class="hljs-tag">&lt;<span class="hljs-title">artifactId</span>&gt;</span>jackson-annotations<span class="hljs-tag">&lt;/<span class="hljs-title">artifactId</span>&gt;</span>
+      <span class="hljs-tag">&lt;<span class="hljs-title">version</span>&gt;</span>2.7.4<span class="hljs-tag">&lt;/<span class="hljs-title">version</span>&gt;</span>
+    <span class="hljs-tag">&lt;/<span class="hljs-title">dependency</span>&gt;</span></code></pre>
+
+<p>另一个原因是需要设置 content-Type为json</p>
+
+<hr />
+
+
+
+<h2 id="5关于数据库date和java的date">5.关于数据库date和java的date</h2>
+
+<p>java的时间类有点混乱,改了太多次了,对于这种转换,想的是在取出值使用set方法的时候进行转换,只要提前定义好我们要转换的类型,这样显示出来什么的方便多了</p>
+
+
+
+<pre class="prettyprint"><code class=" hljs cs">    <span class="hljs-keyword">public</span> <span class="hljs-keyword">void</span> <span class="hljs-title">setStart_time</span>(Date start_time) {
+        <span class="hljs-keyword">this</span>.start_time = sdf.format(start_time);
+    }</code></pre>
+
+<hr />
+
+
+
+<h2 id="6关于单独js文件使用el表达式的方法">6.关于单独js文件使用EL表达式的方法</h2>
+
+<p>1.通过设置隐藏域,付给其EL表达式的值,这样通过JS获取这个隐藏域的值即可</p>
+
+<p>2.把js文件改为jsp文件,然后引入srcipt的时候其他不变,把原来的js换成jsp即可,这种做法很不错,但是编译器的js智能提示就没了 <br />
+3.使用include指令引入进来,在页面直接script标签里面使用%@include引入</p>
+
+<hr />
+
+
+
+<h2 id="7关于表单验证">7.关于表单验证</h2>
+
+<p>使用原生的validate包,对应的注解为@Validated <br />
+使用hibernate validate验证的话,对应注解为@Valid <br />
+否则无法验证</p>
+
+<hr />
+
+
+
+<h2 id="8关于编码过滤器不起作用">8.关于编码过滤器不起作用</h2>
+
+<p>字符编码过滤器如下,不起作用的话,就是拦截有问题</p>
+
+
+
+<pre class="prettyprint"><code class=" hljs livecodeserver">&lt;<span class="hljs-built_in">filter</span>&gt;
+    &lt;<span class="hljs-built_in">filter</span>-name&gt;characterEncodingFilter&lt;/<span class="hljs-built_in">filter</span>-name&gt;
+    &lt;<span class="hljs-built_in">filter</span>-class&gt;org.springframework.web.<span class="hljs-built_in">filter</span>.CharacterEncodingFilter&lt;/<span class="hljs-built_in">filter</span>-class&gt;
+    &lt;init-<span class="hljs-built_in">param</span>&gt;
+      &lt;<span class="hljs-built_in">param</span>-name&gt;encoding&lt;/<span class="hljs-built_in">param</span>-name&gt;
+      &lt;<span class="hljs-built_in">param</span>-<span class="hljs-built_in">value</span>&gt;UTF-<span class="hljs-number">8</span>&lt;/<span class="hljs-built_in">param</span>-<span class="hljs-built_in">value</span>&gt;
+    &lt;/init-<span class="hljs-built_in">param</span>&gt;
+    &lt;init-<span class="hljs-built_in">param</span>&gt;
+      &lt;<span class="hljs-built_in">param</span>-name&gt;forceEncoding&lt;/<span class="hljs-built_in">param</span>-name&gt;
+      &lt;<span class="hljs-built_in">param</span>-<span class="hljs-built_in">value</span>&gt;<span class="hljs-constant">true</span>&lt;/<span class="hljs-built_in">param</span>-<span class="hljs-built_in">value</span>&gt;
+    &lt;/init-<span class="hljs-built_in">param</span>&gt;
+  &lt;/<span class="hljs-built_in">filter</span>&gt;
+  &lt;<span class="hljs-built_in">filter</span>-mapping&gt;
+    &lt;<span class="hljs-built_in">filter</span>-name&gt;characterEncodingFilter&lt;/<span class="hljs-built_in">filter</span>-name&gt;
+    &lt;url-pattern&gt;<span class="hljs-comment">/*&lt;/url-pattern&gt;
+  &lt;/filter-mapping&gt;</span></code></pre>
+
+<p>可以用<code>request.getCharacterEncoding()</code>判断</p>
+
+<p>我的问题是,过滤器过滤不到*.do的请求,所以加一条即可</p>
+
+
+
+<pre class="prettyprint"><code class=" hljs lasso"><span class="hljs-subst">&lt;</span>url<span class="hljs-attribute">-pattern</span><span class="hljs-subst">&gt;*</span><span class="hljs-built_in">.</span><span class="hljs-keyword">do</span><span class="hljs-subst">&lt;</span>/url<span class="hljs-attribute">-pattern</span><span class="hljs-subst">&gt;</span></code></pre>
+
+<hr />
+
+
+
+<h2 id="9关于重定向传参数">9.关于重定向传参数</h2>
+
+<p>重定向传参数可以直接拼接url传,这种方式我用EL表达式无法得到值,用request.getparames()可以得到值,也不知道为什么.</p>
+
+<p>后来用了RedirectAttributes,比较好用,传参数在链接后面不显示,通过flashMap来传值的,可以用EL表达式直接访问.</p>
+
+
+
+<pre class="prettyprint"><code class=" hljs cs">        RedirectAttributes attr = <span class="hljs-keyword">new</span> RedirectAttributes();
+        attr.addFlashAttribute(<span class="hljs-string">"error"</span>,<span class="hljs-string">"layer.alert('提交错误')"</span>);
+            model.setViewName(<span class="hljs-string">"redirect:/problem.do"</span>);
+            <span class="hljs-keyword">return</span> model;</code></pre>
+
+<p>JS页面直接通过<code>${error}</code>即可显示出来,缺点就是不可以传递对象,只能传递字符串等基本类型</p>
+
+<h2 id="10properties文件的更新">10.properties文件的更新</h2>
+
+
+
+<pre class="prettyprint"><code class=" hljs java">    <span class="hljs-javadoc">/**
+     * 写入properties信息,写入如果想更新的话要先load一下
+     */</span>
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">void</span> <span class="hljs-title">writeProperties</span>(String key, String value) {
+        <span class="hljs-keyword">try</span> {
+            props = <span class="hljs-keyword">new</span> Properties();
+            FileInputStream fis =<span class="hljs-keyword">new</span> FileInputStream(fileName);
+            props.load(fis);
+            OutputStream fos = <span class="hljs-keyword">new</span> FileOutputStream(fileName);
+            props.setProperty(key, value);
+            <span class="hljs-comment">// 将此 Properties 表中的属性列表（键和元素对）写入输出流</span>
+            props.store(fos, <span class="hljs-string">"『comments』Update key："</span> + key);
+        } <span class="hljs-keyword">catch</span> (IOException e) {
+        }
+    }</code></pre></div>&#13;
+        <script type="text/javascript">&#13;
+            $(function () {&#13;
+                $('pre.prettyprint code').each(function () {&#13;
+                    var lines = $(this).text().split('\n').length;&#13;
+                    var $numbering = $('&lt;ul/&gt;').addClass('pre-numbering').hide();&#13;
+                    $(this).addClass('has-numbering').parent().append($numbering);&#13;
+                    for (i = 1; i &lt;= lines; i++) {&#13;
+                        $numbering.append($('&lt;li/&gt;').text(i));&#13;
+                    };&#13;
+                    $numbering.fadeIn(1700);&#13;
+                });&#13;
+            });&#13;
+        </script>&#13;
+   &#13;

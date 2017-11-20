@@ -1,0 +1,38 @@
+
+                
+<p><span style="font-size:18px">内核知道连续两次时钟中断的间隔时间，而这个间隔时间就是所谓的节拍，它是从节拍率计算而来。</span></p>&#13;
+<p><span style="font-size:18px"><br/>&#13;
+</span></p>&#13;
+<p><span style="font-size:18px"><strong>节拍率：</strong></span></p>&#13;
+<p><span style="font-size:18px">节拍率也叫系统定时器（硬件）频率或时钟中断频率，用HZ来度量。在x86体系结构下，节拍率默认100HZ。其实如何确定HZ值是一门很大的学问。提高HZ等同于提高中断解析度。比如HZ=100的时钟的执行粒度为10ms，即系统中的周期事件最快为每10ms运行一次，但当HZ=1000时，解析度为1ms——精细了10倍。这对于触发定时器超时，可以提高准确度。其实高的HZ会加重系统负担，因为每一次时钟中断就要去执行相应的中断处理程序，这样占用处理器的时间会增多。Linux支持无节拍操作，会动态调整时钟中断周期，使得空闲时不会被不必要的时钟中断打断，可以省电。</span></p>&#13;
+<p><span style="font-size:18px"><br/>&#13;
+</span></p>&#13;
+<p><span style="font-size:18px"><strong>jiffies：</strong></span></p>&#13;
+<p><span style="font-size:18px">全局变量jiffies（unsigned long）用来记录自系统启动以来产生的节拍的总数。每次时钟中断就会增加该值，所以jiffies一秒内增加的值就为HZ。所以系统运行时间等于jiffies/HZ。</span></p>&#13;
+<p><span style="font-size:18px"><br/>&#13;
+</span></p>&#13;
+<p><span style="font-size:18px"><strong>实时时钟RTC：</strong></span></p>&#13;
+<p><span style="font-size:18px">RTC是用来持久存放系统时间的设备，即便系统关闭后，它也可以靠主板上的微型电池提供的电力继续为系统计时。RTC最主要的作用是在启动时初始化xtime变量，以便得到墙上时间。与RTC相应的是系统定时器。系统定时器的根本思想是——提供一种周期性触发中断机制。</span></p>&#13;
+<p><span style="font-size:18px"><br/>&#13;
+</span></p>&#13;
+<p><span style="font-size:18px"><strong>时钟中断处理程序：</strong></span></p>&#13;
+<p><span style="font-size:18px">与体系结构相关的例程作为系统定时器的中断处理程序而注册到内核中，以便在产生时钟中断时，它能够相应地运行。</span></p>&#13;
+<p/>&#13;
+<ul>&#13;
+<li><span style="font-size:18px">获得xtime_lock锁，以便对访问jiffies_64和墙上时间xtime进行保护。</span></li><li><span style="font-size:18px">需要时应答或重新设置系统时钟。</span></li><li><span style="font-size:18px">周期性地使用墙上时间更新实时时钟。</span></li><li><span style="font-size:18px">调用体系结构无关的时钟例程，tick_periodic()。</span></li></ul>&#13;
+<div><span style="font-size:18px">tick_periodic()用来进行与体系结构无关的操作。</span></div>&#13;
+<div>&#13;
+<ul>&#13;
+<li><span style="font-size:18px">给jiffies_64变量增加1。</span></li><li><span style="font-size:18px">更新资源消耗的统计值，如当前进程消耗的系统时间和用户时间。</span></li><li><span style="font-size:18px">执行已经到期的动态定时器。</span></li><li><span style="font-size:18px">执行scheduler_tick()。</span></li><li><span style="font-size:18px">更新墙上时间，该时间存放在xtime变量中。</span></li><li><span style="font-size:18px">计算平均负载值。</span></li></ul>&#13;
+<div><span style="font-size:18px"><br/>&#13;
+</span></div>&#13;
+</div>&#13;
+<div><span style="font-size:18px"><strong>定时器：</strong></span></div>&#13;
+<div><span style="font-size:18px">我们之前提到的下半部推后执行，就需要定时器来告诉我们到底推后到何时。定时器的使用很简单，你只需要执行一些初始化工作，设置一个超时时间，指定超时发生后执行的函数，然后激活定时器就OK了。指定的函数将在定时器到期时自动执行。定时器并不周期运行，超时后自行撤销，需要重新创建。</span></div>&#13;
+<div style="text-align:center"><img src="http://img.blog.csdn.net/20140608024810328?watermark/2/text/aHR0cDovL2Jsb2cuY3Nkbi5uZXQvQmx1ZUNsb3VkTWF0cml4/font/5a6L5L2T/fontsize/400/fill/I0JBQkFCMA==/dissolve/70/gravity/SouthEast" alt=""/><br/>&#13;
+</div>&#13;
+<div><br/>&#13;
+</div>&#13;
+<p/>&#13;
+<link rel="stylesheet" href="http://static.blog.csdn.net/public/res-min/markdown_views.css?v=1.0"/>&#13;
+            

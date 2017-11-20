@@ -1,0 +1,482 @@
+
+
+<h1>前言</h1>&#13;
+<div>开发的软件产品在交付使用的时候，往往会授权一段时间的试用期，这个时候license就派上用场了。不同于在代码中直接加上时间约束，需要重新授权的时候使用license可以避免修改源码，改动部署，授权方直接生成一个新的license发送给使用方替换掉原来的license文件即可。下面将讲述使用truelicense来实现license的生成和使用。Truelicense是一个开源的证书管理引擎，详细介绍见https://truelicense.java.net/</div>&#13;
+<div>license于加密技术一起使用效果更好。</div>&#13;
+<div>接下来介绍一下license授权机制的原理：<br />&#13;
+1、生成密钥对，方法有很多。<br />&#13;
+2、授权者保留私钥，使用私钥对包含授权信息（如使用截止日期，MAC地址等）的license进行数字签名。<br />&#13;
+3、公钥给使用者（放在验证的代码中使用），用于验证license是否符合使用条件。<br />&#13;
+</div>&#13;
+<h1>使用方式</h1>&#13;
+<h2>1. 生成密钥对</h2>&#13;
+<div>以下命令在dos命令行执行，注意当前执行目录，最后生成的密钥对即在该目录下：<br />&#13;
+1、首先要用KeyTool工具来生成私匙库：（-alias别名 –validity 3650表示10年有效）<br />&#13;
+keytool -genkey -alias privatekey -keystore privateKeys.store -validity 3650<br />&#13;
+ <img src="http://img.blog.csdn.net/20170213220302377?watermark/2/text/aHR0cDovL2Jsb2cuY3Nkbi5uZXQvbGVlMjcyNjE2/font/5a6L5L2T/fontsize/400/fill/I0JBQkFCMA==/dissolve/70/gravity/Center" alt="" /><br />&#13;
+这里口令使用了noryar123<br />&#13;
+ <img src="http://img.blog.csdn.net/20170213220335034?watermark/2/text/aHR0cDovL2Jsb2cuY3Nkbi5uZXQvbGVlMjcyNjE2/font/5a6L5L2T/fontsize/400/fill/I0JBQkFCMA==/dissolve/70/gravity/Center" alt="" /><br />&#13;
+这里的口令是：noryar456<br />&#13;
+这个时候，会在打开命令行的地方创建出一个文件，privateKeys.store<br />&#13;
+<br />&#13;
+<br />&#13;
+2、然后把私匙库内的证书导出到一个文件当中：<br />&#13;
+keytool -export -alias privatekey -file certfile.cer -keystore privateKeys.store<br />&#13;
+ <img src="http://img.blog.csdn.net/20170213220929464?watermark/2/text/aHR0cDovL2Jsb2cuY3Nkbi5uZXQvbGVlMjcyNjE2/font/5a6L5L2T/fontsize/400/fill/I0JBQkFCMA==/dissolve/70/gravity/Center" alt="" /><br />&#13;
+口令：noryar123<br />&#13;
+<br />&#13;
+<br />&#13;
+3、然后再把这个证书文件导入到公匙库：<br />&#13;
+keytool -import -alias publiccert -file certfile.cer -keystore publicCerts.store<br />&#13;
+ <img src="http://img.blog.csdn.net/20170213221023308?watermark/2/text/aHR0cDovL2Jsb2cuY3Nkbi5uZXQvbGVlMjcyNjE2/font/5a6L5L2T/fontsize/400/fill/I0JBQkFCMA==/dissolve/70/gravity/Center" alt="" /><br />&#13;
+这里的口令，用了：noryar123<br />&#13;
+<br />&#13;
+<br />&#13;
+最后生成文件privateKeys.store、publicCerts.store拷贝出来备用。<br />&#13;
+文件位置在用户目录下<br />&#13;
+C:\Users\Administrator<br />&#13;
+</div>&#13;
+<div>从上面我们可以看到，密钥一共有两种：1. 密钥库，这个需要配置到服务器中。2. 密钥，这个需要保护好，是创建私钥的时候用的</div>&#13;
+<div><br />&#13;
+</div>&#13;
+<h2>2. Maven</h2>&#13;
+<p></p>&#13;
+<pre name="code" class="plain">&lt;!-- https://mvnrepository.com/artifact/de.schlichtherle.truelicense/truelicense-core --&gt;
+&lt;dependency&gt;
+    &lt;groupId&gt;de.schlichtherle.truelicense&lt;/groupId&gt;
+    &lt;artifactId&gt;truelicense-core&lt;/artifactId&gt;
+    &lt;version&gt;1.33&lt;/version&gt;
+&lt;/dependency&gt;
+&lt;!-- https://mvnrepository.com/artifact/de.schlichtherle.truelicense/truelicense-xml --&gt;
+&lt;dependency&gt;
+    &lt;groupId&gt;de.schlichtherle.truelicense&lt;/groupId&gt;
+    &lt;artifactId&gt;truelicense-xml&lt;/artifactId&gt;
+    &lt;version&gt;1.33&lt;/version&gt;
+&lt;/dependency&gt;
+&lt;!-- https://mvnrepository.com/artifact/commons-codec/commons-codec --&gt;
+&lt;dependency&gt;
+    &lt;groupId&gt;commons-codec&lt;/groupId&gt;
+    &lt;artifactId&gt;commons-codec&lt;/artifactId&gt;
+    &lt;version&gt;1.10&lt;/version&gt;
+&lt;/dependency&gt;
+&lt;!-- https://mvnrepository.com/artifact/de.schlichtherle.truelicense/truelicense-swing --&gt;
+&lt;dependency&gt;
+    &lt;groupId&gt;de.schlichtherle.truelicense&lt;/groupId&gt;
+    &lt;artifactId&gt;truelicense-swing&lt;/artifactId&gt;
+    &lt;version&gt;1.33&lt;/version&gt;
+&lt;/dependency&gt;
+</pre><br />&#13;
+<p></p>&#13;
+<h2>3. 生成证书 (该部分代码由授权者独立保管执行)</h2>&#13;
+<p></p>&#13;
+<p></p>&#13;
+<pre name="code" class="java">package com.noryar.license;
+import de.schlichtherle.license.LicenseManager;
+import de.schlichtherle.license.LicenseParam;
+/**
+ * 单例模式下的证书管理器
+ * @author Leon Lee.
+ */
+public class LicenseManagerHolder
+{
+	private static LicenseManager licenseManager;
+	private LicenseManagerHolder(){}
+	public static synchronized  LicenseManager getLicenseManager(LicenseParam param)
+	{
+		if(licenseManager==null)
+		{
+			licenseManager=new LicenseManager(param);
+		}
+		return licenseManager;
+	}
+}
+</pre><br />&#13;
+<pre name="code" class="java">package com.noryar.license;
+
+import java.io.File;
+import java.io.IOException;
+import java.io.InputStream;
+import java.text.ParseException;
+import java.text.SimpleDateFormat;
+import java.util.Properties;
+import java.util.prefs.Preferences;
+
+import javax.security.auth.x500.X500Principal;
+
+import de.schlichtherle.license.CipherParam;
+import de.schlichtherle.license.DefaultCipherParam;
+import de.schlichtherle.license.DefaultKeyStoreParam;
+import de.schlichtherle.license.DefaultLicenseParam;
+import de.schlichtherle.license.KeyStoreParam;
+import de.schlichtherle.license.LicenseContent;
+import de.schlichtherle.license.LicenseManager;
+import de.schlichtherle.license.LicenseParam;
+
+/**
+ * 生成证书
+ * @author Leon Lee.
+ */
+public class LicenseMake
+{
+	private String licPath;
+	private String issued ;
+	private String notBefore ;
+	private String notAfter ;
+	private String consumerType;
+	private int consumerAmount ;
+	private String info ;
+	/**
+	 * 私钥的别名
+	 */
+	private String priAlias ;
+	/**
+	 * 该密码生成密钥对的密码
+	 */
+	private String privateKeyPwd ;
+	/**
+	 * 使用keytool生成密钥对时设置的密钥库的访问密码
+	 */
+	private String keyStorePwd ;
+	private String subject ;
+	private String priPath ;
+	
+	// X500Princal是一个证书文件的固有格式，详见API
+	private final static X500Principal DEFAULTHOLDERANDISSUER = new X500Principal("CN=noryar, OU=noryar, O=noryar, L=china, ST=dalian, C=china");
+	
+	public LicenseMake(){}
+	public LicenseMake(String confPath)
+	{
+		initParam(confPath);
+	}
+	
+	/**
+	 * 读取属性文件
+	 * @param propertiesPath 属性文件路径
+	 */
+	public void initParam(String confPath) 
+	{
+		// 获取参数
+		Properties prop = new Properties();
+		InputStream in = getClass().getResourceAsStream(confPath);
+		try
+		{
+			prop.load(in);
+		}
+		catch (IOException e)
+		{
+			e.printStackTrace();
+		}
+		//common param
+		priAlias = prop.getProperty("private.key.alias");
+		privateKeyPwd = prop.getProperty("private.key.pwd");
+		keyStorePwd= prop.getProperty("key.store.pwd");
+		subject = prop.getProperty("subject");
+		priPath = prop.getProperty("priPath");
+		licPath = prop.getProperty("licPath");
+		 // license content
+		issued = prop.getProperty("issuedTime");
+		notBefore = prop.getProperty("notBefore");
+		notAfter = prop.getProperty("notAfter");
+		consumerType = prop.getProperty("consumerType");
+		consumerAmount = Integer.valueOf(prop.getProperty("consumerAmount"));
+		info = prop.getProperty("info");
+	}
+	
+	/**
+	 * 初始化证书的相关参数
+	 * @return
+	 */
+	private LicenseParam initLicenseParams()
+	{
+		Class&lt;LicenseMake&gt; clazz=LicenseMake.class;
+		Preferences pre = Preferences.userNodeForPackage(clazz);
+		// 设置对证书内容加密的对称密码
+		CipherParam cipherParam = new DefaultCipherParam(keyStorePwd);
+		// 参数1,2从哪个Class.getResource()获得密钥库;
+		//参数3密钥库的别名;
+		//参数4密钥库存储密码;
+		//参数5密钥库密码
+		KeyStoreParam privateStoreParam = new DefaultKeyStoreParam(clazz, priPath, priAlias, keyStorePwd, privateKeyPwd);
+		// 返回生成证书时需要的参数
+		LicenseParam licenseParam = new DefaultLicenseParam(subject,pre, privateStoreParam, cipherParam);
+		return licenseParam;
+	}
+	
+	/**
+	 * 通过外部配置文件构建证书的的相关信息
+	 * @return
+	 * @throws ParseException
+	 */
+	public LicenseContent buildLicenseContent() throws ParseException
+	{
+		LicenseContent content=new LicenseContent();
+		SimpleDateFormat formate=new SimpleDateFormat("yyyy-MM-dd");
+		content.setConsumerAmount(consumerAmount);
+		content.setConsumerType(consumerType);
+		content.setHolder(DEFAULTHOLDERANDISSUER);
+		content.setIssuer(DEFAULTHOLDERANDISSUER);
+		content.setIssued(formate.parse(issued));
+		content.setNotBefore(formate.parse(notBefore));
+		content.setNotAfter(formate.parse(notAfter));
+		content.setInfo(info);
+		content.setExtra(new Object());
+		return content;
+	}
+	
+	
+	/**
+	 * 生成证书，在证书发布者端执行
+	 * @throws Exception 
+	 */
+	public void create() throws Exception
+	{
+		LicenseManager licenseManager=LicenseManagerHolder.getLicenseManager(initLicenseParams());
+		LicenseContent content=buildLicenseContent();
+		licenseManager.store(content, new File(licPath));
+		System.out.println("证书发布成功");
+	}
+}
+</pre><br />&#13;
+licenseMakeConf.properties&#13;
+<p></p>&#13;
+<p></p>&#13;
+<pre name="code" class="plain">##########common parameters###########
+#私钥的别名
+private.key.alias=privatekey
+#privateKeyPwd(该密码生成密钥对的密码，需要妥善保管，不能让使用者知道)
+private.key.pwd=noryar456
+#keyStorePwd(该密码是在使用keytool生成密钥对时设置的密钥库的访问密码)
+key.store.pwd=noryar123
+#项目的唯一识别码
+subject=noryar
+#生成证书的地址
+licPath=license.lic
+#密钥库的地址
+priPath=privateKeys.store
+##########license content###########
+#发布日期
+issuedTime=2016-07-25
+#有效开始日期
+notBefore=2016-07-25
+#有效截止日期
+notAfter=2016-08-30
+#consumerType
+consumerType=user
+#ConsumerAmount
+consumerAmount=1
+#info
+info=this is a license
+</pre><br />&#13;
+测试方法&#13;
+<p></p>&#13;
+<p></p>&#13;
+<pre name="code" class="java">public static void main(String[] args) throws Exception
+	{
+		LicenseMake clicense=new LicenseMake("/licenseMakeConf.properties");
+		clicense.create();
+	}
+</pre>以上就可以创建出一个license文件了。然后开发者将license文件传递给购买方。购买方在系统中上传该文件进行验证即可。&#13;
+<p></p>&#13;
+<p><br />&#13;
+</p>&#13;
+<h2>4. 验证证书</h2>&#13;
+<p></p>&#13;
+<p></p>&#13;
+<pre name="code" class="java">package com.noryar.license;
+
+import de.schlichtherle.license.LicenseManager;
+import de.schlichtherle.license.LicenseParam;
+/**
+ * 单例模式下的证书管理器
+ * @author Leon Lee
+ */
+public class LicenseManagerHolder
+{
+	private static LicenseManager licenseManager;
+	private LicenseManagerHolder(){}
+	public static synchronized  LicenseManager getLicenseManager(LicenseParam param)
+	{
+		if(licenseManager==null)
+		{
+			licenseManager=new LicenseManager(param);
+		}
+		return licenseManager;
+	}
+}
+</pre><br />&#13;
+认证核心方法&#13;
+<p></p>&#13;
+<p></p>&#13;
+<pre name="code" class="java">package com.noryar.license;
+
+import java.io.File;
+import java.io.IOException;
+import java.io.InputStream;
+import java.util.Properties;
+import java.util.prefs.Preferences;
+
+import de.schlichtherle.license.CipherParam;
+import de.schlichtherle.license.DefaultCipherParam;
+import de.schlichtherle.license.DefaultKeyStoreParam;
+import de.schlichtherle.license.DefaultLicenseParam;
+import de.schlichtherle.license.KeyStoreParam;
+import de.schlichtherle.license.LicenseContentException;
+import de.schlichtherle.license.LicenseManager;
+import de.schlichtherle.license.LicenseParam;
+
+public class LicenseVertify
+{
+	/**
+	 * 公钥别名
+	 */
+	private String pubAlias;
+	/**
+	 * 该密码是在使用keytool生成密钥对时设置的密钥库的访问密码 
+	 */
+	private String keyStorePwd;
+	/**
+	 * 系统的统一识别码
+	 */
+	private String onlykey;
+	/**
+	 * 证书路径 
+	 */
+	private String licName;
+	/**
+	 * 公钥库路径
+	 */
+	private String pubPath;
+	private String confPath="/licenseVertifyConf.properties";
+	public LicenseVertify(String onlykey)
+	{
+		setConf(confPath,onlykey);
+	}
+	
+	public LicenseVertify(String confPath,String onlykey)
+	{
+		setConf(confPath,onlykey);
+	}
+	/**
+	 * 通过外部配置文件获取配置信息
+	 * @param confPath  配置文件路径
+	 * @param onlykey 系统的统一识别码
+	 */
+	public void setConf(String confPath,String onlykey)
+	{
+		// 获取参数
+		Properties prop = new Properties();
+		InputStream in = getClass().getResourceAsStream(confPath);
+		try
+		{
+			prop.load(in);
+		}
+		catch (IOException e)
+		{
+			e.printStackTrace();
+		}
+		
+		this.onlykey=onlykey;
+		pubAlias = prop.getProperty("public.alias");
+		keyStorePwd = prop.getProperty("key.store.pwd");
+		licName = prop.getProperty("license.name");
+		pubPath = prop.getProperty("public.store.path");
+		
+	}
+	
+	/**
+	 * 初始化证书的相关参数
+	 * @param 系统的统一识别码
+	 * @return
+	 */
+	private LicenseParam initLicenseParams()
+	{
+		Class&lt;LicenseVertify&gt; clazz=LicenseVertify.class;
+		Preferences pre=Preferences.userNodeForPackage(clazz);
+		CipherParam cipherParam=new DefaultCipherParam(storePwd);
+		KeyStoreParam pubStoreParam=new DefaultKeyStoreParam(clazz, pubPath, pubAlias, keyStorePwd, null);
+		LicenseParam licenseParam=new DefaultLicenseParam(onlykey, pre, pubStoreParam, cipherParam);
+		return licenseParam;
+	}
+	
+	private LicenseManager getLicenseManager()
+	{
+		return LicenseManagerHolder.getLicenseManager(initLicenseParams());
+	}
+	/**
+	 * 安装证书证书
+	 * @param 存放证书的路径
+	 * @return
+	 */
+	public void install(String licdir)
+	{
+		try
+		{
+			LicenseManager licenseManager=getLicenseManager();
+			licenseManager.install(new File(licdir+File.separator+licName));
+			System.out.println("安装证书成功!");
+		}
+		catch (Exception e)
+		{
+			System.out.println("安装证书失败!");
+			e.printStackTrace();
+			System.exit(0);
+		}
+		
+	}
+	
+	/**
+	 * 验证证书的合法性
+	 * @return 0、合法，1、证书过期，2、证书错误
+	 */
+	public int vertify()
+	{
+		try
+		{
+			LicenseManager licenseManager=getLicenseManager();
+			licenseManager.verify();
+			System.out.println("验证证书成功!");
+			return 0;
+		}
+		catch(LicenseContentException ex)
+		{
+			System.out.println("证书已经过期!");
+			ex.printStackTrace();
+			return 1;
+		}
+		catch (Exception e)
+		{
+			System.out.println("验证证书失败!");
+			e.printStackTrace();
+			return 2;
+		}
+	}
+}
+</pre><br />&#13;
+测试&#13;
+<p></p>&#13;
+<p></p>&#13;
+<pre name="code" class="java">public static void main(String[] args) throws Exception
+	{
+		LicenseVertify vlicense=new LicenseVertify("noryar"); // 项目唯一识别码，对应生成配置文件的subject
+		vlicense.install(System.getProperty("user.dir"));
+		vlicense.vertify();
+	}
+</pre>licenseVertifyConf.properties&#13;
+<p></p>&#13;
+<p></p>&#13;
+<pre name="code" class="plain">##########common parameters###########
+#公钥别名
+public.alias=publiccert
+#使用keytool生成密钥对时设置的密钥库的访问密码
+key.store.pwd= noryar123
+#证书路径
+license.name=license.lic
+#公共库路径
+public.store.path=publicCerts.store
+</pre><br />&#13;
+<p></p>&#13;
+<h1>总结</h1>&#13;
+以上就是license开发的常规手段。对于web项目来说，只需要提供license认证模块的开发即可。对于开发者来说，可以将license生成单独开发一个小程序。以后就可以通过这个程序来给不同的企业生成license。&#13;
+<p></p>&#13;
+<p>此外，为了更好的保护代码。license认证模块可以进行混淆加密，解密部分使用C语言来编写，同时针对不同的平台进行编译。增强破解难度。</p>&#13;
+   &#13;

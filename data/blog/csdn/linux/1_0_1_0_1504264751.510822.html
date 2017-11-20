@@ -1,0 +1,354 @@
+
+                <div class="markdown_views"><h2 id="优化屏幕刷新">优化屏幕刷新</h2>
+
+<p>问题 <br/>
+刷新多个窗体需要一些繁琐，在一个慢速的链接上，屏幕的绘制相当的慢 <br/>
+目标就是要尽量减少要在屏幕上的绘制的字符数</p>
+
+
+
+<pre class="prettyprint"><code class=" hljs cs">基本函数
+<span class="hljs-keyword">int</span> wnoutrefresh(WINDOW *window_ptr);
+决定哪些字符需要发送到屏幕，但是并不实际的发送
+<span class="hljs-keyword">int</span> doupdate(<span class="hljs-keyword">void</span>);
+向终端发送实际的改变</code></pre>
+
+<p>说明 <br/>
+如果只是简单地调用wnoutrefresh，其后立即调用doupdate，其效果就如同调用wrefresh一样 <br/>
+如果希望重新绘制一个窗体栈，可以在每一个窗体(以正确的顺序)上调用wnoutrefresh函数，然而在最后一个wnoutrefresh函数之后调用doupdate函数 <br/>
+这使得curses按顺序在每一个窗体上执行屏幕更新计算，并且只输出更新的屏幕。这会使得curses尽量减少需要发送的字符数</p>
+
+
+
+<pre class="prettyprint"><code class=" hljs perl">WINDOW <span class="hljs-variable">*subwin</span>(WINDOW <span class="hljs-variable">*parent</span>, <span class="hljs-keyword">int</span> lines, <span class="hljs-keyword">int</span> cols, <span class="hljs-keyword">int</span> <span class="hljs-keyword">y</span>, <span class="hljs-keyword">int</span> <span class="hljs-keyword">x</span>);
+subwin函数具有与newwin几乎相同的参数列表
+子窗体的删除方式也与其他的窗体使用一个delwin调用方式相同
+与新窗体类似，可以使用一系列的 mvw函数将数据写入子窗体中，但有一点重要区别
+子窗体本身并不会存储一个单独的屏幕字符集，他们与子窗体创建时所指定的父窗体共享存储空间
+这就意味着子窗体中的任何改动也同时会发生在底层的父窗体中，所以当一个子窗体被删除时，屏幕并不会发生变化
+<span class="hljs-keyword">int</span> delwin(WINDOW <span class="hljs-variable">*window_to_delete</span>);
+</code></pre>
+
+<p>在将sub_window_ptr指向subwin的调用结果之后，就将子窗体变得可以滚动 <br/>
+甚至是在子窗体被删除而基窗体(strdcr)已经刷新之后，屏幕上的文本仍然保持原样 <br/>
+这是因为子窗体实际更新的是stdscr的字符数据</p>
+
+
+
+<h2 id="keypad模式">keypad模式</h2>
+
+<p>功能键的处理 <br/>
+在大多数终端会发送一个以转义字符开始的字符串 <br/>
+这些程序所具有的不仅是单击Escape键和由按下一个功能键所引起的字符串之间区别的问题，而且必须使用相同逻辑按键的不同序列来处理不同的终端 <br/>
+curses提供了一个优雅的实用功能来管理这些功能按键 <br/>
+对于每一个终端，每一个功能键所发送的字符序列都会被存储，通常是存储在一个terminfo结构中 <br/>
+所包含的头文件curses.h具有一个以KEY_为前缀的定义部分定义了逻辑按键 <br/>
+当curses启动时，序列与逻辑按键之间的转换就被禁止，必须使用keypad函数来打开 <br/>
+int keypad(WINDOW *window_ptr, bool keypad_on); <br/>
+如果函数调用成功则会返回OK，否则返回ERR</p>
+
+
+
+<h2 id="keypad模式的三个限制">keypad模式的三个限制</h2>
+
+<p>转义序列的识别是时间相关的 <br/>
+许多网络协议将字符组装到数所包中(会导致不能正确识别转义序列) <br/>
+或者是分割他们(从而会导致功能按键序列会被识别为Escape与单个的字符) <br/>
+唯一解决办法 <br/>
+进行编程，使用信号来处理希望使用的每一个功能按键，为其发送单一、唯一的字符 <br/>
+为使curses可区分按下Escape与以Escape开头的键盘序列，必须等待一小段时间 <br/>
+有时，一旦打开keypad模式，Escape按键处理上的一个非常小的延时也会被注意到 <br/>
+curses不能处理不唯一的转义序列 <br/>
+如果终端有可以发送相同序列的两个不同的按键，curses只是简单的不处理这个序列，因为他不能确定应返回哪一个逻辑按键</p>
+
+
+
+<h2 id="彩色显示">彩色显示</h2>
+
+<p>大多数早期的curses版本不支持颜色 <br/>
+颜色被ncurses以及大多数现在的curses实现所支持 <br/>
+curses中的颜色支持有一些不同，其原因在于每一个字符的颜色并不是独立于其底色而定义的 <br/>
+所以必须同时定义前景色与背景色，即所谓的颜色对</p>
+
+
+
+<pre class="prettyprint"><code class=" hljs cs"><span class="hljs-keyword">bool</span> has_colors(<span class="hljs-keyword">void</span>);
+如果支持颜色，has_colors就会返回真
+<span class="hljs-keyword">int</span> start_color(<span class="hljs-keyword">void</span>);
+进行颜色初始化，如果颜色初始化成功，则返回OK
+初始化COLORS和COLOR_PAIR
+COLORS：终端所支持的最多的颜色数目
+COLOR_PAIR：用户可以定义的色彩对的最大数目
+系统颜色
+COLOR_BLACK <span class="hljs-number">0</span> 黑色
+ COLOR_RED <span class="hljs-number">1</span> 红色
+COLOR_GREEN <span class="hljs-number">2</span> 绿色
+COLOR_YELLOW <span class="hljs-number">3</span> 黄色
+COLOR_BLUE <span class="hljs-number">4</span> 蓝色
+COLOR_MAGENTA <span class="hljs-number">5</span> 洋红色
+COLOR_CYAN <span class="hljs-number">6</span> 蓝绿色, 青色
+COLOR_WHITE <span class="hljs-number">7</span> 白色
+</code></pre>
+
+
+
+<h2 id="初始化颜色对">初始化颜色对</h2>
+
+
+
+<pre class="prettyprint"><code class=" hljs cs"><span class="hljs-keyword">int</span> init_pair(<span class="hljs-keyword">short</span> pair_number, <span class="hljs-keyword">short</span> foreground, <span class="hljs-keyword">short</span> background);
+用于更改一个彩色对的定义
+彩色对是Curses的一个概念，它用一个整型数值去标志一对前景/背景彩色
+pair_number：彩色对数值，其范围从<span class="hljs-number">1</span>到 COLOR_PAIRS-<span class="hljs-number">1</span>
+f：指定前景彩色
+b：指定背景彩色
+<span class="hljs-keyword">int</span> COLOR_PAIR(<span class="hljs-keyword">int</span> pair_number);
+<span class="hljs-keyword">int</span> pair_content(<span class="hljs-keyword">short</span> pair_number, <span class="hljs-keyword">short</span> *foreground, <span class="hljs-keyword">short</span> *background);
+</code></pre>
+
+
+
+<h2 id="初始化颜色过程">初始化颜色过程</h2>
+
+
+
+<pre class="prettyprint"><code class=" hljs scss">定义颜色对1，使其背景色为绿色而前景色为红色
+<span class="hljs-function">init_pair(<span class="hljs-number">1</span>, COLOR_RED, COLOR_GREEN)</span>;
+使用COLOR_PAIR将这个颜色作为一个属性来进行访问
+<span class="hljs-function">wattron(window_ptr, <span class="hljs-function">COLOR_PAIR(<span class="hljs-number">1</span>)</span>)</span>;
+将屏幕设置为绿色的背景色以及红色的前景色
+说明
+因为COLOR_PAIR是一个属性，所以可以将其与其他的属性进行组合
+在PC上，经常可以通过使用位或操作符组合COLOR_PAIR属性与A_BOLD属性来获得屏幕的亮度
+<span class="hljs-function">wattron(window_ptr, <span class="hljs-function">COLOR_PAIR(<span class="hljs-number">1</span>)</span> | A_BOLD)</span>;
+</code></pre>
+
+
+
+<h2 id="重新定义颜色">重新定义颜色</h2>
+
+
+
+<pre class="prettyprint"><code class=" hljs vbscript">在初始化颜色的时候改变某个颜色的<span class="hljs-built_in">RGB</span>值 
+init_color(COLOR_RED, <span class="hljs-number">700</span>, <span class="hljs-number">0</span>, <span class="hljs-number">0</span>);
+ 参数<span class="hljs-number">1</span> : 颜色名称
+参数<span class="hljs-number">2</span>, <span class="hljs-number">3</span>, <span class="hljs-number">4</span> : 分别为R(red),G(green),B(blue)的数值
+最小值：<span class="hljs-number">0</span>
+最大值：<span class="hljs-number">1000</span>
+如果显示终端无法改变颜色设置，函数将返回<span class="hljs-built_in">ERR</span>
+can_change_color()
+监测终端是否可以支持颜色改变
+</code></pre>
+
+
+
+<h2 id="pad">pad</h2>
+
+<p>背景 <br/>
+期望得到一个比实际物理屏幕更大的逻辑屏幕，并且每次只显示逻辑屏幕的部分内容 <br/>
+窗口缺陷 <br/>
+所有窗体必须不大于物理屏幕 <br/>
+pad功能 <br/>
+操作并不适合普通窗体的逻辑屏幕信息 <br/>
+pad结构与WINDOW结构相类似 <br/>
+所有可以用于向窗体输出的函数也可以用于pad <br/>
+但pad具有其特殊的创建与刷新例程</p>
+
+
+
+<pre class="prettyprint"><code class=" hljs perl">WINDOW <span class="hljs-variable">*newpad</span>(<span class="hljs-keyword">int</span> lines, <span class="hljs-keyword">int</span> columns);
+返回一个指向WINDOW的指针，与newwin函数相同
+删除pad使用delwin函数，与窗体相同
+pad并没有限定一个特定的屏幕位置，必须指定希望pad出现在屏幕上的区域
+<span class="hljs-keyword">int</span> prefresh(WINDOW <span class="hljs-variable">*pad_ptr</span>, <span class="hljs-keyword">int</span> pad_row, <span class="hljs-keyword">int</span> pad_column, <span class="hljs-keyword">int</span> screen_row_min, <span class="hljs-keyword">int</span> screen_col_min, <span class="hljs-keyword">int</span> screen_row_max, <span class="hljs-keyword">int</span> screen_col_max);
+创建一个pad区域，由(pad_row, pad_column)开始
+所定义的区域为(screen_row_min, screen_col_min)到(screen_row_max, screen_col_max)
+</code></pre>
+
+
+
+<h2 id="可视化菜单界面设计">可视化菜单界面设计</h2>
+
+
+
+<pre class="prettyprint"><code class=" hljs erlang"><span class="hljs-function"><span class="hljs-title">init_curses</span><span class="hljs-params">()</span>函数
+<span class="hljs-title">initscr</span>初始化指针接着
+<span class="hljs-title">start_color</span>来显示彩色
+<span class="hljs-title">curs_set</span><span class="hljs-params">(<span class="hljs-number">0</span>)</span>屏蔽掉物理指针
+<span class="hljs-title">noecho</span><span class="hljs-params">()</span>将终止键盘上的输入会在屏幕上显示出来
+</span></code></pre>
+
+
+
+<pre class="prettyprint"><code class=" hljs scss">void <span class="hljs-function">init_cures()</span>{
+    <span class="hljs-function">initscr()</span>;
+    <span class="hljs-function">start_color()</span>;
+    <span class="hljs-function">init_pair(<span class="hljs-number">1</span>,COLOR_WHITE,COLOR_BLUE)</span>;
+    <span class="hljs-function">init_pair(<span class="hljs-number">2</span>,COLOR_BLUE,COLOR_WHITE)</span>;
+    <span class="hljs-function">init_pair(<span class="hljs-number">3</span>,COLOR_RED,COLOR_WHITE)</span>;
+    <span class="hljs-function">curs_set(<span class="hljs-number">0</span>)</span>;
+    <span class="hljs-function">noecho()</span>;
+    <span class="hljs-function">keypad(stdscr,TRUE)</span>;
+}</code></pre>
+
+
+
+<pre class="prettyprint"><code class=" hljs scss">void <span class="hljs-function">draw_menubar(WINDOW *menubar)</span>{
+    <span class="hljs-function">wbkgd(menubar,<span class="hljs-function">COLOR_PAIR(<span class="hljs-number">2</span>)</span>)</span>;
+    <span class="hljs-function">waddstr(menubar,<span class="hljs-string">"Menu1"</span>)</span>;
+    <span class="hljs-function">wattron(menubar,<span class="hljs-function">COLOR_PAIR(<span class="hljs-number">3</span>)</span>)</span>;
+    <span class="hljs-function">waddstr(menubar,<span class="hljs-string">"(F1)"</span>)</span>;
+    <span class="hljs-function">wattroff(menubar,<span class="hljs-function">COLOR_PAIR(<span class="hljs-number">3</span>)</span>)</span>;
+    <span class="hljs-function">wmove(menubar,<span class="hljs-number">0</span>,<span class="hljs-number">20</span>)</span>;
+    <span class="hljs-function">waddstr(menubar,<span class="hljs-string">"Menu2"</span>)</span>;
+    <span class="hljs-function">wattron(menubar,<span class="hljs-function">COLOR_PAIR(<span class="hljs-number">3</span>)</span>)</span>;
+    <span class="hljs-function">waddstr(menubar,<span class="hljs-string">"(F2)"</span>)</span>;
+    <span class="hljs-function">wattroff(menubar,<span class="hljs-function">COLOR_PAIR(<span class="hljs-number">3</span>)</span>)</span>;
+}</code></pre>
+
+<p>draw_menubar()函数说明 <br/>
+定义一个显示在屏幕最顶部的菜单栏 <br/>
+实际上是stdscr窗体的一个子窗体，该子窗体只有 一行 <br/>
+程序将指向该子窗体的指针作为它的参数 <br/>
+首先改变它的背景色，接着定义菜单的文字 <br/>
+使用waddstr定义菜单 的文字 <br/>
+wattron调用另一不同颜色对(序号3)以取代缺省的颜色对(序号2) <br/>
+2号颜色对在最开始就 由wbkgd设置成缺省的颜色对 <br/>
+wattroff函数可以让我们切换到缺省的颜色对状态</p>
+
+
+
+<pre class="prettyprint"><code class=" hljs cpp">WINDOW **draw_menu(<span class="hljs-keyword">int</span> start_col){
+    <span class="hljs-keyword">int</span> i;
+    WINDOW **items;
+    items=(WINDOW **)<span class="hljs-built_in">malloc</span>(<span class="hljs-number">9</span>*<span class="hljs-keyword">sizeof</span>(WINDOW *));
+    items[<span class="hljs-number">0</span>]=newwin(<span class="hljs-number">10</span>,<span class="hljs-number">19</span>,<span class="hljs-number">1</span>,start_col);
+    wbkgd(items[<span class="hljs-number">0</span>],COLOR_PAIR(<span class="hljs-number">2</span>));
+    box(items[<span class="hljs-number">0</span>],ACS_VLINE,ACS_HLINE);
+    items[<span class="hljs-number">1</span>]=subwin(items[<span class="hljs-number">0</span>],<span class="hljs-number">1</span>,<span class="hljs-number">17</span>,<span class="hljs-number">2</span>,start_col+<span class="hljs-number">1</span>);
+    items[<span class="hljs-number">2</span>]=subwin(items[<span class="hljs-number">0</span>],<span class="hljs-number">1</span>,<span class="hljs-number">17</span>,<span class="hljs-number">3</span>,start_col+<span class="hljs-number">1</span>);
+    items[<span class="hljs-number">3</span>]=subwin(items[<span class="hljs-number">0</span>],<span class="hljs-number">1</span>,<span class="hljs-number">17</span>,<span class="hljs-number">4</span>,start_col+<span class="hljs-number">1</span>);
+    items[<span class="hljs-number">4</span>]=subwin(items[<span class="hljs-number">0</span>],<span class="hljs-number">1</span>,<span class="hljs-number">17</span>,<span class="hljs-number">5</span>,start_col+<span class="hljs-number">1</span>);
+    items[<span class="hljs-number">5</span>]=subwin(items[<span class="hljs-number">0</span>],<span class="hljs-number">1</span>,<span class="hljs-number">17</span>,<span class="hljs-number">6</span>,start_col+<span class="hljs-number">1</span>);
+    items[<span class="hljs-number">6</span>]=subwin(items[<span class="hljs-number">0</span>],<span class="hljs-number">1</span>,<span class="hljs-number">17</span>,<span class="hljs-number">7</span>,start_col+<span class="hljs-number">1</span>);
+    items[<span class="hljs-number">7</span>]=subwin(items[<span class="hljs-number">0</span>],<span class="hljs-number">1</span>,<span class="hljs-number">17</span>,<span class="hljs-number">8</span>,start_col+<span class="hljs-number">1</span>);
+    items[<span class="hljs-number">8</span>]=subwin(items[<span class="hljs-number">0</span>],<span class="hljs-number">1</span>,<span class="hljs-number">17</span>,<span class="hljs-number">9</span>,start_col+<span class="hljs-number">1</span>);
+</code></pre>
+
+<p>draw_menu()函数说明 <br/>
+显示当按下F1或者F2键显示的菜单 <br/>
+定义一个在蓝色背景上 菜单栏颜色一样的白色背景窗体 <br/>
+新窗口不应被显示在背景色上的字覆盖掉，它应该停留在那里直到 关闭菜单 <br/>
+因此菜单窗体不能定义为stdscr的子窗体 <br/>
+窗体items[0]是用newwin函数定义的，其他8个窗体则都是定义成items[0]窗体的子窗体 <br/>
+items[0]被用来绘制一个围绕在菜单旁边的边框，其他窗体则用来显示菜单中选中的单元 <br/>
+同样的,他们不会覆盖掉菜单上的边框 <br/>
+函数中倒数第三句使得菜单中的第一个单元背景色和其他的不一样，这是因为菜单弹出来后，第一个单元是选中状态（区别选中和没选中的状态）</p>
+
+
+
+<pre class="prettyprint"><code class=" hljs axapta"><span class="hljs-keyword">void</span> delete_menu(WINDOW **items,<span class="hljs-keyword">int</span> <span class="hljs-keyword">count</span>)
+{
+    <span class="hljs-keyword">int</span> i;
+    <span class="hljs-keyword">for</span> (i=<span class="hljs-number">0</span>;i&lt;<span class="hljs-keyword">count</span>;i++)
+        delwin(items[i]);
+    free(items);
+}</code></pre>
+
+
+
+<pre class="prettyprint"><code class=" hljs axapta"><span class="hljs-keyword">int</span> scroll_menu(WINDOW **items,<span class="hljs-keyword">int</span> <span class="hljs-keyword">count</span>,<span class="hljs-keyword">int</span> menu_start_col){
+    <span class="hljs-keyword">int</span> key;
+    <span class="hljs-keyword">int</span> selected=<span class="hljs-number">0</span>;
+    <span class="hljs-keyword">while</span> (<span class="hljs-number">1</span>) {
+        key=getch();
+        <span class="hljs-keyword">if</span> (key==KEY_DOWN || key==KEY_UP) {
+            wbkgd(items[selected+<span class="hljs-number">1</span>],COLOR_PAIR(<span class="hljs-number">2</span>));
+            wnoutrefresh(items[selected+<span class="hljs-number">1</span>]);
+  <span class="hljs-keyword">if</span> (key==KEY_DOWN) {
+      selected=(selected+<span class="hljs-number">1</span>) % <span class="hljs-keyword">count</span>;
+  } <span class="hljs-keyword">else</span> {
+      selected=(selected+<span class="hljs-keyword">count</span>-<span class="hljs-number">1</span>) % <span class="hljs-keyword">count</span>;
+  }</code></pre>
+
+
+
+<pre class="prettyprint"><code class=" hljs axapta">  wbkgd(items[selected+<span class="hljs-number">1</span>],COLOR_PAIR(<span class="hljs-number">1</span>));
+  wnoutrefresh(items[selected+<span class="hljs-number">1</span>]);
+  doupdate();
+        } <span class="hljs-keyword">else</span> <span class="hljs-keyword">if</span> (key==KEY_LEFT || key==KEY_RIGHT) {
+  delete_menu(items,<span class="hljs-keyword">count</span>+<span class="hljs-number">1</span>);
+  touchwin(stdscr);
+  refresh();
+  items=draw_menu(<span class="hljs-number">20</span>-menu_start_col);
+  <span class="hljs-keyword">return</span> scroll_menu(items,<span class="hljs-number">8</span>,<span class="hljs-number">20</span>-menu_start_col);
+        } <span class="hljs-keyword">else</span> <span class="hljs-keyword">if</span> (key==ESCAPE) {
+  <span class="hljs-keyword">return</span> -<span class="hljs-number">1</span>;
+        } <span class="hljs-keyword">else</span> <span class="hljs-keyword">if</span> (key==ENTER) {
+  <span class="hljs-keyword">return</span> selected;
+        }
+    }
+}</code></pre>
+
+<p>scroll_menu()函数说明 <br/>
+允许在菜单选择项上上下移动 <br/>
+通过getch读取键盘上的键值 <br/>
+如果按下上移或下移方向键，菜单选择项的上一个项或者下一个项被选中 <br/>
+如果是向左或向右 方向键，当前菜单将会关闭，另一个菜单打开 <br/>
+如果按下回车键，则返回选中的单元值 <br/>
+如果按下ESC键，菜单将会被关闭,并且没有任何选择项  <br/>
+getch能从键盘上读取键值 <br/>
+这是因为程序开始使用keypad(stdscr,TRUE)  <br/>
+将返回值赋给一个int型变量而不是char型变量,这是因为int型变量能表示比char型更大的值</p>
+
+
+
+<pre class="prettyprint"><code class=" hljs perl"><span class="hljs-keyword">int</span> main(){
+    <span class="hljs-keyword">int</span> key;
+    WINDOW <span class="hljs-variable">*menubar</span>,<span class="hljs-variable">*messagebar</span>;
+    init_curses();
+    bkgd(COLOR_PAIR(<span class="hljs-number">1</span>));
+    menubar=subwin(stdscr,<span class="hljs-number">1</span>,<span class="hljs-number">80</span>,<span class="hljs-number">0</span>,<span class="hljs-number">0</span>);
+    messagebar=subwin(stdscr,<span class="hljs-number">1</span>,<span class="hljs-number">79</span>,<span class="hljs-number">23</span>,<span class="hljs-number">1</span>);
+    draw_menubar(menubar);
+    move(<span class="hljs-number">2</span>,<span class="hljs-number">1</span>);
+    printw(<span class="hljs-string">"Press F1 or F2 to open the menus. "</span>);
+    printw(<span class="hljs-string">"ESC quits."</span>);
+    refresh();</code></pre>
+
+
+
+<pre class="prettyprint"><code class=" hljs perl"> <span class="hljs-keyword">do</span> {
+        <span class="hljs-keyword">int</span> selected_item;
+        WINDOW <span class="hljs-variable">**</span>menu_items;
+        key=getch();
+        werase(messagebar);
+        wrefresh(messagebar);
+        <span class="hljs-keyword">if</span> (key==KEY_F(<span class="hljs-number">1</span>)) {
+  menu_items=draw_menu(<span class="hljs-number">0</span>);
+  selected_item=scroll_menu(menu_items,<span class="hljs-number">8</span>,<span class="hljs-number">0</span>);
+  delete_menu(menu_items,<span class="hljs-number">9</span>);
+  <span class="hljs-keyword">if</span> (selected_item&lt;<span class="hljs-number">0</span>)
+      wprintw(messagebar,<span class="hljs-string">"You haven't selected any item."</span>);
+  <span class="hljs-keyword">else</span>
+        wprintw(messagebar,
+          <span class="hljs-string">"You have selected menu item <span class="hljs-variable">%d</span>."</span>,selected_item+<span class="hljs-number">1</span>);</code></pre>
+
+
+
+<pre class="prettyprint"><code class=" hljs mel">touchwin(stdscr);
+  <span class="hljs-keyword">refresh</span>();
+        } <span class="hljs-keyword">else</span> <span class="hljs-keyword">if</span> (key==KEY_F(<span class="hljs-number">2</span>)) {
+  menu_items=draw_menu(<span class="hljs-number">20</span>);
+  selected_item=scroll_menu(menu_items,<span class="hljs-number">8</span>,<span class="hljs-number">20</span>);
+  delete_menu(menu_items,<span class="hljs-number">9</span>);
+  <span class="hljs-keyword">if</span> (selected_item&lt;<span class="hljs-number">0</span>)
+      wprintw(messagebar,<span class="hljs-string">"You haven't selected any item."</span>);
+  <span class="hljs-keyword">else</span>
+      wprintw(messagebar,
+          <span class="hljs-string">"You have selected menu item %d."</span>,selected_item+<span class="hljs-number">1</span>);
+  touchwin(stdscr);
+  <span class="hljs-keyword">refresh</span>();
+       }
+    } <span class="hljs-keyword">while</span> (key!=ESCAPE);</code></pre><link rel="stylesheet" href="http://static.blog.csdn.net/public/res-min/markdown_views.css?v=1.0"/></div><link rel="stylesheet" href="http://static.blog.csdn.net/public/res-min/markdown_views.css?v=1.0"/>&#13;
+            

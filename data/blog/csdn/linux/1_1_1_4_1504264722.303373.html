@@ -1,0 +1,209 @@
+
+
+<p>        一般在我们自己的主机上通信的时候，前面也讲到过可以使用pipe，fifo，msg，共享内存之类，如果你想使用套接字的话，当然TCP/IP的套接字也是可以的，只要指定server的IP = 127.0.0.1 或者你的当前主机的实际接入网络的IP也是可以的！但是相对与此处的UNIX domain来说，在效率上可能会低一点点、、、</p>&#13;
+<p>       UNIX domain的实际操作和前面的TCP/IP中的实际的操作的框架流程是差不多的！只是其中的细节的变化要注意！</p>&#13;
+<p>代码贴下：</p>&#13;
+<p><br />&#13;
+</p>&#13;
+<p>server端：<br />&#13;
+</p>&#13;
+<p></p>&#13;
+<pre name="code" class="cpp">/*
+	在主机之间的通信可以使用TCP/IP套接字进行通信，
+	但是在实现的效率上是不如UNIX DOMAIN的，所以
+	此处看看这个协议的处理！
+	
+	其实实际操作中我们可以知道，与TCP/IP的操作流程
+	是差不多的！只是在一些细节上的变化！
+*/
+
+#include &lt;stdio.h&gt;
+#include &lt;stdlib.h&gt;
+#include &lt;errno.h&gt;
+#include &lt;string.h&gt;
+#include &lt;sys/types.h&gt;
+#include &lt;sys/socket.h&gt;
+#include &lt;sys/un.h&gt;
+
+#define 	FILE			"UNIX_DOMAIN"		//!&gt; 有点像FIFO中的文件是吧，呵呵
+#define 	MAXSIZE		1024
+#define 	MAXBACK	100
+
+int main( int argc, char ** argv )
+{
+	int 		listen_fd;
+	int 		conn_fd;
+	int 		len;
+	char  	recv[MAXSIZE];
+	struct sockaddr_un	servaddr;
+	struct sockaddr_un	childaddr;
+
+	unlink( FILE );			//!&gt; 保证么有已经存在的文件
+
+	//!&gt; establish the socket
+        //!&gt; 
+	if( ( listen_fd  = socket( AF_UNIX, SOCK_STREAM, 0 ) ) == -1 )
+	{
+		printf("Socket error : %d\n", errno);
+		exit( EXIT_FAILURE );
+	}
+	
+	servaddr.sun_family=AF_UNIX;		//!&gt; UNIX DOMAIN
+        strncpy( servaddr.sun_path, FILE, sizeof( servaddr.sun_path ) - 1 );	//!&gt; FILE
+    
+        //!&gt; 绑定
+        //!&gt;
+	if( bind( listen_fd, ( struct sockaddr * )&amp;servaddr, sizeof( servaddr ) ) == -1 )
+	{
+		printf("Bind Error : %d\n", errno);
+		close( listen_fd );
+		unlink( FILE );
+		exit( EXIT_FAILURE );
+	}
+	
+	//!&gt; 监听
+	//!&gt;
+	if( listen( listen_fd, MAXBACK ) == -1 )
+	{
+		printf("Listen error : %d\n", errno);
+		close( listen_fd );
+		unlink( FILE );
+		exit( EXIT_FAILURE );
+	}
+	
+	len = sizeof( childaddr );
+
+	while( 1 )
+	{
+		//!&gt; accept : 你懂得～
+		if( ( conn_fd = accept( listen_fd, ( struct sockaddr *)&amp;childaddr, &amp;len ) ) == -1 )
+		{
+			printf("Accept Error : %d\n", errno);
+			close( listen_fd );
+			unlink( FILE );
+			exit( EXIT_FAILURE );
+		}
+		
+		while( 1 )				//!&gt; 可能连续读一个套接口上的内容！
+		{
+			memset( recv, 0, sizeof( recv ) );		
+			len = read( conn_fd, recv, sizeof( recv ) );
+
+			if( len == 0 )
+			{
+				close( conn_fd );
+				break;
+			}
+			else if( len &lt; 0 )
+			{
+				printf("Read error...  : %d\n", errno);
+				unlink( FILE );
+				close( conn_fd );
+				close( listen_fd );
+				exit( EXIT_FAILURE );
+			}
+			else
+			{
+				len = strlen( recv );
+				recv[len] = '\0';
+				
+				write( conn_fd, recv, strlen( recv ) );
+			}
+		}
+			
+	}
+
+	unlink( FILE );
+	close( conn_fd );
+	close( listen_fd );
+
+	return 0;
+}
+
+
+</pre><br />&#13;
+<br />&#13;
+<p></p>&#13;
+<p>cilent端：</p>&#13;
+<p><br />&#13;
+</p>&#13;
+<p></p>&#13;
+<pre name="code" class="cpp">#include &lt;stdio.h&gt;
+#include &lt;stdlib.h&gt;
+#include &lt;errno.h&gt;
+#include &lt;string.h&gt;
+#include &lt;sys/types.h&gt;
+#include &lt;sys/socket.h&gt;
+#include &lt;sys/un.h&gt;
+
+#define 	FILE			"UNIX_DOMAIN" //!&gt; 其实作用有点像PORT不是吗，:-)
+#define 	MAXSIZE		1024
+
+int main( int argc, char ** argv )
+{
+	int 		conn_fd;
+	int 		i_index;
+	int 		len;
+	char 	send_recv[MAXSIZE];
+	struct 	sockaddr_un	servaddr;
+	
+	if( ( conn_fd = socket( AF_UNIX, SOCK_STREAM, 0 ) ) == -1 )
+	{
+		printf("Socket Error... %d\n", errno);
+		exit( EXIT_FAILURE );
+	}
+	
+	servaddr.sun_family = AF_UNIX;
+        strcpy(servaddr.sun_path, FILE );
+	
+	//!&gt; connect
+	//!&gt; 
+	if( connect( conn_fd, ( struct sockaddr * )&amp;servaddr, sizeof( servaddr ) ) == -1 )
+	{
+		printf("Connect Error... : %d\n", errno);
+		close( conn_fd );
+		exit( EXIT_FAILURE );
+	}
+	
+	i_index = 0;
+	
+	while( 1 )
+	{
+		memset( send_recv, 0, sizeof( send_recv ) );		//!&gt; 注意此步需要
+		
+		sprintf(send_recv, "Client Send : %d\n", i_index++);
+		
+		write( conn_fd, send_recv, strlen( send_recv ) );	//!&gt; 写数据
+		
+		sleep( 1 );
+		
+		memset( send_recv, 0, sizeof( send_recv ) );
+		len = read( conn_fd, send_recv, sizeof( send_recv ) ); 	//!&gt; 读数据
+		if( len &gt; 0 )
+		{
+			printf("Client Get ---&gt; %s\n", send_recv);
+		}
+		
+		sleep( 1 );
+	
+	}
+	
+	close( conn_fd );
+	return 0;
+}
+</pre>&#13;
+<p></p>&#13;
+<p>编译与运行：</p>&#13;
+<p>            gcc -o server server.c</p>&#13;
+<p>            gcc -o client client.c</p>&#13;
+<p>            ./server  ( 可以使用后台&amp; )<br />&#13;
+</p>&#13;
+<p>            ./client<br />&#13;
+</p>&#13;
+<p><br />&#13;
+</p>&#13;
+<p>好了这个代码比较简单，就不说什么了～</p>&#13;
+<p><br />&#13;
+</p>&#13;
+<br />&#13;
+   &#13;

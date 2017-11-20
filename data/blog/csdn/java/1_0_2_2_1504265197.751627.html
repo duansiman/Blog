@@ -1,0 +1,652 @@
+
+        <div class="markdown_views"><p><strong>摘要：</strong></p>
+
+<p>　　伴随 J2EE 6一起发布的Servlet 3.0规范是Servlet规范历史上最重要的变革之一，它的许多新的特性都极大的简化了 Java Web 应用的开发。本文从一个简单的 Servlet 例子开始，说明了如何开发、配置一个 Servlet。此外，还重点叙述了Servlet的一些新特性，包括Servlet 异步处理、Servlet 非阻塞IO 以及 Servlet 文件上传等内容，以便我们对Servlet有一个更全面的了解。</p>
+
+<hr />
+
+<p>　　本篇主要介绍 Servlet 实践方面的知识，更多关注于Servlet的新特性：</p>
+
+<ul>
+<li>Servlet 实例；</li>
+<li>Servlet 配置；</li>
+<li>Servlet 异步处理；</li>
+<li>Servlet 非阻塞IO；</li>
+<li>Servlet 文件上传。</li>
+</ul>
+
+<hr />
+
+<p>　　更多关于Servlet理论方面的介绍见我的上一篇博文<a href="http://blog.csdn.net/justloveyou_/article/details/60964714">《Servlet 综述(理论篇)》</a>，其具体包括以下几个方面的内容：</p>
+
+<ul>
+<li>为什么会有 Servlet；</li>
+<li>Servlet 是什么；</li>
+<li>Servlet 如何实现预期效果；</li>
+<li>Servlet 的作用原理；</li>
+<li>Servlet 与 并发；</li>
+<li>Servlet 与 Java Web 应用的结构演变历程；</li>
+<li>Servlet 与 MVC 的联系。</li>
+</ul>
+
+<hr />
+
+<p><strong>版权声明：</strong></p>
+
+<p>本文原创作者：<a href="http://my.csdn.net/justloveyou_">书呆子Rico</a> <br />
+作者博客地址：<a href="http://blog.csdn.net/justloveyou_/">http://blog.csdn.net/justloveyou_/</a></p>
+
+<hr />
+
+<h2 id="一-从一个简单的-servlet-例子说起">一. 从一个简单的 Servlet 例子说起</h2>
+
+<p>　　我们看下面这个简单的示例：</p>
+
+<p><strong>Servlet:</strong></p>
+
+
+
+<pre class="prettyprint"><code class="language-java hljs "><span class="hljs-keyword">public</span> <span class="hljs-class"><span class="hljs-keyword">class</span> <span class="hljs-title">TestServlet</span> <span class="hljs-keyword">extends</span> <span class="hljs-title">HttpServlet</span> {</span>
+
+    <span class="hljs-keyword">private</span> <span class="hljs-keyword">static</span> <span class="hljs-keyword">final</span> <span class="hljs-keyword">long</span> serialVersionUID = <span class="hljs-number">1</span>L;
+
+    <span class="hljs-annotation">@Override</span>
+    <span class="hljs-keyword">protected</span> <span class="hljs-keyword">void</span> <span class="hljs-title">doGet</span>(HttpServletRequest request,
+            HttpServletResponse response)
+            <span class="hljs-keyword">throws</span> ServletException, IOException {
+
+        <span class="hljs-comment">//获取请求参数</span>
+        String param1 = request.getParameter(<span class="hljs-string">"name"</span>);
+        String param2 = request.getParameter(<span class="hljs-string">"gentle"</span>);
+
+        <span class="hljs-comment">//获取Servlet参数并放到request中</span>
+        String age = <span class="hljs-keyword">this</span>.getServletConfig().getInitParameter(<span class="hljs-string">"age"</span>);
+        request.setAttribute(<span class="hljs-string">"age"</span>,age);
+
+
+        <span class="hljs-comment">// 此处进行业务逻辑处理</span>
+
+
+        <span class="hljs-comment">//根据处理结果转发到相应的表现层进行显示</span>
+        request.getRequestDispatcher(<span class="hljs-string">"/showInfo.jsp"</span>).forward(request, response);
+    }
+
+    <span class="hljs-annotation">@Override</span>
+    <span class="hljs-keyword">protected</span> <span class="hljs-keyword">void</span> <span class="hljs-title">doPost</span>(HttpServletRequest req, HttpServletResponse resp)
+            <span class="hljs-keyword">throws</span> ServletException, IOException {
+        doGet(req, resp);
+    }
+}</code></pre>
+
+<hr />
+
+<p><strong>web.xml 配置文件片段:</strong></p>
+
+
+
+<pre class="prettyprint"><code class="language-xml hljs "><span class="hljs-tag">&lt;<span class="hljs-title">context-param</span>&gt;</span>
+    <span class="hljs-tag">&lt;<span class="hljs-title">param-name</span>&gt;</span>campus<span class="hljs-tag">&lt;/<span class="hljs-title">param-name</span>&gt;</span>
+    <span class="hljs-tag">&lt;<span class="hljs-title">param-value</span>&gt;</span>NEU<span class="hljs-tag">&lt;/<span class="hljs-title">param-value</span>&gt;</span>
+<span class="hljs-tag">&lt;/<span class="hljs-title">context-param</span>&gt;</span>
+<span class="hljs-tag">&lt;<span class="hljs-title">servlet</span>&gt;</span>
+    <span class="hljs-tag">&lt;<span class="hljs-title">servlet-name</span>&gt;</span>TestServlet<span class="hljs-tag">&lt;/<span class="hljs-title">servlet-name</span>&gt;</span>
+    <span class="hljs-tag">&lt;<span class="hljs-title">servlet-class</span>&gt;</span>com.edu.tju.rico.servlet.TestServlet<span class="hljs-tag">&lt;/<span class="hljs-title">servlet-class</span>&gt;</span>
+    <span class="hljs-tag">&lt;<span class="hljs-title">init-param</span>&gt;</span>
+        <span class="hljs-tag">&lt;<span class="hljs-title">param-name</span>&gt;</span>age<span class="hljs-tag">&lt;/<span class="hljs-title">param-name</span>&gt;</span>
+        <span class="hljs-tag">&lt;<span class="hljs-title">param-value</span>&gt;</span>24<span class="hljs-tag">&lt;/<span class="hljs-title">param-value</span>&gt;</span>
+    <span class="hljs-tag">&lt;/<span class="hljs-title">init-param</span>&gt;</span>
+<span class="hljs-tag">&lt;/<span class="hljs-title">servlet</span>&gt;</span>
+<span class="hljs-tag">&lt;<span class="hljs-title">servlet-mapping</span>&gt;</span>
+    <span class="hljs-tag">&lt;<span class="hljs-title">servlet-name</span>&gt;</span>TestServlet<span class="hljs-tag">&lt;/<span class="hljs-title">servlet-name</span>&gt;</span>
+    <span class="hljs-tag">&lt;<span class="hljs-title">url-pattern</span>&gt;</span>/servlet/test<span class="hljs-tag">&lt;/<span class="hljs-title">url-pattern</span>&gt;</span>
+<span class="hljs-tag">&lt;/<span class="hljs-title">servlet-mapping</span>&gt;</span></code></pre>
+
+<hr />
+
+<p><strong>显示逻辑:</strong></p>
+
+
+
+<pre class="prettyprint"><code class="language-jsp hljs xml"><span class="vbscript">&lt;%@ page language=<span class="hljs-string">"java"</span> import=<span class="hljs-string">"java.util.*"</span> pageEncoding=<span class="hljs-string">"UTF-8"</span>%&gt;</span>
+
+<span class="hljs-tag">&lt;<span class="hljs-title">html</span>&gt;</span>
+<span class="hljs-tag">&lt;<span class="hljs-title">head</span>&gt;</span>
+<span class="hljs-tag">&lt;<span class="hljs-title">title</span>&gt;</span>showInfo<span class="hljs-tag">&lt;/<span class="hljs-title">title</span>&gt;</span>
+<span class="hljs-tag">&lt;/<span class="hljs-title">head</span>&gt;</span>
+<span class="hljs-tag">&lt;<span class="hljs-title">body</span>&gt;</span>
+    请求参数： Name：&amp;nbsp;&amp;nbsp;<span class="vbscript">&lt;%= <span class="hljs-built_in">request</span>.getParameter(<span class="hljs-string">"name"</span>)%&gt;</span><span class="hljs-tag">&lt;<span class="hljs-title">br</span>&gt;</span>
+    Gentle：&amp;nbsp;&amp;nbsp;<span class="vbscript">&lt;%= <span class="hljs-built_in">request</span>.getParameter(<span class="hljs-string">"gentle"</span>)%&gt;</span><span class="hljs-tag">&lt;<span class="hljs-title">br</span>&gt;</span>
+    <span class="hljs-tag">&lt;<span class="hljs-title">br</span>&gt;</span> 
+    ----------------我是分割线--------------------<span class="hljs-tag">&lt;<span class="hljs-title">br</span>&gt;</span> 
+    <span class="hljs-tag">&lt;<span class="hljs-title">br</span>&gt;</span> 
+    Web应用初始化参数： &amp;nbsp;&amp;nbsp;<span class="vbscript">&lt;%= application.getInitParameter(<span class="hljs-string">"campus"</span>)%&gt;</span><span class="hljs-tag">&lt;<span class="hljs-title">br</span>&gt;</span>
+    <span class="hljs-tag">&lt;<span class="hljs-title">br</span>&gt;</span> 
+    ----------------我是分割线--------------------<span class="hljs-tag">&lt;<span class="hljs-title">br</span>&gt;</span> 
+    <span class="hljs-tag">&lt;<span class="hljs-title">br</span>&gt;</span> 
+    TestServlet 初始化参数： &amp;nbsp;&amp;nbsp;${requestScope.age}<span class="hljs-tag">&lt;<span class="hljs-title">br</span>&gt;</span>
+    <span class="hljs-tag">&lt;<span class="hljs-title">br</span>&gt;</span>
+<span class="hljs-tag">&lt;/<span class="hljs-title">body</span>&gt;</span>
+<span class="hljs-tag">&lt;/<span class="hljs-title">html</span>&gt;</span></code></pre>
+
+<p>　　开发一个Servlet程序时，如果其是基于HTTP协议的，那么我们一般继承 HttPServlet 抽象类并重写 doGet() 和 doPost() 方法，或者直接重写 service() 方法去处理Http请求。 </p>
+
+<p>　　更多关于 JSP技术的细节见我的其他两篇博客：<a href="http://blog.csdn.net/justloveyou_/article/details/55824500"> 《Java Web基础 — Jsp 综述(上)》</a> 和 <a href="http://blog.csdn.net/justloveyou_/article/details/57154560">《Java Web基础 — Jsp 综述(下)》</a>。</p>
+
+<hr />
+
+
+
+<h2 id="二-servlet-的配置">二. Servlet 的配置</h2>
+
+<p>　　为了让 Servlet 能够响应用户请求，还必须将 Servlet 配置到我们的Web应用中。进一步地，<font color="DarkGreen"><b>如果我们没有为Servlet配置URL，那么该Servlet将不能响应用户请求。</b></font>从 J2EE 6 (Servlet 3.0) 开始，配置 Servlet 的方式共有两种：</p>
+
+<ul>
+<li><p><font color="blue">在 web.xml 中进行配置；</font></p></li>
+<li><p><font color="blue">在对应的Servlet类中使用@WebServlet注解进行配置。</font></p></li>
+</ul>
+
+<hr />
+
+<p>　　我们在这里主要说明使用@WebServlet注解进行配置Servlet，使用 web.xml 配置的方法与该种方式只是在形式不同，作用方式是一样的，此不赘述。</p>
+
+<p>　　一旦我们使用 @WebServlet 配置了Servlet，那我们就不用在 web.xml 进行再次配置了，并且不能在web.xml中将 metadata-complete 属性设置为true。 支持的常用属性如下表所示：</p>
+
+<table>
+    <tbody><tr>
+        <th>属性名</th>
+        <th>是否必需</th>
+        <th>类型</th>
+        <th>描述</th>
+    </tr>
+     <tr>
+        <td>name</td>
+        <td>否</td>
+        <td>String</td>
+        <td>指定 Servlet 的 name 属性，等价于&lt;servlet-name&gt;标签，默认取值为Servlet类的全限定名 </td>
+    </tr>
+    <tr>
+        <td>value</td>
+        <td>否</td>
+        <td>String[]</td>
+        <td>该属性等价于 urlPatterns 属性，这两个属性不能同时使用</td>
+    </tr>
+    <tr>
+        <td>loadOnStartup</td>
+        <td>否</td>
+        <td>int</td>
+        <td>指定Servlet的加载时机和顺序，等价于&lt;load-on-startup&gt;标签</td>
+    </tr>
+    <tr>
+        <td>initParam</td>
+        <td>否</td>
+        <td>WebInitParam[]</td>
+        <td>指定一组 Servlet 初始化参数，等价于&lt;init-param&gt;标签</td>
+    </tr>
+    <tr>
+        <td>asyncSupported</td>
+        <td>否</td>
+        <td>boolean</td>
+        <td>声明 Servlet 是否支持异步操作模式，等价于&lt;async-supported&gt;标签</td>
+    </tr>
+    <tr>
+        <td>description</td>
+        <td>否</td>
+        <td>String</td>
+        <td>该Servlet的描述信息，等价于&lt;description&gt;标签</td>
+    </tr>
+    <tr>
+        <td>displayName</td>
+        <td>否</td>
+        <td>String</td>
+        <td>该Servlet的显示名，通常配合工具使用，等价于&lt;display-name&gt;标签</td>
+    </tr>
+</tbody></table>
+
+<p>　　将上述示例使用@WebServlet注解配置，如下：</p>
+
+
+
+<pre class="prettyprint"><code class="language-java hljs "><span class="hljs-annotation">@WebServlet</span>(name = <span class="hljs-string">"Test"</span>, 
+    urlPatterns = { <span class="hljs-string">"/servlet/test"</span> }, 
+    initParams = { <span class="hljs-annotation">@WebInitParam</span>(name = <span class="hljs-string">"age"</span>, value = <span class="hljs-string">"24"</span>) })
+<span class="hljs-keyword">public</span> <span class="hljs-class"><span class="hljs-keyword">class</span> <span class="hljs-title">TestServlet</span> <span class="hljs-keyword">extends</span> <span class="hljs-title">HttpServlet</span> {</span>
+    ...
+}</code></pre>
+
+<hr />
+
+
+
+<h2 id="三-servlet的新特性异步处理">三. Servlet的新特性：异步处理</h2>
+
+<p><strong>1、Servlet 不支持异步处理会带来哪些痛点？</strong></p>
+
+<p>　　在本篇的姊妹篇《Java Web基础 — Servlet 综述(实践篇)》中，我们已经提到Servlet容器处理请求的方式。<font color="red"><b>对于每个到达Web容器的请求，Web容器会为其分配一条执行线程来专门负责该请求，直到回应完成前，该执行线程都不会被释放回Web容器的线程池。 我们知道，执行线程会耗用系统资源，若某些请求需要长时间处理（例如长时间运算、等待某个资源），就会长时间占用执行线程，若这类的请求很多，许多执行线程都被长时间占用，对于整个系统而言就会是个性能负担，甚至造成应用的性能瓶颈。</b></font> </p>
+
+<p>　　<font color="red"><b>特别地，基本上一些需长时间处理的请求，通常客户端也较不在乎请求后要有立即的回应，若可以，让这类请求先释放容器分配给该请求的执行线程，让容器可以有机会将执行线程资源分配给其它的请求，这样可以减轻系统负担。这样，原先释放了容器所分配执行线程的请求，其回应将被延后，直到处理完成（例如长时间运算完成、所需资源已获得）再行对客户端的回应。</b></font></p>
+
+<hr />
+
+<p><strong>2、如何使用 Servlet 3.0 去支持对耗时事务的异步处理？</strong></p>
+
+<p><strong>1)、Servlet 3.0 对异步处理的支持</strong></p>
+
+<p>　　<font color="blue"><b>在 Servlet 3.0 之前的规范中，如果Servlet作为控制器调用了一个耗时的业务方法，那么 Servlet 必须等到业务方法完全返回之后才能生成响应，这使得 Servlet 对业务方法的调用是一种阻塞式调用，因此效率比较低。Servlet 3.0 规范引入了异步处理来解决问题，异步处理允许Servlet重新发起一个线程去调用耗时的业务方法，这样就可以避免等待。</b></font></p>
+
+<p>　　Servlet 3.0 的异步处理是通过 AsyncContext 类来处理的，Servlet 可以通过 ServletRequest 的如下两个方法开启异步调用、创建 AsyncContext 对象。在这里，AsyncContext 对象代表异步处理的上下文。</p>
+
+<ul>
+<li>AsyncContext startAsync()</li>
+<li>AsyncContext startAsync(ServletRequest，ServletRequest)</li>
+</ul>
+
+<hr />
+
+<p>　　这两个方法都会返回 AsyncContext 对象，前者会直接利用原有的请求与响应对象来创建AsyncContext对象，后者则允许你传入自行创建的请求、响应对象。 <font color="DarkGreen"><b>在调用了startAsync()方法取得AsyncContext对象之后，这次的响应就会被延后，并释放容器所分配的执行线程。</b></font></p>
+
+<p>　　<font color="red"><b>我们可以通过AsyncContext的getRequest()、 getResponse()方法取得请求、响应对象，此次对客户端的响应将暂缓至调用AsyncContext的complete()方法或dispatch()方法为止，前者表示响应完成，后者表示将调用指定URL对应的内容进行响应。</b></font>特别需要注意的是，<font color="blue"><b>dispatch()前后仍是同一个请求，并且被异步请求dispatch的目标页面必须指定：session=”false”。如果我们要支持 Servlet 的异步处理，我们的 Servlet 就必须能够支持非同步处理。</b></font>也就是说，如果我们使用@WebServlet来标注的话，则必须将其asyncSupported属性设为true，如下所示：</p>
+
+
+
+<pre class="prettyprint"><code class="language-java hljs "><span class="hljs-annotation">@WebServlet</span>(urlPatterns = <span class="hljs-string">"/some.do"</span>, asyncSupported = <span class="hljs-keyword">true</span> )   
+<span class="hljs-keyword">public</span> <span class="hljs-class"><span class="hljs-keyword">class</span> <span class="hljs-title">AsyncServlet</span> <span class="hljs-keyword">extends</span> <span class="hljs-title">HttpServlet</span> {</span>   
+...  
+}</code></pre>
+
+<p>　　特别需要注意的是，如果Servlet将支持非同步处理，并且其前端有过滤器，那么过滤器也必须表明其支持非同步处理，如果使用@WebFilter注解的方式，同样是需要设定其asyncSupported属性为true，如下所示：</p>
+
+
+
+<pre class="prettyprint"><code class="language-java hljs "><span class="hljs-annotation">@WebFilter</span>(urlPatterns = <span class="hljs-string">"/some.do"</span>, asyncSupported = <span class="hljs-keyword">true</span> )   
+<span class="hljs-keyword">public</span> <span class="hljs-class"><span class="hljs-keyword">class</span> <span class="hljs-title">AsyncFilter</span> <span class="hljs-keyword">implements</span> <span class="hljs-title">Filter</span>{</span>   
+...
+}</code></pre>
+
+<hr />
+
+<p><strong>2)、异步处理实例</strong></p>
+
+<p>(1) 进行异步处理的Servlet类：</p>
+
+
+
+<pre class="prettyprint"><code class="language-java hljs "><span class="hljs-annotation">@WebServlet</span>(urlPatterns = <span class="hljs-string">"/async"</span>,asyncSupported=<span class="hljs-keyword">true</span> )
+<span class="hljs-keyword">public</span> <span class="hljs-class"><span class="hljs-keyword">class</span> <span class="hljs-title">AsyncServlet</span> <span class="hljs-keyword">extends</span> <span class="hljs-title">HttpServlet</span> {</span>
+
+    <span class="hljs-keyword">private</span> <span class="hljs-keyword">static</span> <span class="hljs-keyword">final</span> <span class="hljs-keyword">long</span> serialVersionUID = <span class="hljs-number">1</span>L;
+
+    <span class="hljs-annotation">@Override</span>
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">void</span> <span class="hljs-title">doGet</span>(HttpServletRequest request, HttpServletResponse response)
+            <span class="hljs-keyword">throws</span> IOException, ServletException {
+        request.setAttribute(<span class="hljs-string">"param1"</span>, <span class="hljs-string">"我在异步处理前被设置..."</span>);
+        response.setContentType(<span class="hljs-string">"text/html;charset=utf-8"</span>);
+        PrintWriter out = response.getWriter();
+        out.println(<span class="hljs-string">"&lt;title&gt;异步调用示例&lt;/title&gt;"</span>);
+        out.println(<span class="hljs-string">"进入Servlet的时间："</span> + <span class="hljs-keyword">new</span> java.util.Date() + <span class="hljs-string">".&lt;br/&gt;"</span>);
+
+        <span class="hljs-comment">//创建AsyncContext对象，开始异步调用</span>
+        <span class="hljs-keyword">final</span> AsyncContext async = request.startAsync();  <span class="hljs-comment">// 在局部(匿名)内部类直接使用，必须设为 final</span>
+
+        <span class="hljs-comment">// 设置异步调用的请求时长</span>
+        async.setTimeout(<span class="hljs-number">10</span> * <span class="hljs-number">1000</span>);
+
+        <span class="hljs-comment">// 启动线程去处理耗时任务</span>
+        async.start(<span class="hljs-keyword">new</span> Runnable() {   <span class="hljs-comment">// 匿名内部类</span>
+
+            <span class="hljs-annotation">@Override</span>
+            <span class="hljs-keyword">public</span> <span class="hljs-keyword">void</span> <span class="hljs-title">run</span>() {
+                <span class="hljs-keyword">try</span> {
+                    Thread.sleep(<span class="hljs-number">5000</span>);
+                    HttpServletRequest req = (HttpServletRequest) async
+                            .getRequest();
+                    req.setAttribute(<span class="hljs-string">"param2"</span>, <span class="hljs-string">"我在耗时任务处理线程中被设置..."</span>);
+                    async.dispatch(<span class="hljs-string">"/async.jsp"</span>);
+                } <span class="hljs-keyword">catch</span> (InterruptedException e) {
+                    e.printStackTrace();
+                }
+            }
+        });
+        out.println(<span class="hljs-string">"结束Servlet的时间："</span> + <span class="hljs-keyword">new</span> java.util.Date() + <span class="hljs-string">".&lt;br/&gt;"</span>);
+        out.flush();
+    }
+
+    <span class="hljs-annotation">@Override</span>
+    <span class="hljs-keyword">protected</span> <span class="hljs-keyword">void</span> <span class="hljs-title">doPost</span>(HttpServletRequest req, HttpServletResponse resp)
+            <span class="hljs-keyword">throws</span> ServletException, IOException {
+        doGet(req, resp);
+    }
+}</code></pre>
+
+<hr />
+
+<p>(2) 表现层：</p>
+
+
+
+<pre class="prettyprint"><code class="language-jsp hljs ruby">&lt;<span class="hljs-string">%--</span> 被异步请求dispatch的目标页面必须指定：session=<span class="hljs-string">"false"</span> --%&gt;
+&lt;%@ page contentType=<span class="hljs-string">"text/html; charset=utf-8"</span> language=<span class="hljs-string">"java"</span> session=<span class="hljs-string">"false"</span>%&gt;
+&lt;div style=<span class="hljs-string">"background-color:#ffffdd;height:80px;"</span>&gt;
+    param1：<span class="hljs-variable">${</span>param1}&lt;br /&gt;
+    param2：<span class="hljs-variable">${</span>param2}&lt;br /&gt;
+
+    &lt;%
+        out.println(<span class="hljs-string">"业务调用结束的时间："</span> + new java.util.<span class="hljs-constant">Date</span>());
+    %&gt;
+&lt;<span class="hljs-regexp">/div&gt;</span></code></pre>
+
+<hr />
+
+<p>(3) 结果展示页面</p>
+
+<p>　　　　　　　　　　<img src="http://static.zybuluo.com/Rico123/73hb2itevc42ctqxvfgsnq66/Servlet%E5%BC%82%E6%AD%A5%E5%A4%84%E7%90%86.png" alt="Servlet异步处理.png-33.6kB" title="" /></p>
+
+<hr />
+
+<p><strong>四、Servlet 3.1 支持非阻塞 IO</strong></p>
+
+<p><strong>1、Servlet 不支持非阻塞 IO会带来哪些痛点？</strong></p>
+
+<p>　　<font color="blue"><b>Servlet 3.0 允许异步请求处理，但仅限于传统I/O，这大大限制了程序的可扩展性。</b></font>我们知道，在应用程序中，一种典型的做法是，通过while循环读取Servlet输入流（Servlet InputStream），如下所示：</p>
+
+
+
+<pre class="prettyprint"><code class="language-java hljs "><span class="hljs-keyword">public</span> <span class="hljs-class"><span class="hljs-keyword">class</span> <span class="hljs-title">TestServlet</span> <span class="hljs-keyword">extends</span> <span class="hljs-title">HttpServlet</span> {</span>
+    <span class="hljs-keyword">protected</span> <span class="hljs-keyword">void</span> <span class="hljs-title">doGet</span>(HttpServletRequest request, HttpServletResponse response)
+         <span class="hljs-keyword">throws</span> IOException, ServletException {     
+ ServletInputStream input = request.getInputStream();
+       <span class="hljs-keyword">byte</span>[] b = <span class="hljs-keyword">new</span> <span class="hljs-keyword">byte</span>[<span class="hljs-number">1024</span>];
+       <span class="hljs-keyword">int</span> len = -<span class="hljs-number">1</span>;
+       <span class="hljs-keyword">while</span> ((len = input.read(b)) != -<span class="hljs-number">1</span>) {
+          . . . 
+       }
+   }
+}</code></pre>
+
+<p>　　 <br />
+　　事实上，Servlet 底层的  IO 是通过以下两个 IO 流支撑的：</p>
+
+<ul>
+<li><p>ServletInputStream：Servlet 用于读取数据的输入流；</p></li>
+<li><p>ServletOutputStream：Servlet 用于输出数据的输出流。</p></li>
+</ul>
+
+<hr />
+
+<p>　　以 Servlet 读取数据为例，传统的读取方式采用阻塞式IO —— 当Servlet读取浏览器提交的数据时，如果数据暂时不可用，或者数据没有读取完成，Servlet当前所有线程将会被阻塞，无法继续执行下去。另外，如果传入的数据受到阻塞或流传输的速度慢于服务器读取的速度，则服务器线程就需要一直等待数据的到来。同样的情形在向Servlet输出流（Servlet OutputStream）写数据的时候也会出现。Servlet 3.1 提供的非阻塞IO进行输入、输出，可以更好地提升性能。</p>
+
+<hr />
+
+<p><strong>2、如何使用 Servlet 3.0 去支持非阻塞 IO？</strong></p>
+
+<p>　　<font color="red"><b>上述问题可以通过添加Servlet 3.1（JSR 340，作为Java EE7发布的一部分）提供的事件监听器ReadListener和WriteListener接口进行解决。</b></font>通过 ServletInputStream.setReadListener 和 ServletOutputStream.setWriteListener 可以注册监听器。监听器中提供了一些回调方法，在数据读写不受阻塞的时候进行触发。以 ReadListener 为例，实现ReadListener事件监听器需要实现如下三个方法：</p>
+
+<ul>
+<li><p>onDataAvailable()：当有数据可用时激发该方法；</p></li>
+<li><p>onAllDataRead()：当所有数据读取完成时激发该方法；</p></li>
+<li><p>onError(Throwable t)：读取数据出现错误时激发该方法。</p></li>
+</ul>
+
+<hr />
+
+<p><strong>1)、Servlet 3.1 使用非阻塞IO步骤</strong></p>
+
+<p>　　在 Servlet 3.1 中使用非阻塞IO步骤可分为三步：</p>
+
+<p><font color="blue">(1) 调用 ServletRequest 的startAsync()方法开启异步处理模式； </font> <br />
+<font color="blue">(2) 通过 ServletRequest 获取 ServletInputStream，并为 ServletInputStream 设置监听器（ReadListener 实现类）；</font> <br />
+<font color="blue">(3) 实现 ReadListener 接口来实现监听器，在该监听器的方法中以非阻塞方式读取数据。</font></p>
+
+<p>　　改进后的doGet方法如下所示：</p>
+
+
+
+<pre class="prettyprint"><code class="language-java hljs ">AsyncContext context = request.startAsync();
+ServletInputStream input = request.getInputStream();
+input.setReadListener(<span class="hljs-keyword">new</span> MyReadListener(input, context));</code></pre>
+
+<p>　　setXXXListner方法指出采用非阻塞I/O而不是传统I/O。onReadListener可以通过ServletInputStream进行注册，同样地，oneWritelistener可以通过ServletOutputStream进行注册。特别地，<font color="blue">新增加的ServletInputStream.isReady方法和ServletInputStream.isFinished方法用于检测非阻塞I/O的读取状态，而ServletOutputStream.canWrite方法用于检测数据是否能够无阻塞地写入。</font></p>
+
+<hr />
+
+<p><strong>2)、Servlet 3.1 使用非阻塞IO实例</strong></p>
+
+<p>(1) 请求提交表单 form.html：</p>
+
+
+
+<pre class="prettyprint"><code class="language-html hljs "><span class="hljs-tag">&lt;<span class="hljs-title">html</span>&gt;</span>
+<span class="hljs-tag">&lt;<span class="hljs-title">head</span>&gt;</span>
+    <span class="hljs-tag">&lt;<span class="hljs-title">meta</span> <span class="hljs-attribute">name</span>=<span class="hljs-value">"author"</span> <span class="hljs-attribute">content</span>=<span class="hljs-value">"Yeeku.H.Lee(CrazyIt.org)"</span> /&gt;</span>
+    <span class="hljs-tag">&lt;<span class="hljs-title">meta</span> <span class="hljs-attribute">http-equiv</span>=<span class="hljs-value">"Content-Type"</span> <span class="hljs-attribute">content</span>=<span class="hljs-value">"text/html; charset=utf-8"</span> /&gt;</span>
+    <span class="hljs-tag">&lt;<span class="hljs-title">title</span>&gt;</span>  <span class="hljs-tag">&lt;/<span class="hljs-title">title</span>&gt;</span>
+<span class="hljs-tag">&lt;/<span class="hljs-title">head</span>&gt;</span>
+<span class="hljs-tag">&lt;<span class="hljs-title">body</span>&gt;</span>
+<span class="hljs-tag">&lt;<span class="hljs-title">form</span> <span class="hljs-attribute">action</span>=<span class="hljs-value">"asyn"</span> <span class="hljs-attribute">method</span>=<span class="hljs-value">"post"</span>&gt;</span>
+    用户名：<span class="hljs-tag">&lt;<span class="hljs-title">input</span> <span class="hljs-attribute">type</span>=<span class="hljs-value">"text"</span> <span class="hljs-attribute">name</span>=<span class="hljs-value">"name"</span>/&gt;</span><span class="hljs-tag">&lt;<span class="hljs-title">br</span>/&gt;</span>
+    密码：<span class="hljs-tag">&lt;<span class="hljs-title">input</span> <span class="hljs-attribute">type</span>=<span class="hljs-value">"text"</span> <span class="hljs-attribute">name</span>=<span class="hljs-value">"pass"</span>/&gt;</span><span class="hljs-tag">&lt;<span class="hljs-title">br</span>/&gt;</span>
+    <span class="hljs-tag">&lt;<span class="hljs-title">input</span> <span class="hljs-attribute">type</span>=<span class="hljs-value">"submit"</span> <span class="hljs-attribute">value</span>=<span class="hljs-value">"提交"</span>&gt;</span>
+    <span class="hljs-tag">&lt;<span class="hljs-title">input</span> <span class="hljs-attribute">type</span>=<span class="hljs-value">"reset"</span> <span class="hljs-attribute">value</span>=<span class="hljs-value">"重设"</span>&gt;</span>
+<span class="hljs-tag">&lt;/<span class="hljs-title">form</span>&gt;</span>
+<span class="hljs-tag">&lt;/<span class="hljs-title">body</span>&gt;</span>
+<span class="hljs-tag">&lt;/<span class="hljs-title">html</span>&gt;</span></code></pre>
+
+<hr />
+
+<p>(2) 在 Servlet中使用非阻塞IO：</p>
+
+
+
+<pre class="prettyprint"><code class="language-java hljs "><span class="hljs-annotation">@WebServlet</span>(urlPatterns = <span class="hljs-string">"/async"</span>,asyncSupported=<span class="hljs-keyword">true</span> )
+<span class="hljs-keyword">public</span> <span class="hljs-class"><span class="hljs-keyword">class</span> <span class="hljs-title">AsyncServlet</span> <span class="hljs-keyword">extends</span> <span class="hljs-title">HttpServlet</span> {</span>
+
+    <span class="hljs-annotation">@Override</span>
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">void</span> <span class="hljs-title">doGet</span>(HttpServletRequest request, HttpServletResponse response)
+            <span class="hljs-keyword">throws</span> IOException, ServletException {
+        request.setAttribute(<span class="hljs-string">"param1"</span>, <span class="hljs-string">"我在异步处理前被设置..."</span>);
+        response.setContentType(<span class="hljs-string">"text/html;charset=utf-8"</span>);
+        PrintWriter out = response.getWriter();
+        out.println(<span class="hljs-string">"&lt;title&gt;非阻塞IO示例&lt;/title&gt;"</span>);
+        out.println(<span class="hljs-string">"进入Servlet的时间："</span> + <span class="hljs-keyword">new</span> java.util.Date() + <span class="hljs-string">".&lt;br/&gt;"</span>);
+
+        <span class="hljs-comment">//创建AsyncContext对象，开始异步调用</span>
+        <span class="hljs-keyword">final</span> AsyncContext async = request.startAsync();
+
+        <span class="hljs-comment">// 设置异步调用的请求时长</span>
+        async.setTimeout(<span class="hljs-number">10</span> * <span class="hljs-number">1000</span>);
+        <span class="hljs-keyword">final</span> ServletInputStream input = request.getInputStream();
+
+        <span class="hljs-comment">// 为输入流注册监听器</span>
+        input.setReadListener(<span class="hljs-keyword">new</span> ReadListener() {
+
+            <span class="hljs-annotation">@Override</span>
+            <span class="hljs-keyword">public</span> <span class="hljs-keyword">void</span> <span class="hljs-title">onError</span>(Throwable t) {
+                t.printStackTrace();
+            }
+
+            <span class="hljs-annotation">@Override</span>
+            <span class="hljs-keyword">public</span> <span class="hljs-keyword">void</span> <span class="hljs-title">onDataAvailable</span>() <span class="hljs-keyword">throws</span> IOException {
+                System.out.println(<span class="hljs-string">"数据可用！！"</span>);
+                <span class="hljs-keyword">try</span>
+                {
+                    <span class="hljs-comment">// 暂停5秒，模拟读取数据是一个耗时操作。</span>
+                    Thread.sleep(<span class="hljs-number">5000</span>);
+                    StringBuilder sb = <span class="hljs-keyword">new</span> StringBuilder();
+                    <span class="hljs-keyword">int</span> len = -<span class="hljs-number">1</span>;
+                    <span class="hljs-keyword">byte</span>[] buff = <span class="hljs-keyword">new</span> <span class="hljs-keyword">byte</span>[<span class="hljs-number">1024</span>];
+                    <span class="hljs-comment">// 采用原始IO方式读取浏览器向Servlet提交的数据</span>
+                    <span class="hljs-keyword">while</span> (input.isReady() &amp;&amp; (len = input.read(buff)) &gt; <span class="hljs-number">0</span>)
+                    {
+                        String data = <span class="hljs-keyword">new</span> String(buff , <span class="hljs-number">0</span> , len);
+                        sb.append(data);
+                    }
+                    System.out.println(sb);
+                    <span class="hljs-comment">// 将数据设置为request范围的属性</span>
+                    async.getRequest().setAttribute(<span class="hljs-string">"data"</span> , sb.toString());
+                    <span class="hljs-comment">// 转发到视图页面</span>
+                    async.dispatch(<span class="hljs-string">"/asyn.jsp"</span>);
+                }
+                <span class="hljs-keyword">catch</span> (Exception ex)
+                {
+                    ex.printStackTrace();
+                }
+            }
+
+            <span class="hljs-annotation">@Override</span>
+            <span class="hljs-keyword">public</span> <span class="hljs-keyword">void</span> <span class="hljs-title">onAllDataRead</span>() <span class="hljs-keyword">throws</span> IOException {
+                System.out.println(<span class="hljs-string">"数据读取完成"</span>);
+            }
+        });
+
+        out.println(<span class="hljs-string">"结束Servlet的时间："</span> + <span class="hljs-keyword">new</span> java.util.Date() + <span class="hljs-string">".&lt;br/&gt;"</span>);
+        out.flush();
+    }
+
+    <span class="hljs-annotation">@Override</span>
+    <span class="hljs-keyword">protected</span> <span class="hljs-keyword">void</span> <span class="hljs-title">doPost</span>(HttpServletRequest req, HttpServletResponse resp)
+            <span class="hljs-keyword">throws</span> ServletException, IOException {
+        doGet(req, resp);
+    }
+}</code></pre>
+
+<hr />
+
+<p>(3) 表现层：</p>
+
+
+
+<pre class="prettyprint"><code class="language-jsp hljs xml"><span class="vbscript">&lt;%@ page contentType=<span class="hljs-string">"text/html; charset=utf-8"</span> language=<span class="hljs-string">"java"</span> session=<span class="hljs-string">"false"</span>%&gt;</span>
+<span class="hljs-tag">&lt;<span class="hljs-title">div</span> <span class="hljs-attribute">style</span>=<span class="hljs-value">"background-color:#ffffdd;height:80px;"</span>&gt;</span>
+浏览器提交数据为：${data}<span class="hljs-tag">&lt;<span class="hljs-title">br</span>/&gt;</span>
+<span class="vbscript">&lt;%=<span class="hljs-keyword">new</span> java.util.<span class="hljs-built_in">Date</span>()%&gt;</span>
+<span class="hljs-tag">&lt;/<span class="hljs-title">div</span>&gt;</span></code></pre>
+
+<hr />
+
+<p>(4) 结果展示：</p>
+
+<p>　　　　　　　　　　　　　　<img src="http://static.zybuluo.com/Rico123/0122cngla600qatbf1lnvx4u/nio.png" alt="nio.png-14.3kB" title="" /></p>
+
+<p>　　更多关于Servlet使用、实践方面的介绍以及Servlet新特性的总结见我的下一篇博文《Servlet 综述(实践篇)》。</p>
+
+<hr />
+
+<p><strong>五、Servlet 3.0 支持文件上传</strong></p>
+
+<p>　　Servlet 3.0之前的版本中，文件上传是个挺让人头疼的问题，虽然有第三方框架（Apache Commons）来实现，但使用起来还是比较麻烦。在Servlet 3.0中，这些问题将不复存在，Servlet 3.0对文件上传提供了直接支持，配合Servlet 3.0中基于Annotations的配置，大大简化上传件的操作。</p>
+
+<p>　　<font color="blue"><b>在使用表单上传文件时，我们需要使用@MultipartConfig注解去修饰对应的Servlet。此外，我们一方面需要在表单里使用&lt;input type=”file” …/&gt;文件域，另一方面必须要为表单域设置 enctype 属性，</b></font>其有三个值：</p>
+
+<ul>
+<li>application/x-www-form-urlencoded：表单数据被编码为名称/值对，这是默认的编码方式；</li>
+<li>multipart/form-data：以二进制流的方式处理表单数据，一般用于传输二进制文件，如图片、视频等；</li>
+<li>text/plain：不编码特殊字符，适用于通过表单发送邮件。</li>
+</ul>
+
+<hr />
+
+<p>下面跟进这个例子来体会其给我们带来的便捷。</p>
+
+<p>(1) 文件提交表单：</p>
+
+
+
+<pre class="prettyprint"><code class="language-jsp hljs xml"><span class="vbscript">&lt;%@ page contentType=<span class="hljs-string">"text/html; charset=utf-8"</span> language=<span class="hljs-string">"java"</span> errorPage=<span class="hljs-string">""</span> %&gt;</span>
+<span class="hljs-tag">&lt;<span class="hljs-title">head</span>&gt;</span>
+    <span class="hljs-tag">&lt;<span class="hljs-title">title</span>&gt;</span> 文件上传 <span class="hljs-tag">&lt;/<span class="hljs-title">title</span>&gt;</span>
+<span class="hljs-tag">&lt;/<span class="hljs-title">head</span>&gt;</span>
+<span class="hljs-tag">&lt;<span class="hljs-title">body</span>&gt;</span>
+<span class="hljs-tag">&lt;<span class="hljs-title">form</span> <span class="hljs-attribute">method</span>=<span class="hljs-value">"post"</span> <span class="hljs-attribute">action</span>=<span class="hljs-value">"upload"</span>  <span class="hljs-attribute">enctype</span>=<span class="hljs-value">"multipart/form-data"</span>&gt;</span>
+    文件名：<span class="hljs-tag">&lt;<span class="hljs-title">input</span> <span class="hljs-attribute">type</span>=<span class="hljs-value">"text"</span> <span class="hljs-attribute">id</span>=<span class="hljs-value">"name"</span> <span class="hljs-attribute">name</span>=<span class="hljs-value">"name"</span> /&gt;</span><span class="hljs-tag">&lt;<span class="hljs-title">br</span>/&gt;</span>
+    选择文件：<span class="hljs-tag">&lt;<span class="hljs-title">input</span> <span class="hljs-attribute">type</span>=<span class="hljs-value">"file"</span> <span class="hljs-attribute">id</span>=<span class="hljs-value">"file"</span> <span class="hljs-attribute">name</span>=<span class="hljs-value">"file"</span> /&gt;</span><span class="hljs-tag">&lt;<span class="hljs-title">br</span>/&gt;</span>
+    <span class="hljs-tag">&lt;<span class="hljs-title">input</span> <span class="hljs-attribute">type</span>=<span class="hljs-value">"submit"</span> <span class="hljs-attribute">value</span>=<span class="hljs-value">"上传"</span> /&gt;</span><span class="hljs-tag">&lt;<span class="hljs-title">br</span>/&gt;</span>
+<span class="hljs-tag">&lt;/<span class="hljs-title">form</span>&gt;</span>
+<span class="hljs-tag">&lt;/<span class="hljs-title">body</span>&gt;</span>
+<span class="hljs-tag">&lt;/<span class="hljs-title">html</span>&gt;</span></code></pre>
+
+<hr />
+
+<p>(2) 文件上传Servlet：</p>
+
+
+
+<pre class="prettyprint"><code class="language-java hljs "><span class="hljs-annotation">@WebServlet</span>(name=<span class="hljs-string">"upload"</span> , urlPatterns={<span class="hljs-string">"/upload"</span>})
+<span class="hljs-annotation">@MultipartConfig</span>
+<span class="hljs-keyword">public</span> <span class="hljs-class"><span class="hljs-keyword">class</span> <span class="hljs-title">UploadServlet</span> <span class="hljs-keyword">extends</span> <span class="hljs-title">HttpServlet</span>
+{</span>
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">void</span> <span class="hljs-title">service</span>(HttpServletRequest request ,
+        HttpServletResponse response)
+        <span class="hljs-keyword">throws</span> IOException , ServletException
+    {
+        response.setContentType(<span class="hljs-string">"text/html;charset=utf-8"</span>);
+        PrintWriter out = response.getWriter();
+        request.setCharacterEncoding(<span class="hljs-string">"utf-8"</span>);
+        <span class="hljs-comment">// 获取普通请求参数</span>
+        String name = request.getParameter(<span class="hljs-string">"name"</span>);
+        out.println(<span class="hljs-string">"普通的name参数为："</span> + name + <span class="hljs-string">"&lt;br/&gt;"</span>);
+        <span class="hljs-comment">// 获取文件上传域</span>
+        Part part = request.getPart(<span class="hljs-string">"file"</span>);
+        <span class="hljs-comment">// 获取上传文件的文件类型</span>
+        out.println(<span class="hljs-string">"上传文件的的类型为："</span>
+            + part.getContentType() + <span class="hljs-string">"&lt;br/&gt;"</span>);
+        <span class="hljs-comment">//获取上传文件的大小。</span>
+        out.println(<span class="hljs-string">"上传文件的的大小为："</span> + part.getSize()  + <span class="hljs-string">"&lt;br/&gt;"</span>);
+        <span class="hljs-comment">// 获取该文件上传域的Header Name</span>
+        Collection&lt;String&gt; headerNames = part.getHeaderNames();
+        <span class="hljs-comment">// 遍历文件上传域的Header Name、Value</span>
+        <span class="hljs-keyword">for</span> (String headerName : headerNames)
+        {
+            out.println(headerName + <span class="hljs-string">"---&gt;"</span>
+                + part.getHeader(headerName) + <span class="hljs-string">"&lt;br/&gt;"</span>);
+        }
+        <span class="hljs-comment">// 获取包含原始文件名的字符串</span>
+        String fileNameInfo = part.getHeader(<span class="hljs-string">"content-disposition"</span>);
+        <span class="hljs-comment">// 提取上传文件的原始文件名</span>
+        String fileName = fileNameInfo.substring(
+            fileNameInfo.indexOf(<span class="hljs-string">"filename=\""</span>) + <span class="hljs-number">10</span> , fileNameInfo.length() - <span class="hljs-number">1</span>);
+        <span class="hljs-comment">// 将上传的文件写入服务器</span>
+        part.write(getServletContext().getRealPath(<span class="hljs-string">"/uploadFiles"</span>)
+            + <span class="hljs-string">"/"</span> + fileName );               <span class="hljs-comment">// ①</span>
+
+        System.out.println(getServletContext().getRealPath(<span class="hljs-string">"/uploadFiles"</span>));
+    }</code></pre>
+
+<hr />
+
+<p>(3) 结果展示：</p>
+
+<p>　　　　　　　　　　　　<img src="http://static.zybuluo.com/Rico123/gnw9dut2869kkfxdttj4fl9h/fileupload.png" alt="fileupload.png-11kB" title="" /></p>
+
+<hr />
+
+<p><strong>六、拾遗增补</strong></p>
+
+<p>　　除上面提到的内容，Servlet 还引入了其他新的特性（如下所述），此不赘述。</p>
+
+<ul>
+<li>Servlet 3.0 为 Web 模块化提供了支持；</li>
+<li>Servlet 3.1 可以强制更改 Session ID，具体由 HttpServletRequest 的 changeSessionId()方法完成。</li>
+</ul>
+
+<hr />
+
+<blockquote>
+  <h2 id="引用">引用</h2>
+  
+  <p>《轻量级 JavaEE 企业应用实战(第四版)》  <br />
+  <a href="http://nanquan.iteye.com/blog/1466353">Servlet3.0: 简介AsyncContext</a> <br />
+  <a href="https://www.oschina.net/translate/non-blocking-io-using-servlet-3-1?cmp">使用 Servlet 3.1 的非堵塞 I/O 实现可伸缩的应用</a></p>
+</blockquote></div>&#13;
+        <script type="text/javascript">&#13;
+            $(function () {&#13;
+                $('pre.prettyprint code').each(function () {&#13;
+                    var lines = $(this).text().split('\n').length;&#13;
+                    var $numbering = $('&lt;ul/&gt;').addClass('pre-numbering').hide();&#13;
+                    $(this).addClass('has-numbering').parent().append($numbering);&#13;
+                    for (i = 1; i &lt;= lines; i++) {&#13;
+                        $numbering.append($('&lt;li/&gt;').text(i));&#13;
+                    };&#13;
+                    $numbering.fadeIn(1700);&#13;
+                });&#13;
+            });&#13;
+        </script>&#13;
+   &#13;

@@ -1,0 +1,391 @@
+
+        <div class="markdown_views"><p><strong>什么是注解</strong></p>
+
+<p>Annotation（注解）就是Java提供了一种元程序中的元素关联任何信息和着任何元数据（metadata）的途径和方法。Annotion(注解)是一个接口，程序可以通过反射来获取指定程序元素的Annotion对象，然后通过Annotion对象来获取注解里面的元数据。</p>
+
+<p>　　Annotation(注解)是JDK5.0及以后版本引入的。它可以用于创建文档，跟踪代码中的依赖性，甚至执行基本编译时检查。从某些方面看，annotation就像修饰符一样被使用，并应用于包、类 型、构造方法、方法、成员变量、参数、本地变量的声明中。这些信息被存储在Annotation的“name=value”结构对中。</p>
+
+<p>　　Annotation的成员在Annotation类型中以无参数的方法的形式被声明。其方法名和返回值定义了该成员的名字和类型。在此有一个特定的默认语法：允许声明任何Annotation成员的默认值：一个Annotation可以将name=value对作为没有定义默认值的Annotation成员的值，当然也可以使用name=value对来覆盖其它成员默认值。这一点有些近似类的继承特性，父类的构造函数可以作为子类的默认构造函数，但是也可以被子类覆盖。</p>
+
+<p>　　Annotation能被用来为某个程序元素（类、方法、成员变量等）关联任何的信息。需要注意的是，这里存在着一个基本的规则：Annotation不能影响程序代码的执行，无论增加、删除 Annotation，代码都始终如一的执行。另外，尽管一些annotation通过java的反射api方法在运行时被访问，而java语言解释器在工作时忽略了这些annotation。正是由于java虚拟机忽略了Annotation，导致了annotation类型在代码中是“不起作用”的； 只有通过某种配套的工具才会对annotation类型中的信息进行访问和处理。本文中将涵盖标准的Annotation和meta-annotation类型，陪伴这些annotation类型的工具是java编译器（当然要以某种特殊的方式处理它们）。 <br />
+　　 <br />
+元注解：</p>
+
+<p>　　元注解的作用就是负责注解其他注解。Java5.0定义了4个标准的meta-annotation类型，它们被用来提供对其它 annotation类型作说明。Java5.0定义的元注解： <br />
+　　　　1.@Target, <br />
+　　　　2.@Retention, <br />
+　　　　3.@Documented, <br />
+　　　　4.@Inherited <br />
+　　这些类型和它们所支持的类在java.lang.annotation包中可以找到。下面我们看一下每个元注解的作用和相应分参数的使用说明。</p>
+
+<p>@Target：</p>
+
+<p>　　　@Target说明了Annotation所修饰的对象范围：Annotation可被用于 packages、types（类、接口、枚举、Annotation类型）、类型成员（方法、构造方法、成员变量、枚举值）、方法参数和本地变量（如循环变量、catch参数）。在Annotation类型的声明中使用了target可更加明晰其修饰的目标。</p>
+
+<p>　　作用：用于描述注解的使用范围（即：被描述的注解可以用在什么地方）</p>
+
+<p>　　取值(ElementType)有：</p>
+
+<p>　　　　1.CONSTRUCTOR:用于描述构造器 <br />
+　　　　2.FIELD:用于描述域 <br />
+　　　　3.LOCAL_VARIABLE:用于描述局部变量 <br />
+　　　　4.METHOD:用于描述方法 <br />
+　　　　5.PACKAGE:用于描述包 <br />
+　　　　6.PARAMETER:用于描述参数 <br />
+　　　　7.TYPE:用于描述类、接口(包括注解类型) 或enum声明</p>
+
+<p>@Retention：</p>
+
+<p>　　@Retention定义了该Annotation被保留的时间长短：某些Annotation仅出现在源代码中，而被编译器丢弃；而另一些却被编译在class文件中；编译在class文件中的Annotation可能会被虚拟机忽略，而另一些在class被装载时将被读取（请注意并不影响class的执行，因为Annotation与class在使用上是被分离的）。使用这个meta-Annotation可以对 Annotation的“生命周期”限制。</p>
+
+<p>　　作用：表示需要在什么级别保存该注释信息，用于描述注解的生命周期（即：被描述的注解在什么范围内有效）</p>
+
+<p>　　取值（RetentionPoicy）有：</p>
+
+<p>　　　　1.SOURCE:在源文件中有效（即源文件保留） <br />
+　　　　2.CLASS:在class文件中有效（即class保留） <br />
+　　　　3.RUNTIME:在运行时有效（即运行时保留）</p>
+
+<p>　　Retention meta-annotation类型有唯一的value作为成员，它的取值来自java.lang.annotation.RetentionPolicy的枚举类型值</p>
+
+<p>　@Documented:</p>
+
+<p>　　@Documented用于描述其它类型的annotation应该被作为被标注的程序成员的公共API，因此可以被例如javadoc此类的工具文档化。Documented是一个标记注解，没有成员。</p>
+
+<p>　@Inherited：</p>
+
+<p>　　@Inherited 元注解是一个标记注解，@Inherited阐述了某个被标注的类型是被继承的。如果一个使用了@Inherited修饰的annotation类型被用于一个class，则这个annotation将被用于该class的子类。</p>
+
+<p>　　注意：@Inherited annotation类型是被标注过的class的子类所继承。类并不从它所实现的接口继承annotation，方法并不从它所重载的方法继承annotation。</p>
+
+<p>　　当@Inherited annotation类型标注的annotation的Retention是RetentionPolicy.RUNTIME，则反射API增强了这种继承性。如果我们使用java.lang.reflect去查询一个@Inherited annotation类型的annotation时，反射代码检查将展开工作：检查class和其父类，直到发现指定的annotation类型被发现，或者到达类继承结构的顶层。</p>
+
+<p>自定义注解：</p>
+
+<p>　　使用@interface自定义注解时，自动继承了java.lang.annotation.Annotation接口，由编译程序自动完成其他细节。在定义注解时，不能继承其他的注解或接口。@interface用来声明一个注解，其中的每一个方法实际上是声明了一个配置参数。方法的名称就是参数的名称，返回值类型就是参数的类型（返回值类型只能是基本类型、Class、String、enum）。可以通过default来声明参数的默认值。</p>
+
+<p>　　定义注解格式： <br />
+　　public @interface 注解名 {定义体}</p>
+
+<p>　　注解参数的可支持数据类型：</p>
+
+<p>　　　　1.所有基本数据类型（int,float,boolean,byte,double,char,long,short) <br />
+　　　　2.String类型 <br />
+　　　　3.Class类型 <br />
+　　　　4.enum类型 <br />
+　　　　5.Annotation类型 <br />
+　　　　6.以上所有类型的数组</p>
+
+<p>　　Annotation类型里面的参数该怎么设定:  <br />
+　　第一,只能用public或默认(default)这两个访问权修饰.例如,String value();这里把方法设为defaul默认类型；　 　 <br />
+　　第二,参数成员只能用基本类型byte,short,char,int,long,float,double,boolean八种基本数据类型和 String,Enum,Class,annotations等数据类型,以及这一些类型的数组.例如,String value();这里的参数成员就为String;　　 <br />
+　　第三,如果只有一个参数成员,最好把参数名称设为”value”,后加小括号.例:下面的例子FruitName注解就只有一个参数成员。</p>
+
+<p>注解元素的默认值：</p>
+
+<p>　　注解元素必须有确定的值，要么在定义注解的默认值中指定，要么在使用注解时指定，非基本类型的注解元素的值不可为null。因此, 使用空字符串或0作为默认值是一种常用的做法。这个约束使得处理器很难表现一个元素的存在或缺失的状态，因为每个注解的声明中，所有元素都存在，并且都具有相应的值，为了绕开这个约束，我们只能定义一些特殊的值，例如空字符串或者负数，一次表示某个元素不存在，在定义注解时，这已经成为一个习惯用法。</p>
+
+<p>下面就展示两个注解使用的例子：</p>
+
+<pre class="prettyprint"><code class=" hljs avrasm">package <span class="hljs-keyword">com</span><span class="hljs-preprocessor">.lyt</span><span class="hljs-preprocessor">.usermanage</span><span class="hljs-preprocessor">.test</span><span class="hljs-comment">;</span>
+
+import java<span class="hljs-preprocessor">.lang</span><span class="hljs-preprocessor">.annotation</span><span class="hljs-preprocessor">.Documented</span><span class="hljs-comment">;</span>
+import java<span class="hljs-preprocessor">.lang</span><span class="hljs-preprocessor">.annotation</span><span class="hljs-preprocessor">.ElementType</span><span class="hljs-comment">;</span>
+import java<span class="hljs-preprocessor">.lang</span><span class="hljs-preprocessor">.annotation</span><span class="hljs-preprocessor">.Retention</span><span class="hljs-comment">;</span>
+import java<span class="hljs-preprocessor">.lang</span><span class="hljs-preprocessor">.annotation</span><span class="hljs-preprocessor">.RetentionPolicy</span><span class="hljs-comment">;</span>
+import java<span class="hljs-preprocessor">.lang</span><span class="hljs-preprocessor">.annotation</span><span class="hljs-preprocessor">.Target</span><span class="hljs-comment">;</span>
+
+@Target(value=ElementType<span class="hljs-preprocessor">.FIELD</span>)//定义注解的作用范围
+@Retention(RetentionPolicy<span class="hljs-preprocessor">.RUNTIME</span>)//定义注解的生命周期
+@Documented//文档
+public @interface FruitName {
+
+    String value() default <span class="hljs-string">""</span><span class="hljs-comment">;</span>
+
+}
+</code></pre>
+
+<pre class="prettyprint"><code class=" hljs avrasm">package <span class="hljs-keyword">com</span><span class="hljs-preprocessor">.lyt</span><span class="hljs-preprocessor">.usermanage</span><span class="hljs-preprocessor">.test</span><span class="hljs-comment">;</span>
+
+import java<span class="hljs-preprocessor">.lang</span><span class="hljs-preprocessor">.annotation</span><span class="hljs-preprocessor">.Documented</span><span class="hljs-comment">;</span>
+import java<span class="hljs-preprocessor">.lang</span><span class="hljs-preprocessor">.annotation</span><span class="hljs-preprocessor">.ElementType</span><span class="hljs-comment">;</span>
+import java<span class="hljs-preprocessor">.lang</span><span class="hljs-preprocessor">.annotation</span><span class="hljs-preprocessor">.Retention</span><span class="hljs-comment">;</span>
+import java<span class="hljs-preprocessor">.lang</span><span class="hljs-preprocessor">.annotation</span><span class="hljs-preprocessor">.RetentionPolicy</span><span class="hljs-comment">;</span>
+import java<span class="hljs-preprocessor">.lang</span><span class="hljs-preprocessor">.annotation</span><span class="hljs-preprocessor">.Target</span><span class="hljs-comment">;</span>
+
+@Target(ElementType<span class="hljs-preprocessor">.FIELD</span>)
+@Retention(RetentionPolicy<span class="hljs-preprocessor">.RUNTIME</span>)
+@Documented
+public @interface FruitColor {
+
+    public enum Color{BLUE,RED,GREEN,ORANGE,YELLOW}<span class="hljs-comment">;</span>
+
+    Color fruitColor() default Color<span class="hljs-preprocessor">.RED</span><span class="hljs-comment">;</span>
+
+}
+</code></pre>
+
+<pre class="prettyprint"><code class=" hljs java"><span class="hljs-keyword">package</span> com.lyt.usermanage.test;
+
+<span class="hljs-keyword">import</span> com.lyt.usermanage.test.FruitColor.Color;
+
+<span class="hljs-keyword">public</span> <span class="hljs-class"><span class="hljs-keyword">class</span> <span class="hljs-title">AnnotationTest</span> {</span>
+
+    <span class="hljs-annotation">@FruitName</span>(value=<span class="hljs-string">"苹果"</span>)
+    <span class="hljs-keyword">private</span> String fruitName;
+
+    <span class="hljs-annotation">@FruitColor</span>(fruitColor=Color.BLUE)
+    <span class="hljs-keyword">private</span> String fruitColor;
+
+    <span class="hljs-keyword">private</span> Integer count;
+
+
+    <span class="hljs-keyword">public</span> Integer <span class="hljs-title">getCount</span>() {
+        <span class="hljs-keyword">return</span> count;
+    }
+
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">void</span> <span class="hljs-title">setCount</span>(Integer count) {
+        <span class="hljs-keyword">this</span>.count = count;
+    }
+
+    <span class="hljs-keyword">public</span> String <span class="hljs-title">getFruitName</span>() {
+        <span class="hljs-keyword">return</span> fruitName;
+    }
+
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">void</span> <span class="hljs-title">setFruitName</span>(String fruitName) {
+        <span class="hljs-keyword">this</span>.fruitName = fruitName;
+    }
+
+    <span class="hljs-keyword">public</span> String <span class="hljs-title">getFruitColor</span>() {
+        <span class="hljs-keyword">return</span> fruitColor;
+    }
+
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">void</span> <span class="hljs-title">setFruitColor</span>(String fruitColor) {
+        <span class="hljs-keyword">this</span>.fruitColor = fruitColor;
+    }
+
+}
+</code></pre>
+
+<pre class="prettyprint"><code class=" hljs avrasm">package <span class="hljs-keyword">com</span><span class="hljs-preprocessor">.lyt</span><span class="hljs-preprocessor">.usermanage</span><span class="hljs-preprocessor">.test</span><span class="hljs-comment">;</span>
+
+import java<span class="hljs-preprocessor">.lang</span><span class="hljs-preprocessor">.reflect</span><span class="hljs-preprocessor">.Field</span><span class="hljs-comment">;</span>
+
+public class MyAnnotationTest {
+
+    public static void main(String[] args) {
+        try {
+            Field[] fields = MyAnnotationTest<span class="hljs-preprocessor">.class</span><span class="hljs-preprocessor">.getClassLoader</span>()<span class="hljs-preprocessor">.loadClass</span>(<span class="hljs-string">"com.lyt.usermanage.test.AnnotationTest"</span>)<span class="hljs-preprocessor">.getDeclaredFields</span>()<span class="hljs-comment">;</span>
+            for (Field field : fields) {
+                if(field<span class="hljs-preprocessor">.isAnnotationPresent</span>(FruitName<span class="hljs-preprocessor">.class</span>)){
+                    System<span class="hljs-preprocessor">.out</span><span class="hljs-preprocessor">.println</span>(field<span class="hljs-preprocessor">.getAnnotation</span>(FruitName<span class="hljs-preprocessor">.class</span>)<span class="hljs-preprocessor">.value</span>())<span class="hljs-comment">;</span>
+                }else if(field<span class="hljs-preprocessor">.isAnnotationPresent</span>(FruitColor<span class="hljs-preprocessor">.class</span>)){
+                    System<span class="hljs-preprocessor">.out</span><span class="hljs-preprocessor">.println</span>(field<span class="hljs-preprocessor">.getAnnotation</span>(FruitColor<span class="hljs-preprocessor">.class</span>)<span class="hljs-preprocessor">.fruitColor</span>())<span class="hljs-comment">;</span>
+                }else{
+                    System<span class="hljs-preprocessor">.out</span><span class="hljs-preprocessor">.println</span>(field<span class="hljs-preprocessor">.getName</span>())<span class="hljs-comment">;</span>
+                }
+            }
+        } catch (SecurityException e) {
+            e<span class="hljs-preprocessor">.printStackTrace</span>()<span class="hljs-comment">;</span>
+        } catch (ClassNotFoundException e) {
+            e<span class="hljs-preprocessor">.printStackTrace</span>()<span class="hljs-comment">;</span>
+        }
+    }
+
+}
+</code></pre>
+
+<p>数据结果：</p>
+
+<pre class="prettyprint"><code class=" hljs axapta">苹果
+BLUE
+<span class="hljs-keyword">count</span>
+</code></pre>
+
+<p>通过最后的运行代码可以看到底层用到的都是各种反射机制，你如果规定你的注解要可以被反射到的话，Retention注解就得用好。</p>
+
+<p>注解处理器类库(java.lang.reflect.AnnotatedElement)：</p>
+
+<p>　　Java使用Annotation接口来代表程序元素前面的注解，该接口是所有Annotation类型的父接口。除此之外，Java在java.lang.reflect 包下新增了AnnotatedElement接口，该接口代表程序中可以接受注解的程序元素，该接口主要有如下几个实现类：</p>
+
+<p>　　Class：类定义 <br />
+　　Constructor：构造器定义 <br />
+　　Field：累的成员变量定义 <br />
+　　Method：类的方法定义 <br />
+　　Package：类的包定义</p>
+
+<p>　　java.lang.reflect 包下主要包含一些实现反射功能的工具类，实际上，java.lang.reflect 包所有提供的反射API扩充了读取运行时Annotation信息的能力。当一个Annotation类型被定义为运行时的Annotation后，该注解才能是运行时可见，当class文件被装载时被保存在class文件中的Annotation才会被虚拟机读取。 <br />
+　　AnnotatedElement 接口是所有程序元素（Class、Method和Constructor）的父接口，所以程序通过反射获取了某个类的AnnotatedElement对象之后，程序就可以调用该对象的如下四个个方法来访问Annotation信息：</p>
+
+<p>　　方法1： T getAnnotation(Class annotationClass): 返回改程序元素上存在的、指定类型的注解，如果该类型注解不存在，则返回null。 <br />
+　　方法2：Annotation[] getAnnotations():返回该程序元素上存在的所有注解。 <br />
+　　方法3：boolean is AnnotationPresent(Class</p>
+
+<pre class="prettyprint"><code class=" hljs java"><span class="hljs-javadoc">/***********注解声明***************/</span>
+
+<span class="hljs-javadoc">/**
+ * 水果名称注解
+ *<span class="hljs-javadoctag"> @author</span> peida
+ *
+ */</span>
+<span class="hljs-annotation">@Target</span>(ElementType.FIELD)
+<span class="hljs-annotation">@Retention</span>(RetentionPolicy.RUNTIME)
+<span class="hljs-annotation">@Documented</span>
+<span class="hljs-keyword">public</span> @<span class="hljs-class"><span class="hljs-keyword">interface</span> <span class="hljs-title">FruitName</span> {</span>
+    String value() <span class="hljs-keyword">default</span> <span class="hljs-string">""</span>;
+}
+
+<span class="hljs-javadoc">/**
+ * 水果颜色注解
+ *<span class="hljs-javadoctag"> @author</span> peida
+ *
+ */</span>
+<span class="hljs-annotation">@Target</span>(ElementType.FIELD)
+<span class="hljs-annotation">@Retention</span>(RetentionPolicy.RUNTIME)
+<span class="hljs-annotation">@Documented</span>
+<span class="hljs-keyword">public</span> @<span class="hljs-class"><span class="hljs-keyword">interface</span> <span class="hljs-title">FruitColor</span> {</span>
+    <span class="hljs-javadoc">/**
+     * 颜色枚举
+     *<span class="hljs-javadoctag"> @author</span> peida
+     *
+     */</span>
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">enum</span> Color{ BULE,RED,GREEN};
+
+    <span class="hljs-javadoc">/**
+     * 颜色属性
+     *<span class="hljs-javadoctag"> @return</span>
+     */</span>
+    Color fruitColor() <span class="hljs-keyword">default</span> Color.GREEN;
+
+}
+
+<span class="hljs-javadoc">/**
+ * 水果供应者注解
+ *<span class="hljs-javadoctag"> @author</span> peida
+ *
+ */</span>
+<span class="hljs-annotation">@Target</span>(ElementType.FIELD)
+<span class="hljs-annotation">@Retention</span>(RetentionPolicy.RUNTIME)
+<span class="hljs-annotation">@Documented</span>
+<span class="hljs-keyword">public</span> @<span class="hljs-class"><span class="hljs-keyword">interface</span> <span class="hljs-title">FruitProvider</span> {</span>
+    <span class="hljs-javadoc">/**
+     * 供应商编号
+     *<span class="hljs-javadoctag"> @return</span>
+     */</span>
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">int</span> <span class="hljs-title">id</span>() <span class="hljs-keyword">default</span> -1;
+
+    <span class="hljs-javadoc">/**
+     * 供应商名称
+     *<span class="hljs-javadoctag"> @return</span>
+     */</span>
+    <span class="hljs-keyword">public</span> String <span class="hljs-title">name</span>() <span class="hljs-keyword">default</span> "";
+
+    <span class="hljs-javadoc">/**
+     * 供应商地址
+     *<span class="hljs-javadoctag"> @return</span>
+     */</span>
+    <span class="hljs-keyword">public</span> String <span class="hljs-title">address</span>() <span class="hljs-keyword">default</span> "";
+}
+
+<span class="hljs-javadoc">/***********注解使用***************/</span>
+
+<span class="hljs-keyword">public</span> <span class="hljs-class"><span class="hljs-keyword">class</span> <span class="hljs-title">Apple</span> {</span>
+
+    <span class="hljs-annotation">@FruitName</span>(<span class="hljs-string">"Apple"</span>)
+    <span class="hljs-keyword">private</span> String appleName;
+
+    <span class="hljs-annotation">@FruitColor</span>(fruitColor=Color.RED)
+    <span class="hljs-keyword">private</span> String appleColor;
+
+    <span class="hljs-annotation">@FruitProvider</span>(id=<span class="hljs-number">1</span>,name=<span class="hljs-string">"陕西红富士集团"</span>,address=<span class="hljs-string">"陕西省西安市延安路89号红富士大厦"</span>)
+    <span class="hljs-keyword">private</span> String appleProvider;
+
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">void</span> <span class="hljs-title">setAppleColor</span>(String appleColor) {
+        <span class="hljs-keyword">this</span>.appleColor = appleColor;
+    }
+    <span class="hljs-keyword">public</span> String <span class="hljs-title">getAppleColor</span>() {
+        <span class="hljs-keyword">return</span> appleColor;
+    }
+
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">void</span> <span class="hljs-title">setAppleName</span>(String appleName) {
+        <span class="hljs-keyword">this</span>.appleName = appleName;
+    }
+    <span class="hljs-keyword">public</span> String <span class="hljs-title">getAppleName</span>() {
+        <span class="hljs-keyword">return</span> appleName;
+    }
+
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">void</span> <span class="hljs-title">setAppleProvider</span>(String appleProvider) {
+        <span class="hljs-keyword">this</span>.appleProvider = appleProvider;
+    }
+    <span class="hljs-keyword">public</span> String <span class="hljs-title">getAppleProvider</span>() {
+        <span class="hljs-keyword">return</span> appleProvider;
+    }
+
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">void</span> <span class="hljs-title">displayName</span>(){
+        System.out.println(<span class="hljs-string">"水果的名字是：苹果"</span>);
+    }
+}
+
+<span class="hljs-javadoc">/***********注解处理器***************/</span>
+
+<span class="hljs-keyword">public</span> <span class="hljs-class"><span class="hljs-keyword">class</span> <span class="hljs-title">FruitInfoUtil</span> {</span>
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">static</span> <span class="hljs-keyword">void</span> <span class="hljs-title">getFruitInfo</span>(Class&lt;?&gt; clazz){
+
+        String strFruitName=<span class="hljs-string">" 水果名称："</span>;
+        String strFruitColor=<span class="hljs-string">" 水果颜色："</span>;
+        String strFruitProvicer=<span class="hljs-string">"供应商信息："</span>;
+
+        Field[] fields = clazz.getDeclaredFields();
+
+        <span class="hljs-keyword">for</span>(Field field :fields){
+            <span class="hljs-keyword">if</span>(field.isAnnotationPresent(FruitName.class)){
+                FruitName fruitName = (FruitName) field.getAnnotation(FruitName.class);
+                strFruitName=strFruitName+fruitName.value();
+                System.out.println(strFruitName);
+            }
+            <span class="hljs-keyword">else</span> <span class="hljs-keyword">if</span>(field.isAnnotationPresent(FruitColor.class)){
+                FruitColor fruitColor= (FruitColor) field.getAnnotation(FruitColor.class);
+                strFruitColor=strFruitColor+fruitColor.fruitColor().toString();
+                System.out.println(strFruitColor);
+            }
+            <span class="hljs-keyword">else</span> <span class="hljs-keyword">if</span>(field.isAnnotationPresent(FruitProvider.class)){
+                FruitProvider fruitProvider= (FruitProvider) field.getAnnotation(FruitProvider.class);
+                strFruitProvicer=<span class="hljs-string">" 供应商编号："</span>+fruitProvider.id()+<span class="hljs-string">" 供应商名称："</span>+fruitProvider.name()+<span class="hljs-string">" 供应商地址："</span>+fruitProvider.address();
+                System.out.println(strFruitProvicer);
+            }
+        }
+    }
+}
+
+<span class="hljs-javadoc">/***********输出结果***************/</span>
+<span class="hljs-keyword">public</span> <span class="hljs-class"><span class="hljs-keyword">class</span> <span class="hljs-title">FruitRun</span> {</span>
+
+    <span class="hljs-javadoc">/**
+     *<span class="hljs-javadoctag"> @param</span> args
+     */</span>
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">static</span> <span class="hljs-keyword">void</span> <span class="hljs-title">main</span>(String[] args) {
+
+        FruitInfoUtil.getFruitInfo(Apple.class);
+
+    }
+
+}
+
+====================================
+ 水果名称：Apple
+ 水果颜色：RED
+ 供应商编号：<span class="hljs-number">1</span> 供应商名称：陕西红富士集团 供应商地址：陕西省西安市延安路<span class="hljs-number">89</span>号红富士大厦</code></pre></div>&#13;
+        <script type="text/javascript">&#13;
+            $(function () {&#13;
+                $('pre.prettyprint code').each(function () {&#13;
+                    var lines = $(this).text().split('\n').length;&#13;
+                    var $numbering = $('&lt;ul/&gt;').addClass('pre-numbering').hide();&#13;
+                    $(this).addClass('has-numbering').parent().append($numbering);&#13;
+                    for (i = 1; i &lt;= lines; i++) {&#13;
+                        $numbering.append($('&lt;li/&gt;').text(i));&#13;
+                    };&#13;
+                    $numbering.fadeIn(1700);&#13;
+                });&#13;
+            });&#13;
+        </script>&#13;
+   &#13;

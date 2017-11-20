@@ -1,0 +1,285 @@
+
+        <div class="markdown_views"><h1 id="中介者模式"><center> 中介者模式</center></h1>
+
+<p>标签 ： Java与设计模式</p>
+
+<hr />
+
+<p>面向对象设计鼓励将行为分布到各个对象中, 这种分布可能会导致对象间有许多连接. 在最坏的情况下, 每一个对象都需要知道其他所有对象. <br />
+虽然将一个系统分割成许多对象可增强可复用性, 但是对象间<strong>相互连接的激增</strong>又会降低其可复用性.  大量的连接关系使得一个对象<strong>不可能在没有其他对象的协助下工作</strong>(系统表现为一个<strong>不可分割</strong>的整体), 此时再对系统行为进行<strong>任何较大改动</strong>就十分困难. 因为行为被分布在许多对象中, 结果是不得不定义很多子类以定制系统的行为. 由此我们引入了<strong>中介者对象Mediator</strong>: <br />
+   <img src="http://7xrgh9.com1.z0.glb.clouddn.com/16-8-27/89519382.jpg" alt="" title="" />  <br />
+通过中介者对象, 可以将网状结构的系统改造成<strong>以中介者为中心的星型结构</strong>, 每个具体对象不再与另一个对象直接发生关系, 而是通过中介者对象从中<strong>调停</strong>.中介者对象的引入,也使得系统结构不会因新对象的引入造成大量的修改.</p>
+
+<hr />
+
+
+
+<h2 id="中介者模式-1">中介者模式</h2>
+
+<blockquote>
+  <p>中介者模式: 又称<strong>调停者模式</strong>, 用一个<strong>中介者对象(Mediator)</strong>来封装一系列对象的交互, 使各对象不需再显示地相互引用, 从而使<strong>耦合松散</strong>, 而且可以<strong>独立地改变他们之间的交互</strong>:  <br />
+  <img src="http://7xrgh9.com1.z0.glb.clouddn.com/16-8-28/66482333.jpg" alt="" title="" /> <br />
+  (图片来源: <a href="https://book.douban.com/subject/1052241/">设计模式: 可复用面向对象软件的基础</a>)</p>
+</blockquote>
+
+<ul>
+<li>Tips: 各<strong>Colleague</strong>只知道<strong>Mediator</strong>的存在, 并不需要知道其他<strong>Colleague</strong>是否存在(不然怎么解耦呢),  它<strong>只需将消息发送给Mediator, 然后由Mediator转发给其他Colleague</strong>(由<strong>Mediator</strong>存储所有<strong>Colleague</strong>关系, 也只有<strong>Mediator</strong>知道有多少/哪些<strong>Colleague</strong>). </li>
+</ul>
+
+<hr />
+
+
+
+<h2 id="模式实现">模式实现</h2>
+
+<pre><code>联合国转发各国声明, 调停各国关系: 
+各国向联合国安理会发送和接收消息, 安理会在各国间'适当地'转发请求以实现协作行为:
+</code></pre>
+
+<p><img src="http://7xrgh9.com1.z0.glb.clouddn.com/16-8-28/17125031.jpg" alt="" title="" /></p>
+
+<hr />
+
+
+
+<h3 id="colleague">Colleague</h3>
+
+<p>抽象同事类, 定义各同事的公有方法:</p>
+
+
+
+<pre class="prettyprint"><code class=" hljs java"><span class="hljs-javadoc">/**
+ *<span class="hljs-javadoctag"> @author</span> jifang
+ *<span class="hljs-javadoctag"> @since</span> 16/8/28 下午4:22.
+ */</span>
+<span class="hljs-keyword">public</span> <span class="hljs-keyword">abstract</span> <span class="hljs-class"><span class="hljs-keyword">class</span> <span class="hljs-title">Country</span> {</span>
+
+    <span class="hljs-keyword">protected</span> UnitedNations mediator;
+
+    <span class="hljs-keyword">private</span> String name;
+
+    <span class="hljs-keyword">public</span> <span class="hljs-title">Country</span>(UnitedNations mediator, String name) {
+        <span class="hljs-keyword">this</span>.mediator = mediator;
+        <span class="hljs-keyword">this</span>.name = name;
+    }
+
+    <span class="hljs-keyword">public</span> String <span class="hljs-title">getName</span>() {
+        <span class="hljs-keyword">return</span> name;
+    }
+
+    <span class="hljs-keyword">protected</span> <span class="hljs-keyword">abstract</span> <span class="hljs-keyword">void</span> <span class="hljs-title">declare</span>(String msg);
+
+    <span class="hljs-keyword">protected</span> <span class="hljs-keyword">abstract</span> <span class="hljs-keyword">void</span> <span class="hljs-title">receive</span>(String msg);
+}</code></pre>
+
+<hr />
+
+
+
+<h3 id="concretecolleague">ConcreteColleague</h3>
+
+<p>具体同事类:</p>
+
+<ul>
+<li>每一个同事类都知道它的中介者对象.</li>
+<li>每一个同事对象在需与其他同事通信时, 与它的中介者通信.</li>
+</ul>
+
+
+
+<pre class="prettyprint"><code class=" hljs axapta"><span class="hljs-class"><span class="hljs-keyword">class</span> <span class="hljs-title">USA</span> <span class="hljs-inheritance"><span class="hljs-keyword">extends</span></span> <span class="hljs-title">Country</span> {</span>
+
+    <span class="hljs-keyword">public</span> USA(UnitedNations mediator, String name) {
+        <span class="hljs-keyword">super</span>(mediator, name);
+    }
+
+    @Override
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">void</span> declare(String msg) {
+        mediator.declare(<span class="hljs-keyword">this</span>, msg);
+    }
+
+    @Override
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">void</span> receive(String msg) {
+        System.out.println(<span class="hljs-string">"美国接收到: ["</span> + msg + <span class="hljs-string">"]"</span>);
+    }
+}
+
+<span class="hljs-class"><span class="hljs-keyword">class</span> <span class="hljs-title">Iraq</span> <span class="hljs-inheritance"><span class="hljs-keyword">extends</span></span> <span class="hljs-title">Country</span> {</span>
+
+    <span class="hljs-keyword">public</span> Iraq(UnitedNations mediator, String name) {
+        <span class="hljs-keyword">super</span>(mediator, name);
+    }
+
+    @Override
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">void</span> declare(String msg) {
+        mediator.declare(<span class="hljs-keyword">this</span>, msg);
+    }
+
+    @Override
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">void</span> receive(String msg) {
+        System.out.println(<span class="hljs-string">"伊拉克接收到: ["</span> + msg + <span class="hljs-string">"]"</span>);
+    }
+}
+
+<span class="hljs-class"><span class="hljs-keyword">class</span> <span class="hljs-title">China</span> <span class="hljs-inheritance"><span class="hljs-keyword">extends</span></span> <span class="hljs-title">Country</span> {</span>
+
+    <span class="hljs-keyword">public</span> China(UnitedNations mediator, String name) {
+        <span class="hljs-keyword">super</span>(mediator, name);
+    }
+
+    @Override
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">void</span> declare(String msg) {
+        mediator.declare(<span class="hljs-keyword">this</span>, msg);
+    }
+
+    @Override
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">void</span> receive(String msg) {
+        System.out.println(<span class="hljs-string">"中国接收到: ["</span> + msg + <span class="hljs-string">"]"</span>);
+    }
+}</code></pre>
+
+<hr />
+
+
+
+<h3 id="mediator">Mediator</h3>
+
+<p>抽象中介者: 定义一个接口用于与各同事对象通信:</p>
+
+
+
+<pre class="prettyprint"><code class=" hljs cs"><span class="hljs-keyword">public</span> <span class="hljs-keyword">abstract</span> <span class="hljs-keyword">class</span> UnitedNations {
+
+    <span class="hljs-keyword">protected</span> List&lt;Country&gt; countries = <span class="hljs-keyword">new</span> LinkedList&lt;&gt;();
+
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">void</span> <span class="hljs-title">register</span>(Country country) {
+        countries.add(country);
+    }
+
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">void</span> <span class="hljs-title">remove</span>(Country country) {
+        countries.remove(country);
+    }
+
+    <span class="hljs-keyword">protected</span> <span class="hljs-keyword">abstract</span> <span class="hljs-keyword">void</span> <span class="hljs-title">declare</span>(Country country, String msg);
+}</code></pre>
+
+<hr />
+
+
+
+<h3 id="concretemediator">ConcreteMediator</h3>
+
+<p>具体中介者: </p>
+
+<ul>
+<li>了解并维护它的各个同事;</li>
+<li>通过协调各同事对象实现<strong>协作行为</strong>(从同事接收消息, 向具体同事发出命令).</li>
+</ul>
+
+
+
+<pre class="prettyprint"><code class=" hljs scala"><span class="hljs-class"><span class="hljs-keyword">class</span> <span class="hljs-title">UnitedNationsSecurityCouncil</span> <span class="hljs-keyword">extends</span> <span class="hljs-title">UnitedNations</span> {</span>
+
+    <span class="hljs-javadoc">/**
+     * 安理会在中间作出调停
+     *
+     * <span class="hljs-javadoctag">@param</span> country
+     * <span class="hljs-javadoctag">@param</span> msg
+     */</span>
+    <span class="hljs-annotation">@Override</span>
+    <span class="hljs-keyword">protected</span> void declare(Country country, String msg) {
+        <span class="hljs-keyword">for</span> (Country toCountry : countries) {
+            <span class="hljs-keyword">if</span> (!toCountry.equals(country)) {
+                String name = country.getName();
+                toCountry.receive(name + <span class="hljs-string">"平和的说: "</span> + msg);
+            }
+        }
+    }
+}</code></pre>
+
+<blockquote>
+  <p>如果不存在扩展情况, 那么<strong>Mediator</strong>可与<strong>ConcreteMediator</strong>合二为一.</p>
+</blockquote>
+
+<ul>
+<li>Client</li>
+</ul>
+
+
+
+<pre class="prettyprint"><code class=" hljs cs"><span class="hljs-keyword">public</span> <span class="hljs-keyword">class</span> Client {
+
+    @Test
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">void</span> <span class="hljs-title">client</span>() {
+        UnitedNations mediator = <span class="hljs-keyword">new</span> UnitedNationsSecurityCouncil();
+
+        Country usa = <span class="hljs-keyword">new</span> USA(mediator, <span class="hljs-string">"美国"</span>);
+        Country china = <span class="hljs-keyword">new</span> China(mediator, <span class="hljs-string">"中国"</span>);
+        Country iraq = <span class="hljs-keyword">new</span> Iraq(mediator, <span class="hljs-string">"伊拉克"</span>);
+
+        mediator.register(usa);
+        mediator.register(china);
+        mediator.register(iraq);
+
+        usa.declare(<span class="hljs-string">"我要打伊拉克, 谁管我跟谁急!!!"</span>);
+        System.<span class="hljs-keyword">out</span>.println(<span class="hljs-string">"----------"</span>);
+        china.declare(<span class="hljs-string">"我们强烈谴责!!!"</span>);
+        System.<span class="hljs-keyword">out</span>.println(<span class="hljs-string">"----------"</span>);
+        iraq.declare(<span class="hljs-string">"来呀, 来互相伤害呀!!!"</span>);
+    }
+}
+</code></pre>
+
+<hr />
+
+
+
+<h2 id="小结">小结</h2>
+
+<blockquote>
+  <p><strong>Mediator</strong>的出现减少了各<strong>Colleague</strong>之间的耦合, 使得可以独立改变和复用各<strong>Colleague</strong>和<strong>Mediator</strong>,  由于<strong>把对象如何协作进行了抽象</strong>、<strong>将中介作为一个独立的概念并将其封装在一个对象中</strong>, 这样关注的焦点就<strong>从对象各自本身的行为转移到它们之间的交互上来</strong>, 从而可以站在一个更宏观的角度去看待系统.</p>
+</blockquote>
+
+<ul>
+<li><p>适用性 <br />
+中介者模式很容易在系统中应用, 也很容易在系统中误用. 当系统出现了<strong>“多对多”</strong>交互复杂的对象群时, 不要急于使用中介者, 最好首先先反思<strong>系统的设计是否是合理</strong>. 由于<strong>ConcreteMediator</strong>控制了<strong><em>集中化</em></strong>, 于是就<strong><em>把交互复杂性变成了中介者的复杂性</em></strong>, 使得中介者变得比任一个<strong>ConcreteColleague</strong>都复杂. 在下列情况下建议使用中介者模式:</p>
+
+<ul><li>一组对象以定义良好但复杂的方式进行通信. 产生的相互依赖关系结构混乱且难以理解.</li>
+<li>一个对象引用其他很多对象并且直接与这些对象通信, 导致难以复用该对象.</li>
+<li>想定制一个分布在多个类中的行为, 而又不想生成太多的子类.</li></ul></li>
+<li><p>相关模式</p>
+
+<ul><li><strong>Facade</strong>与中介者的不同之处在于它是对一个对象子系统进行抽象, 从而提供了一个更为方便的接口, 它的协议是单向的, 即<strong>Facade</strong>对象对这个子系统类提出请求, 但反之则不可. 相反, <strong>Mediator提供了各Colleague对象不支持或不能支持的协作行为, 而且协议是多向的</strong>.</li>
+<li><strong>Colleague</strong>可使用<strong>Observer模式</strong>与<strong>Mediator</strong>通信.</li></ul></li>
+</ul>
+
+<hr />
+
+<dl>
+<dt>参考</dt>
+<dd><a href="https://book.douban.com/subject/1052241/">设计模式: 可复用面向对象软件的基础</a></dd>
+
+<dd><a href="https://book.douban.com/subject/2334288/">大话设计模式</a></dd>
+
+<dd><a href="http://www.bjsxt.com/2014/down_0425/34.html">高淇讲设计模式</a></dd>
+
+<dd><a href="http://www.cnblogs.com/chenssy/p/3348520.html">设计模式读书笔记–中介者模式</a></dd>
+
+<dd><a href="https://yq.aliyun.com/articles/15651">设计模式 ( 十五 ) 中介者模式Mediator(对象行为型)</a></dd>
+</dl>
+
+<hr /></div>&#13;
+        <script type="text/javascript">&#13;
+            $(function () {&#13;
+                $('pre.prettyprint code').each(function () {&#13;
+                    var lines = $(this).text().split('\n').length;&#13;
+                    var $numbering = $('&lt;ul/&gt;').addClass('pre-numbering').hide();&#13;
+                    $(this).addClass('has-numbering').parent().append($numbering);&#13;
+                    for (i = 1; i &lt;= lines; i++) {&#13;
+                        $numbering.append($('&lt;li/&gt;').text(i));&#13;
+                    };&#13;
+                    $numbering.fadeIn(1700);&#13;
+                });&#13;
+            });&#13;
+        </script>&#13;
+   &#13;

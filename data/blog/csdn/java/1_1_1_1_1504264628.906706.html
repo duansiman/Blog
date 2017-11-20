@@ -1,0 +1,93 @@
+
+
+<p>当程序中直接编写下达命令的语句如new Cmd1().execute()时，通常会将<strong>调用者与客户类合二为一</strong>；</p>&#13;
+<p>在GUI程序中，下达命令的语句通常包含在底层框架中，或者说<strong><span style="color:#ff0000">底层框架包含了调用者</span></strong>，这时程序员编写的程序都是客户类。</p>&#13;
+<p>GUI程序中，由系统作为命令调用者在某种界面事件发生时<strong>自动调用</strong>命令。</p>&#13;
+<p><br />&#13;
+</p>&#13;
+<p>下面的演示程序中使用了按钮、下拉菜单(JMenuBar-JMenu- JMenuItem)和弹出菜单(JPopupMenu)，而JButton 、JMenuItem和JPopupMenu均可以通过其构造器注入一个Action命令。（<a target="_blank" href="http://blog.csdn.net/yqj2065/article/details/8510074">依赖注入</a>）</p>&#13;
+<p>下面将编写两个AbstractAction的子类，它们将被注入到相应的控件中。</p>&#13;
+值得注意的是，<strong><span style="color:#ff0000">具体命令类自己实现所有功能，不需要额外的接收者。</span></strong>在此情况下，既可以说应用了命令模式(编写了两个子命令)，也可以说简单的应用了回调(编写了两个包含回调函数的类)。<br />&#13;
+<p>yqj2065个人认为，命令模式的概念还是小一点好：<strong>具体命令指定执行者(可以是抽象类型)和被调用的方法，将C/S结构的C与S解耦。</strong></p>&#13;
+<p>GoF的：“<strong>将(客户端的)请求封装为一个对象，从而使你可用不同的请求对客户进行参数化</strong>”。过于泛泛而谈。“将(客户端的)请求封装为一个对象"，参见<span style="color:#ff0000"><a target="_blank" href="http://blog.csdn.net/yqj2065/article/details/39127231">方法类型化</a></span>，是Java接口的一般意图；客户下达的cmd.exe()，在多态的场合都是”用不同的请求对客户进行参数化“。当不需要接收者的时候，我们甚至可以把AbstractAction的actionPerformed(ActionEvent&#13;
+ evt)视为一个策略，也是可以的，难道我们说此例程使用了<span style="color:#ff0000">策略模式</span>？？</p>&#13;
+<p>不管怎么说，GUI中的这种应用，是命令模式的典型案例。</p>&#13;
+<p><strong><span style="color:#006600">如果你的程序中多处使用某种按钮如Exit，可以使用命令模式编写一个命令，而不是随地使用匿名类</span></strong>。<br />&#13;
+</p>&#13;
+<pre code_snippet_id="477376" snippet_file_name="blog_20140929_1_6875617" name="code" class="java">例程 3-22命令
+package method.command.gui;
+import javax.swing.*;
+import java.awt.event.*;
+import java.awt.*;
+class SubmitAction extends AbstractAction {
+   private Component target;
+   public SubmitAction(String name, Icon icon, Component t){
+       putValue(Action.NAME, name);
+       putValue(Action.SMALL_ICON, icon);
+       putValue(Action.SHORT_DESCRIPTION, name + " the program");
+       target = t;
+   }    
+   @Override public void actionPerformed(ActionEvent evt) {
+       JOptionPane.showMessageDialog(target, "submit action ");
+   }
+}
+class ExitAction extends AbstractAction {
+   private Component target;
+   public ExitAction(String name, Icon icon, Component t){
+       putValue(Action.NAME, name);
+       putValue(Action.SMALL_ICON, icon);
+       putValue(Action.SHORT_DESCRIPTION, name + " the program");
+       target = t;
+   }    
+   @Override public void actionPerformed(ActionEvent evt) {
+       int answer = JOptionPane.showConfirmDialog(target, "Are you sure you want to exit? ", "Confirmation",
+                           JOptionPane.YES_NO_OPTION);
+       if ( answer == JOptionPane.YES_OPTION)  System.exit(0); 
+   }
+}
+public class Test extends JFrame{
+    Test() {
+        Action ea = new ExitAction("Exit", null, this);
+        Action sa = new SubmitAction("Submit", null, this);
+        //下拉菜单(JMenuBar-JMenu- JMenuItem)
+        JMenuBar bar = new JMenuBar();
+        JMenu mn_demo= new JMenu("Demo");
+        mn_demo.add(new JMenuItem(sa));
+        mn_demo.add(new JMenuItem(ea));
+        bar.add(mn_demo);
+        this.setJMenuBar(bar);
+        //JPopupMenu
+        final JPopupMenu pop = new JPopupMenu("PopMenu");
+        pop.add(sa);
+        pop.add(ea);
+        //
+        addMouseListener(new MouseAdapter() {
+            public void mousePressed(MouseEvent e) {
+                showPopup(e);
+            } 
+            public void mouseReleased(MouseEvent e) {
+                showPopup(e);
+            }
+            private void showPopup(MouseEvent e) {
+                if (e.isPopupTrigger()) {
+                    pop.show(e.getComponent(),e.getX(), e.getY());
+                }
+            }
+        });
+        JPanel jp = new JPanel();
+        JButton subbtn = new JButton(sa);
+        JButton exitbtn = new JButton(ea);
+        jp.add(subbtn);
+        jp.add(exitbtn);        
+        Container con = getContentPane();
+        con.add(jp, "South");
+
+        setTitle("Command pattern example");
+        setSize(300,200);
+        setVisible(true);
+    }
+}
+</pre>&#13;
+<p><br />&#13;
+</p>&#13;
+   &#13;

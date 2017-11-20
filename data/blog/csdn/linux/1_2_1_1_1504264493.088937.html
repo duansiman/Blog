@@ -1,0 +1,317 @@
+
+
+<p><span style="font-family:Microsoft YaHei; font-size:14px"><span style="font-family:Microsoft YaHei; font-size:14px"><span style="font-family:'AR PL UMing HK'"><span lang="zh-CN" xml:lang="zh-CN"><span style="color:rgb(0,0,0)"><span style="font-family:宋体"><span><span style="font-family:Microsoft YaHei; font-size:14px"><span style="font-family:Microsoft YaHei; font-size:14px">【版权声明：尊重原创，转载请保留出处：blog.csdn.net/shallnet，文章仅供学习交流，请勿用于商业用途】</span></span></span></span></span></span></span></span><br />&#13;
+</span></p>&#13;
+<p><span style="font-family:Microsoft YaHei; font-size:14px">        进程地址空间由进程可寻址的虚拟内存组成，Linux 的虚拟地址空间为0~4G字节（注：本节讲述均以32为为例）。Linux内核将这 4G 字节的空间分为两部分。将最高的 1G 字节(从虚拟地址0xC0000000到0xFFFFFFFF)，供内核使用，称为“内核空间”。而将较低的 3G 字节(从虚拟地址 0x00000000 到 0xBFFFFFFF)，供各个进程使用，称为“用户空间”&#13;
+ 。因为每个进程可以通过系统调用进入内核。因此，Linux 内核由系统内的所有进程共享。于是，从具体进程的角度来看，每个进程可以拥有 4G 字节的虚拟空间。</span></p>&#13;
+<div><span style="font-family:Microsoft YaHei; font-size:14px">       尽管一个进程可以寻址4G的虚拟内存，但就不代表它就有权限访问所有的地址空间，虚拟内存空间必须映射到某个物理存储空间(内存或磁盘空间)，才真正地可以被使用。进程只能访问合法的地址空间，如果一个进程访问了不合法的地址空间，内核就会终止该进程，并返回“段错误”。虚拟内存的合法地址空间在哪而呢？我们先来看看进程虚拟地址空间的划分：</span><br />&#13;
+<div>&#13;
+<div>&#13;
+<div align="center"><img alt="http://blog.csdn.net/shallnet" src="http://img.blog.csdn.net/20150818215723478?watermark/2/text/aHR0cDovL2Jsb2cuY3Nkbi5uZXQv/font/5a6L5L2T/fontsize/400/fill/I0JBQkFCMA==/dissolve/70/gravity/Center" /><br />&#13;
+</div>&#13;
+<div><span style="font-family:Microsoft YaHei; font-size:14px">        其中堆栈安排在虚拟地址空间顶部，数据段和代码段分布在虚拟地址空间底部，空洞部分就是进程运行时可以动态分布的空间，包括映射内核地址空间内容、动态申请地址空间、共享库的代码或数据等。在虚拟地址空间中，只有那些映射到物理存储空间的地址才是合法的地址空间。每一片合法的地址空间片段都对应一个独立的虚拟内存区域（VMA，virtual memory areas ），而进程的进程地址空间就是由这些内存区域组成。</span><br />&#13;
+</div>&#13;
+<div><span style="font-family:Microsoft YaHei; font-size:14px">        Linux 采用了复杂的数据结构来跟踪进程的虚拟地址，进程地址空间使用内存描述符结构体来表示，内存描述符由mm_struct结构体表示，该结构体表示在&lt;include/linux/mm_types.h&gt;文件中：</span><br />&#13;
+<pre class="cpp" name="code">struct mm_struct {
+    struct vm_area_struct * mmap;        /* list of VMAs */
+    struct rb_root mm_rb;
+    struct vm_area_struct * mmap_cache;    /* last find_vma result */
+    unsigned long (*get_unmapped_area) (struct file *filp,
+                unsigned long addr, unsigned long len,
+                unsigned long pgoff, unsigned long flags);
+    void (*unmap_area) (struct mm_struct *mm, unsigned long addr);
+    unsigned long mmap_base;        /* base of mmap area */
+    unsigned long task_size;        /* size of task vm space */
+    unsigned long cached_hole_size;     /* if non-zero, the largest hole below free_area_cache */
+    unsigned long free_area_cache;        /* first hole of size cached_hole_size or larger */
+    pgd_t * pgd;
+    atomic_t mm_users;            /* How many users with user space? */
+    atomic_t mm_count;            /* How many references to "struct mm_struct" (users count as 1) */
+    int map_count;                /* number of VMAs */
+    struct rw_semaphore mmap_sem;
+    spinlock_t page_table_lock;        /* Protects page tables and some counters */
+
+    struct list_head mmlist;        /* List of maybe swapped mm's.    These are globally strung
+                         * together off init_mm.mmlist, and are protected
+                         * by mmlist_lock
+                         */
+
+    /* Special counters, in some configurations protected by the
+     * page_table_lock, in other configurations by being atomic.
+     */
+    mm_counter_t _file_rss;
+    mm_counter_t _anon_rss;
+
+    unsigned long hiwater_rss;    /* High-watermark of RSS usage */
+    unsigned long hiwater_vm;    /* High-water virtual memory usage */
+
+    unsigned long total_vm, locked_vm, shared_vm, exec_vm;
+    unsigned long stack_vm, reserved_vm, def_flags, nr_ptes;
+    unsigned long start_code, end_code, start_data, end_data;
+    unsigned long start_brk, brk, start_stack;
+    unsigned long arg_start, arg_end, env_start, env_end;
+
+    unsigned long saved_auxv[AT_VECTOR_SIZE]; /* for /proc/PID/auxv */
+
+    struct linux_binfmt *binfmt;
+
+    cpumask_t cpu_vm_mask;
+
+    /* Architecture-specific MM context */
+    mm_context_t context;
+
+    /* Swap token stuff */
+    /*
+     * Last value of global fault stamp as seen by this process.
+     * In other words, this value gives an indication of how long
+     * it has been since this task got the token.
+     * Look at mm/thrash.c
+     */
+    unsigned int faultstamp;
+    unsigned int token_priority;
+    unsigned int last_interval;
+
+    unsigned long flags; /* Must use atomic bitops to access the bits */
+
+    struct core_state *core_state; /* coredumping support */
+#ifdef CONFIG_AIO
+    spinlock_t        ioctx_lock;
+    struct hlist_head    ioctx_list;
+#endif
+#ifdef CONFIG_MM_OWNER
+    /*
+     * "owner" points to a task that is regarded as the canonical
+     * user/owner of this mm. All of the following must be true in
+     * order for it to be changed:
+     *
+     * current == mm-&gt;owner
+     * current-&gt;mm != mm
+     * new_owner-&gt;mm == mm
+     * new_owner-&gt;alloc_lock is held
+     */
+    struct task_struct *owner;
+#endif
+
+#ifdef CONFIG_PROC_FS
+    /* store ref to file /proc/&lt;pid&gt;/exe symlink points to */
+    struct file *exe_file;
+    unsigned long num_exe_file_vmas;
+#endif
+#ifdef CONFIG_MMU_NOTIFIER
+    struct mmu_notifier_mm *mmu_notifier_mm;
+#endif
+};</pre></div>&#13;
+<div>&#13;
+<div><span style="font-family:Microsoft YaHei; font-size:14px">该结构体中第一行成员mmap就是内存区域，用结构体struct vm_area_struct来表示：</span><br />&#13;
+<pre class="cpp" name="code">/*
+ * This struct defines a memory VMM memory area. There is one of these
+ * per VM-area/task.  A VM area is any part of the process virtual memory
+ * space that has a special rule for the page-fault handlers (ie a shared
+ * library, the executable area etc).
+ */
+struct vm_area_struct {
+    struct mm_struct * vm_mm;    /* The address space we belong to. */
+    unsigned long vm_start;        /* Our start address within vm_mm. */
+    unsigned long vm_end;        /* The first byte after our end address
+                       within vm_mm. */
+
+    /* linked list of VM areas per task, sorted by address */
+    struct vm_area_struct *vm_next;
+
+    pgprot_t vm_page_prot;        /* Access permissions of this VMA. */
+    unsigned long vm_flags;        /* Flags, see mm.h. */
+
+    struct rb_node vm_rb;
+
+    /*
+     * For areas with an address space and backing store,
+     * linkage into the address_space-&gt;i_mmap prio tree, or
+     * linkage to the list of like vmas hanging off its node, or
+     * linkage of vma in the address_space-&gt;i_mmap_nonlinear list.
+     */
+    union {
+        struct {
+            struct list_head list;
+            void *parent;    /* aligns with prio_tree_node parent */
+            struct vm_area_struct *head;
+        } vm_set;
+
+        struct raw_prio_tree_node prio_tree_node;
+    } shared;
+
+    /*
+     * A file's MAP_PRIVATE vma can be in both i_mmap tree and anon_vma
+     * list, after a COW of one of the file pages.    A MAP_SHARED vma
+     * can only be in the i_mmap tree.  An anonymous MAP_PRIVATE, stack
+     * or brk vma (with NULL file) can only be in an anon_vma list.
+     */
+    struct list_head anon_vma_node;    /* Serialized by anon_vma-&gt;lock */
+    struct anon_vma *anon_vma;    /* Serialized by page_table_lock */
+
+    /* Function pointers to deal with this struct. */
+    const struct vm_operations_struct *vm_ops;
+
+    /* Information about our backing store: */
+    unsigned long vm_pgoff;        /* Offset (within vm_file) in PAGE_SIZE
+                       units, *not* PAGE_CACHE_SIZE */
+    struct file * vm_file;        /* File we map to (can be NULL). */
+    void * vm_private_data;        /* was vm_pte (shared mem) */
+    unsigned long vm_truncate_count;/* truncate_count or restart_addr */
+
+#ifndef CONFIG_MMU
+    struct vm_region *vm_region;    /* NOMMU mapping region */
+#endif
+#ifdef CONFIG_NUMA
+    struct mempolicy *vm_policy;    /* NUMA policy for the VMA */
+#endif
+};</pre></div>&#13;
+<div>&#13;
+<div><span style="font-family:Microsoft YaHei; font-size:14px">        vm_area_struct结构体描述了进程地址空间内连续区间上的一个独立内存范围，每一个内存区域都使用该结构体表示，每一个结构体以双向链表的形式连接起来。除链表结构外,Linux 还利用红黑树mm_rb来组织 vm_area_struct。通过这种树结构，Linux 可以快速定位某个虚拟内存地址。</span><br />&#13;
+<div><span style="font-family:Microsoft YaHei; font-size:14px">       该结构体中成员vm_start和vm_end表示内存区间的首地址和尾地址，两个值相减就是内存区间的长度。</span><br />&#13;
+<div><span style="font-family:Microsoft YaHei; font-size:14px">        成员vm_mm则指向其属于的进程地址空间结构体。所以两个不同的进程将同一个文件映射到自己的地址空间中，他们分别都会有一个vm_area_struct结构体来标识自己的内存区域。两个共享地址空间的线程则只有一个vm_area_struct结构体来标识，因为他们使用的是同一个进程地址空间。</span><br />&#13;
+<div>&#13;
+<div><span style="font-family:Microsoft YaHei; font-size:14px">        vm_flags标识内存区域所包含的页面的行为和信息，反映内核处理页面所需要遵守的行为准则。</span><br />&#13;
+<span style="font-family:Microsoft YaHei; font-size:14px">可以使用cat /proc/PID/maps命令和pmap命令查看给定进程空间和其中所含的内存区域。以笔者系统上进程号为17192的进程为例。</span><br />&#13;
+</div>&#13;
+<pre class="plain" name="code"># cat /proc/17192/maps     //显示该进程地址空间中全部内存区域
+001e3000-00201000 r-xp 00000000 fd:00 789547     /lib/ld-2.12.so
+00201000-00202000 r--p 0001d000 fd:00 789547     /lib/ld-2.12.so
+00202000-00203000 rw-p 0001e000 fd:00 789547     /lib/ld-2.12.so
+00209000-00399000 r-xp 00000000 fd:00 789548     /lib/libc-2.12.so
+00399000-0039a000 ---p 00190000 fd:00 789548     /lib/libc-2.12.so
+0039a000-0039c000 r--p 00190000 fd:00 789548     /lib/libc-2.12.so
+0039c000-0039d000 rw-p 00192000 fd:00 789548     /lib/libc-2.12.so
+0039d000-003a0000 rw-p 00000000 00:00 0
+08048000-08049000 r-xp 00000000 fd:00 1191771    /home/allen/Myprojects/blog/conn_user_kernel/test/a.out
+08049000-0804a000 rw-p 00000000 fd:00 1191771    /home/allen/Myprojects/blog/conn_user_kernel/test/a.out
+b7755000-b7756000 rw-p 00000000 00:00 0
+b776d000-b776e000 rw-p 00000000 00:00 0
+b776e000-b776f000 r-xp 00000000 00:00 0          [vdso]
+bfc9f000-bfcb4000 rw-p 00000000 00:00 0          [stack]
+# </pre><br />&#13;
+<pre class="plain" name="code"># pmap 17192
+17192:   ./a.out
+001e3000    120K r-x--  /lib/ld-2.12.so    //本行和下面两行为动态链接程序ld.so的代码段、数据段、bss段
+00201000      4K r----  /lib/ld-2.12.so
+00202000      4K rw---  /lib/ld-2.12.so
+00209000   1600K r-x--  /lib/libc-2.12.so    //本行和下面为C库中libc.so的代码段、数据段和bss段
+00399000      4K -----  /lib/libc-2.12.so
+0039a000      8K r----  /lib/libc-2.12.so
+0039c000      4K rw---  /lib/libc-2.12.so
+0039d000     12K rw---    [ anon ]
+08048000      4K r-x--  /home/allen/Myprojects/blog/conn_user_kernel/test/a.out    //可执行对象的代码段
+08049000      4K rw---  /home/allen/Myprojects/blog/conn_user_kernel/test/a.out    //可执行对象的数据段
+b7755000      4K rw---    [ anon ]
+b776d000      4K rw---    [ anon ]
+b776e000      4K r-x--    [ anon ]
+bfc9f000     84K rw---    [ stack ]    //堆栈段
+ total     1860K</pre>&#13;
+<div>&#13;
+<div><span style="font-family:Microsoft YaHei; font-size:14px">结构体中vm_ops域指定内存区域相关操作函数表，内核使用表中方法操作VMA，操作函数表由vm_operations_struct结构体表示，定义在&lt;include/linux/mm.h&gt;文件中：</span><br />&#13;
+<pre class="cpp" name="code">/*
+ * These are the virtual MM functions - opening of an area, closing and
+ * unmapping it (needed to keep files on disk up-to-date etc), pointer
+ * to the functions called when a no-page or a wp-page exception occurs.
+ */
+struct vm_operations_struct {
+    void (*open)(struct vm_area_struct * area);    //指定内存区域被加载到一个地址空间时函数被调用
+    void (*close)(struct vm_area_struct * area);    //指定内存区域从地址空间删除时函数被调用
+    int (*fault)(struct vm_area_struct *vma, struct vm_fault *vmf); //没有出现在物理内存中的页面被访问时，页面故障处理调用该函数
+
+    /* notification that a previously read-only page is about to become
+     * writable, if an error is returned it will cause a SIGBUS */
+    int (*page_mkwrite)(struct vm_area_struct *vma, struct vm_fault *vmf);
+
+    /* called by access_process_vm when get_user_pages() fails, typically
+     * for use by special VMAs that can switch between memory and hardware
+     */
+    int (*access)(struct vm_area_struct *vma, unsigned long addr,
+              void *buf, int len, int write);
+#ifdef CONFIG_NUMA
+    ......
+#endif
+};</pre>&#13;
+<div><span style="font-family:Microsoft YaHei; font-size:14px">在内核中，给定一个属于某个进程的虚拟地址，要求找到其所属的区间以及 vma_area_struct 结构，这通过 find_vma（）来实现，这种搜索通过红-黑树进行。该函数定义于&lt;mm/mmap.c&gt;中：</span><pre class="cpp" name="code">/* Look up the first VMA which satisfies  addr &lt; vm_end,  NULL if none. */
+struct vm_area_struct *find_vma(struct mm_struct *mm, unsigned long addr)
+{
+    struct vm_area_struct *vma = NULL;
+
+    if (mm) {
+        /* 首先检查最近使用的内存区域，看缓存的VMA是否包含所需地址 */
+        /* (命中录接近35%.) */
+        vma = mm-&gt;mmap_cache;
+        //如果缓存中不包含未包含希望的VMA，该函数搜索红-黑树。
+        if (!(vma &amp;&amp; vma-&gt;vm_end &gt; addr &amp;&amp; vma-&gt;vm_start &lt;= addr)) {
+             struct rb_node * rb_node;
+
+            rb_node = mm-&gt;mm_rb.rb_node;
+            vma = NULL;
+
+            while (rb_node) {
+                struct vm_area_struct * vma_tmp;
+
+                vma_tmp = rb_entry(rb_node,
+                        struct vm_area_struct, vm_rb);
+
+                if (vma_tmp-&gt;vm_end &gt; addr) {
+                    vma = vma_tmp;
+                    if (vma_tmp-&gt;vm_start &lt;= addr)
+                        break;
+                    rb_node = rb_node-&gt;rb_left;
+                } else
+                    rb_node = rb_node-&gt;rb_right;
+            }
+            if (vma)
+                mm-&gt;mmap_cache = vma;
+        }
+    }
+    return vma;
+}
+
+</pre>&#13;
+<div><span style="font-family:Microsoft YaHei; font-size:14px">        当某个程序的映像开始执行时,可执行映像必须装入到进程的虚拟地址空间。如果该进程用到了任何一个共享库,则共享库也必须装入到进程的虚拟地址空间。由此可看出，Linux并不将映像装入到物理内存，相反，可执行文件只是被连接到进程的虚拟地址空间中。随着程序的运行，被引用的程序部分会由操作系统装入到物理内存，这种将映像链接到进程地址空间的方法被称为“内存映射”。</span><br />&#13;
+<div><span style="font-family:Microsoft YaHei; font-size:14px">        </span><span style="font-family:Microsoft YaHei; font-size:14px">当可执行映像映射到进程的虚拟地址空间时，将产生一组 vm_area_struct 结构来描述虚拟内存区间的起始点和终止点</span><span style="font-family:Microsoft YaHei; font-size:14px">，</span><span style="font-family:Microsoft YaHei; font-size:14px">每个&#13;
+ vm_area_struct 结构代表可执行映像的一部分</span><span style="font-family:Microsoft YaHei; font-size:14px">，</span><span style="font-family:Microsoft YaHei; font-size:14px">可能是可执行代码</span><span style="font-family:Microsoft YaHei; font-size:14px">，</span><span style="font-family:Microsoft YaHei; font-size:14px">也可能是初始化的变量或未初始化的数据</span><span style="font-family:Microsoft YaHei; font-size:14px">，</span><span style="font-family:Microsoft YaHei; font-size:14px">这些都是在函数&#13;
+ do_mmap()中来实现的。随着 vm_area_struct 结构的生成</span><span style="font-family:Microsoft YaHei; font-size:14px">，</span><span style="font-family:Microsoft YaHei; font-size:14px">这些结构所描述的虚拟内存区间上的标准操作函数也由 Linux 初始化。</span><br />&#13;
+<pre class="cpp" name="code">static inline unsigned long do_mmap(struct file *file, unsigned long addr,
+    unsigned long len, unsigned long prot,
+    unsigned long flag, unsigned long offset)
+{
+    unsigned long ret = -EINVAL;
+    if ((offset + PAGE_ALIGN(len)) &lt; offset)
+        goto out;
+    if (!(offset &amp; ~PAGE_MASK))
+        ret = do_mmap_pgoff(file, addr, len, prot, flag, offset &gt;&gt; PAGE_SHIFT);
+out:
+    return ret;
+}</pre>&#13;
+<div>&#13;
+<div><span style="font-family:Microsoft YaHei; font-size:14px">该函数会将一个新的地址区间加入到进程的地址空间中。定义于</span><span style="font-family:Microsoft YaHei; font-size:14px">&lt;include/linux/mm.h&gt;。</span><br />&#13;
+<span style="font-family:Microsoft YaHei; font-size:14px">函数中参数的含义</span><span style="font-family:Microsoft YaHei; font-size:14px">：</span><br />&#13;
+</div>&#13;
+<span style="font-family:Microsoft YaHei; font-size:14px">file:表示要映射的文件。</span><br />&#13;
+<span style="font-family:Microsoft YaHei; font-size:14px">offset\:文件内的偏移量，因为我们并不是一下子全部映射一个文件,可能只是映射文件的一部分,off 就表示那部分的起始位置。</span><br />&#13;
+<span style="font-family:Microsoft YaHei; font-size:14px">len:要映射的文件部分的长度。</span><br />&#13;
+<span style="font-family:Microsoft YaHei; font-size:14px">addr:虚拟空间中的一个地址,表示从这个地址开始查找一个空闲的虚拟区。</span><br />&#13;
+<span style="font-family:Microsoft YaHei; font-size:14px">prot: 这个参数指定对这个虚拟区所包含页的存取权限。可能的标志有 PROT_READ、PROT_WRITE、PROT_EXEC 和 PROT_NONE。前 3 个标志与标志 VM_READ、VM_WRITE 及 VM_EXEC的意义一样。PROT_NONE 表示进程没有以上 3 个存取权限中的任意一个。</span><br />&#13;
+<span style="font-family:Microsoft YaHei; font-size:14px">flag:这个参数指定虚拟区的其他标志。</span><br />&#13;
+<span style="font-family:Microsoft YaHei; font-size:14px">该函数调用 do_mmap_pgoff()函数，该函数做内存映射的主要工作，该函数比较长，详细实现可查看&lt;mm/mmap.c&gt;文件。</span><br />&#13;
+</div>&#13;
+</div>&#13;
+<span style="font-family:Microsoft YaHei; font-size:14px">     </span><span style="font-family:Microsoft YaHei; font-size:14px">   由于文件到虚存的映射仅仅是建立了一种映射关系，虚存页面到物理页面之间的映射还没有建立。当某个可执行映象映射到进程虚拟内存中并开始执行时，因为只有很少一部分虚拟内存区间装入到了物理内存，很可能会遇到所访问的数据不在物理内存。这时，处理器将向 Linux&#13;
+ 报告一个页故障及其对应的故障</span><span style="font-family:Microsoft YaHei; font-size:14px">原因，</span><br />&#13;
+<span style="font-family:Microsoft YaHei; font-size:14px">内核必须从磁盘映像或交换文件(此页被换出)中将其装入物理内存</span><span style="font-family:Microsoft YaHei; font-size:14px">，这就是请页机制。</span><br />&#13;
+</div>&#13;
+</div>&#13;
+</div>&#13;
+</div>&#13;
+</div>&#13;
+</div>&#13;
+</div>&#13;
+</div>&#13;
+</div>&#13;
+</div>&#13;
+</div>&#13;
+</div>&#13;
+</div>&#13;
+   &#13;

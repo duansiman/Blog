@@ -1,0 +1,326 @@
+
+        <div class="markdown_views"><h1 id="前言">前言</h1>
+
+<p>Lambda expression，java8的<a href="http://www.jb51.net/article/48304.htm">新特性</a>。使用Lambda expression，可以替代只有一个函数的接口实现，告别匿名内部类，代码看起来更简洁易懂。 <br />
+java8还有其它一些新特性，不过在android上可能都无法使用。 <br />
+studio 2.x后 支持jack编译器，使用它，能使用java8的Lambda expression，但其它特性也不敢保证就能用。</p>
+
+<blockquote>
+  <p>注：Android SDK中集成了JDK的一些源码，有些原生JDK中的类，可能增加了新特性的一些实现，但Android中的并没有。再比如java8的java.util.function包，在低版本中也是没有的</p>
+</blockquote>
+
+<p>还可以使用插件retrolambda来支持java8的Lambda expression。</p>
+
+
+
+<h1 id="jack-配置">Jack 配置</h1>
+
+<p>添加如下配置</p>
+
+
+
+<pre class="prettyprint"><code class=" hljs bash">android {
+    jackOptions {
+        enabled <span class="hljs-literal">true</span>
+    }
+    compileOptions {//jack、retrolambda编译必需
+        <span class="hljs-built_in">source</span>Compatibility JavaVersion.VERSION_1_8
+        targetCompatibility JavaVersion.VERSION_1_8
+    }
+}</code></pre>
+
+<p>以启用jack编译器，来支持Lambda expression</p>
+
+<blockquote>
+  <p>使用最新2.3版studio，jdk 1.8 的环境， gradle2.3，和如上的配置 <br />
+  经测试，在4.4的模拟器上也是可以跑的 <br />
+  配置Demo ： <a href="https://git.oschina.net/aa86799/testJackSetting">https://git.oschina.net/aa86799/testJackSetting</a></p>
+</blockquote>
+
+<h1 id="retrolambda-配置">retrolambda 配置</h1>
+
+<p>项目地址：<a href="https://github.com/evant/gradle-retrolambda">https://github.com/evant/gradle-retrolambda</a></p>
+
+<p>retrolambda 兼容java5、6、7使用Lambda expression。</p>
+
+<p>配置如下</p>
+
+
+
+<pre class="prettyprint"><code class=" hljs matlab">buildscript <span class="hljs-cell">{
+    repositories {
+        jcenter()
+    }</span>
+    dependencies <span class="hljs-cell">{
+        classpath <span class="hljs-string">'com.android.tools.build:gradle:2.2.3'</span>
+        classpath <span class="hljs-string">'me.tatarka:gradle-retrolambda:3.6.0'</span>
+    }</span>
+}
+apply plugin: <span class="hljs-string">'me.tatarka.retrolambda'</span>
+android <span class="hljs-cell">{
+    defaultConfig {
+        minSdkVersion <span class="hljs-number">11</span> //这个没有硬性要求
+    }</span>
+    compileOptions <span class="hljs-cell">{//jack、retrolambda编译必需
+        sourceCompatibility JavaVersion.VERSION_1_8
+        targetCompatibility JavaVersion.VERSION_1_8
+    }</span>
+}</code></pre>
+
+<blockquote>
+  <p>注：很多开源的项目，还是使用的retrolambda</p>
+</blockquote>
+
+
+
+<h1 id="lambda-expression的使用方式">Lambda expression的使用方式</h1>
+
+<p>首先，我们要知道的是，该表达式，整体上是表达了一个『<strong>对象类型</strong>』。</p>
+
+
+
+<h2 id="最简单的lambda-expression">最简单的Lambda expression</h2>
+
+<p>代码：</p>
+
+
+
+<pre class="prettyprint"><code class=" hljs avrasm">Runnable runnable = () -&gt; System<span class="hljs-preprocessor">.out</span><span class="hljs-preprocessor">.println</span>(<span class="hljs-string">"hi, 我是 stone"</span>)<span class="hljs-comment">;</span>
+runnable<span class="hljs-preprocessor">.run</span>()<span class="hljs-comment">;</span></code></pre>
+
+<p>()其实就是方法参数列表，这里没有传参数，那么就会去匹配无参的方法，因Runnable只有一个void run()，所以会匹配到它；这里没有写方法名，所以方法的名字会被忽略。</p>
+
+<p>-&gt; 这个后面跟方法体。这里只有一句打印代码，可以省略方法体的花括号：{} 。</p>
+
+<blockquote>
+  <p>注：这里还省略了”new Runnable”这样的代码，是因为编译器会进行自动的类型推断。如果直接调用 () -&gt; System.out.println(“hi, 我是 stone”).run(); 那么是编译不过的，因为编译器不知道去哪个类里找对应的方法</p>
+</blockquote>
+
+
+
+<h2 id="有参数且有返回值的lambda-expression">有参数且有返回值的Lambda expression</h2>
+
+<p>代码：</p>
+
+
+
+<pre class="prettyprint"><code class=" hljs coffeescript">button.setOnTouchListener<span class="hljs-function"><span class="hljs-params">((view, event)-&gt; {
+    <span class="hljs-keyword">if</span> (event.getAction() == MotionEvent.ACTION_DOWN) {
+        <span class="hljs-keyword">if</span> (flag) {
+            <span class="hljs-keyword">return</span> <span class="hljs-literal">true</span>;
+        }
+    }
+    <span class="hljs-keyword">return</span> <span class="hljs-keyword">super</span>.onTouchEvent(event);
+})</span>;</span></code></pre>
+
+<p>有参数时，只要传参数名字即可，名字可随意定义；类型定义或不定义都可以；不定义时，编译器会自动推断。 <br />
+有返回值时，可以在方法体中，使用return；也可以在只有一段代码时，省略return，如下：</p>
+
+
+
+<pre class="prettyprint"><code class=" hljs coffeescript">button.setOnTouchListener<span class="hljs-function"><span class="hljs-params">((v, e) -&gt; <span class="hljs-keyword">super</span>.onTouchEvent(e))</span>;</span></code></pre>
+
+
+
+<h2 id="自定义接口并使用lambda-expression">自定义接口，并使用Lambda expression</h2>
+
+<p>首先定义只有一个抽象方法的接口：</p>
+
+
+
+<pre class="prettyprint"><code class=" hljs actionscript">    <span class="hljs-class"><span class="hljs-keyword">interface</span> <span class="hljs-title">IGetData</span>&lt;<span class="hljs-title">T</span>&gt; {</span><span class="hljs-comment">//lambda只能用于单一方法类型匹配</span>
+        T <span class="hljs-keyword">get</span>();
+<span class="hljs-comment">//      T getOne(int i); //多个抽象方法，直接编译不过</span>
+    }</code></pre>
+
+<p>定义方法，参数为上面定义的接口：</p>
+
+
+
+<pre class="prettyprint"><code class=" hljs haskell">    void print(<span class="hljs-type">IGetData</span>&lt;<span class="hljs-type">String</span>&gt; <span class="hljs-typedef"><span class="hljs-keyword">data</span>) <span class="hljs-container">{
+        <span class="hljs-type">String</span> <span class="hljs-title">msg</span> = <span class="hljs-title">data</span>.<span class="hljs-title">get</span>();
+        <span class="hljs-type">System</span>.<span class="hljs-title">out</span>.<span class="hljs-title">println</span>(<span class="hljs-title">msg</span>);
+    }</span></span></code></pre>
+
+<p>使用Lambda expression 作为参数， 调用print()：</p>
+
+
+
+<pre class="prettyprint"><code class=" hljs coffeescript">        <span class="hljs-built_in">print</span><span class="hljs-function"><span class="hljs-params">(() -&gt; <span class="hljs-string">"张三"</span>)</span>;
+
+        <span class="hljs-title">print</span><span class="hljs-params">(() -&gt; {
+            System.out.println(<span class="hljs-string">"干活了"</span>);
+            <span class="hljs-keyword">return</span> <span class="hljs-string">"李四"</span>;
+        })</span>;</span></code></pre>
+
+<p>输出：</p>
+
+
+
+<pre class="prettyprint"><code class=" hljs cs"><span class="hljs-number">03</span>-<span class="hljs-number">08</span> <span class="hljs-number">06</span>:<span class="hljs-number">46</span>:<span class="hljs-number">00.430</span> <span class="hljs-number">1510</span>-<span class="hljs-number">1510</span>/? I/System.<span class="hljs-keyword">out</span>: 张三
+<span class="hljs-number">03</span>-<span class="hljs-number">08</span> <span class="hljs-number">06</span>:<span class="hljs-number">46</span>:<span class="hljs-number">00.430</span> <span class="hljs-number">1510</span>-<span class="hljs-number">1510</span>/? I/System.<span class="hljs-keyword">out</span>: 干活了
+<span class="hljs-number">03</span>-<span class="hljs-number">08</span> <span class="hljs-number">06</span>:<span class="hljs-number">46</span>:<span class="hljs-number">00.430</span> <span class="hljs-number">1510</span>-<span class="hljs-number">1510</span>/? I/System.<span class="hljs-keyword">out</span>: 李四</code></pre>
+
+
+
+<h1 id="使用lambda-expression简化命令者模式">使用Lambda expression简化<a href="http://blog.csdn.net/jjwwmlp456/article/details/40042087">命令者模式</a></h1>
+
+<p>命令者模式的特征及简单实现流程：</p>
+
+<ul>
+<li>一个命令者 接口， 定义 一个统一执行命令的抽象方法</li>
+<li>每个具体命令者都实现 命令者接口，并依赖一个 接收者对象，  命令的执行代理给接收者来执行</li>
+<li>调用者类，依赖一个命令者接口对象，由命令者接口来执行。 多态传入不同的具体命令者， 最终由接收者采取不同的执行方式 </li>
+</ul>
+
+
+
+<h2 id="示例-原来的实现">示例 (原来的实现)</h2>
+
+<p>比如，有一些文件操作命令：open, close, save, delete，接收者为一个编辑器editor <br />
+ 那，首先，需要定义一个命令接口：IAction</p>
+
+
+
+<pre class="prettyprint"><code class=" hljs cs"><span class="hljs-keyword">public</span> <span class="hljs-keyword">interface</span> IAction {<span class="hljs-comment">//原 命令者  抽象出一个 执行命令的方法</span>
+    <span class="hljs-keyword">void</span> perform();
+}</code></pre>
+
+<p>再定义四个具体命令者类OpenAction、CloseAction、SaveAction、DeleteAction。 <br />
+ CloseAction代码：</p>
+
+
+
+<pre class="prettyprint"><code class=" hljs java"><span class="hljs-keyword">public</span> <span class="hljs-class"><span class="hljs-keyword">class</span> <span class="hljs-title">CloseAction</span> <span class="hljs-keyword">implements</span> <span class="hljs-title">IAction</span> {</span>
+    <span class="hljs-keyword">private</span> Editor mEditor;
+
+    <span class="hljs-keyword">public</span> <span class="hljs-title">CloseAction</span>(Editor editor) {
+        <span class="hljs-keyword">this</span>.mEditor = editor;
+    }
+
+    <span class="hljs-annotation">@Override</span>
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">void</span> <span class="hljs-title">perform</span>() {
+        <span class="hljs-keyword">this</span>.mEditor.close();
+    }
+}</code></pre>
+
+<p>其他三个实现与CloseAction类似。</p>
+
+<p>Editor类(接收者)，就定义了收到四个命令的各个具体实现：</p>
+
+
+
+<pre class="prettyprint"><code class=" hljs cs"><span class="hljs-keyword">public</span> <span class="hljs-keyword">class</span> Editor {
+     <span class="hljs-keyword">public</span> <span class="hljs-keyword">void</span> <span class="hljs-title">save</span>() {
+          System.<span class="hljs-keyword">out</span>.println(<span class="hljs-string">"save"</span>);
+      }
+
+      <span class="hljs-keyword">public</span> <span class="hljs-keyword">void</span> <span class="hljs-title">delete</span>() {
+          System.<span class="hljs-keyword">out</span>.println(<span class="hljs-string">"delete"</span>);
+      }
+
+      <span class="hljs-keyword">public</span> <span class="hljs-keyword">void</span> <span class="hljs-title">open</span>() {
+          System.<span class="hljs-keyword">out</span>.println(<span class="hljs-string">"open"</span>);
+      }
+
+      <span class="hljs-keyword">public</span> <span class="hljs-keyword">void</span> <span class="hljs-title">close</span>() {
+          System.<span class="hljs-keyword">out</span>.println(<span class="hljs-string">"close"</span>);
+      }
+}</code></pre>
+
+<blockquote>
+  <p>注：如果说不同的编辑器对这些命令都有各自不同的实现，那么也可以定义一个IEditor接口，再实现不同的Editor。关于此点就不详细讨论了</p>
+</blockquote>
+
+<p>最后还要有一个调用者，可以是一个类：</p>
+
+
+
+<pre class="prettyprint"><code class=" hljs cs"><span class="hljs-keyword">public</span> <span class="hljs-keyword">class</span> Invoker {  
+    <span class="hljs-keyword">private</span> IAction action;  
+
+    <span class="hljs-keyword">public</span> <span class="hljs-title">Invoker</span>(IAction action) {  
+        <span class="hljs-keyword">this</span>.action = action;  
+    }  
+
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">void</span> <span class="hljs-title">invoke</span>() {  
+        <span class="hljs-keyword">this</span>.action.perform();  
+    }  
+}</code></pre>
+
+<p>client发起命令：</p>
+
+
+
+<pre class="prettyprint"><code class=" hljs cs">Editor editor = <span class="hljs-keyword">new</span> Editor();
+<span class="hljs-keyword">new</span> Invoker(<span class="hljs-keyword">new</span> OpenAction(editor)).invoke();
+<span class="hljs-keyword">new</span> Invoker(<span class="hljs-keyword">new</span> CloseAction(editor)).invoke();
+<span class="hljs-keyword">new</span> Invoker(<span class="hljs-keyword">new</span> SaveAction(editor)).invoke();
+<span class="hljs-keyword">new</span> Invoker(<span class="hljs-keyword">new</span> DeleteAction(editor)).invoke();</code></pre>
+
+<p>这里的调用者，可以不使用类的方式定义，而是定义成client中的一个方法：</p>
+
+
+
+<pre class="prettyprint"><code class=" hljs cs"><span class="hljs-keyword">private</span> <span class="hljs-keyword">void</span> <span class="hljs-title">invoke</span>(IAction action) {
+    action.perform();
+}</code></pre>
+
+<p>client发起命令调用：</p>
+
+
+
+<pre class="prettyprint"><code class=" hljs scss"> <span class="hljs-function">invoke(new <span class="hljs-function">OpenAction(editor)</span>)</span>;
+ <span class="hljs-function">invoke(new <span class="hljs-function">CloseAction(editor)</span>)</span>;
+ <span class="hljs-function">invoke(new <span class="hljs-function">SaveAction(editor)</span>)</span>;
+ <span class="hljs-function">invoke(new <span class="hljs-function">DeleteAction(editor)</span>)</span>;</code></pre>
+
+
+
+<h2 id="lambda-expression-简化版">Lambda expression 简化版</h2>
+
+<p>保留IAction、Editor和 client中的invoke(Iaction action)。</p>
+
+<p>client发起命令调用：</p>
+
+
+
+<pre class="prettyprint"><code class=" hljs coffeescript">  Editor editor = <span class="hljs-keyword">new</span> Editor();
+  invoke<span class="hljs-function"><span class="hljs-params">(() -&gt; editor.open())</span>;
+  <span class="hljs-title">invoke</span><span class="hljs-params">(() -&gt; editor.close())</span>;
+  <span class="hljs-title">invoke</span><span class="hljs-params">(() -&gt; editor.save())</span>;
+  <span class="hljs-title">invoke</span><span class="hljs-params">(() -&gt; editor.<span class="hljs-keyword">delete</span>())</span>;</span></code></pre>
+
+<p>这样，使用Lambda expression后，就省略了具体命令者类的定义。并能一目了然地看到最终执行的是哪个方法。</p>
+
+<p>不用担心这样书写后，会破坏原本命令者模式的 请求与执行分离 的作用。 <br />
+ 因 invoke(() -&gt; editor.open());   &lt;==&gt; </p>
+
+
+
+<pre class="prettyprint"><code class=" hljs java">invoke(<span class="hljs-keyword">new</span> IAction() {
+    <span class="hljs-annotation">@Override</span>
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">void</span> <span class="hljs-title">perform</span>() {
+        editor.open();
+    }
+});</code></pre>
+
+<p>如果保留调用类Invoker，那就类似如下调用：</p>
+
+
+
+<pre class="prettyprint"><code class=" hljs coffeescript"><span class="hljs-keyword">new</span> Invoker<span class="hljs-function"><span class="hljs-params">(() -&gt; editor.open())</span>.<span class="hljs-title">invoke</span><span class="hljs-params">()</span>;</span></code></pre></div>&#13;
+        <script type="text/javascript">&#13;
+            $(function () {&#13;
+                $('pre.prettyprint code').each(function () {&#13;
+                    var lines = $(this).text().split('\n').length;&#13;
+                    var $numbering = $('&lt;ul/&gt;').addClass('pre-numbering').hide();&#13;
+                    $(this).addClass('has-numbering').parent().append($numbering);&#13;
+                    for (i = 1; i &lt;= lines; i++) {&#13;
+                        $numbering.append($('&lt;li/&gt;').text(i));&#13;
+                    };&#13;
+                    $numbering.fadeIn(1700);&#13;
+                });&#13;
+            });&#13;
+        </script>&#13;
+   &#13;

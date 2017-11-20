@@ -1,0 +1,88 @@
+
+        <div class="markdown_views"><p><strong>1）进程ID</strong> <br />
+        进程ID，简称PID，是进程在命名空间的唯一表示。 <br />
+        线程组ID：每个进程除了PID这个特征值外，还有线程组ID(TGID)，若没有使用线程，则PID和TGID相同。 <br />
+        会话ID（SID）:几个进程可合并成一个会话，会话中所有进程都有同样的SID保存于task_struct的session成员中，可使用setsid系统调用设置。 <br />
+        进程组ID(PGRP)：独立进程可合并成进程组，进程组内成员进程组ID都相同。 <br />
+    <strong>2）全局ID和局部ID</strong> <br />
+        全局ID是内核本身和初始命名空间中的唯一ID号，早系统启动时开始的init进程就属于初始命名空间。 <br />
+        局部ID:局部ID属于某个特定的命名空间，不具备全局有效性。 <br />
+    <strong>3）管理PID</strong> <br />
+        pid命名空间的表示如下所示</p>
+
+
+
+<pre class="prettyprint"><code class=" hljs vala"><span class="hljs-keyword">struct</span> pid_namespace { 
+        <span class="hljs-keyword">struct</span> kref kref; <span class="hljs-comment">/* 指向该命名空间指针的个数*/</span>
+        <span class="hljs-keyword">struct</span> pidmap pidmap[PIDMAP_ENTRIES]; <span class="hljs-comment">/*表示分配pid的位图。当需要分配一个新的pid时只需查找位图，找到bit为0的位置并置1，然后更新统计数据域*/</span>
+        <span class="hljs-keyword">int</span> last_pid;  <span class="hljs-comment">/*pidmap的分配。指向最后一个分配的pid的位置*/</span>
+        <span class="hljs-keyword">struct</span> task_struct *child_reaper;<span class="hljs-comment">/*指向孤儿进程的指针*/</span> 
+        <span class="hljs-keyword">struct</span> kmem_cache *pid_cachep;  <span class="hljs-comment">/*指向分配pid的slab的地址。*/</span>
+        unsigned <span class="hljs-keyword">int</span> level; <span class="hljs-comment">/* 命名空间的深度，初始值为0，依次增加*/</span>
+        <span class="hljs-keyword">struct</span> pid_namespace *parent; <span class="hljs-comment">/* 指向父命名空间的指针 */</span>
+<span class="hljs-preprocessor">#ifdef CONFIG_PROC_FS </span>
+        <span class="hljs-keyword">struct</span> vfsmount *proc_mnt; 
+<span class="hljs-preprocessor">#endif </span>
+}; </code></pre>
+
+<p>其中struct pidmap的结构如下：</p>
+
+
+
+<pre class="prettyprint"><code class=" hljs cs"><span class="hljs-keyword">struct</span> pidmap {  
+atomic_t nr_free;  <span class="hljs-comment">/* 还能分配的pid的数量  */</span>
+<span class="hljs-keyword">void</span> *page;  <span class="hljs-comment">/* 存放pid的物理页 */</span>
+};</code></pre>
+
+<p>其中对于PID的管理主要围绕struct pid（内核对PID的内部表示）和struct upid（特定命名空间可见的信息）两个结构展开。其定义如下：</p>
+
+
+
+<pre class="prettyprint"><code class=" hljs objectivec"><span class="hljs-keyword">struct</span> pid  
+{  
+atomic_t count;  <span class="hljs-comment">/* 指向该数据结构的引用次数*/</span>
+<span class="hljs-keyword">unsigned</span> <span class="hljs-keyword">int</span> level;  <span class="hljs-comment">/* 该pid在pid_namespace中处于第几层*/</span> 
+<span class="hljs-keyword">struct</span> hlist_head tasks[PIDTYPE_MAX];  <span class="hljs-comment">/* 指向的是一个哈希表*/</span>
+<span class="hljs-keyword">struct</span> rcu_head rcu;  <span class="hljs-comment">/*通用文件对象指针的链表*/</span>
+<span class="hljs-keyword">struct</span> upid numbers[<span class="hljs-number">1</span>];  <span class="hljs-comment">/*numbers[i]表示第i层namespace*/</span>
+}</code></pre>
+
+<p>下述联合体中各个成员分别对应 <br />
+tasks[PIDTYPE_MAX]数组中每个元素都代表了不同的含义</p>
+
+
+
+<pre class="prettyprint"><code class=" hljs rust"><span class="hljs-keyword">enum</span> <span class="hljs-title">pid_type</span>  
+{  
+PIDTYPE_PID,  <span class="hljs-comment">/*代表进程描述符(PID)*/</span>
+PIDTYPE_PGID,  <span class="hljs-comment">/*代表一组进程描述符*/</span>
+PIDTYPE_SID,  <span class="hljs-comment">/*组描述符再做一个群组，形成一个session*/</span>
+PIDTYPE_MAX  <span class="hljs-comment">/*pid所表示的类型的最大数*/</span>
+};</code></pre>
+
+<p>下图为实现命名空间的ID表示所用的数据结构。 <br />
+<img src="http://img.blog.csdn.net/20170816003642346?watermark/2/text/aHR0cDovL2Jsb2cuY3Nkbi5uZXQvcXFfMjExMjcxNTE=/font/5a6L5L2T/fontsize/400/fill/I0JBQkFCMA==/dissolve/70/gravity/SouthEast" alt="这里写图片描述" title="" /></p>
+
+<p>PID之间散列表的联系使用的是task_struct中的成员 struct pid_link pids[PIDTYPE_MAX]，其中struct pid_link结构定义如下：</p>
+
+
+
+<pre class="prettyprint"><code class=" hljs cs"><span class="hljs-keyword">struct</span> pid_link  
+{  
+<span class="hljs-keyword">struct</span> hlist_node node;  <span class="hljs-comment">/*散列表元素*/</span>
+<span class="hljs-keyword">struct</span> pid *pid;  <span class="hljs-comment">/* 进程所属的pid结构实例 */</span>
+};  </code></pre></div>&#13;
+        <script type="text/javascript">&#13;
+            $(function () {&#13;
+                $('pre.prettyprint code').each(function () {&#13;
+                    var lines = $(this).text().split('\n').length;&#13;
+                    var $numbering = $('&lt;ul/&gt;').addClass('pre-numbering').hide();&#13;
+                    $(this).addClass('has-numbering').parent().append($numbering);&#13;
+                    for (i = 1; i &lt;= lines; i++) {&#13;
+                        $numbering.append($('&lt;li/&gt;').text(i));&#13;
+                    };&#13;
+                    $numbering.fadeIn(1700);&#13;
+                });&#13;
+            });&#13;
+        </script>&#13;
+   &#13;

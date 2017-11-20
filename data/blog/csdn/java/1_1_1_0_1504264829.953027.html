@@ -1,0 +1,216 @@
+
+
+<div id="art-body" style="margin-bottom:12px; line-height:1.6em; color:rgb(51,51,51); font-family:'Microsoft Yahei',Arial,Helvetica,sans-serif; font-size:14px; background-color:rgb(238,238,238)">&#13;
+外观模式（Facade）的定义：为子系统中的一组接口提供一个一致的界面。<br />&#13;
+<br />&#13;
+Facade一个典型应用就是数据库JDBC的应用，如下例对数据库的操作：&#13;
+<div class="code">public class DBCompare {<br />&#13;
+　Connection conn = null;<br />&#13;
+　PreparedStatement prep = null;<br />&#13;
+　ResultSet rset = null;<br />&#13;
+　try {<br />&#13;
+　　Class.forName( "&lt;driver&gt;" ).newInstance();<br />&#13;
+　　conn = DriverManager.getConnection( "&lt;database&gt;" );<br />&#13;
+　　　　<br />&#13;
+　　String sql = "SELECT * FROM &lt;table&gt; WHERE &lt;column name&gt; = ?";<br />&#13;
+　　prep = conn.prepareStatement( sql );<br />&#13;
+　    prep.setString( 1, "&lt;column value&gt;" );<br />&#13;
+　　rset = prep.executeQuery();<br />&#13;
+　　if( rset.next() ) {<br />&#13;
+　　　　System.out.println( rset.getString( "&lt;column name" ) );<br />&#13;
+　　}<br />&#13;
+　} catch( SException e ) {<br />&#13;
+　　e.printStackTrace();<br />&#13;
+　} finally {<br />&#13;
+　　rset.close();<br />&#13;
+　　prep.close();<br />&#13;
+　　conn.close();<br />&#13;
+　}<br />&#13;
+}</div>&#13;
+上例是Jsp中最通常的对数据库操作办法。<br />&#13;
+<br />&#13;
+在应用中，经常需要对数据库操作，每次都写上述一段代码肯定比较麻烦，需要将其中不变的部分提炼出来，做成一个接口，这就引入了facade外观对象。如果以后我们更换Class.forName中的&lt;driver&gt;也非常方便，比如从Mysql数据库换到Oracle数据库，只要更换facade接口中的driver就可以。<br />&#13;
+<br />&#13;
+我们做成了一个Facade接口，使用该接口，上例中的程序就可以更改如下：&#13;
+<div class="code">public class DBCompare {<br />&#13;
+　String sql = "SELECT * FROM &lt;table&gt; WHERE &lt;column name&gt; = ?";　　<br />&#13;
+　try {<br />&#13;
+　　Mysql msql=new mysql(sql);<br />&#13;
+　　prep.setString( 1, "&lt;column value&gt;" );<br />&#13;
+　　rset = prep.executeQuery();<br />&#13;
+　　if( rset.next() ) {<br />&#13;
+　　　System.out.println( rset.getString( "&lt;column name" ) );<br />&#13;
+　　}<br />&#13;
+　} catch( SException e ) {<br />&#13;
+　　e.printStackTrace();<br />&#13;
+　} finally {<br />&#13;
+　　mysql.close();<br />&#13;
+　　mysql=null;<br />&#13;
+　}<br />&#13;
+}</div>&#13;
+可见非常简单，所有程序对数据库访问都是使用改接口，降低系统的复杂性，增加了灵活性。<br />&#13;
+<br />&#13;
+如果我们要使用连接池，也只要针对facade接口修改就可以。&#13;
+<div style="text-align:center"><img alt="Java 外观模式" src="http://www.weixueyuan.net/uploads/allimg/130301/8-130301202005B5.png" style="border:none; max-width:728px!important; width:500px; height:232px" /></div>&#13;
+由上图可以看出，facade实际上是个理顺系统间关系，降低系统间耦合度的一个常用的办法，也许你已经不知不觉在使用，尽管不知道它就是facade。<br />&#13;
+</div>&#13;
+<div id="art-body" style="margin-bottom:12px; line-height:1.6em; color:rgb(51,51,51); font-family:'Microsoft Yahei',Arial,Helvetica,sans-serif; font-size:14px; background-color:rgb(238,238,238)">&#13;
+<br />&#13;
+</div>&#13;
+<div id="art-body" style="margin-bottom:12px; line-height:1.6em; color:rgb(51,51,51); font-family:'Microsoft Yahei',Arial,Helvetica,sans-serif; font-size:14px; background-color:rgb(238,238,238)">&#13;
+<div class="TITLE">外观模式</div>&#13;
+<div class="currency_area">&#13;
+<div class="theTitle">&#13;
+<h5><img src="http://blog.csdn.net/qq_27073205/article/details/45869449" alt="" /> <strong>概述</strong></h5>&#13;
+</div>&#13;
+<div class="theContent">&#13;
+<pre>    为子系统中的一组接口提供一个一致的界面，Facade模式定义了一个高层接口，这个接口使得这一子系统更加容易使用。
+</pre>&#13;
+</div>&#13;
+</div>&#13;
+<div class="currency_area">&#13;
+<div class="theTitle">&#13;
+<h5><img src="http://blog.csdn.net/qq_27073205/article/details/45869449" alt="" /> <strong>适用性</strong></h5>&#13;
+</div>&#13;
+<div class="theContent">&#13;
+<pre>    1.当你要为一个复杂子系统提供一个简单接口时。子系统往往因为不断演化而变得越来越
+      复杂。大多数模式使用时都会产生更多更小的类。这使得子系统更具可重用性，也更容
+      易对子系统进行定制，但这也给那些不需要定制子系统的用户带来一些使用上的困难。
+      Facade可以提供一个简单的缺省视图，这一视图对大多数用户来说已经足够，而那些需
+      要更多的可定制性的用户可以越过facade层。
+
+    2.客户程序与抽象类的实现部分之间存在着很大的依赖性。引入facade将这个子系统与客
+      户以及其他的子系统分离，可以提高子系统的独立性和可移植性。
+
+    3.当你需要构建一个层次结构的子系统时，使用facade模式定义子系统中每层的入口点。
+      如果子系统之间是相互依赖的，你可以让它们仅通过facade进行通讯，从而简化了它们
+      之间的依赖关系。
+			</pre>&#13;
+</div>&#13;
+</div>&#13;
+<div class="currency_area">&#13;
+<div class="theTitle">&#13;
+<h5><img src="http://blog.csdn.net/qq_27073205/article/details/45869449" alt="" /> <strong>参与者</strong></h5>&#13;
+</div>&#13;
+<div class="theContent">&#13;
+<pre>    1.Facade
+      知道哪些子系统类负责处理请求。
+      将客户的请求代理给适当的子系统对象。
+
+    2.Subsystemclasses
+      实现子系统的功能。
+      处理由Facade对象指派的任务。
+      没有facade的任何相关信息；即没有指向facade的指针。
+</pre>&#13;
+</div>&#13;
+</div>&#13;
+<div class="currency_area">&#13;
+<div class="theTitle">&#13;
+<h5><img src="http://blog.csdn.net/qq_27073205/article/details/45869449" alt="" /> <strong>类图</strong></h5>&#13;
+</div>&#13;
+<div class="theContent"><img src="http://blog.csdn.net/qq_27073205/article/details/45869449" alt="" /> </div>&#13;
+</div>&#13;
+<div class="currency_area">&#13;
+<div class="theTitle">&#13;
+<h5><img src="http://blog.csdn.net/qq_27073205/article/details/45869449" alt="" /> <strong>例子</strong></h5>&#13;
+</div>&#13;
+<div class="theContent"><strong>Facade</strong> </div>&#13;
+<div class="theContent2">&#13;
+<pre>public class Facade {
+
+    ServiceA sa;
+    
+    ServiceB sb;
+    
+    ServiceC sc;
+    
+    public Facade() {
+        sa = new ServiceAImpl();
+        sb = new ServiceBImpl();
+        sc = new ServiceCImpl(); 
+    }
+    
+    public void methodA() {
+        sa.methodA();
+        sb.methodB();
+    }
+    
+    public void methodB() {
+        sb.methodB();
+        sc.methodC();
+    }
+    
+    public void methodC() {
+        sc.methodC();
+        sa.methodA();
+    }
+}
+</pre>&#13;
+</div>&#13;
+<div class="theContent"><strong>Subsystemclasses</strong> </div>&#13;
+<div class="theContent2">&#13;
+<pre>public class ServiceAImpl implements ServiceA {
+
+    public void methodA() {
+        System.out.println("这是服务A");
+    }
+}
+</pre>&#13;
+</div>&#13;
+<div class="theContent"></div>&#13;
+<div class="theContent2">&#13;
+<pre>public class ServiceBImpl implements ServiceB {
+
+    public void methodB() {
+        System.out.println("这是服务B");
+    }
+}
+</pre>&#13;
+</div>&#13;
+<div class="theContent"></div>&#13;
+<div class="theContent2">&#13;
+<pre>public class ServiceCImpl implements ServiceC {
+
+    public void methodC() {
+        System.out.println("这是服务C");
+    }
+}
+</pre>&#13;
+</div>&#13;
+<div class="theContent"><strong>Test</strong> </div>&#13;
+<div class="theContent2">&#13;
+<pre>public class Test {
+    
+    public static void main(String[] args) {
+    	ServiceA sa = new ServiceAImpl();
+    	ServiceB sb = new ServiceBImpl();
+        
+        sa.methodA();
+        sb.methodB();
+        
+        System.out.println("========");
+        //facade
+        Facade facade = new Facade();
+        facade.methodA();
+        facade.methodB();
+    }
+}
+</pre>&#13;
+</div>&#13;
+<div class="theContent"><strong>result</strong> </div>&#13;
+<div class="theContent2">&#13;
+<pre>这是服务A
+这是服务B
+========
+这是服务A
+这是服务B
+这是服务B
+这是服务C
+</pre>&#13;
+</div>&#13;
+</div>&#13;
+<br />&#13;
+</div>&#13;
+<div id="ad-arc-bottom" class="clearfix" style="padding-bottom:12px; color:rgb(51,51,51); font-family:'Microsoft Yahei',Arial,Helvetica,sans-serif; font-size:14px; background-color:rgb(238,238,238)">&#13;
+</div>&#13;
+   &#13;

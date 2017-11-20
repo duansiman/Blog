@@ -1,0 +1,146 @@
+
+        <div class="markdown_views"><h2 id="一组合模式适用场景">一、组合模式适用场景</h2>
+
+<hr />
+
+<p>把部分和整体的关系用树形结构来表示，从而使客户端可以使用统一的方式对部分对象和整体对象进行管理。</p>
+
+
+
+<h2 id="二组合模式结构">二、组合模式结构</h2>
+
+<hr />
+
+<ul>
+<li><strong>抽象构件(Conponent)角色</strong>：所有类的共有接口，定义了叶子和容器的共同点。</li>
+<li><strong>叶子(Leaf)构件角色</strong>:在组合中表示叶子结点对象，叶子节点无子节点。</li>
+<li><strong>容器(Composite)构件角色</strong>：有容器特征，可以 用来存储子节点，在Component接口中实现与子节点有关操作，如增加(add)和删除 (remove)等。</li>
+</ul>
+
+<p><img src="http://img.blog.csdn.net/20161102194253877" alt="这里写图片描述" title="" /></p>
+
+
+
+<h2 id="组合模式工作流程分析">组合模式工作流程分析</h2>
+
+<hr />
+
+<ul>
+<li>组合模式为处理树形结构提供了完美的解决方案，描述了如何将容器和叶子进行递归组合，使得用户在使用时可以一致性的对待容器和叶子。</li>
+<li>当容器对象的指定方法被调用时，将遍历整个树形结构，寻找包含这个方法的成员，并调用执行。其中，使用递归调用机制对整个结构进行处理。</li>
+</ul>
+
+<p><font size="3" color="#a0c">下面通过简单的杀毒例子，使用组合模式：</font> <br />
+<strong><em>示例代码：</em></strong> <br />
+<font size="3" color="#00f">1.抽象构件</font></p>
+
+
+
+<pre class="prettyprint"><code class=" hljs cs"><span class="hljs-keyword">public</span> <span class="hljs-keyword">interface</span> AbstractFile {
+    <span class="hljs-keyword">void</span> killVirus();<span class="hljs-comment">//杀毒</span>
+}</code></pre>
+
+<p><font size="3" color="#00f">2. 叶子构件 </font></p>
+
+
+
+<pre class="prettyprint"><code class=" hljs axapta"><span class="hljs-class"><span class="hljs-keyword">class</span> <span class="hljs-title">ImageFile</span> <span class="hljs-inheritance"><span class="hljs-keyword">implements</span></span> <span class="hljs-title">AbstractFile</span>{</span>
+    <span class="hljs-keyword">private</span> String name;
+
+    <span class="hljs-keyword">public</span> ImageFile(String name){
+        <span class="hljs-keyword">this</span>.name=name;
+    }
+
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">void</span> killVirus() {
+        System.out.println(<span class="hljs-string">"---对图像文件"</span>+name+<span class="hljs-string">"杀毒"</span>);
+
+    }
+
+}
+<span class="hljs-class"><span class="hljs-keyword">class</span> <span class="hljs-title">TextFile</span> <span class="hljs-inheritance"><span class="hljs-keyword">implements</span></span> <span class="hljs-title">AbstractFile</span>{</span>
+    <span class="hljs-keyword">private</span> String name;
+
+    <span class="hljs-keyword">public</span> TextFile(String name){
+        <span class="hljs-keyword">this</span>.name=name;
+    }
+
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">void</span> killVirus() {
+        System.out.println(<span class="hljs-string">"---对文本文件"</span>+name+<span class="hljs-string">"杀毒"</span>);
+
+    }
+
+}</code></pre>
+
+<p><font size="3" color="#00f">3. 容器构件 </font></p>
+
+
+
+<pre class="prettyprint"><code class=" hljs axapta"><span class="hljs-class"><span class="hljs-keyword">class</span> <span class="hljs-title">Folder</span> <span class="hljs-inheritance"><span class="hljs-keyword">implements</span></span> <span class="hljs-title">AbstractFile</span>{</span>
+    <span class="hljs-keyword">private</span> String name;
+    <span class="hljs-keyword">private</span> ArrayList&lt;AbstractFile&gt; list=<span class="hljs-keyword">new</span> ArrayList&lt;AbstractFile&gt;();
+    <span class="hljs-keyword">public</span> Folder(String name){
+        <span class="hljs-keyword">this</span>.name=name;
+    }
+
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">void</span> add(AbstractFile file){
+        list.add(file);
+    }
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">void</span> remove(AbstractFile file){
+        list.remove(file);
+    }
+    <span class="hljs-keyword">public</span> AbstractFile getChild(<span class="hljs-keyword">int</span> <span class="hljs-keyword">index</span>){
+        <span class="hljs-keyword">return</span> list.get(<span class="hljs-keyword">index</span>);
+    }
+
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">void</span> killVirus() {
+        System.out.println(<span class="hljs-string">"---对文件夹"</span>+name+<span class="hljs-string">"杀毒"</span>);
+        <span class="hljs-keyword">for</span>(AbstractFile file:list){
+            file.killVirus();
+        }
+
+    }
+
+}
+
+</code></pre>
+
+<p><font size="3" color="#00f">4.客户端 </font></p>
+
+
+
+<pre class="prettyprint"><code class=" hljs cs"><span class="hljs-keyword">public</span> <span class="hljs-keyword">class</span> Client {
+
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">static</span> <span class="hljs-keyword">void</span> <span class="hljs-title">main</span>(String[] args) {
+        Folder f1;
+        AbstractFile f2,f3;
+
+        f1=<span class="hljs-keyword">new</span> Folder(<span class="hljs-string">"我的收藏"</span>);
+        f2=<span class="hljs-keyword">new</span> ImageFile(<span class="hljs-string">"my.jpg"</span>);
+        f3=<span class="hljs-keyword">new</span> TextFile(<span class="hljs-string">"my.txt"</span>);
+        f1.add(f2);
+        f1.add(f3);
+        f1.killVirus();
+
+    }
+
+}
+
+<span class="hljs-comment">//输出结果：</span>
+---对文件夹我的收藏杀毒
+---对图像文件my.jpg杀毒
+---对文本文件my.txt杀毒  
+</code></pre></div>&#13;
+        <script type="text/javascript">&#13;
+            $(function () {&#13;
+                $('pre.prettyprint code').each(function () {&#13;
+                    var lines = $(this).text().split('\n').length;&#13;
+                    var $numbering = $('&lt;ul/&gt;').addClass('pre-numbering').hide();&#13;
+                    $(this).addClass('has-numbering').parent().append($numbering);&#13;
+                    for (i = 1; i &lt;= lines; i++) {&#13;
+                        $numbering.append($('&lt;li/&gt;').text(i));&#13;
+                    };&#13;
+                    $numbering.fadeIn(1700);&#13;
+                });&#13;
+            });&#13;
+        </script>&#13;
+   &#13;

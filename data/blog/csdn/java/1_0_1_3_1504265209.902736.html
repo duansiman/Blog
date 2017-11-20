@@ -1,0 +1,62 @@
+
+<p style="margin: 0in; font-size: 14pt;"><span style="font-family:KaiTi_GB2312;">   启动一个线程不论使用Thread或者Runnable的时候，都是没有返回结果的。也就是说Thread和Runnable的run()方法必须没有返回值。</span></p><p style="margin: 0in; font-size: 14pt;"><span style="font-family:KaiTi_GB2312;">   public void run(){}</span></p><p style="margin: 0in; font-size: 14pt;"><span style="font-family:KaiTi_GB2312;"> </span></p><p style="margin: 0in; font-size: 14pt;"><span style="font-family:KaiTi_GB2312;">解决方案：</span></p><p style="margin: 0in; font-size: 14pt;"><span style="font-family:KaiTi_GB2312;"> </span></p><p style="margin: 0in; font-size: 14pt;"><span style="font-family:KaiTi_GB2312;"><span lang="en-US" xml:lang="en-US">Callable</span><span lang="zh-CN" xml:lang="zh-CN">和</span><span lang="en-US" xml:lang="en-US">Future</span><span lang="zh-CN" xml:lang="zh-CN">，一个产生结果，一个拿到结果。</span></span></p><p style="margin: 0in; font-size: 14pt;"><span style="font-family:KaiTi_GB2312;"> </span></p><p style="margin:0in;font-size:14.0pt"><span style="font-family:KaiTi_GB2312;"><span lang="zh-CN" xml:lang="zh-CN">简单的来一个实例</span><span lang="en-US" xml:lang="en-US">demo</span><span lang="zh-CN" xml:lang="zh-CN">帮助我们理解：</span></span></p><p style="margin:0in;font-size:14.0pt"><span style="font-family:KaiTi_GB2312;"><span lang="zh-CN" xml:lang="zh-CN"><br /></span></span></p><p style="margin:0in;font-size:14.0pt"><span lang="zh-CN" xml:lang="zh-CN"><span style="font-family:KaiTi_GB2312;"></span></span></p><pre name="code" class="java">public class CallableAndFuture {
+
+	/**
+	 * @param args
+	 */
+	public static void main(String[] args) {
+		//单一线程的线程池
+		ExecutorService threadPool =  Executors.newSingleThreadExecutor();
+		Future&lt;String&gt; future =
+			threadPool.submit(
+				new Callable&lt;String&gt;() {
+					public String call() throws Exception {
+						Thread.sleep(2000);
+						return "hello";
+					};
+				}
+		);
+		System.out.println("等待结果");
+		try {
+			System.out.println("拿到结果" + future.get());
+		} catch (InterruptedException e) {
+			e.printStackTrace();
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+		
+	}
+	
+
+}</pre><br /><p></p><p style="margin:0in;font-size:14.0pt"><span lang="zh-CN" xml:lang="zh-CN"><span style="font-family:KaiTi_GB2312;"></span></span></p><p style="margin: 0in; font-size: 14pt;"><span style="font-family:KaiTi_GB2312;">执行结果：</span></p><p style="margin: 0in; font-size: 14pt;"><span style="font-family:KaiTi_GB2312;"> </span></p><p style="margin: 0in; font-size: 14pt;"><span style="font-family:KaiTi_GB2312;">等待结果</span></p><p style="margin: 0in; font-size: 14pt;"><span style="font-family:KaiTi_GB2312;">拿到结果hello<span style="font-size: 14pt;"> </span></span></p><p style="margin: 0in; font-size: 14pt;"><span style="font-family:KaiTi_GB2312;"> </span></p><p style="margin: 0in; font-size: 14pt;"><span style="font-family:KaiTi_GB2312;">使用场景：</span></p><p style="margin: 0in; font-size: 14pt;"><span style="font-family:KaiTi_GB2312;"> </span></p><p style="margin: 0in; font-size: 14pt;"><span style="font-family:KaiTi_GB2312;">假设有一个很耗时的返回值需要计算，并且这个返回值不是立刻需要的话，那么就可以使用以上这种方式，用另一个线程去计算返回值，而当前线程在使用这个返回值之前可以做其它的操作，等到需要这个返回值时，再通过Future得到！</span></p><p style="margin: 0in; font-size: 14pt;"><span style="font-family:KaiTi_GB2312;"> </span></p><p style="margin: 0in; font-size: 14pt;"><span style="font-family:KaiTi_GB2312;">说明：</span></p><p style="margin: 0in; font-size: 14pt;"><span style="font-family:KaiTi_GB2312;"> </span></p><p style="margin:0in;font-size:14.0pt"><span style="font-family:KaiTi_GB2312;">Future<span lang="zh-CN" xml:lang="zh-CN">取得的结果类型和</span><span lang="en-US" xml:lang="en-US">Callable</span><span lang="zh-CN" xml:lang="zh-CN">返回的结果类型必须一致，这是通过泛型来实现的</span></span></p><p style="margin:0in;font-size:14.0pt"><span style="font-family:KaiTi_GB2312;"><span lang="en-US" xml:lang="en-US">Callable</span><span lang="zh-CN" xml:lang="zh-CN">要采用</span><span lang="en-US" xml:lang="en-US">Executor</span><span lang="en-US" xml:lang="en-US">Service</span><span lang="zh-CN" xml:lang="zh-CN">的</span><span lang="en-US" xml:lang="en-US">submit</span><span lang="zh-CN" xml:lang="zh-CN">方法提交，返回为</span><span lang="en-US" xml:lang="en-US">future</span><span lang="zh-CN" xml:lang="zh-CN">对象</span></span></p><p style="margin: 0in; font-size: 14pt;"> </p><p style="margin:0in;font-size:14.0pt"><span style="font-family:KaiTi_GB2312;"><span lang="en-US" xml:lang="en-US">CompletionService</span><span lang="zh-CN" xml:lang="zh-CN">用于提交一组</span><span lang="en-US" xml:lang="en-US">Callable</span><span lang="zh-CN" xml:lang="zh-CN">任务，其</span><span lang="en-US" xml:lang="en-US">take</span><span lang="zh-CN" xml:lang="zh-CN">方法返回已完成的一个</span><span lang="en-US" xml:lang="en-US">Callable</span><span lang="zh-CN" xml:lang="zh-CN">任务对应的</span><span lang="en-US" xml:lang="en-US">Future</span><span lang="zh-CN" xml:lang="zh-CN">对象</span></span></p><p style="margin: 0in 0in 0in 0.375in; font-size: 14pt;"><span style="font-family:KaiTi_GB2312;">好比我同时种了几块地的麦子，然后就等待收割，收割时，哪块先成熟，则先收割哪块</span></p><p style="margin: 0in; font-size: 14pt;"><span style="font-family:KaiTi_GB2312;"> </span></p><p style="margin:0in;font-size:14.0pt"><span style="font-family:KaiTi_GB2312;"><span lang="zh-CN" xml:lang="zh-CN">下面我们来针对</span><span lang="en-US" xml:lang="en-US">CompletionService</span><span lang="zh-CN" xml:lang="zh-CN">看一个小</span><span lang="en-US" xml:lang="en-US">demo</span></span></p><p style="margin:0in;font-size:14.0pt"><span lang="en-US" xml:lang="en-US"><br /></span></p><pre name="code" class="java">public class CallableAndFuture {
+
+	/**
+	 * @param args
+	 */
+	public static void main(String[] args) {
+		
+		ExecutorService threadPool2 =  Executors.newFixedThreadPool(10);
+		CompletionService&lt;Integer&gt; completionService = new ExecutorCompletionService&lt;Integer&gt;(threadPool2);
+		for(int i=1;i&lt;=10;i++){
+			final int seq = i;
+			completionService.submit(new Callable&lt;Integer&gt;() {
+				@Override
+				public Integer call() throws Exception {
+					Thread.sleep(new Random().nextInt(5000));
+					return seq;
+				}
+			});
+		}
+		for(int i=0;i&lt;10;i++){
+			try {
+				System.out.println(
+						completionService.take().get());
+			} catch (InterruptedException e) {
+				e.printStackTrace();
+			} catch (ExecutionException e) {
+				e.printStackTrace();
+			}
+		}
+	}
+	
+}</pre><br /><p style="margin:0in;font-size:14.0pt"><span lang="zh-CN" xml:lang="zh-CN"></span></p><p style="margin: 0in; font-size: 14pt;"><span style="font-family:KaiTi_GB2312;">执行结果：</span></p><p style="margin: 0in; font-size: 14pt;"><span style="font-family:KaiTi_GB2312;"> </span></p><p style="margin: 0in; font-size: 14pt;"><span style="font-family:KaiTi_GB2312;">8</span></p><p style="margin: 0in; font-size: 14pt;"><span style="font-family:KaiTi_GB2312;">6</span></p><p style="margin: 0in; font-size: 14pt;"><span style="font-family:KaiTi_GB2312;">5</span></p><p style="margin: 0in; font-size: 14pt;"><span style="font-family:KaiTi_GB2312;">7</span></p><p style="margin: 0in; font-size: 14pt;"><span style="font-family:KaiTi_GB2312;">2</span></p><p style="margin: 0in; font-size: 14pt;"><span style="font-family:KaiTi_GB2312;">1</span></p><p style="margin: 0in; font-size: 14pt;"><span style="font-family:KaiTi_GB2312;">3</span></p><p style="margin: 0in; font-size: 14pt;"><span style="font-family:KaiTi_GB2312;">10</span></p><p style="margin: 0in; font-size: 14pt;"><span style="font-family:KaiTi_GB2312;">9</span></p><p style="margin: 0in; font-size: 14pt;"><span style="font-family:KaiTi_GB2312;">4</span></p><p style="margin: 0in; font-size: 14pt;"><span style="font-family:KaiTi_GB2312;"> </span></p><p style="margin: 0in; font-size: 14pt;"><span style="font-family:KaiTi_GB2312;">总结：</span></p><p style="margin: 0in; font-size: 14pt;"><span style="font-family:KaiTi_GB2312;"> </span></p><p style="margin: 0in; font-size: 14pt;"><span style="font-family:KaiTi_GB2312;"><span lang="en-US" xml:lang="en-US">      </span><span lang="zh-CN" xml:lang="zh-CN">对于多线程执行返回结果这种需求在实际应用中还是很少见的，此文只是作为了解学习。</span></span></p><p style="margin: 0in; font-size: 14pt;"><span style="font-family:KaiTi_GB2312;"><span lang="zh-CN" xml:lang="zh-CN"><br /></span></span></p><p style="margin: 0in; font-size: 14pt;"><span style="font-family:KaiTi_GB2312;"><span lang="zh-CN" xml:lang="zh-CN"><br /></span></span></p><br />   &#13;

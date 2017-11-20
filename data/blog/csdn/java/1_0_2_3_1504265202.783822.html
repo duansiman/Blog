@@ -1,0 +1,141 @@
+
+
+<p><span style="color:rgb(255,0,0); font-family:Arial; font-size:18px; line-height:26px; text-align:left"><strong>转载请注明出处：<a target="_blank" href="http://blog.csdn.net/lhy_ycu/article/details/39721563">http://blog.csdn.net/lhy_ycu/article/details/39721563</a></strong></span><br />&#13;
+</p>&#13;
+<p><br />&#13;
+</p>&#13;
+<p><span style="white-space:pre; font-size:14px"></span><span style="font-size:14px">今天开始咱们来谈谈Java设计模式。这里会结合uml图形来讲解，有对uml建模不熟的可以参考我的另一篇博文</span><span style="color:rgb(255,0,0)"><strong><span style="font-size:14px"><a target="_blank" href="http://blog.csdn.net/lhy_ycu/article/details/39561781">uml建模</a>。</span></strong></span></p>&#13;
+<p><span style="font-size:14px"><span style="white-space:pre"></span></span></p>&#13;
+<span style="font-size:14px">首先，个人觉得模式的设计就是一个将变化的东西和不变(稳定)的东西分离的过程。咱们的应用中可能有很多需要改变的地方，而模式要做的就是把它们“抽取”出来并进行“封装”和“实现”，因此更多的时候咱们是面向接口编程。下面将结合《Head First 设计模式》这一书中的某些具体案例以及本人的理解进行讲解。如果大家透过看图能说出是哪种模式并能进行具体的代码实现及加以应用，反之也能做到，那么我想关于Java这些常见的设计模式你也就掌握的差不多了。<br />&#13;
+关于策略模式，网上有的说法是：策略模式让用户可以选择执行一个动作的方法，也就是说，用户可以选择不同的策略来进行操作。个人觉得策略模式可以用这个公式：不同的XXX 拥有不同的XXX供用户选择。比如说：不同的象棋棋子拥有不同的走法供用户选择。</span>&#13;
+<p><span style="font-size:14px"><br />&#13;
+</span></p>&#13;
+<p><span style="font-size:14px">下面根据游戏中的不同人物拥有不同武器供用户选择的简单案例：</span></p>&#13;
+<h1><strong><span style="font-size:24px">一、UML模型图</span></strong></h1>&#13;
+<p><span style="white-space:pre"><img src="http://img.blog.csdn.net/20141001231223517" alt="" /></span></p>&#13;
+<h1><span style="font-size:24px">二、代码实现</span></h1>&#13;
+<pre code_snippet_id="478561" snippet_file_name="blog_20141001_1_9404267" name="code" class="java">/**
+ * 武器 --模板
+ */
+interface WeaponBehavior {
+	void useWeapon();
+}
+
+class KnifeBehavior implements WeaponBehavior {
+	@Override
+	public void useWeapon() {
+		System.out.println("实现用匕首刺杀...");
+	}
+}
+
+class BowAndArrowBehavior implements WeaponBehavior {
+	@Override
+	public void useWeapon() {
+		System.out.println("实现用弓箭设计...");
+	}
+}
+
+class AxeBehavior implements WeaponBehavior {
+	@Override
+	public void useWeapon() {
+		System.out.println("实现用斧头劈砍...");
+	}
+}
+
+class SwordBehavior implements WeaponBehavior {
+	@Override
+	public void useWeapon() {
+		System.out.println("实现用宝剑挥舞...");
+	}
+}
+
+/**
+ * 角色
+ */
+abstract class Character {
+	// 将接口作为抽象角色的Field以便封装
+	protected WeaponBehavior weaponBehavior;
+
+	public void setWeapon(WeaponBehavior w) {
+		weaponBehavior = w;
+	}
+
+	/**
+	 * 这里有点类似“代理模式”
+	 */
+	public void performWeapon() {
+		// do something...
+		weaponBehavior.useWeapon();
+		// do something...
+	}
+
+	public abstract void fight();
+}
+
+/**
+ * 国王使用宝剑挥舞
+ */
+class King extends Character {
+
+	public King() {
+		weaponBehavior = new SwordBehavior();
+	}
+
+	@Override
+	public void fight() {
+		System.out.println("国王使用宝剑挥舞...");
+	}
+
+}
+
+/**
+ * 皇后使用匕首刺杀
+ */
+class Queen extends Character {
+
+	public Queen() {
+		weaponBehavior = new KnifeBehavior();
+	}
+
+	@Override
+	public void fight() {
+		System.out.println("皇后使用匕首刺杀...");
+	}
+
+}
+
+/**
+ * Knight和Troll以此类推，这里就不写了
+ */
+
+/**
+ * 客户端测试
+ * 
+ * @author Leo
+ */
+public class Test {
+	public static void main(String[] args) {
+		Character king = new King();
+		king.performWeapon();
+		// 这里有点类似于“状态模式”
+		king.setWeapon(new AxeBehavior());
+		king.performWeapon();
+
+		Character queen = new Queen();
+		queen.performWeapon();
+		queen.setWeapon(new BowAndArrowBehavior());
+		queen.performWeapon();
+	}
+}</pre><br />&#13;
+<h1><span style="font-size:24px">三、应用场景</span><span style="font-size:14px">(仅代表个人观点)</span></h1>&#13;
+<span style="font-size:14px"><span style="white-space:pre"></span>游戏中的角色武器、棋类游戏中的棋子走法等。</span><br />&#13;
+<br />&#13;
+<h1><span style="font-size:24px">四、小结</span></h1>&#13;
+<p><span style="font-size:14px"> <span style="white-space:pre"> </span>以上内容如果有不同的见解或疏忽的地方，还请大家提出宝贵的建议或意见。<br />&#13;
+</span></p>&#13;
+<p><span style="white-space:pre; font-size:14px"></span><span style="font-size:14px">最后大家可以试着将下面的uml模型进行具体的代码实现，如图：</span><a target="_blank" href="http://download.csdn.net/detail/jave_lover/7996843"><span style="font-size:18px; color:#ff0000"><strong>附源码</strong></span></a></p>&#13;
+<p><img src="http://img.blog.csdn.net/20141001235912006?watermark/2/text/aHR0cDovL2Jsb2cuY3Nkbi5uZXQvbGh5X3ljdQ==/font/5a6L5L2T/fontsize/400/fill/I0JBQkFCMA==/dissolve/70/gravity/Center" alt="" /><br />&#13;
+</p>&#13;
+<p><br />&#13;
+</p>&#13;
+   &#13;

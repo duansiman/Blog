@@ -1,0 +1,219 @@
+
+                <div class="markdown_views"><h2 id="线程属性">线程属性</h2>
+
+<p>属性值不能直接设置，须使用相关函数进行操作 <br/>
+初始化函数为pthread_attr_init，该函数必须在pthread_create函数之前调用</p>
+
+<pre class="prettyprint"><code class=" hljs d"><span class="hljs-keyword">typedef</span> <span class="hljs-keyword">struct</span>{
+    <span class="hljs-keyword">int</span>  detachstate;  <span class="hljs-comment">// 线程的分离状态</span>
+    <span class="hljs-keyword">int</span>   <span class="hljs-keyword">scope</span>;   <span class="hljs-comment">// 线程绑定状态</span>
+    <span class="hljs-keyword">int</span>  schedpolicy; <span class="hljs-comment">// 线程调度策略</span>
+    <span class="hljs-keyword">struct</span> sched_param schedparam; <span class="hljs-comment">// 线程的调度参数</span>
+    <span class="hljs-keyword">int</span>   inheritsched;  <span class="hljs-comment">//线程的继承性</span>
+    size_t  guardsize; <span class="hljs-comment">// 线程栈末尾的警戒缓冲区大小</span>
+    <span class="hljs-keyword">void</span> *  stackaddr;  <span class="hljs-comment">// 线程栈的位置</span>
+    size_t  stacksize;   <span class="hljs-comment">// 线程栈的大小</span>
+}pthread_attr_t;
+</code></pre>
+
+
+
+<h2 id="删除线程属性对象">删除线程属性对象</h2>
+
+<pre class="prettyprint"><code class=" hljs perl">函数原型
+<span class="hljs-keyword">int</span> pthread_attr_destroy(pthread_attr_t <span class="hljs-variable">*attr</span>); 
+返回值
+成功返回<span class="hljs-number">0</span>
+出错，返回其他值
+说明
+删除属性对象占用的内存
+调用这个函数后，相应的属性对象无效 
+</code></pre>
+
+
+
+<h2 id="线程分离状态detachstate">线程分离状态(detachstate)</h2>
+
+<pre class="prettyprint"><code class=" hljs perl">决定线程以何种方式终止自己
+非分离状态
+原有的线程等待创建的线程结束
+只有当pthread_join（）函数返回时，创建的线程才算终止，才能释放自己占用的系统资源
+分离线程
+没有被其他的线程所等待，自己运行结束后终止线程，马上释放系统资源
+线程分离状态相关函数
+pthread_attr_setdetachstate(pthread_attr_t <span class="hljs-variable">*attr</span>, <span class="hljs-keyword">int</span> detachstate)
+detachstate选值
+PTHREAD_CREATE_DETACHED（分离线程）
+ PTHREAD _CREATE_JOINABLE（非分离线程）
+<span class="hljs-keyword">int</span> pthread_attr_getdetachstate(pthread_attr_t <span class="hljs-variable">*attr</span>, <span class="hljs-keyword">int</span> <span class="hljs-variable">*detachstate</span>); 
+</code></pre>
+
+
+
+<h2 id="线程绑定scope">线程绑定scope</h2>
+
+<p>轻量级进程 <br/>
+可理解为内核线程，位于用户层和系统层之间 <br/>
+系统通过轻量级进程实现对线程资源的分配、对线程的控制 <br/>
+一个轻量级进程可以控制一个或多个线程 <br/>
+非绑定 <br/>
+启动多少轻量级进程、哪些轻量级进程来控制哪些线程由系统来控制 <br/>
+系统的默认处理方式 <br/>
+绑定 <br/>
+某个线程固定的“绑”在一个轻量级进程之上 <br/>
+被绑定的线程具有较高的响应速度，这是因为CPU时间片的调度是面向轻进程的，绑定的线程可以保证在需要的时候它总有一个轻进程可用 <br/>
+通过设置被绑定的轻进程的优先级和调度级可以使得绑定的线程满足诸如实时反应之类的要求</p>
+
+
+
+<h2 id="线程绑定属性设置函数">线程绑定属性设置函数</h2>
+
+<pre class="prettyprint"><code class=" hljs d">函数原型
+pthread_attr_setscope(pthread_attr_t * attr, <span class="hljs-keyword">int</span> <span class="hljs-keyword">scope</span>)
+参数说明
+attr：指向属性结构的指针
+<span class="hljs-keyword">scope</span>：绑定类型
+PTHREAD_SCOPE_SYSTEM（绑定的）
+PTHREAD_SCOPE_PROCESS（非绑定的）
+举例<span class="hljs-comment">/*初始化属性值，均设为默认值*/</span>pthread_attr_init(&amp;attr);
+    pthread_attr_setscope(&amp;attr, THREAD_SCOPE_SYSTEM);pthread_create(&amp;tid, &amp;attr, (<span class="hljs-keyword">void</span> *) my_function, NULL);
+</code></pre>
+
+<h2 id="线程调度策略schedpolicy">线程调度策略schedpolicy</h2>
+
+<pre class="prettyprint"><code class=" hljs perl">函数原型
+<span class="hljs-keyword">int</span> pthread_attr_getschedpolicy(const pthread_attr_t <span class="hljs-variable">*attr</span>, <span class="hljs-keyword">int</span> <span class="hljs-variable">*policy</span>);
+<span class="hljs-keyword">int</span> pthread_attr_setschedpolicy(pthread_attr_t <span class="hljs-variable">*attr</span>, <span class="hljs-keyword">int</span> policy);
+参数说明
+attr：线程属性变量
+policy：调度策略
+SCHED_FIFO：先进先出
+SCHED_RR：轮转法
+SCHED_OTHER：其它
+返回值
+成功返回<span class="hljs-number">0</span>
+失败返回-<span class="hljs-number">1</span>
+</code></pre>
+
+<h2 id="线程调度参数schedparam">线程调度参数schedparam</h2>
+
+<pre class="prettyprint"><code class=" hljs cs">函数原型
+<span class="hljs-keyword">int</span> pthread_attr_getschedparam(<span class="hljs-keyword">const</span> pthread_attr_t *attr, <span class="hljs-keyword">struct</span> sched_param *param);
+<span class="hljs-keyword">int</span> pthread_attr_setschedparam(pthread_attr_t *attr, <span class="hljs-keyword">const</span> <span class="hljs-keyword">struct</span> sched_param *param);
+参数说明
+attr：线程属性
+param：sched_param结构
+sched_priority：控制一个优先权值
+sched_get_priority_min()：获取系统支持的最小优先权值
+sched_get_priority_max ()：获取系统支持的最大优先权值
+</code></pre>
+
+<h2 id="线程的继承性inheritsched">线程的继承性inheritsched</h2>
+
+<pre class="prettyprint"><code class=" hljs perl">设置继承调度策略
+PTHREAD_INHERIT_SCHED(缺省值) 
+创建的线程将具有父线程的调度策略
+属性对象中的调度策略参数将不起作用
+PTHREAD_EXPLICIT_SCHED
+线程的调度策略和父线程无关
+属性对象中的调度策略参数将起作用
+相关设置函数
+<span class="hljs-keyword">int</span> pthread_attr_setinheritsched(pthread_attr_t <span class="hljs-variable">*tattr</span>, <span class="hljs-keyword">int</span> inherit); 
+<span class="hljs-keyword">int</span> pthread_attr_getinheritsched(pthread_attr_t <span class="hljs-variable">*tattr</span>, <span class="hljs-keyword">int</span> <span class="hljs-variable">*inherit</span>); 
+</code></pre>
+
+<h2 id="堆栈防护区guardsize">堆栈防护区guardsize</h2>
+
+<pre class="prettyprint"><code class=" hljs perl">缺省情况下，线程的堆栈保护区大小因系统版本不同而异
+取值说明
+若guardsize=<span class="hljs-number">0</span>，创建线程时将不会创建堆栈保护区
+若guardsize&gt;<span class="hljs-number">0</span>，创建线程时将至少有一个guardsize大小的堆栈保护区
+使用说明
+创建线程堆栈时，一般将guardsize参数值上舍入成系统变量PAGESIZE的整数倍，来分配堆栈保护区
+但程序调用pthread_attr_getguardsize()函数获得的堆栈保护区大小将是调用pthread_attr_setguardsize()函数时指定的guardsize参数值
+相关函数
+<span class="hljs-keyword">int</span> pthread_attr_setguardsize(pthread_attr_t <span class="hljs-variable">*attr</span>, size_t guardsize); 
+<span class="hljs-keyword">int</span> pthread_attr_getguardsize(const pthread_attr_t <span class="hljs-variable">*attr</span>, size_t <span class="hljs-variable">*guardsize</span>); 
+</code></pre>
+
+<h2 id="线程堆栈的基地址-stackaddr">线程堆栈的基地址 stackaddr</h2>
+
+<pre class="prettyprint"><code class=" hljs perl">默认由系统分配
+如果stackaddr为非空值，线程堆栈将从指定地址开始
+如果是NULL (缺省值) ，pthread_create()为其分配堆栈 
+相关函数
+<span class="hljs-keyword">int</span> pthread_attr_setstackaddr(pthread_attr_t <span class="hljs-variable">*tattr</span>, void <span class="hljs-variable">*stackaddr</span>); 
+<span class="hljs-keyword">int</span> pthread_attr_getstackaddr(pthread_attr_t <span class="hljs-variable">*tattr</span>, void <span class="hljs-variable">**</span>stackaddr); 
+</code></pre>
+
+<h2 id="线程堆栈大小stacksize">线程堆栈大小stacksize</h2>
+
+<pre class="prettyprint"><code class=" hljs perl">定义系统为线程分配的堆栈大小(字节)
+默认由系统决定大小
+函数原型
+<span class="hljs-keyword">int</span> pthread_attr_setstacksize(pthread_attr_t <span class="hljs-variable">*tattr</span>, <span class="hljs-keyword">int</span> size); 
+<span class="hljs-keyword">int</span> pthread_attr_getstacksize(pthread_attr_t <span class="hljs-variable">*tattr</span>, size_t <span class="hljs-variable">*size</span>); 
+参数说明
+size：线程所需堆栈的大小
+size=<span class="hljs-number">0</span>，系统使用缺省大小
+在大多数情况下，缺省值是最合适的
+堆栈的大小不能小于系统定义的最小堆栈容量PTHREAD_STACK_MIN
+</code></pre>
+
+<h2 id="线程的一次性初始化">线程的一次性初始化</h2>
+
+<p>有时需要对一些posix变量只进行一次初始化（如线程键），如果多次初始化，程序就会出现错误 <br/>
+在顺序编程中，常使用布尔变量来一次性初始化 <br/>
+控制变量被静态初始化为0，任何依赖于初始化的代码都能测试该变量 <br/>
+如果变量值仍然为0，则它能实行初始化，然后将变量置为1，以后检查的代码将跳过初始化 <br/>
+但在多线程程序设计中，事情变得非常复杂 <br/>
+如果多个线程并发地执行初始化序列代码，两个线程可能发现控制变量为0，并且都实行初始化，而该过程本该仅仅执行一次 <br/>
+初始化的状态必须由互斥量保护 <br/>
+对一个posix静态变量的初始化，可使用用一个互斥量对该变量的初始化进行控制 <br/>
+但使用pthread_once对变量进行动态初始化会方便许多</p>
+
+<h2 id="线程的一次性初始化函数">线程的一次性初始化函数</h2>
+
+<p>函数原型 <br/>
+pthread_once_t once_control=PTHREAD_ONCE_INIT; <br/>
+int pthread_once(pthread_once_t *once_control, void(*init_routine)(void)); <br/>
+参数 <br/>
+once_control：控制变量，必须使用PTHREAD_ONCE_INIT宏静态地初始化  <br/>
+init_routine：初始化函数 <br/>
+说明 <br/>
+pthread_once函数首先检查控制变量，判断是否已经完成初始化 <br/>
+如果完成，则返回 <br/>
+否则，调用初始化函数，并且记录初始化被完成 <br/>
+如果在一个线程初始时，另外的线程调用pthread_once，则调用线程等待，直到那个线程完成初始化返回 </p>
+
+<h2 id="线程的私有数据">线程的私有数据</h2>
+
+<p>背景 <br/>
+进程内的所有线程共享相同地址空间，任何声明为静态或外部的变量，或在进程堆声明的变量，都可以被进程所有的线程读写 <br/>
+怎样才能使线程序拥有自己的私有数据？ <br/>
+函数原型 <br/>
+int pthread_key_create(pthread_key <em>key, void(*destructor)(void </em>)); <br/>
+参数 <br/>
+key：私有数据键 <br/>
+destructor：清理函数 <br/>
+如果该参数不为空，则当每个线程结束时，系统将调用这个函数来释放绑定在这个键上的内存块 <br/>
+说明 <br/>
+函数从线程私有数据池中分配一项，将其值赋给key供以后访问使用 <br/>
+无论哪个线程调用pthread_key_create()，所创建的key都是所有线程可访问的，但各个线程可根据自己的需要往key中填入不同的值，这就相当于提供了一个同名而不同值的全局变量 <br/>
+该函数常和函数pthread_once一起使用，以便该键只被创建一次</p>
+
+<pre class="prettyprint"><code class=" hljs cs">函数原型
+<span class="hljs-keyword">int</span> pthread_setspecific(pthread_key_t key, <span class="hljs-keyword">const</span> <span class="hljs-keyword">void</span> *pointer) 
+<span class="hljs-keyword">void</span> * pthread_getspecific(pthread_key_t key) 
+说明
+pthread_setspecific()将pointer的值（不是所指的内容）与key相关联
+pthread_getspecific()将与key相关联的数据读出来
+数据类型都设为<span class="hljs-keyword">void</span> *，因此可以指向任何类型的数据
+</code></pre>
+
+<p>说明 <br/>
+创建两个线程分别设置同一个线程私有数据为自己的线程ID <br/>
+为了检验其私有性，程序错开了两个线程私有数据的写入和读出的时间 <br/>
+从程序运行结果可以看出，两个线程对TSD的修改互不干扰 <br/>
+当线程退出时，清理函数会自动执行，参数为tid</p><link rel="stylesheet" href="http://static.blog.csdn.net/public/res-min/markdown_views.css?v=1.0"/></div><link rel="stylesheet" href="http://static.blog.csdn.net/public/res-min/markdown_views.css?v=1.0"/>&#13;
+            

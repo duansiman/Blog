@@ -1,0 +1,159 @@
+
+        <div class="markdown_views"><p>当我们的请求根据不同的情况需要不同的处理者处理的时候，可以使用该模式，将多个处理者和请求者隔离，只暴露一个处理者，当满足处理条件时处理，不满足时将请求传递，类似于Android的事件分发机制。</p>
+
+<p>类图： <br />
+<img src="http://img.blog.csdn.net/20170327085943817?watermark/2/text/aHR0cDovL2Jsb2cuY3Nkbi5uZXQvcmVucGVuZ2RkeHg=/font/5a6L5L2T/fontsize/400/fill/I0JBQkFCMA==/dissolve/70/gravity/SouthEast" alt="这里写图片描述" title="" /></p>
+
+<p>java实现</p>
+
+<pre class="prettyprint"><code class=" hljs cs"><span class="hljs-keyword">public</span> <span class="hljs-keyword">abstract</span> <span class="hljs-keyword">class</span> AbsHandle {
+
+    <span class="hljs-keyword">private</span> AbsHandle absHandle;
+
+    <span class="hljs-keyword">public</span> final <span class="hljs-keyword">void</span> <span class="hljs-title">handleMessage</span>(Request request){
+        <span class="hljs-keyword">if</span>(<span class="hljs-keyword">this</span>.getHandleLevel() == request.getRequestLevel()){
+            <span class="hljs-keyword">this</span>.doSomething();
+        }<span class="hljs-keyword">else</span>{
+            <span class="hljs-keyword">if</span>(absHandle != <span class="hljs-keyword">null</span>){
+                absHandle.handleMessage(request);
+            }<span class="hljs-keyword">else</span>{
+
+            }
+        }
+    }
+
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">void</span> <span class="hljs-title">setHandle</span>(AbsHandle absHandle){
+        <span class="hljs-keyword">this</span>.absHandle = absHandle;
+    }
+
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">abstract</span> <span class="hljs-keyword">int</span> <span class="hljs-title">getHandleLevel</span>();
+
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">abstract</span> <span class="hljs-keyword">void</span> <span class="hljs-title">doSomething</span>();
+
+}</code></pre>
+
+
+
+<pre class="prettyprint"><code class=" hljs java"><span class="hljs-keyword">public</span> <span class="hljs-class"><span class="hljs-keyword">class</span> <span class="hljs-title">RealHandle</span> <span class="hljs-keyword">extends</span> <span class="hljs-title">AbsHandle</span> {</span>
+    <span class="hljs-annotation">@Override</span>
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">int</span> <span class="hljs-title">getHandleLevel</span>() {
+        <span class="hljs-keyword">return</span> <span class="hljs-number">1</span>;
+    }
+
+    <span class="hljs-annotation">@Override</span>
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">void</span> <span class="hljs-title">doSomething</span>() {
+
+    }
+}</code></pre>
+
+
+
+<pre class="prettyprint"><code class=" hljs java"><span class="hljs-keyword">public</span> <span class="hljs-class"><span class="hljs-keyword">class</span> <span class="hljs-title">RealHandle1</span> <span class="hljs-keyword">extends</span> <span class="hljs-title">AbsHandle</span> {</span>
+    <span class="hljs-annotation">@Override</span>
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">int</span> <span class="hljs-title">getHandleLevel</span>() {
+        <span class="hljs-keyword">return</span> <span class="hljs-number">2</span>;
+    }
+
+    <span class="hljs-annotation">@Override</span>
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">void</span> <span class="hljs-title">doSomething</span>() {
+
+    }
+}
+</code></pre>
+
+
+
+<pre class="prettyprint"><code class=" hljs cs"><span class="hljs-keyword">public</span> <span class="hljs-keyword">class</span> Request {
+
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">int</span> <span class="hljs-title">getRequestLevel</span>(){
+        <span class="hljs-keyword">return</span> <span class="hljs-number">1</span>;
+    }
+}</code></pre>
+
+
+
+<pre class="prettyprint"><code class=" hljs cs"><span class="hljs-keyword">public</span> <span class="hljs-keyword">class</span> Client {
+
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">static</span> <span class="hljs-keyword">void</span> <span class="hljs-title">main</span>(String[] args){
+        RealHandle realHandle = <span class="hljs-keyword">new</span> RealHandle();
+        RealHandle1 realHandle1 = <span class="hljs-keyword">new</span> RealHandle1();
+        realHandle.setHandle(realHandle1);
+
+        realHandle.handleMessage(<span class="hljs-keyword">new</span> Request());
+    }
+}</code></pre>
+
+<p>php实现</p>
+
+<pre class="prettyprint"><code class=" hljs xml"><span class="php"><span class="hljs-preprocessor">&lt;?php</span>
+<span class="hljs-keyword">abstract</span> <span class="hljs-class"><span class="hljs-keyword">class</span> <span class="hljs-title">AbsHandle</span>
+{</span>
+    <span class="hljs-keyword">public</span> <span class="hljs-variable">$handle</span>;
+
+    <span class="hljs-keyword">public</span> <span class="hljs-function"><span class="hljs-keyword">function</span> <span class="hljs-title">__set</span><span class="hljs-params">(<span class="hljs-variable">$key</span>,<span class="hljs-variable">$value</span>)</span>
+    {</span>
+        <span class="hljs-keyword">if</span>(<span class="hljs-string">'handle'</span> == <span class="hljs-variable">$value</span>)
+        {
+            <span class="hljs-variable">$this</span>-&gt;handle = <span class="hljs-variable">$value</span>;
+        }
+    }
+
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">final</span> <span class="hljs-function"><span class="hljs-keyword">function</span> <span class="hljs-title">handleMessage</span><span class="hljs-params">(Request <span class="hljs-variable">$request</span>)</span>
+    {</span>
+        <span class="hljs-keyword">if</span>(<span class="hljs-variable">$this</span>-&gt;getRequestLevel() == <span class="hljs-variable">$request</span>-&gt;getRequestLevel())
+        {
+            <span class="hljs-variable">$this</span>-&gt;doSomething();
+        }
+        <span class="hljs-keyword">else</span>
+        {
+            <span class="hljs-keyword">if</span>(!<span class="hljs-keyword">empty</span>(<span class="hljs-variable">$handle</span>))
+            {
+                <span class="hljs-variable">$this</span>-&gt;handle-&gt;handleMessage();
+            }
+            <span class="hljs-keyword">else</span>
+            {
+            }
+        }
+
+    }
+
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">abstract</span> <span class="hljs-function"><span class="hljs-keyword">function</span> <span class="hljs-title">doSomething</span><span class="hljs-params">()</span>;</span>
+
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">abstract</span> <span class="hljs-function"><span class="hljs-keyword">function</span> <span class="hljs-title">getHandleLevel</span><span class="hljs-params">()</span>;</span>
+}
+
+<span class="hljs-class"><span class="hljs-keyword">class</span> <span class="hljs-title">Request</span>
+{</span>
+    <span class="hljs-keyword">public</span> <span class="hljs-function"><span class="hljs-keyword">function</span> <span class="hljs-title">getRequestLevel</span><span class="hljs-params">()</span>
+    {</span>
+        <span class="hljs-keyword">return</span> <span class="hljs-number">1</span>;
+    }
+}
+
+<span class="hljs-class"><span class="hljs-keyword">class</span> <span class="hljs-title">RealHandle</span> <span class="hljs-keyword">extends</span> <span class="hljs-title">AbsHandle</span>
+{</span>
+    <span class="hljs-keyword">public</span> <span class="hljs-function"><span class="hljs-keyword">function</span> <span class="hljs-title">doSomething</span><span class="hljs-params">()</span>
+    {</span>
+    }
+
+    <span class="hljs-keyword">public</span> <span class="hljs-function"><span class="hljs-keyword">function</span> <span class="hljs-title">getHandleLevel</span><span class="hljs-params">()</span>
+    {</span>
+        <span class="hljs-keyword">return</span> <span class="hljs-number">1</span>;
+    }
+}
+
+</span></code></pre></div>&#13;
+        <script type="text/javascript">&#13;
+            $(function () {&#13;
+                $('pre.prettyprint code').each(function () {&#13;
+                    var lines = $(this).text().split('\n').length;&#13;
+                    var $numbering = $('&lt;ul/&gt;').addClass('pre-numbering').hide();&#13;
+                    $(this).addClass('has-numbering').parent().append($numbering);&#13;
+                    for (i = 1; i &lt;= lines; i++) {&#13;
+                        $numbering.append($('&lt;li/&gt;').text(i));&#13;
+                    };&#13;
+                    $numbering.fadeIn(1700);&#13;
+                });&#13;
+            });&#13;
+        </script>&#13;
+   &#13;

@@ -1,0 +1,31 @@
+
+                
+<pre name="code" class="cpp">bool
+MYSQL_BIN_LOG::change_stage(THD *thd,
+    Stage_manager::StageID stage, THD *queue,
+    mysql_mutex_t *leave_mutex,
+    mysql_mutex_t *enter_mutex)
+{
+    stage_manager.enroll_for(stage, queue, leave_mutex);
+        bool leader= m_queue[stage].append(thd);
+        if (stage_mutex)
+            mysql_mutex_unlock(stage_mutex);
+        if (!leader){
+            mysql_mutex_lock(&amp;m_lock_done);//第一个follower加锁后，没有释放就sleep了，第二个follower在这个锁上等待？
+            while (thd-&gt;transaction.flags.pending)//在order_commit调用前初始化为TRUE
+                mysql_cond_wait(&amp;m_cond_done, &amp;m_lock_done);//只有第一个follower会等待，其他的都等待锁。signal_done会将pending置为FALSE，并发出唤醒信号
+            mysql_mutex_unlock(&amp;m_lock_done);//第二个之后的follower立即加锁，然后解锁向下走
+		}
+        return leader;
+    mysql_mutex_lock(enter_mutex);//其他线程需要等待释放该锁。follower的change_stage会返回TRUE，在order_commit调用中直接返回，结束流程
+}</pre><br/>&#13;
+FLUSH_STAGE：enter_mutex是LOCK_log锁，leave_mutex是NULL。即该阶段只涉及加锁<br/>&#13;
+SYNC_STAGE：enter_mutex是LOCK_sync;leave_mutex根据sync_binlog值：不为1，则该锁是LOCK_log。即在该阶段会释放LOCK_log,此时dump线程才能发送binlog<br/>&#13;
+COMMIT_STAGE：enter_mutex是LOCK_commit<br/>&#13;
+2、将线程加入到m_queue[stage]队列里。返回该线程是否是队列头部。处于队列头部的条件是：该线程加入的时候，队列为空，也就<br/>&#13;
+   意味着是一个新的分组，该线程是leader。<br/>&#13;
+3、如果不是leader，order_commit函数头部已经将事务的pending标志初始为TRUE，<br/>&#13;
+所以该标志没有其他线程将其置为FALSE前while条件成立（何时FALSE？signale_done），进入等待，等待被别的线程唤醒。何时唤醒？<br/>&#13;
+4、也就是，一个分组的事务，都有leader进行处理，其他线程sleep。等待signal_done来唤醒。signal_done是提交后调用。&#13;
+<link rel="stylesheet" href="http://static.blog.csdn.net/public/res-min/markdown_views.css?v=1.0"/>&#13;
+            

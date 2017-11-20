@@ -1,0 +1,359 @@
+
+
+<div><span style="font-family:Microsoft YaHei; font-size:14px">【版权声明：尊重原创，转载请保留出处：blog.csdn.net/shallnet，文章仅供学习交流，请勿用于商业用途】 <br />&#13;
+        内存管理单元（MMU）负责将管理内存，在把虚拟地址转换为物理地址的硬件的时候是按页为单位进行处理，从虚拟内存的角度来看，页就是内存管理中的最小单位。页的大小与体系结构有关，在 x86 结构中一般是4KB（32位）或者8KB（64位）。</span></div>&#13;
+<span style="font-family:Microsoft YaHei; font-size:14px">通过 getconf 命令可以查看系统的page的大小：</span><br />&#13;
+<pre name="code" class="plain"># getconf -a | grep PAGE
+PAGESIZE                           4096
+PAGE_SIZE                          4096
+_AVPHYS_PAGES                      230873
+_PHYS_PAGES                        744957 </pre> <span style="font-family:Microsoft YaHei; font-size:14px">  </span>&#13;
+<span style="font-family:Microsoft YaHei; font-size:14px">       内核中的每个物理页用struct  page结构表示，结构定义于文件&lt;include/linux/mm_types.h&gt;：</span><br />&#13;
+<pre name="code" class="cpp">struct page {
+    unsigned long flags;        /*页的状态*/
+    atomic_t _count;        /* 页引用计数 */
+    union {
+        atomic_t _mapcount; /* 已经映射到mms的pte的个数*/
+        struct {        /* */
+            u16 inuse;
+            u16 objects;
+        };
+    };
+    union {
+        struct {
+        unsigned long private;     
+        struct address_space *mapping;
+        };
+#if USE_SPLIT_PTLOCKS
+        spinlock_t ptl;
+#endif
+        struct kmem_cache *slab;    /* 指向slab层 */
+        struct page *first_page;    /* Compound tail pages */
+    };
+    union {
+        pgoff_t index;      /* Our offset within mapping. */
+        void *freelist;     /* SLUB: freelist req. slab lock */
+    };
+    struct list_head lru;       /* 将页关联起来的链表项 */
+
+#if defined(WANT_PAGE_VIRTUAL)
+    void *virtual;          /* Kernel virtual address (NULL if
+                       not kmapped, ie. highmem) */
+#endif /* WANT_PAGE_VIRTUAL */
+#ifdef CONFIG_WANT_PAGE_DEBUG_FLAGS
+    unsigned long debug_flags;  /* Use atomic bitops on this */
+#endif
+
+#ifdef CONFIG_KMEMCHECK
+    void *shadow;
+#endif
+};</pre> <span style="font-family:Microsoft YaHei; font-size:14px">       内核使用这一结构来管理系统中所有的页，因为内核需要知道一个该页是否被分配，是被谁拥有的等信息。</span><br />&#13;
+<span style="font-family:Microsoft YaHei; font-size:14px">       由于ISA总线的DMA处理器有严格的限制，只能对物理内存前16M寻址，内核线性地址空间只有1G,CPU不能直接访问所有的物理内存。这样就导致有一些内存不能永久地映射在内核空间上。所以在linux中，把页分为不同的区，使用区来对具有相似特性的页进行分组。分组如下（以x86-32为例）：</span><br />&#13;
+<span style="font-family:Microsoft YaHei; font-size:14px">ZONE_DMA 小于16M内存页框，这个区包含的页用来执行DMA操作。</span><br />&#13;
+<span style="font-family:Microsoft YaHei; font-size:14px">ZONE_NORMAL 16M~896M内存页框，个区包含的都是能正常映射的页。</span><br />&#13;
+<div><span style="font-family:Microsoft YaHei; font-size:14px">ZONE_HIGHMEM 大于896M内存页框，这个区包"高端内存"，其中的页能不永久地映射到内核地址空间。</span><br />&#13;
+</div>&#13;
+<span style="font-family:Microsoft YaHei; font-size:14px">        linux 把系统的页划分区，形成不同的内存池，这样就可以根据用途进行分配了。</span><br />&#13;
+<div>&#13;
+<div>&#13;
+<div>&#13;
+<div><span style="font-family:Microsoft YaHei; font-size:14px">        每个区都用struct zone表示，定义于&lt;include/linux/mmzone.h&gt;中。该结构体较大，详细结构体信息可以查看源码文件。</span></div>&#13;
+<div><span style="font-family:Microsoft YaHei; font-size:14px">        linux提供了几个以页为单位分配释放内存的接口，定义于&lt;include/linux/gfp.h&gt;中。分配内存主要有以下方法：</span><br />&#13;
+<strong></strong>&#13;
+<table height="200" width="599" cellpadding="2" cellspacing="0" border="0">&#13;
+<tbody>&#13;
+<tr>&#13;
+<td valign="top" width="303"><span style="font-family:Microsoft YaHei; font-size:14px">alloc_page(gfp_mask)</span></td>&#13;
+<td valign="top" width="497"><span style="font-family:Microsoft YaHei; font-size:14px">只分配一页，返回指向页结构的指针</span></td>&#13;
+</tr>&#13;
+<tr>&#13;
+<td valign="top" width="303"><span style="font-family:Microsoft YaHei; font-size:14px">alloc_pages(gfp_mask, order)</span></td>&#13;
+<td valign="top" width="497"><span style="font-family:Microsoft YaHei; font-size:14px">分配 2^order 个页，返回指向第一页页结构的指针</span></td>&#13;
+</tr>&#13;
+<tr>&#13;
+<td valign="top" width="303"><span style="font-family:Microsoft YaHei; font-size:14px">__get_free_page(gfp_mask)</span></td>&#13;
+<td valign="top" width="497"><span style="font-family:Microsoft YaHei; font-size:14px">只分配一页，返回指向其逻辑地址的指针</span></td>&#13;
+</tr>&#13;
+<tr>&#13;
+<td valign="top" width="303"><span style="font-family:Microsoft YaHei; font-size:14px">__get_free_pages(gfp_mask, order)</span></td>&#13;
+<td valign="top" width="497"><span style="font-family:Microsoft YaHei; font-size:14px">分配 2^order 个页，返回指向第一页逻辑地址的指针</span></td>&#13;
+</tr>&#13;
+<tr>&#13;
+<td valign="top" width="303"><span style="font-family:Microsoft YaHei; font-size:14px">get_zeroed_page(gfp_mask)</span></td>&#13;
+<td valign="top" width="497"><span style="font-family:Microsoft YaHei; font-size:14px">只分配一页，让其内容填充为0，返回指向其逻辑地址的指针</span></td>&#13;
+</tr>&#13;
+</tbody>&#13;
+</table>&#13;
+<div>&#13;
+<div>&#13;
+<p><span style="font-family:Microsoft YaHei; font-size:14px">alloc_*函数返回的是内存的物理地址，get_* 函数返回内存物理地址映射后的逻辑地址。如果无须直接操作物理页结构体的话，一般使用 get_*函数。</span></p>&#13;
+<br />&#13;
+<div>&#13;
+<div><span style="font-family:Microsoft YaHei; font-size:14px">释放页的函数有：</span> <span style="color:#0000ff">&#13;
+<br />&#13;
+</span>&#13;
+<div><span style="font-family:Microsoft YaHei; font-size:14px; color:#0000FF">extern</span><span style="font-family:Microsoft YaHei; font-size:14px; color:#0000FF">void</span><span style="font-family:Microsoft YaHei; font-size:14px">__free_pages(</span>&#13;
+<span style="font-family:Microsoft YaHei; font-size:14px; color:#0000FF">struct</span>&#13;
+<span style="font-family:Microsoft YaHei; font-size:14px">page *page, unsigned</span><span style="font-family:Microsoft YaHei; font-size:14px; color:#0000FF">int</span><span style="font-family:Microsoft YaHei; font-size:14px">order);</span>&#13;
+<br />&#13;
+<div><span style="color:#000000"></span><span style="font-family:Microsoft YaHei; font-size:14px; color:#0000FF">extern</span><span style="font-family:Microsoft YaHei; font-size:14px; color:#0000FF">void</span><span style="font-family:Microsoft YaHei; font-size:14px">free_pages(unsigned&#13;
+</span><span style="font-family:Microsoft YaHei; font-size:14px; color:#0000FF">long</span><span style="font-family:Microsoft YaHei; font-size:14px">addr, unsigned&#13;
+</span><span style="font-family:Microsoft YaHei; font-size:14px; color:#0000FF">int</span><span style="font-family:Microsoft YaHei; font-size:14px">order);</span>&#13;
+<span style="color:#0000ff"><br />&#13;
+</span>&#13;
+<div><span style="font-family:Microsoft YaHei; font-size:14px; color:#0000FF">extern</span><span style="font-family:Microsoft YaHei; font-size:14px; color:#0000FF">void</span><span style="font-family:Microsoft YaHei; font-size:14px">free_hot_page(</span>&#13;
+<span style="font-family:Microsoft YaHei; font-size:14px; color:#0000FF">struct</span>&#13;
+<span style="font-family:Microsoft YaHei; font-size:14px">page *page);</span><br />&#13;
+<br />&#13;
+</div>&#13;
+</div>&#13;
+</div>&#13;
+</div>&#13;
+<span style="font-family:Microsoft YaHei; font-size:14px">当需要以页为单位的连续物理页时，可以使用上面这些分配页的函数，对于常用以字节为单位的分配来说，内核提供来kmalloc()函数。</span><br />&#13;
+</div>&#13;
+</div>&#13;
+<div>&#13;
+<div><span style="font-family:Microsoft YaHei; font-size:14px">        kmalloc()函数和用户空间一族函数类似，它可以以字节为单位分配内存，对于大多数内核分配来说，kmalloc函数用得更多。</span><br />&#13;
+<pre><span style="color:#0000ff">void</span> *<span style="color:#000000">kmalloc(size_t size, gfp_t gfp_mask)；</span></pre>&#13;
+</div>&#13;
+<span style="font-family:Microsoft YaHei; font-size:14px">参数中有个 gfp_mask 标志，这个标志是控制分配内存时必须遵守的一些规则。</span>&#13;
+<p><span style="font-family:Microsoft YaHei; font-size:14px">gfp_mask 标志有3类：</span></p>&#13;
+<ol>&#13;
+<li><span style="font-family:Microsoft YaHei; font-size:14px">行为标志 ：控制分配内存时，分配器的一些行为，如何分配所需内存。</span></li><li><span style="font-family:Microsoft YaHei; font-size:14px">区标志   ：控制内存分配在那个区(ZONE_DMA, ZONE_NORMAL, ZONE_HIGHMEM 之类)。</span></li><li><span style="font-family:Microsoft YaHei; font-size:14px">类型标志 ：由上面2种标志组合而成的一些常用的场景。</span></li></ol>&#13;
+<p><span style="font-family:Microsoft YaHei; font-size:14px">行为标志主要有以下几种：</span> </p>&#13;
+<table cellpadding="2" cellspacing="0" border="0" style="width:800px">&#13;
+<tbody>&#13;
+<tr>&#13;
+<td valign="top" width="188">&#13;
+<p align="center"><strong><span style="font-family:Microsoft YaHei; font-size:14px">行为标志</span></strong></p>&#13;
+</td>&#13;
+<td valign="top" width="612">&#13;
+<p align="center"><strong><span style="font-family:Microsoft YaHei; font-size:14px">描述</span></strong></p>&#13;
+</td>&#13;
+</tr>&#13;
+<tr>&#13;
+<td valign="top" width="188"><span style="font-family:Microsoft YaHei; font-size:14px">__GFP_WAIT</span></td>&#13;
+<td valign="top" width="612"><span style="font-family:Microsoft YaHei; font-size:14px">分配器可以睡眠</span></td>&#13;
+</tr>&#13;
+<tr>&#13;
+<td valign="top" width="188"><span style="font-family:Microsoft YaHei; font-size:14px">__GFP_HIGH</span></td>&#13;
+<td valign="top" width="612"><span style="font-family:Microsoft YaHei; font-size:14px">分配器可以访问紧急事件缓冲池</span></td>&#13;
+</tr>&#13;
+<tr>&#13;
+<td valign="top" width="188"><span style="font-family:Microsoft YaHei; font-size:14px">__GFP_IO</span></td>&#13;
+<td valign="top" width="612"><span style="font-family:Microsoft YaHei; font-size:14px">分配器可以启动磁盘I/O</span></td>&#13;
+</tr>&#13;
+<tr>&#13;
+<td valign="top" width="188"><span style="font-family:Microsoft YaHei; font-size:14px">__GFP_FS</span></td>&#13;
+<td valign="top" width="612"><span style="font-family:Microsoft YaHei; font-size:14px">分配器可以启动文件系统I/O</span></td>&#13;
+</tr>&#13;
+<tr>&#13;
+<td valign="top" width="188"><span style="font-family:Microsoft YaHei; font-size:14px">__GFP_COLD</span></td>&#13;
+<td valign="top" width="612"><span style="font-family:Microsoft YaHei; font-size:14px">分配器应该使用高速缓存中快要淘汰出去的页</span></td>&#13;
+</tr>&#13;
+<tr>&#13;
+<td valign="top" width="188"><span style="font-family:Microsoft YaHei; font-size:14px">__GFP_NOWARN</span></td>&#13;
+<td valign="top" width="612"><span style="font-family:Microsoft YaHei; font-size:14px">分配器将不打印失败警告</span></td>&#13;
+</tr>&#13;
+<tr>&#13;
+<td valign="top" width="188"><span style="font-family:Microsoft YaHei; font-size:14px">__GFP_REPEAT</span></td>&#13;
+<td valign="top" width="612"><span style="font-family:Microsoft YaHei; font-size:14px">分配器在分配失败时重复进行分配，但是这次分配还存在失败的可能</span></td>&#13;
+</tr>&#13;
+<tr>&#13;
+<td valign="top" width="188"><span style="font-family:Microsoft YaHei; font-size:14px">__GFP_NOFALL</span></td>&#13;
+<td valign="top" width="612"><span style="font-family:Microsoft YaHei; font-size:14px">分配器将无限的重复进行分配。分配不能失败</span></td>&#13;
+</tr>&#13;
+<tr>&#13;
+<td valign="top" width="188"><span style="font-family:Microsoft YaHei; font-size:14px">__GFP_NORETRY</span></td>&#13;
+<td valign="top" width="612"><span style="font-family:Microsoft YaHei; font-size:14px">分配器在分配失败时不会重新分配</span></td>&#13;
+</tr>&#13;
+<tr>&#13;
+<td valign="top" width="188"><span style="font-family:Microsoft YaHei; font-size:14px">__GFP_NO_GROW</span></td>&#13;
+<td valign="top" width="612"><span style="font-family:Microsoft YaHei; font-size:14px">由slab层内部使用</span></td>&#13;
+</tr>&#13;
+<tr>&#13;
+<td valign="top" width="188"><span style="font-family:Microsoft YaHei; font-size:14px">__GFP_COMP</span></td>&#13;
+<td valign="top" width="612"><span style="font-family:Microsoft YaHei; font-size:14px">添加混合页元数据，在 hugetlb 的代码内部使用</span></td>&#13;
+</tr>&#13;
+</tbody>&#13;
+</table>&#13;
+<span style="font-family:Microsoft YaHei; font-size:14px">标志主要有以下3种：</span>&#13;
+<table cellpadding="2" cellspacing="0" border="0" style="width:800px">&#13;
+<tbody>&#13;
+<tr>&#13;
+<td valign="top" width="185">&#13;
+<p align="center"><strong><span style="font-family:Microsoft YaHei; font-size:14px">区标志</span></strong></p>&#13;
+</td>&#13;
+<td valign="top" width="615">&#13;
+<p align="center"><strong><span style="font-family:Microsoft YaHei; font-size:14px">描述</span></strong></p>&#13;
+</td>&#13;
+</tr>&#13;
+<tr>&#13;
+<td valign="top" width="185"><span style="font-family:Microsoft YaHei; font-size:14px">__GFP_DMA</span></td>&#13;
+<td valign="top" width="615"><span style="font-family:Microsoft YaHei; font-size:14px">从 ZONE_DMA 分配</span></td>&#13;
+</tr>&#13;
+<tr>&#13;
+<td valign="top" width="185"><span style="font-family:Microsoft YaHei; font-size:14px">__GFP_DMA32</span></td>&#13;
+<td valign="top" width="615"><span style="font-family:Microsoft YaHei; font-size:14px">只在 ZONE_DMA32 分配 ，和 ZONE_DMA 类似，该区包含的页也可以进行DMA操作</span></td>&#13;
+</tr>&#13;
+<tr>&#13;
+<td valign="top" width="185"><span style="font-family:Microsoft YaHei; font-size:14px">__GFP_HIGHMEM</span></td>&#13;
+<td valign="top" width="615"><span style="font-family:Microsoft YaHei; font-size:14px">从 ZONE_HIGHMEM 或者 ZONE_NORMAL 分配，优先从 ZONE_HIGHMEM 分配，如果 ZONE_HIGHMEM 没有多余的页则从 ZONE_NORMAL 分配</span></td>&#13;
+</tr>&#13;
+</tbody>&#13;
+</table>&#13;
+<p><span style="font-family:Microsoft YaHei; font-size:14px">类型标志是编程中最常用的，在使用标志时，应首先看看类型标志中是否有合适的，如果没有，再去自己组合 行为标志和区标志。</span></p>&#13;
+<table height="1065" width="628" cellpadding="2" cellspacing="0" border="0">&#13;
+<tbody>&#13;
+<tr>&#13;
+<td valign="top" width="139">&#13;
+<p align="center"><strong><span style="font-family:Microsoft YaHei; font-size:14px">类型标志</span></strong></p>&#13;
+</td>&#13;
+<td valign="top" width="455">&#13;
+<p align="center"><strong><span style="font-family:Microsoft YaHei; font-size:14px">描述</span></strong><br />&#13;
+</p>&#13;
+</td>&#13;
+<td valign="top" width="619">&#13;
+<p align="center"><strong><span style="font-family:Microsoft YaHei; font-size:14px"><strong><span style="font-family:Microsoft YaHei; font-size:14px">实际标志</span></strong></span></strong></p>&#13;
+</td>&#13;
+</tr>&#13;
+<tr>&#13;
+<td valign="top" width="139"><span style="font-family:Microsoft YaHei; font-size:14px">GFP_ATOMIC</span></td>&#13;
+<td valign="top" width="455"><span style="font-family:Microsoft YaHei; font-size:14px"> <span style="font-family:Microsoft YaHei; font-size:14px">这个标志用在中断处理程序，下半部，持有自旋锁以及其他不能睡眠的地方</span></span></td>&#13;
+<td valign="top" width="619"><span style="font-family:Microsoft YaHei; font-size:14px">__GFP_HIGH</span></td>&#13;
+</tr>&#13;
+<tr>&#13;
+<td valign="top" width="139"><span style="font-family:Microsoft YaHei; font-size:14px">GFP_NOWAIT</span></td>&#13;
+<td valign="top" width="455"><span style="font-family:Microsoft YaHei; font-size:14px"><span style="font-family:Microsoft YaHei; font-size:14px">与 GFP_ATOMIC 类似，不同之处在于，调用不会退给紧急内存池。</span><br />&#13;
+<span style="font-family:Microsoft YaHei; font-size:14px">这就增加了内存分配失败的可能性</span></span></td>&#13;
+<td valign="top" width="619"><span style="font-family:Microsoft YaHei; font-size:14px"></span><span style="font-family:Microsoft YaHei; font-size:14px">0<br />&#13;
+</span></td>&#13;
+</tr>&#13;
+<tr>&#13;
+<td valign="top" width="139"><span style="font-family:Microsoft YaHei; font-size:14px">GFP_NOIO</span></td>&#13;
+<td valign="top" width="455"><span style="font-family:Microsoft YaHei; font-size:14px"><span style="font-family:Microsoft YaHei; font-size:14px">这种分配可以阻塞，但不会启动磁盘I/O。</span><br />&#13;
+<span style="font-family:Microsoft YaHei; font-size:14px">这个标志在不能引发更多磁盘I/O时能阻塞I/O代码，可能会导致递归</span></span></td>&#13;
+<td valign="top" width="619"><span style="font-family:Microsoft YaHei; font-size:14px"></span><span style="font-family:Microsoft YaHei; font-size:14px">__GFP_WAIT<br />&#13;
+</span></td>&#13;
+</tr>&#13;
+<tr>&#13;
+<td valign="top" width="139"><span style="font-family:Microsoft YaHei; font-size:14px">GFP_NOFS</span></td>&#13;
+<td valign="top" width="455"><span style="font-family:Microsoft YaHei; font-size:14px"><span style="font-family:Microsoft YaHei; font-size:14px">这种分配在必要时可能阻塞，也可能启动磁盘I/O，但不会启动文件系统操作。</span><br />&#13;
+<span style="font-family:Microsoft YaHei; font-size:14px">这个标志在你不能再启动另一个文件系统的操作时，用在文件系统部分的代码中</span></span></td>&#13;
+<td valign="top" width="619"><span style="font-family:Microsoft YaHei; font-size:14px"></span><span style="font-family:Microsoft YaHei; font-size:14px">(__GFP_WAIT<br />&#13;
+｜ __GFP_IO)  <br />&#13;
+</span></td>&#13;
+</tr>&#13;
+<tr>&#13;
+<td valign="top" width="139"><span style="font-family:Microsoft YaHei; font-size:14px">GFP_KERNEL</span></td>&#13;
+<td valign="top" width="455"><span style="font-family:Microsoft YaHei; font-size:14px"><span style="font-family:Microsoft YaHei; font-size:14px">这是常规的分配方式，可能会阻塞。这个标志在睡眠安全时用在进程上下文代码中。</span><br />&#13;
+<span style="font-family:Microsoft YaHei; font-size:14px">为了获得调用者所需的内存，内核会尽力而为。这个标志应当为首选标志</span></span></td>&#13;
+<td valign="top" width="619"><span style="font-family:Microsoft YaHei; font-size:14px"></span><span style="font-family:Microsoft YaHei; font-size:14px">(__GFP_WAIT<br />&#13;
+｜ __GFP_IO <br />&#13;
+｜ __GFP_FS ) </span></td>&#13;
+</tr>&#13;
+<tr>&#13;
+<td valign="top" width="139"><span style="font-family:Microsoft YaHei; font-size:14px">GFP_USER</span></td>&#13;
+<td valign="top" width="455"><span style="font-family:Microsoft YaHei; font-size:14px"><span style="font-family:Microsoft YaHei; font-size:14px">这是常规的分配方式，可能会阻塞。用于为用户空间进程分配内存时</span></span></td>&#13;
+<td valign="top" width="619"><span style="font-family:Microsoft YaHei; font-size:14px">(__GFP_WAIT<br />&#13;
+｜ __GFP_IO <br />&#13;
+｜ __GFP_FS ) <br />&#13;
+</span></td>&#13;
+</tr>&#13;
+<tr>&#13;
+<td valign="top" width="139"><span style="font-family:Microsoft YaHei; font-size:14px">GFP_HIGHUSER</span></td>&#13;
+<td valign="top" width="455"><span style="font-family:Microsoft YaHei; font-size:14px"><span style="font-family:Microsoft YaHei; font-size:14px">从 ZONE_HIGHMEM 进行分配，可能会阻塞。用于为用户空间进程分配内存</span></span></td>&#13;
+<td valign="top" width="619"><span style="font-family:Microsoft YaHei; font-size:14px">(__GFP_WAIT<br />&#13;
+｜ __GFP_IO <br />&#13;
+｜ __GFP_FS )<br />&#13;
+｜__GFP_HIGHMEM) </span></td>&#13;
+</tr>&#13;
+<tr>&#13;
+<td valign="top" width="139"><span style="font-family:Microsoft YaHei; font-size:14px">GFP_DMA</span></td>&#13;
+<td valign="top" width="455"><span style="font-family:Microsoft YaHei; font-size:14px"><span style="font-family:Microsoft YaHei; font-size:14px">从 ZONE_DMA 进行分配。需要获取能供DMA使用的内存的设备驱动程序使用这个标志</span><br />&#13;
+<span style="font-family:Microsoft YaHei; font-size:14px">通常与以上的某个标志组合在一起使用。</span></span></td>&#13;
+<td valign="top" width="619"><span style="font-family:Microsoft YaHei; font-size:14px"></span><span style="font-family:Microsoft YaHei; font-size:14px">__GFP_DMA<br />&#13;
+</span></td>&#13;
+</tr>&#13;
+</tbody>&#13;
+</table>&#13;
+<p><span style="font-family:Microsoft YaHei; font-size:14px">以上各种类型标志的使用场景总结：</span></p>&#13;
+<table cellpadding="2" cellspacing="0" border="0" style="width:800px">&#13;
+<tbody>&#13;
+<tr>&#13;
+<td valign="top" width="254">&#13;
+<p align="center"><strong><span style="font-family:Microsoft YaHei; font-size:14px">场景</span></strong></p>&#13;
+</td>&#13;
+<td valign="top" width="546">&#13;
+<p align="center"><strong><span style="font-family:Microsoft YaHei; font-size:14px">相应标志</span></strong></p>&#13;
+</td>&#13;
+</tr>&#13;
+<tr>&#13;
+<td valign="top" width="254"><span style="font-family:Microsoft YaHei; font-size:14px">进程上下文，可以睡眠</span></td>&#13;
+<td valign="top" width="546"><span style="font-family:Microsoft YaHei; font-size:14px">使用 GFP_KERNEL</span></td>&#13;
+</tr>&#13;
+<tr>&#13;
+<td valign="top" width="254"><span style="font-family:Microsoft YaHei; font-size:14px">进程上下文，不可以睡眠</span></td>&#13;
+<td valign="top" width="546"><span style="font-family:Microsoft YaHei; font-size:14px">使用 GFP_ATOMIC，在睡眠之前或之后以 GFP_KERNEL 执行内存分配</span></td>&#13;
+</tr>&#13;
+<tr>&#13;
+<td valign="top" width="254"><span style="font-family:Microsoft YaHei; font-size:14px">中断处理程序</span></td>&#13;
+<td valign="top" width="546"><span style="font-family:Microsoft YaHei; font-size:14px">使用 GFP_ATOMIC</span></td>&#13;
+</tr>&#13;
+<tr>&#13;
+<td valign="top" width="254"><span style="font-family:Microsoft YaHei; font-size:14px">软中断</span></td>&#13;
+<td valign="top" width="546"><span style="font-family:Microsoft YaHei; font-size:14px">使用 GFP_ATOMIC</span></td>&#13;
+</tr>&#13;
+<tr>&#13;
+<td valign="top" width="254"><span style="font-family:Microsoft YaHei; font-size:14px">tasklet</span></td>&#13;
+<td valign="top" width="546"><span style="font-family:Microsoft YaHei; font-size:14px">使用 GFP_ATOMIC</span></td>&#13;
+</tr>&#13;
+<tr>&#13;
+<td valign="top" width="254"><span style="font-family:Microsoft YaHei; font-size:14px">需要用于DMA的内存，可以睡眠</span></td>&#13;
+<td valign="top" width="546"><span style="font-family:Microsoft YaHei; font-size:14px">使用 (GFP_DMA｜GFP_KERNEL)</span></td>&#13;
+</tr>&#13;
+<tr>&#13;
+<td valign="top" width="254"><span style="font-family:Microsoft YaHei; font-size:14px">需要用于DMA的内存，不可以睡眠</span></td>&#13;
+<td valign="top" width="546"><span style="font-family:Microsoft YaHei; font-size:14px">使用 (GFP_DMA｜GFP_ATOMIC)，或者在睡眠之前执行内存分配</span></td>&#13;
+</tr>&#13;
+</tbody>&#13;
+</table>&#13;
+<p><span style="font-family:Microsoft YaHei; font-size:14px">kmalloc  所对应的释放内存的方法为：</span></p>&#13;
+<pre><span style="color:#0000ff">void</span> kfree(<span style="color:#0000ff">const</span> <span style="color:#0000ff">void</span> *<span style="color:#000000">)；</span></pre>&#13;
+<div><span style="font-family:微软雅黑"><span style="font-family:Microsoft YaHei; font-size:14px">vmalloc()也可以按字节来分配内存。</span><br />&#13;
+</span>&#13;
+<pre><span style="color:#0000ff">void</span> *vmalloc(unsigned <span style="color:#0000ff">long</span> size)</pre>&#13;
+<div><span style="font-family:Microsoft YaHei; font-size:14px">和kmalloc是一样的作用，不同在于前者分配的内存虚拟地址是连续的，而物理地址则无需连续。</span><span style="font-family:微软雅黑"><span style="font-family:Microsoft YaHei; font-size:14px">kmalloc()可以保证在物理地址上都是连续的，虚拟地址当然也是连续的。</span><span style="font-family:Microsoft YaHei; font-size:14px">vmalloc()函数只确保页在虚拟机地址空间内是连续的。它通过分配非联系的物理内存块，再“修正”页表，把内存映射到逻辑地址空间的连续区域中，就能做到这点。但很显然这样会降低处理性能，因为内核不得不做“拼接”的工作。所以这也是为什么不得已才使用&#13;
+ vmalloc()的原因</span></span> <span style="font-family:Microsoft YaHei; font-size:14px">&#13;
+。</span> <span style="font-family:Microsoft YaHei; font-size:14px">vmalloc()可能睡眠，不能从中断上下文中进行调用，也不能从其他不允许阻塞的情况下进行调用。释放时必须使用vfree()</span><span style="font-family:Microsoft YaHei; font-size:14px">。</span>&#13;
+<br />&#13;
+<pre><span style="color:#0000ff">void</span> vfree(<span style="color:#0000ff">const</span> <span style="color:#0000ff">void</span> *)；
+
+</pre>&#13;
+<p style="margin-bottom:0in"><span style="font-family:'AR PL UMing HK'"><span lang="zh-CN" xml:lang="zh-CN"><span><span style="font-family:Microsoft YaHei; font-size:14px">        </span><span style="font-family:Microsoft YaHei; font-size:14px"><span lang="zh-CN" style="font-size:14px; font-family:Microsoft YaHei" xml:lang="zh-CN"><span style="font-size:14px; font-family:Microsoft YaHei"><span style="font-family:Microsoft YaHei; font-size:14px"><span lang="zh-CN" style="font-size:14px; font-family:Microsoft YaHei" xml:lang="zh-CN"><span style="font-family:Microsoft YaHei; font-size:14px"><span style="font-family:Microsoft YaHei; font-size:14px"><span style="font-family:Microsoft YaHei; font-size:14px">对于内存页面的管理，通常是先在虚存空间中分配一个虚存区间，然后才根据需要为此区间分配相应的物理页面并建立起映射，也就是说，虚存区间的分配在前，而物理页面的分配在后。</span></span></span></span></span></span></span></span><span style="font-family:Microsoft YaHei; font-size:14px">但由于</span><span style="font-family:Microsoft YaHei; font-size:14px">频繁的请求和释放不同大小的连续页框，必然导致在已分配页框的块内分散了许多小块的空闲页框，</span><span style="font-family:Microsoft YaHei; font-size:14px">由此产生的问题是：即使有足够的空闲页框可以满足请求，但当要分配一个大块的连续页框时，无法满足请求。这就是著名的内存管理问题：外碎片问题。</span><span style="font-family:Microsoft YaHei; font-size:14px">Linux</span><span style="font-family:Microsoft YaHei; font-size:14px">采用著名的伙伴（</span><span style="font-family:Microsoft YaHei; font-size:14px">Buddy</span><span style="font-family:Microsoft YaHei; font-size:14px">）系统算法来解决外碎片问题。</span></span></span></span></p>&#13;
+<p style="margin-bottom:0in"><span style="font-family:Microsoft YaHei; font-size:14px"><span lang="zh-CN" style="font-family:Microsoft YaHei; font-size:14px" xml:lang="zh-CN"><span style="font-family:Microsoft YaHei; font-size:14px">     </span></span></span><span style="font-family:'AR PL UMing HK'"><span lang="zh-CN" xml:lang="zh-CN"><span><span style="font-family:Microsoft YaHei; font-size:14px">  </span><span style="font-family:Microsoft YaHei; font-size:14px">&#13;
+ 把所有的空闲页框分组为</span></span></span></span><span style="font-family:Microsoft YaHei; font-size:14px">11</span><span style="font-family:Microsoft YaHei; font-size:14px"><span lang="zh-CN" style="font-family:Microsoft YaHei; font-size:14px" xml:lang="zh-CN"><span style="font-family:Microsoft YaHei; font-size:14px">个块链表。每个块链表包含大小为</span></span></span><span style="font-family:Microsoft YaHei; font-size:14px">1,2,4,8,16,32,64,128,256,512</span><span style="font-family:Microsoft YaHei; font-size:14px"><span lang="zh-CN" style="font-family:Microsoft YaHei; font-size:14px" xml:lang="zh-CN"><span style="font-family:Microsoft YaHei; font-size:14px">，</span></span></span><span style="font-family:Microsoft YaHei; font-size:14px">1024</span><span style="font-family:Microsoft YaHei; font-size:14px"><span lang="zh-CN" style="font-family:Microsoft YaHei; font-size:14px" xml:lang="zh-CN"><span style="font-family:Microsoft YaHei; font-size:14px">个的页框</span></span></span><span style="font-family:'AR PL UMing HK'"><span lang="zh-CN" xml:lang="zh-CN"><span><span style="font-family:Microsoft YaHei; font-size:14px"><span lang="zh-CN" style="font-family:Microsoft YaHei; font-size:14px" xml:lang="zh-CN"><span style="font-family:Microsoft YaHei; font-size:14px">。</span></span></span><span style="font-family:'AR PL UMing HK'"><span lang="zh-CN" xml:lang="zh-CN"><span></span></span></span><span style="font-family:Microsoft YaHei; font-size:14px">伙伴系统算法原理为：</span></span></span></span></p>&#13;
+<p style="margin-bottom:0in"><span style="font-family:'AR PL UMing HK'"><span lang="zh-CN" xml:lang="zh-CN"><span></span></span></span></p>&#13;
+<p style="margin-bottom:0in"><span style="font-family:'AR PL UMing HK'"><span lang="zh-CN" xml:lang="zh-CN"><span><span style="font-family:Microsoft YaHei; font-size:14px">        </span><span style="font-family:Microsoft YaHei; font-size:14px">假设请求一个</span></span></span></span><span style="font-family:Microsoft YaHei; font-size:14px">256</span><span style="font-family:Microsoft YaHei; font-size:14px"><span lang="zh-CN" style="font-family:Microsoft YaHei; font-size:14px" xml:lang="zh-CN"><span style="font-family:Microsoft YaHei; font-size:14px">个页框的块，先在</span></span></span><span style="font-family:Microsoft YaHei; font-size:14px">256</span><span style="font-family:Microsoft YaHei; font-size:14px"><span lang="zh-CN" style="font-family:Microsoft YaHei; font-size:14px" xml:lang="zh-CN"><span style="font-family:Microsoft YaHei; font-size:14px">个页框的链表内检查是否有一个空闲的块。如果没有这样的块，算法会查找下一个更大的块，在</span></span></span><span style="font-family:Microsoft YaHei; font-size:14px">512</span><span style="font-family:Microsoft YaHei; font-size:14px"><span lang="zh-CN" style="font-family:Microsoft YaHei; font-size:14px" xml:lang="zh-CN"><span style="font-family:Microsoft YaHei; font-size:14px">个页框的链表中找一个空闲块。如果存在这样的块，内核就把</span></span></span><span style="font-family:Microsoft YaHei; font-size:14px">512</span><span style="font-family:Microsoft YaHei; font-size:14px"><span lang="zh-CN" style="font-family:Microsoft YaHei; font-size:14px" xml:lang="zh-CN"><span style="font-family:Microsoft YaHei; font-size:14px">的页框分成两半，一半用作满足请求，另一半插入</span></span></span><span style="font-family:Microsoft YaHei; font-size:14px">256</span><span style="font-family:Microsoft YaHei; font-size:14px"><span lang="zh-CN" style="font-family:Microsoft YaHei; font-size:14px" xml:lang="zh-CN"><span style="font-family:Microsoft YaHei; font-size:14px">个页框的链表中。如果</span></span></span><span style="font-family:Microsoft YaHei; font-size:14px">512</span><span style="font-family:Microsoft YaHei; font-size:14px"><span lang="zh-CN" style="font-family:Microsoft YaHei; font-size:14px" xml:lang="zh-CN"><span style="font-family:Microsoft YaHei; font-size:14px">个页框的块链表也没有空闲块，就继续找更大的块，</span></span></span><span style="font-family:Microsoft YaHei; font-size:14px">1024</span><span style="font-family:Microsoft YaHei; font-size:14px"><span lang="zh-CN" style="font-family:Microsoft YaHei; font-size:14px" xml:lang="zh-CN"><span style="font-family:Microsoft YaHei; font-size:14px">个页框的块。如果这样的块存在，内核把</span></span></span><span style="font-family:Microsoft YaHei; font-size:14px">1024</span><span style="font-family:Microsoft YaHei; font-size:14px"><span lang="zh-CN" style="font-family:Microsoft YaHei; font-size:14px" xml:lang="zh-CN"><span style="font-family:Microsoft YaHei; font-size:14px">个页框的</span></span></span><span style="font-family:Microsoft YaHei; font-size:14px">256</span><span style="font-family:Microsoft YaHei; font-size:14px"><span lang="zh-CN" style="font-family:Microsoft YaHei; font-size:14px" xml:lang="zh-CN"><span style="font-family:Microsoft YaHei; font-size:14px">个页框用作请求，然后从剩余的</span></span></span><span style="font-family:Microsoft YaHei; font-size:14px">768</span><span style="font-family:Microsoft YaHei; font-size:14px"><span lang="zh-CN" style="font-family:Microsoft YaHei; font-size:14px" xml:lang="zh-CN"><span style="font-family:Microsoft YaHei; font-size:14px">个中拿出</span></span></span><span style="font-family:Microsoft YaHei; font-size:14px">512</span><span style="font-family:Microsoft YaHei; font-size:14px"><span lang="zh-CN" style="font-family:Microsoft YaHei; font-size:14px" xml:lang="zh-CN"><span style="font-family:Microsoft YaHei; font-size:14px">个插入</span></span></span><span style="font-family:Microsoft YaHei; font-size:14px">512</span><span style="font-family:Microsoft YaHei; font-size:14px"><span lang="zh-CN" style="font-family:Microsoft YaHei; font-size:14px" xml:lang="zh-CN"><span style="font-family:Microsoft YaHei; font-size:14px">个页框的链表中，把最后</span></span></span><span style="font-family:Microsoft YaHei; font-size:14px">256</span><span style="font-family:Microsoft YaHei; font-size:14px"><span lang="zh-CN" style="font-family:Microsoft YaHei; font-size:14px" xml:lang="zh-CN"><span style="font-family:Microsoft YaHei; font-size:14px">个插入</span></span></span><span style="font-family:Microsoft YaHei; font-size:14px">256</span><span style="font-family:Microsoft YaHei; font-size:14px"><span lang="zh-CN" style="font-family:Microsoft YaHei; font-size:14px" xml:lang="zh-CN"><span style="font-family:Microsoft YaHei; font-size:14px">个页框的链表中。</span></span></span></p>&#13;
+<p style="margin-bottom:0in"><span style="font-family:Microsoft YaHei; font-size:14px"><span lang="zh-CN" style="font-family:Microsoft YaHei; font-size:14px" xml:lang="zh-CN"><span style="font-family:Microsoft YaHei; font-size:14px">页框块的释放过程如下：</span></span></span></p>&#13;
+<p style="margin-bottom:0in"><span style="font-family:'AR PL UMing HK'"><span lang="zh-CN" xml:lang="zh-CN"><span></span></span></span></p>&#13;
+<p style="margin-bottom:0in"><span style="font-family:Microsoft YaHei; font-size:14px"><span lang="zh-CN" style="font-family:Microsoft YaHei; font-size:14px" xml:lang="zh-CN"><span style="font-family:Microsoft YaHei; font-size:14px">如果两个块具有相同的大小：a</span></span></span><span style="font-family:Microsoft YaHei; font-size:14px">，</span><span style="font-family:'AR PL UMing HK'"><span lang="zh-CN" xml:lang="zh-CN"><span><span style="font-family:Microsoft YaHei; font-size:14px">并且</span><span style="font-family:Microsoft YaHei; font-size:14px">他们的物理地址连续</span></span></span></span><span style="font-family:'AR PL UMing HK'"><span lang="zh-CN" xml:lang="zh-CN"><span><span style="font-family:Microsoft YaHei; font-size:14px">那么这两个块</span><span style="font-family:'AR PL UMing HK'"><span lang="zh-CN" xml:lang="zh-CN"><span><span style="font-family:Microsoft YaHei; font-size:14px">成为伙伴，</span><span style="font-family:Microsoft YaHei; font-size:14px"><span lang="zh-CN" style="font-family:Microsoft YaHei; font-size:14px" xml:lang="zh-CN"><span style="font-family:Microsoft YaHei; font-size:14px">内核就会试图把大小为</span></span></span><span style="font-family:Microsoft YaHei; font-size:14px">a</span><span style="font-family:Microsoft YaHei; font-size:14px"><span lang="zh-CN" style="font-family:Microsoft YaHei; font-size:14px" xml:lang="zh-CN"><span style="font-family:Microsoft YaHei; font-size:14px">的一对空闲伙伴块合并为一个大小为</span></span></span><span style="font-family:Microsoft YaHei; font-size:14px">2a</span><span style="font-family:Microsoft YaHei; font-size:14px"><span lang="zh-CN" style="font-family:Microsoft YaHei; font-size:14px" xml:lang="zh-CN"><span style="font-family:Microsoft YaHei; font-size:14px">的单独块。该算法还是迭代的，如果合并成功的话，它还会试图合并2a的块。</span></span></span></span></span></span></span></span></span><span style="font-family:'AR PL UMing HK'"><span lang="zh-CN" xml:lang="zh-CN"><span></span></span></span></p>&#13;
+<br />&#13;
+<p><span style="font-family:Microsoft YaHei; font-size:14px">管理分区数据结构</span><span style="font-family:Microsoft YaHei; font-size:14px">struct zone_struct</span><span style="font-family:Microsoft YaHei; font-size:14px">中，涉及到空闲区数据结构。</span></p>&#13;
+<pre name="code" class="cpp">struct free_area    free_area[MAX_ORDER];
+
+struct free_area {
+ struct list_head    free_list[MIGRATE_TYPES];
+ unsigned long        nr_free; 
+};</pre>&#13;
+<p><span style="font-family:'AR PL UMing HK'"><span lang="zh-CN" xml:lang="zh-CN"><span></span></span></span><span style="font-family:Microsoft YaHei; font-size:14px"><span style="font-family:Microsoft YaHei; font-size:14px">        采用伙伴</span></span><span style="font-family:宋体; font-size:14px"><span style="font-family:Microsoft YaHei; font-size:14px">算法分配内存时，每次至少分配一个页面。但当请求分配的内存大小为几十个字节或几百个字节时应该如何处理？如何在一个页面中分配小的内存区，小内存区的分配所产生的内碎片又如何解决？</span><span style="font-family:Microsoft YaHei; font-size:14px">slab</span><span style="font-family:Microsoft YaHei; font-size:14px">的分配模式</span><span style="font-family:Microsoft YaHei; font-size:14px">可以解决该问题，下一节我们将开始</span><span style="font-family:Microsoft YaHei; font-size:14px">分析</span><span style="font-family:Microsoft YaHei; font-size:14px"><span style="font-family:Microsoft YaHei; font-size:14px">slab</span></span><span style="font-family:Microsoft YaHei; font-size:14px">分配器</span><span style="font-family:Microsoft YaHei; font-size:14px">。</span></span></p>&#13;
+</div>&#13;
+</div>&#13;
+</div>&#13;
+</div>&#13;
+</div>&#13;
+</div>&#13;
+</div>&#13;
+</div>&#13;
+<br />&#13;
+   &#13;

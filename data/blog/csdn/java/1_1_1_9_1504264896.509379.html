@@ -1,0 +1,299 @@
+
+        <div class="markdown_views"><p>如果你使用的Maven开发，你只需在pom.xml文件中加入如下依赖：</p>
+
+
+
+<pre class="prettyprint"><code class=" hljs xml"><span class="hljs-tag">&lt;<span class="hljs-title">dependency</span>&gt;</span>
+    <span class="hljs-tag">&lt;<span class="hljs-title">groupId</span>&gt;</span>com.github.abel533<span class="hljs-tag">&lt;/<span class="hljs-title">groupId</span>&gt;</span>
+    <span class="hljs-tag">&lt;<span class="hljs-title">artifactId</span>&gt;</span>mapper<span class="hljs-tag">&lt;/<span class="hljs-title">artifactId</span>&gt;</span>
+    <span class="hljs-tag">&lt;<span class="hljs-title">version</span>&gt;</span>2.3.4<span class="hljs-tag">&lt;/<span class="hljs-title">version</span>&gt;</span>
+<span class="hljs-tag">&lt;/<span class="hljs-title">dependency</span>&gt;</span></code></pre>
+
+<p>如果你想导入架包：下面是连接，由于Mapper依赖JPA你还得下载JPA的架包</p>
+
+<p><a href="http://repo1.maven.org/maven2/com/github/abel533/mapper/">Mapper</a> <br />
+<a href="http://repo1.maven.org/maven2/javax/persistence/persistence-api/1.0/">JPA</a></p>
+
+<p>下面是集成通用Mapper的几种方式：</p>
+
+<p><strong>①Java 编码方式</strong></p>
+
+<p>对于单独使用Mybatis，通过如下方式创建sqlSessionFactory:</p>
+
+<pre class="prettyprint"><code class=" hljs avrasm">Reader reader = Resources<span class="hljs-preprocessor">.getResourceAsReader</span>(<span class="hljs-string">"mybatis-config.xml"</span>)<span class="hljs-comment">;</span>
+sqlSessionFactory = new SqlSessionFactoryBuilder()<span class="hljs-preprocessor">.build</span>(reader)<span class="hljs-comment">;</span>
+reader<span class="hljs-preprocessor">.close</span>()<span class="hljs-comment">;</span></code></pre>
+
+<p>使用直接的JAVA编码方式，可以在初始化sqlSessionFactory的地方按照下面的方式操作：</p>
+
+
+
+<pre class="prettyprint"><code class=" hljs avrasm">/从上面的sqlSessionFactory取出一个session
+session = sqlSessionFactory<span class="hljs-preprocessor">.openSession</span>()<span class="hljs-comment">;</span>
+//创建一个MapperHelper
+MapperHelper mapperHelper = new MapperHelper()<span class="hljs-comment">;</span>
+// 设置UUID生成策略
+// 配置UUID生成策略需要使用OGNL表达式
+// 默认值<span class="hljs-number">32</span>位长度:@java<span class="hljs-preprocessor">.util</span><span class="hljs-preprocessor">.UUID</span>@randomUUID()<span class="hljs-preprocessor">.toString</span>()<span class="hljs-preprocessor">.replace</span>(<span class="hljs-string">"-"</span>, <span class="hljs-string">""</span>)
+mapperHelper<span class="hljs-preprocessor">.setUUID</span>(<span class="hljs-string">""</span>)<span class="hljs-comment">;</span>
+// 主键自增回写方法,默认值MYSQL,详细说明请看文档
+mapperHelper<span class="hljs-preprocessor">.setIDENTITY</span>(<span class="hljs-string">"HSQLDB"</span>)<span class="hljs-comment">;</span>
+// 序列的获取规则,使用{num}格式化参数，默认值为{<span class="hljs-number">0</span>}<span class="hljs-preprocessor">.nextval</span>，针对Oracle
+// 可选参数一共<span class="hljs-number">3</span>个，对应<span class="hljs-number">0</span>,<span class="hljs-number">1</span>,<span class="hljs-number">2</span>,分别为SequenceName，ColumnName, PropertyName
+mapperHelper<span class="hljs-preprocessor">.setSeqFormat</span>(<span class="hljs-string">"NEXT VALUE FOR {0}"</span>)<span class="hljs-comment">;</span>
+// 设置全局的catalog,默认为空，如果设置了值，操作表时的sql会是catalog<span class="hljs-preprocessor">.tablename</span>
+mapperHelper<span class="hljs-preprocessor">.setCatalog</span>(<span class="hljs-string">""</span>)<span class="hljs-comment">;</span>
+// 设置全局的schema,默认为空，如果设置了值，操作表时的sql会是schema<span class="hljs-preprocessor">.tablename</span>
+// 如果同时设置了catalog,优先使用catalog<span class="hljs-preprocessor">.tablename</span>
+mapperHelper<span class="hljs-preprocessor">.setSchema</span>(<span class="hljs-string">""</span>)<span class="hljs-comment">;</span>
+// 主键自增回写方法执行顺序,默认AFTER,可选值为(BEFORE|AFTER)
+mapperHelper<span class="hljs-preprocessor">.setOrder</span>(<span class="hljs-string">"AFTER"</span>)<span class="hljs-comment">;</span>
+// 注册通用Mapper接口
+mapperHelper<span class="hljs-preprocessor">.registerMapper</span>(Mapper<span class="hljs-preprocessor">.class</span>)<span class="hljs-comment">;</span>
+mapperHelper<span class="hljs-preprocessor">.registerMapper</span>(HsqldbMapper<span class="hljs-preprocessor">.class</span>)<span class="hljs-comment">;</span>
+//配置完成后，执行下面的操作
+mapperHelper<span class="hljs-preprocessor">.processConfiguration</span>(session<span class="hljs-preprocessor">.getConfiguration</span>())<span class="hljs-comment">;</span>
+//OK - mapperHelper的任务已经完成，可以不管了</code></pre>
+
+<p>上面配置参数的时候，是一个个调用set方法进行的，你还可以使用MapperHelper的MapperHelper(Properties properties)构造方法，或者调用setProperties(properties)方法，通过.properties配置文件来配置。 <br />
+如果你的情况适用于这种方式，推荐你用JAVA编码的方式处理。</p>
+
+<p><strong>②mybatis.config.xml配置插件的方式</strong></p>
+
+<p>在mybatis-config.xml中添加如下配置:</p>
+
+
+
+<pre class="prettyprint"><code class=" hljs xml">    <span class="hljs-tag">&lt;<span class="hljs-title">plugins</span>&gt;</span>
+
+        <span class="hljs-comment">&lt;!-- 通用mapper --&gt;</span>
+        <span class="hljs-tag">&lt;<span class="hljs-title">plugin</span> <span class="hljs-attribute">interceptor</span>=<span class="hljs-value">"com.github.abel533.mapperhelper.MapperInterceptor"</span>&gt;</span>
+            <span class="hljs-comment">&lt;!--主键自增回写方法,默认值MYSQL,详细说明请看文档--&gt;</span>
+            <span class="hljs-tag">&lt;<span class="hljs-title">property</span> <span class="hljs-attribute">value</span>=<span class="hljs-value">"MYSQL"</span> <span class="hljs-attribute">name</span>=<span class="hljs-value">"IDENTITY"</span>/&gt;</span>
+            <span class="hljs-comment">&lt;!--通用Mapper接口，多个通用接口用逗号隔开--&gt;</span>
+            <span class="hljs-tag">&lt;<span class="hljs-title">property</span> <span class="hljs-attribute">value</span>=<span class="hljs-value">"com.github.abel533.mapper.Mapper"</span> <span class="hljs-attribute">name</span>=<span class="hljs-value">"mappers"</span>/&gt;</span>
+        <span class="hljs-tag">&lt;/<span class="hljs-title">plugin</span>&gt;</span>
+
+    <span class="hljs-tag">&lt;/<span class="hljs-title">plugins</span>&gt;</span></code></pre>
+
+<p><strong>③和Spring集成</strong></p>
+
+
+
+<pre class="prettyprint"><code class=" hljs xml"><span class="hljs-tag">&lt;<span class="hljs-title">bean</span> <span class="hljs-attribute">class</span>=<span class="hljs-value">"com.github.abel533.mapperhelper.MapperHelper"</span>
+        <span class="hljs-attribute">depends-on</span>=<span class="hljs-value">"sqlSession"</span> <span class="hljs-attribute">init-method</span>=<span class="hljs-value">"initMapper"</span> <span class="hljs-attribute">scope</span>=<span class="hljs-value">"singleton"</span> <span class="hljs-attribute">lazy-init</span>=<span class="hljs-value">"false"</span>&gt;</span>
+    <span class="hljs-tag">&lt;<span class="hljs-title">property</span> <span class="hljs-attribute">name</span>=<span class="hljs-value">"mappers"</span>&gt;</span>
+        <span class="hljs-tag">&lt;<span class="hljs-title">array</span>&gt;</span>
+            <span class="hljs-comment">&lt;!-- 可以配置多个 --&gt;</span>
+            <span class="hljs-tag">&lt;<span class="hljs-title">value</span>&gt;</span>com.isea533.mybatis.mapper.Mapper<span class="hljs-tag">&lt;/<span class="hljs-title">value</span>&gt;</span>
+        <span class="hljs-tag">&lt;/<span class="hljs-title">array</span>&gt;</span>
+    <span class="hljs-tag">&lt;/<span class="hljs-title">property</span>&gt;</span>
+    <span class="hljs-comment">&lt;!-- 对于多数据源，这里也可以像上面这样配置多个 --&gt;</span>
+    <span class="hljs-tag">&lt;<span class="hljs-title">property</span> <span class="hljs-attribute">name</span>=<span class="hljs-value">"sqlSessions"</span> <span class="hljs-attribute">ref</span>=<span class="hljs-value">"sqlSession"</span>/&gt;</span>
+<span class="hljs-tag">&lt;/<span class="hljs-title">bean</span>&gt;</span>
+</code></pre>
+
+<p>可以看到配置中依赖了sqlSession，所以使用这种方式，你还要在Spring的配置中保证sqlSession存在。一般情况下都会在Spring定义sqlSession。一般的定义方法如下：</p>
+
+
+
+<pre class="prettyprint"><code class=" hljs xml"><span class="hljs-tag">&lt;<span class="hljs-title">bean</span> <span class="hljs-attribute">id</span>=<span class="hljs-value">"sqlSession"</span> <span class="hljs-attribute">class</span>=<span class="hljs-value">"org.mybatis.spring.SqlSessionTemplate"</span> <span class="hljs-attribute">scope</span>=<span class="hljs-value">"prototype"</span>&gt;</span>
+    <span class="hljs-tag">&lt;<span class="hljs-title">constructor-arg</span> <span class="hljs-attribute">index</span>=<span class="hljs-value">"0"</span> <span class="hljs-attribute">ref</span>=<span class="hljs-value">"sqlSessionFactory"</span>/&gt;</span>
+<span class="hljs-tag">&lt;/<span class="hljs-title">bean</span>&gt;</span>
+</code></pre>
+
+<p>在Spring中使用这种方式的时候，Spring启动完成的时候，所有的通用Mapper都已经处理完成了。后面就可以直接使用通用方法，不需要拦截器来执行了。 <br />
+重要:目前和Spring集成的时候存在一个bug，这个bug产生的原因如下： <br />
+如果你的Mapper没有在项目启动的时候通过@Autowired注入到Service或者其他类中，那么这个Mapper是一个还没有注册到MybatisSqlSession中的Mapper,MapperHelper在启动过程中没有处理该Mapper，这就会导致dynamicSQL无法实例化一类的异常。 <br />
+这种情况只能使用拦截器处理，如果没有更好的解决版本，后面会恢复拦截器的方式。</p>
+
+<p><strong>④纯Spring方式</strong></p>
+
+
+
+<pre class="prettyprint"><code class=" hljs xml"><span class="hljs-tag">&lt;<span class="hljs-title">bean</span> <span class="hljs-attribute">id</span>=<span class="hljs-value">"sqlSessionFactory"</span> <span class="hljs-attribute">class</span>=<span class="hljs-value">"org.mybatis.spring.SqlSessionFactoryBean"</span>&gt;</span>
+  <span class="hljs-tag">&lt;<span class="hljs-title">property</span> <span class="hljs-attribute">name</span>=<span class="hljs-value">"dataSource"</span> <span class="hljs-attribute">ref</span>=<span class="hljs-value">"dataSource"</span>/&gt;</span>
+  <span class="hljs-tag">&lt;<span class="hljs-title">property</span> <span class="hljs-attribute">name</span>=<span class="hljs-value">"mapperLocations"</span>&gt;</span>
+    <span class="hljs-tag">&lt;<span class="hljs-title">array</span>&gt;</span>
+      <span class="hljs-tag">&lt;<span class="hljs-title">value</span>&gt;</span>classpath:mapper/*.xml<span class="hljs-tag">&lt;/<span class="hljs-title">value</span>&gt;</span>
+      <span class="hljs-tag">&lt;<span class="hljs-title">value</span>&gt;</span>classpath:com/isea533/mybatis/mapper/*.xml<span class="hljs-tag">&lt;/<span class="hljs-title">value</span>&gt;</span>
+    <span class="hljs-tag">&lt;/<span class="hljs-title">array</span>&gt;</span>
+  <span class="hljs-tag">&lt;/<span class="hljs-title">property</span>&gt;</span>
+  <span class="hljs-tag">&lt;<span class="hljs-title">property</span> <span class="hljs-attribute">name</span>=<span class="hljs-value">"typeAliasesPackage"</span> <span class="hljs-attribute">value</span>=<span class="hljs-value">"com.isea533.mybatis.model"</span>/&gt;</span>
+  <span class="hljs-tag">&lt;<span class="hljs-title">property</span> <span class="hljs-attribute">name</span>=<span class="hljs-value">"plugins"</span>&gt;</span>
+    <span class="hljs-tag">&lt;<span class="hljs-title">array</span>&gt;</span>
+      <span class="hljs-tag">&lt;<span class="hljs-title">bean</span> <span class="hljs-attribute">class</span>=<span class="hljs-value">"com.github.abel533.mapperhelper.MapperInterceptor"</span>&gt;</span>
+        <span class="hljs-tag">&lt;<span class="hljs-title">property</span> <span class="hljs-attribute">name</span>=<span class="hljs-value">"properties"</span>&gt;</span>
+          <span class="hljs-comment">&lt;!-- 属性一行一个，具体属性参考mybatis-config.xml中的属性 --&gt;</span>
+          <span class="hljs-tag">&lt;<span class="hljs-title">value</span>&gt;</span>
+            mappers=com.github.abel533.mapper.Mapper
+          <span class="hljs-tag">&lt;/<span class="hljs-title">value</span>&gt;</span>
+        <span class="hljs-tag">&lt;/<span class="hljs-title">property</span>&gt;</span>
+      <span class="hljs-tag">&lt;/<span class="hljs-title">bean</span>&gt;</span>
+    <span class="hljs-tag">&lt;/<span class="hljs-title">array</span>&gt;</span>
+  <span class="hljs-tag">&lt;/<span class="hljs-title">property</span>&gt;</span>
+<span class="hljs-tag">&lt;/<span class="hljs-title">bean</span>&gt;</span>
+</code></pre>
+
+<p>如果你同时使用了其他的插件，请将其他插件配置通用Mapper拦截器的下面。</p>
+
+<p>至此集成通用Mapper的方法结束，下面是简单的使用方法：</p>
+
+<p><strong>①继承通用的Mapper,必须指定泛型,例如：</strong></p>
+
+
+
+<pre class="prettyprint"><code class=" hljs axapta"><span class="hljs-keyword">public</span> <span class="hljs-class"><span class="hljs-keyword">interface</span> <span class="hljs-title">UserInfoMapper</span> <span class="hljs-inheritance"><span class="hljs-keyword">extends</span></span> <span class="hljs-title">Mapper</span>&lt;<span class="hljs-title">UserInfo</span>&gt; {</span>
+  <span class="hljs-comment">//其他必须手写的接口...</span>
+
+}
+一旦继承了Mapper&lt;T&gt;,继承的Mapper就拥有了以下通用的方法:
+<span class="hljs-comment">//根据实体类不为null的字段进行查询,条件全部使用=号and条件</span>
+List&lt;T&gt; select(T record);
+
+<span class="hljs-comment">//根据实体类不为null的字段查询总数,条件全部使用=号and条件</span>
+<span class="hljs-keyword">int</span> selectCount(T record);
+
+<span class="hljs-comment">//根据主键进行查询,必须保证结果唯一</span>
+<span class="hljs-comment">//单个字段做主键时,可以直接写主键的值</span>
+<span class="hljs-comment">//联合主键时,key可以是实体类,也可以是Map</span>
+T selectByPrimaryKey(Object key);
+
+<span class="hljs-comment">//插入一条数据</span>
+<span class="hljs-comment">//支持Oracle序列,UUID,类似Mysql的INDENTITY自动增长(自动回写)</span>
+<span class="hljs-comment">//优先使用传入的参数值,参数值空时,才会使用序列、UUID,自动增长</span>
+<span class="hljs-keyword">int</span> insert(T record);
+
+<span class="hljs-comment">//插入一条数据,只插入不为null的字段,不会影响有默认值的字段</span>
+<span class="hljs-comment">//支持Oracle序列,UUID,类似Mysql的INDENTITY自动增长(自动回写)</span>
+<span class="hljs-comment">//优先使用传入的参数值,参数值空时,才会使用序列、UUID,自动增长</span>
+<span class="hljs-keyword">int</span> insertSelective(T record);
+
+<span class="hljs-comment">//根据实体类中字段不为null的条件进行删除,条件全部使用=号and条件</span>
+<span class="hljs-keyword">int</span> delete(T key);
+
+<span class="hljs-comment">//通过主键进行删除,这里最多只会删除一条数据</span>
+<span class="hljs-comment">//单个字段做主键时,可以直接写主键的值</span>
+<span class="hljs-comment">//联合主键时,key可以是实体类,也可以是Map</span>
+<span class="hljs-keyword">int</span> deleteByPrimaryKey(Object key);
+
+<span class="hljs-comment">//根据主键进行更新,这里最多只会更新一条数据</span>
+<span class="hljs-comment">//参数为实体类</span>
+<span class="hljs-keyword">int</span> updateByPrimaryKey(T record);
+
+<span class="hljs-comment">//根据主键进行更新</span>
+<span class="hljs-comment">//只会更新不是null的数据</span>
+<span class="hljs-keyword">int</span> updateByPrimaryKeySelective(T record);
+
+<span class="hljs-comment">//根据Exmaple条件查询总数</span>
+<span class="hljs-keyword">int</span> selectCountByExample(Object example);
+
+<span class="hljs-comment">//根据Exmaple条件删除</span>
+<span class="hljs-keyword">int</span> deleteByExample(Object example);
+
+<span class="hljs-comment">//根据Exmaple条件查询</span>
+List&lt;T&gt; selectByExample(Object example);
+
+<span class="hljs-comment">//根据Exmaple条件更新非空(null)字段</span>
+<span class="hljs-keyword">int</span> updateByExampleSelective(@Param(<span class="hljs-string">"record"</span>) T record, @Param(<span class="hljs-string">"example"</span>) Object example);
+
+<span class="hljs-comment">//根据Exmaple条件更新全部字段</span>
+<span class="hljs-keyword">int</span> updateByExample(@Param(<span class="hljs-string">"record"</span>) T record, @Param(<span class="hljs-string">"example"</span>) Object example);</code></pre>
+
+<p><strong>②泛型(实体类)的类型必须符合要求</strong></p>
+
+<p>实体类按照如下规则和数据库表进行转换,注解全部是JPA中的注解: <br />
+1.表名默认使用类名,驼峰转下划线(只对大写字母进行处理),如UserInfo默认对应的表名为user_info。 <br />
+2.表名可以使用@Table(name = “tableName”)进行指定,对不符合第一条默认规则的可以通过这种方式指定表名. <br />
+3.字段默认和@Column一样,都会作为表字段,表字段默认为Java对象的Field名字驼峰转下划线形式. <br />
+4.可以使用@Column(name = “fieldName”)指定不符合第3条规则的字段名 <br />
+5.使用@Transient注解可以忽略字段,添加该注解的字段不会作为表字段使用. <br />
+6.建议一定是有一个@Id注解作为主键的字段,可以有多个@Id注解的字段作为联合主键. <br />
+7.默认情况下,实体类中如果不存在包含@Id注解的字段,所有的字段都会作为主键字段进行使用(这种效率极低). <br />
+8.实体类可以继承使用,可以参考测试代码中的com.github.abel533.model.UserLogin2类. <br />
+9.由于基本类型,如int作为实体类字段时会有默认值0,而且无法消除,所以实体类中建议不要使用基本类型.</p>
+
+<p><strong>③将继承的Mapper接口添加到Mybatis配置中</strong></p>
+
+
+
+<pre class="prettyprint"><code class=" hljs xml"><span class="hljs-tag">&lt;<span class="hljs-title">mappers</span>&gt;</span>
+  <span class="hljs-tag">&lt;<span class="hljs-title">mapper</span> <span class="hljs-attribute">class</span>=<span class="hljs-value">"com.github.abel533.mapper.CountryMapper"</span> /&gt;</span>
+  <span class="hljs-tag">&lt;<span class="hljs-title">mapper</span> <span class="hljs-attribute">class</span>=<span class="hljs-value">"com.github.abel533.mapper.Country2Mapper"</span> /&gt;</span>
+  <span class="hljs-tag">&lt;<span class="hljs-title">mapper</span> <span class="hljs-attribute">class</span>=<span class="hljs-value">"com.github.abel533.mapper.CountryTMapper"</span> /&gt;</span>
+  <span class="hljs-tag">&lt;<span class="hljs-title">mapper</span> <span class="hljs-attribute">class</span>=<span class="hljs-value">"com.github.abel533.mapper.CountryUMapper"</span> /&gt;</span>
+  <span class="hljs-tag">&lt;<span class="hljs-title">mapper</span> <span class="hljs-attribute">class</span>=<span class="hljs-value">"com.github.abel533.mapper.CountryIMapper"</span> /&gt;</span>
+  <span class="hljs-tag">&lt;<span class="hljs-title">mapper</span> <span class="hljs-attribute">class</span>=<span class="hljs-value">"com.github.abel533.mapper.UserInfoMapper"</span> /&gt;</span>
+  <span class="hljs-tag">&lt;<span class="hljs-title">mapper</span> <span class="hljs-attribute">class</span>=<span class="hljs-value">"com.github.abel533.mapper.UserLoginMapper"</span> /&gt;</span>
+  <span class="hljs-tag">&lt;<span class="hljs-title">mapper</span> <span class="hljs-attribute">class</span>=<span class="hljs-value">"com.github.abel533.mapper.UserLogin2Mapper"</span> /&gt;</span>
+<span class="hljs-tag">&lt;/<span class="hljs-title">mappers</span>&gt;</span></code></pre>
+
+<p>如果你在Spring中配置Mapper接口,不需要像上面这样一个个配置,只需要有下面的这个扫描Mapper接口的这个配置即可:</p>
+
+
+
+<pre class="prettyprint"><code class=" hljs xml"><span class="hljs-tag">&lt;<span class="hljs-title">bean</span> <span class="hljs-attribute">class</span>=<span class="hljs-value">"org.mybatis.spring.mapper.MapperScannerConfigurer"</span>&gt;</span>
+  <span class="hljs-tag">&lt;<span class="hljs-title">property</span> <span class="hljs-attribute">name</span>=<span class="hljs-value">"basePackage"</span> <span class="hljs-attribute">value</span>=<span class="hljs-value">"com.isea533.mybatis.mapper"</span>/&gt;</span>
+<span class="hljs-tag">&lt;/<span class="hljs-title">bean</span>&gt;</span></code></pre>
+
+<p><strong>④简单实用实例</strong></p>
+
+
+
+<pre class="prettyprint"><code class=" hljs avrasm">SqlSession sqlSession = MybatisHelper<span class="hljs-preprocessor">.getSqlSession</span>()<span class="hljs-comment">;</span>
+try {
+    //获取Mapper
+    UserInfoMapper mapper = sqlSession<span class="hljs-preprocessor">.getMapper</span>(UserInfoMapper<span class="hljs-preprocessor">.class</span>)<span class="hljs-comment">;</span>
+    UserInfo userInfo = new UserInfo()<span class="hljs-comment">;</span>
+    userInfo<span class="hljs-preprocessor">.setUsername</span>(<span class="hljs-string">"abel533"</span>)<span class="hljs-comment">;</span>
+    userInfo<span class="hljs-preprocessor">.setPassword</span>(<span class="hljs-string">"123456"</span>)<span class="hljs-comment">;</span>
+    userInfo<span class="hljs-preprocessor">.setUsertype</span>(<span class="hljs-string">"2"</span>)<span class="hljs-comment">;</span>
+    userInfo<span class="hljs-preprocessor">.setEmail</span>(<span class="hljs-string">"abel533@gmail.com"</span>)<span class="hljs-comment">;</span>
+    //新增一条数据
+    Assert<span class="hljs-preprocessor">.assertEquals</span>(<span class="hljs-number">1</span>, mapper<span class="hljs-preprocessor">.insert</span>(userInfo))<span class="hljs-comment">;</span>
+    //ID回写,不为空
+    Assert<span class="hljs-preprocessor">.assertNotNull</span>(userInfo<span class="hljs-preprocessor">.getId</span>())<span class="hljs-comment">;</span>
+    //<span class="hljs-number">6</span>是当前的ID
+    Assert<span class="hljs-preprocessor">.assertEquals</span>(<span class="hljs-number">6</span>, (int)userInfo<span class="hljs-preprocessor">.getId</span>())<span class="hljs-comment">;</span>
+    //通过主键删除新增的数据
+    Assert<span class="hljs-preprocessor">.assertEquals</span>(<span class="hljs-number">1</span>,mapper<span class="hljs-preprocessor">.deleteByPrimaryKey</span>(userInfo))<span class="hljs-comment">;</span>
+} finally {
+    sqlSession<span class="hljs-preprocessor">.close</span>()<span class="hljs-comment">;</span>
+}</code></pre>
+
+
+
+<pre class="prettyprint"><code class=" hljs avrasm">SqlSession sqlSession = MybatisHelper<span class="hljs-preprocessor">.getSqlSession</span>()<span class="hljs-comment">;</span>
+try {
+    //获取Mapper
+    CountryMapper mapper = sqlSession<span class="hljs-preprocessor">.getMapper</span>(CountryMapper<span class="hljs-preprocessor">.class</span>)<span class="hljs-comment">;</span>
+    //查询总数
+    Assert<span class="hljs-preprocessor">.assertEquals</span>(<span class="hljs-number">183</span>, mapper<span class="hljs-preprocessor">.selectCount</span>(new Country()))<span class="hljs-comment">;</span>
+    //查询<span class="hljs-number">100</span>
+    Country country = mapper<span class="hljs-preprocessor">.selectByPrimaryKey</span>(<span class="hljs-number">100</span>)<span class="hljs-comment">;</span>
+    //根据主键删除
+    Assert<span class="hljs-preprocessor">.assertEquals</span>(<span class="hljs-number">1</span>, mapper<span class="hljs-preprocessor">.deleteByPrimaryKey</span>(<span class="hljs-number">100</span>))<span class="hljs-comment">;</span>
+    //查询总数
+    Assert<span class="hljs-preprocessor">.assertEquals</span>(<span class="hljs-number">182</span>, mapper<span class="hljs-preprocessor">.selectCount</span>(new Country()))<span class="hljs-comment">;</span>
+    //插入
+    Assert<span class="hljs-preprocessor">.assertEquals</span>(<span class="hljs-number">1</span>, mapper<span class="hljs-preprocessor">.insert</span>(country))<span class="hljs-comment">;</span>
+} finally {
+    sqlSession<span class="hljs-preprocessor">.close</span>()<span class="hljs-comment">;</span>
+}</code></pre>
+
+<p>附:Spring使用相关 <br />
+直接在需要的地方注入Mapper继承的接口即可,和一般情况下的使用没有区别.</p></div>&#13;
+        <script type="text/javascript">&#13;
+            $(function () {&#13;
+                $('pre.prettyprint code').each(function () {&#13;
+                    var lines = $(this).text().split('\n').length;&#13;
+                    var $numbering = $('&lt;ul/&gt;').addClass('pre-numbering').hide();&#13;
+                    $(this).addClass('has-numbering').parent().append($numbering);&#13;
+                    for (i = 1; i &lt;= lines; i++) {&#13;
+                        $numbering.append($('&lt;li/&gt;').text(i));&#13;
+                    };&#13;
+                    $numbering.fadeIn(1700);&#13;
+                });&#13;
+            });&#13;
+        </script>&#13;
+   &#13;

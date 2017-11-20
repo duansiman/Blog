@@ -1,0 +1,515 @@
+
+                <div class="markdown_views"><h1 id="spark-streaming-on-kafka解析和安装实战">Spark Streaming on Kafka解析和安装实战</h1>
+
+<p>本课分2部分讲解：</p>
+
+<p>第一部分，讲解Kafka的概念、架构和用例场景；</p>
+
+<p>第二部分，讲解Kafka的安装和实战。</p>
+
+<p>由于时间关系，今天的课程只讲到如何用官网的例子验证Kafka的安装是否成功。后续课程会接着讲解如何集成Spark Streaming和Kafka。</p>
+
+<p>一、Kafka的概念、架构和用例场景</p>
+
+<p><a href="http://kafka.apache.org/documentation.html#introdution">http://kafka.apache.org/documentation.html#introdution</a></p>
+
+<p>1、Kafka的概念</p>
+
+<p>Apache Kafka是分布式发布-订阅消息系统。它最初由LinkedIn公司开发，之后成为Apache项目的一部分。Kafka是一种快速、可扩展的、设计内在就是分布式的，分区的和可复制的提交日志服务。zookeeper和kafka和大数据是不只能用于大数据的，集群启不启动，它都可以使用，也可以用于java server普通的企业级平台上。</p>
+
+<p>什么是消息组件:</p>
+
+<p>以帅哥和美女聊天为例，帅哥如何和美女交流呢？这中间通常想到的是微信、QQ、电话、邮件等通信媒介，这些通信媒介就是消息组件，帅哥把聊天信息发送给消息组件、消息组件将消息推送给美女，这就是常说的生产者、消费者模型，kafka不仅仅说是生产者消费者模式中广播的概念，也可以实现队列的方式，kafka的消费者中有一个group的概念，group中可以有很多实体，也可以只有一个实体，group中只有一个实体的话，就是队列的方式，所以从消息驱动的角度讲，它是广播的方式和队列的方式的完美结合体。而且在发送信息时可以将内容进行分类，即所谓的Topic主题。Kafka就是这样的通信组件，将不同对象组件粘合起来的纽带， 且是解耦合方式传递数据。</p>
+
+<p>完善的流处理系统的特点：</p>
+
+<p>1）能在线的以非常低的延迟，来处理数据，而且是稳定可靠的</p>
+
+<p>2）能对流进来的数据进行非常复杂的分析，而不是简单的仅仅统计的分析</p>
+
+<p>3）不仅能处理当前在线的数据，也能处理过去一天，一周，一个月甚至一年的数据</p>
+
+<p>Apache Kafka与传统消息系统相比，有以下不同的特点：</p>
+
+<p>分布式系统，易于向外扩展； <br/>
+在线低延迟，同时为发布和订阅提供高吞吐量； <br/>
+流进来的数据一般处理完后就消失了，也可以将消息存储到磁盘，因此可以处理1天甚至1周前内容，所以kafka不仅是一个消息中间件，还是一个存储系统</p>
+
+<p>2、Kafka的架构 <br/>
+<img src="http://images2015.cnblogs.com/blog/860767/201604/860767-20160426001347205-1918052773.png" alt="这里写图片描述" title=""/></p>
+
+<p>Kafka既然具备消息系统的基本功能，那么就必然会有组成消息系统的组件：</p>
+
+<p>Topic，Producer和Consumer。Kafka还有其特殊的Kafka Cluster组件。</p>
+
+<p>Topic主题：</p>
+
+<p>代表一种数据的类别或类型，工作、娱乐、生活有不同的Topic，生产者需要说明把说明数据分别放在那些Topic中，里面就是一个个小对象，并将数据数据推到Kafka，消费者获取数据是pull的过程。一组相同类型的消息数据流。这些消息在Kafka会被分区存放，并且有多个副本，以防数据丢失。每个分区的消息是顺序写入的，并且不可改写。 <br/>
+<img src="http://images2015.cnblogs.com/blog/860767/201604/860767-20160426001507002-1927984098.png" alt="这里写图片描述" title=""/></p>
+
+<ul>
+<li><p>Producer（生产者）：把数据推到Kafka系统的任何对象。</p></li>
+<li><p>Kafka Cluster（Kafka集群）：把推到Kafka系统的消息保存起来的一组服务器，也叫Broker。因为Kafka集群用到了Zookeeper作为底层支持框架，所以由一个选出的服务器作为Leader来处理所有消息的读和写的请求，其他服务器作为Follower接受Leader的广播同步备份数据，以备灾难恢复时用。</p></li>
+<li><p>Consumer（消费者）：从Kafka系统订阅消息的任何对象。</p></li>
+</ul>
+
+<p>消费者可以有多个，并且某些消费者还可以组成Consumer Group。多个Consumer Group之间组成消息广播的关系，所以各个Group可以拉相同的消息数据。在Consumer Group内部，各消费者之间对Consumer Group拉出来的消息数据是队列先进先出的关系，某个消息数据只能给该Group的一个消费者使用，同一个Group中的实体是互斥的，对一个消息，这样是避免重复消费。如果有多个group，每个group中只有一个实体，这就是队列的方式了，因为它是互斥的。如果不是一个实体，则是广播模式，如下图所示，广播只能广播给一个group中的一个消费实体 <br/>
+<img src="http://images2015.cnblogs.com/blog/860767/201604/860767-20160426001541642-2097443983.png" alt="这里写图片描述" title=""/></p>
+
+<p>kafka的数据传输是基于kernel（内核）级别的（传输速度接近0拷贝-ZeroCopy）、没有用户空间的参与。Linux本身是软件，软件启动时第一个启动进程叫init，在init进程启动后会进入用户空间；kafka是用java写的，是基于jvm虚拟机的。例如：在分布式系统中，机器A上的应用程序需要读取机器B上的Java服务数据，由于Java程序对应的JVM是用户空间级别而且数据在磁盘上，A上应用程序读取数据时会首先进入机器B上的内核空间再进入机器B的用户空间，读取用户空间的数据后，数据再经过B机器上的内核空间分发到网络中(之所以要再经过B的内核，因为要通过网络通信，不通过内核，哪里来的网络通信)，机器A网卡接收到传输过来的数据后再将数据写入A机器的内核空间，从而最终将数据传输给A的用户空间进行处理。如下图：网络本身是一种硬件，磁盘只是硬件的一种。 <br/>
+<img src="http://images2015.cnblogs.com/blog/860767/201604/860767-20160426001602189-27650640.png" alt="这里写图片描述" title=""/></p>
+
+<p>正常情况下，外部系统从Java程序中读取数据，传输给内核空间并依赖网卡将数据写入到网络中，从而把数据传输出去。其实Java本身是内核的一层外衣，Java Socket编程，操作的各种数据都是在JVM的用户空间中进行的。而Kafka操作数据是放在内核空间的，通常内核空间处理数据的速度比用户空间快上万倍，因为没用用户态和内核态的切换，所以通过kafka可以实现高速读、写数据。只要磁盘空间足够大，可以无限量的存储数据，kafka的数据就是存储在磁盘中的，不是存在内核中的。而很多消息组件是把数据存内存中的。kafka用zookeeperg管理元数据，而且按顺序写数据，比随机写要快很多。又有副本！</p>
+
+<p>3、Kafka的用例场景 </p>
+
+<p>类似微信，手机和邮箱等等这样大家熟悉的消息组件，Kafka也可以：</p>
+
+<ul>
+<li><p>支持文字/图片</p></li>
+<li><p>可以存储内容</p></li>
+<li><p>分门别类</p></li>
+</ul>
+
+<p>从内容消费的角度，Kafka把邮箱中的邮件类型看成是Topic。</p>
+
+<p>二、Kafka的安装和实战</p>
+
+<p><a href="http://kafka.apache.org/documentation.html#quickstart">http://kafka.apache.org/documentation.html#quickstart</a></p>
+
+<p>1、安装和配置Zookeeper</p>
+
+<p>Kafka集群模式需要提前安装好Zookeeper。</p>
+
+<ul>
+<li><p>提示：Kafka单例模式不需要安装额外的Zookeeper，可以使用内置的Zookeeper。</p></li>
+<li><p>Kafka集群模式需要至少3台服务器。本课实战用到的服务器Hostname：master，slave1，slave2。</p></li>
+<li><p>本课中用到的Zookeeper版本是Zookeeper-3.4.6。</p></li>
+</ul>
+
+<p>1)    下载Zookeeper</p>
+
+<p>进入<a href="http://www.apache.org/dyn/closer.cgi/zookeeper/">http://www.apache.org/dyn/closer.cgi/zookeeper/</a>，你可以选择其他镜像网址去下载，用官网推荐的镜像：<a href="http://mirror.bit.edu.cn/apache/zookeeper/">http://mirror.bit.edu.cn/apache/zookeeper/</a>。提示：可以直接下载群里的Zookeeper安装文件。 <br/>
+<img src="http://images2015.cnblogs.com/blog/860767/201604/860767-20160426001710830-728902693.png" alt="这里写图片描述" title=""/> <br/>
+<img src="http://images2015.cnblogs.com/blog/860767/201604/860767-20160426001726283-174197864.png" alt="这里写图片描述" title=""/> <br/>
+<img src="http://images2015.cnblogs.com/blog/860767/201604/860767-20160426001753252-854065366.png" alt="这里写图片描述" title=""/></p>
+
+<p>下载zookeeper-3.4.6.tar.gz</p>
+
+<p>1)    安装Zookeeper</p>
+
+<p>提示：下面的步骤发生在master服务器。</p>
+
+<p>以ubuntu14.04举例，把下载好的文件放到/root目录，用下面的命令解压：</p>
+
+<p>cd /root</p>
+
+<p>tar -zxvf zookeeper-3.4.6.tar.gz</p>
+
+<p>解压后在/root目录会多出一个zookeeper-3.4.6的新目录，用下面的命令把它剪切到指定目录即安装好Zookeeper了：</p>
+
+<p>cd /root</p>
+
+<p>mv zookeeper-3.4.6 /usr/local/spark</p>
+
+<p>之后在/usr/local/spark目录会多出一个zookeeper-3.4.6的新目录。下面我们讲如何配置安装好的Zookeeper。</p>
+
+<p>2)    配置Zookeeper</p>
+
+<p>提示：下面的步骤发生在master服务器。</p>
+
+<p>配置.bashrc <br/>
+-       打开文件：vi /root/.bashrc</p>
+
+<ul>
+<li>在PATH配置行前添加：</li>
+</ul>
+
+<p>export ZOOKEEPER_HOME=/usr/local/spark/zookeeper-3.4.6</p>
+
+<ul>
+<li>最后修改PATH：</li>
+</ul>
+
+<p>export PATH=<span class="MathJax_Preview"/><span class="MathJax" id="MathJax-Element-363-Frame" role="textbox" aria-readonly="true"><nobr><span class="math" id="MathJax-Span-7676" style="width: 10.829em; display: inline-block;"><span style="display: inline-block; position: relative; width: 8.643em; height: 0px; font-size: 125%;"><span style="position: absolute; clip: rect(1.816em 1000em 3.149em -0.424em); top: -2.717em; left: 0.003em;"><span class="mrow" id="MathJax-Span-7677"><span class="texatom" id="MathJax-Span-7678"><span class="mrow" id="MathJax-Span-7679"><span class="mi" id="MathJax-Span-7680" style="font-family: MathJax_Math-italic;">J<span style="display: inline-block; overflow: hidden; height: 1px; width: 0.056em;"/></span><span class="mi" id="MathJax-Span-7681" style="font-family: MathJax_Math-italic;">A</span><span class="mi" id="MathJax-Span-7682" style="font-family: MathJax_Math-italic;">V<span style="display: inline-block; overflow: hidden; height: 1px; width: 0.163em;"/></span><span class="msubsup" id="MathJax-Span-7683"><span style="display: inline-block; position: relative; width: 1.496em; height: 0px;"><span style="position: absolute; clip: rect(1.709em 1000em 2.723em -0.424em); top: -2.557em; left: 0.003em;"><span class="mi" id="MathJax-Span-7684" style="font-family: MathJax_Math-italic;">A</span><span style="display: inline-block; width: 0px; height: 2.563em;"/></span><span style="position: absolute; top: -2.291em; left: 0.803em;"><span class="mi" id="MathJax-Span-7685" style="font-size: 70.7%; font-family: MathJax_Math-italic;">H<span style="display: inline-block; overflow: hidden; height: 1px; width: 0.056em;"/></span><span style="display: inline-block; width: 0px; height: 2.456em;"/></span></span></span><span class="mi" id="MathJax-Span-7686" style="font-family: MathJax_Math-italic;">O</span><span class="mi" id="MathJax-Span-7687" style="font-family: MathJax_Math-italic;">M<span style="display: inline-block; overflow: hidden; height: 1px; width: 0.109em;"/></span><span class="mi" id="MathJax-Span-7688" style="font-family: MathJax_Math-italic;">E<span style="display: inline-block; overflow: hidden; height: 1px; width: 0.003em;"/></span></span></span><span class="texatom" id="MathJax-Span-7689"><span class="mrow" id="MathJax-Span-7690"><span class="mo" id="MathJax-Span-7691" style="font-family: MathJax_Main;">/</span></span></span><span class="mi" id="MathJax-Span-7692" style="font-family: MathJax_Math-italic;">b</span><span class="mi" id="MathJax-Span-7693" style="font-family: MathJax_Math-italic;">i</span><span class="mi" id="MathJax-Span-7694" style="font-family: MathJax_Math-italic;">n</span><span class="mo" id="MathJax-Span-7695" style="font-family: MathJax_Main; padding-left: 0.269em;">:</span></span><span style="display: inline-block; width: 0px; height: 2.723em;"/></span></span><span style="border-left-width: 0.003em; border-left-style: solid; display: inline-block; overflow: hidden; width: 0px; height: 1.403em; vertical-align: -0.397em;"/></span></nobr></span><script type="math/tex" id="MathJax-Element-363">{JAVA_HOME}/bin:</script>{ZOOKEEPER_HOME}/bin:<span class="MathJax_Preview"/><span class="MathJax" id="MathJax-Element-364-Frame" role="textbox" aria-readonly="true"><nobr><span class="math" id="MathJax-Span-7696" style="width: 13.016em; display: inline-block;"><span style="display: inline-block; position: relative; width: 10.403em; height: 0px; font-size: 125%;"><span style="position: absolute; clip: rect(1.816em 1000em 3.149em -0.424em); top: -2.717em; left: 0.003em;"><span class="mrow" id="MathJax-Span-7697"><span class="texatom" id="MathJax-Span-7698"><span class="mrow" id="MathJax-Span-7699"><span class="mi" id="MathJax-Span-7700" style="font-family: MathJax_Math-italic;">H<span style="display: inline-block; overflow: hidden; height: 1px; width: 0.056em;"/></span><span class="mi" id="MathJax-Span-7701" style="font-family: MathJax_Math-italic;">A</span><span class="mi" id="MathJax-Span-7702" style="font-family: MathJax_Math-italic;">D</span><span class="mi" id="MathJax-Span-7703" style="font-family: MathJax_Math-italic;">O</span><span class="mi" id="MathJax-Span-7704" style="font-family: MathJax_Math-italic;">O</span><span class="msubsup" id="MathJax-Span-7705"><span style="display: inline-block; position: relative; width: 1.389em; height: 0px;"><span style="position: absolute; clip: rect(1.709em 1000em 2.723em -0.424em); top: -2.557em; left: 0.003em;"><span class="mi" id="MathJax-Span-7706" style="font-family: MathJax_Math-italic;">P<span style="display: inline-block; overflow: hidden; height: 1px; width: 0.109em;"/></span><span style="display: inline-block; width: 0px; height: 2.563em;"/></span><span style="position: absolute; top: -2.291em; left: 0.696em;"><span class="mi" id="MathJax-Span-7707" style="font-size: 70.7%; font-family: MathJax_Math-italic;">H<span style="display: inline-block; overflow: hidden; height: 1px; width: 0.056em;"/></span><span style="display: inline-block; width: 0px; height: 2.456em;"/></span></span></span><span class="mi" id="MathJax-Span-7708" style="font-family: MathJax_Math-italic;">O</span><span class="mi" id="MathJax-Span-7709" style="font-family: MathJax_Math-italic;">M<span style="display: inline-block; overflow: hidden; height: 1px; width: 0.109em;"/></span><span class="mi" id="MathJax-Span-7710" style="font-family: MathJax_Math-italic;">E<span style="display: inline-block; overflow: hidden; height: 1px; width: 0.003em;"/></span></span></span><span class="texatom" id="MathJax-Span-7711"><span class="mrow" id="MathJax-Span-7712"><span class="mo" id="MathJax-Span-7713" style="font-family: MathJax_Main;">/</span></span></span><span class="mi" id="MathJax-Span-7714" style="font-family: MathJax_Math-italic;">b</span><span class="mi" id="MathJax-Span-7715" style="font-family: MathJax_Math-italic;">i</span><span class="mi" id="MathJax-Span-7716" style="font-family: MathJax_Math-italic;">n</span><span class="mo" id="MathJax-Span-7717" style="font-family: MathJax_Main; padding-left: 0.269em;">:</span></span><span style="display: inline-block; width: 0px; height: 2.723em;"/></span></span><span style="border-left-width: 0.003em; border-left-style: solid; display: inline-block; overflow: hidden; width: 0px; height: 1.403em; vertical-align: -0.397em;"/></span></nobr></span><script type="math/tex" id="MathJax-Element-364">{HADOOP_HOME}/bin:</script>{HADOOP_HOME}/sbin:<span class="MathJax_Preview"/><span class="MathJax" id="MathJax-Element-365-Frame" role="textbox" aria-readonly="true"><nobr><span class="math" id="MathJax-Span-7718" style="width: 11.736em; display: inline-block;"><span style="display: inline-block; position: relative; width: 9.389em; height: 0px; font-size: 125%;"><span style="position: absolute; clip: rect(1.816em 1000em 3.149em -0.424em); top: -2.717em; left: 0.003em;"><span class="mrow" id="MathJax-Span-7719"><span class="texatom" id="MathJax-Span-7720"><span class="mrow" id="MathJax-Span-7721"><span class="mi" id="MathJax-Span-7722" style="font-family: MathJax_Math-italic;">S<span style="display: inline-block; overflow: hidden; height: 1px; width: 0.056em;"/></span><span class="mi" id="MathJax-Span-7723" style="font-family: MathJax_Math-italic;">C<span style="display: inline-block; overflow: hidden; height: 1px; width: 0.056em;"/></span><span class="mi" id="MathJax-Span-7724" style="font-family: MathJax_Math-italic;">A</span><span class="mi" id="MathJax-Span-7725" style="font-family: MathJax_Math-italic;">L</span><span class="msubsup" id="MathJax-Span-7726"><span style="display: inline-block; position: relative; width: 1.496em; height: 0px;"><span style="position: absolute; clip: rect(1.709em 1000em 2.723em -0.424em); top: -2.557em; left: 0.003em;"><span class="mi" id="MathJax-Span-7727" style="font-family: MathJax_Math-italic;">A</span><span style="display: inline-block; width: 0px; height: 2.563em;"/></span><span style="position: absolute; top: -2.291em; left: 0.803em;"><span class="mi" id="MathJax-Span-7728" style="font-size: 70.7%; font-family: MathJax_Math-italic;">H<span style="display: inline-block; overflow: hidden; height: 1px; width: 0.056em;"/></span><span style="display: inline-block; width: 0px; height: 2.456em;"/></span></span></span><span class="mi" id="MathJax-Span-7729" style="font-family: MathJax_Math-italic;">O</span><span class="mi" id="MathJax-Span-7730" style="font-family: MathJax_Math-italic;">M<span style="display: inline-block; overflow: hidden; height: 1px; width: 0.109em;"/></span><span class="mi" id="MathJax-Span-7731" style="font-family: MathJax_Math-italic;">E<span style="display: inline-block; overflow: hidden; height: 1px; width: 0.003em;"/></span></span></span><span class="texatom" id="MathJax-Span-7732"><span class="mrow" id="MathJax-Span-7733"><span class="mo" id="MathJax-Span-7734" style="font-family: MathJax_Main;">/</span></span></span><span class="mi" id="MathJax-Span-7735" style="font-family: MathJax_Math-italic;">b</span><span class="mi" id="MathJax-Span-7736" style="font-family: MathJax_Math-italic;">i</span><span class="mi" id="MathJax-Span-7737" style="font-family: MathJax_Math-italic;">n</span><span class="mo" id="MathJax-Span-7738" style="font-family: MathJax_Main; padding-left: 0.269em;">:</span></span><span style="display: inline-block; width: 0px; height: 2.723em;"/></span></span><span style="border-left-width: 0.003em; border-left-style: solid; display: inline-block; overflow: hidden; width: 0px; height: 1.403em; vertical-align: -0.397em;"/></span></nobr></span><script type="math/tex" id="MathJax-Element-365">{SCALA_HOME}/bin:</script>{SPARK_HOME}/bin:<span class="MathJax_Preview"/><span class="MathJax" id="MathJax-Element-366-Frame" role="textbox" aria-readonly="true"><nobr><span class="math" id="MathJax-Span-7739" style="width: 12.536em; display: inline-block;"><span style="display: inline-block; position: relative; width: 10.029em; height: 0px; font-size: 125%;"><span style="position: absolute; clip: rect(1.816em 1000em 3.149em -0.424em); top: -2.717em; left: 0.003em;"><span class="mrow" id="MathJax-Span-7740"><span class="texatom" id="MathJax-Span-7741"><span class="mrow" id="MathJax-Span-7742"><span class="mi" id="MathJax-Span-7743" style="font-family: MathJax_Math-italic;">S<span style="display: inline-block; overflow: hidden; height: 1px; width: 0.056em;"/></span><span class="mi" id="MathJax-Span-7744" style="font-family: MathJax_Math-italic;">P<span style="display: inline-block; overflow: hidden; height: 1px; width: 0.109em;"/></span><span class="mi" id="MathJax-Span-7745" style="font-family: MathJax_Math-italic;">A</span><span class="mi" id="MathJax-Span-7746" style="font-family: MathJax_Math-italic;">R</span><span class="msubsup" id="MathJax-Span-7747"><span style="display: inline-block; position: relative; width: 1.603em; height: 0px;"><span style="position: absolute; clip: rect(1.709em 1000em 2.723em -0.424em); top: -2.557em; left: 0.003em;"><span class="mi" id="MathJax-Span-7748" style="font-family: MathJax_Math-italic;">K<span style="display: inline-block; overflow: hidden; height: 1px; width: 0.056em;"/></span><span style="display: inline-block; width: 0px; height: 2.563em;"/></span><span style="position: absolute; top: -2.291em; left: 0.856em;"><span class="mi" id="MathJax-Span-7749" style="font-size: 70.7%; font-family: MathJax_Math-italic;">H<span style="display: inline-block; overflow: hidden; height: 1px; width: 0.056em;"/></span><span style="display: inline-block; width: 0px; height: 2.456em;"/></span></span></span><span class="mi" id="MathJax-Span-7750" style="font-family: MathJax_Math-italic;">O</span><span class="mi" id="MathJax-Span-7751" style="font-family: MathJax_Math-italic;">M<span style="display: inline-block; overflow: hidden; height: 1px; width: 0.109em;"/></span><span class="mi" id="MathJax-Span-7752" style="font-family: MathJax_Math-italic;">E<span style="display: inline-block; overflow: hidden; height: 1px; width: 0.003em;"/></span></span></span><span class="texatom" id="MathJax-Span-7753"><span class="mrow" id="MathJax-Span-7754"><span class="mo" id="MathJax-Span-7755" style="font-family: MathJax_Main;">/</span></span></span><span class="mi" id="MathJax-Span-7756" style="font-family: MathJax_Math-italic;">s</span><span class="mi" id="MathJax-Span-7757" style="font-family: MathJax_Math-italic;">b</span><span class="mi" id="MathJax-Span-7758" style="font-family: MathJax_Math-italic;">i</span><span class="mi" id="MathJax-Span-7759" style="font-family: MathJax_Math-italic;">n</span><span class="mo" id="MathJax-Span-7760" style="font-family: MathJax_Main; padding-left: 0.269em;">:</span></span><span style="display: inline-block; width: 0px; height: 2.723em;"/></span></span><span style="border-left-width: 0.003em; border-left-style: solid; display: inline-block; overflow: hidden; width: 0px; height: 1.403em; vertical-align: -0.397em;"/></span></nobr></span><script type="math/tex" id="MathJax-Element-366">{SPARK_HOME}/sbin:</script>{HIVE_HOME}/bin:<span class="MathJax_Preview"/><span class="MathJax" id="MathJax-Element-367-Frame" role="textbox" aria-readonly="true"><nobr><span class="math" id="MathJax-Span-7761" style="width: 12.269em; display: inline-block;"><span style="display: inline-block; position: relative; width: 9.816em; height: 0px; font-size: 125%;"><span style="position: absolute; clip: rect(1.816em 1000em 3.149em -0.424em); top: -2.717em; left: 0.003em;"><span class="mrow" id="MathJax-Span-7762"><span class="texatom" id="MathJax-Span-7763"><span class="mrow" id="MathJax-Span-7764"><span class="mi" id="MathJax-Span-7765" style="font-family: MathJax_Math-italic;">K<span style="display: inline-block; overflow: hidden; height: 1px; width: 0.056em;"/></span><span class="mi" id="MathJax-Span-7766" style="font-family: MathJax_Math-italic;">A</span><span class="mi" id="MathJax-Span-7767" style="font-family: MathJax_Math-italic;">F<span style="display: inline-block; overflow: hidden; height: 1px; width: 0.109em;"/></span><span class="mi" id="MathJax-Span-7768" style="font-family: MathJax_Math-italic;">K<span style="display: inline-block; overflow: hidden; height: 1px; width: 0.056em;"/></span><span class="msubsup" id="MathJax-Span-7769"><span style="display: inline-block; position: relative; width: 1.496em; height: 0px;"><span style="position: absolute; clip: rect(1.709em 1000em 2.723em -0.424em); top: -2.557em; left: 0.003em;"><span class="mi" id="MathJax-Span-7770" style="font-family: MathJax_Math-italic;">A</span><span style="display: inline-block; width: 0px; height: 2.563em;"/></span><span style="position: absolute; top: -2.291em; left: 0.803em;"><span class="mi" id="MathJax-Span-7771" style="font-size: 70.7%; font-family: MathJax_Math-italic;">H<span style="display: inline-block; overflow: hidden; height: 1px; width: 0.056em;"/></span><span style="display: inline-block; width: 0px; height: 2.456em;"/></span></span></span><span class="mi" id="MathJax-Span-7772" style="font-family: MathJax_Math-italic;">O</span><span class="mi" id="MathJax-Span-7773" style="font-family: MathJax_Math-italic;">M<span style="display: inline-block; overflow: hidden; height: 1px; width: 0.109em;"/></span><span class="mi" id="MathJax-Span-7774" style="font-family: MathJax_Math-italic;">E<span style="display: inline-block; overflow: hidden; height: 1px; width: 0.003em;"/></span></span></span><span class="texatom" id="MathJax-Span-7775"><span class="mrow" id="MathJax-Span-7776"><span class="mo" id="MathJax-Span-7777" style="font-family: MathJax_Main;">/</span></span></span><span class="mi" id="MathJax-Span-7778" style="font-family: MathJax_Math-italic;">b</span><span class="mi" id="MathJax-Span-7779" style="font-family: MathJax_Math-italic;">i</span><span class="mi" id="MathJax-Span-7780" style="font-family: MathJax_Math-italic;">n</span><span class="mo" id="MathJax-Span-7781" style="font-family: MathJax_Main; padding-left: 0.269em;">:</span></span><span style="display: inline-block; width: 0px; height: 2.723em;"/></span></span><span style="border-left-width: 0.003em; border-left-style: solid; display: inline-block; overflow: hidden; width: 0px; height: 1.403em; vertical-align: -0.397em;"/></span></nobr></span><script type="math/tex" id="MathJax-Element-367">{KAFKA_HOME}/bin:</script>PATH</p>
+
+<ul>
+<li>使配置的环境变量立即生效：source /root/.bashrc</li>
+</ul>
+
+<p>创建data目录 <br/>
+-       cd $ZOOKEEPER_HOME</p>
+
+<ul>
+<li>mkdir data</li>
+</ul>
+
+<p>创建并打开zoo.cfg文件 <br/>
+-       cd $ZOOKEEPER_HOME/conf</p>
+
+<ul>
+<li><p>cp zoo_sample.cfg zoo.cfg</p></li>
+<li><p>vi zoo.cfg</p></li>
+</ul>
+
+<p>配置zoo.cfg <br/>
+<strong>配置Zookeeper的日志和服务器身份证号等数据存放的目录。</strong></p>
+
+<p><strong>千万不要用默认的/tmp/zookeeper目录，因为/tmp目录的数据容易被意外删除。</strong></p>
+
+<p>dataDir=../data</p>
+
+<p><strong>Zookeeper与客户端连接的端口</strong></p>
+
+<p>clientPort=2181</p>
+
+<p><strong>在文件最后新增3行配置每个服务器的2个重要端口：Leader端口和选举端口</strong></p>
+
+<p><strong>server.A=B：C：D：其中 A 是一个数字，表示这个是第几号服务器；</strong></p>
+
+<p><strong>B 是这个服务器的hostname或ip地址；</strong></p>
+
+<p><strong>C 表示的是这个服务器与集群中的 Leader 服务器交换信息的端口；</strong></p>
+
+<p><strong>D 表示的是万一集群中的 Leader 服务器挂了，需要一个端口来重新进行选举，</strong></p>
+
+<p><strong>选出一个新的 Leader，而这个端口就是用来执行选举时服务器相互通信的端口。</strong></p>
+
+<p><strong>如果是伪集群的配置方式，由于 B 都是一样，所以不同的 Zookeeper 实例通信</strong></p>
+
+<p>端口号不能一样，所以要给它们分配不同的端口号。</p>
+
+<p>server.1=master:2888:3888</p>
+
+<p>server.2=slave1:2888:3888</p>
+
+<p>server.3=slave2:2888:3888</p>
+
+<p>改成如下方式：</p>
+
+<p>dataDir=/usr/local/spark/zookeeper-3.4.6/data <br/>
+dataLogDir=/usr/local/spark/zookeeper-3.4.6/logs <br/>
+clientPort=2181 <br/>
+server.0=master1:2888:3888 <br/>
+server.1=work1:2888:3888 <br/>
+server.2=work2:2888:3888</p>
+
+<p>创建并打开myid文件 <br/>
+-       cd $ZOOKEEPER_HOME/data</p>
+
+<ul>
+<li><p>touch myid</p></li>
+<li><p>vi myid</p></li>
+</ul>
+
+<p>配置myid <br/>
+按照zoo.cfg的配置，myid的内容就是1。要写成0，和上面zoo.cfg里面的配置server.0,server.1,server.2一致，所以下面work1中myid内容为1，work2中myid内容为2</p>
+
+<p>3)    同步master的安装和配置到slave1和slave2</p>
+
+<ul>
+<li>在master服务器上运行下面的命令</li>
+</ul>
+
+<p>cd /root</p>
+
+<p>scp ./.bashrc root@slave1:/root</p>
+
+<p>scp ./.bashrc root@slave2:/root</p>
+
+<p>cd /usr/local/spark</p>
+
+<p>scp -r ./zookeeper-3.4.6 root@slave1:/usr/local/spark</p>
+
+<p>scp -r ./zookeeper-3.4.6 root@slave2:/usr/local/spark</p>
+
+<ul>
+<li>在slave1服务器上运行下面的命令</li>
+</ul>
+
+<p>vi $ZOOKEEPER_HOME/data/myid</p>
+
+<p>按照zoo.cfg的配置，myid的内容就是1。</p>
+
+<ul>
+<li>在slave2服务器上运行下面的命令</li>
+</ul>
+
+<p>vi $ZOOKEEPER_HOME/data/myid</p>
+
+<p>按照zoo.cfg的配置，myid的内容就是2。</p>
+
+<p>4)    启动Zookeeper服务</p>
+
+<ul>
+<li>在master服务器上运行下面的命令</li>
+</ul>
+
+<p>zkServer.sh start</p>
+
+<ul>
+<li>在slave1服务器上运行下面的命令</li>
+</ul>
+
+<p>source /root/.bashrc</p>
+
+<p>zkServer.sh start</p>
+
+<ul>
+<li>在slave1服务器上运行下面的命令</li>
+</ul>
+
+<p>source /root/.bashrc</p>
+
+<p>zkServer.sh start</p>
+
+<p>5)    验证Zookeeper是否安装和启动成功</p>
+
+<ul>
+<li>在master服务器上运行命令：jps和zkServer.sh status</li>
+</ul>
+
+<p>root@master:/usr/local/spark/zookeeper-3.4.6/bin# jps</p>
+
+<p>3844 QuorumPeerMain</p>
+
+<p>4790 Jps</p>
+
+<p>zkServer.sh status</p>
+
+<p>root@master:/usr/local/spark/zookeeper-3.4.6/bin# zkServer.sh status</p>
+
+<p>JMX enabled by default</p>
+
+<p>Using config: /usr/local/spark/zookeeper-3.4.6/bin/../conf/zoo.cfg</p>
+
+<p>Mode: follower</p>
+
+<ul>
+<li>在slave1服务器上运行命令：jps和zkServer.sh status</li>
+</ul>
+
+<p>source /root/.bashrc</p>
+
+<p>root@slave1:/usr/local/spark/zookeeper-3.4.6/bin# jps</p>
+
+<p>3462 QuorumPeerMain</p>
+
+<p>4313 Jps</p>
+
+<p>root@slave1:/usr/local/spark/zookeeper-3.4.6/bin# zkServer.sh status</p>
+
+<p>JMX enabled by default</p>
+
+<p>Using config: /usr/local/spark/zookeeper-3.4.6/bin/../conf/zoo.cfg</p>
+
+<p>Mode: follower</p>
+
+<ul>
+<li>在slave2服务器上运行命令：jps和zkServer.sh status</li>
+</ul>
+
+<p>root@slave2:/usr/local/spark/zookeeper-3.4.6/bin# jps</p>
+
+<p>4073 Jps</p>
+
+<p>3277 QuorumPeerMain</p>
+
+<p>root@slave2:/usr/local/spark/zookeeper-3.4.6/bin# zkServer.sh status</p>
+
+<p>JMX enabled by default</p>
+
+<p>Using config: /usr/local/spark/zookeeper-3.4.6/bin/../conf/zoo.cfg</p>
+
+<p>Mode: leader</p>
+
+<pre><code>  至此，代表Zookeeper已经安装和配置成功。
+</code></pre>
+
+<p>2、安装和配置Kafka</p>
+
+<p>本课中用到的Kafka版本是Kafka-2.10-0.9.0.1。</p>
+
+<p>1)    下载Kafka </p>
+
+<p>进入<a href="http://kafka.apache.org/downloads.html">http://kafka.apache.org/downloads.html</a>，左键单击kafka_2.10-0.9.0.1.tgz。提示：可以直接下载群里的Kafka安装文件。 <br/>
+<img src="http://images2015.cnblogs.com/blog/860767/201604/860767-20160426001855955-1197546164.png" alt="这里写图片描述" title=""/></p>
+
+<p>下载kafka_2.10-0.9.0.1.tgz <br/>
+<img src="http://images2015.cnblogs.com/blog/860767/201604/860767-20160426001919283-1079432798.png" alt="这里写图片描述" title=""/></p>
+
+<p>1)    安装Kafka</p>
+
+<p>提示：下面的步骤发生在master服务器。</p>
+
+<p>以ubuntu14.04举例，把下载好的文件放到/root目录，用下面的命令解压：</p>
+
+<p>cd /root</p>
+
+<p>tar -zxvf kafka_2.10-0.9.0.1.tgz</p>
+
+<p>解压后在/root目录会多出一个kafka_2.10-0.9.0.1的新目录，用下面的命令把它剪切到指定目录即安装好Kafka了：</p>
+
+<p>cd /root</p>
+
+<p>mv kafka_2.10-0.9.0.1 /usr/local</p>
+
+<p>之后在/usr/local目录会多出一个kafka_2.10-0.9.0.1的新目录。下面我们讲如何配置安装好的Kafka。</p>
+
+<p>2)    配置Kafka</p>
+
+<p>提示：下面的步骤发生在master服务器。</p>
+
+<p>配置.bashrc <br/>
+-       打开文件：vi /root/.bashrc</p>
+
+<ul>
+<li>在PATH配置行前添加：</li>
+</ul>
+
+<p>export KAFKA_HOME=/usr/local/kafka_2.10-0.9.0.1</p>
+
+<ul>
+<li>最后修改PATH：</li>
+</ul>
+
+<p>export PATH=<span class="MathJax_Preview"/><span class="MathJax" id="MathJax-Element-368-Frame" role="textbox" aria-readonly="true"><nobr><span class="math" id="MathJax-Span-7782" style="width: 10.829em; display: inline-block;"><span style="display: inline-block; position: relative; width: 8.643em; height: 0px; font-size: 125%;"><span style="position: absolute; clip: rect(1.816em 1000em 3.149em -0.424em); top: -2.717em; left: 0.003em;"><span class="mrow" id="MathJax-Span-7783"><span class="texatom" id="MathJax-Span-7784"><span class="mrow" id="MathJax-Span-7785"><span class="mi" id="MathJax-Span-7786" style="font-family: MathJax_Math-italic;">J<span style="display: inline-block; overflow: hidden; height: 1px; width: 0.056em;"/></span><span class="mi" id="MathJax-Span-7787" style="font-family: MathJax_Math-italic;">A</span><span class="mi" id="MathJax-Span-7788" style="font-family: MathJax_Math-italic;">V<span style="display: inline-block; overflow: hidden; height: 1px; width: 0.163em;"/></span><span class="msubsup" id="MathJax-Span-7789"><span style="display: inline-block; position: relative; width: 1.496em; height: 0px;"><span style="position: absolute; clip: rect(1.709em 1000em 2.723em -0.424em); top: -2.557em; left: 0.003em;"><span class="mi" id="MathJax-Span-7790" style="font-family: MathJax_Math-italic;">A</span><span style="display: inline-block; width: 0px; height: 2.563em;"/></span><span style="position: absolute; top: -2.291em; left: 0.803em;"><span class="mi" id="MathJax-Span-7791" style="font-size: 70.7%; font-family: MathJax_Math-italic;">H<span style="display: inline-block; overflow: hidden; height: 1px; width: 0.056em;"/></span><span style="display: inline-block; width: 0px; height: 2.456em;"/></span></span></span><span class="mi" id="MathJax-Span-7792" style="font-family: MathJax_Math-italic;">O</span><span class="mi" id="MathJax-Span-7793" style="font-family: MathJax_Math-italic;">M<span style="display: inline-block; overflow: hidden; height: 1px; width: 0.109em;"/></span><span class="mi" id="MathJax-Span-7794" style="font-family: MathJax_Math-italic;">E<span style="display: inline-block; overflow: hidden; height: 1px; width: 0.003em;"/></span></span></span><span class="texatom" id="MathJax-Span-7795"><span class="mrow" id="MathJax-Span-7796"><span class="mo" id="MathJax-Span-7797" style="font-family: MathJax_Main;">/</span></span></span><span class="mi" id="MathJax-Span-7798" style="font-family: MathJax_Math-italic;">b</span><span class="mi" id="MathJax-Span-7799" style="font-family: MathJax_Math-italic;">i</span><span class="mi" id="MathJax-Span-7800" style="font-family: MathJax_Math-italic;">n</span><span class="mo" id="MathJax-Span-7801" style="font-family: MathJax_Main; padding-left: 0.269em;">:</span></span><span style="display: inline-block; width: 0px; height: 2.723em;"/></span></span><span style="border-left-width: 0.003em; border-left-style: solid; display: inline-block; overflow: hidden; width: 0px; height: 1.403em; vertical-align: -0.397em;"/></span></nobr></span><script type="math/tex" id="MathJax-Element-368">{JAVA_HOME}/bin:</script>{ZOOKEEPER_HOME}/bin:<span class="MathJax_Preview"/><span class="MathJax" id="MathJax-Element-369-Frame" role="textbox" aria-readonly="true"><nobr><span class="math" id="MathJax-Span-7802" style="width: 13.016em; display: inline-block;"><span style="display: inline-block; position: relative; width: 10.403em; height: 0px; font-size: 125%;"><span style="position: absolute; clip: rect(1.816em 1000em 3.149em -0.424em); top: -2.717em; left: 0.003em;"><span class="mrow" id="MathJax-Span-7803"><span class="texatom" id="MathJax-Span-7804"><span class="mrow" id="MathJax-Span-7805"><span class="mi" id="MathJax-Span-7806" style="font-family: MathJax_Math-italic;">H<span style="display: inline-block; overflow: hidden; height: 1px; width: 0.056em;"/></span><span class="mi" id="MathJax-Span-7807" style="font-family: MathJax_Math-italic;">A</span><span class="mi" id="MathJax-Span-7808" style="font-family: MathJax_Math-italic;">D</span><span class="mi" id="MathJax-Span-7809" style="font-family: MathJax_Math-italic;">O</span><span class="mi" id="MathJax-Span-7810" style="font-family: MathJax_Math-italic;">O</span><span class="msubsup" id="MathJax-Span-7811"><span style="display: inline-block; position: relative; width: 1.389em; height: 0px;"><span style="position: absolute; clip: rect(1.709em 1000em 2.723em -0.424em); top: -2.557em; left: 0.003em;"><span class="mi" id="MathJax-Span-7812" style="font-family: MathJax_Math-italic;">P<span style="display: inline-block; overflow: hidden; height: 1px; width: 0.109em;"/></span><span style="display: inline-block; width: 0px; height: 2.563em;"/></span><span style="position: absolute; top: -2.291em; left: 0.696em;"><span class="mi" id="MathJax-Span-7813" style="font-size: 70.7%; font-family: MathJax_Math-italic;">H<span style="display: inline-block; overflow: hidden; height: 1px; width: 0.056em;"/></span><span style="display: inline-block; width: 0px; height: 2.456em;"/></span></span></span><span class="mi" id="MathJax-Span-7814" style="font-family: MathJax_Math-italic;">O</span><span class="mi" id="MathJax-Span-7815" style="font-family: MathJax_Math-italic;">M<span style="display: inline-block; overflow: hidden; height: 1px; width: 0.109em;"/></span><span class="mi" id="MathJax-Span-7816" style="font-family: MathJax_Math-italic;">E<span style="display: inline-block; overflow: hidden; height: 1px; width: 0.003em;"/></span></span></span><span class="texatom" id="MathJax-Span-7817"><span class="mrow" id="MathJax-Span-7818"><span class="mo" id="MathJax-Span-7819" style="font-family: MathJax_Main;">/</span></span></span><span class="mi" id="MathJax-Span-7820" style="font-family: MathJax_Math-italic;">b</span><span class="mi" id="MathJax-Span-7821" style="font-family: MathJax_Math-italic;">i</span><span class="mi" id="MathJax-Span-7822" style="font-family: MathJax_Math-italic;">n</span><span class="mo" id="MathJax-Span-7823" style="font-family: MathJax_Main; padding-left: 0.269em;">:</span></span><span style="display: inline-block; width: 0px; height: 2.723em;"/></span></span><span style="border-left-width: 0.003em; border-left-style: solid; display: inline-block; overflow: hidden; width: 0px; height: 1.403em; vertical-align: -0.397em;"/></span></nobr></span><script type="math/tex" id="MathJax-Element-369">{HADOOP_HOME}/bin:</script>{HADOOP_HOME}/sbin:<span class="MathJax_Preview"/><span class="MathJax" id="MathJax-Element-370-Frame" role="textbox" aria-readonly="true"><nobr><span class="math" id="MathJax-Span-7824" style="width: 11.736em; display: inline-block;"><span style="display: inline-block; position: relative; width: 9.389em; height: 0px; font-size: 125%;"><span style="position: absolute; clip: rect(1.816em 1000em 3.149em -0.424em); top: -2.717em; left: 0.003em;"><span class="mrow" id="MathJax-Span-7825"><span class="texatom" id="MathJax-Span-7826"><span class="mrow" id="MathJax-Span-7827"><span class="mi" id="MathJax-Span-7828" style="font-family: MathJax_Math-italic;">S<span style="display: inline-block; overflow: hidden; height: 1px; width: 0.056em;"/></span><span class="mi" id="MathJax-Span-7829" style="font-family: MathJax_Math-italic;">C<span style="display: inline-block; overflow: hidden; height: 1px; width: 0.056em;"/></span><span class="mi" id="MathJax-Span-7830" style="font-family: MathJax_Math-italic;">A</span><span class="mi" id="MathJax-Span-7831" style="font-family: MathJax_Math-italic;">L</span><span class="msubsup" id="MathJax-Span-7832"><span style="display: inline-block; position: relative; width: 1.496em; height: 0px;"><span style="position: absolute; clip: rect(1.709em 1000em 2.723em -0.424em); top: -2.557em; left: 0.003em;"><span class="mi" id="MathJax-Span-7833" style="font-family: MathJax_Math-italic;">A</span><span style="display: inline-block; width: 0px; height: 2.563em;"/></span><span style="position: absolute; top: -2.291em; left: 0.803em;"><span class="mi" id="MathJax-Span-7834" style="font-size: 70.7%; font-family: MathJax_Math-italic;">H<span style="display: inline-block; overflow: hidden; height: 1px; width: 0.056em;"/></span><span style="display: inline-block; width: 0px; height: 2.456em;"/></span></span></span><span class="mi" id="MathJax-Span-7835" style="font-family: MathJax_Math-italic;">O</span><span class="mi" id="MathJax-Span-7836" style="font-family: MathJax_Math-italic;">M<span style="display: inline-block; overflow: hidden; height: 1px; width: 0.109em;"/></span><span class="mi" id="MathJax-Span-7837" style="font-family: MathJax_Math-italic;">E<span style="display: inline-block; overflow: hidden; height: 1px; width: 0.003em;"/></span></span></span><span class="texatom" id="MathJax-Span-7838"><span class="mrow" id="MathJax-Span-7839"><span class="mo" id="MathJax-Span-7840" style="font-family: MathJax_Main;">/</span></span></span><span class="mi" id="MathJax-Span-7841" style="font-family: MathJax_Math-italic;">b</span><span class="mi" id="MathJax-Span-7842" style="font-family: MathJax_Math-italic;">i</span><span class="mi" id="MathJax-Span-7843" style="font-family: MathJax_Math-italic;">n</span><span class="mo" id="MathJax-Span-7844" style="font-family: MathJax_Main; padding-left: 0.269em;">:</span></span><span style="display: inline-block; width: 0px; height: 2.723em;"/></span></span><span style="border-left-width: 0.003em; border-left-style: solid; display: inline-block; overflow: hidden; width: 0px; height: 1.403em; vertical-align: -0.397em;"/></span></nobr></span><script type="math/tex" id="MathJax-Element-370">{SCALA_HOME}/bin:</script>{SPARK_HOME}/bin:<span class="MathJax_Preview"/><span class="MathJax" id="MathJax-Element-371-Frame" role="textbox" aria-readonly="true"><nobr><span class="math" id="MathJax-Span-7845" style="width: 12.536em; display: inline-block;"><span style="display: inline-block; position: relative; width: 10.029em; height: 0px; font-size: 125%;"><span style="position: absolute; clip: rect(1.816em 1000em 3.149em -0.424em); top: -2.717em; left: 0.003em;"><span class="mrow" id="MathJax-Span-7846"><span class="texatom" id="MathJax-Span-7847"><span class="mrow" id="MathJax-Span-7848"><span class="mi" id="MathJax-Span-7849" style="font-family: MathJax_Math-italic;">S<span style="display: inline-block; overflow: hidden; height: 1px; width: 0.056em;"/></span><span class="mi" id="MathJax-Span-7850" style="font-family: MathJax_Math-italic;">P<span style="display: inline-block; overflow: hidden; height: 1px; width: 0.109em;"/></span><span class="mi" id="MathJax-Span-7851" style="font-family: MathJax_Math-italic;">A</span><span class="mi" id="MathJax-Span-7852" style="font-family: MathJax_Math-italic;">R</span><span class="msubsup" id="MathJax-Span-7853"><span style="display: inline-block; position: relative; width: 1.603em; height: 0px;"><span style="position: absolute; clip: rect(1.709em 1000em 2.723em -0.424em); top: -2.557em; left: 0.003em;"><span class="mi" id="MathJax-Span-7854" style="font-family: MathJax_Math-italic;">K<span style="display: inline-block; overflow: hidden; height: 1px; width: 0.056em;"/></span><span style="display: inline-block; width: 0px; height: 2.563em;"/></span><span style="position: absolute; top: -2.291em; left: 0.856em;"><span class="mi" id="MathJax-Span-7855" style="font-size: 70.7%; font-family: MathJax_Math-italic;">H<span style="display: inline-block; overflow: hidden; height: 1px; width: 0.056em;"/></span><span style="display: inline-block; width: 0px; height: 2.456em;"/></span></span></span><span class="mi" id="MathJax-Span-7856" style="font-family: MathJax_Math-italic;">O</span><span class="mi" id="MathJax-Span-7857" style="font-family: MathJax_Math-italic;">M<span style="display: inline-block; overflow: hidden; height: 1px; width: 0.109em;"/></span><span class="mi" id="MathJax-Span-7858" style="font-family: MathJax_Math-italic;">E<span style="display: inline-block; overflow: hidden; height: 1px; width: 0.003em;"/></span></span></span><span class="texatom" id="MathJax-Span-7859"><span class="mrow" id="MathJax-Span-7860"><span class="mo" id="MathJax-Span-7861" style="font-family: MathJax_Main;">/</span></span></span><span class="mi" id="MathJax-Span-7862" style="font-family: MathJax_Math-italic;">s</span><span class="mi" id="MathJax-Span-7863" style="font-family: MathJax_Math-italic;">b</span><span class="mi" id="MathJax-Span-7864" style="font-family: MathJax_Math-italic;">i</span><span class="mi" id="MathJax-Span-7865" style="font-family: MathJax_Math-italic;">n</span><span class="mo" id="MathJax-Span-7866" style="font-family: MathJax_Main; padding-left: 0.269em;">:</span></span><span style="display: inline-block; width: 0px; height: 2.723em;"/></span></span><span style="border-left-width: 0.003em; border-left-style: solid; display: inline-block; overflow: hidden; width: 0px; height: 1.403em; vertical-align: -0.397em;"/></span></nobr></span><script type="math/tex" id="MathJax-Element-371">{SPARK_HOME}/sbin:</script>{HIVE_HOME}/bin:<span class="MathJax_Preview"/><span class="MathJax" id="MathJax-Element-372-Frame" role="textbox" aria-readonly="true"><nobr><span class="math" id="MathJax-Span-7867" style="width: 12.269em; display: inline-block;"><span style="display: inline-block; position: relative; width: 9.816em; height: 0px; font-size: 125%;"><span style="position: absolute; clip: rect(1.816em 1000em 3.149em -0.424em); top: -2.717em; left: 0.003em;"><span class="mrow" id="MathJax-Span-7868"><span class="texatom" id="MathJax-Span-7869"><span class="mrow" id="MathJax-Span-7870"><span class="mi" id="MathJax-Span-7871" style="font-family: MathJax_Math-italic;">K<span style="display: inline-block; overflow: hidden; height: 1px; width: 0.056em;"/></span><span class="mi" id="MathJax-Span-7872" style="font-family: MathJax_Math-italic;">A</span><span class="mi" id="MathJax-Span-7873" style="font-family: MathJax_Math-italic;">F<span style="display: inline-block; overflow: hidden; height: 1px; width: 0.109em;"/></span><span class="mi" id="MathJax-Span-7874" style="font-family: MathJax_Math-italic;">K<span style="display: inline-block; overflow: hidden; height: 1px; width: 0.056em;"/></span><span class="msubsup" id="MathJax-Span-7875"><span style="display: inline-block; position: relative; width: 1.496em; height: 0px;"><span style="position: absolute; clip: rect(1.709em 1000em 2.723em -0.424em); top: -2.557em; left: 0.003em;"><span class="mi" id="MathJax-Span-7876" style="font-family: MathJax_Math-italic;">A</span><span style="display: inline-block; width: 0px; height: 2.563em;"/></span><span style="position: absolute; top: -2.291em; left: 0.803em;"><span class="mi" id="MathJax-Span-7877" style="font-size: 70.7%; font-family: MathJax_Math-italic;">H<span style="display: inline-block; overflow: hidden; height: 1px; width: 0.056em;"/></span><span style="display: inline-block; width: 0px; height: 2.456em;"/></span></span></span><span class="mi" id="MathJax-Span-7878" style="font-family: MathJax_Math-italic;">O</span><span class="mi" id="MathJax-Span-7879" style="font-family: MathJax_Math-italic;">M<span style="display: inline-block; overflow: hidden; height: 1px; width: 0.109em;"/></span><span class="mi" id="MathJax-Span-7880" style="font-family: MathJax_Math-italic;">E<span style="display: inline-block; overflow: hidden; height: 1px; width: 0.003em;"/></span></span></span><span class="texatom" id="MathJax-Span-7881"><span class="mrow" id="MathJax-Span-7882"><span class="mo" id="MathJax-Span-7883" style="font-family: MathJax_Main;">/</span></span></span><span class="mi" id="MathJax-Span-7884" style="font-family: MathJax_Math-italic;">b</span><span class="mi" id="MathJax-Span-7885" style="font-family: MathJax_Math-italic;">i</span><span class="mi" id="MathJax-Span-7886" style="font-family: MathJax_Math-italic;">n</span><span class="mo" id="MathJax-Span-7887" style="font-family: MathJax_Main; padding-left: 0.269em;">:</span></span><span style="display: inline-block; width: 0px; height: 2.723em;"/></span></span><span style="border-left-width: 0.003em; border-left-style: solid; display: inline-block; overflow: hidden; width: 0px; height: 1.403em; vertical-align: -0.397em;"/></span></nobr></span><script type="math/tex" id="MathJax-Element-372">{KAFKA_HOME}/bin:</script>PATH</p>
+
+<ul>
+<li>使配置的环境变量立即生效：source /root/.bashrc</li>
+</ul>
+
+<p>打开server.properties <br/>
+-       cd $ZOOKEEPER_HOME/config</p>
+
+<ul>
+<li>vi server.properties</li>
+</ul>
+
+<p>配置server.properties <br/>
+broker.id=0</p>
+
+<p>port=9092</p>
+
+<p>zookeeper.connect=master:2181,slave1:2181,slave2:2181</p>
+
+<p>3)    同步master的安装和配置到slave1和slave2</p>
+
+<ul>
+<li>在master服务器上运行下面的命令</li>
+</ul>
+
+<p>cd /root</p>
+
+<p>scp ./.bashrc root@slave1:/root</p>
+
+<p>scp ./.bashrc root@slave2:/root</p>
+
+<p>cd /usr/local</p>
+
+<p>scp -r ./kafka_2.10-0.9.0.1 root@slave1:/usr/local</p>
+
+<p>scp -r ./kafka_2.10-0.9.0.1 root@slave2:/usr/local</p>
+
+<ul>
+<li>在slave1服务器上运行下面的命令</li>
+</ul>
+
+<p>vi $KAFKA_HOME/config/server.properties</p>
+
+<p>修改broker.id=1。</p>
+
+<ul>
+<li>在slave2服务器上运行下面的命令</li>
+</ul>
+
+<p>vi $KAFKA_HOME/config/server.properties</p>
+
+<p>修改broker.id=2。</p>
+
+<p>4)    启动Kafka服务</p>
+
+<ul>
+<li>在master服务器上运行下面的命令,nohup,在集群上终端不输出启动日志</li>
+</ul>
+
+<p>cd $KAFKA_HOME/bin</p>
+
+<p>nohup ./kafka-server-start.sh ../config/server.properties &amp;</p>
+
+<ul>
+<li>在slave1服务器上运行下面的命令</li>
+</ul>
+
+<p>source /root/.bashrc</p>
+
+<p>cd $KAFKA_HOME/bin</p>
+
+<p>nohup ./kafka-server-start.sh ../config/server.properties &amp;</p>
+
+<ul>
+<li>在slave2服务器上运行下面的命令</li>
+</ul>
+
+<p>source /root/.bashrc</p>
+
+<p>cd $KAFKA_HOME/bin</p>
+
+<p>kafka-server-start.sh ../config/server.properties &amp;</p>
+
+<p>5)    验证Kafka是否安装和启动成功</p>
+
+<ul>
+<li>在任意服务器上运行命令创建Topic“HelloKafka”：</li>
+</ul>
+
+<p>kafka-topics.sh –create –zookeeper master:2181,slave1:2181,slave2:2181 –replication-factor 3 –partitions 1 –topic HelloKafka</p>
+
+<ul>
+<li>在任意服务器上运行命令为创建的Topic“HelloKafka”生产一些消息：</li>
+</ul>
+
+<p>kafka-console-producer.sh –broker-list master:9092,slave1:9092,slave2:9092 –topic HelloKafka</p>
+
+<p>输入下面的消息内容：</p>
+
+<p>This is DT_Spark!</p>
+
+<p>I’m Rocky!</p>
+
+<p>Life is short, you need Spark!</p>
+
+<ul>
+<li>在任意服务器上运行命令从指定的Topic“HelloKafka”上消费（拉取）消息：</li>
+</ul>
+
+<p>kafka-console-consumer.sh –zookeeper master:2181,slave1:2181,slave2:2181 –from-beginning –topic HelloKafka</p>
+
+<p>过一会儿，你会看到打印的消息内容：</p>
+
+<p>This is DT_Spark!</p>
+
+<p>I’m Rocky!</p>
+
+<p>Life is short, you need Spark!</p>
+
+<ul>
+<li>在任意服务器上运行命令查看所有的Topic名字：</li>
+</ul>
+
+<p>kafka-topics.sh –list –zookeeper master:2181,slave1:2181,slave2:2181</p>
+
+<ul>
+<li>在任意服务器上运行命令查看指定Topic的概况：</li>
+</ul>
+
+<p>kafka-topics.sh –describe –zookeepermaster:2181,slave1:2181,slave2:2181 –topic HelloKafka</p>
+
+<p>至此，代表Kafka已经安装和配置成功。</p>
+
+<p>总结：</p>
+
+<p>使用Spark Streaming可以处理各种数据来源类型，如：数据库、HDFS，服务器log日志、网络流，其强大超越了你想象不到的场景，只是很多时候大家不会用，其真正原因是对Spark、spark streaming本身不了解。</p>
+
+<p>转载自：<a href="http://lib.csdn.net/article/spark/41235">http://lib.csdn.net/article/spark/41235</a></p><link rel="stylesheet" href="http://static.blog.csdn.net/public/res-min/markdown_views.css?v=1.0"/></div><link rel="stylesheet" href="http://static.blog.csdn.net/public/res-min/markdown_views.css?v=1.0"/>&#13;
+            

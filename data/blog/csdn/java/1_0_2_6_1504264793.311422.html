@@ -1,0 +1,75 @@
+
+        <div class="markdown_views"><h1 id="1为什么使用线程池">1.为什么使用线程池</h1>
+
+<p>如果每当建立连接就创建一个新线程，然后在新线程中为连接处理交互。这种处理方式有以下不足之处：1.创建新线程在创建和销毁线程上花费的时间和消耗的系统资源开销很大；2.除了创建和销毁线程的开销之外，活动的线程也消耗系统资源；3. JVM 里创建太多的线程可能会导致系统由于过度消耗内存而用完内存或“切换过度”。 <br />
+如果使用线程池，在程序一开始的时候就创建一定量的线程，这样减少了每次线程创建而带来的不必要时间耗损。这样，就可以立即为此次连接进行服务，使应用程序响应更快。而且，通过适当地调整线程池中的线程数目，也就是当请求的数目超过某个阈值时，就强制其它任何新到的请求一直等待，直到获得一个线程来处理为止，从而可以防止资源不足。</p>
+
+
+
+<h1 id="2线程池服务端">2.线程池服务端</h1>
+
+<p>此次服务端代码是对文章<a href="http://blog.csdn.net/odeviloo/article/details/51461212">Socket编程(二)—TCP简单实例</a>中服务端的修改，唯一不同就是通过线程池的方式来实现客户端的连接，客户端代码直接使用上面文章中的就行。</p>
+
+
+
+<pre class="prettyprint"><code class=" hljs axapta"><span class="hljs-keyword">public</span> <span class="hljs-class"><span class="hljs-keyword">class</span> <span class="hljs-title">DatePoolServer</span> {</span>
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">static</span> <span class="hljs-keyword">void</span> main(String[] args) {
+        ExecutorService pool = Executors.newFixedThreadPool(<span class="hljs-number">50</span>);<span class="hljs-comment">// 创建50大小的线程池</span>
+        <span class="hljs-keyword">try</span> (ServerSocket <span class="hljs-keyword">server</span> = <span class="hljs-keyword">new</span> ServerSocket(<span class="hljs-number">7456</span>)) {
+            <span class="hljs-keyword">while</span> (<span class="hljs-keyword">true</span>) {
+                Socket connection = <span class="hljs-keyword">server</span>.accept();
+                Callable&lt;Void&gt; task = <span class="hljs-keyword">new</span> DateTask(connection);
+                pool.submit(task);<span class="hljs-comment">//将任务提交到线程池，等待调用</span>
+            }
+        } <span class="hljs-keyword">catch</span> (IOException e) {
+            e.printStackTrace();
+        }
+    }
+
+    <span class="hljs-comment">//发送日期的任务</span>
+    <span class="hljs-keyword">private</span> <span class="hljs-keyword">static</span> <span class="hljs-class"><span class="hljs-keyword">class</span> <span class="hljs-title">DateTask</span> <span class="hljs-inheritance"><span class="hljs-keyword">implements</span></span> <span class="hljs-title">Callable</span>&lt;<span class="hljs-title">Void</span>&gt; {</span>
+
+        <span class="hljs-keyword">private</span> Socket connection;
+
+        <span class="hljs-keyword">public</span> DateTask(Socket connection) {
+            <span class="hljs-keyword">this</span>.connection = connection;
+        }
+
+        @Override
+        <span class="hljs-keyword">public</span> Void call() {<span class="hljs-comment">//在此任务被调用的是调用此方法</span>
+            Writer writer;
+            <span class="hljs-keyword">try</span> {<span class="hljs-comment">//下面代码同之前文章中一致</span>
+                writer = <span class="hljs-keyword">new</span> OutputStreamWriter(connection.getOutputStream());
+                Date now = <span class="hljs-keyword">new</span> Date();
+                writer.write(now.toString() + <span class="hljs-string">"\r\n"</span>);
+                writer.flush();
+            } <span class="hljs-keyword">catch</span> (IOException e) {
+                e.printStackTrace();
+            } <span class="hljs-keyword">finally</span> {
+                <span class="hljs-keyword">try</span> {
+                    <span class="hljs-keyword">if</span> (connection != <span class="hljs-keyword">null</span>)
+                        connection.close();
+                } <span class="hljs-keyword">catch</span> (IOException e) {
+                    e.printStackTrace();
+                }
+            }
+            <span class="hljs-keyword">return</span> <span class="hljs-keyword">null</span>;
+        }
+    }
+}</code></pre>
+
+<p><strong><em>源码位置：</em></strong><a href="https://github.com/oDevilo/Java-Network">https://github.com/oDevilo/Java-Network</a></p></div>&#13;
+        <script type="text/javascript">&#13;
+            $(function () {&#13;
+                $('pre.prettyprint code').each(function () {&#13;
+                    var lines = $(this).text().split('\n').length;&#13;
+                    var $numbering = $('&lt;ul/&gt;').addClass('pre-numbering').hide();&#13;
+                    $(this).addClass('has-numbering').parent().append($numbering);&#13;
+                    for (i = 1; i &lt;= lines; i++) {&#13;
+                        $numbering.append($('&lt;li/&gt;').text(i));&#13;
+                    };&#13;
+                    $numbering.fadeIn(1700);&#13;
+                });&#13;
+            });&#13;
+        </script>&#13;
+   &#13;

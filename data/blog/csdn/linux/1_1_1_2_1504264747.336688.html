@@ -1,0 +1,25 @@
+
+<p><span style="font-size:18px;"><strong><span style="white-space:pre">	</span>现在，假设 hello.txt 是硬盘上已有的一个文件，而且内容为 “hello, world” ，在文件的当前指针设置完毕后，我们来介绍 sys_read , sys_write , sys_lseek 如何联合使用才能把数据插入到 hello.txt 中。</strong></span></p><p><span style="font-size:18px;"><strong><span style="white-space:pre">	</span>可以通过如下方式对它们进行组合应用，应用程序的代码如下： </strong></span></p><p></p><pre name="code" class="cpp">#include &lt;fcntl.h&gt;
+#include &lt;stdio.h&gt;
+#include &lt;string.h&gt;
+
+#define LOCATION 6
+
+int main(char argc, char **argv)
+{
+	char str1[] = "Linux";
+	char str2[1024];
+	int fd, size;
+	
+	memset(str2, 0, sizeof(str2));
+	fd = open("hello.txt", O_RDWR, 0644);
+	lseek(fd, LOCATION, SEEK_SET);
+	strcpy(str2, str1);
+	size = read(fd, str2+5, 6);
+	
+	lseek(fd, LOCATION, SEEK_SET);
+	size = write(fd, str2, strlen(str2));
+	
+	close(fd);
+	return (0);
+}</pre><br /><br /><p><span style="white-space:pre">	</span><span style="font-size:18px;"><strong>这是一段用户进程的程序，通过这样一段代码就能将 “Linux” 这个字符串插入到 hello.txt 文件中了，最终 hello.txt 文件中的内容应该是 ： “hello，Linuxworld” 。</strong></span></p><p><span style="font-size:18px;"><strong><span style="white-space:pre">	</span>这段代码几乎用到了操作文本文件的所有系统调用，下下面我们来分析一下这些代码的作用。</strong></span></p><p><br /></p><p></p><pre name="code" class="cpp">fd = open("hello.txt", O_RDWR, 0644);</pre><br /><span style="font-size:18px;"><strong>open 函数将对应sys_open 函数，很明显，在操作之前先要确定要操作哪个文件。</strong></span><p><br /></p><p></p><pre name="code" class="cpp">lseek(fd, LOCATION, SEEK_SET);</pre><br /><span style="font-size:18px;"><strong>lseek 函数将对应 sys_lseek 函数，由于参数中选择了 SEEK_SET ，表明要将文件的当前操作指针从文件的起始位置向文件尾端偏移6个字节。</strong></span><p><br /></p><p></p><pre name="code" class="cpp">strcpy(str2, str1);</pre><br /><span style="font-size:18px;"><strong>这一行是将 “Linux” 这个字符串拷贝到 str2[1024] 这个数组的起始位置处。</strong></span><p><br /></p><p></p><pre name="code" class="cpp">size = read(fd, str2+5, 6);</pre><br /><span style="font-size:18px;"><strong>这一行实现的拼接，拼接的结果是： Linuxworld</strong></span><p><br /></p><p></p><pre name="code" class="cpp">lseek(fd, LOCATION, SEEK_SET);</pre><br /><span style="font-size:18px;"><strong>这行的效果和前面调用的效果一样，都是要讲文件的当前操作指针，即文件的起始位置，向文件尾端偏移6个字节，这个时候就确定了下面文件的准确写入位置。</strong></span><p><br /></p><p></p><pre name="code" class="cpp">size = write(fd, str2, strlen(str2));</pre><br /><span style="font-size:18px;"><strong>write 函数将对应 sys_write 函数，现在要讲 str2 这个数组中的 “Linuxworld” 字符串写入到 hello.txt 文件中，而且写入位置刚刚确定，就是从文件的起始位置向尾端偏移六个字节的位置，于是最终的写入结果就是 ： “hello，Linuxworld”</strong></span><p><span style="font-size:18px;"><strong><br /></strong></span></p><p><span style="font-size:18px;"><strong><span style="white-space:pre">	</span>以上所述，就是 read， write， lseek 组合应用，从而实现文件修改的全过程。</strong></span></p>   &#13;

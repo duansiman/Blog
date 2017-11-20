@@ -1,0 +1,568 @@
+
+
+<h1>1.实验环境和所需软件</h1>&#13;
+<p> <span style="font-size:18px">  1.Windows7环境</span></p>&#13;
+<p><span style="font-size:18px">   2.nginx 1.6.3</span></p>&#13;
+<p><span style="font-size:18px">   3.redis 2.6.2</span></p>&#13;
+<p><span style="font-size:18px">   4.Tomcat 7.0.56</span></p>&#13;
+<p><span style="font-size:18px"><br />&#13;
+</span></p>&#13;
+<h1> 2.配置Nginx</h1>&#13;
+<div>         <pre name="code" class="java">Nginx路径：E:\new\Tomcat_Nginx_Cluster\nginx-1.6.3\</pre><pre name="code" class="java">#Nginx所有用户和组，window下不指定
+#user Adminstrator
+#user  nobody;
+#工作的子进程数量(通常等于CPU核数或者2倍与CPU核数)
+worker_processes  4;
+
+#错误日志存放路径
+#error_log  logs/error.log;
+#error_log  logs/error.log  notice;
+#error_log  logs/error.log  info;
+
+#指定pid存放文件
+#pid        logs/nginx.pid;
+
+
+events {
+#使用网络IO模型，Linux建议用epoll，FreeBSD建议用kqueue，window下不指定
+#use epoll
+#设置单个进程同时打开的最大连接数
+    worker_connections  1024;
+}
+
+
+http {
+    include       mime.types;
+    default_type  application/octet-stream;
+
+#定义日志格式
+    #log_format  main  '$remote_addr - $remote_user [$time_local] "$request" '
+    #                  '$status $body_bytes_sent "$http_referer" '
+    #                  '"$http_user_agent" "$http_x_forwarded_for"';
+
+    #access_log  logs/access.log  main;
+
+    sendfile        on;
+    #tcp_nopush     on;
+
+    #keepalive_timeout  0;
+    #http连接的持续时间
+    keepalive_timeout  65;
+    
+#gzip压缩设置
+    #gzip  on; #是否打开gzip压缩，默认不打开
+    gzip_min_length 1k;  #最小压缩文件大小
+    gzip_buffers 4 16k;  #压缩缓冲区
+    #http的协议版本(1.0/1.1),默认1.1，前端如果是squid2.5请使用1.0
+    gzip_http_version 1.1;
+    #gzip压缩比，1压缩比最小处理速度最快，9压缩比最大但处理速度最慢(传输快但比较消耗cpu)
+    gzip_comp_level 2;   
+    #和http头有关系，加个vary头，给代理服务器用的，有的浏览器支持压缩，有的不支持，所以避免浪费不支持的也压缩，所以根据客户端的HTTP头来判断，是否需要压缩
+    gzip_vary on;
+    #gzip压缩类型，不用添加text/html，否则会有警告信息
+    gzip_types text/plain text/javascript text/css application/xmlapplication/x-javascript application/json;
+
+
+#设定负载均衡的服务器列表，可以配置多个upstream，但mysvr名字要区分
+#下面配置请求的负载分配
+    upstream localhost {
+      #根据ip计算将请求分配给那个后端Tomcat，注意：这里并不能解决Session共享问题
+      #同一机器在多网情况下，路由切换，ip可能不同
+      #ip_hash
+      #weight参数表示权值，权值越高被分配到的几率越大，一般在生产环境中，需要根据访问情况制定相应算法
+      server localhost:8080 weight=5;
+      server localhost:8081 weight=5;
+    }
+
+    server {
+        #Nginx监听的端口号
+        listen       80;
+	#域名可有多个，用空格隔开
+        server_name  localhost;
+
+        #字符编码集
+        #charset koi8-r;
+	charset utf-8;
+
+        #设定本虚拟主机的访问日志。关闭日志可减少IO，提高性能
+        #access_log  logs/host.access.log  main;
+
+        #默认请求
+        location / {
+	    #定义服务器的默认网站根目录位置
+            #root   html;
+	    root E:\new\Tomcat_Nginx_Cluster;
+	    #定义首页
+            index  index.html index.htm index.jsp;
+	    #请求专项mysvr定义的服务器列表
+	    #配置端口转发，proxy_pass
+	    proxy_pass http://localhost;
+	    proxy_redirect default;
+	    #与代理服务器连接的超时时间，必须留意这个timeout不能超过75秒，当一台服务器宕机时，过10秒转发到另外一台服务器
+	    proxy_connect_timeout 10;
+        }
+
+        location ~ .*.jsp$ #所有jsp的页面均交由tomcat处理
+        {
+             index index.jsp;
+                 proxy_pass http://localhost;#转向tomcat处理
+        }
+
+	location ~ .*\.(gif|jpg|jpeg|png|bmp|swf)$ #设定访问静态文件直接读取不经过tomcat
+        {
+	     #设置静态资源的过期时间
+             expires 30d;
+        }
+
+        #定义几种常见的错误页面:404,400,500等
+        #error_page  404              /404.html;
+
+        # redirect server error pages to the static page /50x.html
+        #
+        error_page   500 502 503 504  /50x.html;
+        location = /50x.html {
+            root   html;
+        }
+
+
+	#对本server"/"启用负载均衡  
+        #location / {  
+        #    proxy_pass http://mysvr;  
+        #    proxy_redirect off;  
+        #    proxy_set_header Host $host;  
+        #    proxy_set_header X-Real-IP $remote_addr;  
+        #    proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;  
+        #    client_max_body_size 10m;  
+        #    client_body_buffer_size 128k;  
+        #    proxy_connect_timeout 90;  
+        #    proxy_send_timeout 90;  
+        #    proxy_read_timeout 90;  
+        #    proxy_buffer_size 4k;  
+        #    proxy_buffers 4 32k;  
+        #    proxy_busy_buffers_size 64k;  
+        #    proxy_temp_file_write_size 64k;  
+        #}  
+
+        # proxy the PHP scripts to Apache listening on 127.0.0.1:80
+        #
+        #location ~ \.php$ {
+        #    proxy_pass   http://127.0.0.1;
+        #}
+
+        # pass the PHP scripts to FastCGI server listening on 127.0.0.1:9000
+        #
+        #location ~ \.php$ {
+        #    root           html;
+        #    fastcgi_pass   127.0.0.1:9000;
+        #    fastcgi_index  index.php;
+        #    fastcgi_param  SCRIPT_FILENAME  /scripts$fastcgi_script_name;
+        #    include        fastcgi_params;
+        #}
+
+        # deny access to .htaccess files, if Apache's document root
+        # concurs with nginx's one
+        #
+        #location ~ /\.ht {
+        #    deny  all;
+        #}
+    }
+
+
+    # another virtual host using mix of IP-, name-, and port-based configuration
+    #
+    #server {
+    #    listen       8000;
+    #    listen       somename:8080;
+    #    server_name  somename  alias  another.alias;
+
+    #    location / {
+    #        root   html;
+    #        index  index.html index.htm;
+    #    }
+    #}
+
+
+    # HTTPS server
+    #
+    #server {
+    #    listen       443 ssl;
+    #    server_name  localhost;
+
+    #    ssl_certificate      cert.pem;
+    #    ssl_certificate_key  cert.key;
+
+    #    ssl_session_cache    shared:SSL:1m;
+    #    ssl_session_timeout  5m;
+
+    #    ssl_ciphers  HIGH:!aNULL:!MD5;
+    #    ssl_prefer_server_ciphers  on;
+
+    #    location / {
+    #        root   html;
+    #        index  index.html index.htm;
+    #    }
+    #}
+
+}
+</pre><br />&#13;
+</div>&#13;
+<h1> 3.配置两个Tomcat</h1>&#13;
+<h2>         1. 在两个Tomcat的lib中导入连接redis需要的jar包：</h2>&#13;
+<div><br />&#13;
+</div>&#13;
+<div>             <img src="http://img.blog.csdn.net/20151204174549423?watermark/2/text/aHR0cDovL2Jsb2cuY3Nkbi5uZXQv/font/5a6L5L2T/fontsize/400/fill/I0JBQkFCMA==/dissolve/70/gravity/Center" alt="" /></div>&#13;
+<div> </div>&#13;
+<h2>         2.配置两个Tomcat通过redis共享session</h2>&#13;
+<div><br />&#13;
+</div>&#13;
+<div>         Tomcat-8080          ---        localhost:8080</div>&#13;
+<div><br />&#13;
+</div>&#13;
+<div>                           1.conf/server.xml端口配置   ---   使用默认的8080端口，只需配置这个Tomcat了</div>&#13;
+<div><br />&#13;
+</div>&#13;
+<div>  <span style="color:rgb(51,51,51); font-family:Arial; font-size:14px; line-height:26px">Engine元素增加jvmRoute属性：</span><br style="color:rgb(51,51,51); font-family:Arial; font-size:14px; line-height:26px" />&#13;
+<div class="dp-highlighter bg_html" style="font-family:Consolas,'Courier New',Courier,mono,serif; width:700.906px; overflow:auto; padding-top:1px; color:rgb(51,51,51); line-height:26px; margin:18px 0px!important; background-color:rgb(231,229,220)">&#13;
+<div class="bar" style="padding-left:45px">&#13;
+<div class="tools" style="padding:3px 8px 10px 10px; font-size:9px; line-height:normal; font-family:Verdana,Geneva,Arial,Helvetica,sans-serif; color:silver; border-left-width:3px; border-left-style:solid; border-left-color:rgb(108,226,108); background-color:rgb(248,248,248)">&#13;
+<strong>[html]</strong> <a target="_blank" href="http://blog.csdn.net/lingchidexintu/article/details/8077115" class="ViewSource" title="view plain" style="color:rgb(160,160,160); text-decoration:none; border:none; padding:1px; margin:0px 10px 0px 0px; font-size:9px; display:inline-block; width:16px; height:16px; text-indent:-2000px; background-color:inherit">view&#13;
+ plain</a><a target="_blank" href="http://blog.csdn.net/lingchidexintu/article/details/8077115" class="CopyToClipboard" title="copy" style="color:rgb(160,160,160); text-decoration:none; border:none; padding:1px; margin:0px 10px 0px 0px; font-size:9px; display:inline-block; width:16px; height:16px; text-indent:-2000px; background-color:inherit">copy</a>&#13;
+<div style="position:absolute; left:528px; top:6749px; width:18px; height:18px; z-index:99">&#13;
+</div>&#13;
+</div>&#13;
+</div>&#13;
+<ol start="1" class="dp-xml" style="padding:0px; border:none; color:rgb(92,92,92); margin:0px 0px 1px 45px!important; background-color:rgb(255,255,255)">&#13;
+<li class="alt" style="border-style:none none none solid; border-left-width:3px; border-left-color:rgb(108,226,108); list-style:decimal-leading-zero outside; color:inherit; line-height:18px; margin:0px!important; padding:0px 3px 0px 10px!important">&#13;
+<span style="margin:0px; padding:0px; border:none; color:black; background-color:inherit"><span class="tag" style="margin:0px; padding:0px; border:none; color:rgb(153,51,0); font-weight:bold; background-color:inherit">&lt;</span><span class="tag-name" style="margin:0px; padding:0px; border:none; color:rgb(153,51,0); font-weight:bold; background-color:inherit">Engine</span><span style="margin:0px; padding:0px; border:none; background-color:inherit"> </span><span class="attribute" style="margin:0px; padding:0px; border:none; color:red; background-color:inherit">name</span><span style="margin:0px; padding:0px; border:none; background-color:inherit">=</span><span class="attribute-value" style="margin:0px; padding:0px; border:none; color:blue; background-color:inherit">"Catalina"</span><span style="margin:0px; padding:0px; border:none; background-color:inherit"> </span><span class="attribute" style="margin:0px; padding:0px; border:none; color:red; background-color:inherit">defaultHost</span><span style="margin:0px; padding:0px; border:none; background-color:inherit">=</span><span class="attribute-value" style="margin:0px; padding:0px; border:none; color:blue; background-color:inherit">"localhost"</span><span style="margin:0px; padding:0px; border:none; background-color:inherit"> </span><span class="attribute" style="margin:0px; padding:0px; border:none; color:red; background-color:inherit">jvmRoute</span><span style="margin:0px; padding:0px; border:none; background-color:inherit">=</span><span class="attribute-value" style="margin:0px; padding:0px; border:none; color:blue; background-color:inherit">"tomcat8080"</span><span class="tag" style="margin:0px; padding:0px; border:none; color:rgb(153,51,0); font-weight:bold; background-color:inherit">&gt;</span><span style="margin:0px; padding:0px; border:none; background-color:inherit"> &#13;
+   </span></span></li></ol>&#13;
+</div>&#13;
+ </div>&#13;
+<div><br />&#13;
+</div>&#13;
+<div>                           2.conf/context.xml配置         ---   连接redis共享session的配置</div>&#13;
+<div><br />&#13;
+</div>&#13;
+<div><pre name="code" class="html">&lt;Valve className="com.orangefunction.tomcat.redissessions.RedisSessionHandlerValve" /&gt;
+	&lt;Manager className="com.orangefunction.tomcat.redissessions.RedisSessionManager"
+         host="localhost"
+         port="6379" 
+		 database="0" 
+         maxInactiveInterval="60" /&gt;</pre><br />&#13;
+</div>&#13;
+<div><br />&#13;
+</div>&#13;
+<div>完整配置：</div>&#13;
+<div>                           <pre name="code" class="html">&lt;span style="font-family: Arial, Helvetica, sans-serif;"&gt;&lt;?xml version='1.0' encoding='utf-8'?&gt;&lt;/span&gt;</pre><pre name="code" class="html">&lt;?xml version='1.0' encoding='utf-8'?&gt;&lt;!--
+  Licensed to the Apache Software Foundation (ASF) under one or more
+  contributor license agreements.  See the NOTICE file distributed with
+  this work for additional information regarding copyright ownership.
+  The ASF licenses this file to You under the Apache License, Version 2.0
+  (the "License"); you may not use this file except in compliance with
+  the License.  You may obtain a copy of the License at
+
+      http://www.apache.org/licenses/LICENSE-2.0
+
+  Unless required by applicable law or agreed to in writing, software
+  distributed under the License is distributed on an "AS IS" BASIS,
+  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+  See the License for the specific language governing permissions and
+  limitations under the License.
+--&gt;
+&lt;!-- The contents of this file will be loaded for each web application --&gt;
+&lt;Context&gt;
+
+    &lt;!-- Default set of monitored resources --&gt;
+    &lt;WatchedResource&gt;WEB-INF/web.xml&lt;/WatchedResource&gt;
+
+    &lt;!-- Uncomment this to disable session persistence across Tomcat restarts --&gt;
+    &lt;!--
+    &lt;Manager pathname="" /&gt;
+    --&gt;
+
+    &lt;!-- Uncomment this to enable Comet connection tacking (provides events
+         on session expiration as well as webapp lifecycle) --&gt;
+    &lt;!--
+    &lt;Valve className="org.apache.catalina.valves.CometConnectionManagerValve" /&gt;
+    --&gt;
+
+&lt;Valve className="com.orangefunction.tomcat.redissessions.RedisSessionHandlerValve" /&gt;
+	&lt;Manager className="com.orangefunction.tomcat.redissessions.RedisSessionManager"
+         host="localhost"
+         port="6379" 
+		 database="0" 
+         maxInactiveInterval="60" /&gt;
+
+&lt;/Context&gt;</pre><br />&#13;
+</div>&#13;
+<div>         Tomcat-8081          ---        localhost:8081</div>&#13;
+<div>          &#13;
+<div>                           1.conf/server.xml端口配置   ---   使用8081端口，需要在server.xml中进行相应的配置(4个地方需要修改端口)</div>&#13;
+<div>                             &#13;
+<p style="color:rgb(51,51,51); font-family:Arial; font-size:14px; line-height:26px">&#13;
+第一处端口修改：</p>&#13;
+<div class="dp-highlighter bg_html" style="font-family:Consolas,'Courier New',Courier,mono,serif; width:700.906px; overflow:auto; padding-top:1px; color:rgb(51,51,51); line-height:26px; margin:18px 0px!important; background-color:rgb(231,229,220)">&#13;
+<div class="bar" style="padding-left:45px">&#13;
+<div class="tools" style="padding:3px 8px 10px 10px; font-size:9px; line-height:normal; font-family:Verdana,Geneva,Arial,Helvetica,sans-serif; color:silver; border-left-width:3px; border-left-style:solid; border-left-color:rgb(108,226,108); background-color:rgb(248,248,248)">&#13;
+<strong>[html]</strong> <a target="_blank" href="http://blog.csdn.net/lingchidexintu/article/details/8077115" class="ViewSource" title="view plain" style="color:rgb(160,160,160); text-decoration:none; border:none; padding:1px; margin:0px 10px 0px 0px; font-size:9px; display:inline-block; width:16px; height:16px; text-indent:-2000px; background-color:inherit">view&#13;
+ plain</a><a target="_blank" href="http://blog.csdn.net/lingchidexintu/article/details/8077115" class="CopyToClipboard" title="copy" style="color:rgb(160,160,160); text-decoration:none; border:none; padding:1px; margin:0px 10px 0px 0px; font-size:9px; display:inline-block; width:16px; height:16px; text-indent:-2000px; background-color:inherit">copy</a>&#13;
+<div style="position:absolute; left:528px; top:6338px; width:18px; height:18px; z-index:99">&#13;
+</div>&#13;
+</div>&#13;
+</div>&#13;
+<ol start="1" class="dp-xml" style="padding:0px; border:none; color:rgb(92,92,92); margin:0px 0px 1px 45px!important; background-color:rgb(255,255,255)">&#13;
+<li class="alt" style="border-style:none none none solid; border-left-width:3px; border-left-color:rgb(108,226,108); list-style:decimal-leading-zero outside; color:inherit; line-height:18px; margin:0px!important; padding:0px 3px 0px 10px!important">&#13;
+<span style="margin:0px; padding:0px; border:none; color:black; background-color:inherit"><span class="comments" style="margin:0px; padding:0px; border:none; color:rgb(0,130,0); background-color:inherit">&lt;!--  修改port端口：8006 俩个tomcat不能重复，端口随意，别太小--&gt;</span><span style="margin:0px; padding:0px; border:none; background-color:inherit">    </span></span></li><li style="border-style:none none none solid; border-left-width:3px; border-left-color:rgb(108,226,108); list-style:decimal-leading-zero outside; line-height:18px; margin:0px!important; padding:0px 3px 0px 10px!important; background-color:rgb(248,248,248)">&#13;
+<span style="margin:0px; padding:0px; border:none; color:black; background-color:inherit"><span class="tag" style="margin:0px; padding:0px; border:none; color:rgb(153,51,0); font-weight:bold; background-color:inherit">&lt;</span><span class="tag-name" style="margin:0px; padding:0px; border:none; color:rgb(153,51,0); font-weight:bold; background-color:inherit">Server</span><span style="margin:0px; padding:0px; border:none; background-color:inherit"> </span><span class="attribute" style="margin:0px; padding:0px; border:none; color:red; background-color:inherit">port</span><span style="margin:0px; padding:0px; border:none; background-color:inherit">=</span><span class="attribute-value" style="margin:0px; padding:0px; border:none; color:blue; background-color:inherit">"8006"</span><span style="margin:0px; padding:0px; border:none; background-color:inherit"> </span><span class="attribute" style="margin:0px; padding:0px; border:none; color:red; background-color:inherit">shutdown</span><span style="margin:0px; padding:0px; border:none; background-color:inherit">=</span><span class="attribute-value" style="margin:0px; padding:0px; border:none; color:blue; background-color:inherit">"SHUTDOWN"</span><span class="tag" style="margin:0px; padding:0px; border:none; color:rgb(153,51,0); font-weight:bold; background-color:inherit">&gt;</span><span style="margin:0px; padding:0px; border:none; background-color:inherit">   </span></span></li></ol>&#13;
+</div>&#13;
+<span style="color:rgb(51,51,51); font-family:Arial; font-size:14px; line-height:26px">第二处端口修改：</span><br style="color:rgb(51,51,51); font-family:Arial; font-size:14px; line-height:26px" />&#13;
+<div class="dp-highlighter bg_html" style="font-family:Consolas,'Courier New',Courier,mono,serif; width:700.906px; overflow:auto; padding-top:1px; color:rgb(51,51,51); line-height:26px; margin:18px 0px!important; background-color:rgb(231,229,220)">&#13;
+<div class="bar" style="padding-left:45px">&#13;
+<div class="tools" style="padding:3px 8px 10px 10px; font-size:9px; line-height:normal; font-family:Verdana,Geneva,Arial,Helvetica,sans-serif; color:silver; border-left-width:3px; border-left-style:solid; border-left-color:rgb(108,226,108); background-color:rgb(248,248,248)">&#13;
+<strong>[html]</strong> <a target="_blank" href="http://blog.csdn.net/lingchidexintu/article/details/8077115" class="ViewSource" title="view plain" style="color:rgb(160,160,160); text-decoration:none; border:none; padding:1px; margin:0px 10px 0px 0px; font-size:9px; display:inline-block; width:16px; height:16px; text-indent:-2000px; background-color:inherit">view&#13;
+ plain</a><a target="_blank" href="http://blog.csdn.net/lingchidexintu/article/details/8077115" class="CopyToClipboard" title="copy" style="color:rgb(160,160,160); text-decoration:none; border:none; padding:1px; margin:0px 10px 0px 0px; font-size:9px; display:inline-block; width:16px; height:16px; text-indent:-2000px; background-color:inherit">copy</a>&#13;
+<div style="position:absolute; left:528px; top:6469px; width:18px; height:18px; z-index:99">&#13;
+</div>&#13;
+</div>&#13;
+</div>&#13;
+<ol start="1" class="dp-xml" style="padding:0px; border:none; color:rgb(92,92,92); margin:0px 0px 1px 45px!important; background-color:rgb(255,255,255)">&#13;
+<li class="alt" style="border-style:none none none solid; border-left-width:3px; border-left-color:rgb(108,226,108); list-style:decimal-leading-zero outside; color:inherit; line-height:18px; margin:0px!important; padding:0px 3px 0px 10px!important">&#13;
+<span style="margin:0px; padding:0px; border:none; color:black; background-color:inherit"><span class="comments" style="margin:0px; padding:0px; border:none; color:rgb(0,130,0); background-color:inherit">&lt;!-- port="8081" tomcat监听端口，随意设置，别太小 --&gt;</span><span style="margin:0px; padding:0px; border:none; background-color:inherit">    </span></span></li><li style="border-style:none none none solid; border-left-width:3px; border-left-color:rgb(108,226,108); list-style:decimal-leading-zero outside; line-height:18px; margin:0px!important; padding:0px 3px 0px 10px!important; background-color:rgb(248,248,248)">&#13;
+<span style="margin:0px; padding:0px; border:none; color:black; background-color:inherit"><span class="tag" style="margin:0px; padding:0px; border:none; color:rgb(153,51,0); font-weight:bold; background-color:inherit">&lt;</span><span class="tag-name" style="margin:0px; padding:0px; border:none; color:rgb(153,51,0); font-weight:bold; background-color:inherit">Connector</span><span style="margin:0px; padding:0px; border:none; background-color:inherit"> </span><span class="attribute" style="margin:0px; padding:0px; border:none; color:red; background-color:inherit">port</span><span style="margin:0px; padding:0px; border:none; background-color:inherit">=</span><span class="attribute-value" style="margin:0px; padding:0px; border:none; color:blue; background-color:inherit">"8081"</span><span style="margin:0px; padding:0px; border:none; background-color:inherit"> </span><span class="attribute" style="margin:0px; padding:0px; border:none; color:red; background-color:inherit">protocol</span><span style="margin:0px; padding:0px; border:none; background-color:inherit">=</span><span class="attribute-value" style="margin:0px; padding:0px; border:none; color:blue; background-color:inherit">"HTTP/1.1"</span><span style="margin:0px; padding:0px; border:none; background-color:inherit">      </span></span></li><li class="alt" style="border-style:none none none solid; border-left-width:3px; border-left-color:rgb(108,226,108); list-style:decimal-leading-zero outside; color:inherit; line-height:18px; margin:0px!important; padding:0px 3px 0px 10px!important">&#13;
+<span style="margin:0px; padding:0px; border:none; color:black; background-color:inherit">               <span class="attribute" style="margin:0px; padding:0px; border:none; color:red; background-color:inherit">connectionTimeout</span><span style="margin:0px; padding:0px; border:none; background-color:inherit">=</span><span class="attribute-value" style="margin:0px; padding:0px; border:none; color:blue; background-color:inherit">"20000"</span><span style="margin:0px; padding:0px; border:none; background-color:inherit">      </span></span></li><li style="border-style:none none none solid; border-left-width:3px; border-left-color:rgb(108,226,108); list-style:decimal-leading-zero outside; line-height:18px; margin:0px!important; padding:0px 3px 0px 10px!important; background-color:rgb(248,248,248)">&#13;
+<span style="margin:0px; padding:0px; border:none; color:black; background-color:inherit">               <span class="attribute" style="margin:0px; padding:0px; border:none; color:red; background-color:inherit">redirectPort</span><span style="margin:0px; padding:0px; border:none; background-color:inherit">=</span><span class="attribute-value" style="margin:0px; padding:0px; border:none; color:blue; background-color:inherit">"8443"</span><span style="margin:0px; padding:0px; border:none; background-color:inherit"> </span><span class="tag" style="margin:0px; padding:0px; border:none; color:rgb(153,51,0); font-weight:bold; background-color:inherit">/&gt;</span><span style="margin:0px; padding:0px; border:none; background-color:inherit">    </span></span></li></ol>&#13;
+</div>&#13;
+<span style="color:rgb(51,51,51); font-family:Arial; font-size:14px; line-height:26px">第三处端口修改：</span><br style="color:rgb(51,51,51); font-family:Arial; font-size:14px; line-height:26px" />&#13;
+<div class="dp-highlighter bg_html" style="font-family:Consolas,'Courier New',Courier,mono,serif; width:700.906px; overflow:auto; padding-top:1px; color:rgb(51,51,51); line-height:26px; margin:18px 0px!important; background-color:rgb(231,229,220)">&#13;
+<div class="bar" style="padding-left:45px">&#13;
+<div class="tools" style="padding:3px 8px 10px 10px; font-size:9px; line-height:normal; font-family:Verdana,Geneva,Arial,Helvetica,sans-serif; color:silver; border-left-width:3px; border-left-style:solid; border-left-color:rgb(108,226,108); background-color:rgb(248,248,248)">&#13;
+<strong>[html]</strong> <a target="_blank" href="http://blog.csdn.net/lingchidexintu/article/details/8077115" class="ViewSource" title="view plain" style="color:rgb(160,160,160); text-decoration:none; border:none; padding:1px; margin:0px 10px 0px 0px; font-size:9px; display:inline-block; width:16px; height:16px; text-indent:-2000px; background-color:inherit">view&#13;
+ plain</a><a target="_blank" href="http://blog.csdn.net/lingchidexintu/article/details/8077115" class="CopyToClipboard" title="copy" style="color:rgb(160,160,160); text-decoration:none; border:none; padding:1px; margin:0px 10px 0px 0px; font-size:9px; display:inline-block; width:16px; height:16px; text-indent:-2000px; background-color:inherit">copy</a>&#13;
+<div style="position:absolute; left:528px; top:6636px; width:18px; height:18px; z-index:99">&#13;
+</div>&#13;
+</div>&#13;
+</div>&#13;
+<ol start="1" class="dp-xml" style="padding:0px; border:none; color:rgb(92,92,92); margin:0px 0px 1px 45px!important; background-color:rgb(255,255,255)">&#13;
+<li class="alt" style="border-style:none none none solid; border-left-width:3px; border-left-color:rgb(108,226,108); list-style:decimal-leading-zero outside; color:inherit; line-height:18px; margin:0px!important; padding:0px 3px 0px 10px!important">&#13;
+<span style="margin:0px; padding:0px; border:none; color:black; background-color:inherit"><span class="tag" style="margin:0px; padding:0px; border:none; color:rgb(153,51,0); font-weight:bold; background-color:inherit">&lt;</span><span class="tag-name" style="margin:0px; padding:0px; border:none; color:rgb(153,51,0); font-weight:bold; background-color:inherit">Connector</span><span style="margin:0px; padding:0px; border:none; background-color:inherit"> </span><span class="attribute" style="margin:0px; padding:0px; border:none; color:red; background-color:inherit">port</span><span style="margin:0px; padding:0px; border:none; background-color:inherit">=</span><span class="attribute-value" style="margin:0px; padding:0px; border:none; color:blue; background-color:inherit">"18009"</span><span style="margin:0px; padding:0px; border:none; background-color:inherit"> </span><span class="attribute" style="margin:0px; padding:0px; border:none; color:red; background-color:inherit">protocol</span><span style="margin:0px; padding:0px; border:none; background-color:inherit">=</span><span class="attribute-value" style="margin:0px; padding:0px; border:none; color:blue; background-color:inherit">"AJP/1.3"</span><span style="margin:0px; padding:0px; border:none; background-color:inherit"> </span><span class="attribute" style="margin:0px; padding:0px; border:none; color:red; background-color:inherit">redirectPort</span><span style="margin:0px; padding:0px; border:none; background-color:inherit">=</span><span class="attribute-value" style="margin:0px; padding:0px; border:none; color:blue; background-color:inherit">"18443"</span><span style="margin:0px; padding:0px; border:none; background-color:inherit"> </span><span class="tag" style="margin:0px; padding:0px; border:none; color:rgb(153,51,0); font-weight:bold; background-color:inherit">/&gt;</span><span style="margin:0px; padding:0px; border:none; background-color:inherit">   </span></span></li></ol>&#13;
+</div>&#13;
+<span style="color:rgb(51,51,51); font-family:Arial; font-size:14px; line-height:26px">Engine元素增加jvmRoute属性：</span><br style="color:rgb(51,51,51); font-family:Arial; font-size:14px; line-height:26px" />&#13;
+<div class="dp-highlighter bg_html" style="font-family:Consolas,'Courier New',Courier,mono,serif; width:700.906px; overflow:auto; padding-top:1px; color:rgb(51,51,51); line-height:26px; margin:18px 0px!important; background-color:rgb(231,229,220)">&#13;
+<div class="bar" style="padding-left:45px">&#13;
+<div class="tools" style="padding:3px 8px 10px 10px; font-size:9px; line-height:normal; font-family:Verdana,Geneva,Arial,Helvetica,sans-serif; color:silver; border-left-width:3px; border-left-style:solid; border-left-color:rgb(108,226,108); background-color:rgb(248,248,248)">&#13;
+<strong>[html]</strong> <a target="_blank" href="http://blog.csdn.net/lingchidexintu/article/details/8077115" class="ViewSource" title="view plain" style="color:rgb(160,160,160); text-decoration:none; border:none; padding:1px; margin:0px 10px 0px 0px; font-size:9px; display:inline-block; width:16px; height:16px; text-indent:-2000px; background-color:inherit">view&#13;
+ plain</a><a target="_blank" href="http://blog.csdn.net/lingchidexintu/article/details/8077115" class="CopyToClipboard" title="copy" style="color:rgb(160,160,160); text-decoration:none; border:none; padding:1px; margin:0px 10px 0px 0px; font-size:9px; display:inline-block; width:16px; height:16px; text-indent:-2000px; background-color:inherit">copy</a>&#13;
+<div style="position:absolute; left:528px; top:6749px; width:18px; height:18px; z-index:99">&#13;
+</div>&#13;
+</div>&#13;
+</div>&#13;
+<ol start="1" class="dp-xml" style="padding:0px; border:none; color:rgb(92,92,92); margin:0px 0px 1px 45px!important; background-color:rgb(255,255,255)">&#13;
+<li class="alt" style="border-style:none none none solid; border-left-width:3px; border-left-color:rgb(108,226,108); list-style:decimal-leading-zero outside; color:inherit; line-height:18px; margin:0px!important; padding:0px 3px 0px 10px!important">&#13;
+<span style="margin:0px; padding:0px; border:none; color:black; background-color:inherit"><span class="tag" style="margin:0px; padding:0px; border:none; color:rgb(153,51,0); font-weight:bold; background-color:inherit">&lt;</span><span class="tag-name" style="margin:0px; padding:0px; border:none; color:rgb(153,51,0); font-weight:bold; background-color:inherit">Engine</span><span style="margin:0px; padding:0px; border:none; background-color:inherit"> </span><span class="attribute" style="margin:0px; padding:0px; border:none; color:red; background-color:inherit">name</span><span style="margin:0px; padding:0px; border:none; background-color:inherit">=</span><span class="attribute-value" style="margin:0px; padding:0px; border:none; color:blue; background-color:inherit">"Catalina"</span><span style="margin:0px; padding:0px; border:none; background-color:inherit"> </span><span class="attribute" style="margin:0px; padding:0px; border:none; color:red; background-color:inherit">defaultHost</span><span style="margin:0px; padding:0px; border:none; background-color:inherit">=</span><span class="attribute-value" style="margin:0px; padding:0px; border:none; color:blue; background-color:inherit">"localhost"</span><span style="margin:0px; padding:0px; border:none; background-color:inherit"> </span><span class="attribute" style="margin:0px; padding:0px; border:none; color:red; background-color:inherit">jvmRoute</span><span style="margin:0px; padding:0px; border:none; background-color:inherit">=</span><span class="attribute-value" style="margin:0px; padding:0px; border:none; color:blue; background-color:inherit">"tomcat8081"</span><span class="tag" style="margin:0px; padding:0px; border:none; color:rgb(153,51,0); font-weight:bold; background-color:inherit">&gt;</span><span style="margin:0px; padding:0px; border:none; background-color:inherit"> &#13;
+   </span></span></li></ol>&#13;
+</div>&#13;
+ </div>&#13;
+<div>                               完整配置：</div>&#13;
+<div>                               <pre name="code" class="html">&lt;?xml version='1.0' encoding='utf-8'?&gt;
+&lt;!--
+  Licensed to the Apache Software Foundation (ASF) under one or more
+  contributor license agreements.  See the NOTICE file distributed with
+  this work for additional information regarding copyright ownership.
+  The ASF licenses this file to You under the Apache License, Version 2.0
+  (the "License"); you may not use this file except in compliance with
+  the License.  You may obtain a copy of the License at
+
+      http://www.apache.org/licenses/LICENSE-2.0
+
+  Unless required by applicable law or agreed to in writing, software
+  distributed under the License is distributed on an "AS IS" BASIS,
+  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+  See the License for the specific language governing permissions and
+  limitations under the License.
+--&gt;
+&lt;!-- Note:  A "Server" is not itself a "Container", so you may not
+     define subcomponents such as "Valves" at this level.
+     Documentation at /docs/config/server.html
+ --&gt;
+&lt;Server port="8006" shutdown="SHUTDOWN"&gt;
+  &lt;!-- Security listener. Documentation at /docs/config/listeners.html
+  &lt;Listener className="org.apache.catalina.security.SecurityListener" /&gt;
+  --&gt;
+  &lt;!--APR library loader. Documentation at /docs/apr.html --&gt;
+  &lt;Listener className="org.apache.catalina.core.AprLifecycleListener" SSLEngine="on" /&gt;
+  &lt;!--Initialize Jasper prior to webapps are loaded. Documentation at /docs/jasper-howto.html --&gt;
+  &lt;Listener className="org.apache.catalina.core.JasperListener" /&gt;
+  &lt;!-- Prevent memory leaks due to use of particular java/javax APIs--&gt;
+  &lt;Listener className="org.apache.catalina.core.JreMemoryLeakPreventionListener" /&gt;
+  &lt;Listener className="org.apache.catalina.mbeans.GlobalResourcesLifecycleListener" /&gt;
+  &lt;Listener className="org.apache.catalina.core.ThreadLocalLeakPreventionListener" /&gt;
+
+  &lt;!-- Global JNDI resources
+       Documentation at /docs/jndi-resources-howto.html
+  --&gt;
+  &lt;GlobalNamingResources&gt;
+    &lt;!-- Editable user database that can also be used by
+         UserDatabaseRealm to authenticate users
+    --&gt;
+    &lt;Resource name="UserDatabase" auth="Container"
+              type="org.apache.catalina.UserDatabase"
+              description="User database that can be updated and saved"
+              factory="org.apache.catalina.users.MemoryUserDatabaseFactory"
+              pathname="conf/tomcat-users.xml" /&gt;
+  &lt;/GlobalNamingResources&gt;
+
+  &lt;!-- A "Service" is a collection of one or more "Connectors" that share
+       a single "Container" Note:  A "Service" is not itself a "Container",
+       so you may not define subcomponents such as "Valves" at this level.
+       Documentation at /docs/config/service.html
+   --&gt;
+  &lt;Service name="Catalina"&gt;
+
+    &lt;!--The connectors can use a shared executor, you can define one or more named thread pools--&gt;
+    &lt;!--
+    &lt;Executor name="tomcatThreadPool" namePrefix="catalina-exec-"
+        maxThreads="150" minSpareThreads="4"/&gt;
+    --&gt;
+
+
+    &lt;!-- A "Connector" represents an endpoint by which requests are received
+         and responses are returned. Documentation at :
+         Java HTTP Connector: /docs/config/http.html (blocking &amp; non-blocking)
+         Java AJP  Connector: /docs/config/ajp.html
+         APR (HTTP/AJP) Connector: /docs/apr.html
+         Define a non-SSL HTTP/1.1 Connector on port 8080
+    --&gt;
+    &lt;Connector port="8081" protocol="HTTP/1.1"
+               connectionTimeout="20000"
+               redirectPort="18443" /&gt;
+    &lt;!-- A "Connector" using the shared thread pool--&gt;
+    &lt;!--
+    &lt;Connector executor="tomcatThreadPool"
+               port="8080" protocol="HTTP/1.1"
+               connectionTimeout="20000"
+               redirectPort="8443" /&gt;
+    --&gt;
+    &lt;!-- Define a SSL HTTP/1.1 Connector on port 8443
+         This connector uses the BIO implementation that requires the JSSE
+         style configuration. When using the APR/native implementation, the
+         OpenSSL style configuration is required as described in the APR/native
+         documentation --&gt;
+    &lt;!--
+    &lt;Connector port="8443" protocol="org.apache.coyote.http11.Http11Protocol"
+               maxThreads="150" SSLEnabled="true" scheme="https" secure="true"
+               clientAuth="false" sslProtocol="TLS" /&gt;
+    --&gt;
+
+    &lt;!-- Define an AJP 1.3 Connector on port 8009 --&gt;
+    &lt;Connector port="18009" protocol="AJP/1.3" redirectPort="18443" /&gt;
+
+
+    &lt;!-- An Engine represents the entry point (within Catalina) that processes
+         every request.  The Engine implementation for Tomcat stand alone
+         analyzes the HTTP headers included with the request, and passes them
+         on to the appropriate Host (virtual host).
+         Documentation at /docs/config/engine.html --&gt;
+
+    &lt;!-- You should set jvmRoute to support load-balancing via AJP ie :
+    &lt;Engine name="Catalina" defaultHost="localhost" jvmRoute="jvm1"&gt;
+    --&gt;
+    &lt;Engine name="Catalina" defaultHost="localhost" jvmRoute="tomcat8081"&gt;
+
+      &lt;!--For clustering, please take a look at documentation at:
+          /docs/cluster-howto.html  (simple how to)
+          /docs/config/cluster.html (reference documentation) --&gt;
+      &lt;!--
+      &lt;Cluster className="org.apache.catalina.ha.tcp.SimpleTcpCluster"/&gt;
+      --&gt;
+
+      &lt;!-- Use the LockOutRealm to prevent attempts to guess user passwords
+           via a brute-force attack --&gt;
+      &lt;Realm className="org.apache.catalina.realm.LockOutRealm"&gt;
+        &lt;!-- This Realm uses the UserDatabase configured in the global JNDI
+             resources under the key "UserDatabase".  Any edits
+             that are performed against this UserDatabase are immediately
+             available for use by the Realm.  --&gt;
+        &lt;Realm className="org.apache.catalina.realm.UserDatabaseRealm"
+               resourceName="UserDatabase"/&gt;
+      &lt;/Realm&gt;
+
+      &lt;Host name="localhost"  appBase="webapps"
+            unpackWARs="true" autoDeploy="true"&gt;
+
+        &lt;!-- SingleSignOn valve, share authentication between web applications
+             Documentation at: /docs/config/valve.html --&gt;
+        &lt;!--
+        &lt;Valve className="org.apache.catalina.authenticator.SingleSignOn" /&gt;
+        --&gt;
+
+        &lt;!-- Access log processes all example.
+             Documentation at: /docs/config/valve.html
+             Note: The pattern used is equivalent to using pattern="common" --&gt;
+        &lt;Valve className="org.apache.catalina.valves.AccessLogValve" directory="logs"
+               prefix="localhost_access_log." suffix=".txt"
+               pattern="%h %l %u %t "%r" %s %b" /&gt;
+
+      &lt;/Host&gt;
+    &lt;/Engine&gt;
+  &lt;/Service&gt;
+&lt;/Server&gt;
+</pre><br />&#13;
+</div>&#13;
+<div><br />&#13;
+</div>&#13;
+<div><br />&#13;
+</div>&#13;
+<div>                           2.conf/context.xml配置         ---   连接redis共享session的配置</div>&#13;
+</div>&#13;
+<h1> 4.启动nginx、redis和两个Tomcat组建集群</h1>&#13;
+<h2>       1.创建index.jsp测试文件</h2>&#13;
+<div>                在两个Tomcat的webapps下面创建一个test目录，并创建一个index.jsp文件</div>&#13;
+<div><pre name="code" class="html">&lt;%@ page language="java" %&gt;  
+&lt;html&gt;  
+  &lt;head&gt;&lt;title&gt;TomcatA&lt;/title&gt;&lt;/head&gt;  
+  &lt;body&gt;  
+   
+    &lt;table align="centre" border="1"&gt;  
+      &lt;tr&gt;  
+        &lt;td&gt;Session ID&lt;/td&gt;  
+        &lt;td&gt;&lt;%= session.getId() %&gt;&lt;/td&gt;  
+      &lt;/tr&gt;  
+      &lt;tr&gt;  
+        &lt;td&gt;Created on&lt;/td&gt;  
+        &lt;td&gt;&lt;%= session.getCreationTime() %&gt;&lt;/td&gt;  
+     &lt;/tr&gt;  
+    &lt;/table&gt;  
+  &lt;/body&gt;  
+&lt;/html&gt;  
+sessionID:&lt;%=session.getId()%&gt;   
+&lt;br&gt;   
+SessionIP:&lt;%=request.getServerName()%&gt;   
+&lt;br&gt;   
+SessionPort:&lt;%=request.getServerPort()%&gt;   
+&lt;%   
+//为了区分，第二个可以是222  
+out.println("This is Tomcat Server 1111");   
+%&gt;    </pre><br />&#13;
+<br />&#13;
+</div>&#13;
+<h2>         2.先启动Nginx、再启动redis，最后启动两个Tomcat</h2>&#13;
+<div>                说明：</div>&#13;
+<div>                        Windows下Nginx的启动与关闭<br />&#13;
+                               启动: E:\new\Tomcat_Nginx_Cluster\nginx-1.6.3&gt;nginx.exe<br />&#13;
+                               关闭：E:\new\Tomcat_Nginx_Cluster\nginx-1.6.3&gt;nginx -s quit</div>&#13;
+<h1> 5.测试Session共享</h1>&#13;
+<p>           <span style="font-family:Arial; font-size:14px; line-height:26px">打开浏览器去访问第一个Tomcat，然后再第二个Tomcat，页面Session信息如下</span></p>&#13;
+<p><span style="font-family:Arial; font-size:14px; line-height:26px"><img src="http://img.blog.csdn.net/20151204175737072?watermark/2/text/aHR0cDovL2Jsb2cuY3Nkbi5uZXQv/font/5a6L5L2T/fontsize/400/fill/I0JBQkFCMA==/dissolve/70/gravity/Center" alt="" /><br />&#13;
+</span></p>&#13;
+<p><span style="font-family:Arial; font-size:14px; line-height:26px"><br />&#13;
+</span></p>&#13;
+<p><span style="font-family:Arial; font-size:14px; line-height:26px"><img src="http://img.blog.csdn.net/20151204175750693?watermark/2/text/aHR0cDovL2Jsb2cuY3Nkbi5uZXQv/font/5a6L5L2T/fontsize/400/fill/I0JBQkFCMA==/dissolve/70/gravity/Center" alt="" /><br />&#13;
+</span></p>&#13;
+<p><span style="font-family:Arial; font-size:14px; line-height:26px">        直接访问Tomcat集群的到Session信息如下:</span></p>&#13;
+<p><span style="font-family:Arial; font-size:14px; line-height:26px"><img src="http://img.blog.csdn.net/20151204175817062?watermark/2/text/aHR0cDovL2Jsb2cuY3Nkbi5uZXQv/font/5a6L5L2T/fontsize/400/fill/I0JBQkFCMA==/dissolve/70/gravity/Center" alt="" /><br />&#13;
+</span></p>&#13;
+<p><span style="font-family:Arial; font-size:14px; line-height:26px">由图可以看到，三个Tomcat的SessionID都是一样的：<span style="font-family:Simsun; font-size:14px">9BE0CD81E96DCBEEC2DD4AD5E2A63D09</span>，只要不关闭浏览器，不管怎么刷新，SessionID都是不变了。由此可以，三个Tomcat通过redis实现了Session信息共享。</span><br />&#13;
+</p>&#13;
+<p><span style="font-family:Arial; font-size:14px; line-height:26px"><br />&#13;
+</span></p>&#13;
+<p><span style="font-family:Arial; font-size:14px; line-height:26px">使用Memcached共享Session例子参考：http://blog.csdn.net/zht666/article/details/38515147</span></p>&#13;
+   &#13;

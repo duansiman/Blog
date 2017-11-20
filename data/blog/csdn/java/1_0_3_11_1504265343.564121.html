@@ -1,0 +1,233 @@
+
+        <div class="markdown_views"><p>学习一个框架少不了学习文件上传和下载,原理来说上传和下载都是基本二进制流的转换,所以搞清楚了这一点就很容易理解上传和下载了</p>
+
+<hr />
+
+<p>在使用springMVC进行系统实现时，springMVC默认的解析器里面是没有加入对文件上传的解析的，这可以方便我们实现自己的文件上传。但如果你想使用springMVC对文件上传的解析器来处理文件上传的时候就需要在spring的applicationContext里面加上springMVC提供的MultipartResolver的申明。这样之后，客户端每次进行请求的时候，springMVC都会检查request里面是否包含多媒体信息，如果包含了就会使用MultipartResolver进行解析,springMVC会使用一个支持文件处理的MultipartHttpServletRequest来包裹当前的HttpServletRequest，然后使用MultipartHttpServletRequest就可以对文件进行处理了。</p>
+
+<hr />
+
+<p></p><h1 id="一文件上传"><strong>一.文件上传</strong></h1><p></p>
+
+<hr />
+
+
+
+<h2 id="1引入依赖包">1.引入依赖包</h2>
+
+<p>文件上传需要额外引入包分别是</p>
+
+<ol>
+<li>commons-fileupload-1.3.1.jar</li>
+<li>commons-io-2.4.jar</li>
+</ol>
+
+
+
+<h2 id="2配置jsp页面">2.配置jsp页面</h2>
+
+
+
+<pre class="prettyprint"><code class=" hljs xml"><span class="vbscript">&lt;%@ page contentType=<span class="hljs-string">"text/html;charset=UTF-8"</span> language=<span class="hljs-string">"java"</span> %&gt;</span>
+<span class="vbscript">&lt;%@taglib prefix=<span class="hljs-string">"sf"</span> uri=<span class="hljs-string">"http://www.springframework.org/tags/form"</span> %&gt;</span>
+<span class="hljs-tag">&lt;<span class="hljs-title">html</span>&gt;</span>
+<span class="hljs-tag">&lt;<span class="hljs-title">head</span>&gt;</span>
+    <span class="hljs-tag">&lt;<span class="hljs-title">meta</span> <span class="hljs-attribute">charset</span>=<span class="hljs-value">"utf-8"</span>&gt;</span>
+    <span class="hljs-tag">&lt;<span class="hljs-title">title</span>&gt;</span>用户登录<span class="hljs-tag">&lt;/<span class="hljs-title">title</span>&gt;</span>
+<span class="hljs-tag">&lt;/<span class="hljs-title">head</span>&gt;</span>
+<span class="hljs-tag">&lt;<span class="hljs-title">body</span>&gt;</span>
+    <span class="vbscript">&lt;%--文件上传的话需要enctype=<span class="hljs-string">"multipart/form-data"</span>--%&gt;</span>
+    <span class="hljs-tag">&lt;<span class="hljs-title">sf:form</span> <span class="hljs-attribute">modelAttribute</span>=<span class="hljs-value">"user"</span> <span class="hljs-attribute">method</span>=<span class="hljs-value">"post"</span> <span class="hljs-attribute">enctype</span>=<span class="hljs-value">"multipart/form-data"</span>&gt;</span>
+        用户名:<span class="hljs-tag">&lt;<span class="hljs-title">sf:input</span> <span class="hljs-attribute">path</span>=<span class="hljs-value">"username"</span>/&gt;</span><span class="hljs-tag">&lt;<span class="hljs-title">sf:errors</span> <span class="hljs-attribute">path</span>=<span class="hljs-value">"username"</span>/&gt;</span>
+        <span class="hljs-tag">&lt;<span class="hljs-title">br</span>&gt;</span>
+        密码:<span class="hljs-tag">&lt;<span class="hljs-title">sf:input</span> <span class="hljs-attribute">path</span>=<span class="hljs-value">"password"</span>/&gt;</span><span class="hljs-tag">&lt;<span class="hljs-title">sf:errors</span> <span class="hljs-attribute">path</span>=<span class="hljs-value">"password"</span>/&gt;</span>
+        <span class="hljs-tag">&lt;<span class="hljs-title">br</span>&gt;</span>
+        昵称:<span class="hljs-tag">&lt;<span class="hljs-title">sf:input</span> <span class="hljs-attribute">path</span>=<span class="hljs-value">"nickname"</span>/&gt;</span><span class="hljs-tag">&lt;<span class="hljs-title">sf:errors</span> <span class="hljs-attribute">path</span>=<span class="hljs-value">"nickname"</span>/&gt;</span>
+        <span class="hljs-tag">&lt;<span class="hljs-title">br</span>&gt;</span>
+        <span class="vbscript">&lt;%--这里设置文件上传--%&gt;</span>
+        文件:<span class="hljs-tag">&lt;<span class="hljs-title">input</span> <span class="hljs-attribute">type</span>=<span class="hljs-value">"file"</span> <span class="hljs-attribute">name</span>=<span class="hljs-value">"file"</span>&gt;</span>
+        <span class="hljs-tag">&lt;<span class="hljs-title">input</span> <span class="hljs-attribute">type</span>=<span class="hljs-value">"submit"</span> <span class="hljs-attribute">value</span>=<span class="hljs-value">"提交"</span>&gt;</span>
+    <span class="hljs-tag">&lt;/<span class="hljs-title">sf:form</span>&gt;</span>
+<span class="hljs-tag">&lt;/<span class="hljs-title">body</span>&gt;</span>
+<span class="hljs-tag">&lt;/<span class="hljs-title">html</span>&gt;</span></code></pre>
+
+
+
+<h2 id="3配置相应的控制器">3.配置相应的控制器</h2>
+
+
+
+<pre class="prettyprint"><code class="language-java hljs "><span class="hljs-annotation">@RequestMapping</span>(value = <span class="hljs-string">"/login"</span>,method = RequestMethod.POST)
+    <span class="hljs-keyword">public</span> String <span class="hljs-title">login</span>(@Validated User user, BindingResult br, Model model,@<span class="hljs-title">RequestParam</span>("file") MultipartFile file){
+        <span class="hljs-keyword">if</span> (br.hasErrors()){
+            <span class="hljs-keyword">return</span> <span class="hljs-string">"user/login"</span>;
+        }
+        <span class="hljs-comment">//分别获取的是变量名file---文件类型---文件名</span>
+        System.out.println(file.getName()+<span class="hljs-string">"---"</span>+file.getContentType()+<span class="hljs-string">"---"</span>+file.getOriginalFilename());
+        <span class="hljs-keyword">try</span> {
+            <span class="hljs-keyword">if</span> (!file.isEmpty()){
+            <span class="hljs-comment">//使用StreamsAPI方式拷贝文件</span>
+                Streams.copy(file.getInputStream(),<span class="hljs-keyword">new</span> FileOutputStream(<span class="hljs-string">"E:/temp/"</span>+file.getOriginalFilename()),<span class="hljs-keyword">true</span>);
+            }
+        } <span class="hljs-keyword">catch</span> (IOException e) {
+            System.out.println(<span class="hljs-string">"文件上传失败"</span>);
+            e.printStackTrace();
+        }
+        System.out.println(user.toString());
+        <span class="hljs-keyword">return</span> <span class="hljs-string">"user/login"</span>;
+    }</code></pre>
+
+<p>至此单个文件上传完成.</p>
+
+
+
+<h2 id="4多文件上传">4.多文件上传</h2>
+
+<p>多文件上传很简单,只需要把参数改为数组就可以了</p>
+
+
+
+<pre class="prettyprint"><code class="language-java hljs ">    <span class="hljs-annotation">@RequestMapping</span>(value = <span class="hljs-string">"/login"</span>,method = RequestMethod.POST)
+    <span class="hljs-keyword">public</span> String <span class="hljs-title">login</span>(@Validated User user, BindingResult br, Model model,@<span class="hljs-title">RequestParam</span>("file") MultipartFile[] file){
+        <span class="hljs-keyword">if</span> (br.hasErrors()){
+            <span class="hljs-keyword">return</span> <span class="hljs-string">"user/login"</span>;
+        }
+        <span class="hljs-comment">//这里对文件进行遍历</span>
+        <span class="hljs-keyword">for</span> (MultipartFile mul:file){
+        <span class="hljs-comment">//分别获取的是变量名file---文件类型---文件名</span>
+            System.out.println(mul.getName()+<span class="hljs-string">"---"</span>+mul.getContentType()+<span class="hljs-string">"---"</span>+mul.getOriginalFilename());
+            <span class="hljs-keyword">try</span> {
+                <span class="hljs-keyword">if</span> (!mul.isEmpty()){
+                    Streams.copy(mul.getInputStream(),<span class="hljs-keyword">new</span> FileOutputStream(<span class="hljs-string">"E:/temp/"</span>+mul.getOriginalFilename()),<span class="hljs-keyword">true</span>);
+                }
+            } <span class="hljs-keyword">catch</span> (IOException e) {
+                System.out.println(<span class="hljs-string">"文件上传失败"</span>);
+                e.printStackTrace();
+            }
+        }
+        System.out.println(user.toString());
+        <span class="hljs-keyword">return</span> <span class="hljs-string">"user/login"</span>;
+    }</code></pre>
+
+<hr />
+
+<p></p><h1 id="二文件下载"><strong>二.文件下载</strong></h1><p></p>
+
+<hr />
+
+<p>下载需要把文件转换成二进制流,然后让客户端读取这个二进制流写入到本机,这样就实现了下载功能.那么现在就要想两个问题:1.怎么把文件写成二进制流?  2.怎么把让客户端相应,开始下载?</p>
+
+<p>答案;</p>
+
+<ol>
+<li>写成二进制流可以用之前导入的上传组件提供的方法:<code>FileUtils.readFileToByteArray(file)</code></li>
+<li>让浏览器响应,则需要设置相应的<strong>httpHeader</strong>了,并且利用spring提供的ResponseEntity把返回值设置为header和响应内容</li>
+</ol>
+
+
+
+<h2 id="1创建控制器代码">1.创建控制器代码</h2>
+
+
+
+<pre class="prettyprint"><code class=" hljs java">            <span class="hljs-annotation">@RequestMapping</span>(value = <span class="hljs-string">"/download"</span>,produces = <span class="hljs-string">"application/octet-stream;charset=UTF-8"</span>)
+            <span class="hljs-keyword">public</span> ResponseEntity&lt;<span class="hljs-keyword">byte</span>[]&gt; <span class="hljs-title">download</span>() <span class="hljs-keyword">throws</span> IOException {
+<span class="hljs-comment">//                指定文件,必须是绝对路径</span>
+            File file = <span class="hljs-keyword">new</span> File(<span class="hljs-string">"E:/temp/me-bg.jpg"</span>);
+<span class="hljs-comment">//                下载浏览器响应的那个文件名</span>
+            String dfileName = <span class="hljs-string">"1.jpg"</span>;
+<span class="hljs-comment">//                下面开始设置HttpHeaders,使得浏览器响应下载</span>
+            HttpHeaders headers = <span class="hljs-keyword">new</span> HttpHeaders();
+<span class="hljs-comment">//                设置响应方式</span>
+            headers.setContentType(MediaType.APPLICATION_OCTET_STREAM);
+<span class="hljs-comment">//                设置响应文件</span>
+            headers.setContentDispositionFormData(<span class="hljs-string">"attachment"</span>, dfileName);
+<span class="hljs-comment">//                把文件以二进制形式写回</span>
+            <span class="hljs-keyword">return</span> <span class="hljs-keyword">new</span> ResponseEntity&lt;<span class="hljs-keyword">byte</span>[]&gt;(FileUtils.readFileToByteArray(file), headers, HttpStatus.CREATED);
+        }</code></pre>
+
+
+
+<h2 id="2测试下载">2.测试下载</h2>
+
+<p>访问指定的控制器就能触发下载了</p>
+
+<p><img src="http://img.blog.csdn.net/20160405143238952" alt="这里写图片描述" title="" /></p>
+
+
+
+<h2 id="3补充">3.补充</h2>
+
+<p>有时候下载下来的文件会出现被压缩现象,也就是之前的格式都不存在了.解决办法为配置SpringMVC的messageConverter如下:</p>
+
+
+
+<pre class="prettyprint"><code class=" hljs xml"><span class="hljs-tag">&lt;<span class="hljs-title">bean</span> <span class="hljs-attribute">class</span>=<span class="hljs-value">"org.springframework.web.servlet.mvc.annotation.AnnotationMethodHandlerAdapter"</span>&gt;</span>  
+    <span class="hljs-tag">&lt;<span class="hljs-title">property</span> <span class="hljs-attribute">name</span>=<span class="hljs-value">"messageConverters"</span>&gt;</span>  
+        <span class="hljs-tag">&lt;<span class="hljs-title">list</span>&gt;</span>  
+            <span class="hljs-tag">&lt;<span class="hljs-title">bean</span> <span class="hljs-attribute">class</span>=<span class="hljs-value">"org.springframework.http.converter.ByteArrayHttpMessageConverter"</span>/&gt;</span>  
+        <span class="hljs-tag">&lt;/<span class="hljs-title">list</span>&gt;</span>  
+    <span class="hljs-tag">&lt;/<span class="hljs-title">property</span>&gt;</span>  
+<span class="hljs-tag">&lt;/<span class="hljs-title">bean</span>&gt;</span>  </code></pre>
+
+<p>在SpringBoot中和fastjson一起使用可以如下:</p>
+
+<p>本质上和xml配置是一样的,注入的时候有些转换器都有默认处理类型,所以没必要再次配置</p>
+
+
+
+<pre class="prettyprint"><code class="language-java hljs "> <span class="hljs-annotation">@Bean</span>
+    <span class="hljs-keyword">public</span> HttpMessageConverters <span class="hljs-title">customConverters</span>() {
+
+        <span class="hljs-comment">//fastjson处理消息转换</span>
+        FastJsonHttpMessageConverter fastConverter = <span class="hljs-keyword">new</span> FastJsonHttpMessageConverter();
+        FastJsonConfig fastJsonConfig = <span class="hljs-keyword">new</span> FastJsonConfig();
+        fastJsonConfig.setSerializerFeatures(SerializerFeature.WriteMapNullValue);
+        <span class="hljs-comment">/*
+          List&lt;MediaType&gt; fastMediaTypes = new ArrayList&lt;&gt;();
+          fastMediaTypes.add(MediaType.APPLICATION_JSON_UTF8);
+          fastConverter.setSupportedMediaTypes(fastMediaTypes);
+        */</span>
+        fastConverter.setFastJsonConfig(fastJsonConfig);
+
+        <span class="hljs-comment">//文件下载使用ByteArrayHttpMessageConverter处理</span>
+        ByteArrayHttpMessageConverter byteArrayHttpMessageConverter = <span class="hljs-keyword">new</span> ByteArrayHttpMessageConverter();
+        byteArrayHttpMessageConverter.setDefaultCharset(Charset.forName(<span class="hljs-string">"UTF-8"</span>));
+        <span class="hljs-comment">/*
+         //ByteArrayHttpMessageConverter默认处理请求类型就是APPLICATION_OCTET_STREAM
+         List&lt;MediaType&gt; byteMediaTypes = new ArrayList&lt;&gt;();
+         byteMediaTypes.add(MediaType.APPLICATION_OCTET_STREAM);
+         byteArrayHttpMessageConverter.setSupportedMediaTypes(byteMediaTypes);
+         */</span>
+        List&lt;HttpMessageConverter&lt;?&gt;&gt; converters = <span class="hljs-keyword">new</span> ArrayList&lt;&gt;();
+        converters.add(fastConverter);
+        converters.add(byteArrayHttpMessageConverter);
+
+        <span class="hljs-keyword">return</span> <span class="hljs-keyword">new</span> HttpMessageConverters(converters);
+    }
+</code></pre>
+
+<p>另外关于文件名乱码,可以使用URLEncoder转换下即可解决</p>
+
+
+
+<pre class="prettyprint"><code class=" hljs avrasm">String filename = URLEncoder<span class="hljs-preprocessor">.encode</span>(file<span class="hljs-preprocessor">.getName</span>(),<span class="hljs-string">"UTF-8"</span>)<span class="hljs-comment">;</span></code></pre>
+
+<hr />
+
+<p>项目示例可以参考: <br />
+SSM框架整合:    <a href="https://github.com/nl101531/JavaWEB">https://github.com/nl101531/JavaWEB</a></p></div>&#13;
+        <script type="text/javascript">&#13;
+            $(function () {&#13;
+                $('pre.prettyprint code').each(function () {&#13;
+                    var lines = $(this).text().split('\n').length;&#13;
+                    var $numbering = $('&lt;ul/&gt;').addClass('pre-numbering').hide();&#13;
+                    $(this).addClass('has-numbering').parent().append($numbering);&#13;
+                    for (i = 1; i &lt;= lines; i++) {&#13;
+                        $numbering.append($('&lt;li/&gt;').text(i));&#13;
+                    };&#13;
+                    $numbering.fadeIn(1700);&#13;
+                });&#13;
+            });&#13;
+        </script>&#13;
+   &#13;

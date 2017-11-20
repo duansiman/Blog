@@ -1,0 +1,489 @@
+
+        <div class="markdown_views"><h1 id="linux源码树结构">linux源码树结构</h1>
+
+<hr />
+
+<p>参考 <a href="http://www.360doc.com/content/13/0410/17/7044580_277403053.shtml">http://www.360doc.com/content/13/0410/17/7044580_277403053.shtml</a></p>
+
+<p><img src="http://img.blog.csdn.net/20160401155315377" alt="这里写图片描述" title="" /></p>
+
+<table>
+<thead>
+<tr>
+  <th>目录</th>
+  <th align="right">描述</th>
+</tr>
+</thead>
+<tbody><tr>
+  <td>arch</td>
+  <td align="right">目录包括了所有和体系结构相关的核心代码。它下面的每一个子目录都代表一种Linux支持的体系结构，例如i386就是Intel CPU及与之相兼容体系结构的子目录。PC机一般都基于此目录。</td>
+</tr>
+<tr>
+  <td>block</td>
+  <td align="right">块设备I/O层</td>
+</tr>
+<tr>
+  <td>crypto</td>
+  <td align="right">加密API</td>
+</tr>
+<tr>
+  <td>documentation</td>
+  <td align="right">目录下是一些文档，是对每个目录作用的具体说明。</td>
+</tr>
+<tr>
+  <td>drivers</td>
+  <td align="right">目录中是系统中所有的设备驱动程序。它又进一步划分成几类设备驱动，每一种有对应的子目录</td>
+</tr>
+<tr>
+  <td>firmware</td>
+  <td align="right">使用某些驱动程序而需要的设备固件</td>
+</tr>
+<tr>
+  <td>fs</td>
+  <td align="right">VFS和各种文件系统，存放Linux支持的文件系统代码。不同的文件系统有不同的子目录对应，如ext3文件系统对应的就是ext3子目录。</td>
+</tr>
+<tr>
+  <td>include</td>
+  <td align="right">目录包括编译核心所需要的大部分头文件，例如与平台无关的头文件在include/linux子目录下。</td>
+</tr>
+<tr>
+  <td>init</td>
+  <td align="right">目录包含核心的初始化代码（不是系统的引导代码），有main.c和Version.c两个文件。这是研究核心如何工作的好起点。</td>
+</tr>
+<tr>
+  <td>ipc</td>
+  <td align="right">核心进程间的通信代码</td>
+</tr>
+<tr>
+  <td>kernel</td>
+  <td align="right">内核管理的核心代码放在这里。同时与处理器结构相关代码都放在arch/*/kernel目录下</td>
+</tr>
+<tr>
+  <td>lib</td>
+  <td align="right">通用的核心库的代码，不过与处理器结构相关的库代码被放在arch/*/lib/目录下</td>
+</tr>
+<tr>
+  <td>mm</td>
+  <td align="right">内存管理子系统和VM。与具体硬件体系结构相关的内存管理代码位于arch/*/mm目录下。</td>
+</tr>
+<tr>
+  <td>net</td>
+  <td align="right">目录里是核心的网络部分代码，其每个子目录对应于网络的一个方面。</td>
+</tr>
+<tr>
+  <td>samples</td>
+  <td align="right">示例，示范代码</td>
+</tr>
+<tr>
+  <td>scripts</td>
+  <td align="right">配置和编译内核所用的脚本文件</td>
+</tr>
+<tr>
+  <td>security</td>
+  <td align="right">linux安全模块</td>
+</tr>
+<tr>
+  <td>sound</td>
+  <td align="right">语音子系统</td>
+</tr>
+<tr>
+  <td>usr</td>
+  <td align="right">早期的用户空间代码，所谓的initramfs</td>
+</tr>
+<tr>
+  <td>tools</td>
+  <td align="right">在linux开发中有用的工具</td>
+</tr>
+<tr>
+  <td>virt</td>
+  <td align="right">虚拟化基础结构</td>
+</tr>
+</tbody></table>
+
+
+
+
+<h1 id="获取源码包的方式">获取源码包的方式</h1>
+
+<hr />
+
+
+
+<h2 id="为什么要活取源码包">为什么要活取源码包？</h2>
+
+<hr />
+
+<p>在笔者到官网下载源码时，源码下面有如下说明： </p>
+
+
+
+<pre class="prettyprint"><code class=" hljs livecodeserver">If you are simply trying <span class="hljs-built_in">to</span> build <span class="hljs-keyword">third</span>-party modules <span class="hljs-keyword">for</span> your kernel, you <span class="hljs-built_in">do</span> <span class="hljs-operator">not</span> want this package. Install <span class="hljs-operator">the</span> appropriate linux-headers package instead.　意思是，如果你只是想为内核编译第三方的模块，那么，你不需下载此源码包。安装内核头文件包或
+许会更适合你。</code></pre>
+
+<p>如果你的ubuntu是保持更新的（比如您经常执行sudo apt-get update和dist-upgrade）， <br />
+那么您的系统是安装有内核头文件包的，不信您到/usr/src目录下查看，是不是有<strong>linux-headers-[版本号]-generic</strong>的文件夹呢，呵呵。我现在可以说，你可以在此开发你的驱动程序了。</p>
+
+<p>但是<strong>为什么我们还要活取源码呢？</strong> <br />
+前面已经提到<strong>如果你只是想为内核编译第三方的模块，那么，你不需下载此源码包。安装内核头文件包或许会更适合你。</strong> <br />
+但是很多时候我们做嵌入式开发或者驱动开发，一个基本的Linux设备驱动开发环境由<strong>宿主机</strong>和<strong>目标机</strong>组成，宿主机就是用来做驱动开发工作的主机，目标机就是用来运行和测试设备驱动的主机，在宿 主机上需要有开发工具（gcc，gdb，make等）和linux源码（<strong>版本要对应目标机上的linux内核</strong>），而目标机上只要运行linux即可。由于 步骤有所不同，下面分为<strong>普通Linux设备驱动开发</strong>和<strong>嵌入式Linux设备驱动开发</strong>两种情况来讲述环境的搭建和驱动程序的编译：</p>
+
+
+
+<h3 id="普通linux设备驱动开发">普通Linux设备驱动开发</h3>
+
+<hr />
+
+<p>普通Linux主要是区别于于嵌入式Linux（一般指uClinux），在这种开发中<strong>宿主机和目标机可以是一台主机</strong>， <br />
+即在本机上开发编译然后在本机 上加载运行（Linux设备驱动也可以直接编译进内核，但为了开发工作方便，一般采用动态加载的方式）， <br />
+<strong>当然也可以是两台主机</strong>， <br />
+如果是两台主机的话，要保证宿主机上的linux源码的版本号与目标机中的linux内核版本一致。 <br />
+普通Linux设备驱动开发的步骤如下： <br />
+<strong>①在宿主机上安装开发工具和下载linux源码</strong>（要求版本号和目标机上的linux内核版本一致）。开发工具主要有gcc、gdb、make等， <br />
+<strong>②编写Linux驱动程序</strong> <br />
+是需要修改内核源代码的。那么这就需要我们在本地主机上安装一份源码，在编译成库后，在进行驱动开发。 <br />
+<strong>③编写Makefile文件</strong> <br />
+<strong>④编译出驱动文件</strong> <br />
+⑤<strong>加载并测试以及卸载</strong>：加载使用insmod或modprobe命令来实现，使用rmmod命令卸载驱动模块</p>
+
+
+
+<h3 id="嵌入式ｌinux设备驱动开发">嵌入式Ｌinux设备驱动开发</h3>
+
+<hr />
+
+<p>这种开发中一般目标机为带有嵌入式处理器的开发板，而宿主机为PC，开发环境需要在宿主机上搭建，嵌入式Linux设备驱动开发的步骤如下： <br />
+<strong>①在宿主机上下载嵌入式Linux的源码,</strong>并安装嵌入式Linux开发工具（针对于不同的嵌入式处理器，工具也有所不同，如对应于Arm的arm-gcc系列，针对nios2处理器的nios2-cc系列） <br />
+<strong>②编写Linux设备驱动驱动程序</strong>，将该文件复制到(linux 源码目录)/drivers/(目标文件夹)／中 <br />
+<strong>③配置以及修改内核源码</strong>的信息以及makefile文件，在此步配置中可以选择将我们编写的驱动编译进内核还是不选择编译，但是不能选择编译成模块 <br />
+<strong>④配置并且编译内核</strong> <br />
+<strong>⑤将内核烧写在开发版上进行测试</strong>：将生成的zImage文件下载到开发板，开发板上的嵌入式Linux启动后可以用insmod或modprobe加载驱动模块，测试完毕后可以通过rmmod命令卸载驱动模块</p>
+
+
+
+<h3 id="总结">总结</h3>
+
+<hr />
+
+<p>因此在开发驱动的时候<strong>如果你只是想为内核编译第三方的模块，那么，你不需下载此源码包。安装内核头文件包或许会更适合我们</strong>，但是多数情况下，我们可能时需要修改内核源代码信息的，这就需要我们在宿主机维护一份与目标机上相同的内核信息，否则我们怎么保证我们编写的驱动可以在目标机器上运行呢。。。。</p>
+
+
+
+<h2 id="源码包活取的方法">源码包活取的方法</h2>
+
+<hr />
+
+<p>linux源码可以通过以下几种途径获得： <br />
+①<strong>直接去www.kernel.org下载</strong> <br />
+<a href="https://www.kernel.org/pub/linux/kernel/">https://www.kernel.org/pub/linux/kernel/</a></p>
+
+<p>②<strong>通过包管理工具下载源码</strong>，在debian和Ubuntu中可以通过下面这个命令下载，apt-get install linux-source-(版本号) ，下载后的文件在/usr/src目录中，解压到该目录即可</p>
+
+
+
+<h1 id="获取源码包">获取源码包</h1>
+
+<hr />
+
+<blockquote>
+  <p>注意： <br />
+  如果您只是为了简单的学习下驱动的开发，而不期望深层次的探究Linux内核的机制，那么您完全可以跳过此步骤，单使用头文件您是完全可以进行简单的第三方驱动开发的。</p>
+</blockquote>
+
+
+
+<h2 id="直接从内核官网上下载">直接从内核官网上下载</h2>
+
+<hr />
+
+
+
+<h2 id="使用发行版自带的源码包">使用发行版自带的源码包</h2>
+
+<hr />
+
+
+
+<h2 id="ubunto1404">Ubunto14.04</h2>
+
+<hr />
+
+<p>安装编译内核所需要的软件build-essential、autoconf、automake、cvs、subversion </p>
+
+
+
+<pre class="prettyprint"><code class=" hljs lasso">sudo apt<span class="hljs-attribute">-get</span> install build<span class="hljs-attribute">-essential</span> kernel<span class="hljs-attribute">-package</span> libncurses5<span class="hljs-attribute">-dev</span> </code></pre>
+
+<blockquote>
+  <p>注意：libncurses5这个软件包在使用menuconfig配置内核的时候会用到。</p>
+</blockquote>
+
+<p>ls一下/usr/src首先看下我们的系统中有没有源码包，仅仅有内核头文件包 <br />
+<img src="http://img.blog.csdn.net/20150409165349371" alt="这里写图片描述" title="" /></p>
+
+<p>进入/usr/src ，在这里构建源码树，我们用下面指令查看可用的源码包</p>
+
+
+
+<pre class="prettyprint"><code class="language-shell hljs lasso">sudo apt<span class="hljs-attribute">-cache</span> search linux<span class="hljs-attribute">-source</span> </code></pre>
+
+<p><img src="http://img.blog.csdn.net/20150409161554088" alt="这里写图片描述" title="" /> <br />
+可以看到得到如下信息</p>
+
+
+
+<pre class="prettyprint"><code class=" hljs r">linux-<span class="hljs-keyword">source</span> - Linux kernel <span class="hljs-keyword">source</span> with Ubuntu patches 
+linux-<span class="hljs-keyword">source</span>-<span class="hljs-number">3.13</span><span class="hljs-number">.0</span> - Linux kernel <span class="hljs-keyword">source</span> <span class="hljs-keyword">for</span> version <span class="hljs-number">3.13</span><span class="hljs-number">.0</span> with Ubuntu patches</code></pre>
+
+<p>那么就让我们来下载3.13.0版的kernel，通过使用命令下载内核</p>
+
+
+
+<pre class="prettyprint"><code class=" hljs lasso">sudo apt<span class="hljs-attribute">-get</span> install linux<span class="hljs-attribute">-source</span><span class="hljs-subst">-</span><span class="hljs-number">3.13</span><span class="hljs-number">.0</span></code></pre>
+
+<p>下载完成后,会自动的存放在/usr/src下,</p>
+
+<p>在/usr/src/下ls以下 <br />
+<img src="http://img.blog.csdn.net/20150409162111162" alt="这里写图片描述" title="" /></p>
+
+<p>解压缩源码包</p>
+
+
+
+<pre class="prettyprint"><code class=" hljs avrasm">sudo tar jxvf  linux-source-<span class="hljs-number">3.13</span><span class="hljs-number">.0</span><span class="hljs-preprocessor">.tar</span><span class="hljs-preprocessor">.bz</span>2</code></pre>
+
+<p>这样我们就已经获取到了一份完整的源码包，</p>
+
+
+
+<h2 id="centos构建源码树">CentOS构建源码树</h2>
+
+<hr />
+
+
+
+<h3 id="获取内核头文件">获取内核头文件</h3>
+
+<hr />
+
+<p>构建的之前，最好先</p>
+
+
+
+<pre class="prettyprint"><code class=" hljs sql">yum <span class="hljs-operator"><span class="hljs-keyword">update</span></span></code></pre>
+
+<p>把内核升级到最新版本。至于具体安装哪一份源码树，要看你用的哪一种内核，用uname -a可以看到。</p>
+
+<p>先检查看看有哪些源码包</p>
+
+
+
+<pre class="prettyprint"><code class=" hljs php">yum <span class="hljs-keyword">list</span> | grep kernel</code></pre>
+
+<p>如果用的普通内核，就</p>
+
+
+
+<pre class="prettyprint"><code class=" hljs lasso">yum install kernel<span class="hljs-attribute">-headers</span> kernel<span class="hljs-attribute">-devel</span></code></pre>
+
+<p>如果用的PAE内核，就</p>
+
+
+
+<pre class="prettyprint"><code class=" hljs lasso">yum install kernel<span class="hljs-attribute">-headers</span> kernel<span class="hljs-attribute">-PAE</span><span class="hljs-attribute">-devel</span></code></pre>
+
+<p>如果用的xen内核，就</p>
+
+
+
+<pre class="prettyprint"><code class=" hljs lasso">yum install kernel<span class="hljs-attribute">-headers</span> kernel<span class="hljs-attribute">-xen</span><span class="hljs-attribute">-devel</span></code></pre>
+
+
+
+<h3 id="centos安装内核源代码">centos安装内核源代码</h3>
+
+<hr />
+
+<p>但是上面的方式只会为我们安装内核的头文件目录以及库信息，如果我们期望获取到源码需要下面的操作</p>
+
+<blockquote>
+  <p><strong>参照</strong></p>
+  
+  <p><a href="https://wiki.centos.org/HowTos/Custom_Kernel">I Need to Build a Custom Kernel</a></p>
+  
+  <p><a href="https://wiki.centos.org/HowTos/I_need_the_Kernel_Source">I Need the Kernel Source</a></p>
+</blockquote>
+
+<p>下面我们的方式是使用构建本地组内搭建内部yum源的方式安装linux内核的源码包</p>
+
+<blockquote>
+  <p>目前我们实验室的服务器系统是centos5.11，地址 <a href="http://vault.centos.org/5.11/os/SRPMS/kernel-2.6.18-398.el5.src.rpm">http://vault.centos.org/5.11/os/SRPMS/kernel-2.6.18-398.el5.src.rpm</a> <br />
+  不同的版本，下载地址更改一下即可 <br />
+  其他下载地址<a href="http://rpm.pbone.net/index.php3">http://rpm.pbone.net/index.php3</a></p>
+</blockquote>
+
+<ul>
+<li>1.安装 rpmbuild  <br />
+rpmbuild是用来制作rpm包的工具</li>
+</ul>
+
+<pre class="prettyprint"><code class=" hljs lasso">yum install rpm<span class="hljs-attribute">-build</span> redhat<span class="hljs-attribute">-rpm</span><span class="hljs-attribute">-config</span> unifdef </code></pre>
+
+<ul>
+<li>2.下载源码包</li>
+</ul>
+
+
+
+<pre class="prettyprint"><code class=" hljs avrasm">wget http://vault<span class="hljs-preprocessor">.centos</span><span class="hljs-preprocessor">.org</span>/<span class="hljs-number">5.11</span>/os/SRPMS/kernel-<span class="hljs-number">2.6</span><span class="hljs-number">.18</span>-<span class="hljs-number">398.</span>el5<span class="hljs-preprocessor">.src</span><span class="hljs-preprocessor">.rpm</span></code></pre>
+
+<p><img src="http://img.blog.csdn.net/20160302160130557" alt="这里写图片描述" title="" /></p>
+
+<ul>
+<li>3.安装内核源码 </li>
+</ul>
+
+
+
+<pre class="prettyprint"><code class=" hljs avrasm">rpm -ivh kernel-<span class="hljs-number">2.6</span><span class="hljs-number">.18</span>-<span class="hljs-number">274.</span>el5<span class="hljs-preprocessor">.src</span><span class="hljs-preprocessor">.rpm</span> </code></pre>
+
+<p>这样我们的源码就已经下载好了，在/usr/src/redhat目录下有我们需要的所有东西。 <br />
+但是到现在我们只是安装了环境目录，以及源码的压缩包，但是并没有安装 <br />
+<img src="http://img.blog.csdn.net/20160302162704617" alt="这里写图片描述" title="" /> <br />
+我们可以看到我们已经有了源码的压缩包，但是并没有解压缩，因此我们下面执行的操作其实就是用工具对其进行解压缩。 <br />
+*   4.安装源码包 </p>
+
+
+
+<pre class="prettyprint"><code class=" hljs lasso">cd  /usr/src/redhat/SPECS
+rpmbuild <span class="hljs-attribute">-bp</span> <span class="hljs-subst">--</span>target<span class="hljs-subst">=</span><span class="hljs-string">`uname -m`</span> kernel<span class="hljs-built_in">.</span>spec <span class="hljs-number">2</span><span class="hljs-subst">&gt;</span> prep<span class="hljs-attribute">-err</span><span class="hljs-built_in">.</span><span class="hljs-keyword">log</span> <span class="hljs-subst">|</span> tee prep<span class="hljs-attribute">-out</span><span class="hljs-built_in">.</span><span class="hljs-keyword">log</span> </code></pre>
+
+<p>以上步骤完成以后，查看prep-err.log错误日志， <br />
+如果没有错误，则成功解出的内核源码位置在  /usr/src/redhat/BUILD 目录下</p>
+
+<p><img src="http://img.blog.csdn.net/20160302162436134" alt="这里写图片描述" title="" /></p>
+
+
+
+<h1 id="编译内核">编译内核</h1>
+
+<hr />
+
+<p>按原来的kernel配置，配置kernel.</p>
+
+
+
+<pre class="prettyprint"><code class=" hljs bash"><span class="hljs-built_in">sudo</span> make oldconfig</code></pre>
+
+<p>make(相当耗时)，开始编译内核</p>
+
+
+
+<pre class="prettyprint"><code class=" hljs bash"><span class="hljs-built_in">sudo</span> make</code></pre>
+
+<p>编译内核镜像</p>
+
+
+
+<pre class="prettyprint"><code class=" hljs bash"><span class="hljs-built_in">sudo</span> make bzImage</code></pre>
+
+<p>安装内核模块</p>
+
+
+
+<pre class="prettyprint"><code class=" hljs go"><span class="hljs-built_in">make</span> modules_install</code></pre>
+
+<p>执行结束之后，会在/lib/modules下生成新的目录/lib/modules/3.13.0-48-generic/,  下面的build文件就是编译模块的要用到的文件。至此内核编译完成。 <br />
+<img src="http://img.blog.csdn.net/20150409174212021" alt="这里写图片描述" title="" /></p>
+
+
+
+<h1 id="卸载无用的内核相关文件">卸载无用的内核相关文件</h1>
+
+<hr />
+
+<p>我们为不同的目标机配置不同的内核模块，这样一段时间后，我们的系统中会有多份内核信息，再加上我们的系统由于自动升级，系统里也会安装了很多内核。这样始终用不到的旧内核或者无用内核有必要清理一下，以节省启动时间和硬盘空间。</p>
+
+<p><img src="http://img.blog.csdn.net/20150410105641298" alt="这里写图片描述" title="" /> <br />
+然后通过查看本机上所有内核的列表来决定哪些需要删除掉：</p>
+
+<p>运行命令：</p>
+
+
+
+<pre class="prettyprint"><code class=" hljs cs">dpkg --<span class="hljs-keyword">get</span>-selections|grep linux</code></pre>
+
+<p>例如我本机显示为： <br />
+<img src="http://img.blog.csdn.net/20150410105259855" alt="显示所有内核的列表" title="" /></p>
+
+<blockquote>
+  <p>注意： <br />
+  不要删除当前使用的版本.后面的install表示已安装,deinstall表示曾经安装过,现在已被删除(已不占空间). <br />
+  首先可查看当前用的内核是哪个，可通过命令：uname -a 来获得信息。</p>
+</blockquote>
+
+<p>其中带有image的就是内核文件，因此可看出我的机器上共五个内核镜像版本。但是其实只安装了2个镜像，这个卸载的时候我们就会发现，我当前使用的是3.13.0-49，所以决定将其它没用的内核删除。 <br />
+删除内核镜像的命令</p>
+
+
+
+<pre class="prettyprint"><code class=" hljs lasso">删除的命令为：sudo apt<span class="hljs-attribute">-get</span> remove linux<span class="hljs-attribute">-image</span><span class="hljs-attribute">-XXXX</span></code></pre>
+
+<p>例如我要卸载3.13.0-48的旧内核镜像，那么运行命令</p>
+
+
+
+<pre class="prettyprint"><code class=" hljs lasso">sudo apt<span class="hljs-attribute">-get</span> purge linux<span class="hljs-attribute">-image</span><span class="hljs-subst">-</span><span class="hljs-number">3.13</span><span class="hljs-number">.0</span><span class="hljs-subst">-</span><span class="hljs-number">48</span><span class="hljs-attribute">-generic</span></code></pre>
+
+<p>或者</p>
+
+
+
+<pre class="prettyprint"><code class=" hljs lasso">sudo apt<span class="hljs-attribute">-get</span> remove linux<span class="hljs-attribute">-image</span><span class="hljs-subst">-</span><span class="hljs-number">3.13</span><span class="hljs-number">.0</span><span class="hljs-subst">-</span><span class="hljs-number">48</span><span class="hljs-attribute">-generic</span>
+</code></pre>
+
+<p><img src="http://img.blog.csdn.net/20150410110028309" alt="这里写图片描述" title="" /> <br />
+我们会发现linux-image-extra-3.13.0-48-generic也会跟着被卸载， <br />
+这时候我们ls /lib/modules/3.13.0-48-generic/会发现，安装的内核镜像文件已经没有了 <br />
+<img src="http://img.blog.csdn.net/20150410110623307" alt="这里写图片描述" title="" /></p>
+
+<p>卸载内核头文件</p>
+
+
+
+<pre class="prettyprint"><code class=" hljs lasso">sudo apt<span class="hljs-attribute">-get</span> purge linux<span class="hljs-attribute">-headers</span><span class="hljs-subst">-</span><span class="hljs-number">3.13</span><span class="hljs-number">.0</span><span class="hljs-subst">-</span><span class="hljs-number">48</span></code></pre>
+
+<p>或者</p>
+
+
+
+<pre class="prettyprint"><code class=" hljs lasso">sudo apt<span class="hljs-attribute">-get</span> remove linux<span class="hljs-attribute">-headers</span><span class="hljs-subst">-</span><span class="hljs-number">3.13</span><span class="hljs-number">.0</span><span class="hljs-subst">-</span><span class="hljs-number">48</span></code></pre>
+
+<p><img src="http://img.blog.csdn.net/20150410112545225" alt="这里写图片描述" title="" /> <br />
+这条命令会自动把linux-headers-3.13.0-48-generic删除，如果未删除我们同样可以使用命令删除即可。 <br />
+最后再次运行命令，查看安装的内核文件，查看是否卸载成功</p>
+
+
+
+<pre class="prettyprint"><code class=" hljs cs">dpkg --<span class="hljs-keyword">get</span>-selections|grep linux</code></pre>
+
+<p><img src="http://img.blog.csdn.net/20150410112742306" alt="这里写图片描述" title="" /></p>
+
+<p>最后最好刷新一个启动菜单</p>
+
+
+
+<pre class="prettyprint"><code class=" hljs bash"><span class="hljs-built_in">sudo</span> update-grub</code></pre></div>&#13;
+        <script type="text/javascript">&#13;
+            $(function () {&#13;
+                $('pre.prettyprint code').each(function () {&#13;
+                    var lines = $(this).text().split('\n').length;&#13;
+                    var $numbering = $('&lt;ul/&gt;').addClass('pre-numbering').hide();&#13;
+                    $(this).addClass('has-numbering').parent().append($numbering);&#13;
+                    for (i = 1; i &lt;= lines; i++) {&#13;
+                        $numbering.append($('&lt;li/&gt;').text(i));&#13;
+                    };&#13;
+                    $numbering.fadeIn(1700);&#13;
+                });&#13;
+            });&#13;
+        </script>&#13;
+   &#13;

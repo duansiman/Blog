@@ -1,0 +1,32 @@
+
+                
+<p><span style="font-size:18px">先来看一下写文件函数write的执行过程：</span></p>&#13;
+<p/>&#13;
+<pre code_snippet_id="383207" snippet_file_name="blog_20140609_1_6713519" name="code" class="cpp">ret = write(fd, buf, len);</pre><br/>&#13;
+<p/>&#13;
+<p><span style="font-size:18px">write适用于各种文件系统，它首先执行sys_write()，而正是这个sys_write()进行实际文件系统类型的判别并执行该类型文件系统下的写操作。我们可以看出在多种多样的文件系统上抽象出了一个通用接口性质的虚拟文件系统。</span></p>&#13;
+<p style="text-align:center"><span style="font-size:18px"><img src="http://img.blog.csdn.net/20140608094759750?watermark/2/text/aHR0cDovL2Jsb2cuY3Nkbi5uZXQvQmx1ZUNsb3VkTWF0cml4/font/5a6L5L2T/fontsize/400/fill/I0JBQkFCMA==/dissolve/70/gravity/SouthEast" alt=""/><br/>&#13;
+</span></p>&#13;
+<p><span style="font-size:18px"><br/>&#13;
+</span></p>&#13;
+<p><span style="font-size:18px">我们这里非常关心Linux 2.6是如何去实现VFS的。先来看一下VFS中的四个主要的对象类型：</span></p>&#13;
+<p/>&#13;
+<ul>&#13;
+<li><span style="font-size:18px">超级块对象，它代表一个具体的已安装文件系统。</span></li><li><span style="font-size:18px">索引节点对象，它代表一个具体文件。</span></li><li><span style="font-size:18px">目录项对象，它代表一个目录项，是路径的一个组成部分。</span></li><li><span style="font-size:18px">文件对象，它代表由进程打开的文件。</span></li></ul>&#13;
+<div><span style="font-size:18px"><strong><u>超级块</u></strong></span></div>&#13;
+<div><span style="font-size:18px">该对象用于存储特定文件系统的信息，由super_block结构体表示。在文件系统安装时，文件系统会调用alloc_super()以便从磁盘读取文件系统超级块，并将其信息填充到内存中的超级块对象中。用超级块对索引节点进行操作，如创建和初始化、释放、写入磁盘等。</span></div>&#13;
+<div><span style="font-size:18px"><br/>&#13;
+</span></div>&#13;
+<div><span style="font-size:18px"><strong><u>索引节点inode</u></strong></span></div>&#13;
+<div><span style="font-size:18px">用来代表文件，该对象包含了内核在操作文件或目录时需要的全部信息。inode的存在是将文件的数据信息和控制信息进行分离，用结构体struct inode描述。我们常见的文件操作create（创建文件）、mkdir（创建新目录）等，都是由索引节点对象来完成的。</span></div>&#13;
+<div><span style="font-size:18px"><br/>&#13;
+</span></div>&#13;
+<div><span style="font-size:18px"><u><strong>目录项对象</strong></u></span></div>&#13;
+<div><span style="font-size:18px">VFS中目录本身按文件对待，所以目录不是目录项对象。目录项对象是为了方便查找引入的，用结构体struct dentry描述。</span></div>&#13;
+<div><span style="font-size:18px"><br/>&#13;
+</span></div>&#13;
+<div><span style="font-size:18px"><u><strong>文件对象</strong></u></span></div>&#13;
+<div><span style="font-size:18px">不是用inode来描述文件吗，怎么又有一个文件对象。这个文件对象表示进程已打开的文件，是已打开的文件在内存中的表示。因为多个进程可以同时打开和操作一个文件，所以同一个文件也可能存在多个对应的文件对象。用struct file进行描述，常见操作如open()、write()等。</span></div>&#13;
+<p/>&#13;
+<link rel="stylesheet" href="http://static.blog.csdn.net/public/res-min/markdown_views.css?v=1.0"/>&#13;
+            

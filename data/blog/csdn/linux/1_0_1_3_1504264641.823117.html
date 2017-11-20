@@ -1,0 +1,37 @@
+
+<h1><span style="font-size:24px;"><strong>      <span style="font-family:Comic Sans MS;">5.每行代码的长度</span></strong></span></h1><p><span style="font-size:24px;"><strong>      <span style="font-family:Comic Sans MS;">源代码中要尽可能的保证每行代码长度不超过80个字符，因为这样做可以使代码最适合在标准的 80 * 24 的终端上显示。事实上，并不存在一个广泛接受的标准--如果代码行超过 80 个字符应该折到下一行。</span></strong></span></p><p><span style="font-size:24px;"><strong><span style="font-family:Comic Sans MS;">     有些开发者会在圆括号内分行，对齐排列函数参数，它看起来就好像下面这样：</span></strong></span></p><p><span style="font-size:24px;"><strong><span style="font-family:Comic Sans MS;"></span></strong></span></p><pre name="code" class="cpp">static void get_new_parrot(const char *name,
+				unsigned long disposition,
+				unsigned long feather_quality)</pre>      <span style="font-family:Comic Sans MS;font-size:24px;"><strong>而另一些开发者虽然也会将参数分行输入，但却不把它们对齐排列，而是在开头简单的插入两个 tab ，就像下面这样：</strong></span><p></p><p><span style="font-size:24px;"><strong><span style="font-family:Comic Sans MS;"></span></strong></span></p><pre name="code" class="cpp">int find_pirate_flag_by_color(const char *color,
+		const char *name, int len)</pre><br />      <span style="font-family:Comic Sans MS;font-size:24px;"><strong>因为分行没有明确的规则，所以开发者在这点上可采取自由行动。</strong></span><p></p><p><span style="font-size:24px;"><strong><span style="font-family:Comic Sans MS;">      大多数内核贡献者更愿意采用前一个例子中的方式：把大于 80 个字符的行进行拆分，尽量让新产生的行与前一行对齐。</span></strong></span></p><p><span style="font-size:24px;"><strong><span style="font-family:Comic Sans MS;"><br /></span></strong></span></p><h1><span style="font-size:24px;"><strong><span style="font-family:Comic Sans MS;">      6.命名规范</span></strong></span></h1><p><span style="font-size:24px;"><strong><span style="font-family:Comic Sans MS;">      在讨论这个问题之前，需要先贴出一段代码，这段代码来自：linux/fs/bio.c</span></strong></span></p><p><span style="font-size:24px;"><strong><span style="font-family:Comic Sans MS;"></span></strong></span></p><pre name="code" class="cpp">static struct bio_map_data *bio_alloc_map_data(int nr_segs, int iov_count,
+					       gfp_t gfp_mask)
+{
+	struct bio_map_data *bmd;
+
+	if (iov_count &gt; UIO_MAXIOV)
+		return NULL;
+
+	bmd = kmalloc(sizeof(*bmd), gfp_mask);
+	if (!bmd)
+		return NULL;
+
+	bmd-&gt;iovecs = kmalloc(sizeof(struct bio_vec) * nr_segs, gfp_mask);
+	if (!bmd-&gt;iovecs) {
+		kfree(bmd);
+		return NULL;
+	}
+
+	bmd-&gt;sgvecs = kmalloc(sizeof(struct sg_iovec) * iov_count, gfp_mask);
+	if (bmd-&gt;sgvecs)
+		return bmd;
+
+	kfree(bmd-&gt;iovecs);
+	kfree(bmd);
+	return NULL;
+}</pre>      <span style="font-family:Comic Sans MS;font-size:24px;"><strong>我们从这段代码中可以明确的看出，代码中的字段都是小写。</strong></span><p></p><p><span style="font-size:24px;"><strong><span style="font-family:Comic Sans MS;">      C 语言的编码风格不像 C++，Java等语言采用驼峰命名法（例如：MyApple）。局部变量如果能够清楚的表明它的用途，那么选取 idx 甚至是 i 这样的名称都是可行的。匈牙利命名法也是不使用的，相信写过 MFC 代码的朋友会知道这个命名法，它以字母的开头表明这个字段的类别，就好像 mValue 代表的是局部变量。<br /><br /></span></strong></span></p><h1><span style="font-size:24px;"><strong><span style="font-family:Comic Sans MS;">      7.函数</span></strong></span></h1><p><span style="font-size:24px;"><strong><span style="font-family:Comic Sans MS;">      函数的代码长度不应该超过两屏，局部变量不应该超过10个，一个函数应该功能单一且实现精准。将一个函数分解成一些更短小的函数的组合不会带来危害。如果你担心函数调用的开销，可以使用 inline 关键字。</span></strong></span></p><p><span style="font-size:24px;"><strong><span style="font-family:Comic Sans MS;"> </span></strong></span></p><h1><span style="font-size:24px;"><strong><span style="font-family:Comic Sans MS;">      8.注释</span></strong></span></h1><p><span style="font-size:24px;"><strong><span style="font-family:Comic Sans MS;">      代码的注释非常重要，但注释必须按照正确的方式进行。一般情况下，你应该描述的是要做什么和为什么要这样做，而不是具体到时通过什么方式实现的。怎么实现应该由代码本身展现。</span></strong></span></p><p><span style="font-size:24px;"><strong><span style="font-family:Comic Sans MS;">      虽然 C99 支持像 C++ 的方式注释，但是在内核的开发中仍然使用 C89 的风格注释，它看起来就像是下面这样：</span></strong></span></p><p><span style="font-size:24px;"><strong><span style="font-family:Comic Sans MS;"></span></strong></span></p><pre name="code" class="cpp">        /*
+	 * This is the preferred style for multi-line
+	 * comments in the Linux kernel source code.
+	 * Please use it consistently.
+	 *
+	 * Description:  A column of asterisks on the left side,
+	 * with beginning and ending almost-blank lines.
+	 */</pre><br /><br /><p></p><p><span style="font-size:24px;"><strong><span style="font-family:Comic Sans MS;"><br /><br /></span></strong></span></p>   &#13;

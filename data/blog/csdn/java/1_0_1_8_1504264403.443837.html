@@ -1,0 +1,463 @@
+
+        <div class="markdown_views"><h1 id="观察者模式"><center> 观察者模式</center></h1>
+
+<p>标签 ： Java与设计模式</p>
+
+<hr />
+
+<blockquote>
+  <p>观察者模式: 又称<strong>‘发布-订阅’模式</strong>, 定义一种对象间的<strong>一对多</strong>依赖关系(多个<strong>观察者Observer</strong>监听某一<strong>主题Subject</strong>). 当主题状态发生改变时,所有依赖它的对象都<strong>得到通知</strong>并被<strong>自动更新</strong>. <br />
+  <img src="http://7xrgh9.com1.z0.glb.clouddn.com/16-8-30/87653627.jpg" alt="" title="" /> <br />
+  核心: <strong>触发联动</strong>(图片来源: <a href="https://book.douban.com/subject/1052241/">设计模式: 可复用面向对象软件的基础</a>)</p>
+</blockquote>
+
+<hr />
+
+
+
+<h2 id="模式实现">模式实现</h2>
+
+<pre><code>以电商系统下单: 
+用户购买某件商品下一个订单, 需要: 通知库存系统减少库存、通知商家系统发货、通知支付系统收钱、甚至还会通知关系中心使当前用户关注该商家.
+</code></pre>
+
+<p><img src="http://7xrgh9.com1.z0.glb.clouddn.com/16-8-30/52958102.jpg" alt="" title="" /></p>
+
+<hr />
+
+
+
+<h3 id="subject">Subject</h3>
+
+<p>目标/<strong>主题</strong>/抽象通知者:</p>
+
+<ul>
+<li><strong>Subject</strong>知道它所有的观察者, 可以有任意多个观察者监听同一个目标(将观察者保存在一个聚集中);</li>
+<li>提供<strong>注册</strong>/<strong>删除</strong>观察者的接口.</li>
+</ul>
+
+
+
+<pre class="prettyprint"><code class=" hljs java"><span class="hljs-javadoc">/**
+ *<span class="hljs-javadoctag"> @author</span> jifang
+ *<span class="hljs-javadoctag"> @since</span> 16/8/30 上午9:49.
+ */</span>
+<span class="hljs-keyword">public</span> <span class="hljs-keyword">abstract</span> <span class="hljs-class"><span class="hljs-keyword">class</span> <span class="hljs-title">Subject</span> {</span>
+
+    <span class="hljs-keyword">protected</span> List&lt;Observer&gt; observers = <span class="hljs-keyword">new</span> LinkedList&lt;&gt;();
+
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">void</span> <span class="hljs-title">attach</span>(Observer observer) {
+        observers.add(observer);
+    }
+
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">void</span> <span class="hljs-title">detach</span>(Observer observer) {
+        observers.remove(observer);
+    }
+
+    <span class="hljs-keyword">protected</span> <span class="hljs-keyword">abstract</span> <span class="hljs-keyword">void</span> <span class="hljs-title">notifyObservers</span>();
+
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">abstract</span> String <span class="hljs-title">getState</span>();
+
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">abstract</span> <span class="hljs-keyword">void</span> <span class="hljs-title">setState</span>(String state);
+}</code></pre>
+
+<hr />
+
+
+
+<h3 id="concretesubject">ConcreteSubject</h3>
+
+<p>具体目标/具体主题:</p>
+
+<ul>
+<li>将有关<strong>状态</strong>存入<strong>ConcreteSubject</strong>;</li>
+<li>当它的状态发生改变时, <strong>向各个观察者发出通知.</strong></li>
+</ul>
+
+
+
+<pre class="prettyprint"><code class=" hljs scala"><span class="hljs-class"><span class="hljs-keyword">class</span> <span class="hljs-title">OrderSubject</span> <span class="hljs-keyword">extends</span> <span class="hljs-title">Subject</span> {</span>
+
+    <span class="hljs-keyword">private</span> String state;
+
+    <span class="hljs-javadoc">/**
+     * 采用拉模型, 将Subject自身发送给Observer
+     */</span>
+    <span class="hljs-annotation">@Override</span>
+    <span class="hljs-keyword">protected</span> void notifyObservers() {
+        <span class="hljs-keyword">for</span> (Observer observer : observers) {
+            observer.update(<span class="hljs-keyword">this</span>);
+        }
+    }
+
+    <span class="hljs-annotation">@Override</span>
+    public String getState() {
+        <span class="hljs-keyword">return</span> state;
+    }
+
+    <span class="hljs-annotation">@Override</span>
+    public void setState(String state) {
+        <span class="hljs-keyword">this</span>.state = state;
+        <span class="hljs-keyword">this</span>.notifyObservers();
+    }
+}</code></pre>
+
+<hr />
+
+
+
+<h3 id="observer">Observer</h3>
+
+<p><strong>抽象观察者</strong>: 为那些<strong><em>在目标状态发生改变时需获得通知的对象</em></strong>定义一个更新接口.</p>
+
+
+
+<pre class="prettyprint"><code class=" hljs cs"><span class="hljs-keyword">public</span> <span class="hljs-keyword">interface</span> Observer {
+
+    <span class="hljs-keyword">void</span> update(Subject subject);
+}</code></pre>
+
+<hr />
+
+
+
+<h3 id="concreteobserver">ConcreteObserver</h3>
+
+<p><strong>具体观察者</strong>:</p>
+
+<ul>
+<li>存储有关<strong>状态</strong>, 这些状态<strong>应与目标的状态保持一致</strong>;</li>
+<li>实现<strong>Observer</strong>的更新接口以使自身状态与目标的状态保持一致;</li>
+<li>_维护一个指向<strong>ConcreteSubject</strong>对象的引用.</li>
+</ul>
+
+
+
+<pre class="prettyprint"><code class=" hljs axapta"><span class="hljs-class"><span class="hljs-keyword">class</span> <span class="hljs-title">WareHouseObserver</span> <span class="hljs-inheritance"><span class="hljs-keyword">implements</span></span> <span class="hljs-title">Observer</span> {</span>
+
+    <span class="hljs-keyword">private</span> String orderState;
+
+    @Override
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">void</span> update(Subject subject) {
+        orderState = subject.getState();
+        System.out.println(<span class="hljs-string">"库存系统接收到消息 ["</span> + orderState + <span class="hljs-string">"], 减少库存"</span>);
+    }
+}
+
+<span class="hljs-class"><span class="hljs-keyword">class</span> <span class="hljs-title">PayObserver</span> <span class="hljs-inheritance"><span class="hljs-keyword">implements</span></span> <span class="hljs-title">Observer</span> {</span>
+
+    <span class="hljs-keyword">private</span> String orderState;
+
+    @Override
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">void</span> update(Subject subject) {
+        orderState = subject.getState();
+        System.out.println(<span class="hljs-string">"支付系统接收到消息 ["</span> + orderState + <span class="hljs-string">"], 正在收钱"</span>);
+    }
+}
+
+<span class="hljs-class"><span class="hljs-keyword">class</span> <span class="hljs-title">RelationObserver</span> <span class="hljs-inheritance"><span class="hljs-keyword">implements</span></span> <span class="hljs-title">Observer</span> {</span>
+
+    <span class="hljs-keyword">private</span> String orderState;
+
+    @Override
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">void</span> update(Subject subject) {
+        orderState = subject.getState();
+        <span class="hljs-keyword">if</span> (orderState.equals(<span class="hljs-string">"已付款"</span>)) {
+            System.out.println(<span class="hljs-string">"关系系统接收到消息 ["</span> + orderState + <span class="hljs-string">"], 当前用户已关注该店铺"</span>);
+        } <span class="hljs-keyword">else</span> <span class="hljs-keyword">if</span> (orderState.equals(<span class="hljs-string">"取消订单"</span>)) {
+            System.out.println(<span class="hljs-string">"关系系统接收到消息 ["</span> + orderState + <span class="hljs-string">"], 当前用户取消关注该店铺"</span>);
+        }
+    }
+}</code></pre>
+
+<ul>
+<li>Client</li>
+</ul>
+
+
+
+<pre class="prettyprint"><code class=" hljs cs"><span class="hljs-keyword">public</span> <span class="hljs-keyword">class</span> Client {
+
+    @Test
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">void</span> <span class="hljs-title">client</span>() {
+        Subject subject = <span class="hljs-keyword">new</span> OrderSubject();
+
+        Observer payObserver = <span class="hljs-keyword">new</span> PayObserver();
+        Observer relationObserver = <span class="hljs-keyword">new</span> RelationObserver();
+        Observer wareHouseObserver = <span class="hljs-keyword">new</span> WareHouseObserver();
+
+        <span class="hljs-comment">// 注册到Subject</span>
+        subject.attach(payObserver);
+        subject.attach(relationObserver);
+        subject.attach(wareHouseObserver);
+
+        subject.setState(<span class="hljs-string">"已付款"</span>);
+
+        System.<span class="hljs-keyword">out</span>.println(<span class="hljs-string">"-------------"</span>);
+        <span class="hljs-comment">// 付钱、发货完成</span>
+        subject.detach(payObserver);
+        subject.detach(wareHouseObserver);
+
+        subject.setState(<span class="hljs-string">"取消订单"</span>);
+    }
+}</code></pre>
+
+<hr />
+
+
+
+<h2 id="通知方式">通知方式</h2>
+
+<ul>
+<li><p>以上我们采用的是<strong>拉模型</strong>实现<strong>Subject</strong>对<strong>Observer</strong>通知(传递<strong>Subject</strong>自身), 在<strong>观察者模式</strong>中还有一种<strong>推模型</strong>实现:</p>
+
+<ul><li>拉模型 <br />
+<strong>Subject</strong>把自身(<code>this</code>)通过<code>update()</code>方法传递给观察者, 观察者只要知道有通知到来即可, 至于<strong>什么时候</strong>获取<strong>什么内容</strong>都可自主决定.</li>
+<li>推模型 <br />
+<strong>Subject</strong>主动向观察者推送<strong>有关状态的详细信息</strong>, 推送的信息通常是目标对象的全部或部分数据. 观察者只能被动接收.</li></ul></li>
+<li><p>对比 <br />
+推模型中假定<strong>Subject</strong>知道观察者需要数据的详细信息, 而拉模型中<strong>Subject</strong>不需要知道观察者具体需要什么数据(因此把自身传过去, 由观察者取值).因此:</p>
+
+<ul><li>推模型会<strong>使观察者对象难以复用</strong>; </li>
+<li>拉模型下, 由于<code>update()</code>方法参数是<strong>Subject</strong>本身, 基本上可以适应各种情况的需要.</li></ul></li>
+</ul>
+
+<hr />
+
+
+
+<h2 id="jdk支持">JDK支持</h2>
+
+<p>Java语言自身提供了对观察者模式的支持: <code>java.util</code>包下提供了<code>Observable</code>类与<code>Observer</code>接口. 下面我们就用Java的支持实现观察者模式的<strong>推模型</strong>:</p>
+
+<ul>
+<li>ConcreateSubject</li>
+</ul>
+
+
+
+<pre class="prettyprint"><code class=" hljs java"><span class="hljs-keyword">public</span> <span class="hljs-class"><span class="hljs-keyword">class</span> <span class="hljs-title">OrderSubject</span> <span class="hljs-keyword">extends</span> <span class="hljs-title">Observable</span> {</span>
+
+    <span class="hljs-keyword">private</span> String state;
+
+    <span class="hljs-keyword">public</span> String <span class="hljs-title">getState</span>() {
+        <span class="hljs-keyword">return</span> state;
+    }
+
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">void</span> <span class="hljs-title">setState</span>(String state) {
+        <span class="hljs-keyword">this</span>.state = state;
+        <span class="hljs-keyword">this</span>.setChanged();
+        <span class="hljs-keyword">this</span>.notifyObservers(state);
+    }
+
+    <span class="hljs-annotation">@Override</span>
+    <span class="hljs-keyword">public</span> String <span class="hljs-title">toString</span>() {
+        String result = <span class="hljs-string">"OrderSubject{"</span>;
+        <span class="hljs-keyword">try</span> {
+            Field obs = Observable.class.getDeclaredField(<span class="hljs-string">"obs"</span>);
+            obs.setAccessible(<span class="hljs-keyword">true</span>);
+            Vector vector = (Vector) obs.get(<span class="hljs-keyword">this</span>);
+            result += vector;
+        } <span class="hljs-keyword">catch</span> (NoSuchFieldException | IllegalAccessException ignored) {
+        }
+        <span class="hljs-keyword">return</span> result +
+                <span class="hljs-string">"state='"</span> + state + <span class="hljs-string">'\''</span> +
+                <span class="hljs-string">'}'</span>;
+    }
+}</code></pre>
+
+<ul>
+<li>ConcreteObserver</li>
+</ul>
+
+
+
+<pre class="prettyprint"><code class=" hljs java"><span class="hljs-keyword">public</span> <span class="hljs-class"><span class="hljs-keyword">class</span> <span class="hljs-title">WareHouseObserver</span> <span class="hljs-keyword">implements</span> <span class="hljs-title">Observer</span> {</span>
+
+    <span class="hljs-keyword">private</span> String orderState;
+
+    <span class="hljs-annotation">@Override</span>
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">void</span> <span class="hljs-title">update</span>(Observable o, Object arg) {
+        System.out.println(<span class="hljs-string">"拉模式: "</span> + o);
+        orderState = (String) arg;
+        System.out.println(<span class="hljs-string">"推模式: 库存系统接收到消息 ["</span> + orderState + <span class="hljs-string">"], 减少库存"</span>);
+    }
+}</code></pre>
+
+<hr />
+
+
+
+<h2 id="guava支持">Guava支持</h2>
+
+<blockquote>
+  <p>Guava提供<code>EventBus</code>以取代<strong>发布者</strong>和<strong>订阅者</strong>之间的显式注册, 取而代之的是使用注解<code>@Subscribe</code>, 使组件间有更好的解耦.</p>
+</blockquote>
+
+<hr />
+
+
+
+<h3 id="event">Event</h3>
+
+<p><strong>封装消息类</strong> <br />
+<strong>EventBus</strong>的<code>Event</code>继承: <strong>EventBus</strong>自动把事件分发给事件超类的监听者/观察者,并允许监听者声明监听<strong>接口类型</strong>和<strong>泛型的通配符类型</strong>(如 <code>? super Xxx</code>).</p>
+
+
+
+<pre class="prettyprint"><code class=" hljs php"><span class="hljs-class"><span class="hljs-keyword">interface</span> <span class="hljs-title">Event</span> {</span>
+    String getState();
+}</code></pre>
+
+<blockquote>
+  <ul>
+  <li>注: <br />
+  <ul><li><strong>DeadEvent</strong> : 如果<strong>EventBus</strong>发送的消息都不是订阅者关心的称之为<strong>DeadEvent</strong>.</li>
+  <li>每个用<code>@Subscribe</code>注解标注的方法只能有一个参数.</li></ul></li>
+  </ul>
+</blockquote>
+
+<hr />
+
+
+
+<h3 id="subject-1">Subject</h3>
+
+<p>使用Guava之后, 如果要订阅消息, 就不用再实现指定的接口, 只需在指定的方法上加上<code>@Subscribe</code>注解即可, 但为了代码的易读性, 我们还是推荐保留公共的接口: </p>
+
+
+
+<pre class="prettyprint"><code class=" hljs cs"><span class="hljs-keyword">public</span> <span class="hljs-keyword">interface</span> Observer {
+    <span class="hljs-keyword">void</span> update(Event <span class="hljs-keyword">event</span>);
+}</code></pre>
+
+<hr />
+
+
+
+<h3 id="producer">Producer</h3>
+
+<ul>
+<li>管理<strong>Listener</strong>/<strong>Observer</strong>: <strong>EventBus</strong>内部已经实现了的观察者/监听者管理;</li>
+<li>分发事件: 将<strong>事件</strong>传递给<code>EventBus.post(Object)</code>方法即可, 异步分发可以直接用<code>EventBus</code>子类<code>AsyncEventBus</code>.</li>
+</ul>
+
+
+
+<pre class="prettyprint"><code class=" hljs cs"><span class="hljs-keyword">public</span> <span class="hljs-keyword">class</span> Producer {
+
+    <span class="hljs-keyword">private</span> <span class="hljs-keyword">static</span> final Logger LOGGER = Logger.getLogger(Client.class.getName());
+
+    @Test
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">void</span> <span class="hljs-title">client</span>() {
+        EventBus bus = <span class="hljs-keyword">new</span> EventBus(<span class="hljs-string">"observer-pattern"</span>);
+        bus.register(<span class="hljs-keyword">new</span> Observer() {
+
+            @Subscribe
+            @Override
+            <span class="hljs-keyword">public</span> <span class="hljs-keyword">void</span> <span class="hljs-title">update</span>(Event <span class="hljs-keyword">event</span>) {
+                System.<span class="hljs-keyword">out</span>.println(<span class="hljs-string">"库存系统接收到消息 ["</span> + <span class="hljs-keyword">event</span>.getState() + <span class="hljs-string">"], 减少库存"</span>);
+            }
+        });
+        bus.register(<span class="hljs-keyword">new</span> Observer() {
+
+            @Subscribe
+            @Override
+            <span class="hljs-keyword">public</span> <span class="hljs-keyword">void</span> <span class="hljs-title">update</span>(Event <span class="hljs-keyword">event</span>) {
+                System.<span class="hljs-keyword">out</span>.println(<span class="hljs-string">"支付系统接收到消息 ["</span> + <span class="hljs-keyword">event</span>.getState() + <span class="hljs-string">"], 正在收钱"</span>);
+            }
+        });
+
+        <span class="hljs-comment">// 不用实现接口, 直接给出一个Object对象也可</span>
+        bus.register(<span class="hljs-keyword">new</span> Object() {
+
+            @Subscribe
+            <span class="hljs-keyword">public</span> <span class="hljs-keyword">void</span> <span class="hljs-title">onEvent</span>(Event <span class="hljs-keyword">event</span>) {
+                System.<span class="hljs-keyword">out</span>.println(<span class="hljs-string">"关系系统接收到消息 ["</span> + <span class="hljs-keyword">event</span>.getState() + <span class="hljs-string">"], 当前用户关注店铺"</span>);
+            }
+
+            @Subscribe
+            <span class="hljs-keyword">public</span> <span class="hljs-keyword">void</span> <span class="hljs-title">onEventFun</span>(Event <span class="hljs-keyword">event</span>) {
+                System.<span class="hljs-keyword">out</span>.println(<span class="hljs-string">"我就是来打酱油的o(╯□╰)o"</span>);
+            }
+        });
+
+        <span class="hljs-comment">// 注册DeadEvent</span>
+        bus.register(<span class="hljs-keyword">new</span> Object() {
+            @Subscribe
+            <span class="hljs-keyword">public</span> <span class="hljs-keyword">void</span> <span class="hljs-title">onDead</span>(DeadEvent dead) {
+                LOGGER.log(Level.WARNING, <span class="hljs-string">"没有消费者接收"</span> + dead);
+            }
+        });
+
+        <span class="hljs-comment">// 发布消息</span>
+        bus.post(<span class="hljs-keyword">new</span> Event() {
+            @Override
+            <span class="hljs-keyword">public</span> String <span class="hljs-title">getState</span>() {
+                <span class="hljs-keyword">return</span> <span class="hljs-string">"付钱成功"</span>;
+            }
+        });
+
+        bus.post(<span class="hljs-string">"dead event O(∩_∩)O~"</span>);
+    }
+}</code></pre>
+
+<blockquote>
+  <p>注: 线程间通信框架<strong>Disruptor</strong>也是观察者模式的一种具体实现, 详细可参考博客: <a href="http://blog.csdn.net/zjf280441589/article/details/50575991#t28">Java并发基础:Disruptor小结</a>、<a href="http://coolshell.cn/articles/9169.html">并发框架Disruptor译文</a>.</p>
+</blockquote>
+
+<hr />
+
+
+
+<h2 id="小结">小结</h2>
+
+<blockquote>
+  <p>将系统分割成一系列相互协作的类有一定的副作用: <strong>需要维护相关对象间的一致性</strong>, 我们不希望为了一致性而将各类紧密耦合, 这样会给维护、扩展和重用都带来不便. <br />
+  而观察者模式允许独立的改变目标和观察者. 你可以单独复用<strong>Subject</strong>而不用管<strong>Observer</strong> 反之亦然. 它也使你可以在不改动<strong>Subject</strong>和其他<strong>Observer</strong>的前提下增加观察者.</p>
+</blockquote>
+
+<ul>
+<li>场景: <br />
+当一个抽象模型有两个方面, 其中一方依赖于另一方(一方改变需要通知另一方, 且它不知道具体有多少对象等待待改变), 这时观察者就可将这两者封装在独立的对象中使他们各自独立的改变和复用 <br />
+<ul><li>关注微信公众号 &amp; 邮件订阅;</li>
+<li>网络游戏中<strong>服务器将客户状态转发</strong>;</li>
+<li>Servlet API: 监听器<code>Listener</code>;</li>
+<li>Android广播机制;</li>
+<li>AWT事件处理模型(基于观察者模式的委派事件模型).</li></ul></li>
+</ul>
+
+<hr />
+
+<dl>
+<dt>参考:</dt>
+<dd><a href="https://book.douban.com/subject/1052241/">设计模式: 可复用面向对象软件的基础</a></dd>
+
+<dd><a href="https://book.douban.com/subject/2334288/">大话设计模式</a></dd>
+
+<dd><a href="http://www.imooc.com/learn/415">慕课: 观察者模式</a></dd>
+
+<dd><a href="http://www.bjsxt.com/2014/down_0425/34.html">高淇讲设计模式</a></dd>
+
+<dd><a href="http://www.vaikan.com/design-patterns-can-be-evil/">设计模式有害论</a></dd>
+
+<dd><a href="http://www.cnblogs.com/peida/p/EventBus.html">Guava学习笔记: EventBus</a></dd>
+
+<dd><a href="http://ifeve.com/google-guava-eventbus/">Guava官方文档-事件总线</a></dd>
+</dl>
+
+<hr /></div>&#13;
+        <script type="text/javascript">&#13;
+            $(function () {&#13;
+                $('pre.prettyprint code').each(function () {&#13;
+                    var lines = $(this).text().split('\n').length;&#13;
+                    var $numbering = $('&lt;ul/&gt;').addClass('pre-numbering').hide();&#13;
+                    $(this).addClass('has-numbering').parent().append($numbering);&#13;
+                    for (i = 1; i &lt;= lines; i++) {&#13;
+                        $numbering.append($('&lt;li/&gt;').text(i));&#13;
+                    };&#13;
+                    $numbering.fadeIn(1700);&#13;
+                });&#13;
+            });&#13;
+        </script>&#13;
+   &#13;

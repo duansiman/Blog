@@ -1,0 +1,69 @@
+
+
+<p>学生请假是一个经典的介绍<strong>责任链模式(Chain of Responsibility pattern)</strong>的现实场景。学生通常向辅导员请假，按照请假的天数不同如几节课、几天、一个月、一年等，辅导员可能自己或要请示院党委副书记、书记、学校校长批准。</p>&#13;
+<p>责任链模式可以称为<strong><span style="color:#ff0000">“推卸”式</span></strong>的代理，多个对象能够处理客户发出的请求，即它们都具有相应的方法如handle()。</p>&#13;
+<h2>经典责任链<br />&#13;
+</h2>&#13;
+<p></p>&#13;
+<p></p>&#13;
+<p>责任链模式中，多个处理者对象将构成某种数据结构。具体的数据结构可以是单向链、单向环、双向链或树。不论构成什么结构，对所有处理者的抽象，正如数据结构中常用的<strong>结点概</strong>念。结点是自引用的，它含有一个或多个本类型的成员变量。例程6-1中，IHandler是所有处理者对象的抽象。它含有一个本类型的成员变量，准备构成简单的单向链；方法handle(int day) 定义了处理请求的接口，例程6-1中还提供了默认实现。</p>&#13;
+具体处理者(ConcreteHandler)角色，假定辅导员、院党委副书记、书记、学校校长分别为H1、H2、H3和H4。先实现H1和H2，他们按照自己的权限处理请求，否则采用父类的默认实现。&#13;
+<p></p>&#13;
+<pre name="code" class="java">例程 6 1 简单的责任链
+package structure.chain;
+public abstract class IHandler{
+    private IHandler next;//successor
+    public void setNext(IHandler next){
+        this.next = next;
+    }
+    public void handle(int day){
+        if (next != null){
+            next.handle(day);
+        }else{System.out.println("no handler");}
+    }
+}
+package structure.chain;
+public class H2 extends IHandler{
+    @Override public void handle(int day){
+        if (day&lt;=6 &amp;&amp; day&gt;1){//some Condition
+            System.out.println("ok! Handler is "+this.getClass().getName());
+        }else{
+            super.handle(day);
+        }
+    }
+}
+package structure.chain;
+import tool.God;
+public class Student{
+    public static void test(int x){
+        IHandler h2 =(IHandler)God.create("6-1-1-H2");
+        IHandler h1 =(IHandler)God.create("6-1-1-H1");
+        h1.setNext(h2);
+        h1.handle(x);
+    }
+} </pre>&#13;
+<p></p>&#13;
+<p>BlueJ中测试，随着输入的不同，如1、2、10，输出分别为：</p>&#13;
+<p></p>&#13;
+<p>ok! Handler is structure.chain.H1</p>&#13;
+<p>ok! Handler is structure.chain.H2</p>&#13;
+no handler&#13;
+<p><br />&#13;
+</p>&#13;
+<p></p>&#13;
+<p>责任链模式将一个请求的处理者设计为一个链，链上的每个类都可以处理这个请求，或者将处理责任踢皮球给下家。<span style="color:#FF0000"><strong>责任链的“链”表示处理流程的走向</strong></span>，H1、H2、H3和H4本身的具体数据结构可以是单向链、单向环或树。一个典型的应用，就是处理者构成组合模式的树形结构，而将请求/责任沿着树形结构的<strong><span style="color:#FF0000">某种路径</span></strong>，向上或向下传递。</p>&#13;
+<p>在例程6-1中基础上，有若干细节问题可以展开<span style="color:#FF0000">讨论和想象</span>： </p>&#13;
+<p>l        请求者向谁提出请求？例程中展示的是，学生可以向责任链上任一处理者提出请求，因为Student 仅依赖IHandler，而具体的对象是由配置文件配置。你也可以指定学生只能够向处理权限最低的辅导员提出请求。</p>&#13;
+<p>l        处理权限大小问题：请求可以按照处理权限从低到高的方式上交，也可以按照分段(权限平行)的方式或向下授权的方式处理。例程中演示的，其实是分段的方式。</p>&#13;
+<p>l        请求必需被处理吗？例程中演示的，请求可以被责任链处理或不处理。如果要求“请求在责任链中必须被处理”，可以在抽象类IHandler中给出默认处理方案作为底线，而不是官僚主义地给出"nohandler"。</p>&#13;
+<p>l        谁指定自己的后续结点？本例中IHandler的子类没有指定自己的后续结点。抽象类的next设计private而非其他访问权限；子类除了自己的处理代码，其他就交给super.handle(day)。</p>&#13;
+<p>针对上述细节问题的不同回答，可以给出责任链的<span style="color:#FF0000"><strong>不同变体</strong></span>。例如，按照一般的想象，客户Student是不清楚职责链的处理流程(链的结构)和处理方式的，所以测试代码中指定职责链的后续结点的工作，通常由某个管理类(ChainManager)或具体结点类自己完成。由具体结点类指定后续结点时，就需要考虑处理权限大小问题和传递方向。再例如，[GoF]定义的责任链模式，称为经典责任链(classic Chain ofResponsibility)要求具体处理者①要么处理、要么传给下家，不得部分处理；②请求在责任链中必须被处理。实际应用中，是否能够变通呢？</p>&#13;
+<p><br />&#13;
+</p>&#13;
+<p><strong>太多的变体</strong>，以至于暂时都我不想逐一的讨论了。<br />&#13;
+</p>&#13;
+<p></p>&#13;
+<p><br />&#13;
+</p>&#13;
+<a target="_blank" href="http://blog.csdn.net/yqj2065/article/details/8592375" style="text-align:center"><img src="http://img.blog.csdn.net/20140919170809965?watermark/2/text/aHR0cDovL2Jsb2cuY3Nkbi5uZXQveXFqMjA2NQ==/font/5a6L5L2T/fontsize/400/fill/I0JBQkFCMA==/dissolve/70/gravity/SouthEast" alt="" /></a><br />&#13;
+   &#13;

@@ -1,0 +1,192 @@
+
+        <div class="markdown_views"><h3 id="gradle-简介">gradle 简介</h3>
+
+<p>基于Groovy实现的自动化构建工具，比maven好的一点在于不用写复杂的xml文件。使用script就可以。</p>
+
+
+
+<h3 id="gradle-专业名词">gradle 专业名词</h3>
+
+<p>从一个build.gradle 文件开始,build.gradle 文件就是maven中pom.xml</p>
+
+<pre><code>buildscript {
+    repositories {
+        mavenCentral()
+        maven {
+            url 'file:local_repo'
+        }   
+        }
+    dependencies {
+        classpath group: 'test', name: 'build-plugin',
+                version: '1.0'
+    }
+}
+
+apply plugin: 'com.stone.build'
+plugins {
+  id "net.saliman.cobertura" version "2.3.2"
+}
+subprojects { subproject -&gt;
+
+    apply plugin: 'eclipse'
+    apply plugin: 'java'
+    repositories {
+        mavenCentral()
+    }
+    dependencyManagement {
+    dependencies {
+        //common dependency
+        dependency "commons-io:commons-io:$COMMON_VERSION"    
+        }
+    }
+    dependencies {
+        compile 'commons-io:commons-io'
+        compile group: 'org.hibernate', name: 'hibernate-core', version: '3.6.7.Final'
+        testCompile group: 'junit', name: 'junit', version: '4.+'
+    }
+}
+task wrapper(type: Wrapper) {
+    gradleVersion = '2.3'
+}
+</code></pre>
+
+<p><strong>buildscript</strong> <br />
+buildscript 中指定当前这个build.gradle 的执行环境。</p>
+
+<p><strong>repository</strong> 指定当需要下载依赖时查找的中心库</p>
+
+<p><strong>apply plugin</strong> 引用gradle插件，gradle有很多已有的plugin。或者你可以定制一个。查询已有的plugin<a href="https://plugins.gradle.org">https://plugins.gradle.org</a></p>
+
+<p><strong>plugins</strong> apply plugin 的简化写法，gradle 2.1 中引入的。没必要再写dependency，然后使用apply plugin 引入</p>
+
+<p><strong>subproject</strong> 定义子project的共同行为</p>
+
+<p><strong>dependencyManagement</strong> 当有多个project，各个project有一些共同的jar包依赖。在这边声明jar包的统一版本.</p>
+
+<p>这边只是声明，并没有引入，需要在dependencies中引入。如果在dependencies中没有定义jar包版本，则继承dependcyManagement中的jar包版本。否则会覆盖</p>
+
+<p><strong>dependencies</strong> 工程依赖的jar包 <br />
+<strong>wrapper</strong> 指定project 运行的gradle 版本。生成gradlew 可执行文件。运行./gradlew build时会去下wrapper task 中指定的gradle 版本。这样可以运行在没有安装gradle 的环境。当然如果你的环境中已经安装了gradle，而且可以运行project.可以直接使用gradle build命令。</p>
+
+
+
+<h3 id="gradle-常见命令">gradle 常见命令</h3>
+
+<p><strong>gradle buildEnvironment</strong> 查看build script 块中定义的dependencies</p>
+
+<p><strong>gradle -q dependencies $subprojectname:dependencies </strong> <br />
+列出subproject 的包依赖</p>
+
+
+
+<h3 id="gradle-plugin开发">gradle plugin开发</h3>
+
+<p>gradle 支持自定义plugin。开发很简单。实现Plugin 即可。</p>
+
+<p><a href="https://github.com/davenkin/gradle-learning/tree/master/10-custom-plugin">https://github.com/davenkin/gradle-learning/tree/master/10-custom-plugin</a> <br />
+这边主要介绍另外一种，将task与project 解耦的方法。</p>
+
+<p><strong>定义task</strong></p>
+
+<p>继承DefaultTask，然后在@TaskAction 方法中定义Task执行的具体任务</p>
+
+<pre><code>package davenkin
+
+import org.gradle.api.Plugin
+import org.gradle.api.Project
+import org.gradle.api.DefaultTask
+import org.gradle.api.tasks.TaskAction
+
+class ShowTimeTask extends DefaultTask {
+    @TaskAction
+    def showTimeTask(){
+        println "Current time is " + new Date().format(project.dateAndTime.timeFormat)
+    }
+}
+</code></pre>
+
+<p><strong>向project中注入task</strong></p>
+
+<p>plugin实现Plugin,然后通过project.task注入。</p>
+
+<pre><code>package davenkin
+
+import org.gradle.api.Plugin
+import org.gradle.api.Project
+import davenkin.ShowTimeTask
+import davenkin.ShowDateTask
+
+class DateAndTimePlugin implements Plugin&lt;Project&gt; {
+    void apply(Project project) {
+
+        project.extensions.create("dateAndTime", DateAndTimePluginExtension)
+
+        project.task('showTime', type: ShowTimeTask);
+        project.task('showDate', type: ShowDateTask);
+    }
+}
+</code></pre>
+
+<p>源码：<a href="https://github.com/FS1360472174/gradle-learning/tree/master/10-custom-plugin/create-plugin-in-standalone-project-withTask" title="源码">https://github.com/FS1360472174/gradle-learning/tree/master/10-custom-plugin/create-plugin-in-standalone-project-withTask</a></p>
+
+<p><a href="https://github.com/sourcemuse/GradleMongoPlugin">mongo-gradle-plugin</a></p>
+
+<h3 id="plugin-publish">plugin publish</h3>
+
+
+
+<pre class="prettyprint"><code class=" hljs cs">artifactory {
+        clientConfig.setIncludeEnvVars(<span class="hljs-keyword">true</span>)
+        contextUrl = <span class="hljs-string">'http://localhost:8081/artifactory/'</span>
+        publish {
+            repository {
+                repoKey = <span class="hljs-string">'libs-release-local'</span> 
+                username = <span class="hljs-string">"admin"</span>
+                password = <span class="hljs-string">"password"</span>
+            }
+        }
+    }
+
+publishing {
+    publications {
+        mavenJar(MavenPublication) { <span class="hljs-keyword">from</span> components.java }
+    }
+}
+
+artifactoryPublish { publications(<span class="hljs-string">'mavenJar'</span>) }</code></pre>
+
+<p>如果artifactory中没有自定义publications。在artifactory中也可以指定默认的publish内容。</p>
+
+
+
+<h3 id="gradle-issues">gradle issues</h3>
+
+<p>Q1: gradle设置多个repo，不生效，只会找最上面的一个repo</p>
+
+<p>A1: 将多个url分开写。将mavenCentral()放在最上面 <br />
+    mavenCentral() <br />
+    maven { url  }  <br />
+    maven { url ‘file:local_repo’}</p>
+
+
+
+<h3 id="参考">参考</h3>
+
+<p><a href="https://plugins.gradle.org">https://plugins.gradle.org</a> <br />
+<a href="https://docs.gradle.org/current/userguide/custom_plugins.html">https://docs.gradle.org/current/userguide/custom_plugins.html</a> <br />
+<a href="https://plugins.gradle.org/plugin/net.saliman.cobertura">https://plugins.gradle.org/plugin/net.saliman.cobertura</a> <br />
+<a href="http://buransky.com/scala/publish-jar-artifact-using-gradle-to-artifactory/">http://buransky.com/scala/publish-jar-artifact-using-gradle-to-artifactory/</a></p></div>&#13;
+        <script type="text/javascript">&#13;
+            $(function () {&#13;
+                $('pre.prettyprint code').each(function () {&#13;
+                    var lines = $(this).text().split('\n').length;&#13;
+                    var $numbering = $('&lt;ul/&gt;').addClass('pre-numbering').hide();&#13;
+                    $(this).addClass('has-numbering').parent().append($numbering);&#13;
+                    for (i = 1; i &lt;= lines; i++) {&#13;
+                        $numbering.append($('&lt;li/&gt;').text(i));&#13;
+                    };&#13;
+                    $numbering.fadeIn(1700);&#13;
+                });&#13;
+            });&#13;
+        </script>&#13;
+   &#13;

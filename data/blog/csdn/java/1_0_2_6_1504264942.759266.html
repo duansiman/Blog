@@ -1,0 +1,335 @@
+
+
+<p></p>&#13;
+<h1></h1>&#13;
+<h1>1.最基本的单点登录</h1>&#13;
+<div>         &#13;
+<pre style="color:rgb(169,183,198); font-family:宋体; font-size:9pt; background-color:rgb(43,43,43)"><h2>客户端配置：</h2>            1.Tomcat配置SSL
+                     1.生成证书
+                              打开cmd或终端，命令行切换到Tomcat所在目录，执行如下命令：
+                                     D:\JayHe\Environment\tomcat-8.0.33&gt;keytool -genkey -alias tomcat_key -keyalg RSA -storepass changeit -keystore server.keystore -validity 3600
+                                     说明：
+                                           -validity 指证书的有效期(天)，缺省有效期很短，只有90天
+                     2.导出证书
+                                     D:\JayHe\Environment\tomcat-8.0.33&gt;keytool -export -trustcacerts -alias tomcat_key -file server.cer -keystore server.keystore -storepass changeit
+                                     说明：
+                                          证书存储在 server.cer 文件中
+
+                     3.导入证书
+                                     D:\JayHe\Environment\tomcat-8.0.33&gt;keytool -import -trustcacerts -alias tomcat_key -file server.cer -keystore cacerts -storepass changeit</pre>&#13;
+<pre style="color:rgb(169,183,198); font-family:宋体; font-size:9pt; background-color:rgb(43,43,43)"><img src="http://img.blog.csdn.net/20160830160705699?watermark/2/text/aHR0cDovL2Jsb2cuY3Nkbi5uZXQv/font/5a6L5L2T/fontsize/400/fill/I0JBQkFCMA==/dissolve/70/gravity/Center" alt="" />
+</pre>&#13;
+<pre style="color:rgb(169,183,198); font-family:宋体; font-size:9pt; background-color:rgb(43,43,43)"><img src="http://img.blog.csdn.net/20160830160921467?watermark/2/text/aHR0cDovL2Jsb2cuY3Nkbi5uZXQv/font/5a6L5L2T/fontsize/400/fill/I0JBQkFCMA==/dissolve/70/gravity/Center" alt="" />         </pre>&#13;
+<pre style="color:rgb(169,183,198); font-family:宋体; font-size:9pt; background-color:rgb(43,43,43)">   2.Tomcat配置
+                     完成密钥文件、证书文件、密钥库文件后即可进行服务端Tomcat的配置，
+                     打开$CATALINA_HOME/conf/server.xml文件，注释掉如下代码段：
+                     &lt;Connector port="80"protocol="HTTP/1.1" connectionTimeout="20000" redirectPort="8443"/&gt;
+                     并取消注释&lt;Connectorport="8443" protocol="HTTP/1.1" SSLEnabled="true"…/&gt;代码段，修改
+
+                           <pre code_snippet_id="1858034" snippet_file_name="blog_20160830_1_4787234" name="code" class="html"> &lt;Connector executor="tomcatThreadPool"
+                                           port="8080" protocol="HTTP/1.1"
+                                           connectionTimeout="20000"
+                                           redirectPort="8443" /&gt;
+
+                                &lt;!-- Define a SSL/TLS HTTP/1.1 Connector on port 8443
+                                     This connector uses the NIO implementation that requires the JSSE
+                                     style configuration. When using the APR/native implementation, the
+                                     OpenSSL style configuration is required as described in the APR/native
+                                     documentation --&gt;
+                                &lt;!-- keystorePass="" 是配置SSL时导入证书是填的密码，如果没有可不填 --&gt;
+                                &lt;!--
+                                &lt;Connector port="443" protocol="HTTP/1.1" keystoreFile="/server.keystore" truststoreFile="cacerts"
+                                           keystorePass="" maxThreads="150" SSLEnabled="true" scheme="https" secure="true"
+                                           clientAuth="false" sslProtocol="TLS" /&gt;
+                                --&gt;
+                                &lt;Connector port="443" protocol="HTTP/1.1" keystoreFile="/server.keystore" truststoreFile="cacerts"
+                                           maxThreads="150" SSLEnabled="true" scheme="https" secure="true"
+                                           clientAuth="false" sslProtocol="TLS" /&gt;</pre><img src="http://img.blog.csdn.net/20160830161017327?watermark/2/text/aHR0cDovL2Jsb2cuY3Nkbi5uZXQv/font/5a6L5L2T/fontsize/400/fill/I0JBQkFCMA==/dissolve/70/gravity/Center" alt="" /><br />           </pre>&#13;
+</div>&#13;
+<div><br />&#13;
+</div>&#13;
+<div>&#13;
+<pre style="background-color:#2b2b2b; color:#a9b7c6; font-family:'宋体'; font-size:9.0pt"> 3.生成客户端密匙库文件
+                            单向认证的客户端配置只需生成客户端信任文件caserts即可。首先将服务端生成的证书文件（之前生成的casserver.cer文件）复制到$JAVA_HOME/jre/lib/security下，然后打开CMD窗口切换到$JAVA_HOME/jre/lib/security下并执行命令：
+                                           C:\Program Files\Java\jdk1.8.0_45\jre\lib\security&gt;keytool -import -trustcacerts -alias casclient -storepass ssoclient -file server.cer -keystore cacerts -storepass changeit
+                            说明：
+                                 如果配置过程中显示密码错误，可使用  -storepass changeit ， changeit是jdk默认的证书密码
+
+
+
+<h2>CAS服务端：</h2>         CAS默认用户名和密码：  casuser/Mellon
+
+         到cas官网下载cas-server http://developer.jasig.org/cas/（我下载的是4.0.0）
+         解压压缩文件，在解压后的文件夹内找到/modules/cas-server-webapp-4.0.0.war。将其复制到%Tomcat_Home%\webapps下并改名为cas.war
+         启动Tomcat，并测试 https://localhost:8443/cas 看是否访问正常（默认输入用户名和密码一致就可以）。
+         注：CAS Server 4.0.0 默认登陆验证方式是 AcceptUsersAuthenticationHandler （老版本好像是SimpleTestUsernamePasswordAuthenticationHandler），
+         默认用户名/密码为 casuser/Mellon（cas/WEB-INF/deployerConfigContext.xml 中找到 id=primaryAuthenticationHandler 的bean查看，里面的map也可以自己增加更多个）。
+         我们通常需要从数据库中取出用户名和密码进行验证，所以我们需要修改 deployerConfigContext.xml，配置我们自己的服务认证方式
+
+
+
+</pre>&#13;
+<br />&#13;
+</div>&#13;
+<div><br />&#13;
+</div>&#13;
+<div><br />&#13;
+</div>&#13;
+<div><br />&#13;
+</div>&#13;
+<h1>2.基于JDBC的CAS单点登录</h1>&#13;
+<div><br />&#13;
+</div>&#13;
+<div>&#13;
+<pre style="background-color:#2b2b2b; color:#a9b7c6; font-family:'宋体'; font-size:9.0pt"><pre style="background-color:#2b2b2b; color:#a9b7c6; font-family:'宋体'; font-size:9.0pt">使用JDBC的认证方法：      用户名和密码： admin/123456
+
+<h2>服务端   ---  配置使用JDBC的认证方式</h2></pre>         1.cas/WEB-INF/deployerConfigContext.xml，添加一个新的 bean 标签：            <pre code_snippet_id="1858034" snippet_file_name="blog_20160831_2_8902495" name="code" class="html">                 &lt;bean id="casDataSource" class="org.apache.commons.dbcp.BasicDataSource"&gt;
+                    &lt;property name="driverClassName"&gt;
+                        &lt;value&gt;com.mysql.jdbc.Driver&lt;/value&gt;
+                    &lt;/property&gt;
+                    &lt;property name="url"&gt;
+                        &lt;value&gt;jdbc:mysql://localhost:3306/jay_db1&lt;/value&gt;
+                    &lt;/property&gt;
+                    &lt;property name="username"&gt;
+                        &lt;value&gt;root&lt;/value&gt;
+                    &lt;/property&gt;
+                    &lt;property name="password"&gt;
+                        &lt;value&gt;root&lt;/value&gt;
+                    &lt;/property&gt;
+                &lt;/bean&gt;</pre><br />         2.配置 AuthenticationHandler                  <pre code_snippet_id="1858034" snippet_file_name="blog_20160831_3_7092352" name="code" class="html">                &lt;bean id="primaryAuthenticationHandler"
+                    class="org.jasig.cas.adaptors.jdbc.QueryDatabaseAuthenticationHandler"&gt;
+                    &lt;property name="dataSource" ref="casDataSource" /&gt;
+                    &lt;property name="sql" value="select password from t_user where lower(account) = lower(?)" /&gt;
+                    &lt;property name="passwordEncoder" ref="passwordEncoder" /&gt;
+                &lt;/bean&gt;
+                &lt;bean id="passwordEncoder"
+                    class="org.jasig.cas.authentication.handler.DefaultPasswordEncoder" &gt;
+                    &lt;constructor-arg name="encodingAlgorithm" value="MD5"/&gt;
+                    &lt;property name="characterEncoding" value="UTF-8"/&gt;
+                &lt;/bean&gt;</pre><br />         <pre style="background-color:#2b2b2b; color:#a9b7c6; font-family:'宋体'; font-size:9.0pt">3.注意：
+       DataSource 依赖于 commons-collections-3.2.jar、commons-dbcp-1.2.1.jar、commons-pool-1.3.jar、数据库驱动包、</pre><pre style="background-color:#2b2b2b; color:#a9b7c6; font-family:'宋体'; font-size:9.0pt">       cas对jdbc的支持包cas-server-support-jdbc-4.0.0.jar，需要找到这几个jar包放进 %TOMCAT_HOME%/webapps/cas/WEB-INF/lib 目录</pre><pre style="background-color:#2b2b2b; color:#a9b7c6; font-family:'宋体'; font-size:9.0pt"><pre style="background-color:#2b2b2b; color:#a9b7c6; font-family:'宋体'; font-size:9.0pt"><h2>客户端   ---  应用程序连接CAS服务器</h2>         1.maven依赖  或  jar包导入cas-client-core.jar
+                      &lt;dependency&gt;
+                          &lt;groupId&gt;org.jasig.cas.client&lt;/groupId&gt;
+                          &lt;artifactId&gt;cas-client-core&lt;/artifactId&gt;
+                          &lt;version&gt;3.4.1&lt;/version&gt;
+                      &lt;/dependency&gt;
+         2.导入其他依赖包
+                      commons-logging-1.2.jar
+
+         说明：
+              1.启动报错：java.lang.IllegalArgumentException: casServerUrlPrefix cannot be null.
+                解决方案：使用低版本的客户端
+                             &lt;dependency&gt;
+                                 &lt;groupId&gt;org.jasig.cas.client&lt;/groupId&gt;
+                                 &lt;artifactId&gt;cas-client-core&lt;/artifactId&gt;
+                                 &lt;version&gt;3.2.0&lt;/version&gt;
+                             &lt;/dependency&gt;
+
+         3.新建2个Web项目(CasDemo, CasDemo2)，在每个项目中修改web.xml配置，添加内容如下：   ---  连接CAS服务器</pre><br /></pre><pre code_snippet_id="1858034" snippet_file_name="blog_20160831_4_6710668" name="code" class="html">&lt;/pre&gt;</pre></pre>&#13;
+</div>&#13;
+<div><pre code_snippet_id="1858034" snippet_file_name="blog_20160831_4_6710668" name="code" class="html" style="color: rgb(169, 183, 198);">                  &lt;!-- 该过滤器用于实现单点登出功能，可选配置。 --&gt;
+                  &lt;!--    登出地址 https://casserver:8443/cas/logout --&gt;
+                  &lt;filter&gt;
+                      &lt;filter-name&gt;CAS Single Sign Out Filter&lt;/filter-name&gt;
+                      &lt;filter-class&gt;org.jasig.cas.client.session.SingleSignOutFilter&lt;/filter-class&gt;
+                  &lt;/filter&gt;
+
+                  &lt;!-- 该过滤器负责用户的认证工作，必须启用它 --&gt;
+                  &lt;filter&gt;
+                      &lt;filter-name&gt;CAS Authentication Filter&lt;/filter-name&gt;
+                      &lt;filter-class&gt;org.jasig.cas.client.authentication.AuthenticationFilter&lt;/filter-class&gt;
+                      &lt;init-param&gt;
+                          &lt;param-name&gt;casServerLoginUrl&lt;/param-name&gt;
+                          &lt;param-value&gt;https://localhost:8443/cas/login&lt;/param-value&gt;
+                      &lt;/init-param&gt;
+                      &lt;init-param&gt;
+                          &lt;param-name&gt;serverName&lt;/param-name&gt;
+                          &lt;param-value&gt;http://localhost:8080&lt;/param-value&gt;
+                      &lt;/init-param&gt;
+                  &lt;/filter&gt;
+
+                  &lt;!-- 该过滤器负责对Ticket的校验工作，必须启用它 --&gt;
+                  &lt;filter&gt;
+                      &lt;filter-name&gt;CAS Validation Filter&lt;/filter-name&gt;
+                      &lt;filter-class&gt;org.jasig.cas.client.validation.Cas10TicketValidationFilter&lt;/filter-class&gt;
+                      &lt;init-param&gt;
+                          &lt;param-name&gt;casServerUrlPrefix&lt;/param-name&gt;
+                          &lt;param-value&gt;https://localhost:8443/cas&lt;/param-value&gt;
+                      &lt;/init-param&gt;
+                      &lt;init-param&gt;
+                          &lt;param-name&gt;serverName&lt;/param-name&gt;
+                          &lt;param-value&gt;http://localhost:8080&lt;/param-value&gt;
+                      &lt;/init-param&gt;
+                      &lt;init-param&gt;
+                          &lt;param-name&gt;redirectAfterValidation&lt;/param-name&gt;
+                          &lt;param-value&gt;true&lt;/param-value&gt;
+                      &lt;/init-param&gt;
+                  &lt;/filter&gt;
+
+                  &lt;!-- 该过滤器负责实现HttpServletRequest请求的包装， 比如允许开发者通过HttpServletRequest的getRemoteUser()方法获得SSO登录用户的登录名，可选配置。 --&gt;
+                  &lt;filter&gt;
+                      &lt;filter-name&gt;CAS HttpServletRequest Wrapper Filter&lt;/filter-name&gt;
+                      &lt;filter-class&gt;org.jasig.cas.client.util.HttpServletRequestWrapperFilter&lt;/filter-class&gt;
+                  &lt;/filter&gt;
+
+                  &lt;!-- 该过滤器使得开发者可以通过org.jasig.cas.client.util.AssertionHolder来获取用户的登录名。 比如AssertionHolder.getAssertion().getPrincipal().getName()。 --&gt;
+                  &lt;filter&gt;
+                      &lt;filter-name&gt;CAS Assertion Thread Local Filter&lt;/filter-name&gt;
+                      &lt;filter-class&gt;org.jasig.cas.client.util.AssertionThreadLocalFilter&lt;/filter-class&gt;
+                  &lt;/filter&gt;
+
+                  &lt;filter-mapping&gt;
+                      &lt;filter-name&gt;CAS Single Sign Out Filter&lt;/filter-name&gt;
+                      &lt;url-pattern&gt;/*&lt;/url-pattern&gt;
+                  &lt;/filter-mapping&gt;
+                  &lt;filter-mapping&gt;
+                      &lt;filter-name&gt;CAS Authentication Filter&lt;/filter-name&gt;
+                      &lt;url-pattern&gt;/*&lt;/url-pattern&gt;
+                  &lt;/filter-mapping&gt;
+                  &lt;filter-mapping&gt;
+                      &lt;filter-name&gt;CAS Validation Filter&lt;/filter-name&gt;
+                      &lt;url-pattern&gt;/*&lt;/url-pattern&gt;
+                  &lt;/filter-mapping&gt;
+                  &lt;filter-mapping&gt;
+                      &lt;filter-name&gt;CAS HttpServletRequest Wrapper Filter&lt;/filter-name&gt;
+                      &lt;url-pattern&gt;/*&lt;/url-pattern&gt;
+                  &lt;/filter-mapping&gt;
+                  &lt;filter-mapping&gt;
+                      &lt;filter-name&gt;CAS Assertion Thread Local Filter&lt;/filter-name&gt;
+                      &lt;url-pattern&gt;/*&lt;/url-pattern&gt;
+                  &lt;/filter-mapping&gt;
+
+                  &lt;listener&gt;
+                      &lt;listener-class&gt;org.jasig.cas.client.session.SingleSignOutHttpSessionListener&lt;/listener-class&gt;
+                  &lt;/listener&gt;
+                  &lt;!-- ======================== 单点登录/登出结束 ======================== --&gt;</pre><br />&#13;
+</div>&#13;
+<div><br />&#13;
+</div>&#13;
+<div>&#13;
+<pre style="background-color:#2b2b2b; color:#a9b7c6; font-family:'宋体'; font-size:9.0pt">4.验证登录
+     http://localhost:8080/CasDemo
+     http://localhost:8080/CasDemo2
+     当有一个项目登录成功后，另一个项目自动登录    (CAS使用JDBC方式认证，用户名密码：admin/123456)</pre>&#13;
+<br />&#13;
+</div>&#13;
+<div><br />&#13;
+</div>&#13;
+<div><br />&#13;
+</div>&#13;
+<h1><br />&#13;
+CAS原理</h1>&#13;
+<div><br />&#13;
+</div>&#13;
+<div>&#13;
+<p style="margin-top:0px; margin-bottom:25px; margin-left:auto; line-height:28.8px; color:rgb(75,75,75); font-size:16px; font-family:Verdana,Geneva,Arial,Helvetica,sans-serif">&#13;
+基础模式 SSO 访问流程主要有以下步骤：</p>&#13;
+<p style="margin-top:0px; margin-bottom:25px; margin-left:auto; line-height:28.8px; color:rgb(75,75,75); font-size:16px; font-family:Verdana,Geneva,Arial,Helvetica,sans-serif">&#13;
+1. 访问服务： SSO 客户端发送请求访问应用系统提供的服务资源。</p>&#13;
+<p style="margin-top:0px; margin-bottom:25px; margin-left:auto; line-height:28.8px; color:rgb(75,75,75); font-size:16px; font-family:Verdana,Geneva,Arial,Helvetica,sans-serif">&#13;
+2. 定向认证： SSO 客户端会重定向用户请求到 SSO 服务器。</p>&#13;
+<p style="margin-top:0px; margin-bottom:25px; margin-left:auto; line-height:28.8px; color:rgb(75,75,75); font-size:16px; font-family:Verdana,Geneva,Arial,Helvetica,sans-serif">&#13;
+3. 用户认证：用户身份认证。</p>&#13;
+<p style="margin-top:0px; margin-bottom:25px; margin-left:auto; line-height:28.8px; color:rgb(75,75,75); font-size:16px; font-family:Verdana,Geneva,Arial,Helvetica,sans-serif">&#13;
+4. 发放票据： SSO 服务器会产生一个随机的 Service Ticket 。</p>&#13;
+<p style="margin-top:0px; margin-bottom:25px; margin-left:auto; line-height:28.8px; color:rgb(75,75,75); font-size:16px; font-family:Verdana,Geneva,Arial,Helvetica,sans-serif">&#13;
+5. 验证票据： SSO 服务器验证票据 Service Ticket 的合法性，验证通过后，允许客户端访问服务。</p>&#13;
+<p style="margin-top:0px; margin-bottom:25px; margin-left:auto; line-height:28.8px; color:rgb(75,75,75); font-size:16px; font-family:Verdana,Geneva,Arial,Helvetica,sans-serif">&#13;
+6. 传输用户信息： SSO 服务器验证票据通过后，传输用户认证结果信息给客户端。</p>&#13;
+<p style="margin-top:0px; margin-bottom:25px; margin-left:auto; line-height:28.8px; color:rgb(75,75,75); font-size:16px; font-family:Verdana,Geneva,Arial,Helvetica,sans-serif">&#13;
+下面是 CAS 最基本的协议过程：</p>&#13;
+<p style="margin-top:0px; margin-bottom:25px; margin-left:auto; line-height:28.8px; color:rgb(75,75,75); font-size:16px; font-family:Verdana,Geneva,Arial,Helvetica,sans-serif">&#13;
+ </p>&#13;
+<p style="margin-top:0px; margin-bottom:25px; margin-left:auto; line-height:28.8px; color:rgb(75,75,75); font-size:16px; text-align:center; font-family:Verdana,Geneva,Arial,Helvetica,sans-serif">&#13;
+<img alt="CAS实现SSO单点登录原理" src="http://static.open-open.com/lib/uploadImg/20150523/20150523193942_202.jpg" width="467" height="341" style="border:0px; vertical-align:middle; max-width:100%" /></p>&#13;
+<p style="margin-top:0px; margin-bottom:25px; margin-left:auto; line-height:28.8px; color:rgb(75,75,75); font-size:16px; font-family:Verdana,Geneva,Arial,Helvetica,sans-serif">&#13;
+基础协议图</p>&#13;
+<p style="margin-top:0px; margin-bottom:25px; margin-left:auto; line-height:28.8px; color:rgb(75,75,75); font-size:16px; text-align:center; font-family:Verdana,Geneva,Arial,Helvetica,sans-serif">&#13;
+ </p>&#13;
+<p style="margin-top:0px; margin-bottom:25px; margin-left:auto; line-height:28.8px; color:rgb(75,75,75); font-size:16px; font-family:Verdana,Geneva,Arial,Helvetica,sans-serif">&#13;
+如 上图： CAS Client 与受保护的客户端应用部署在一起，以 Filter 方式保护 Web 应用的受保护资源，过滤从客户端过来的每一个 Web 请求，同 时， CAS Client 会分析 HTTP 请求中是否包含请求 Service Ticket( ST 上图中的 Ticket) ，如果没有，则说明该用户是没有经过认证的；于是 CAS Client 会重定向用户请求到 CAS Server （ Step 2 ），并传递 Service （要访问的目的资源地址）。 Step 3 是用户认证过程，如果用户提供了正确的 Credentials ， CAS&#13;
+ Server 随机产生一个相当长度、唯一、不可伪造的 Service Ticket ，并缓存以待将来验证，并且重定向用户到 Service 所在地址（附带刚才产生的 Service Ticket ） , <span style="font-weight:700; color:rgb(64,64,64)">并为客户端浏览器设置一个 Ticket Granted Cookie （ TGC ） </span>； CAS Client 在拿到 Service 和新产生的 Ticket 过后，在 Step 5 和 Step6 中与 CAS&#13;
+ Server 进行身份核实，以确保 Service Ticket 的合法性。</p>&#13;
+<p style="margin-top:0px; margin-bottom:25px; margin-left:auto; line-height:28.8px; color:rgb(75,75,75); font-size:16px; font-family:Verdana,Geneva,Arial,Helvetica,sans-serif">&#13;
+在该协议中，所有与 CAS Server 的交互均采用 SSL 协议，以确保 ST 和 TGC 的安全性。协议工作过程中会有 <span style="font-weight:700; color:rgb(64,64,64)">2 次重定向 </span>的过程。但是 CAS Client 与 CAS Server 之间进行 Ticket 验证的过程对于用户是透明的（使用 HttpsURLConnection ）。</p>&#13;
+<p style="margin-top:0px; margin-bottom:25px; margin-left:auto; line-height:28.8px; color:rgb(75,75,75); font-size:16px; font-family:Verdana,Geneva,Arial,Helvetica,sans-serif">&#13;
+    CAS 请求认证时序图如下：</p>&#13;
+<p style="margin-top:0px; margin-bottom:25px; margin-left:auto; line-height:28.8px; color:rgb(75,75,75); font-size:16px; font-family:Verdana,Geneva,Arial,Helvetica,sans-serif">&#13;
+ </p>&#13;
+<p style="margin-top:0px; margin-bottom:25px; margin-left:auto; line-height:28.8px; color:rgb(75,75,75); font-size:16px; text-align:center; font-family:Verdana,Geneva,Arial,Helvetica,sans-serif">&#13;
+<img alt="CAS实现SSO单点登录原理" src="http://static.open-open.com/lib/uploadImg/20150523/20150523193942_534.gif" width="554" height="466" style="border:0px; vertical-align:middle; max-width:100%" />  </p>&#13;
+<br />&#13;
+</div>&#13;
+<div><br />&#13;
+</div>&#13;
+<div><br />&#13;
+</div>&#13;
+<div><br />&#13;
+</div>&#13;
+<div><br />&#13;
+</div>&#13;
+<div><br />&#13;
+</div>&#13;
+<div><br />&#13;
+</div>&#13;
+<div><br />&#13;
+</div>&#13;
+<div><br />&#13;
+</div>&#13;
+<div><br />&#13;
+</div>&#13;
+<div><br />&#13;
+</div>&#13;
+<div><br />&#13;
+</div>&#13;
+<div><br />&#13;
+</div>&#13;
+<div><br />&#13;
+</div>&#13;
+<div><br />&#13;
+</div>&#13;
+<div><br />&#13;
+</div>&#13;
+<div><br />&#13;
+</div>&#13;
+<div><br />&#13;
+</div>&#13;
+<div><br />&#13;
+</div>&#13;
+<div><br />&#13;
+</div>&#13;
+<div>参考：</div>&#13;
+<div>http://www.open-open.com/lib/view/open1432381488005.html</div>&#13;
+<div>http://blog.csdn.net/hongbinchen/article/details/6745656<br />&#13;
+</div>&#13;
+<div><br />&#13;
+</div>&#13;
+<br />&#13;
+<p></p>&#13;
+<p><br />&#13;
+</p>&#13;
+<p><br />&#13;
+</p>&#13;
+<p><br />&#13;
+</p>&#13;
+<p><br />&#13;
+</p>&#13;
+<p><br />&#13;
+</p>&#13;
+<p><br />&#13;
+</p>&#13;
+<p><br />&#13;
+</p>&#13;
+<p><br />&#13;
+</p>&#13;
+<p><br />&#13;
+</p>&#13;
+<p><br />&#13;
+</p>&#13;
+<p><br />&#13;
+</p>&#13;
+<p><br />&#13;
+</p>&#13;
+<p><br />&#13;
+</p>&#13;
+   &#13;

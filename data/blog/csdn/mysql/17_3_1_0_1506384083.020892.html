@@ -1,0 +1,57 @@
+
+                <pre name="code" class="cpp">handle_slave_io：函数流程
+    if (RUN_HOOK(binlog_relay_io, thread_start, (thd, mi))){
+
+    }
+//stage_connecting_to_master：
+    safe_connect-&gt;mysql_real_connect//建立到master的连接，函数返回成功后，参数mysql就代表和主库的连接，后面所有和主库的通信都是通过该连接进行的
+    mi-&gt;slave_running= MYSQL_SLAVE_RUN_CONNECT;
+//stage_checking_master_version：
+    get_master_version_and_clock(mysql, mi);
+    get_master_uuid(mysql, mi);
+    io_thread_init_commands(mysql, mi);//连接上master后设置用户变量，在master上执行SET @slave_uuid=salve的server_uuid
+
+    mysql_mutex_lock(&amp;mi-&gt;data_lock);
+    binlog_version= mi-&gt;get_mi_description_event()-&gt;binlog_version;//mi的内容从哪来的？
+    mysql_mutex_unlock(&amp;mi-&gt;data_lock);
+
+    if (binlog_version &gt; 1){
+//stage_registering_slave_on_master：
+        register_slave_on_master(mysql, mi, &amp;suppress_warnings);//发送COM_REGISTER_SLAVE命令：将slave的server_id、host、user、password、port发送过去
+    }
+	
+    while (!io_slave_killed(thd,mi)){
+//stage_requesting_binlog_dump:
+        request_dump(thd, mysql, mi, &amp;suppress_warnings);
+        //发送COM_BINLOG_DUMP命令：master_log_pos、binlog_flags、server_id（slave的）、binlog_name
+        //发送COM_BINLOG_DUMP_GTID命令：
+        while (!io_slave_killed(thd,mi)){
+//stage_waiting_for_master_to_send_event:
+            event_len= read_event(mysql, mi, &amp;suppress_warnings);
+//stage_queueing_master_event_to_the_relay_log:
+            RUN_HOOK(binlog_relay_io, after_read_event,
+                   (thd, mi,(const char*)mysql-&gt;net.read_pos + 1,
+                    event_len, &amp;event_buf, &amp;event_len));
+            queue_event(mi, event_buf, event_len);
+            RUN_HOOK(binlog_relay_io, after_queue_event,
+                   (thd, mi, event_buf, event_len, synced));
+            mysql_mutex_lock(&amp;mi-&gt;data_lock);
+            flush_master_info(mi, FALSE);
+            mysql_mutex_unlock(&amp;mi-&gt;data_lock);
+			
+            if (rli-&gt;log_space_limit &amp;&amp; rli-&gt;log_space_limit &lt; rli-&gt;log_space_total &amp;&amp; !rli-&gt;ignore_log_space_limit){
+			    wait_for_relay_log_space(rli);
+            }
+        }
+    }
+    (void) RUN_HOOK(binlog_relay_io, thread_stop, (thd, mi));
+ 
+    mysql_mutex_lock(&amp;mi-&gt;data_lock);
+    write_ignored_events_info_to_relay_log(thd, mi);
+    mysql_mutex_unlock(&amp;mi-&gt;data_lock);
+//stage_waiting_for_slave_mutex_on_exit:
+    mi-&gt;reset_start_info();
+    mysql_mutex_lock(&amp;mi-&gt;data_lock);
+    mi-&gt;set_mi_description_event(NULL);
+    mysql_mutex_unlock(&amp;mi-&gt;data_lock);</pre><p>分几个阶段：</p><p>1、stage_connecting_to_master：建立到master的连接，函数返回成功后，参数mysql就代表和主库的连接，后面所有和主库的通信都通过该连接进行</p><p>2、stage_checking_master_version：获取master的版本、时间、UUID、并且执行SET @slave_uuid=salve的server_uuid</p><p>3、stage_registering_slave_on_master：发送COM_REGISTER_SLAVE命令：将slave的server_id、host、user、password、port发送过去</p><p>4、stage_requesting_binlog_dump</p><p>5、stage_waiting_for_master_to_send_event</p><p>6、stage_queueing_master_event_to_the_relay_log</p><p>7、stage_waiting_for_slave_mutex_on_exit</p><link rel="stylesheet" href="http://static.blog.csdn.net/public/res-min/markdown_views.css?v=2.0"/>&#13;
+            

@@ -1,0 +1,54 @@
+
+<h3 style="text-align: center;">Windows环境下jvisualvm+Btrace 监控Java程序</h3><h3>一、背景</h3><p><span style="white-space:pre">	</span>在项目开发中，想要监控程序，我们可以本地启动项目，然后断点调试，可是对于线上的项目需要监控或者调试的时候，就没什么办法，目前有以下几种监控方式：</p><p><span style="color:#ff0000;">1、通过日志监控。通过代码中写的日志记录，来跟踪程序的执行，但是无法监控程序执行时间</span></p><p><span style="color:#ff0000;">2、通过JConsole跟踪和监控程序：<a target="_blank" href="http://jiajun.iteye.com/blog/810150">参考</a></span></p><p><span style="color:#ff0000;">3、利用jstack分析线程</span></p><p><span style="color:#ff0000;">4、通过Btrace来跟踪和监控程序</span></p><p>今天我们要说的，就是第三种，利用Btrace来监控Java程序的运行</p><p><br /></p><h3>二、安装与执行(Windows)</h3><div><span style="white-space:pre">	</span>在windows环境下，可以直接利用jdk自带的jvisualvm工具来 安装Btrace插件，具体操作如下：</div><div>1、进入jdk安装目录，进入bin目录，找到jvisualvm.exe ，打开之后，在工具栏——&gt;工具——&gt;插件   ，搜索插件BTrace Workbench，然后安装</div><div><img src="http://img.blog.csdn.net/20170308201048814?watermark/2/text/aHR0cDovL2Jsb2cuY3Nkbi5uZXQvbW9uZXlzaGk=/font/5a6L5L2T/fontsize/400/fill/I0JBQkFCMA==/dissolve/70/gravity/Center" alt="" /></div><div><br /></div><div><br /></div><div>2、启动你程序所在的Tomcat，在jvisualvm.exe 窗口你会发现有个Tomcat的菜单图标，右键——&gt;选择Trace application，具体如下图：</div><div><img src="http://images.cnitblog.com/blog/7833/201501/131620324484928.png" alt="" /><br /></div><div><br /></div><div><br /></div><div>3、如果想监控程序执行时间，复制如下代码到Btrace窗体内：</div><div><pre code_snippet_id="2251898" snippet_file_name="blog_20170308_1_8677133" name="code" class="java">package my.app.btrace;
+import static com.sun.btrace.BTraceUtils.*;
+import com.sun.btrace.annotations.*;
+@BTrace 
+public class TraceProductManageImpl { 
+
+@OnMethod(clazz = "/com.odianyun.+business.+/", method = "/.+/", location = @Location(Kind.RETURN)) 
+public static void traceExecute(@ProbeClassName String name,@ProbeMethodName String method,@Duration long time){ 
+long durationTime = time/1000000;
+if(durationTime &gt; 0){
+String output = strcat(name,".");
+output = strcat(output,method);
+output = strcat(output,"#");
+output = strcat(output,str(probeLine()));
+output = strcat(output,"&gt;&gt;");
+output = strcat(output,str(durationTime));
+output = strcat(output,"&gt;&gt;ThreadId:");
+output = strcat(output,str(threadId(currentThread())));
+println(output);
+}
+} 
+}</pre><br /><br /></div><div><br /></div><div><br /></div><div>具体操作如下图：</div><div><img src="http://img.blog.csdn.net/20170308202036599?watermark/2/text/aHR0cDovL2Jsb2cuY3Nkbi5uZXQvbW9uZXlzaGk=/font/5a6L5L2T/fontsize/400/fill/I0JBQkFCMA==/dissolve/70/gravity/Center" alt="" /><br /><br /></div><div>然后你就能监控你程序方法的执行时间（这里监控的是你填写package目录下的每个class下面 的方法）</div><div><br /></div><div><br /></div><div><br /></div><h3>三、Linux下安装Btrace</h3><div>1、目前最新版下载地址是：<a target="_blank" href="https://kenai.com/projects/btrace/downloads/directory/releases/release-1.2.5.1">点击打开链接</a><br /></div><div><br /></div><div>2、选择不同版本下载</div><div><img src="http://img.blog.csdn.net/20170308202355366?watermark/2/text/aHR0cDovL2Jsb2cuY3Nkbi5uZXQvbW9uZXlzaGk=/font/5a6L5L2T/fontsize/400/fill/I0JBQkFCMA==/dissolve/70/gravity/Center" alt="" /></div><div>3、Linux安装，需要设置BTRACE_HOME环境变量和在PATH中添加bin目录，并添加bin目录下文件的可执行权限。</div><div>4、把上述代码，写到一个文件，例如：DEMO.java 是用java写的脚本，上传到服务器上即可执行。  btrace 4552 DEMO.java &gt;&gt; /data/btrace/DEMO.txt</div><div><br /></div><div><br /></div><div><br /></div><h3>四、补充</h3><div>如果想监控程序的参数什么的，换成以下代码即可：</div><div><pre code_snippet_id="2251898" snippet_file_name="blog_20170308_2_1468797" name="code" class="java">ackage my.app.btrace;
+import static com.sun.btrace.BTraceUtils.println;
+import static com.sun.btrace.BTraceUtils.size;
+import static com.sun.btrace.BTraceUtils.str;
+import static com.sun.btrace.BTraceUtils.strcat;
+import java.util.List;
+import com.sun.btrace.annotations.BTrace;
+import com.sun.btrace.annotations.Kind;
+import com.sun.btrace.annotations.Location;
+import com.sun.btrace.annotations.OnMethod;
+import com.sun.btrace.annotations.ProbeClassName;
+import com.sun.btrace.annotations.ProbeMethodName;
+import com.sun.btrace.annotations.Return;
+import com.sun.btrace.annotations.Self;
+@BTrace
+/**
+* 获取程序参数
+* @author Michael
+*/
+public class TraceProductManageParam { 
+
+@OnMethod(clazz = "com.odianyun.frontier.guide.business.read.manage.impl.PromotionManageImpl", method = "getMerchantProductCurrentPromotionPriceBatch", location = @Location(Kind.RETURN)) 
+public static void traceExecute(@ProbeClassName String name,@ProbeMethodName String method,@Self Object self, List&lt;Long&gt; mpIds, Long companyId, @Return List&lt;?&gt; ret){ 
+String output = strcat(name,".");
+output = strcat(output,method);
+output = strcat(output,"&gt;inputItems:");
+output = strcat(output, str(mpIds));
+output = strcat(output,"&gt;outputSize:");
+output = strcat(output, str(size(ret)));
+println(output);
+} 
+}</pre><br /><br /></div><div><br /></div><div><br /></div>   &#13;

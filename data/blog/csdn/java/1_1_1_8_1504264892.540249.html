@@ -1,0 +1,481 @@
+
+        <div class="markdown_views"><p>关联有嵌套查询和嵌套结果两种方式，本文是按照 嵌套结果 这种方式来说明的</p>
+
+<p>上一章介绍了多对一的关系，用到了，这是一个复杂类型的关联。我们选择一个示例来回顾下,比如：一个博客有一个用户，关联映射就工作于这种结果之上。首先看下，我们在本文中要用到的表结构字段:</p>
+
+<p>博客 <br />
+blog :  id  title  author_id </p>
+
+<p>作者 <br />
+author:  id  username password email  bio favourite_section</p>
+
+<p>文章 <br />
+post :id  blog_id  author_id  created_on  section  subject  draft  body  </p>
+
+<p>评论 <br />
+comment : id   post_id  name  comment  </p>
+
+<p>标签 <br />
+T : id name <br />
+我们把一个博客和一个用户关联在一起，就像：</p>
+
+
+
+<pre class="prettyprint"><code class=" hljs livecodeserver">&lt;select id=<span class="hljs-string">"selectBlog"</span> parameterType=<span class="hljs-string">"int"</span> resultMap=<span class="hljs-string">"blogResult"</span>&gt;
+              select 
+                  b.id <span class="hljs-keyword">as</span> blog_id,
+                  b.title <span class="hljs-keyword">as</span> blog_title,
+                  b.author_id <span class="hljs-keyword">as</span> blog_author_id
+                  <span class="hljs-operator">a</span>.id <span class="hljs-keyword">as</span> author_id,
+                  <span class="hljs-operator">a</span>.username <span class="hljs-keyword">as</span> author_username,
+                  <span class="hljs-operator">a</span>.password <span class="hljs-keyword">as</span> author_passowrd,
+                  <span class="hljs-operator">a</span>.email <span class="hljs-keyword">as</span> auhtor_email,
+                  <span class="hljs-operator">a</span>.bio <span class="hljs-keyword">as</span> author_bio
+               <span class="hljs-built_in">from</span>  blog b left outer join author <span class="hljs-operator">a</span> <span class="hljs-command"><span class="hljs-keyword">on</span> <span class="hljs-title">b</span>.<span class="hljs-title">author_id</span>=<span class="hljs-title">a</span>.<span class="hljs-title">id</span></span>
+                    where b.id=<span class="hljs-comment">#{id}</span>
+       &lt;/select&gt;</code></pre>
+
+<p>注意这个联合查询，以及所有结果被唯一而清晰的名字而重命名。这使得映射非常简单。现在我们可以映射这个结果：</p>
+
+<pre class="prettyprint"><code class=" hljs xml"><span class="hljs-tag">&lt;<span class="hljs-title">resultMap</span> <span class="hljs-attribute">id</span>=<span class="hljs-value">"blogResult"</span> <span class="hljs-attribute">type</span>=<span class="hljs-value">"Blog"</span>&gt;</span>
+     <span class="hljs-tag">&lt;<span class="hljs-title">id</span> <span class="hljs-attribute">property</span>=<span class="hljs-value">"id"</span> <span class="hljs-attribute">column</span>=<span class="hljs-value">"blog_id"</span>/&gt;</span>
+      <span class="hljs-tag">&lt;<span class="hljs-title">result</span> <span class="hljs-attribute">property</span>=<span class="hljs-value">"title"</span> <span class="hljs-attribute">column</span>=<span class="hljs-value">"blog_title"</span>/&gt;</span>
+
+      <span class="hljs-comment">&lt;!-- 和一个用户关联,Blog 类里面属性时author,关联的列是原先的blog.author_id--&gt;</span>
+      <span class="hljs-tag">&lt;<span class="hljs-title">association</span> <span class="hljs-attribute">property</span>=<span class="hljs-value">"author"</span>  <span class="hljs-attribute">column</span>=<span class="hljs-value">"blog_author_id"</span> <span class="hljs-attribute">javaType</span>=<span class="hljs-value">"Author"</span>  <span class="hljs-attribute">resultMap</span>=<span class="hljs-value">"authorResult"</span>/&gt;</span>
+<span class="hljs-tag">&lt;/<span class="hljs-title">resultMap</span>&gt;</span>
+
+<span class="hljs-tag">&lt;<span class="hljs-title">resultMap</span> <span class="hljs-attribute">id</span>=<span class="hljs-value">"authorResult"</span> <span class="hljs-attribute">type</span>=<span class="hljs-value">"Author"</span>&gt;</span>
+    <span class="hljs-tag">&lt;<span class="hljs-title">id</span> <span class="hljs-attribute">property</span>=<span class="hljs-value">"id"</span> <span class="hljs-attribute">column</span>=<span class="hljs-value">"author_id"</span>/&gt;</span>
+    <span class="hljs-tag">&lt;<span class="hljs-title">result</span> <span class="hljs-attribute">property</span>=<span class="hljs-value">"username"</span> <span class="hljs-attribute">column</span>=<span class="hljs-value">"author_username"</span>/&gt;</span>
+    <span class="hljs-tag">&lt;<span class="hljs-title">result</span> <span class="hljs-attribute">property</span>=<span class="hljs-value">"password"</span> <span class="hljs-attribute">column</span>=<span class="hljs-value">"author_password"</span>/&gt;</span>
+    <span class="hljs-tag">&lt;<span class="hljs-title">result</span> <span class="hljs-attribute">property</span>=<span class="hljs-value">"email"</span> <span class="hljs-attribute">column</span>=<span class="hljs-value">"author_email"</span>/&gt;</span>
+    <span class="hljs-tag">&lt;<span class="hljs-title">result</span> <span class="hljs-attribute">property</span>=<span class="hljs-value">"bio"</span> <span class="hljs-attribute">column</span>=<span class="hljs-value">"author_bio"</span>/&gt;</span>
+<span class="hljs-tag">&lt;/<span class="hljs-title">resultMap</span>&gt;</span></code></pre>
+
+<p>在上面的例子中，你可以看到博客的作者关联authorResult 结果映射来加载作者实例。  上面的实例中，用了外部的结果映射元素来映射关联。这使得Author结果映射可以重用。然而，你不需要重用它的话，或者你仅仅引用你所有的结果映射到一个单独描述的结果映射中。你可以嵌套结果映射。这里给出使用这种方式的相同示例：</p>
+
+
+
+<pre class="prettyprint"><code class=" hljs xml"><span class="hljs-tag">&lt;<span class="hljs-title">resultMap</span> <span class="hljs-attribute">id</span>=<span class="hljs-value">"blogResult"</span> <span class="hljs-attribute">type</span>=<span class="hljs-value">"Blog"</span>&gt;</span>
+     <span class="hljs-tag">&lt;<span class="hljs-title">id</span> <span class="hljs-attribute">property</span>=<span class="hljs-value">"id"</span> <span class="hljs-attribute">column</span>=<span class="hljs-value">"blog_id"</span>/&gt;</span>
+    <span class="hljs-tag">&lt;<span class="hljs-title">result</span> <span class="hljs-attribute">property</span>=<span class="hljs-value">"title"</span> <span class="hljs-attribute">column</span>=<span class="hljs-value">"blog_title"</span>/&gt;</span>
+
+    <span class="hljs-comment">&lt;!-- 和一个用户关联,Blog 类里面属性时author,关联的列是原先的blog.author_id--&gt;</span>
+    <span class="hljs-tag">&lt;<span class="hljs-title">association</span> <span class="hljs-attribute">property</span>=<span class="hljs-value">"author"</span>  <span class="hljs-attribute">column</span>=<span class="hljs-value">"blog_author_id"</span> <span class="hljs-attribute">javaType</span>=<span class="hljs-value">"Author"</span> &gt;</span>
+            <span class="hljs-tag">&lt;<span class="hljs-title">id</span> <span class="hljs-attribute">property</span>=<span class="hljs-value">"id"</span> <span class="hljs-attribute">column</span>=<span class="hljs-value">"author_id"</span>/&gt;</span>
+            <span class="hljs-tag">&lt;<span class="hljs-title">result</span> <span class="hljs-attribute">property</span>=<span class="hljs-value">"username"</span> <span class="hljs-attribute">column</span>=<span class="hljs-value">"author_username"</span>/&gt;</span>
+            <span class="hljs-tag">&lt;<span class="hljs-title">result</span> <span class="hljs-attribute">property</span>=<span class="hljs-value">"password"</span> <span class="hljs-attribute">column</span>=<span class="hljs-value">"author_password"</span>/&gt;</span>
+            <span class="hljs-tag">&lt;<span class="hljs-title">result</span> <span class="hljs-attribute">property</span>=<span class="hljs-value">"email"</span> <span class="hljs-attribute">column</span>=<span class="hljs-value">"author_email"</span>/&gt;</span>
+            <span class="hljs-tag">&lt;<span class="hljs-title">result</span> <span class="hljs-attribute">property</span>=<span class="hljs-value">"bio"</span> <span class="hljs-attribute">column</span>=<span class="hljs-value">"author_bio"</span>/&gt;</span>
+    <span class="hljs-tag">&lt;/<span class="hljs-title">association</span>&gt;</span>
+<span class="hljs-tag">&lt;/<span class="hljs-title">resultMap</span>&gt;</span></code></pre>
+
+<p>上面你已经看到了如何处理有一个类型的关联.但是“有很多个”是怎样的呢？，也就是集合类型， 本文的主要工作是来说这个的 。</p>
+
+<p>集合</p>
+
+<p>相对于关联来说，集合映射多了一个属性”ofType“.这个属性用来区分 JavaBean（或字段）属性类型 和 集合包含的类型 来说是很重要的. ，ofType用来表示集合包含类型。</p>
+
+<pre class="prettyprint"><code class=" hljs applescript">&lt;collection <span class="hljs-keyword">property</span>=<span class="hljs-string">"posts"</span>  ofType=<span class="hljs-string">"Post"</span>&gt;
+            &lt;<span class="hljs-property">id</span> <span class="hljs-keyword">property</span>=<span class="hljs-string">"id"</span> column=<span class="hljs-string">"post_id"</span>/&gt;
+            &lt;<span class="hljs-constant">result</span> <span class="hljs-keyword">property</span>=<span class="hljs-string">"subject"</span> column=<span class="hljs-string">"post_subject"</span>/&gt;
+            &lt;<span class="hljs-constant">result</span> <span class="hljs-keyword">property</span>=<span class="hljs-string">"body"</span> column=<span class="hljs-string">"post_body"</span>/&gt;
+      &lt;/collection&gt;</code></pre>
+
+<p>集合元素的作用和关联几乎是相同的。我们来继续上面的示例，一个博客只有一个作者。但是博客有很多文章，在博客类中，这可以由下面的写法来表示： <br />
+    private List posts;  <br />
+这一次联合博客表和文章表（一个blog_id可以对应很多的文章）SQL如下：</p>
+
+
+
+<pre class="prettyprint"><code class=" hljs applescript">&lt;select <span class="hljs-property">id</span>=<span class="hljs-string">"selectBlog"</span> parameterType=<span class="hljs-string">"int"</span> resultMap=<span class="hljs-string">"blogResult"</span>&gt;
+         select 
+             b.<span class="hljs-property">id</span> <span class="hljs-keyword">as</span> blog_id ,
+             b.title <span class="hljs-keyword">as</span> blog_title,
+             b.author_id <span class="hljs-keyword">as</span> blog_author_id,
+             p.<span class="hljs-property">id</span> <span class="hljs-keyword">as</span> post_id,
+             p.subject <span class="hljs-keyword">as</span> post_subject,
+             p.body <span class="hljs-keyword">as</span> post_body
+           <span class="hljs-keyword">from</span> blog b
+               left outer join  post p <span class="hljs-function_start"><span class="hljs-keyword">on</span></span> b.<span class="hljs-property">id</span>=p.blog_id
+               <span class="hljs-keyword">where</span> b.<span class="hljs-property">id</span>=<span class="hljs-comment">#{id}  </span>
+&lt;/select&gt;</code></pre>
+
+<p>现在用“文章映射集合”来映射 “博客“，可以简单写为：</p>
+
+<pre class="prettyprint"><code class=" hljs applescript">&lt;resultMap <span class="hljs-property">id</span>=<span class="hljs-string">"blogResult"</span> type=<span class="hljs-string">"Blog"</span>&gt;
+    &lt;<span class="hljs-property">id</span> <span class="hljs-keyword">property</span>=<span class="hljs-string">"id"</span> column=<span class="hljs-string">"blog_id"</span>/&gt;
+    &lt;<span class="hljs-constant">result</span> <span class="hljs-keyword">property</span>=<span class="hljs-string">"title"</span> column=<span class="hljs-string">"blog_title"</span>/&gt;
+    &lt;collection <span class="hljs-keyword">property</span>=<span class="hljs-string">"posts"</span> ofType=<span class="hljs-string">"Post"</span>&gt;
+        &lt;<span class="hljs-property">id</span> <span class="hljs-keyword">property</span>=<span class="hljs-string">"id"</span> column=<span class="hljs-string">"post_id"</span>/&gt;
+        &lt;<span class="hljs-constant">result</span> <span class="hljs-keyword">property</span>=<span class="hljs-string">"subject"</span> column=<span class="hljs-string">"post_subject"</span>/&gt;
+        &lt;<span class="hljs-constant">result</span> <span class="hljs-keyword">property</span>=<span class="hljs-string">"body"</span> column=<span class="hljs-string">"post_body"</span>/&gt;
+    &lt;/collection&gt;
+&lt;/resultMap&gt;</code></pre>
+
+<p>高级关联和集合映射还有很多要琢磨的地方。就让面介绍的集合映射，稍微的整理下（一个博客下面，有很多文章）.</p>
+
+<p>首先创建下，需要用到的表格，以及向其中插入一些数据. </p>
+
+
+
+<pre class="prettyprint"><code class=" hljs sql">
+<span class="hljs-operator"><span class="hljs-keyword">create</span> <span class="hljs-keyword">table</span> author(id <span class="hljs-keyword">int</span> (<span class="hljs-number">11</span>) <span class="hljs-keyword">not</span> <span class="hljs-keyword">null</span> auto_increment,
+                    username <span class="hljs-keyword">varchar</span>(<span class="hljs-number">20</span>) <span class="hljs-keyword">not</span> <span class="hljs-keyword">null</span>,
+                    password <span class="hljs-keyword">varchar</span>(<span class="hljs-number">20</span>) <span class="hljs-keyword">not</span> <span class="hljs-keyword">null</span>, 
+                    email <span class="hljs-keyword">varchar</span>(<span class="hljs-number">20</span>) <span class="hljs-keyword">not</span> <span class="hljs-keyword">null</span>,
+                    bio <span class="hljs-keyword">varchar</span>(<span class="hljs-number">20</span>) <span class="hljs-keyword">not</span> <span class="hljs-keyword">null</span>,
+                    favourite_section <span class="hljs-keyword">varchar</span>(<span class="hljs-number">20</span>) <span class="hljs-keyword">not</span> <span class="hljs-keyword">null</span>,
+                     <span class="hljs-keyword">primary</span> <span class="hljs-keyword">key</span>(id)
+                  )ENGINE=InnoDB <span class="hljs-keyword">DEFAULT</span> CHARSET=utf8;</span>
+
+
+<span class="hljs-operator"><span class="hljs-keyword">insert</span> <span class="hljs-keyword">into</span> author(id,username,password,email,bio,favourite_section) 
+<span class="hljs-keyword">values</span>(<span class="hljs-number">1001</span>,<span class="hljs-string">'林枫'</span>,<span class="hljs-string">'123456'</span>,<span class="hljs-string">'824156593@qq.com'</span>,<span class="hljs-string">'合肥的小男孩'</span>,<span class="hljs-string">'旅游'</span>);</span>
+
+
+
+<span class="hljs-operator"><span class="hljs-keyword">create</span> <span class="hljs-keyword">table</span> blog (id <span class="hljs-keyword">int</span> (<span class="hljs-number">11</span>) <span class="hljs-keyword">not</span> <span class="hljs-keyword">null</span> auto_increment,
+                    title <span class="hljs-keyword">varchar</span>(<span class="hljs-number">20</span>) <span class="hljs-keyword">not</span> <span class="hljs-keyword">null</span>,
+                     author_id <span class="hljs-keyword">int</span>(<span class="hljs-number">11</span>) <span class="hljs-keyword">not</span> <span class="hljs-keyword">null</span>,
+                      <span class="hljs-keyword">primary</span> <span class="hljs-keyword">key</span>(id))
+                     ENGINE=InnoDB <span class="hljs-keyword">DEFAULT</span> CHARSET=utf8;</span>  
+
+ <span class="hljs-operator"><span class="hljs-keyword">insert</span> <span class="hljs-keyword">into</span> blog(id,title,author_id) <span class="hljs-keyword">values</span>(<span class="hljs-number">1</span>,<span class="hljs-string">'小说博客'</span>,<span class="hljs-number">1001</span>);</span>                    
+
+<span class="hljs-operator"><span class="hljs-keyword">create</span> <span class="hljs-keyword">table</span> post(id <span class="hljs-keyword">int</span> (<span class="hljs-number">11</span>) <span class="hljs-keyword">not</span> <span class="hljs-keyword">null</span> auto_increment,
+                  blog_id <span class="hljs-keyword">int</span>(<span class="hljs-number">11</span>) <span class="hljs-keyword">not</span> <span class="hljs-keyword">null</span>,
+                  author_id <span class="hljs-keyword">int</span>(<span class="hljs-number">11</span>) <span class="hljs-keyword">not</span> <span class="hljs-keyword">null</span>,
+                  created_on <span class="hljs-keyword">date</span> <span class="hljs-keyword">not</span> <span class="hljs-keyword">null</span>,
+                  <span class="hljs-keyword">section</span> <span class="hljs-keyword">varchar</span>(<span class="hljs-number">20</span>) <span class="hljs-keyword">not</span> <span class="hljs-keyword">null</span>,
+                  subject <span class="hljs-keyword">varchar</span>(<span class="hljs-number">20</span>) <span class="hljs-keyword">not</span> <span class="hljs-keyword">null</span>,
+                  draft <span class="hljs-keyword">varchar</span>(<span class="hljs-number">20</span>) <span class="hljs-keyword">not</span> <span class="hljs-keyword">null</span>,
+                  body <span class="hljs-keyword">varchar</span>(<span class="hljs-number">20</span>) <span class="hljs-keyword">not</span> <span class="hljs-keyword">null</span>,
+                   <span class="hljs-keyword">primary</span> <span class="hljs-keyword">key</span>(id)
+                    )ENGINE=InnoDB <span class="hljs-keyword">DEFAULT</span> CHARSET=utf8;</span>       
+
+
+<span class="hljs-operator"><span class="hljs-keyword">insert</span> <span class="hljs-keyword">into</span> post(id,blog_id,author_id,created_on,<span class="hljs-keyword">section</span>,subject,draft,body)
+<span class="hljs-keyword">values</span>(<span class="hljs-number">1</span>,<span class="hljs-number">1</span>,<span class="hljs-number">1001</span>,now(),<span class="hljs-string">'旅游'</span>,<span class="hljs-string">'玄幻'</span>,<span class="hljs-string">'草稿'</span>,<span class="hljs-string">'绝世武神'</span>);</span>  
+
+<span class="hljs-operator"><span class="hljs-keyword">insert</span> <span class="hljs-keyword">into</span> post(id,blog_id,author_id,created_on,<span class="hljs-keyword">section</span>,subject,draft,body)
+<span class="hljs-keyword">values</span>(<span class="hljs-number">2</span>,<span class="hljs-number">1</span>,<span class="hljs-number">1001</span>,now(),<span class="hljs-string">'旅游'</span>,<span class="hljs-string">'玄幻'</span>,<span class="hljs-string">'草稿'</span>,<span class="hljs-string">'大主宰'</span>);</span>
+
+<span class="hljs-operator"><span class="hljs-keyword">insert</span> <span class="hljs-keyword">into</span> post(id,blog_id,author_id,created_on,<span class="hljs-keyword">section</span>,subject,draft,body)
+<span class="hljs-keyword">values</span>(<span class="hljs-number">3</span>,<span class="hljs-number">1</span>,<span class="hljs-number">1001</span>,now(),<span class="hljs-string">'旅游'</span>,<span class="hljs-string">'玄幻'</span>,<span class="hljs-string">'草稿'</span>,<span class="hljs-string">'灵域'</span>);</span></code></pre>
+
+<p>在贴JAVA代码之前，先看下目录结构吧：</p>
+
+
+
+<pre class="prettyprint"><code class=" hljs java">作者类 Author.java
+<span class="hljs-keyword">package</span> com.mybatis.model;
+<span class="hljs-javadoc">/**
+ * 作者类
+ *<span class="hljs-javadoctag"> @author</span> Administrator
+ *
+ */</span>
+<span class="hljs-keyword">public</span> <span class="hljs-class"><span class="hljs-keyword">class</span> <span class="hljs-title">Author</span> {</span>
+
+    <span class="hljs-keyword">private</span> <span class="hljs-keyword">int</span> id;
+    <span class="hljs-keyword">private</span> String username;
+    <span class="hljs-keyword">private</span> String password;
+    <span class="hljs-keyword">private</span> String email;
+    <span class="hljs-keyword">private</span> String bio; <span class="hljs-comment">//个人资料</span>
+    <span class="hljs-keyword">private</span> String favourite_section; <span class="hljs-comment">//最喜欢的。。</span>
+
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">int</span> <span class="hljs-title">getId</span>() {
+        <span class="hljs-keyword">return</span> id;
+    }
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">void</span> <span class="hljs-title">setId</span>(<span class="hljs-keyword">int</span> id) {
+        <span class="hljs-keyword">this</span>.id = id;
+    }
+    <span class="hljs-keyword">public</span> String <span class="hljs-title">getUsername</span>() {
+        <span class="hljs-keyword">return</span> username;
+    }
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">void</span> <span class="hljs-title">setUsername</span>(String username) {
+        <span class="hljs-keyword">this</span>.username = username;
+    }
+    <span class="hljs-keyword">public</span> String <span class="hljs-title">getPassword</span>() {
+        <span class="hljs-keyword">return</span> password;
+    }
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">void</span> <span class="hljs-title">setPassword</span>(String password) {
+        <span class="hljs-keyword">this</span>.password = password;
+    }
+    <span class="hljs-keyword">public</span> String <span class="hljs-title">getEmail</span>() {
+        <span class="hljs-keyword">return</span> email;
+    }
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">void</span> <span class="hljs-title">setEmail</span>(String email) {
+        <span class="hljs-keyword">this</span>.email = email;
+    }
+    <span class="hljs-keyword">public</span> String <span class="hljs-title">getBio</span>() {
+        <span class="hljs-keyword">return</span> bio;
+    }
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">void</span> <span class="hljs-title">setBio</span>(String bio) {
+        <span class="hljs-keyword">this</span>.bio = bio;
+    }
+    <span class="hljs-keyword">public</span> String <span class="hljs-title">getFavourite_section</span>() {
+        <span class="hljs-keyword">return</span> favourite_section;
+    }
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">void</span> <span class="hljs-title">setFavourite_section</span>(String favouriteSection) {
+        favourite_section = favouriteSection;
+    }
+
+}
+Blog.java
+<span class="hljs-keyword">package</span> com.mybatis.model;
+
+<span class="hljs-keyword">import</span> java.util.List;
+
+<span class="hljs-javadoc">/**
+ * 博客类
+ *<span class="hljs-javadoctag"> @author</span> Administrator
+ *
+ */</span>
+<span class="hljs-keyword">public</span> <span class="hljs-class"><span class="hljs-keyword">class</span> <span class="hljs-title">Blog</span> {</span>
+    <span class="hljs-keyword">private</span> <span class="hljs-keyword">int</span> id;
+    <span class="hljs-keyword">private</span> String title;
+    <span class="hljs-keyword">private</span> Author author;
+    <span class="hljs-keyword">private</span> List&lt;Post&gt; posts; <span class="hljs-comment">//博客类有很多文章， 与post表中的blog_id对应</span>
+
+    <span class="hljs-keyword">public</span> List&lt;Post&gt; <span class="hljs-title">getPosts</span>() {
+        <span class="hljs-keyword">return</span> posts;
+    }
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">void</span> <span class="hljs-title">setPosts</span>(List&lt;Post&gt; posts) {
+        <span class="hljs-keyword">this</span>.posts = posts;
+    }
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">int</span> <span class="hljs-title">getId</span>() {
+        <span class="hljs-keyword">return</span> id;
+    }
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">void</span> <span class="hljs-title">setId</span>(<span class="hljs-keyword">int</span> id) {
+        <span class="hljs-keyword">this</span>.id = id;
+    }
+    <span class="hljs-keyword">public</span> String <span class="hljs-title">getTitle</span>() {
+        <span class="hljs-keyword">return</span> title;
+    }
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">void</span> <span class="hljs-title">setTitle</span>(String title) {
+        <span class="hljs-keyword">this</span>.title = title;
+    }
+    <span class="hljs-keyword">public</span> Author <span class="hljs-title">getAuthor</span>() {
+        <span class="hljs-keyword">return</span> author;
+    }
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">void</span> <span class="hljs-title">setAuthor</span>(Author author) {
+        <span class="hljs-keyword">this</span>.author = author;
+    }
+
+}
+文章类Post.,java
+<span class="hljs-keyword">package</span> com.mybatis.model;
+
+<span class="hljs-keyword">import</span> java.util.Date;
+
+<span class="hljs-javadoc">/**
+ * 文章类
+ *<span class="hljs-javadoctag"> @author</span> Administrator
+ *
+ */</span>
+<span class="hljs-keyword">public</span> <span class="hljs-class"><span class="hljs-keyword">class</span> <span class="hljs-title">Post</span> {</span>
+    <span class="hljs-keyword">private</span> <span class="hljs-keyword">int</span> id;
+    <span class="hljs-keyword">private</span> <span class="hljs-keyword">int</span> blog_id;
+    <span class="hljs-keyword">private</span> <span class="hljs-keyword">int</span> author_id;
+    <span class="hljs-keyword">private</span> Date created_on;
+    <span class="hljs-keyword">private</span> String section;
+    <span class="hljs-keyword">private</span> String subject;
+    <span class="hljs-keyword">private</span> String draft;
+    <span class="hljs-keyword">private</span> String body;
+
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">int</span> <span class="hljs-title">getId</span>() {
+        <span class="hljs-keyword">return</span> id;
+    }
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">void</span> <span class="hljs-title">setId</span>(<span class="hljs-keyword">int</span> id) {
+        <span class="hljs-keyword">this</span>.id = id;
+    }
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">int</span> <span class="hljs-title">getBlog_id</span>() {
+        <span class="hljs-keyword">return</span> blog_id;
+    }
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">void</span> <span class="hljs-title">setBlog_id</span>(<span class="hljs-keyword">int</span> blogId) {
+        blog_id = blogId;
+    }
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">int</span> <span class="hljs-title">getAuthor_id</span>() {
+        <span class="hljs-keyword">return</span> author_id;
+    }
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">void</span> <span class="hljs-title">setAuthor_id</span>(<span class="hljs-keyword">int</span> authorId) {
+        author_id = authorId;
+    }
+    <span class="hljs-keyword">public</span> Date <span class="hljs-title">getCreated_on</span>() {
+        <span class="hljs-keyword">return</span> created_on;
+    }
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">void</span> <span class="hljs-title">setCreated_on</span>(Date createdOn) {
+        created_on = createdOn;
+    }
+    <span class="hljs-keyword">public</span> String <span class="hljs-title">getSection</span>() {
+        <span class="hljs-keyword">return</span> section;
+    }
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">void</span> <span class="hljs-title">setSection</span>(String section) {
+        <span class="hljs-keyword">this</span>.section = section;
+    }
+    <span class="hljs-keyword">public</span> String <span class="hljs-title">getSubject</span>() {
+        <span class="hljs-keyword">return</span> subject;
+    }
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">void</span> <span class="hljs-title">setSubject</span>(String subject) {
+        <span class="hljs-keyword">this</span>.subject = subject;
+    }
+    <span class="hljs-keyword">public</span> String <span class="hljs-title">getDraft</span>() {
+        <span class="hljs-keyword">return</span> draft;
+    }
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">void</span> <span class="hljs-title">setDraft</span>(String draft) {
+        <span class="hljs-keyword">this</span>.draft = draft;
+    }
+    <span class="hljs-keyword">public</span> String <span class="hljs-title">getBody</span>() {
+        <span class="hljs-keyword">return</span> body;
+    }
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">void</span> <span class="hljs-title">setBody</span>(String body) {
+        <span class="hljs-keyword">this</span>.body = body;
+    }
+
+}</code></pre>
+
+<p>总配置文件</p>
+
+<pre class="prettyprint"><code class=" hljs xml"><span class="hljs-pi">&lt;?xml version="1.0" encoding="UTF-8" ?&gt;</span>   
+<span class="hljs-doctype">&lt;!DOCTYPE configuration   
+    PUBLIC "-//mybatis.org//DTD Config 3.0//EN"   
+    "http://mybatis.org/dtd/mybatis-3-config.dtd"&gt;</span>
+<span class="hljs-tag">&lt;<span class="hljs-title">configuration</span>&gt;</span>
+  <span class="hljs-tag">&lt;<span class="hljs-title">typeAliases</span>&gt;</span>
+    <span class="hljs-comment">&lt;!-- 给实体类去一个别名  --&gt;</span>
+      <span class="hljs-tag">&lt;<span class="hljs-title">typeAlias</span> <span class="hljs-attribute">type</span>=<span class="hljs-value">"com.mybatis.model.Blog"</span> <span class="hljs-attribute">alias</span>=<span class="hljs-value">"Blog"</span>/&gt;</span> 
+      <span class="hljs-tag">&lt;<span class="hljs-title">typeAlias</span> <span class="hljs-attribute">type</span>=<span class="hljs-value">"com.mybatis.model.Post"</span> <span class="hljs-attribute">alias</span>=<span class="hljs-value">"Post"</span>/&gt;</span>
+  <span class="hljs-tag">&lt;/<span class="hljs-title">typeAliases</span>&gt;</span>
+
+  <span class="hljs-comment">&lt;!-- 数据源配置，这里用MySQL数据库 --&gt;</span>
+  <span class="hljs-tag">&lt;<span class="hljs-title">environments</span> <span class="hljs-attribute">default</span>=<span class="hljs-value">"development"</span>&gt;</span>
+     <span class="hljs-tag">&lt;<span class="hljs-title">environment</span> <span class="hljs-attribute">id</span>=<span class="hljs-value">"development"</span>&gt;</span>
+       <span class="hljs-tag">&lt;<span class="hljs-title">transactionManager</span> <span class="hljs-attribute">type</span>=<span class="hljs-value">"JDBC"</span>/&gt;</span>
+       <span class="hljs-tag">&lt;<span class="hljs-title">dataSource</span> <span class="hljs-attribute">type</span>=<span class="hljs-value">"POOLED"</span>&gt;</span>
+           <span class="hljs-tag">&lt;<span class="hljs-title">property</span> <span class="hljs-attribute">name</span>=<span class="hljs-value">"driver"</span> <span class="hljs-attribute">value</span>=<span class="hljs-value">"com.mysql.jdbc.Driver"</span>/&gt;</span>
+           <span class="hljs-tag">&lt;<span class="hljs-title">property</span> <span class="hljs-attribute">name</span>=<span class="hljs-value">"url"</span> <span class="hljs-attribute">value</span>=<span class="hljs-value">"jdbc:mysql://127.0.0.1:3306/test"</span>/&gt;</span>
+           <span class="hljs-tag">&lt;<span class="hljs-title">property</span> <span class="hljs-attribute">name</span>=<span class="hljs-value">"username"</span> <span class="hljs-attribute">value</span>=<span class="hljs-value">"root"</span>/&gt;</span>
+           <span class="hljs-tag">&lt;<span class="hljs-title">property</span> <span class="hljs-attribute">name</span>=<span class="hljs-value">"password"</span> <span class="hljs-attribute">value</span>=<span class="hljs-value">"123456"</span>/&gt;</span>
+       <span class="hljs-tag">&lt;/<span class="hljs-title">dataSource</span>&gt;</span>
+     <span class="hljs-tag">&lt;/<span class="hljs-title">environment</span>&gt;</span>
+  <span class="hljs-tag">&lt;/<span class="hljs-title">environments</span>&gt;</span>
+
+  <span class="hljs-tag">&lt;<span class="hljs-title">mappers</span>&gt;</span>
+      <span class="hljs-tag">&lt;<span class="hljs-title">mapper</span> <span class="hljs-attribute">resource</span>=<span class="hljs-value">"com/mybatis/model/Blog.xml"</span>/&gt;</span>
+  <span class="hljs-tag">&lt;/<span class="hljs-title">mappers</span>&gt;</span>
+
+<span class="hljs-tag">&lt;/<span class="hljs-title">configuration</span>&gt;</span>
+Blog.xml
+<span class="hljs-pi">&lt;?xml version="1.0" encoding="UTF-8" ?&gt;</span>
+<span class="hljs-doctype">&lt;!DOCTYPE mapper PUBLIC 
+    "-//mybatis.org//DTD Mapper 3.0//EN"
+    "http://mybatis.org/dtd/mybatis-3-mapper.dtd"&gt;</span>
+
+<span class="hljs-tag">&lt;<span class="hljs-title">mapper</span> <span class="hljs-attribute">namespace</span>=<span class="hljs-value">"com.mybatis.dao.IBlogDao"</span>&gt;</span>
+
+<span class="hljs-comment">&lt;!-- 用文章映射集合来映射博客 --&gt;</span>
+<span class="hljs-tag">&lt;<span class="hljs-title">resultMap</span> <span class="hljs-attribute">id</span>=<span class="hljs-value">"blogResult"</span> <span class="hljs-attribute">type</span>=<span class="hljs-value">"Blog"</span>&gt;</span>
+    <span class="hljs-tag">&lt;<span class="hljs-title">id</span> <span class="hljs-attribute">property</span>=<span class="hljs-value">"id"</span> <span class="hljs-attribute">column</span>=<span class="hljs-value">"blog_id"</span>/&gt;</span>
+    <span class="hljs-tag">&lt;<span class="hljs-title">result</span> <span class="hljs-attribute">property</span>=<span class="hljs-value">"title"</span> <span class="hljs-attribute">column</span>=<span class="hljs-value">"blog_title"</span>/&gt;</span>
+
+    <span class="hljs-comment">&lt;!--文章集合 --&gt;</span>
+    <span class="hljs-tag">&lt;<span class="hljs-title">collection</span> <span class="hljs-attribute">property</span>=<span class="hljs-value">"posts"</span> <span class="hljs-attribute">ofType</span>=<span class="hljs-value">"Post"</span>&gt;</span>
+        <span class="hljs-tag">&lt;<span class="hljs-title">id</span> <span class="hljs-attribute">property</span>=<span class="hljs-value">"id"</span> <span class="hljs-attribute">column</span>=<span class="hljs-value">"post_id"</span>/&gt;</span>
+        <span class="hljs-tag">&lt;<span class="hljs-title">result</span> <span class="hljs-attribute">property</span>=<span class="hljs-value">"subject"</span> <span class="hljs-attribute">column</span>=<span class="hljs-value">"post_subject"</span>/&gt;</span>
+        <span class="hljs-tag">&lt;<span class="hljs-title">result</span> <span class="hljs-attribute">property</span>=<span class="hljs-value">"body"</span> <span class="hljs-attribute">column</span>=<span class="hljs-value">"post_body"</span>/&gt;</span>
+    <span class="hljs-tag">&lt;/<span class="hljs-title">collection</span>&gt;</span>
+<span class="hljs-tag">&lt;/<span class="hljs-title">resultMap</span>&gt;</span>
+
+<span class="hljs-tag">&lt;<span class="hljs-title">select</span> <span class="hljs-attribute">id</span>=<span class="hljs-value">"selectBlog"</span> <span class="hljs-attribute">parameterType</span>=<span class="hljs-value">"int"</span> <span class="hljs-attribute">resultMap</span>=<span class="hljs-value">"blogResult"</span>&gt;</span>
+         select 
+             b.id as blog_id ,
+             b.title as blog_title,
+             b.author_id as blog_author_id,
+             p.id as post_id,
+             p.subject as post_subject,
+             p.body as post_body
+           from blog b
+               left outer join  post p on b.id=p.blog_id
+               where b.id=#{id}  
+<span class="hljs-tag">&lt;/<span class="hljs-title">select</span>&gt;</span>
+<span class="hljs-tag">&lt;/<span class="hljs-title">mapper</span>&gt;</span>
+测试类Test.java
+package com.mybatis.test;
+
+import java.io.IOException;
+import java.util.List;
+
+import org.apache.ibatis.io.Resources;
+import org.apache.ibatis.session.SqlSession;
+import org.apache.ibatis.session.SqlSessionFactory;
+import org.apache.ibatis.session.SqlSessionFactoryBuilder;
+
+import com.mybatis.dao.IBlogDao;
+import com.mybatis.model.Blog;
+import com.mybatis.model.Post;
+
+public class Test {
+
+    /***
+     * 获得MyBatis SqlSessionFactory
+     * SqlSessionFactory 负责创建SqlSession ,一旦创建成功，就可以用SqlSession实例来执行映射语句
+     * ，commit,rollback,close等方法
+     * @return
+     */
+    private static SqlSessionFactory getSessionFactory(){
+        SqlSessionFactory sessionFactory=null;
+        String resource="configuration.xml";
+         try {
+            sessionFactory=new SqlSessionFactoryBuilder().build(Resources.getResourceAsReader(resource));
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+        return sessionFactory;
+    }
+
+    /**
+     * main 方法
+     * @param args
+     */
+    public static void main(String[] args) {
+
+          SqlSession session=getSessionFactory().openSession();
+     try {
+         IBlogDao blogDao=session.getMapper(IBlogDao.class);
+         Blog blog=blogDao.selectBlog(1);
+         List<span class="hljs-tag">&lt;<span class="hljs-title">Post</span>&gt;</span> postList=blog.getPosts();
+         for(Post post:postList){
+             System.out.println(post.getBody());
+         }
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+        finally{
+            session.close();
+        }
+    }
+}
+运行后结果如下：
+
+DEBUG [com.mybatis.dao.IBlogDao.selectBlog] - ooo Using Connection [com.mysql.jdbc.Connection@e00ed0]
+DEBUG [com.mybatis.dao.IBlogDao.selectBlog] - ==&gt;  Preparing: select b.id as blog_id , b.title as blog_title, b.author_id as blog_author_id, p.id as post_id, p.subject as post_subject, p.body as post_body from blog b left outer join post p on b.id=p.blog_id where b.id=? 
+DEBUG [com.mybatis.dao.IBlogDao.selectBlog] - ==&gt; Parameters: 1(Integer)
+绝世武神
+大主宰
+灵域</code></pre></div>&#13;
+        <script type="text/javascript">&#13;
+            $(function () {&#13;
+                $('pre.prettyprint code').each(function () {&#13;
+                    var lines = $(this).text().split('\n').length;&#13;
+                    var $numbering = $('&lt;ul/&gt;').addClass('pre-numbering').hide();&#13;
+                    $(this).addClass('has-numbering').parent().append($numbering);&#13;
+                    for (i = 1; i &lt;= lines; i++) {&#13;
+                        $numbering.append($('&lt;li/&gt;').text(i));&#13;
+                    };&#13;
+                    $numbering.fadeIn(1700);&#13;
+                });&#13;
+            });&#13;
+        </script>&#13;
+   &#13;

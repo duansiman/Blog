@@ -1,0 +1,254 @@
+
+
+<p>MyBatis我们这篇文章主要记录一些常用的操作方法，这样在开发和使用的过程中这篇文章可以当做工具书来使用。</p>&#13;
+<h3>MyBatis的数据源配置</h3>&#13;
+<p></p>&#13;
+<pre code_snippet_id="491419" snippet_file_name="blog_20141021_1_8839225" name="code" class="java">&lt;bean id="dataSource" class="org.springframework.jdbc.datasource.DriverManagerDataSource"&gt; 
+    &lt;property name="driverClassName" value="${jdbc.driverClassName}" /&gt; 
+    &lt;property name="url" value="${jdbc.url}" /&gt; 
+&lt;/bean&gt; 
+	&lt;!-- 加载myBatis-config.xml配置文件，以及扫描myBatis/目录下每个DAO对应的SQL配置的XML文件 --&gt;
+	&lt;bean id="sqlSessionFactory" class="org.mybatis.spring.SqlSessionFactoryBean"&gt;
+		&lt;property name="dataSource" ref="dataSource" /&gt;
+		&lt;property name="configLocation" value="classpath:myBatis-config.xml" /&gt;
+		&lt;property name="mapperLocations" value="classpath:mybatis/*.xml" /&gt;
+	&lt;/bean&gt;
+	&lt;!-- 将basePackage下的interface，转换为spring bean,service中可以直接 注入使用 --&gt;
+	&lt;bean class="org.mybatis.spring.mapper.MapperScannerConfigurer"&gt;
+		&lt;property name="sqlSessionFactoryBeanName" value="sqlSessionFactory"&gt;&lt;/property&gt;
+		&lt;property name="basePackage" value="com.test.my.dal.dao"&gt;&lt;/property&gt;
+	&lt;/bean&gt;</pre><br />&#13;
+<p></p>&#13;
+<h3>背景<br />&#13;
+</h3>&#13;
+<p>背景：</p>&#13;
+<p>1. 数据表，我们有一张user的数据表：</p>&#13;
+<p><img src="http://img.blog.csdn.net/20141021171457860?watermark/2/text/aHR0cDovL2Jsb2cuY3Nkbi5uZXQvaW5pdHBocA==/font/5a6L5L2T/fontsize/400/fill/I0JBQkFCMA==/dissolve/70/gravity/SouthEast" alt="" /></p>&#13;
+<p>2. Dao的持久化对象：</p>&#13;
+<p></p>&#13;
+<pre code_snippet_id="491419" snippet_file_name="blog_20141021_2_3492518" name="code" class="java">public class UserPojo extends AbstractEntity {
+
+    /**
+     * 
+     */
+    private static final long serialVersionUID = -4963909230377087790L;
+
+    private Integer           id;
+
+    private String            username;
+
+    private String            password;
+
+    public Integer getId() {
+        return id;
+    }
+
+    public void setId(Integer id) {
+        this.id = id;
+    }
+
+    public String getUsername() {
+        return username;
+    }
+
+    public void setUsername(String username) {
+        this.username = username;
+    }
+
+    public String getPassword() {
+        return password;
+    }
+
+    public void setPassword(String password) {
+        this.password = password;
+    }
+
+}</pre><br />&#13;
+<p></p>&#13;
+<h3>常用操作<br />&#13;
+</h3>&#13;
+<h4>1. myBatis-config.xml配置</h4>&#13;
+<p></p>&#13;
+<pre code_snippet_id="491419" snippet_file_name="blog_20141021_3_9772389" name="code" class="html">&lt;?xml version="1.0" encoding="UTF-8" ?&gt;
+&lt;!DOCTYPE configuration PUBLIC "-//mybatis.org//DTD Config 3.0//EN" "http://mybatis.org/dtd/mybatis-3-config.dtd"&gt;
+&lt;configuration&gt;
+	&lt;settings&gt;
+		&lt;!-- 是否启用 数据中 a_column 自动映射 到 java类中驼峰命名的属性。[默认:false] --&gt;
+		&lt;setting name="mapUnderscoreToCamelCase" value="true" /&gt;
+	&lt;/settings&gt;
+	&lt;typeAliases&gt;
+		&lt;!-- 映射关系 --&gt;
+		&lt;typeAlias alias="UserPojo" type="com.test.my.dal.dao.domain.UserPojo" /&gt;
+	&lt;/typeAliases&gt;
+	&lt;mappers&gt;&lt;/mappers&gt;
+&lt;/configuration&gt;</pre><br />&#13;
+<p></p>&#13;
+<h4>2. insert操作</h4>&#13;
+<p></p>&#13;
+<pre code_snippet_id="491419" snippet_file_name="blog_20141021_4_3195341" name="code" class="html">	&lt;!-- 新增 --&gt;
+	&lt;insert id="addUser" parameterType="UserPojo" useGeneratedKeys="true"
+		keyProperty="id"&gt;
+		INSERT INTO
+		user
+		&lt;set&gt;
+			&lt;if test="username != null"&gt;
+				username = #{username},
+			&lt;/if&gt;
+			&lt;if test="password != null"&gt;
+				password = #{password},
+			&lt;/if&gt;
+		&lt;/set&gt;
+	&lt;/insert&gt;</pre><br />&#13;
+Dao中：&#13;
+<p></p>&#13;
+<p></p>&#13;
+<pre code_snippet_id="491419" snippet_file_name="blog_20141021_5_7490344" name="code" class="java">void addUser(UserPojo pojo);</pre><br />&#13;
+<p><span style="color:#FF0000">设置了useGeneratedKeys="true"和keyProperty="id"后，主键ID会放置到UserPojo的id属性值中。</span></p>&#13;
+<p><span style="color:#FF0000"><br />&#13;
+</span></p>&#13;
+<p></p>&#13;
+<h4>3. update操作</h4>&#13;
+<p></p>&#13;
+<pre code_snippet_id="491419" snippet_file_name="blog_20141021_6_8197297" name="code" class="html">	&lt;!-- 更新一条数据 --&gt;
+	&lt;update id="updateUser" parameterType="UserPojo"&gt;
+		UPDATE user
+		&lt;set&gt;
+			&lt;if test="username != null"&gt;
+				username = #{username},
+			&lt;/if&gt;
+			&lt;if test="password != null"&gt;
+				password = #{password},
+			&lt;/if&gt;
+		&lt;/set&gt;
+		WHERE id = #{id}
+	&lt;/update&gt;</pre><br />&#13;
+Dao中：&#13;
+<p></p>&#13;
+<p></p>&#13;
+<pre code_snippet_id="491419" snippet_file_name="blog_20141021_7_8065218" name="code" class="java">int updateUser(UserPojo pojo);</pre><br />&#13;
+返回的结果为int类型，是更新的影响条数，<span style="color:#FF0000">如果更新成功，则大于0，更新失败，则为0</span>&#13;
+<p></p>&#13;
+<p><br />&#13;
+</p>&#13;
+<h4>4. delete操作</h4>&#13;
+<p></p>&#13;
+<pre code_snippet_id="491419" snippet_file_name="blog_20141021_8_9569342" name="code" class="html">&lt;!-- 删除一条数据 --&gt;
+&lt;delete id="delete" parameterType="int" &gt;
+DELETE FROM user WHERE id = #{id}
+&lt;/delete&gt;</pre><br />&#13;
+Dao中：&#13;
+<p></p>&#13;
+<p></p>&#13;
+<pre code_snippet_id="491419" snippet_file_name="blog_20141021_9_5325826" name="code" class="java">    int delete(int id);</pre><br />&#13;
+返回结果为int类型，<span style="color:#FF0000">如果删除成功，则返回影响记录数，否则返回0</span>&#13;
+<p></p>&#13;
+<p><br />&#13;
+</p>&#13;
+<h4>5. SQL块使用</h4>&#13;
+<p>例如：</p>&#13;
+<p></p>&#13;
+<pre code_snippet_id="491419" snippet_file_name="blog_20141021_10_8781797" name="code" class="html">	&lt;!-- 字段 --&gt;
+	&lt;sql id="field"&gt;
+		`id`,
+		`username`,
+		`password`
+	&lt;/sql&gt;</pre><br />&#13;
+使用：&#13;
+<p></p>&#13;
+<p></p>&#13;
+<pre code_snippet_id="491419" snippet_file_name="blog_20141021_11_3109821" name="code" class="html">&lt;include refid="field"/&gt;</pre><br />&#13;
+<p><br />&#13;
+</p>&#13;
+<h4>6. SELECT使用</h4>&#13;
+<p></p>&#13;
+<pre code_snippet_id="491419" snippet_file_name="blog_20141021_12_8000724" name="code" class="html">	&lt;!-- 通过一个ID搜索 --&gt;
+	&lt;select id="getById" parameterType="int" resultType="UserPojo"&gt;
+		SELECT &lt;include refid="field"/&gt; FROM user WHERE id = #{id}
+	&lt;/select&gt;
+
+	&lt;!-- 搜索列表 --&gt;
+	&lt;select id="getByList" parameterType="int" resultType="UserPojo"&gt;
+		SELECT &lt;include refid="field"/&gt;
+		FROM user ORDER BY id DESC LIMIT 10
+	&lt;/select&gt;</pre><br />&#13;
+<p></p>&#13;
+<h4>7. if语句使用</h4>&#13;
+<p></p>&#13;
+<pre code_snippet_id="491419" snippet_file_name="blog_20141021_13_2328748" name="code" class="html">&lt;if test="username != null"&gt;
+	username = #{username},
+&lt;/if&gt;
+&lt;if test="password != null"&gt;
+	password = #{password},
+&lt;/if&gt;</pre><br />&#13;
+<p></p>&#13;
+<h4>8. where语句组装</h4>&#13;
+<p></p>&#13;
+<pre code_snippet_id="491419" snippet_file_name="blog_20141021_14_3832872" name="code" class="html">&lt;where&gt;
+&lt;if test=”state != null”&gt;
+state = #{state}
+&lt;/if&gt;
+&lt;if test=”title != null”&gt;
+AND title like #{title}
+&lt;/if&gt;
+&lt;if test=”author != null and author.name != null”&gt;
+AND title like #{author.name}
+&lt;/if&gt;
+&lt;/where&gt;</pre><br />&#13;
+<p></p>&#13;
+<h4>9. SET语句组装</h4>&#13;
+<p></p>&#13;
+<pre code_snippet_id="491419" snippet_file_name="blog_20141021_15_669151" name="code" class="html">&lt;set&gt;
+&lt;if test="username != null"&gt;username=#{username},&lt;/if&gt;
+&lt;if test="password != null"&gt;password=#{password},&lt;/if&gt;
+&lt;if test="email != null"&gt;email=#{email},&lt;/if&gt;
+&lt;if test="bio != null"&gt;bio=#{bio}&lt;/if&gt;
+&lt;/set&gt;</pre><br />&#13;
+<p></p>&#13;
+<h4>10. 条件语句</h4>&#13;
+<p></p>&#13;
+<pre code_snippet_id="491419" snippet_file_name="blog_20141021_16_1126499" name="code" class="html">&lt;choose&gt;
+&lt;when test=”title != null”&gt;
+AND title like #{title}
+&lt;/when&gt;
+&lt;when test=”author != null and author.name != null”&gt;
+AND title like #{author.name}
+&lt;/when&gt;
+&lt;otherwise&gt;
+AND featured = 1
+&lt;/otherwise&gt;
+&lt;/choose&gt;</pre><br />&#13;
+<p></p>&#13;
+<h4>11. foreach语句使用</h4>&#13;
+<p></p>&#13;
+<pre code_snippet_id="491419" snippet_file_name="blog_20141021_17_6359594" name="code" class="html">WHERE ID in
+&lt;foreach item="item" index="index" collection="list"
+open="(" separator="," close=")"&gt;
+#{item}
+&lt;/foreach&gt;</pre><br />&#13;
+其中collection可以选择list或者数组，一般使用list比较多一些。<br />&#13;
+<p></p>&#13;
+<p><br />&#13;
+</p>&#13;
+<h4>12. @Param使用</h4>&#13;
+<p>如果Dao中有多个参数传递进来，可以使用</p>&#13;
+<p></p>&#13;
+<pre code_snippet_id="491419" snippet_file_name="blog_20141021_18_3795645" name="code" class="java">@Param("uids") List&lt;Long&gt; uids</pre><br />&#13;
+类似于这样的方式来处理，这样在XML中就可以直接使用 <br />&#13;
+<p></p>&#13;
+<p></p>&#13;
+<pre code_snippet_id="491419" snippet_file_name="blog_20141021_19_970963" name="code" class="html">#{uids}</pre><br />&#13;
+<br />&#13;
+<p></p>&#13;
+<p><br />&#13;
+</p>&#13;
+<p></p>&#13;
+<p></p>&#13;
+<p></p>&#13;
+<p></p>&#13;
+<p><br />&#13;
+</p>&#13;
+<p><br />&#13;
+</p>&#13;
+<p><br />&#13;
+</p>&#13;
+   &#13;

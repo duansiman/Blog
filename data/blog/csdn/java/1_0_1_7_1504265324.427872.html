@@ -1,0 +1,347 @@
+
+        <div class="markdown_views"><h1 id="redis学习记录四-springdataredis分析">redis学习记录(四)-SpringDataRedis分析</h1>
+
+<p>标签（空格分隔）： redis</p>
+
+<hr />
+
+<blockquote>
+  <p>个人独立博客: <a href="http://mrdear.cn">http://mrdear.cn</a></p>
+</blockquote>
+
+<p><a href="http://www.jianshu.com/p/da69edda2a43">Redis学习记录(一)–入门知识</a> <br />
+<a href="http://www.jianshu.com/p/c3b8180af944p/da69edda2a43">Redis学习记录(二)–使用Jedis连接</a> <br />
+<a href="http://mrdear.cn/2017/03/26/linux/redis%E5%AD%A6%E4%B9%A0%E8%AE%B0%E5%BD%95%28%E4%B8%89%29-redis%E4%B8%AD%E7%9A%84%E6%95%B0%E6%8D%AE%E7%BB%93%E6%9E%84/">redis学习记录(三)-redis中的数据结构</a></p>
+
+<h3 id="1简介">1.简介</h3>
+
+<p>Spring Data Redis是对redis客户端(如jedis)的高度封装,支持多种客户端,因其高抽象,所以在某一个客户端不支持更新的时候可以容易切换到其他客户端.</p>
+
+<p>本文是在Spring boot 1.5.2版本下测试.</p>
+
+<p>需要引入架包</p>
+
+
+
+<pre class="prettyprint"><code class="language-xml hljs ">
+    <span class="hljs-tag">&lt;<span class="hljs-title">parent</span>&gt;</span>
+        <span class="hljs-tag">&lt;<span class="hljs-title">groupId</span>&gt;</span>org.springframework.boot<span class="hljs-tag">&lt;/<span class="hljs-title">groupId</span>&gt;</span>
+        <span class="hljs-tag">&lt;<span class="hljs-title">artifactId</span>&gt;</span>spring-boot-starter-parent<span class="hljs-tag">&lt;/<span class="hljs-title">artifactId</span>&gt;</span>
+        <span class="hljs-tag">&lt;<span class="hljs-title">version</span>&gt;</span>1.5.2.RELEASE<span class="hljs-tag">&lt;/<span class="hljs-title">version</span>&gt;</span>
+    <span class="hljs-tag">&lt;/<span class="hljs-title">parent</span>&gt;</span>
+
+    <span class="hljs-tag">&lt;<span class="hljs-title">properties</span>&gt;</span>
+        <span class="hljs-tag">&lt;<span class="hljs-title">project.build.sourceEncoding</span>&gt;</span>UTF-8<span class="hljs-tag">&lt;/<span class="hljs-title">project.build.sourceEncoding</span>&gt;</span>
+        <span class="hljs-tag">&lt;<span class="hljs-title">java.version</span>&gt;</span>1.8<span class="hljs-tag">&lt;/<span class="hljs-title">java.version</span>&gt;</span>
+    <span class="hljs-tag">&lt;/<span class="hljs-title">properties</span>&gt;</span>
+
+    <span class="hljs-tag">&lt;<span class="hljs-title">dependencies</span>&gt;</span>
+        <span class="hljs-comment">&lt;!--spring boot start--&gt;</span>
+        <span class="hljs-tag">&lt;<span class="hljs-title">dependency</span>&gt;</span>
+            <span class="hljs-tag">&lt;<span class="hljs-title">groupId</span>&gt;</span>org.springframework.boot<span class="hljs-tag">&lt;/<span class="hljs-title">groupId</span>&gt;</span>
+            <span class="hljs-tag">&lt;<span class="hljs-title">artifactId</span>&gt;</span>spring-boot-starter<span class="hljs-tag">&lt;/<span class="hljs-title">artifactId</span>&gt;</span>
+        <span class="hljs-tag">&lt;/<span class="hljs-title">dependency</span>&gt;</span>
+        <span class="hljs-tag">&lt;<span class="hljs-title">dependency</span>&gt;</span>
+            <span class="hljs-tag">&lt;<span class="hljs-title">groupId</span>&gt;</span>org.springframework.boot<span class="hljs-tag">&lt;/<span class="hljs-title">groupId</span>&gt;</span>
+            <span class="hljs-tag">&lt;<span class="hljs-title">artifactId</span>&gt;</span>spring-boot-starter-data-redis<span class="hljs-tag">&lt;/<span class="hljs-title">artifactId</span>&gt;</span>
+        <span class="hljs-tag">&lt;/<span class="hljs-title">dependency</span>&gt;</span>
+        <span class="hljs-tag">&lt;<span class="hljs-title">dependency</span>&gt;</span>
+            <span class="hljs-tag">&lt;<span class="hljs-title">groupId</span>&gt;</span>org.springframework.boot<span class="hljs-tag">&lt;/<span class="hljs-title">groupId</span>&gt;</span>
+            <span class="hljs-tag">&lt;<span class="hljs-title">artifactId</span>&gt;</span>spring-boot-starter-test<span class="hljs-tag">&lt;/<span class="hljs-title">artifactId</span>&gt;</span>
+            <span class="hljs-tag">&lt;<span class="hljs-title">scope</span>&gt;</span>test<span class="hljs-tag">&lt;/<span class="hljs-title">scope</span>&gt;</span>
+        <span class="hljs-tag">&lt;/<span class="hljs-title">dependency</span>&gt;</span>
+    <span class="hljs-tag">&lt;/<span class="hljs-title">dependencies</span>&gt;</span></code></pre>
+
+
+
+<h3 id="2配置">2.配置</h3>
+
+<p>在Spring Boot下默认使用jedis作为客户端,并在包<code>org.springframework.boot.autoconfigure.data.redis</code>下,提供自动配置类<code>RedisProperties</code>,<code>RedisAutoConfiguration</code>等.</p>
+
+<p>根据<code>RedisProperties</code>可以定位到可配置的属性,如:</p>
+
+
+
+<pre class="prettyprint"><code class="language-properties hljs avrasm"><span class="hljs-preprocessor"># Redis数据库索引（默认为0）</span>
+spring<span class="hljs-preprocessor">.redis</span><span class="hljs-preprocessor">.database</span>=<span class="hljs-number">0</span>
+<span class="hljs-preprocessor"># Redis服务器地址</span>
+spring<span class="hljs-preprocessor">.redis</span><span class="hljs-preprocessor">.host</span>=<span class="hljs-number">115.159</span><span class="hljs-number">.185</span><span class="hljs-number">.14</span>
+<span class="hljs-preprocessor"># Redis服务器连接端口</span>
+spring<span class="hljs-preprocessor">.redis</span><span class="hljs-preprocessor">.port</span>=<span class="hljs-number">6379</span>
+<span class="hljs-preprocessor"># Redis服务器连接密码（默认为空）</span>
+spring<span class="hljs-preprocessor">.redis</span><span class="hljs-preprocessor">.password</span>=
+<span class="hljs-preprocessor"># 连接池最大连接数（使用负值表示没有限制）</span>
+spring<span class="hljs-preprocessor">.redis</span><span class="hljs-preprocessor">.pool</span><span class="hljs-preprocessor">.max</span>-active=<span class="hljs-number">8</span>
+<span class="hljs-preprocessor"># 连接池最大阻塞等待时间（使用负值表示没有限制）</span>
+spring<span class="hljs-preprocessor">.redis</span><span class="hljs-preprocessor">.pool</span><span class="hljs-preprocessor">.max</span>-wait=-<span class="hljs-number">1</span>
+<span class="hljs-preprocessor"># 连接池中的最大空闲连接</span>
+spring<span class="hljs-preprocessor">.redis</span><span class="hljs-preprocessor">.pool</span><span class="hljs-preprocessor">.max</span>-idle=<span class="hljs-number">8</span>
+<span class="hljs-preprocessor"># 连接池中的最小空闲连接</span>
+spring<span class="hljs-preprocessor">.redis</span><span class="hljs-preprocessor">.pool</span><span class="hljs-preprocessor">.min</span>-idle=<span class="hljs-number">0</span>
+<span class="hljs-preprocessor"># 连接超时时间（毫秒）</span>
+spring<span class="hljs-preprocessor">.redis</span><span class="hljs-preprocessor">.timeout</span>=<span class="hljs-number">2000</span></code></pre>
+
+<p>在application.properties中配置即可,另外还有<code>Sentinel</code>和<code>Cluster</code>说明支持分布式和集群,博主研究不多就不瞎说这个了.</p>
+
+<p>自动配置主要在<code>RedisAutoConfiguration</code>中,该类会提供三个bean: <br />
+1. JedisConnectionFactory : jedis连接控制工厂 <br />
+2. RedisTemplate</p>
+
+<h3 id="3redistemplate">3.RedisTemplate</h3>
+
+<h4 id="31-test-case">3.1 Test case</h4>
+
+<p>那么具体操作过程是怎么样子的呢?写一个简单的测试去跟踪代码,如下代码,往redis中设置key为ping的字串.</p>
+
+
+
+<pre class="prettyprint"><code class="language-java hljs "><span class="hljs-annotation">@RunWith</span>(SpringJUnit4ClassRunner.class)
+<span class="hljs-annotation">@SpringBootTest</span>(classes = Application.class)
+<span class="hljs-keyword">public</span> <span class="hljs-class"><span class="hljs-keyword">class</span> <span class="hljs-title">RedisConnectTest</span> {</span>
+  <span class="hljs-annotation">@Resource</span>
+  <span class="hljs-keyword">private</span> RedisTemplate&lt;String,String&gt; redisTemplate;
+
+  <span class="hljs-annotation">@Test</span>
+  <span class="hljs-keyword">public</span> <span class="hljs-keyword">void</span> <span class="hljs-title">testSetAndGet</span>() {
+    redisTemplate.opsForValue().set(<span class="hljs-string">"ping"</span>,<span class="hljs-string">"pong"</span>);
+    System.out.println(redisTemplate.opsForValue().get(<span class="hljs-string">"ping"</span>));
+  }
+}</code></pre>
+
+<p>运行之后查看redis数据库,你会发现很奇怪的事情,如下图,代码中存入的是ping,但是到redis中后却是一堆字符+ping,这个原因是什么呢?接着跟踪代码. <br />
+<img src="http://ac-HSNl7zbI.clouddn.com/9O9oRCxhlph8oRYL6YirrY192jaYIOHAlGXAUemJ.jpg" alt="" title="" /></p>
+
+
+
+<h4 id="32-xxxoperations">3.2 XXXOperations</h4>
+
+<h4 id="33-xxxserializer">3.3 XXXSerializer</h4>
+
+<p>那测试代码中第一步是获取了string类型的redis操作入口,然后执行set方法设置键和值,接着分析set方法.</p>
+
+
+
+<pre class="prettyprint"><code class="language-java hljs ">    <span class="hljs-keyword">public</span> <span class="hljs-keyword">void</span> <span class="hljs-title">set</span>(K key, V value) {
+        <span class="hljs-keyword">final</span> <span class="hljs-keyword">byte</span>[] rawValue = rawValue(value);
+        execute(<span class="hljs-keyword">new</span> ValueDeserializingRedisCallback(key) {
+
+            <span class="hljs-keyword">protected</span> <span class="hljs-keyword">byte</span>[] <span class="hljs-title">inRedis</span>(<span class="hljs-keyword">byte</span>[] rawKey, RedisConnection connection) {
+                connection.set(rawKey, rawValue);
+                <span class="hljs-keyword">return</span> <span class="hljs-keyword">null</span>;
+            }
+        }, <span class="hljs-keyword">true</span>);
+    }</code></pre>
+
+<p>可以发现<code>rawKey()</code>方法和<code>rawValue()</code>方法对key和value进行了一次序列化操作.该序列化使用的类为RedisTemplate中的<code>XXXSerializer</code>,那么回到RedisTemplate,在<code>afterPropertiesSet()</code>方法中有以下初始化方法,默认使用的序列化方式为<code>JdkSerializationRedisSerializer</code>,也就是ObjectInputStream和ObjectOutputStream写入和读取.这也是写入到redis中却在redis数据库通过”ping”访问不到的原因.</p>
+
+
+
+<pre class="prettyprint"><code class="language-java hljs "><span class="hljs-keyword">if</span> (defaultSerializer == <span class="hljs-keyword">null</span>) {
+
+            defaultSerializer = <span class="hljs-keyword">new</span> JdkSerializationRedisSerializer(
+                    classLoader != <span class="hljs-keyword">null</span> ? classLoader : <span class="hljs-keyword">this</span>.getClass().getClassLoader());
+        }
+        <span class="hljs-keyword">if</span> (enableDefaultSerializer) {
+            <span class="hljs-keyword">if</span> (keySerializer == <span class="hljs-keyword">null</span>) {
+                keySerializer = defaultSerializer;
+                defaultUsed = <span class="hljs-keyword">true</span>;
+            }
+            <span class="hljs-keyword">if</span> (valueSerializer == <span class="hljs-keyword">null</span>) {
+                valueSerializer = defaultSerializer;
+                defaultUsed = <span class="hljs-keyword">true</span>;
+            }
+            <span class="hljs-keyword">if</span> (hashKeySerializer == <span class="hljs-keyword">null</span>) {
+                hashKeySerializer = defaultSerializer;
+                defaultUsed = <span class="hljs-keyword">true</span>;
+            }
+            <span class="hljs-keyword">if</span> (hashValueSerializer == <span class="hljs-keyword">null</span>) {
+                hashValueSerializer = defaultSerializer;
+                defaultUsed = <span class="hljs-keyword">true</span>;
+            }
+        }
+</code></pre>
+
+<p>那么SpringDataRedis支持哪些序列化呢?从官网可以看到: <br />
+StringRedisSerializer: string类型序列化,也是最常用的类型 <br />
+JdkSerializationRedisSerializer: jdk默认序列化 <br />
+OxmSerializer : xml格式 <br />
+JacksonJsonRedisSerializer : json格式</p>
+
+<p>通过手动注入RedisTemplate,更改所选择的序列化方式.另外Spring提供了最常使用的<code>StringRedisTemplate</code>,实现了<code>StringRedisSerializer</code>序列化方式.</p>
+
+
+
+<pre class="prettyprint"><code class="language-java hljs ">    <span class="hljs-keyword">public</span> <span class="hljs-title">StringRedisTemplate</span>() {
+        RedisSerializer&lt;String&gt; stringSerializer = <span class="hljs-keyword">new</span> StringRedisSerializer();
+        setKeySerializer(stringSerializer);
+        setValueSerializer(stringSerializer);
+        setHashKeySerializer(stringSerializer);
+        setHashValueSerializer(stringSerializer);
+    }</code></pre>
+
+<p>更改成<code>StringRedisTemplate</code>,再次执行,正常了. <br />
+<img src="http://ac-HSNl7zbI.clouddn.com/3PAtzJjJHXquNpAVgWJI0OVh8pJWDhVEl3FbD571.jpg" alt="" title="" /></p>
+
+
+
+<h4 id="34-总结过程">3.4 总结过程</h4>
+
+<ol>
+<li>获取RedisTemplate</li>
+<li>获取操作入口XXXOperations</li>
+<li>使用RedisSerializer序列化key和value</li>
+<li>获取conn连接</li>
+<li>执行命令</li>
+</ol>
+
+
+
+<h3 id="4发布与订阅">4.发布与订阅</h3>
+
+<p>发布与订阅过程需要发布者,订阅者,以及把两者连在一起的桥梁.那么在SpringRedis中怎么实现呢? <br />
+订阅者:里面有一个处理方法即可.</p>
+
+
+
+<pre class="prettyprint"><code class="language-java hljs "><span class="hljs-annotation">@Component</span>
+<span class="hljs-keyword">public</span> <span class="hljs-class"><span class="hljs-keyword">class</span> <span class="hljs-title">Listen</span> {</span>
+
+  <span class="hljs-keyword">private</span> <span class="hljs-keyword">static</span> Logger logger = LoggerFactory.getLogger(Listen.class);
+
+  <span class="hljs-keyword">private</span> CountDownLatch latch = <span class="hljs-keyword">new</span> CountDownLatch(<span class="hljs-number">1</span>);
+
+  <span class="hljs-keyword">public</span> <span class="hljs-keyword">void</span> <span class="hljs-title">handleMsg</span>(String message) {
+    logger.info(<span class="hljs-string">"reciver msg :"</span> + message);
+    latch.countDown();
+  }
+
+  <span class="hljs-keyword">public</span> CountDownLatch <span class="hljs-title">getLatch</span>() {
+    <span class="hljs-keyword">return</span> latch;
+  }
+}</code></pre>
+
+<p>发布者:XXXRedisTemplate.convertAndSend(chanel,msg)即作为发布者存在.</p>
+
+<p>连接桥梁:RedisMessageListenerContainer,该container监听Redis的消息,分发给各自的监听者.关键代码为</p>
+
+
+
+<pre class="prettyprint"><code class="language-java hljs "><span class="hljs-annotation">@Configuration</span>
+<span class="hljs-keyword">public</span> <span class="hljs-class"><span class="hljs-keyword">class</span> <span class="hljs-title">PublishConfig</span> {</span>
+  <span class="hljs-javadoc">/**
+   * 注入消息容器
+   *<span class="hljs-javadoctag"> @param</span> jedisConnectionFactory jedis连接池
+   *<span class="hljs-javadoctag"> @param</span> listenerAdapter 监听适配器
+   *<span class="hljs-javadoctag"> @return</span> bean
+   */</span>
+  <span class="hljs-annotation">@Bean</span>
+  <span class="hljs-keyword">public</span> RedisMessageListenerContainer <span class="hljs-title">container</span>(RedisConnectionFactory jedisConnectionFactory,
+      MessageListenerAdapter listenerAdapter){
+    RedisMessageListenerContainer container = <span class="hljs-keyword">new</span> RedisMessageListenerContainer();
+    container.setConnectionFactory(jedisConnectionFactory);
+    <span class="hljs-comment">//绑定监听者与信道的管理</span>
+    container.addMessageListener(listenerAdapter,<span class="hljs-keyword">new</span> PatternTopic(<span class="hljs-string">"java"</span>));
+    <span class="hljs-keyword">return</span> container;
+  }
+
+  <span class="hljs-annotation">@Bean</span>
+  <span class="hljs-keyword">public</span> MessageListenerAdapter <span class="hljs-title">adapter</span>(Listen listen){
+    <span class="hljs-comment">//指定监听者和监听方法</span>
+    <span class="hljs-keyword">return</span> <span class="hljs-keyword">new</span> MessageListenerAdapter(listen,<span class="hljs-string">"handleMsg"</span>);
+  }
+}</code></pre>
+
+<p>测试:</p>
+
+
+
+<pre class="prettyprint"><code class="language-java hljs ">  <span class="hljs-annotation">@Test</span>
+  <span class="hljs-keyword">public</span> <span class="hljs-keyword">void</span> <span class="hljs-title">testPublish</span>() <span class="hljs-keyword">throws</span> InterruptedException {
+    stringRedisTemplate.convertAndSend(<span class="hljs-string">"java"</span>,<span class="hljs-string">"hello world"</span>);
+    listen.getLatch().await();
+  }</code></pre>
+
+<p><img src="http://ac-HSNl7zbI.clouddn.com/yhidqhoWBD7Un7XLH6WQYjIEl82Ve0R2jzCEzMrn.jpg" alt="" title="" /></p>
+
+
+
+<h3 id="5事务">5.事务</h3>
+
+<p>对于事务的操作是通过SessionCallback实现,该接口保证其内部所有操作都是在同一个Session中的,在最后exec的时候执行全部操作.关键代码如下</p>
+
+
+
+<pre class="prettyprint"><code class="language-java hljs ">    RedisConnectionUtils.bindConnection(factory, enableTransactionSupport);
+    execute(<span class="hljs-keyword">this</span>)</code></pre>
+
+
+
+<pre class="prettyprint"><code class="language-java hljs "> <span class="hljs-annotation">@Test</span>
+  <span class="hljs-keyword">public</span> <span class="hljs-keyword">void</span> <span class="hljs-title">testMulti</span>() {
+    <span class="hljs-keyword">boolean</span> isThrow = <span class="hljs-keyword">false</span>;
+    List&lt;Object&gt; result = <span class="hljs-keyword">null</span>;
+    <span class="hljs-keyword">try</span> {
+      result = stringRedisTemplate.execute(<span class="hljs-keyword">new</span> SessionCallback&lt;List&lt;Object&gt;&gt;() {
+        <span class="hljs-annotation">@Override</span>
+        <span class="hljs-keyword">public</span> List&lt;Object&gt; <span class="hljs-title">execute</span>(RedisOperations operations) <span class="hljs-keyword">throws</span>
+            DataAccessException {
+          operations.multi();
+          ValueOperations&lt;String,String&gt; ops = operations.opsForValue();
+          ops.set(<span class="hljs-string">"ping1"</span>,<span class="hljs-string">"pong1"</span>);
+          ops.set(<span class="hljs-string">"ping2"</span>,<span class="hljs-string">"pong2"</span>);
+          <span class="hljs-keyword">if</span> (isThrow){
+            <span class="hljs-keyword">throw</span> <span class="hljs-keyword">new</span> IllegalArgumentException(<span class="hljs-string">"测试异常"</span>);
+          }
+          <span class="hljs-keyword">return</span> operations.exec();
+        }
+      });
+    } <span class="hljs-keyword">catch</span> (Exception e) {
+      e.printStackTrace();
+    }
+
+    System.out.println(result);
+  }</code></pre>
+
+
+
+<h3 id="6管道">6.管道</h3>
+
+<p>直接引用官方案例</p>
+
+
+
+<pre class="prettyprint"><code class="language-java hljs "><span class="hljs-comment">//pop a specified number of items from a queue</span>
+List&lt;Object&gt; results = stringRedisTemplate.executePipelined(
+  <span class="hljs-keyword">new</span> RedisCallback&lt;Object&gt;() {
+    <span class="hljs-keyword">public</span> Object <span class="hljs-title">doInRedis</span>(RedisConnection connection) <span class="hljs-keyword">throws</span> DataAccessException {
+      StringRedisConnection stringRedisConn = (StringRedisConnection)connection;
+      <span class="hljs-keyword">for</span>(<span class="hljs-keyword">int</span> i=<span class="hljs-number">0</span>; i&lt; batchSize; i++) {
+        stringRedisConn.rPop(<span class="hljs-string">"myqueue"</span>);
+      }
+    <span class="hljs-keyword">return</span> <span class="hljs-keyword">null</span>;
+  }
+});</code></pre>
+
+<p>还有脚本执行等,在官方文档中都有案例,这里就不复制粘贴了,如有错误请指出,不胜感激.</p>
+
+<p>参考文档:</p>
+
+<p><a href="http://docs.spring.io/spring-data/redis/docs/1.8.1.RELEASE/reference/html/#redis:template">http://docs.spring.io/spring-data/redis/docs/1.8.1.RELEASE/reference/html/#redis:template</a></p>
+
+<p>github:</p>
+
+<p><a href="https://github.com/nl101531/JavaWEB">https://github.com/nl101531/JavaWEB</a></p></div>&#13;
+        <script type="text/javascript">&#13;
+            $(function () {&#13;
+                $('pre.prettyprint code').each(function () {&#13;
+                    var lines = $(this).text().split('\n').length;&#13;
+                    var $numbering = $('&lt;ul/&gt;').addClass('pre-numbering').hide();&#13;
+                    $(this).addClass('has-numbering').parent().append($numbering);&#13;
+                    for (i = 1; i &lt;= lines; i++) {&#13;
+                        $numbering.append($('&lt;li/&gt;').text(i));&#13;
+                    };&#13;
+                    $numbering.fadeIn(1700);&#13;
+                });&#13;
+            });&#13;
+        </script>&#13;
+   &#13;

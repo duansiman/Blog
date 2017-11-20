@@ -1,0 +1,253 @@
+
+                <div class="markdown_views"><p>本博客介绍基于SSM框架(Spring4.0+SpringMVC+Mybatis)组合的Javamail应用，邮箱的话基于腾讯的QQ邮箱，其实也是Foxmail邮箱</p>
+
+<p>先要了解一下SMTP协议和SSL加密 <br/>
+SMTP：称为简单邮件传输协议（Simple Mail Transfer Protocal），目标是向用户提供高效、可靠的邮件传输。SMTP是一种请求响应的协议，也就是客户机向远程服务器发送请求，服务器响应，监听端口是25，所以其工作模式有两种：发送SMTP，接收SMTP</p>
+
+<p>SSL加密：用来保障浏览器和网站服务器的安全性，其原理用译文解释就是： <br/>
+当你的浏览器向服务器请求一个安全的网页(通常是 <a href="https://">https://</a>)</p>
+
+<p>服务器就把它的证书和公匙发回来</p>
+
+<p>浏览器检查证书是不是由可以信赖的机构颁发的，确认证书有效和此证书是此网站的。</p>
+
+<p>使用公钥加密了一个随机对称密钥，包括加密的URL一起发送到服务器</p>
+
+<p>服务器用自己的私匙解密了你发送的钥匙。然后用这把对称加密的钥匙给你请求的URL链接解密。</p>
+
+<p>服务器用你发的对称钥匙给你请求的网页加密。你也有相同的钥匙就可以解密发回来的网页了</p>
+
+<p>然后介绍怎么实现javamail发送邮件，先要下载javamail的jar：<a href="http://download.csdn.net/detail/u014427391/9721520">http://download.csdn.net/detail/u014427391/9721520</a></p>
+
+<p>去充当服务器的QQ邮箱开启SMTP服务： <br/>
+<img src="http://img.blog.csdn.net/20161226170901273?watermark/2/text/aHR0cDovL2Jsb2cuY3Nkbi5uZXQvdTAxNDQyNzM5MQ==/font/5a6L5L2T/fontsize/400/fill/I0JBQkFCMA==/dissolve/70/gravity/SouthEast" alt="这里写图片描述" title=""/></p>
+
+<p>写个发送邮件的业务类：</p>
+
+
+
+<pre class="prettyprint"><code class=" hljs java"><span class="hljs-keyword">package</span> com.appms.email;
+
+<span class="hljs-keyword">import</span> java.util.Date;
+<span class="hljs-keyword">import</span> java.util.Properties;
+
+<span class="hljs-keyword">import</span> javax.mail.Address;
+<span class="hljs-keyword">import</span> javax.mail.Message;
+<span class="hljs-keyword">import</span> javax.mail.Session;
+<span class="hljs-keyword">import</span> javax.mail.Transport;
+<span class="hljs-keyword">import</span> javax.mail.internet.InternetAddress;
+<span class="hljs-keyword">import</span> javax.mail.internet.MimeMessage;
+
+<span class="hljs-keyword">import</span> com.sun.mail.util.MailSSLSocketFactory;
+
+<span class="hljs-keyword">public</span> <span class="hljs-class"><span class="hljs-keyword">class</span> <span class="hljs-title">JavaEmailSender</span> {</span>
+
+
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">static</span> <span class="hljs-keyword">void</span> <span class="hljs-title">sendEmail</span>(String toEmailAddress,String emailTitle,String emailContent)<span class="hljs-keyword">throws</span> Exception{
+        Properties props = <span class="hljs-keyword">new</span> Properties();
+
+        <span class="hljs-comment">// 开启debug调试</span>
+        props.setProperty(<span class="hljs-string">"mail.debug"</span>, <span class="hljs-string">"true"</span>);
+        <span class="hljs-comment">// 发送服务器需要身份验证</span>
+        props.setProperty(<span class="hljs-string">"mail.smtp.auth"</span>, <span class="hljs-string">"true"</span>);
+        <span class="hljs-comment">// 设置邮件服务器主机名</span>
+        props.setProperty(<span class="hljs-string">"mail.host"</span>, <span class="hljs-string">"smtp.qq.com"</span>);
+        <span class="hljs-comment">// 发送邮件协议名称</span>
+        props.setProperty(<span class="hljs-string">"mail.transport.protocol"</span>, <span class="hljs-string">"smtp"</span>);
+
+        <span class="hljs-javadoc">/**SSL认证，注意腾讯邮箱是基于SSL加密的，所有需要开启才可以使用**/</span>
+        MailSSLSocketFactory sf = <span class="hljs-keyword">new</span> MailSSLSocketFactory();
+        sf.setTrustAllHosts(<span class="hljs-keyword">true</span>);
+        props.put(<span class="hljs-string">"mail.smtp.ssl.enable"</span>, <span class="hljs-string">"true"</span>);
+        props.put(<span class="hljs-string">"mail.smtp.ssl.socketFactory"</span>, sf);
+
+        <span class="hljs-comment">//创建会话</span>
+        Session session = Session.getInstance(props);
+
+        <span class="hljs-comment">//发送的消息，基于观察者模式进行设计的</span>
+        Message msg = <span class="hljs-keyword">new</span> MimeMessage(session);
+        msg.setSubject(emailTitle);
+        <span class="hljs-comment">//使用StringBuilder，因为StringBuilder加载速度会比String快，而且线程安全性也不错</span>
+        StringBuilder builder = <span class="hljs-keyword">new</span> StringBuilder();
+        builder.append(<span class="hljs-string">"\n"</span>+emailContent);
+        builder.append(<span class="hljs-string">"\n时间 "</span> + <span class="hljs-keyword">new</span> Date());
+        msg.setText(builder.toString());
+        msg.setFrom(<span class="hljs-keyword">new</span> InternetAddress(<span class="hljs-string">"你的QQ邮箱"</span>));
+
+        Transport transport = session.getTransport();
+        transport.connect(<span class="hljs-string">"smtp.qq.com"</span>, <span class="hljs-string">"你的QQ邮箱"</span>, <span class="hljs-string">"你开启SMTP服务申请的独立密码"</span>);
+        <span class="hljs-comment">//发送消息</span>
+        transport.sendMessage(msg, <span class="hljs-keyword">new</span> Address[] { <span class="hljs-keyword">new</span> InternetAddress(toEmailAddress) });
+        transport.close();
+    }
+}</code></pre>
+
+<p>然后写个SpringMVC框架的Controller类：</p>
+
+
+
+<pre class="prettyprint"><code class=" hljs java">
+    <span class="hljs-javadoc">/**
+     * 跳转到发送邮件页面
+     *<span class="hljs-javadoctag"> @return</span>
+     *<span class="hljs-javadoctag"> @throws</span> Exception
+     */</span>
+    <span class="hljs-annotation">@RequestMapping</span>(<span class="hljs-string">"/goSendEmail"</span>)
+    <span class="hljs-keyword">public</span> ModelAndView <span class="hljs-title">goSendEmail</span>(HttpServletRequest request)<span class="hljs-keyword">throws</span> Exception{
+        ModelAndView mv = <span class="hljs-keyword">this</span>.getModelAndView();
+        String email = request.getParameter(<span class="hljs-string">"email"</span>);
+        <span class="hljs-keyword">if</span>(email!=<span class="hljs-keyword">null</span>&amp;&amp;!<span class="hljs-string">""</span>.equals(email)){
+            email = email.trim();
+            mv.setViewName(<span class="hljs-string">"member/send_email"</span>);
+            mv.addObject(<span class="hljs-string">"email"</span>, email);
+        }
+        <span class="hljs-keyword">return</span> mv;
+    }
+
+    <span class="hljs-javadoc">/**
+     * 发送邮件
+     *<span class="hljs-javadoctag"> @return</span>
+     *<span class="hljs-javadoctag"> @throws</span> Exception
+     */</span>
+    <span class="hljs-annotation">@RequestMapping</span>(value=<span class="hljs-string">"/sendEmail"</span>,produces=<span class="hljs-string">"application/json;charset=UTF-8"</span>)
+    <span class="hljs-annotation">@ResponseBody</span>
+    <span class="hljs-keyword">public</span> Object <span class="hljs-title">sendEmail</span>(HttpServletRequest request)<span class="hljs-keyword">throws</span> Exception{
+        Map&lt;String,String&gt; map = <span class="hljs-keyword">new</span> HashMap&lt;String,String&gt;();
+        String msg = <span class="hljs-string">"ok"</span>;      <span class="hljs-comment">//发送状态</span>
+        String toEMAIL = request.getParameter(<span class="hljs-string">"EMAIL"</span>);                 <span class="hljs-comment">//对方邮箱</span>
+        String TITLE = request.getParameter(<span class="hljs-string">"TITLE"</span>);                   <span class="hljs-comment">//标题</span>
+        String CONTENT = request.getParameter(<span class="hljs-string">"CONTENT"</span>);               <span class="hljs-comment">//内容</span>
+        JavaEmailSender.sendEmail(toEMAIL, TITLE, CONTENT);
+        map.put(<span class="hljs-string">"result"</span>, msg);
+        <span class="hljs-keyword">return</span> map;
+    }</code></pre>
+
+<p>这里用了Jquery TIP插件进行验证提示，所以需要引入相应的Jquery文件</p>
+
+
+
+<pre class="prettyprint"><code class=" hljs xml"><span class="hljs-tag">&lt;<span class="hljs-title">script</span> <span class="hljs-attribute">type</span>=<span class="hljs-value">"text/javascript"</span> <span class="hljs-attribute">src</span>=<span class="hljs-value">"source/js/jquery-1.7.2.js"</span>&gt;</span><span class="javascript"/><span class="hljs-tag">&lt;/<span class="hljs-title">script</span>&gt;</span>
+    <span class="hljs-comment">&lt;!--提示框--&gt;</span>
+    <span class="hljs-tag">&lt;<span class="hljs-title">script</span> <span class="hljs-attribute">type</span>=<span class="hljs-value">"text/javascript"</span> <span class="hljs-attribute">src</span>=<span class="hljs-value">"source/js/jquery.tips.js"</span>&gt;</span><span class="javascript"/><span class="hljs-tag">&lt;/<span class="hljs-title">script</span>&gt;</span></code></pre>
+
+<p>Jquery表单验证和Ajax异步请求：</p>
+
+
+
+<pre class="prettyprint"><code class=" hljs xml"><span class="hljs-comment">&lt;!-- 发送邮件 --&gt;</span>
+    <span class="hljs-tag">&lt;<span class="hljs-title">script</span> <span class="hljs-attribute">type</span>=<span class="hljs-value">"text/javascript"</span>&gt;</span><span class="javascript">
+<span class="hljs-comment">//发送</span>
+<span class="hljs-function"><span class="hljs-keyword">function</span> <span class="hljs-title">sendEm</span><span class="hljs-params">()</span>{</span>
+
+    <span class="hljs-keyword">if</span>($(<span class="hljs-string">"#TYPE"</span>).val()==<span class="hljs-string">"1"</span>){
+        $(<span class="hljs-string">"#CONTENT"</span>).val(getContentTxt());
+    }<span class="hljs-keyword">else</span>{
+        $(<span class="hljs-string">"#CONTENT"</span>).val(getContent());
+    }
+    <span class="hljs-keyword">if</span>($(<span class="hljs-string">"#EMAIL"</span>).val()==<span class="hljs-string">""</span>){
+        $(<span class="hljs-string">"#EMAIL"</span>).tips({
+            side:<span class="hljs-number">3</span>,
+            msg:<span class="hljs-string">'请输入邮箱'</span>,
+            bg:<span class="hljs-string">'#AE81FF'</span>,
+            time:<span class="hljs-number">2</span>
+        });
+        $(<span class="hljs-string">"#EMAIL"</span>).focus();
+        <span class="hljs-keyword">return</span> <span class="hljs-literal">false</span>;
+    }
+    <span class="hljs-keyword">if</span>($(<span class="hljs-string">"#TITLE"</span>).val()==<span class="hljs-string">""</span>){
+        $(<span class="hljs-string">"#TITLE"</span>).tips({
+            side:<span class="hljs-number">3</span>,
+            msg:<span class="hljs-string">'请输入标题'</span>,
+            bg:<span class="hljs-string">'#AE81FF'</span>,
+            time:<span class="hljs-number">2</span>
+        });
+        $(<span class="hljs-string">"#TITLE"</span>).focus();
+        <span class="hljs-keyword">return</span> <span class="hljs-literal">false</span>;
+    }
+    <span class="hljs-keyword">if</span>($(<span class="hljs-string">"#CONTENT"</span>).val()==<span class="hljs-string">""</span>){
+
+        $(<span class="hljs-string">"#nr"</span>).tips({
+            side:<span class="hljs-number">1</span>,
+            msg:<span class="hljs-string">'请输入内容'</span>,
+            bg:<span class="hljs-string">'#AE81FF'</span>,
+            time:<span class="hljs-number">3</span>
+        });
+        <span class="hljs-keyword">return</span> <span class="hljs-literal">false</span>;
+    }
+
+    <span class="hljs-keyword">var</span> EMAIL = $(<span class="hljs-string">"#EMAIL"</span>).val();
+    <span class="hljs-keyword">var</span> TYPE  = $(<span class="hljs-string">"#TYPE"</span>).val();
+    <span class="hljs-keyword">var</span> TITLE = $(<span class="hljs-string">"#TITLE"</span>).val();
+    <span class="hljs-keyword">var</span> CONTENT = $(<span class="hljs-string">"#CONTENT"</span>).val();
+
+    $(<span class="hljs-string">"#zhongxin"</span>).hide();
+    $(<span class="hljs-string">"#zhongxin2"</span>).show();
+
+    $.ajax({
+        type: <span class="hljs-string">"POST"</span>,
+        url: <span class="hljs-string">'retroaction/sendEmail.do?tm='</span>+<span class="hljs-keyword">new</span> <span class="hljs-built_in">Date</span>().getTime(),
+        data: {EMAIL:EMAIL,TITLE:TITLE,CONTENT:CONTENT},
+        dataType:<span class="hljs-string">'json'</span>,
+        <span class="hljs-comment">//beforeSend: validateData,</span>
+        cache: <span class="hljs-literal">false</span>,
+        success: <span class="hljs-function"><span class="hljs-keyword">function</span><span class="hljs-params">(data)</span>{</span>
+            <span class="hljs-keyword">if</span>(<span class="hljs-string">"ok"</span> == data.result){
+                $(<span class="hljs-string">"#msg"</span>).tips({
+                        side:<span class="hljs-number">3</span>,
+                        msg:<span class="hljs-string">'发送成功！'</span>,
+                        bg:<span class="hljs-string">'#68B500'</span>,
+                        time:<span class="hljs-number">5</span>
+                      });
+                setTimeout(<span class="hljs-string">"showdiv()"</span>,<span class="hljs-number">1000</span>);   
+            }<span class="hljs-keyword">else</span>{
+                $(<span class="hljs-string">"#msg"</span>).tips({
+                        side:<span class="hljs-number">3</span>,
+                        msg:<span class="hljs-string">'发送失败!'</span>,
+                        bg:<span class="hljs-string">'#68B500'</span>,
+                        time:<span class="hljs-number">5</span>
+                      });
+            }
+
+        }
+    });
+
+}
+
+</span><span class="hljs-tag">&lt;/<span class="hljs-title">script</span>&gt;</span>
+</code></pre>
+
+<p>JSP页面的调用：</p>
+
+
+
+<pre class="prettyprint"><code class=" hljs xml"><span class="hljs-comment">&lt;!-- 编辑邮箱  --&gt;</span>
+        <span class="hljs-tag">&lt;<span class="hljs-title">div</span>&gt;</span>
+        <span class="hljs-tag">&lt;<span class="hljs-title">table</span> <span class="hljs-attribute">style</span>=<span class="hljs-value">"width:98%;"</span> &gt;</span>
+            <span class="hljs-tag">&lt;<span class="hljs-title">tr</span>&gt;</span>
+                <span class="hljs-tag">&lt;<span class="hljs-title">td</span> <span class="hljs-attribute">style</span>=<span class="hljs-value">"margin-top:0px;"</span>&gt;</span>
+                     <span class="hljs-tag">&lt;<span class="hljs-title">div</span> <span class="hljs-attribute">style</span>=<span class="hljs-value">"float: left;"</span> <span class="hljs-attribute">style</span>=<span class="hljs-value">"width:81%"</span>&gt;</span><span class="hljs-tag">&lt;<span class="hljs-title">textarea</span> <span class="hljs-attribute">name</span>=<span class="hljs-value">"EMAIL"</span> <span class="hljs-attribute">id</span>=<span class="hljs-value">"EMAIL"</span> <span class="hljs-attribute">rows</span>=<span class="hljs-value">"1"</span> <span class="hljs-attribute">cols</span>=<span class="hljs-value">"50"</span> <span class="hljs-attribute">style</span>=<span class="hljs-value">"width:600px;height:20px;"</span> <span class="hljs-attribute">placeholder</span>=<span class="hljs-value">"请选输入对方邮箱,多个请用(;)分号隔开"</span> <span class="hljs-attribute">title</span>=<span class="hljs-value">"请选输入对方邮箱,多个请用(;)分号隔开"</span>&gt;</span>${email}<span class="hljs-tag">&lt;/<span class="hljs-title">textarea</span>&gt;</span><span class="hljs-tag">&lt;/<span class="hljs-title">div</span>&gt;</span>
+                     <span class="hljs-tag">&lt;<span class="hljs-title">div</span> <span class="hljs-attribute">style</span>=<span class="hljs-value">"float: right;"</span> <span class="hljs-attribute">style</span>=<span class="hljs-value">"width:19%"</span>&gt;</span><span class="hljs-tag">&lt;<span class="hljs-title">a</span> <span class="hljs-attribute">class</span>=<span class="hljs-value">'btn btn-mini btn-info'</span> <span class="hljs-attribute">title</span>=<span class="hljs-value">"编辑邮箱"</span> <span class="hljs-attribute">onclick</span>=<span class="hljs-value">"dialog_open();"</span>&gt;</span>编辑邮箱<span class="hljs-tag">&lt;/<span class="hljs-title">i</span>&gt;</span><span class="hljs-tag">&lt;/<span class="hljs-title">a</span>&gt;</span><span class="hljs-tag">&lt;/<span class="hljs-title">div</span>&gt;</span>
+                <span class="hljs-tag">&lt;/<span class="hljs-title">td</span>&gt;</span>
+            <span class="hljs-tag">&lt;/<span class="hljs-title">tr</span>&gt;</span>
+            <span class="hljs-tag">&lt;<span class="hljs-title">tr</span>&gt;</span>
+                <span class="hljs-tag">&lt;<span class="hljs-title">td</span>&gt;</span>
+                     <span class="hljs-tag">&lt;<span class="hljs-title">input</span> <span class="hljs-attribute">type</span>=<span class="hljs-value">"text"</span> <span class="hljs-attribute">name</span>=<span class="hljs-value">"TITLE"</span> <span class="hljs-attribute">id</span>=<span class="hljs-value">"TITLE"</span> <span class="hljs-attribute">value</span>=<span class="hljs-value">""</span> <span class="hljs-attribute">placeholder</span>=<span class="hljs-value">"请选输入邮件标题"</span> <span class="hljs-attribute">style</span>=<span class="hljs-value">"width:98%"</span>/&gt;</span>
+                <span class="hljs-tag">&lt;/<span class="hljs-title">td</span>&gt;</span>
+            <span class="hljs-tag">&lt;/<span class="hljs-title">tr</span>&gt;</span>
+            <span class="hljs-tag">&lt;<span class="hljs-title">tr</span>&gt;</span>
+                <span class="hljs-tag">&lt;<span class="hljs-title">td</span> <span class="hljs-attribute">id</span>=<span class="hljs-value">"nr"</span>&gt;</span>
+                     <span class="hljs-tag">&lt;<span class="hljs-title">script</span> <span class="hljs-attribute">id</span>=<span class="hljs-value">"editor"</span> <span class="hljs-attribute">type</span>=<span class="hljs-value">"text/plain"</span> <span class="hljs-attribute">style</span>=<span class="hljs-value">"width:650px;height:259px;"</span>&gt;</span><span class="javascript"/><span class="hljs-tag">&lt;/<span class="hljs-title">script</span>&gt;</span>
+                <span class="hljs-tag">&lt;/<span class="hljs-title">td</span>&gt;</span>
+            <span class="hljs-tag">&lt;/<span class="hljs-title">tr</span>&gt;</span>
+            <span class="hljs-tag">&lt;<span class="hljs-title">tr</span>&gt;</span>
+                <span class="hljs-tag">&lt;<span class="hljs-title">td</span> <span class="hljs-attribute">style</span>=<span class="hljs-value">"text-align: center;"</span>&gt;</span>
+                    <span class="hljs-tag">&lt;<span class="hljs-title">a</span> <span class="hljs-attribute">class</span>=<span class="hljs-value">"btn btn-mini btn-primary"</span> <span class="hljs-attribute">onclick</span>=<span class="hljs-value">"sendEm();"</span>&gt;</span>发送<span class="hljs-tag">&lt;/<span class="hljs-title">a</span>&gt;</span>
+                    <span class="hljs-tag">&lt;<span class="hljs-title">a</span> <span class="hljs-attribute">class</span>=<span class="hljs-value">"btn btn-mini btn-danger"</span> <span class="hljs-attribute">onclick</span>=<span class="hljs-value">"top.Dialog.close();"</span>&gt;</span>取消<span class="hljs-tag">&lt;/<span class="hljs-title">a</span>&gt;</span>
+                <span class="hljs-tag">&lt;/<span class="hljs-title">td</span>&gt;</span>
+            <span class="hljs-tag">&lt;/<span class="hljs-title">tr</span>&gt;</span>
+        <span class="hljs-tag">&lt;/<span class="hljs-title">table</span>&gt;</span>
+        <span class="hljs-tag">&lt;/<span class="hljs-title">div</span>&gt;</span>
+        <span class="hljs-tag">&lt;<span class="hljs-title">div</span> <span class="hljs-attribute">id</span>=<span class="hljs-value">"zhongxin2"</span> <span class="hljs-attribute">class</span>=<span class="hljs-value">"center"</span> <span class="hljs-attribute">style</span>=<span class="hljs-value">"display:none"</span>&gt;</span><span class="hljs-tag">&lt;<span class="hljs-title">br</span>/&gt;</span><span class="hljs-tag">&lt;<span class="hljs-title">img</span> <span class="hljs-attribute">src</span>=<span class="hljs-value">"assets/images/jzx.gif"</span> <span class="hljs-attribute">id</span>=<span class="hljs-value">'msg'</span> /&gt;</span><span class="hljs-tag">&lt;<span class="hljs-title">br</span>/&gt;</span><span class="hljs-tag">&lt;<span class="hljs-title">h4</span> <span class="hljs-attribute">class</span>=<span class="hljs-value">"lighter block green"</span> <span class="hljs-attribute">id</span>=<span class="hljs-value">'msg'</span>&gt;</span>正在发送...<span class="hljs-tag">&lt;/<span class="hljs-title">h4</span>&gt;</span><span class="hljs-tag">&lt;/<span class="hljs-title">div</span>&gt;</span>       </code></pre>
+
+<p><img src="http://img.blog.csdn.net/20161226172448445?watermark/2/text/aHR0cDovL2Jsb2cuY3Nkbi5uZXQvdTAxNDQyNzM5MQ==/font/5a6L5L2T/fontsize/400/fill/I0JBQkFCMA==/dissolve/70/gravity/SouthEast" alt="这里写图片描述" title=""/></p><link rel="stylesheet" href="http://static.blog.csdn.net/public/res-min/markdown_views.css?v=1.0"/></div><link rel="stylesheet" href="http://static.blog.csdn.net/public/res-min/markdown_views.css?v=1.0"/>&#13;
+            

@@ -1,0 +1,198 @@
+
+                <div class="markdown_views"><blockquote>
+  <p>CSDN的阅读效果不如个人博客的好,建议还是看博客吧 <a href="http://blog.csdn.net/u012706811/article/details/mrdear.cn">屈定’s Blog</a></p>
+</blockquote>
+
+<hr/>
+
+<p>工作中用的最多的就是Mybatis这款半自动ORM框架,用的久却对其了解不是很深,因此打算开一系列文章对其进行解析,顺便对知识进行查漏补缺.本篇是对Mapper动态代理原理的详解.</p>
+
+<hr/>
+
+<h3 id="代理模式定义">代理模式定义</h3>
+
+<p>为另一个对象提供一个替身或者占位符以控制对这个对象的访问.也就是说目的是控制对象形式其职责.当然也可以增强其职责,比如Spring AOP.</p>
+
+
+
+<h3 id="代理模式类图">代理模式类图</h3>
+
+<p>由下图分析,代理模式所需要的角色为: <br/>
+1. 对外的行为接口Subject,对于调用方Client可见 <br/>
+2. RealSubject真实的Subject,其包含具体的接口行为,对于Client不可见 <br/>
+3. 代理类Proxy,其是RealSubject的替身,也可以当成对RealSubject的一层包装,对于Client不可见. <br/>
+<img src="http://oobu4m7ko.bkt.clouddn.com/1504793889.png?imageMogr2/thumbnail/!150p" alt="" title=""/></p>
+
+
+
+<h3 id="jdk动态代理example">JDK动态代理Example</h3>
+
+<p>案例采取Java的动态代理形式开发,按照上述类图定义角色 <br/>
+<strong>Subject</strong></p>
+
+
+
+<pre class="prettyprint"><code class="language-java hljs "><span class="hljs-keyword">public</span> <span class="hljs-class"><span class="hljs-keyword">interface</span> <span class="hljs-title">Subject</span> {</span>
+  <span class="hljs-javadoc">/**
+   * 反转输入的input字符串
+   *<span class="hljs-javadoctag"> @param</span> input 要反转的串
+   *<span class="hljs-javadoctag"> @return</span> 反转后的串
+   */</span>
+  String reversalInput(String input);
+}</code></pre>
+
+<p><strong>RealSubject</strong></p>
+
+
+
+<pre class="prettyprint"><code class="language-java hljs "><span class="hljs-keyword">public</span> <span class="hljs-class"><span class="hljs-keyword">class</span> <span class="hljs-title">RealSubject</span> <span class="hljs-keyword">implements</span> <span class="hljs-title">Subject</span> {</span>
+
+  <span class="hljs-keyword">public</span> String <span class="hljs-title">reversalInput</span>(String input) {
+    System.out.println(<span class="hljs-string">"我是RealSubject: "</span>+input);
+    <span class="hljs-keyword">return</span> <span class="hljs-keyword">new</span> StringBuilder(input).reverse().toString();
+  }
+}</code></pre>
+
+<p><strong>SubjectProxy</strong> <br/>
+该类实现了InvocationHandler,实际上是对调用的拦截,拦截后转向真实对象的调用,从而拿到正确的结果.是不是很像装饰者模式?其实也可以这样理解,设计模式之前本身就有很多关联性,不需要认定某一个行为就是单一的某个模式,从产生效果来看这里的SubjectProxy实际上就是对RealSubject的装饰,只不过这个装饰并没有添加新功能.</p>
+
+
+
+<pre class="prettyprint"><code class="language-java hljs "><span class="hljs-keyword">public</span> <span class="hljs-class"><span class="hljs-keyword">class</span> <span class="hljs-title">SubjectProxy</span> <span class="hljs-keyword">implements</span> <span class="hljs-title">InvocationHandler</span> {</span>
+
+  <span class="hljs-keyword">private</span> Object target;
+
+  <span class="hljs-keyword">public</span> <span class="hljs-title">SubjectProxy</span>(Object target) {
+    <span class="hljs-keyword">this</span>.target = target;
+  }
+
+  <span class="hljs-keyword">public</span> Object <span class="hljs-title">invoke</span>(Object proxy, Method method, Object[] args) <span class="hljs-keyword">throws</span> Throwable {
+    System.out.println(<span class="hljs-string">"proxy subject is "</span>+proxy.getClass());
+    System.out.println(<span class="hljs-string">"real subject : "</span>+ToStringBuilder.reflectionToString(target));
+    System.out.println(<span class="hljs-string">"method: "</span>+method);
+    System.out.println(<span class="hljs-string">"args: "</span>+ ToStringBuilder.reflectionToString(args));
+    <span class="hljs-keyword">return</span> method.invoke(target, args);
+  }
+}</code></pre>
+
+<p><strong>Client</strong></p>
+
+
+
+<pre class="prettyprint"><code class="language-java hljs "><span class="hljs-keyword">public</span> <span class="hljs-class"><span class="hljs-keyword">class</span> <span class="hljs-title">Client</span> {</span>
+
+  <span class="hljs-keyword">public</span> <span class="hljs-keyword">static</span> <span class="hljs-keyword">void</span> <span class="hljs-title">main</span>(String[] args) {
+    RealSubject subject = <span class="hljs-keyword">new</span> RealSubject();
+
+    Subject proxyInstance = (Subject) Proxy.newProxyInstance(
+        Subject.class.getClassLoader(),
+        <span class="hljs-keyword">new</span> Class[]{Subject.class},
+        <span class="hljs-keyword">new</span> SubjectProxy(subject));
+
+    System.out.println(proxyInstance.reversalInput(<span class="hljs-string">"hello world"</span>));
+  }
+}</code></pre>
+
+<p><strong>输出</strong></p>
+
+
+
+<pre class="prettyprint"><code class="language-conf hljs avrasm">proxy is class <span class="hljs-keyword">com</span><span class="hljs-preprocessor">.sun</span><span class="hljs-preprocessor">.proxy</span>.$Proxy0
+target proxy: cn<span class="hljs-preprocessor">.mrdear</span><span class="hljs-preprocessor">.proxy</span><span class="hljs-preprocessor">.RealSubject</span><span class="hljs-localvars">@51016012</span>[]
+<span class="hljs-label">method:</span> public abstract java<span class="hljs-preprocessor">.lang</span><span class="hljs-preprocessor">.String</span> cn<span class="hljs-preprocessor">.mrdear</span><span class="hljs-preprocessor">.proxy</span><span class="hljs-preprocessor">.Subject</span><span class="hljs-preprocessor">.reversalInput</span>(java<span class="hljs-preprocessor">.lang</span><span class="hljs-preprocessor">.String</span>)
+<span class="hljs-label">args:</span> [Ljava<span class="hljs-preprocessor">.lang</span><span class="hljs-preprocessor">.Object</span><span class="hljs-comment">;@29444d75[{hello world}]</span>
+我是RealSubject: hello world
+dlrow olleh</code></pre>
+
+<p><strong>分析</strong> <br/>
+1.动态代理哪里体现了动态?</p>
+
+<blockquote>
+  <p>对于常规Java类变量创建要求有.java文件,然后编译成.class文件,然后虚拟机加载该.class文件,最后才能生成对象.但是对于<code>Subject proxyInstance</code>该代理类其是不存在.java文件的,也就是该对象的.class文件是动态生成的,然后虚拟机加载该class文件,创建对象.在Proxy.java中有如下代码动态生成class文件,感兴趣的话可以研究研究,这里不多深入.</p>
+</blockquote>
+
+
+
+<pre class="prettyprint"><code class="language-java hljs ">            <span class="hljs-comment">/*
+             * Generate the specified proxy class.
+             */</span>
+            <span class="hljs-keyword">byte</span>[] proxyClassFile = ProxyGenerator.generateProxyClass(proxyName, interfaces, accessFlags);</code></pre>
+
+<p>2.JDK动态代理的要求</p>
+
+<blockquote>
+  <p>JDK动态代理只能针对接口,如果要针对普通类则可以考虑CGLib的实现,这里不多分析.其次动态代理的要求有接口类<code>Subject</code>,<code>InvocationHandler</code>代理方法类存在,才能创建出代理对象,代理对象的执行方法都被<code>InvocationHandler</code>接口所拦截,转向真实类的执行或者你想要的操作.</p>
+</blockquote>
+
+
+
+<h3 id="mybatis的动态mapper">Mybatis的动态Mapper</h3>
+
+<p>由上面内容可以看出JDK动态代理需要接口,真实实现类,Clinet调用方,在常规的Mybatis的Mapper代理中接口就是Mapper,Client是service,那么真实的实现类是什么?显而易见这里就是Mapper代理的关键点.</p>
+
+
+
+<h3 id="mapperproxyfactory">MapperProxyFactory</h3>
+
+<p>顾名思义该类是产生Mapper接口的工厂类,其内部有如下方法,由此可以看出<code>MapperProxy</code>是方法拦截的地方,那么到此动态代理所需要的必须角色都以凑齐,那么接下来分析最重要的<code>MapperProxy</code>方法拦截.</p>
+
+
+
+<pre class="prettyprint"><code class="language-java hljs "> <span class="hljs-keyword">protected</span> T <span class="hljs-title">newInstance</span>(MapperProxy&lt;T&gt; mapperProxy) {
+    <span class="hljs-keyword">return</span> (T) Proxy.newProxyInstance(mapperInterface.getClassLoader(), <span class="hljs-keyword">new</span> Class[] { mapperInterface }, mapperProxy);
+  }</code></pre>
+
+
+
+<h3 id="mapperproxy">MapperProxy</h3>
+
+<p>该类是Mapper接口的Proxy角色,继承了<code>InvocationHandler</code>,所以具有方法拦截功能,看代码注释.</p>
+
+
+
+<pre class="prettyprint"><code class="language-java hljs ">  <span class="hljs-annotation">@Override</span>
+  <span class="hljs-keyword">public</span> Object <span class="hljs-title">invoke</span>(Object proxy, Method method, Object[] args) <span class="hljs-keyword">throws</span> Throwable {
+    <span class="hljs-keyword">try</span> {
+      <span class="hljs-keyword">if</span> (Object.class.equals(method.getDeclaringClass())) { <span class="hljs-comment">////判断是否为object,因为其不是接口</span>
+        <span class="hljs-keyword">return</span> method.invoke(<span class="hljs-keyword">this</span>, args);
+      } <span class="hljs-keyword">else</span> <span class="hljs-keyword">if</span> (isDefaultMethod(method)) { <span class="hljs-comment">//判断是否为接口总的默认方法,jdk8允许接口中声明默认方法.</span>
+        <span class="hljs-keyword">return</span> invokeDefaultMethod(proxy, method, args);
+      }
+    } <span class="hljs-keyword">catch</span> (Throwable t) {
+      <span class="hljs-keyword">throw</span> ExceptionUtil.unwrapThrowable(t);
+    }
+    <span class="hljs-comment">//对正常Mapper请求的处理</span>
+    <span class="hljs-keyword">final</span> MapperMethod mapperMethod = cachedMapperMethod(method);
+    <span class="hljs-keyword">return</span> mapperMethod.execute(sqlSession, args);
+  }</code></pre>
+
+<p>对于正常的Mapper接口中的方法调用,mybatis都会转向到<code>MapperMethod</code>的execute方法中执行,拿到结果返回给调用方Client,整个代理过程结束.对于正常调用是有缓存的,并且该代理类是项目启动时就生成好的,对于性能影响并不是很大实用性还是很高的.</p>
+
+<p>这里要注意下对于默认接口方法的处理<code>invokeDefaultMethod(proxy, method, args)</code>,该方法中每次都直接生成代理类,对性能是一种损耗应该不小,所以<strong>不建议在Mapper接口中写默认方法</strong>.</p>
+
+
+
+<pre class="prettyprint"><code class="language-java hljs ">  <span class="hljs-annotation">@UsesJava</span>7
+  <span class="hljs-keyword">private</span> Object <span class="hljs-title">invokeDefaultMethod</span>(Object proxy, Method method, Object[] args)
+      <span class="hljs-keyword">throws</span> Throwable {
+    <span class="hljs-keyword">final</span> Constructor&lt;MethodHandles.Lookup&gt; constructor = MethodHandles.Lookup.class
+        .getDeclaredConstructor(Class.class, <span class="hljs-keyword">int</span>.class);
+    <span class="hljs-keyword">if</span> (!constructor.isAccessible()) {
+      constructor.setAccessible(<span class="hljs-keyword">true</span>);
+    }
+    <span class="hljs-keyword">final</span> Class&lt;?&gt; declaringClass = method.getDeclaringClass();
+    <span class="hljs-keyword">return</span> constructor
+        .newInstance(declaringClass,
+            MethodHandles.Lookup.PRIVATE | MethodHandles.Lookup.PROTECTED
+                | MethodHandles.Lookup.PACKAGE | MethodHandles.Lookup.PUBLIC)
+        .unreflectSpecial(method, declaringClass).bindTo(proxy).invokeWithArguments(args);
+  }</code></pre>
+
+
+
+<h3 id="总结">总结</h3>
+
+<p>从上面来看动态代理的最大的好处就是接口(不单指Java的interface,也包括CGLib的动态代理实现)与其实现类的解耦,原本接口和动态类之间是强关联状态,接口不能实例化,实现类必须实现接口的所有方法,有了动态代理之后,接口与实现类的关系并不是很大,甚至不需要实现类就可以完成调用,比如Mybatis这种形式,其并没有创建该接口的实现类,而是用一个方法拦截器转向到自己的通用处理逻辑. <br/>
+另外就是Spring AOP的动态代理,解耦后自然可以实现对原有方法增强的同时又对其代码的零侵入性. <br/>
+最后Mybatis的Mapper动态代理实现原理还是很清晰的,下一篇具体分析<code>MapperMethod</code>,顺便学习Mybatis的各种设计模式.</p><link rel="stylesheet" href="http://static.blog.csdn.net/public/res-min/markdown_views.css?v=2.0"/></div><link rel="stylesheet" href="http://static.blog.csdn.net/public/res-min/markdown_views.css?v=2.0"/>&#13;
+            

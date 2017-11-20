@@ -1,0 +1,115 @@
+
+
+<div style="text-align:center"><strong><span style="font-size:18px">mini2440驱动分析之LED</span></strong></div>&#13;
+        看LDD3有一段时间了，里面的例程也大部分实践了一下。现在进入真正的驱动程序学习。从友善之臂mini2440提供的驱动程序开始，把一些基本的驱动程序都分析一遍，以提高自己对驱动程序的认识，提高自己的编程能力。下面开始分析友善之臂mini2440提供的led驱动程序，对应文件mini2440_leds.c，内核版本号为2.6.32.2。<br />&#13;
+<strong><span style="font-size:16px">1. 模块注册函数</span></strong><br />&#13;
+        驱动程序作为内核模块出现，首先要做的就是注册自己，也就是在模块初始化中调用一些初始化以及注册函数，下面分析led驱动的模块初始化函数    <br />&#13;
+<pre name="code" class="plain">static int __init dev_init(void)
+{
+	int ret;
+
+	int i;
+	
+	for (i = 0; i &lt; 4; i++) {
+		s3c2410_gpio_cfgpin(led_table[i], led_cfg_table[i]);
+		s3c2410_gpio_setpin(led_table[i], 0);
+	}
+
+	ret = misc_register(&amp;misc);
+
+	printk (DEVICE_NAME"\tinitialized\n");
+
+	return ret;
+}</pre>        这个函数主要调用了三个函数来完成初始化以及注册。首先循环四次调用s3c2410_gpio_cfgpin和s3c2410_gpio_setpin，前一个函数用来配置引脚的功能，后一个函数用来设置引脚的值，这两个函数后面会详细分析。最后调用misc_register注册一个杂项设备，然后输出调试信息。这个misc_register函数是led驱动程序的关键，在后面的杂项设备中再进行分析。当你insmod的时候这个函数被调用，模块就被注册到内核中了。<br />&#13;
+<span style="font-size:16px"><strong>2. 模块卸载函数</strong></span><br />&#13;
+<pre name="code" class="plain">static void __exit dev_exit(void)
+{
+	misc_deregister(&amp;misc);
+}</pre><br />&#13;
+<strong><span style="font-size:16px">3.功能实现</span></strong><br />&#13;
+        一个驱动程序要能使硬件正常工作，无非是实现一些read，write，ioctl等一些系统调用方法.当应用程序操作设备文件的时候，调用驱动程序中的这些方法，以实现具体的功能。<br />&#13;
+<p>        下面分析led驱动程序的系统调用方法也就是文件操作。可以看出mini2440的led驱动除了ioctl方法外，其他的方法都没有，就连open都没有。为什么连open这个最基本的必须的系统调用都没有实现，这个和杂项设备有关，因为杂项设备实现了open方法，以后会详细分析。我们看看ioctl都做了什么。</p>&#13;
+<p></p>&#13;
+<pre name="code" class="plain">static int sbc2440_leds_ioctl(
+	struct inode *inode, 
+	struct file *file, 
+	unsigned int cmd, 
+	unsigned long arg)
+{
+	switch(cmd) {
+	case 0:
+	case 1:
+		if (arg &gt; 4) {
+			return -EINVAL;
+		}
+		s3c2410_gpio_setpin(led_table[arg], !cmd);
+		return 0;
+	default:
+		return -EINVAL;
+	}
+}</pre>&#13;
+<p></p>&#13;
+        这个ioctl的实现和我们在ldd3中看到有所不一样，因为没有什么幻数什么的，命令只是简单的0，1。标准的ioctl命令号的确是像ldd3中说的那样要幻数，序数等的，以防止与其他ioctl命令号冲突。这里是为了简单，就用0,1代替了。这里也调用了s3c2410_gpio_setpin这个函数，用于设置引脚的值。下面分析一下这个函数<br />&#13;
+<pre name="code" class="plain">void s3c2410_gpio_setpin(unsigned int pin, unsigned int to)
+{
+	void __iomem *base = S3C24XX_GPIO_BASE(pin);
+	unsigned long offs = S3C2410_GPIO_OFFSET(pin);
+	unsigned long flags;
+	unsigned long dat;
+
+	local_irq_save(flags);
+
+	dat = __raw_readl(base + 0x04);
+	dat &amp;= ~(1 &lt;&lt; offs);
+	dat |= to &lt;&lt; offs;
+	__raw_writel(dat, base + 0x04);
+
+	local_irq_restore(flags);
+}</pre>        这个函数在arch/arm/plat-s3c24xx/gpio.c中定义，实现了设置引脚值的功能， S3C24XX_GPIO_BASE(pin)这个宏得到具体引脚基地址，S3C2410_GPIO_OFFSET(pin)得到相应引脚的偏移，这个两个宏的实现与s3c2440的寄存器表示以及操作实现有关系，后面再详细分析。<br />&#13;
+        函数有两个参数，一个是引脚，一个是值，引脚传进来的一般是宏像S3C2410_GPB(5)这样的。可以看出操作寄存器的时候采用了读修改写的方式，<br />&#13;
+        __raw_readl(base + 0x04);读取GPIOnDAT的值，这个函数是io内存的底层操作组件，个人认为应该用ldd3中推荐的ioread系列函数<br />&#13;
+        __raw_writel(dat, base + 0x04);将修改的值写入GPIOnDAT，完成修改。<br />&#13;
+      综上所述，led驱动程序的ioctl实现的主要功能，就是根据命令设置led引脚的值，0 熄灭led，1点亮led<br />&#13;
+<strong><span style="font-size:16px">5 数据结构</span><br />&#13;
+</strong><pre name="code" class="plain">static unsigned long led_table [] = {
+	S3C2410_GPB(5),
+	S3C2410_GPB(6),
+	S3C2410_GPB(7),
+	S3C2410_GPB(8),
+};</pre>        这个是led引脚数组<br />&#13;
+<pre name="code" class="plain">static unsigned int led_cfg_table [] = {
+	S3C2410_GPIO_OUTPUT,
+	S3C2410_GPIO_OUTPUT,
+	S3C2410_GPIO_OUTPUT,
+	S3C2410_GPIO_OUTPUT,
+};</pre>        这个是引脚功能数组，四个引脚都为输出<br />&#13;
+<strong><span style="font-size:16px">6. S3C2440  GPIO寄存器表示与操作</span></strong><br />&#13;
+（1）S3C24XX_GPIO_BASE(pin)分析  <br />&#13;
+在reg-gpio.h中，有它的定义<br />&#13;
+<pre name="code" class="plain">    #define S3C24XX_GPIO_BASE(pin) S3C2410_GPIO_BASE(x)
+    #define S3C2410_GPIO_BASE(pin) ((((pin) &amp; ~31) &gt;&gt; 1) + S3C24XX_VA_GPIO)</pre>    pin 是  S3C2410_GPn(_nr)  形式的宏                                                          <br />&#13;
+    以pin = S3C2410_GPB(5)来分析 S3C2410_GPB(_nr)宏 有如下的定义<br />&#13;
+<pre name="code" class="plain">    #define S3C2410_GPB(_nr) (S3C2410_GPIO_B_START + (_nr))</pre>    而  S3C2410_GPIO_B_START = S3C2410_GPIO_NEXT(S3C2410_GPIO_A)<br />&#13;
+    S3C2410_GPIO_NEXT（）宏有如下定义<br />&#13;
+<pre name="code" class="plain">    #define S3C2410_GPIO_NEXT(__gpio) ((__gpio##_START) + (__gpio##_NR) +CONFIG_S3C_GPIO_SPACE + 0)  </pre>    因为      S3C2410_GPIO_A_START=0               <br />&#13;
+                 S3C2410_GPIO_A_NR=32                <br />&#13;
+                  CONFIG_S3C_GPIO_SPACE=0<br />&#13;
+    所以 S3C2410_GPIO_B_START = 32 以此类推S3C2410_GPIO_C_START = 64 。。。<br />&#13;
+    所以 S3C2410_GPB(_nr) = 32 + _nr 即S3C2410_GPB(5) = 37<br />&#13;
+    所以 S3C2410_GPIO_BASE(pin) =  ((（32+pin） &amp; ～31) &gt;&gt;1) + S3C24XX_VA_GPIO  <br />&#13;
+    而不管pin是多少，((（32+pin） &amp; ～31) &gt;&gt;1)  算出来的都是16 正好是GPB的控制寄存器的地址偏移量<br />&#13;
+    S3C24XX_VA_GPIO为GPIO的虚拟基地址<br />&#13;
+    所以得出结论S3C24XX_GPIO_BASE(pin)得到相关GPIO寄存器的基地址<br />&#13;
+    所以S3C24XX_GPIO_BASE(S3C2410_GPB(5)) = S3C24XX_VA_GPIO +16  <br />&#13;
+（2） S3C2410_GPIO_OFFSET(pin)分析<br />&#13;
+<p></p>&#13;
+<pre name="code" class="plain">    #define S3C2410_GPIO_OFFSET(pin) ((pin) &amp; 31)</pre>&#13;
+<p></p>&#13;
+<p>        得出来的就是 pin - 32</p>&#13;
+        所以   S3C2410_GPIO_OFFSET(S3C2410_GPB(5)) = 37- 32 = 5<br />&#13;
+（3）s3c2410_gpio_cfgpin分析<br />&#13;
+        这个函数和s3c2410_gpio_setpin 实现方式差不多，只是GPIOA设置引脚功能只有一位，与其他的不同，所以要单独考虑。<br />&#13;
+<strong><span style="font-size:16px">7. 总结</span></strong><br />&#13;
+        刚开始看真正的驱动程序的时候，一些函数的调用总是不习惯，总是想着找的调用的原型，感觉不懂的东西太多了。但是分析了一段时间，慢慢感觉其实也不用那么钻牛角尖，只要明白函数是做什么的就行了，会使用就好，省着自己写函数了。led驱动程序就算最简单的驱动程序了吧，但是真正搞懂还需要杂项设备的知识。接下来学习杂项设备的实现方法。<br />&#13;
+<br />&#13;
+   &#13;

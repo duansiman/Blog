@@ -1,0 +1,199 @@
+
+
+<p>本例为Android升读探索（卷1）：HAL与驱动开发 一书中附带的示例程序。现粘贴出来，以便查阅。</p>&#13;
+<p>终端操作，可能用到的命令：</p>&#13;
+<p></p>&#13;
+<pre code_snippet_id="383630" snippet_file_name="blog_20140609_1_9448752" name="code" class="objc">insmond word_count.ko
+lsmod | grep word_count 查看驱动是否安装成功
+rmmod word_count
+dmesg | grep word_cout | tail -n 2 查看有linux驱动输出的日志信息
+cat /var/log/syslong | grep word_count | tail -n 2
+modinfo word_count.ko 查看驱动的信息
+</pre><br />&#13;
+驱动源代码&#13;
+<p></p>&#13;
+<p></p>&#13;
+<pre code_snippet_id="383630" snippet_file_name="blog_20140609_2_5053907" name="code" class="objc">#include &lt;linux/module.h&gt;
+#include &lt;linux/init.h&gt;
+#include &lt;linux/kernel.h&gt;
+#include &lt;linux/fs.h&gt;
+#include &lt;linux/miscdevice.h&gt;
+#include &lt;asm/uaccess.h&gt;
+
+
+//  定义设备文件名
+#define DEVICE_NAME "wordcount"
+static unsigned char mem[10000]; // 保存向设备文件写入的数据
+static int word_count = 0;
+#define TRUE 255
+#define FALSE 0
+
+//  判断指定字符是否为空格（包括空格符、制表符、回车符和换行符）
+static unsigned char is_spacewhite(char c)
+{
+	if (c == 32 || c == 9 || c == 13 || c == 10)
+		return TRUE;
+	else
+		return FALSE;
+}
+
+static int get_word_count(const char *buf)
+{
+	int n = 1;
+	int i = 0;
+	char c = ' ';
+
+	char flag = 0; // 处理多个空格分隔的情况，0：正常情况，1：已遇到一个空格
+	if (*buf == '\0')
+		return 0;
+	//  第1个字符是空格，从0开始计数
+	if (is_spacewhite(*buf) == TRUE)
+		n--;
+
+	//  扫描字符串中的每一个字符
+	for (; (c = *(buf + i)) != '\0'; i++)
+	{
+		//  只由一个空格分隔单词的情况
+		if (flag == 1 &amp;&amp; is_spacewhite(c) == FALSE)
+		{
+
+			flag = 0;
+		}
+		//  由多个空格分隔单词的情况，忽略多余的空格
+		else if (flag == 1 &amp;&amp; is_spacewhite(c) == TRUE)
+		{
+
+			continue;
+		}
+		//  当前字符为空格是单词数加1
+		if (is_spacewhite(c) == TRUE)
+		{
+			n++;
+			flag = 1;
+		}
+	}
+	//  如果字符串以一个或多个空格结尾，不计数（单词数减1）
+	if (is_spacewhite(*(buf + i - 1)) == TRUE)
+		n--;
+	return n;
+}
+
+static ssize_t word_count_read(struct file *file, char __user *buf,
+        size_t count, loff_t *ppos)
+{
+	unsigned char temp[4];
+
+	temp[0] = word_count &gt;&gt; 24;
+	temp[1] = word_count &gt;&gt; 16;   
+	temp[2] = word_count &gt;&gt; 8;
+	temp[3] = word_count;
+	if (copy_to_user(buf, (void*) temp, 4))
+	{
+		return -EINVAL;
+	}
+	printk("read:word count:%d", (int) count);
+
+	return count;
+}
+
+static ssize_t word_count_write(struct file *file, const char __user *buf,
+        size_t count, loff_t *ppos)
+{
+	ssize_t written = count;
+
+	if (copy_from_user(mem, buf, count))
+	{
+		return -EINVAL;
+	}
+	mem[count] = '\0';
+	word_count = get_word_count(mem);
+	printk("write:word count:%d\n", (int) word_count);
+
+	return written;
+}
+
+//  描述与设备文件触发的事件对应的回调函数指针
+static struct file_operations dev_fops =
+{ .owner = THIS_MODULE, .read = word_count_read, .write = word_count_write };
+
+//  描述设备文件的信息   
+static struct miscdevice misc =
+{ .minor = MISC_DYNAMIC_MINOR, .name = DEVICE_NAME, .fops = &amp;dev_fops };
+
+
+//  初始化Linux驱动
+static int __init word_count_init(void)
+{
+	int ret; 
+
+	//  建立设备文件
+	ret = misc_register(&amp;misc);
+
+	//  输出日志信息
+	printk("word_count_init_success\n");
+
+
+	return ret;
+}
+
+// 卸载Linux驱动
+static void __exit word_count_exit(void)
+{
+	//  删除设备文件  
+	misc_deregister(&amp;misc);
+
+	//  输出日志信息
+	printk("word_count_init_exit_success\n");
+} 
+
+//  注册初始化Linux驱动的函数
+module_init( word_count_init);
+//  注册卸载Linux驱动的函数
+module_exit( word_count_exit);
+
+MODULE_AUTHOR("lining");
+MODULE_DESCRIPTION("statistics of word count.");
+MODULE_ALIAS("word count module.");
+MODULE_LICENSE("GPL");
+</pre><br />&#13;
+测试代码&#13;
+<p></p>&#13;
+<p></p>&#13;
+<pre code_snippet_id="383630" snippet_file_name="blog_20140609_3_9720969" name="code" class="objc">#include &lt;stdio.h&gt;
+#include &lt;fcntl.h&gt;
+#include &lt;unistd.h&gt;
+#include &lt;stdlib.h&gt;
+#include &lt;string.h&gt;
+int main(int argc, char *argv[])
+{
+	int testdev;
+	unsigned char buf[4];
+
+	testdev = open("/dev/wordcount", O_RDWR);
+	if (testdev == -1)
+	{
+		printf("Cann't open file \n");
+		return 0;
+	}
+	if (argc &gt; 1)
+	{
+
+		write(testdev, argv[1], strlen(argv[1]));
+		printf("string:%s\n", argv[1]);
+	}
+
+	read(testdev, buf, 4);
+
+	int n = 0;
+	//  将4个字节还原成int类型的值
+	n = ((int) buf[0]) &lt;&lt; 24 | ((int) buf[1]) &lt;&lt; 16 | ((int) buf[2]) &lt;&lt; 8
+	        | ((int) buf[3]);
+	printf("word byte display:%d,%d,%d,%d\n", buf[0], buf[1], buf[2], buf[3]);
+	printf("word count:%d\n", n);
+	close(testdev);
+	return 0;
+}
+</pre><br />&#13;
+<br />&#13;
+<p></p>&#13;
+   &#13;

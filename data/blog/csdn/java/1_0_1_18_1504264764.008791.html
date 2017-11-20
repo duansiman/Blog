@@ -1,0 +1,253 @@
+
+        <div class="markdown_views"><p><font color="brown">介绍：</font>这是在这么多种设计模式中极少的以提高程序性能为目的的模式。其主要思想为—如果系统中存在多个相同对象，那么只需要一份对象的拷贝，而不必在每次使用的时候去新建一个对象。</p>
+
+<p><font color="brown">作用：</font>复用对象，节省内存开销和对象创建时间。</p>
+
+<p><font color="brown">优点：</font> <br />
+1. 节省重复创建对象的开销 <br />
+2. 减少内存中的对象数量，进而使得对系统内存的需求也得到减小</p>
+
+
+
+<h1 id="一角色及作用划分">一、角色及作用划分</h1>
+
+<table>
+<thead>
+<tr>
+  <th>角色</th>
+  <th>作用</th>
+</tr>
+</thead>
+<tbody><tr>
+  <td>享元工厂</td>
+  <td>创建享元类，维护共同的享元对象(核心组件)</td>
+</tr>
+<tr>
+  <td>抽象享元</td>
+  <td>定义享元所需要实现的业务接口(抽象类或接口)</td>
+</tr>
+<tr>
+  <td>具体享元类</td>
+  <td>实现抽象享元类，完成具体逻辑</td>
+</tr>
+<tr>
+  <td>客户端</td>
+  <td>使用享元模式组件，通过享元工厂获取享元对象</td>
+</tr>
+</tbody></table>
+
+
+
+
+<h1 id="二简单实例">二、简单实例</h1>
+
+<p><font color="green">场景：</font>我们设计了一个文本域，如果我们将文本域中的每一个文字都定义为一个对象，那么如果有1万字就需要1万个对象，这会很消耗内存。那么我们就可以考虑使用享元模式来实现。</p>
+
+<p><strong>抽象享元</strong></p>
+
+
+
+<pre class="prettyprint"><code class=" hljs cs"><span class="hljs-keyword">public</span> <span class="hljs-keyword">interface</span> Font {
+    <span class="hljs-keyword">public</span> String <span class="hljs-title">createFont</span>();
+}</code></pre>
+
+<p><strong>具体享元类</strong></p>
+
+
+
+<pre class="prettyprint"><code class=" hljs java"><span class="hljs-keyword">public</span> <span class="hljs-class"><span class="hljs-keyword">class</span> <span class="hljs-title">BFont</span> <span class="hljs-keyword">implements</span> <span class="hljs-title">Font</span> {</span>
+    <span class="hljs-keyword">private</span> String tchar;
+
+    <span class="hljs-keyword">public</span> <span class="hljs-title">BFont</span>(String tchar) {
+        <span class="hljs-keyword">this</span>.tchar = tchar;
+    }
+
+    <span class="hljs-annotation">@Override</span>
+    <span class="hljs-keyword">public</span> String <span class="hljs-title">createFont</span>() {
+        <span class="hljs-keyword">return</span> <span class="hljs-string">"this is a SizeFont"</span>;
+    }
+
+    <span class="hljs-keyword">public</span> String <span class="hljs-title">getTchar</span>() {
+        <span class="hljs-keyword">return</span> tchar;
+    }
+
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">void</span> <span class="hljs-title">setTchar</span>(String tchar) {
+        <span class="hljs-keyword">this</span>.tchar = tchar;
+    }
+
+}</code></pre>
+
+<p><strong>享元工厂</strong></p>
+
+
+
+<pre class="prettyprint"><code class=" hljs cs"><span class="hljs-keyword">public</span> <span class="hljs-keyword">class</span> FontFactory {
+    <span class="hljs-keyword">private</span> <span class="hljs-keyword">static</span> Map&lt;String, Font&gt; fonts = <span class="hljs-keyword">new</span> HashMap&lt;String, Font&gt;();
+
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">static</span> Font <span class="hljs-title">getFont</span>(String tchar) {
+        Font font = fonts.<span class="hljs-keyword">get</span>(tchar);
+        <span class="hljs-keyword">if</span> (font == <span class="hljs-keyword">null</span>) {
+            font = <span class="hljs-keyword">new</span> BFont(tchar);
+            fonts.put(tchar, font);
+        }
+        <span class="hljs-keyword">return</span> font;
+    }
+
+}
+</code></pre>
+
+<p><strong>客户端</strong></p>
+
+
+
+<pre class="prettyprint"><code class=" hljs avrasm">public class TestMain {
+    public static void main(String[] args) {
+        System<span class="hljs-preprocessor">.out</span><span class="hljs-preprocessor">.println</span>(FontFactory<span class="hljs-preprocessor">.getFont</span>(<span class="hljs-string">"A"</span>))<span class="hljs-comment">;</span>
+        System<span class="hljs-preprocessor">.out</span><span class="hljs-preprocessor">.println</span>(FontFactory<span class="hljs-preprocessor">.getFont</span>(<span class="hljs-string">"B"</span>))<span class="hljs-comment">;</span>
+        System<span class="hljs-preprocessor">.out</span><span class="hljs-preprocessor">.println</span>(FontFactory<span class="hljs-preprocessor">.getFont</span>(<span class="hljs-string">"A"</span>))<span class="hljs-comment">;</span>
+    }
+}
+
+输出如下：
+<span class="hljs-keyword">com</span><span class="hljs-preprocessor">.devil</span><span class="hljs-preprocessor">.designmodel</span><span class="hljs-preprocessor">.flyweight</span><span class="hljs-preprocessor">.bfont</span><span class="hljs-preprocessor">.BFont</span><span class="hljs-localvars">@15</span>db9742
+<span class="hljs-keyword">com</span><span class="hljs-preprocessor">.devil</span><span class="hljs-preprocessor">.designmodel</span><span class="hljs-preprocessor">.flyweight</span><span class="hljs-preprocessor">.bfont</span><span class="hljs-preprocessor">.BFont</span><span class="hljs-localvars">@6</span>d06d69c
+<span class="hljs-keyword">com</span><span class="hljs-preprocessor">.devil</span><span class="hljs-preprocessor">.designmodel</span><span class="hljs-preprocessor">.flyweight</span><span class="hljs-preprocessor">.bfont</span><span class="hljs-preprocessor">.BFont</span><span class="hljs-localvars">@15</span>db9742</code></pre>
+
+<p>可以看到，<font color="red">同个字母，所使用的对象是相同的</font></p>
+
+
+
+<h1 id="三扩展实例">三、扩展实例</h1>
+
+<p><font color="green">场景：</font>在上面场景中，我们只对字母进行判断。如果我们的文字还有颜色和字体大小呢？如果我们的具体实现类分为数字和字母呢？通过对工厂内方法的判断增加逻辑，我们就可以实现这些问题。</p>
+
+<p><strong>抽象享元</strong></p>
+
+
+
+<pre class="prettyprint"><code class=" hljs cs"><span class="hljs-keyword">public</span> <span class="hljs-keyword">abstract</span> <span class="hljs-keyword">class</span> Font {
+    String size;
+    String color;
+
+    <span class="hljs-keyword">abstract</span> Font getFont();
+
+    <span class="hljs-keyword">public</span> String <span class="hljs-title">getSize</span>() {
+        <span class="hljs-keyword">return</span> size;
+    }
+
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">void</span> <span class="hljs-title">setSize</span>(String size) {
+        <span class="hljs-keyword">this</span>.size = size;
+    }
+
+    <span class="hljs-keyword">public</span> String <span class="hljs-title">getColor</span>() {
+        <span class="hljs-keyword">return</span> color;
+    }
+
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">void</span> <span class="hljs-title">setColor</span>(String color) {
+        <span class="hljs-keyword">this</span>.color = color;
+    }
+
+}</code></pre>
+
+<p><strong>具体享元类</strong></p>
+
+
+
+<pre class="prettyprint"><code class=" hljs java"><span class="hljs-keyword">public</span> <span class="hljs-class"><span class="hljs-keyword">class</span> <span class="hljs-title">CharFont</span> <span class="hljs-keyword">extends</span> <span class="hljs-title">Font</span> {</span>
+    <span class="hljs-keyword">private</span> String tchar;
+
+    <span class="hljs-keyword">public</span> <span class="hljs-title">CharFont</span>(String tchar, String size, String color) {
+        <span class="hljs-keyword">this</span>.tchar = tchar;
+        <span class="hljs-keyword">this</span>.size = size;
+        <span class="hljs-keyword">this</span>.color = color;
+    }
+
+    <span class="hljs-annotation">@Override</span>
+    String createFont() {
+        <span class="hljs-keyword">return</span> <span class="hljs-string">"this is CharFont"</span>;
+    }
+
+    <span class="hljs-keyword">public</span> String <span class="hljs-title">getTchar</span>() {
+        <span class="hljs-keyword">return</span> tchar;
+    }
+
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">void</span> <span class="hljs-title">setTchar</span>(String tchar) {
+        <span class="hljs-keyword">this</span>.tchar = tchar;
+    }
+
+}</code></pre>
+
+
+
+<pre class="prettyprint"><code class=" hljs java"><span class="hljs-keyword">public</span> <span class="hljs-class"><span class="hljs-keyword">class</span> <span class="hljs-title">NumberFont</span> <span class="hljs-keyword">extends</span> <span class="hljs-title">Font</span> {</span>
+    <span class="hljs-keyword">private</span> Integer num;
+
+    <span class="hljs-keyword">public</span> <span class="hljs-title">NumberFont</span>(Integer num, String size, String color) {
+        <span class="hljs-keyword">this</span>.num = num;
+        <span class="hljs-keyword">this</span>.size = size;
+        <span class="hljs-keyword">this</span>.color = color;
+    }
+
+    <span class="hljs-annotation">@Override</span>
+    String createFont() {
+        <span class="hljs-keyword">return</span> <span class="hljs-string">"this is NumberFont"</span>;
+    }
+
+    <span class="hljs-keyword">public</span> Integer <span class="hljs-title">getNum</span>() {
+        <span class="hljs-keyword">return</span> num;
+    }
+
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">void</span> <span class="hljs-title">setNum</span>(Integer num) {
+        <span class="hljs-keyword">this</span>.num = num;
+    }
+
+}</code></pre>
+
+<p><strong>享元工厂</strong></p>
+
+
+
+<pre class="prettyprint"><code class=" hljs cs"><span class="hljs-keyword">public</span> <span class="hljs-keyword">class</span> FontFactory {
+    <span class="hljs-keyword">private</span> <span class="hljs-keyword">static</span> Map&lt;Integer, Font&gt; numFont = <span class="hljs-keyword">new</span> HashMap&lt;Integer, Font&gt;();
+    <span class="hljs-keyword">private</span> <span class="hljs-keyword">static</span> Map&lt;String, Font&gt; charFont = <span class="hljs-keyword">new</span> HashMap&lt;String, Font&gt;();
+
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">static</span> NumberFont <span class="hljs-title">getNumFont</span>(Integer num, String size, String color) {
+        Font f = numFont.<span class="hljs-keyword">get</span>(num);
+        <span class="hljs-keyword">if</span> (f == <span class="hljs-keyword">null</span> || !f.getSize().equals(size) || !f.getColor().equals(color)) {
+            f = <span class="hljs-keyword">new</span> NumberFont(num, size, color);
+            numFont.put(num, f);
+        }
+        <span class="hljs-keyword">return</span> (NumberFont) f;
+    }
+
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">static</span> CharFont <span class="hljs-title">getCharFont</span>(String tchar, String size, String color) {
+        Font f = charFont.<span class="hljs-keyword">get</span>(tchar);
+        <span class="hljs-keyword">if</span> (f == <span class="hljs-keyword">null</span> || !f.getSize().equals(size) || !f.getColor().equals(color)) {
+            f = <span class="hljs-keyword">new</span> CharFont(tchar, size, color);
+            charFont.put(tchar, f);
+        }
+        <span class="hljs-keyword">return</span> (CharFont) f;
+    }
+}</code></pre>
+
+<p><font color="brown">工厂中将两种类别分开，并对颜色和字体大小也加以验证，保证唯一性和可靠性。</font></p>
+
+<hr />
+
+<p><strong><em>更多模式：</em></strong> <a href="http://blog.csdn.net/odeviloo/article/details/52382338">一天一个设计模式—分类与六大原则</a></p>
+
+<p><strong><em>更多源码：</em></strong> <a href="https://github.com/oDevilo/Java-Base">https://github.com/oDevilo/Java-Base</a></p></div>&#13;
+        <script type="text/javascript">&#13;
+            $(function () {&#13;
+                $('pre.prettyprint code').each(function () {&#13;
+                    var lines = $(this).text().split('\n').length;&#13;
+                    var $numbering = $('&lt;ul/&gt;').addClass('pre-numbering').hide();&#13;
+                    $(this).addClass('has-numbering').parent().append($numbering);&#13;
+                    for (i = 1; i &lt;= lines; i++) {&#13;
+                        $numbering.append($('&lt;li/&gt;').text(i));&#13;
+                    };&#13;
+                    $numbering.fadeIn(1700);&#13;
+                });&#13;
+            });&#13;
+        </script>&#13;
+   &#13;

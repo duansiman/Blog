@@ -1,0 +1,490 @@
+
+
+        Linux USB Gadget软件结构一文中分析Linux USB Gadget软件分为三层。这三层其中两层是与硬件无关的，分别是Gadget功能驱动层，USB设备层。一层是与硬件相关的是UDC层。每一层都提供一种关键的数据结构与函数与其他层交互。<br />&#13;
+        Gadget功能驱动层:  最主要的结构是struct usb_composite_driver，这个结构在这层定义，并且实现结构中的各个函数。<br />&#13;
+        USB设备层:  最主要的数据结构是struct usb_composite_dev与usb_gadget_driver。前一个代表一个USB设备，而后一个是Gadget驱动，与UDC层交互。<br />&#13;
+        UDC层:  最主要的数据结构是struct usb_gadget，通常包含在其他结构体中。这个结构体代表了一个USB设备控制器的所有关于USB通信的信息。<br />&#13;
+        UDC层提供usb_gadget_unregister_driver(struct usb_gadget_driver *driver)函数，这个函数由USB设备层调用，USB设备层将自己定义的struct usb_gadget_driver结构变量传递给他。USB设备层提供usb_composite_register(struct usb_composite_driver *driver)函数，这个函数由Gadget功能驱动层调用，Gadget功能驱动层将自己定义的struct usb_composite_driver&#13;
+ 结构变量传递给他。下面详细分析一下这三层是如何结合在一起的。我们将以zero Gadget功能驱动为例子，s3c2410_udc作为底层UDC。<br />&#13;
+        首先先看一下zero Gadget功能驱动，他是作为一个模块注册到内核中的，首先分析一下他的模块初始化函数：<pre name="code" class="cpp">static int __init init(void)
+{
+	return usb_composite_register(&amp;zero_driver);
+}</pre>        很简单，只是调用了usb_composite_register，传递给他的参数是zero_driver。这个结构体如下定义：<pre name="code" class="cpp">static struct usb_composite_driver zero_driver = {
+	.name		= "zero",
+	.dev		= &amp;device_desc,
+	.strings	= dev_strings,
+	.bind		= zero_bind,
+	.unbind		= zero_unbind,
+	.suspend	= zero_suspend,
+	.resume		= zero_resume,
+};</pre>        以上函数都是在zero.c中实现的，比较重要的函数是zero_bind。目前暂时不列出这个函数，等用到的时候再说。下面看一下usb_composite_register函数，他是由USB设备层提供的，定义在composite.c中：<pre name="code" class="cpp">int __init usb_composite_register(struct usb_composite_driver *driver)
+{
+	if (!driver || !driver-&gt;dev || !driver-&gt;bind || composite)
+		return -EINVAL;
+
+	if (!driver-&gt;name)
+		driver-&gt;name = "composite";
+	composite_driver.function =  (char *) driver-&gt;name;
+	composite_driver.driver.name = driver-&gt;name;
+	composite = driver;
+
+	return usb_gadget_register_driver(&amp;composite_driver);
+}</pre> &#13;
+       这个函数主要的目的是初始化两个结构体变量，一个是composite_driver，这个是USB设备层定义的一个全局struct usb_gadget_driver变量，如下：<pre name="code" class="cpp">static struct usb_gadget_driver composite_driver = {
+	.speed		= USB_SPEED_HIGH,
+
+	.bind		= composite_bind,
+	.unbind		= __exit_p(composite_unbind),
+
+	.setup		= composite_setup,
+	.disconnect	= composite_disconnect,
+
+	.suspend	= composite_suspend,
+	.resume		= composite_resume,
+
+	.driver	= {
+		.owner		= THIS_MODULE,
+	},
+};</pre>        这些函数都要在USB设备层实现。usb_composite_register将composite_driver的function初始化为"zero"。driver是 struct device_driver结构体。linux设备模型中使用。名字初始化为“zero”。另外一个变量是composite，它是一个USB设备层定义的struct&#13;
+ usb_composite_driver的指针，这样composite就指向了zero_driver。因此zero Gadget功能驱动层就和USB设备层联系到了一起。最后usb_composite_register函数调用usb_gadget_register_driver，开始向UDC层联系。这个函数定义在UDC层，系统每个UDC都要实现这样一个函数。我们看一下s3c2410_udc这个函数的实现：<pre name="code" class="cpp">int usb_gadget_register_driver(struct usb_gadget_driver *driver)
+{
+	struct s3c2410_udc *udc = the_controller; //the_controller指向已经初始化好了的s3c2410_udc结构，这个结构代表了s3c2410 usb设备控制器，当然他包括struct gadget结构
+	int		retval;
+
+	dprintk(DEBUG_NORMAL, "usb_gadget_register_driver() '%s'\n",
+		driver-&gt;driver.name);
+
+	/* Sanity checks */
+	if (!udc)
+		return -ENODEV;
+
+	if (udc-&gt;driver)
+		return -EBUSY;
+
+	if (!driver-&gt;bind || !driver-&gt;setup
+			|| driver-&gt;speed &lt; USB_SPEED_FULL) {
+		printk(KERN_ERR "Invalid driver: bind %p setup %p speed %d\n",
+			driver-&gt;bind, driver-&gt;setup, driver-&gt;speed);
+		return -EINVAL;
+	}
+#if defined(MODULE)
+	if (!driver-&gt;unbind) {
+		printk(KERN_ERR "Invalid driver: no unbind method\n");
+		return -EINVAL;
+	}
+#endif
+/*---------------------------------------以上都是指针检查-------------------------------------------------------*/
+	/* Hook the driver */
+	udc-&gt;driver = driver;//传递过来的driver就是USB设备层定义的composite_driver，这样就联系了UDC层与USB设备层
+	udc-&gt;gadget.dev.driver = &amp;driver-&gt;driver; //这里赋值的driver是struct device_driver结构，供linux设备模型使用
+
+	/* Bind the driver */
+	if ((retval = device_add(&amp;udc-&gt;gadget.dev)) != 0) {
+		printk(KERN_ERR "Error in device_add() : %d\n",retval);
+		goto register_error;
+	}
+        //udc-&gt;gadget.dev是struct device 结构，这是向linux设备模型核心注册设备
+
+	dprintk(DEBUG_NORMAL, "binding gadget driver '%s'\n",
+		driver-&gt;driver.name);
+
+	if ((retval = driver-&gt;bind (&amp;udc-&gt;gadget)) != 0) {
+		device_del(&amp;udc-&gt;gadget.dev);
+		goto register_error;
+	}
+
+	/* Enable udc */
+	s3c2410_udc_enable(udc);
+
+	return 0;
+
+register_error:
+	udc-&gt;driver = NULL;
+	udc-&gt;gadget.dev.driver = NULL;
+	return retval;
+}</pre>    这个函数最开始的功能是将UDC层与USB设备层联系在一起，然后调用driver-&gt;bind&#13;
+ (&amp;udc-&gt;gadget)函数。开始了最重要的绑定工作。只有这个函数执行完毕这三层才真正的结合在一起，USB设备正常的工作。driver就是传递过来的在USB设备层定义的composite_driver。所以driver-&gt;bind (&amp;udc-&gt;gadget)函数是在composite.c中定义的，如下：<pre name="code" class="cpp">static int __init composite_bind(struct usb_gadget *gadget)
+{
+	struct usb_composite_dev	*cdev;
+	int				status = -ENOMEM;
+
+	cdev = kzalloc(sizeof *cdev, GFP_KERNEL);  //分配内存，struct usb_composite_dev结构代表了一个USB设备
+	if (!cdev)
+		return status;
+
+	spin_lock_init(&amp;cdev-&gt;lock);
+	cdev-&gt;gadget = gadget;   //这个gadget也就是s3c2410_udc.c中定义的
+	set_gadget_data(gadget, cdev); //这个函数的功能就是是得gadget-&gt;dev-&gt;driver_data指向cdev结构。gadget-&gt;dev是struct device结构已经注册到了Linux设备驱动模型核心
+	INIT_LIST_HEAD(&amp;cdev-&gt;configs);  //cdev-&gt;configs是struct list_head结构指针，这个链表将链接设备的所有配置
+
+	/* preallocate control response and buffer */
+	cdev-&gt;req = usb_ep_alloc_request(gadget-&gt;ep0, GFP_KERNEL);
+        //    以上函数是非常重要的，关系着USB设备枚举。现在先不分析，当分析到USB设备枚举的时候再回头分析这个函数
+	if (!cdev-&gt;req)
+		goto fail;
+	cdev-&gt;req-&gt;buf = kmalloc(USB_BUFSIZ, GFP_KERNEL);
+	if (!cdev-&gt;req-&gt;buf)
+		goto fail;
+	cdev-&gt;req-&gt;complete = composite_setup_complete;
+	gadget-&gt;ep0-&gt;driver_data = cdev;
+
+	cdev-&gt;bufsiz = USB_BUFSIZ;
+	cdev-&gt;driver = composite; //既然struct usb_composite_dev代表一个USB设备，他的驱动当然是Gadget功能驱动，这里是composite，在前面usb_composite_register的时候赋值zero_driver
+
+	usb_gadget_set_selfpowered(gadget); //设置USB设备为自供电设备，因为是设备mini2440开发板已经提供电源，当然是自供电了
+
+	/* interface and string IDs start at zero via kzalloc.
+	 * we force endpoints to start unassigned; few controller
+	 * drivers will zero ep-&gt;driver_data.
+	 */
+	usb_ep_autoconfig_reset(cdev-&gt;gadget);//这个函数主要的功能是遍历gadget端点链表，将端点的driver_data清空
+
+	/* composite gadget needs to assign strings for whole device (like
+	 * serial number), register function drivers, potentially update
+	 * power state and consumption, etc
+	 */
+	status = composite-&gt;bind(cdev); //这个函数调用就涉及到Gadget功能驱动层了，这里也就是zero.c，composite-&gt;bind定义与zero.c中。经过这个调用三层才真正的联系在了一起。
+	if (status &lt; 0)
+		goto fail;
+        //以下代码都是设备描述符相关的，cdev-&gt;desc是truct usb_device_descriptor结构代表了一个USB设备描述符。这里用Gadget功能驱动层传递过来的参数初始化这个结构
+	cdev-&gt;desc = *composite-&gt;dev;
+	cdev-&gt;desc.bMaxPacketSize0 = gadget-&gt;ep0-&gt;maxpacket;
+
+	/* standardized runtime overrides for device ID data */
+	if (idVendor)
+		cdev-&gt;desc.idVendor = cpu_to_le16(idVendor);
+	if (idProduct)
+		cdev-&gt;desc.idProduct = cpu_to_le16(idProduct);
+	if (bcdDevice)
+		cdev-&gt;desc.bcdDevice = cpu_to_le16(bcdDevice);
+
+	/* strings can't be assigned before bind() allocates the
+	 * releavnt identifiers
+	 */
+	if (cdev-&gt;desc.iManufacturer &amp;&amp; iManufacturer)
+		string_override(composite-&gt;strings,
+			cdev-&gt;desc.iManufacturer, iManufacturer);
+	if (cdev-&gt;desc.iProduct &amp;&amp; iProduct)
+		string_override(composite-&gt;strings,
+			cdev-&gt;desc.iProduct, iProduct);
+	if (cdev-&gt;desc.iSerialNumber &amp;&amp; iSerialNumber)
+		string_override(composite-&gt;strings,
+			cdev-&gt;desc.iSerialNumber, iSerialNumber);
+
+	INFO(cdev, "%s ready\n", composite-&gt;name);
+	return 0;
+
+fail:
+	composite_unbind(gadget);
+	return status;
+}</pre>        composite_bind首先定义并初始化了struct usb_composite_dev结构体，通过cdev-&gt;gadget = gadget;这条语句将设备与底层的gadget联系在一起，通过cdev-&gt;driver&#13;
+ = composite，这条语句将设备与Gadget功能驱动联系在一起。并且给设备端点0分配了一个struct usb_request，这个结构在USB枚举将发挥重要的作用。然后调用Gadget功能驱动层的bind函数。最后初始化了USB设备描述符。这个函数最重要的一步就是调用了Gadget功能驱动层的bind函数。这样，三个软件层才真正的联系在了一起。zero Gadget功能驱动层的 bind函数定义在zero.c中，如下：<pre name="code" class="cpp">static int __init zero_bind(struct usb_composite_dev *cdev)
+{
+	int			gcnum;
+	struct usb_gadget	*gadget = cdev-&gt;gadget;
+	int			id;
+
+	/* Allocate string descriptor numbers ... note that string
+	 * contents can be overridden by the composite_dev glue.
+	 */
+	id = usb_string_id(cdev); 
+//这个函数的功能是如果cdev-&gt;next_string_id不大于254，将cdev-&gt;next_string_id加1，返回加1后的cdev-&gt;next_string_id。这里cdev-&gt;next_string_id为0。所以执行完这个函数id = 1;
+	if (id &lt; 0)
+		return id;
+	strings_dev[STRING_MANUFACTURER_IDX].id = id;
+	device_desc.iManufacturer = id;
+//strings_dev是zero定义的字符串描述符数组，以上语句作用是是得生产厂商的字符串描述符的id为1
+	id = usb_string_id(cdev);
+	if (id &lt; 0)
+		return id;
+	strings_dev[STRING_PRODUCT_IDX].id = id;
+	device_desc.iProduct = id;
+//以上语句作用是是得产品的字符串描述符的id为2
+	id = usb_string_id(cdev);
+	if (id &lt; 0)
+		return id;
+	strings_dev[STRING_SERIAL_IDX].id = id;
+	device_desc.iSerialNumber = id;
+//以上语句作用是是得生产串号的字符串描述符的id为3
+	setup_timer(&amp;autoresume_timer, zero_autoresume, (unsigned long) cdev);
+//电源管理相关代码，暂时不用看
+	/* Register primary, then secondary configuration.  Note that
+	 * SH3 only allows one config...
+	 */
+	if (loopdefault) {
+		loopback_add(cdev, autoresume != 0);
+		if (!gadget_is_sh(gadget))
+			sourcesink_add(cdev, autoresume != 0);
+	} else {
+		sourcesink_add(cdev, autoresume != 0);
+		if (!gadget_is_sh(gadget))
+			loopback_add(cdev, autoresume != 0);
+	}
+//以上代码尤其重要，是设置zero设备配置描述符的。这里不得不说一下zero驱动的功能，他有两种配置。一个是将主机发送给他的内容返回给主机，另外一个就是可以单独发送与接受数据。loopdefault是模块参数，默认值为0
+//所以我们先看else后面的代码，这段代码设置的就是单独发送接受功能。gadget_is_sh是判断usb设备控制器是否支持复合设备，s3c2410不支持。所以现在只需要分析sourcesink_add(cdev, autoresume != 0)
+//这个函数就可以了，见下面sourcesink_add(cdev, autoresume != 0)函数分析。
+	gcnum = usb_gadget_controller_number(gadget);
+	if (gcnum &gt;= 0)
+		device_desc.bcdDevice = cpu_to_le16(0x0200 + gcnum);
+	else {
+		/* gadget zero is so simple (for now, no altsettings) that
+		 * it SHOULD NOT have problems with bulk-capable hardware.
+		 * so just warn about unrcognized controllers -- don't panic.
+		 *
+		 * things like configuration and altsetting numbering
+		 * can need hardware-specific attention though.
+		 */
+		pr_warning("%s: controller '%s' not recognized\n",
+			longname, gadget-&gt;name);
+		device_desc.bcdDevice = cpu_to_le16(0x9999);
+	}
+
+
+	INFO(cdev, "%s, version: " DRIVER_VERSION "\n", longname);
+
+	snprintf(manufacturer, sizeof manufacturer, "%s %s with %s",
+		init_utsname()-&gt;sysname, init_utsname()-&gt;release,
+		gadget-&gt;name);
+
+	return 0;
+}</pre>        zero_bind函数首先就是设置了几个字符串描述符的id，然后就设置USB配置。主要调用了sourcesink_add函数，传递给的参数是cdev，就是USB设备层定义的USB设备结构体。这个函数定义在f_sourcesink.c，这个文件以头文件的形式包含在zero.c中。如下所示：<pre name="code" class="cpp">int __init sourcesink_add(struct usb_composite_dev *cdev, bool autoresume)
+{
+	int id;
+
+	/* allocate string ID(s) */
+	id = usb_string_id(cdev);
+	if (id &lt; 0)
+		return id;
+	strings_sourcesink[0].id = id;
+        //以上初始化一下字符串描述符的id
+	source_sink_intf.iInterface = id;
+	sourcesink_driver.iConfiguration = id;
+        //source_sink_intf是struct usb_interface_descriptor类型的变量，代表一个接口
+        //sourcesink_driver是struct usb_configuration类型的变量，代表一个USB配置，注意不是配置描述符。这两个变量在f_sourcesink.c中定义
+	/* support autoresume for remote wakeup testing */
+	if (autoresume)
+		sourcesink_driver.bmAttributes |= USB_CONFIG_ATT_WAKEUP;
+
+	/* support OTG systems */
+	if (gadget_is_otg(cdev-&gt;gadget)) {
+		sourcesink_driver.descriptors = otg_desc;
+		sourcesink_driver.bmAttributes |= USB_CONFIG_ATT_WAKEUP;
+	}
+
+	return usb_add_config(cdev, &amp;sourcesink_driver);
+}
+    在分析这个函数之前首先先看一下f_sourcesink.c中关键的一个数据结构，sourcesink_driver。他代表了一个USB配置，里面说明了配置的功能。如下：
+static struct usb_configuration sourcesink_driver = {
+	.label		= "source/sink",
+	.strings	= sourcesink_strings,
+	.bind		= sourcesink_bind_config,
+	.setup		= sourcesink_setup,
+	.bConfigurationValue = 3,
+	.bmAttributes	= USB_CONFIG_ATT_SELFPOWER,
+	/* .iConfiguration = DYNAMIC */
+};</pre> &#13;
+       看完了这个数据结构，我们分析一下sourcesink_add最后调用的函数usb_add_config(cdev, &amp;sourcesink_driver)，这个函数传递的参数一个是USB设备一个是USB配置。显然功能是给USB设备增加一个配置。函数定义在composite.c中，如下：<pre name="code" class="cpp">int __init usb_add_config(struct usb_composite_dev *cdev,
+		struct usb_configuration *config)
+{
+	int				status = -EINVAL;
+	struct usb_configuration	*c;
+
+	DBG(cdev, "adding config #%u '%s'/%p\n",
+			config-&gt;bConfigurationValue,
+			config-&gt;label, config);
+
+	if (!config-&gt;bConfigurationValue || !config-&gt;bind)
+		goto done;
+
+	/* Prevent duplicate configuration identifiers */
+	list_for_each_entry(c, &amp;cdev-&gt;configs, list) {
+		if (c-&gt;bConfigurationValue == config-&gt;bConfigurationValue) {
+			status = -EBUSY;
+			goto done;
+		}
+	}
+/*---------------------------------------------以上都是检查参数的合法性------------------------------------------*/
+	config-&gt;cdev = cdev;
+	list_add_tail(&amp;config-&gt;list, &amp;cdev-&gt;configs);
+        //一个USB设备可以有多种配置，这句是将配置加入到设备的配置链表中
+
+	INIT_LIST_HEAD(&amp;config-&gt;functions);
+        //初始化配置的functions链表，functions链表要链接struct usb_function类型的数据结构，这个数据结构也很重要，其实他代表一个USB接口
+	config-&gt;next_interface_id = 0;
+
+	status = config-&gt;bind(config);
+        //这里函数调用的是sourcesink_bind_config，这个函数的功能就是初始化一个struct usb_function结构，并且将其加入到配置的functions链表，见下面分析
+	if (status &lt; 0) { //status小于0说明上边函数调用失败所以删除配置
+		list_del(&amp;config-&gt;list);
+		config-&gt;cdev = NULL;
+	} else {  //给配置增加接口成功
+		unsigned	i;
+                //打印调试信息
+		DBG(cdev, "cfg %d/%p speeds:%s%s\n",
+			config-&gt;bConfigurationValue, config,
+			config-&gt;highspeed ? " high" : "",
+			config-&gt;fullspeed
+				? (gadget_is_dualspeed(cdev-&gt;gadget)
+					? " full"
+					: " full/low")
+				: "");
+                //MAX_CONFIG_INTERFACES 最大接口数，定义在composite.h中，为16。每个配置可以有16个接口，一下代码遍历这个配置的所有接口，打印调试信息
+		for (i = 0; i &lt; MAX_CONFIG_INTERFACES; i++) {
+			struct usb_function	*f = config-&gt;interface[i];
+
+			if (!f)
+				continue;
+			DBG(cdev, "  interface %d = %s/%p\n",
+				i, f-&gt;name, f);
+		}
+	}
+
+	/* set_alt(), or next config-&gt;bind(), sets up
+	 * ep-&gt;driver_data as needed.
+	 */
+	usb_ep_autoconfig_reset(cdev-&gt;gadget);
+        //这个函数的主要作用就是将cdev-&gt;gadget的所有端点的driver_data清空
+done:
+	if (status)
+		DBG(cdev, "added config '%s'/%u --&gt; %d\n", config-&gt;label,
+				config-&gt;bConfigurationValue, status);
+	return status;
+}</pre>        这个函数初始化了配置，将配置与设备联系在一起，并且打印一些调试信息。这样设备有了配置，但是我们知道一个USB设备的配置下是接口的集合。所以函数调用config-&gt;bind(config)给配置添加接口。这个函数如下：<pre name="code" class="cpp">static int __init sourcesink_bind_config(struct usb_configuration *c)
+{
+	struct f_sourcesink	*ss;
+	int			status;
+
+	ss = kzalloc(sizeof *ss, GFP_KERNEL);
+	if (!ss)
+		return -ENOMEM;
+
+	ss-&gt;function.name = "source/sink";
+	ss-&gt;function.descriptors = fs_source_sink_descs;
+	ss-&gt;function.bind = sourcesink_bind;
+	ss-&gt;function.unbind = sourcesink_unbind;
+	ss-&gt;function.set_alt = sourcesink_set_alt;
+	ss-&gt;function.disable = sourcesink_disable;
+
+	status = usb_add_function(c, &amp;ss-&gt;function);
+	if (status)
+		kfree(ss);
+	return status;
+}</pre> &#13;
+       可以看出这个函数分配并初始化了一个struct f_sourcesink结构体，这个结构体包含代表接口的struct usb_function。并且初始化了struct usb_function的一下回调函数。最后调用usb_add_function(c, &amp;ss-&gt;function);将接口添加到配置中。usb_add_function函数如下所示：<pre name="code" class="cpp">int __init usb_add_function(struct usb_configuration *config,
+		struct usb_function *function)
+{
+	int	value = -EINVAL;
+        //打印调试信息
+	DBG(config-&gt;cdev, "adding '%s'/%p to config '%s'/%p\n",
+			function-&gt;name, function,
+			config-&gt;label, config);
+       //检查参数合法性
+	if (!function-&gt;set_alt || !function-&gt;disable)
+		goto done;
+        //添加接口到配置
+	function-&gt;config = config;
+	list_add_tail(&amp;function-&gt;list, &amp;config-&gt;functions);
+        
+	/* REVISIT *require* function-&gt;bind? */
+	if (function-&gt;bind) { //如果function定义了bind函数则调用他，这里function定义了bind函数，sourcesink_bind。这个函数进行一些初始化的工作
+		value = function-&gt;bind(config, function);
+		if (value &lt; 0) {
+			list_del(&amp;function-&gt;list);
+			function-&gt;config = NULL;
+		}
+	} else
+		value = 0;
+
+	/* We allow configurations that don't work at both speeds.
+	 * If we run into a lowspeed Linux system, treat it the same
+	 * as full speed ... it's the function drivers that will need
+	 * to avoid bulk and ISO transfers.
+	 */
+	if (!config-&gt;fullspeed &amp;&amp; function-&gt;descriptors)
+		config-&gt;fullspeed = true;
+	if (!config-&gt;highspeed &amp;&amp; function-&gt;hs_descriptors)
+		config-&gt;highspeed = true;
+
+done:
+	if (value)
+		DBG(config-&gt;cdev, "adding '%s'/%p --&gt; %d\n",
+				function-&gt;name, function, value);
+	return value;
+}</pre>        我们可以看到这个函数最主要的就是联系接口与配置。并且调用接口的bind函数，zero sourcesink配置的接口的bind为sourcesink_bind。如下定义：<pre name="code" class="cpp">static int __init
+sourcesink_bind(struct usb_configuration *c, struct usb_function *f)
+{
+	struct usb_composite_dev *cdev = c-&gt;cdev;
+	struct f_sourcesink	*ss = func_to_ss(f);
+	int	id;
+
+	/* allocate interface ID(s) */
+	id = usb_interface_id(c, f);
+	if (id &lt; 0)
+		return id;
+	source_sink_intf.bInterfaceNumber = id;
+        //usb_interface_id(c, f)实现的功能是判断config-&gt;next_interface_id是否大于16如果不是，那么执行config-&gt;interface[id] = f，在将config-&gt;next_interface_id加1返回
+	/* allocate endpoints */
+        //下面是分配端点，我们知道根据USB协议。USB设备下来是USB配置，然后是USB接口，接口是USB端点的组合，根据zero sourcesink实现的功能，接口需要连个批量端点,一个In端点一个out端点
+	ss-&gt;in_ep = usb_ep_autoconfig(cdev-&gt;gadget, &amp;fs_source_desc);
+	if (!ss-&gt;in_ep) {
+autoconf_fail:
+		ERROR(cdev, "%s: can't autoconfigure on %s\n",
+			f-&gt;name, cdev-&gt;gadget-&gt;name);
+		return -ENODEV;
+	}
+	ss-&gt;in_ep-&gt;driver_data = cdev;	/* claim */
+
+	ss-&gt;out_ep = usb_ep_autoconfig(cdev-&gt;gadget, &amp;fs_sink_desc);
+	if (!ss-&gt;out_ep)
+		goto autoconf_fail;
+	ss-&gt;out_ep-&gt;driver_data = cdev;	/* claim */
+
+	/* support high speed hardware */
+	if (gadget_is_dualspeed(c-&gt;cdev-&gt;gadget)) {
+		hs_source_desc.bEndpointAddress =
+				fs_source_desc.bEndpointAddress;
+		hs_sink_desc.bEndpointAddress =
+				fs_sink_desc.bEndpointAddress;
+		f-&gt;hs_descriptors = hs_source_sink_descs;
+	}
+
+	DBG(cdev, "%s speed %s: IN/%s, OUT/%s\n",
+			gadget_is_dualspeed(c-&gt;cdev-&gt;gadget) ? "dual" : "full",
+			f-&gt;name, ss-&gt;in_ep-&gt;name, ss-&gt;out_ep-&gt;name);
+	return 0;
+}</pre> &#13;
+       这个函数除了初始化接口的接口id。另外就是给接口分配端点了。这也是各层整合的最后一步了。zero sourcesink有一个配置，一个接口。这个接口有两个端点，一个in端点一个Out端点。usb_ep_autoconfig 函数就担当了分配端点的任务，他定义在epautoconf.c中，这个文件以头文件的形式包含在了zero.c中。这个函数有两个参数一个是struct usb_gadget类型的指针，一个是struct usb_endpoint_descriptor类型的指针，也就是端点描述符，这个函数根据端点描述符的信息，自动在struct&#13;
+ usb_gadget里找到合适的端点。<br />&#13;
+        经过上面的重重函数调用，现在设备终于饱满了，既有配置了，也有接口了，接口里也有相应的端点了。各层的关系也都联系起来了。但是还是有一点就是感觉有点晕。确实这么多的函数调用,不晕都没办法呀。没关系,我们来重新梳理一下各个函数之间的调用关系以及各环节整合的过程。这个整合的过程大体分为两个过程：<br />&#13;
+（1） 过程方向 Gadget功能驱动层－－&gt;USB设备层－－&gt;UDC层。<br />&#13;
+         以四个数据结构为基础：struct usb_composite_driver struct usb_composite_dev struct usb_gadget_driver struct usb_gadget <br />&#13;
+         两个register函数为导向: usb_composite_register(&amp;zero_driver) usb_gadget_register_driver(&amp;composite_driver)<br />&#13;
+（2） 过程方向 UDC层－－&gt;USB设备层－－&gt;Gadget功能驱动层<br />&#13;
+         四个bind函数为串联点，带出一连串数据结构与初始化。这四个bind函数分配是：<br />&#13;
+         USB设备层的composite_bind 由UDC层的usb_gadget_register_driver函数调用。功能是分配struct usb_composite_dev cdev 并初始化。struct usb_composite_dev结构串联了UDC层的usb_gadget与Gadget功能驱动层的usb_composite_driver。并且调用下一个上层的bind<br />&#13;
+         Gadget功能驱动层的zero_bind 这个函数主要的任务就是用Gadget功能驱动层的USB设备信息去进一步初始化struct usb_composite_dev结构。并且引出下面两个bind函数。<br />&#13;
+         另外两个bind函数都是与USB设备信息相关，一个是添加配置时调用的，一个是添加接口的时候调用的。这两个函数由sourcesink_add引出。 usb_add_config将配置添加到设备中引出config-&gt;bind:sourcesink_bind_config.这个bind分配并初始化接口，调用usb_add_function将接口添加到配置到，usb_add_function引出function-&gt;bind:sourcesink_bind 根据功能，在gadget里查找合适的端点。并进一步初始化struct&#13;
+ usb_composite_dev。我们发现这些bind就是一个目的，初始化struct usb_composite_dev结构，使其逐渐丰满。因为这个结构代表一个USB设备。经过合适的初始化后设备才能正确的工作。经过重重初始化，三层总算整合在了一起了。这三层最终形成了一个饱满的struct usb_composite_dev结构。这个结构包含USB设备运行各种信息。包括：配置，接口，端点等。我们再来看一下这个结构：<pre name="code" class="cpp">struct usb_composite_dev {
+	struct usb_gadget		*gadget; //联系底层的UDC中的usb_gadget
+	struct usb_request		*req;    //端点0的传输结构，在设备枚举的时候使用
+	unsigned			bufsiz;
+
+	struct usb_configuration	*config; //USB配置
+
+	/* private: */
+	/* internals */
+	struct usb_device_descriptor	desc;   //设备描述符
+	struct list_head		configs; //USB配置链表
+	struct usb_composite_driver	*driver;  //联系上层的Gadget功能驱动层
+	u8				next_string_id;
+
+	/* the gadget driver won't enable the data pullup
+	 * while the deactivation count is nonzero.
+	 */
+	unsigned			deactivations;
+
+	/* protects at least deactivation count */
+	spinlock_t			lock;
+};</pre>        经过初始化设备已经准备好了，将mini2440插入USB主机，就开始了设备枚举.这就涉及到了主机与设备的通信。以后再分析USB设备枚举与数据传输过程。Linux&#13;
+ USB Gadget虽然有三层软件结构。但是只有UDC层与Gadget功能驱动层作为模块注册到内核。只有USB设备层有关的文件composite.c是以头文件的形式包含在各种Gadget功能驱动里的。以前的内核代码没有USB设备层的。所有的Gadget功能驱动都必须自己处理USB设备相关的细节，代码重复率较高，所以才出现这个USB设备层以以增加代码的重用性。composite字面上是复用的意思，不知道是不是为了原因而命名的。<br />&#13;
+   &#13;

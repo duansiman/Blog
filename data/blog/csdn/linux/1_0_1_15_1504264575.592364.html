@@ -1,0 +1,83 @@
+
+
+<strong><u>设备号的动态分配</u></strong><br />&#13;
+int alloc_chrdev_region(dev_t *dev, unsigned baseminor, unsigned count, const char *name);<br />&#13;
+<span style="white-space:pre"></span>dev:保存分配到的设备号<br />&#13;
+<span style="white-space:pre"></span>baseminor:希望分配的起始次设备号<br />&#13;
+<span style="white-space:pre"></span>count:需要分配的设备号数目<br />&#13;
+<span style="white-space:pre"></span>name:设备名称（出现在/proc/devices）<br />&#13;
+        返回：成功返回0， 失败返回负值<br />&#13;
+<p>请求内核动态分配count个设备号，且次设备号从baseminor开始</p>&#13;
+<p></p><pre code_snippet_id="130837" snippet_file_name="blog_20131227_1_5804563" name="code" class="objc">/**
+*Copyright (c) 2013.TianYuan
+*All rights reserved.
+*
+*文件名称: char_device_driver02.c
+*文件标识: 字符设备驱动 ：动态分配设备号
+*
+*当前版本：1.0
+*作者：wuyq 
+*
+*取代版本：xxx
+*原作者：xxx
+*完成日期：2013-11-26
+*/
+#include &lt;linux/init.h&gt;
+#include &lt;linux/module.h&gt;
+#include &lt;linux/fs.h&gt;
+
+MODULE_LICENSE("GPL");
+#define CDD_MAJOR	200//cat /proc/devices找一个尚未使用的
+#define CDD_MINOR	0
+#define CDD_COUNT	1
+dev_t dev = 0;
+u32 cdd_major = 0;
+u32 cdd_minor = 0;
+
+int __init cdd_init(void)
+{
+	int ret = 0;
+	if(cdd_major){
+		dev = MKDEV(CDD_MAJOR, CDD_MINOR);//生成设备号
+		//注册设备号;1、要注册的起始设备号2、连续注册的设备号个数3、名字
+		ret = register_chrdev_region(dev, CDD_COUNT, "cdd_demo");
+	}else{
+		// 动态分配设备号
+		ret = alloc_chrdev_region(&amp;dev, cdd_minor, CDD_COUNT, "cdd_demo02");
+	}
+	
+	if(ret &lt; 0){
+		printk("register_chrdev_region failed!\n");
+		goto failure_register_chrdev;
+	}
+	//获取主设备号
+	cdd_major = MAJOR(dev);
+	printk("cdd_major = %d\n", cdd_major);
+
+	return 0;
+failure_register_chrdev:
+	return ret;
+}
+
+void __exit cdd_exit(void)
+{
+	//注销设备号
+	unregister_chrdev_region(dev, CDD_COUNT);
+}	
+
+module_init(cdd_init);
+module_exit(cdd_exit);
+</pre><br />&#13;
+<pre code_snippet_id="130837" snippet_file_name="blog_20131227_2_2707664" name="code" class="plain">KERNELDIR ?=/root/Desktop/work/ldd3/linux-2.6.31_TX2440A
+PWD := $(shell pwd)
+obj-m += char_device_driver02.o
+
+default:
+	$(MAKE) -C $(KERNELDIR) M=$(PWD) modules
+
+clean:
+	@rm -f *.o *.ord* *.sy* *.mod.* *.ko
+</pre><br />&#13;
+<br />&#13;
+&#13;
+   &#13;

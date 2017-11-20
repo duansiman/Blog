@@ -1,0 +1,607 @@
+
+
+<h1 style="text-align:center">java设计模式之单例模式（Singleton pattern）</h1>&#13;
+<div><span style="font-size:18px"><br />&#13;
+</span></div>&#13;
+<h2><span style="font-size:18px">单例模式的定义：</span></h2>&#13;
+<div><span style="font-size:18px"><span style="white-space:pre"></span>Singleton pattern restricts the instantiation of a class and ensures that only one instance of the class exists in the java virtual machine. The singleton class must provide a global access&#13;
+ point to get the instance of the class.</span><br />&#13;
+</div>&#13;
+<div><span style="font-size:18px">       限制一个类的实例在一个jvm实例中确保只有一个，而且必须提供一个全局访问点获得该单例。</span></div>&#13;
+<h2><span style="font-size:18px">为什么会出现单例模式：</span></h2>&#13;
+<div>&#13;
+<ul>&#13;
+<li><span style="font-size:18px">    减少内存开支。由于单例在内存中相对于一个jvm实例内只有一个实例对象，不会重复的创建和jvm垃圾回收，对于内存减少了空间占用，也利于jvm垃圾回收处理。</span></li><li><span style="font-size:18px">  减少系统性能开销。当一个对象的产生依赖较多的资源时，比如读取配置或者依赖其他对象的时候，单例在jvm启动的时候预加载资源，然后可以永久驻留内存，当然也减少了jvm的垃圾回收线程的负担。</span></li><li><span style="font-size:18px">当然还有很有的优势，现流行的spring框架就是默认支持单例模式（相对应spring容器）。</span></li></ul>&#13;
+<h2><span style="font-size:18px">单例的实现方式：</span></h2>&#13;
+</div>&#13;
+<div><span style="font-size:18px">     实现单例模式的方式有很多不同手段，但以下几点我们会同时考虑：</span></div>&#13;
+<div>&#13;
+<ul>&#13;
+<li><span style="font-size:18px">构造函数必须私有，不能让别人有权限随意实例化</span></li><li><span style="font-size:18px">该单例一般在类中有一个私有静态变量</span></li><li><span style="font-size:18px">该单例一般提供一个静态公共方法获得该单例（对于外界的该单例的全局访问点）</span></li></ul>&#13;
+<div><span style="font-size:18px"><br />&#13;
+</span></div>&#13;
+</div>&#13;
+<div><span style="font-size:18px"> </span>&#13;
+<h3 style="line-height:1.2; margin:0px 0px 16px; font-family:Raleway,sans-serif">&#13;
+<span style="font-size:18px">饿汉式（Eager initialization）</span></h3>&#13;
+<div><span style="font-size:18px">   饿汉式单例实现方式是在类加载的时候初始化该单例。这种方式实现单例最简单，但也有个缺点就是即使我们应用中没有使用该类的单例，但类加载的时候也必须初始化。</span></div>&#13;
+<div><span style="font-size:18px"><br />&#13;
+</span></div>&#13;
+<div><span style="font-size:18px"></span><pre code_snippet_id="1798700" snippet_file_name="blog_20160801_1_9926470" name="code" class="java">package com.doctor.design_pattern.singleton;
+
+/**
+ * @author sdcuike
+ *
+ *         Created on 2016年7月31日 下午11:36:05
+ * 
+ *         饿汉式 单例
+ *         EagerInitialized Singleton
+ */
+public class EagerInitializedSingleton {
+    private static final EagerInitializedSingleton instance = new EagerInitializedSingleton();
+
+    private EagerInitializedSingleton() {
+    }
+
+    public static EagerInitializedSingleton getInstance() {
+        return instance;
+    }
+
+    public void doSomething() {
+        System.out.println("test");
+    }
+
+    public static void main(String[] args) {
+        System.out.println(EagerInitializedSingleton.getInstance());
+        System.out.println(EagerInitializedSingleton.getInstance());
+        EagerInitializedSingleton.getInstance().doSomething();
+        // com.doctor.design_pattern.singleton.EagerInitializedSingleton@2a139a55
+        // com.doctor.design_pattern.singleton.EagerInitializedSingleton@2a139a55
+        // test
+
+        System.out.println(EagerInitializedSingleton.getInstance() == EagerInitializedSingleton.getInstance());
+        // true
+    }
+
+}
+</pre><br />&#13;
+   当单例没有涉及到过多的资源使用的时候，饿汉式单例比较适合。但很多场景下，单例的使用一般是为了使用一些资源比如文件系统、数据库连接等等，这中场景下，一般我们尽量使得该单例必须使用的时候，才会初始化，以避免资源的浪费使用。而且饿汉式单例也没提供异常的处理机制。</div>&#13;
+<div><span style="font-size:18px"><br />&#13;
+</span></div>&#13;
+<div><span style="font-size:18px"></span>&#13;
+<h3 style="line-height:1.2; margin:0px 0px 16px; font-family:Raleway,sans-serif">&#13;
+<span style="font-size:18px">Static block initialization</span></h3>&#13;
+   静态块初始化单例和饿汉式单例相似，差别在于实例的初始化在静态块中，这中方式提供了异常处理。</div>&#13;
+<div><span style="font-size:18px"><br />&#13;
+</span></div>&#13;
+<div><span style="font-size:18px"></span><pre code_snippet_id="1798700" snippet_file_name="blog_20160801_2_8563267" name="code" class="java">package com.doctor.design_pattern.singleton;
+
+/**
+ * @author sdcuike
+ *
+ *         Created on 2016年8月1日 上午12:30:08
+ */
+public class StaticBlockSingleton {
+
+    private static StaticBlockSingleton instance;
+
+    public static StaticBlockSingleton getInstance() {
+        return instance;
+    }
+
+    static {
+        try {
+            instance = new StaticBlockSingleton();
+        } catch (Exception e) {
+            throw new RuntimeException("Exception occured in creating singleton instance");
+        }
+    }
+
+    public static void main(String[] args) {
+        System.out.println(StaticBlockSingleton.getInstance());
+        System.out.println(StaticBlockSingleton.getInstance());
+
+        System.out.println(StaticBlockSingleton.getInstance() == StaticBlockSingleton.getInstance());
+
+        // com.doctor.design_pattern.singleton.StaticBlockSingleton@2a139a55
+        // com.doctor.design_pattern.singleton.StaticBlockSingleton@2a139a55
+        // true
+
+    }
+
+}
+</pre><br />&#13;
+<br />&#13;
+</div>&#13;
+<div><span style="font-size:18px"></span>&#13;
+<h3 style="line-height:1.2; margin:0px 0px 16px; font-family:Raleway,sans-serif">&#13;
+<span style="font-size:18px">Lazy Initialization</span></h3>&#13;
+<span style="white-space:pre"></span>懒初始化方法承担了单例的创建，并且是获取该单例的入口点。<strong>当我们不需要某个资源的时候，尽量延迟加载或初始化资源，这个时候懒初始化对我们非常有益。懒初始化比饿汉式的好处是，饿汉式初始化失败了，就没机会再初始化 了，而懒初始化还可以给我们至少第二次机会。</strong></div>&#13;
+<div><span style="font-size:18px"><br />&#13;
+</span></div>&#13;
+<div><span style="font-size:18px"></span><pre code_snippet_id="1798700" snippet_file_name="blog_20160801_3_8944951" name="code" class="java">package com.doctor.design_pattern.singleton;
+
+/**
+ * @author sdcuike
+ *
+ *         Created on 2016年8月1日 上午12:39:40
+ */
+public class LazyInitializedSingleton {
+
+    private static LazyInitializedSingleton instance;
+
+    public static LazyInitializedSingleton getInstance() {
+        if (instance == null) {
+            instance = new LazyInitializedSingleton();
+        }
+
+        return instance;
+    }
+
+    private LazyInitializedSingleton() {
+    }
+
+    public static void main(String[] args) {
+        System.out.println(LazyInitializedSingleton.getInstance() == LazyInitializedSingleton.getInstance());// true
+    }
+
+}
+</pre><br />&#13;
+<br />&#13;
+</div>&#13;
+<div><span style="font-size:18px"> 上面懒初始化单例的实现在单线程环境下可以很好的工作，但可能面临多线程安全问题。</span></div>&#13;
+<div><span style="font-size:18px"><br />&#13;
+</span></div>&#13;
+<div>&#13;
+<h3 style="line-height:1.2; margin:0px 0px 16px; font-family:Raleway,sans-serif">&#13;
+<span style="font-size:18px">Thread Safe Singleton</span></h3>&#13;
+<div><span style="font-size:18px"> <span style="white-space:pre"> </span>饿汉式单例存在多线程安全问题，我们可以看一下多线程问题，为了模拟，在饿汉式得到实例的时候加入随机休眠时间：</span></div>&#13;
+<div><span style="font-size:18px"><br />&#13;
+</span></div>&#13;
+<div><span style="font-size:18px"></span><pre code_snippet_id="1798700" snippet_file_name="blog_20160910_4_9895212" name="code" class="java">/**
+ * @author sdcuike
+ *
+ *         Lazy initialization method to implement Singleton pattern creates the
+ *         instance in the global access method. Here is the sample code for
+ *         creating Singleton class with this approach. Created on 2016年8月1日
+ *         上午12:39:40
+ * 
+ * @see http://www.journaldev.com/1377/java-singleton-design-pattern-best-practices-examples
+ *      懒初始化，多线程会导致破坏单例原则
+ */
+public class LazyInitializedSingleton {
+
+    private static LazyInitializedSingleton instance;
+
+    /**
+     * 为了模拟多线程情况下的问题，加入了休眠时间
+     * 
+     * @return
+     */
+    public static LazyInitializedSingleton getInstance() {
+        try {
+            Thread.sleep((long) (Math.random() * 100));
+        } catch (InterruptedException e) {
+            e.printStackTrace();
+        }
+        if (instance == null) {
+            try {
+                Thread.sleep((long) (Math.random() * 100));
+            } catch (InterruptedException e) {
+                e.printStackTrace();
+            }
+            instance = new LazyInitializedSingleton();
+            try {
+                Thread.sleep((long) (Math.random() * 100));
+            } catch (InterruptedException e) {
+                e.printStackTrace();
+            }
+        }
+
+        return instance;
+    }
+
+    private LazyInitializedSingleton() {
+    }
+
+    public static void main(String[] args) {
+        // System.out.println(LazyInitializedSingleton.getInstance() ==
+        // LazyInitializedSingleton.getInstance());// true
+        ExecutorService executorService = Executors.newFixedThreadPool(10);
+
+        for (int i = 0; i &lt; 10; i++) {
+            executorService.submit(() -&gt; {
+                System.out.println(LazyInitializedSingleton.getInstance());
+            });
+        }
+
+        executorService.shutdown();
+        // com.doctor.design_pattern.singleton.LazyInitializedSingleton@6a1bb74
+        // com.doctor.design_pattern.singleton.LazyInitializedSingleton@6a1bb74
+        // com.doctor.design_pattern.singleton.LazyInitializedSingleton@6a1bb74
+        // com.doctor.design_pattern.singleton.LazyInitializedSingleton@2be16806
+        // com.doctor.design_pattern.singleton.LazyInitializedSingleton@2be16806
+        // com.doctor.design_pattern.singleton.LazyInitializedSingleton@5f93f536
+        // com.doctor.design_pattern.singleton.LazyInitializedSingleton@5f93f536
+        // com.doctor.design_pattern.singleton.LazyInitializedSingleton@5f93f536
+        // com.doctor.design_pattern.singleton.LazyInitializedSingleton@5f93f536
+        // com.doctor.design_pattern.singleton.LazyInitializedSingleton@46d3a9
+        // 得到的实例并不是同一个。
+    }
+
+}
+</pre><br />&#13;
+ 执行结果也附在上面了，可以得知，多线程环境下，懒初始化单例实现存在风险，会得到不止一实例，主要问题是方法中修改的是类变量，多线程环境下存在并发访问问题。</div>&#13;
+<div><span style="font-size:18px"><br />&#13;
+</span></div>&#13;
+<div><span style="font-size:18px">  线程安全单例，简单的线程安全我们可以用</span>&#13;
+<pre class="prettyprint prettyprinted" style="font-family:monospace,serif; font-size:16px; white-space:pre-wrap; padding:10px; border:1px solid rgb(136,136,136); margin:5px 5px 15px; max-height:900px; overflow:auto; color:rgb(102,102,102); line-height:26px; background-color:rgb(248,248,248)"><span class="kwd" style="color:rgb(0,0,136)">synchronized</span></pre>&#13;
+</div>&#13;
+<span style="font-size:18px">实现。</span></div>&#13;
+<div><br />&#13;
+</div>&#13;
+<div><span style="font-size:18px"></span><pre code_snippet_id="1798700" snippet_file_name="blog_20160801_4_6087249" name="code" class="java">package com.doctor.design_pattern.singleton;
+
+/**
+ * @author sdcuike
+ *
+ *         Created on 2016年8月1日 上午11:19:36
+ * 
+ *         Thread Safe Singleton
+ * 
+ */
+public class ThreadSafeSingleton {
+
+    private static ThreadSafeSingleton instance;
+
+    public static synchronized ThreadSafeSingleton getInstance() {
+        if (instance == null) {
+            instance = new ThreadSafeSingleton();
+        }
+        return instance;
+    }
+
+    private ThreadSafeSingleton() {
+
+    }
+
+    public static void main(String[] args) {
+        System.out.println(ThreadSafeSingleton.getInstance() == ThreadSafeSingleton.getInstance());
+        // true
+    }
+
+}
+</pre>&#13;
+<div><br />&#13;
+</div>&#13;
+<div><br />&#13;
+</div>&#13;
+<br />&#13;
+<span style="font-size:18px">上面的线程安全锁的粒度是比较大了，锁的粒度越大，并发性就不好，导致性能下降，我们可以用<span style="font-weight:700; color:rgb(102,102,102); font-family:Raleway,sans-serif; line-height:26px">double checked locking</span><span style="color:rgb(102,102,102); line-height:26px"><span style="font-family:SimSun">规则减少锁的粒度。</span></span></span></div>&#13;
+<div><span style="font-size:18px">   </span></div>&#13;
+</div>&#13;
+<div><span style="font-size:18px"><br />&#13;
+</span></div>&#13;
+<div><pre code_snippet_id="1798700" snippet_file_name="blog_20160801_5_3437291" name="code" class="java" style="font-size: 18px;">package com.doctor.design_pattern.singleton;
+
+/**
+ * @author sdcuike
+ *
+ *         Created on 2016年8月1日 上午11:37:25
+ * 
+ *         double checked locking principle
+ */
+public class DoubleCheckedLockingThreadSafeSingleton {
+
+    private static DoubleCheckedLockingThreadSafeSingleton instance;
+
+    public static DoubleCheckedLockingThreadSafeSingleton getInstance() {
+        if (instance == null) {
+            synchronized (DoubleCheckedLockingThreadSafeSingleton.class) {
+                if (instance == null) {
+                    instance = new DoubleCheckedLockingThreadSafeSingleton();
+                }
+            }
+        }
+
+        return instance;
+    }
+
+    private DoubleCheckedLockingThreadSafeSingleton() {
+
+    }
+
+    public static void main(String[] args) {
+
+    }
+
+}
+</pre>&#13;
+<div style="font-size:18px"><span style="font-size:18px"><br />&#13;
+</span></div>&#13;
+<div style="font-size:18px"><span style="font-size:18px"> <span style="white-space:pre"></span>double check的目的是为了进步一获得线程安全，第一步check为null的时候可能先后进来两个线程访问，此时单例还没初始化，这个时候开始上锁，如果前一个线程上锁后初始化了这个单例而释放锁，那后边的线程也可以锁定对象，然后初始化，这样就违背了单例原则，所以我们在锁住对象后又进一步check对象是否初始化了。</span></div>&#13;
+<div style="font-size:18px"><span style="font-size:18px"><br />&#13;
+</span></div>&#13;
+<div style="font-size:18px"><span style="font-size:18px"><span style="white-space:pre"></span>不过，由于java内存的可见性问题（java内存模型），一个线程初始化了对象，double check的时候，并不一定能时时判断实例是否被另一个线程初始化了，所以上面的代码还是有线程安全问题的，所以我们必须在实例变量声明的时候加上关键字volatile，使得多线程对变量的修改能时时的让其他线程看到这个结果。</span></div>&#13;
+<div style="font-size:18px"><span style="font-size:18px"> <span style="white-space:pre"></span><strong>所以，最终的double check单实例代码应该是这样的：</strong></span></div>&#13;
+<div style="font-size:18px"><span style="font-size:18px"></span><pre code_snippet_id="1798700" snippet_file_name="blog_20160910_7_5849031" name="code" class="java">/**
+ * @author sdcuike
+ *
+ *         Created on 2016年8月1日 上午11:37:25
+ * 
+ *         double checked locking principle and volatile variable
+ */
+public class DoubleCheckedLockingThreadSafeSingleton {
+
+    private static volatile DoubleCheckedLockingThreadSafeSingleton instance;
+
+    /**
+     * double check的目的是为了进步一获得线程安全，第一步check为null的时候可能先后进来两个线程访问，此时单例还没初始化，
+     * 这个时候开始上锁，如果前一个线程上锁后初始化了这个单例而释放锁，那后边的线程也可以锁定对象，然后初始化，
+     * 这样就违背了单例原则，所以我们在锁住对象后又进一步check对象是否初始化了。
+     * 不过，由于java内存的可见性问题（java内存模型），一个线程初始化了对象，double
+     * check的时候，并不一定能时时判断实例是否被另一个线程初始化了，所以上面的代码还是有线程安全问题的，
+     * 所以我们必须在实例变量声明的时候加上关键字volatile，使得多线程对变量的修改能时时的让其他线程看到这个结果。
+     * 
+     * @return
+     */
+    public static DoubleCheckedLockingThreadSafeSingleton getInstance() {
+        if (instance == null) {
+            synchronized (DoubleCheckedLockingThreadSafeSingleton.class) {
+                if (instance == null) {
+                    instance = new DoubleCheckedLockingThreadSafeSingleton();
+                }
+            }
+        }
+
+        return instance;
+    }
+
+    private DoubleCheckedLockingThreadSafeSingleton() {
+
+    }
+
+    public static void main(String[] args) {
+
+    }
+
+}
+</pre><br />&#13;
+<br />&#13;
+</div>&#13;
+<div style="font-size:18px"><span style="font-size:18px"><br />&#13;
+</span></div>&#13;
+<h3><span style="font-size:18px">I<a target="_blank" href="http://www.journaldev.com/996/java-nested-classes-java-inner-class-static-nested-class-local-inner-class-and-anonymous-inner-class" title="Java Nested Classes – java inner class, static nested class, local inner class and anonymous inner class" style="color:rgb(0,0,0); text-decoration:none; outline:0px; font-family:Raleway,sans-serif; line-height:26px">nner&#13;
+ static helper class</a><span style="font-family:Raleway,sans-serif; color:#666666"><span style="line-height:26px"> Singleton</span></span></span></h3>&#13;
+<div><span style="font-family:Raleway,sans-serif; font-size:18px; color:#666666"><span style="line-height:26px"> 采用内部类来实现资源的懒加载：</span></span></div>&#13;
+<div><span style="font-family:Raleway,sans-serif; font-size:18px; color:#666666"><span style="line-height:26px"></span></span><pre code_snippet_id="1798700" snippet_file_name="blog_20160801_6_4375382" name="code" class="java">package com.doctor.design_pattern.singleton;
+
+/**
+ * @author sdcuike
+ *
+ *         Inner static helper class Singleton
+ * 
+ * 
+ *         Created on 2016年8月1日 上午11:54:05
+ */
+public class InnerStaticHelperClassSingleton {
+    private InnerStaticHelperClassSingleton() {
+
+    }
+
+    public static InnerStaticHelperClassSingleton getInstance() {
+        return SingletonHelper.instance;
+    }
+
+    private static class SingletonHelper {
+
+        private static final InnerStaticHelperClassSingleton instance = new InnerStaticHelperClassSingleton();
+    }
+
+    public static void main(String[] args) {
+
+    }
+
+}
+</pre><span style="font-size:18px"><br />&#13;
+ <span style="white-space:pre"> </span>内部类拥有外部类的实例，当外部类被jvm加载的时候，内部类没有被加载，外部类的实例也就没有被实例化，当外部类真正的调用得到单例入口方法的时候，才会触发内部类的加载，同时外部类的单例也就初始化一次。</span></div>&#13;
+<div><span style="font-family:Raleway,sans-serif; font-size:18px; color:#666666"><span style="line-height:26px"><strong> 这种方式的好处就是不用锁同步，就可以实现线程安全的单例。</strong></span></span></div>&#13;
+<div><span style="font-family:Raleway,sans-serif; font-size:18px; color:#666666"><span style="line-height:26px"><br />&#13;
+</span></span></div>&#13;
+<h3><span style="font-size:18px"><span style="font-family:Raleway,sans-serif; color:#666666"><span style="line-height:26px">枚举单例实现</span></span><span style="font-family:Raleway,sans-serif; line-height:1.2; color:rgb(102,102,102)">Enum Singleton</span></span></h3>&#13;
+<div><span style="font-family:Raleway,sans-serif; font-size:18px; color:#666666"><span style="line-height:21.6px"> 枚举能够确保enum value只有一次实例化，而且enum value全局可访问，所以也是单例的实现方式之一。但这种实现方式不够灵活，而且不能延迟加载。</span></span></div>&#13;
+<div><span style="font-family:Raleway,sans-serif; font-size:18px; color:#666666"><span style="line-height:21.6px"><br />&#13;
+</span></span></div>&#13;
+<div><span style="font-size:18px"><span style="font-family:Raleway,sans-serif; line-height:1.2; color:rgb(102,102,102)"></span></span><pre code_snippet_id="1798700" snippet_file_name="blog_20160801_7_5629118" name="code" class="java">package com.doctor.design_pattern.singleton;
+
+/**
+ * @author sdcuike
+ *
+ *         Enum Singleton
+ *         枚举实现单例不能延迟加载资源，但保证了enum值只实例化一次。而且克服了反射带来的问题
+ * 
+ *         Created on 2016年8月1日 下午12:24:06
+ */
+public enum EnumSingleton {
+    instance;
+    private EnumSingleton() {
+
+    }
+
+    public void doSomething() {
+        System.out.println("test do ");
+    }
+
+    public static void main(String[] args) {
+        EnumSingleton.instance.doSomething();
+    }
+
+}
+</pre><br />&#13;
+<h3><span style="font-size:18px"><span style="font-family:Raleway,sans-serif; line-height:1.2; color:rgb(102,102,102)">序列化与单例</span></span></h3>&#13;
+</div>&#13;
+<div><span style="font-size:18px"><span style="font-family:Raleway,sans-serif; line-height:1.2; color:rgb(102,102,102)"> 我们一般通过网络交互的时候都会用到序列化，序列化打破了单例的规则，反序列化我们得到了另一个实例（请自行验证）。为了保证序列化不影响单例规则，我们一般实现以下方法：</span></span></div>&#13;
+<div><span style="font-size:18px"><span style="font-family:Raleway,sans-serif; line-height:1.2; color:rgb(102,102,102)"><br />&#13;
+</span></span></div>&#13;
+<div><span style="font-size:18px"><span style="font-family:Raleway,sans-serif; line-height:1.2; color:rgb(102,102,102)"></span></span><pre code_snippet_id="1798700" snippet_file_name="blog_20160801_8_5487414" name="code" class="java">protected Object readResolve() {
+    return getInstance();
+}</pre><br />&#13;
+<a target="_blank" href="http://docs.oracle.com/javase/1.5.0/docs/guide/serialization/spec/input.html">具体请参考资料：http://docs.oracle.com/javase/1.5.0/docs/guide/serialization/spec/input.html</a></div>&#13;
+<div><span style="font-size:18px"><br />&#13;
+</span></div>&#13;
+<h2><span style="font-size:18px">反射与单例</span></h2>&#13;
+<div><span style="font-size:18px"><span style="white-space:pre"></span>拿饿汉式单例实现来模拟，我们用反射实例化此单例带来的后果就是，违反了单例的原则，反射能实例化另一个对象，而不是之前的实例对象。</span></div>&#13;
+<div><span style="font-size:18px"><br />&#13;
+</span></div>&#13;
+<div><span style="font-size:18px"><br />&#13;
+</span></div>&#13;
+<div><span style="font-size:18px"></span><pre code_snippet_id="1798700" snippet_file_name="blog_20160910_9_6741161" name="code" class="java"> public static void main(String[] args) throws ReflectiveOperationException, SecurityException {
+        System.out.println(EagerInitializedSingleton.getInstance());
+        System.out.println(EagerInitializedSingleton.getInstance());
+        EagerInitializedSingleton.getInstance().doSomething();
+        // com.doctor.design_pattern.singleton.EagerInitializedSingleton@2a139a55
+        // com.doctor.design_pattern.singleton.EagerInitializedSingleton@2a139a55
+        // test
+
+        System.out.println(EagerInitializedSingleton.getInstance() == EagerInitializedSingleton.getInstance());
+        // true
+
+        // 反射破坏
+        Constructor&lt;EagerInitializedSingleton&gt; constructor = EagerInitializedSingleton.class.getDeclaredConstructor();
+        constructor.setAccessible(true);
+        EagerInitializedSingleton newInstance = constructor.newInstance();
+        System.out.println(newInstance);
+    }</pre><br />&#13;
+执行结果：</div>&#13;
+<div><span style="font-size:18px"><br />&#13;
+</span></div>&#13;
+<div><span style="font-size:18px"></span><pre code_snippet_id="1798700" snippet_file_name="blog_20160910_10_7439272" name="code" class="java">com.doctor.design_pattern.singleton.EagerInitializedSingleton@15db9742
+com.doctor.design_pattern.singleton.EagerInitializedSingleton@15db9742
+test
+true
+com.doctor.design_pattern.singleton.EagerInitializedSingleton@6d06d69c
+</pre><br />&#13;
+由于没有重写toString方法，我们可以根据后面的hashcode值判断是不是相同的对象。</div>&#13;
+<div><span style="font-size:18px">为了防止反射破坏单例规则，我们对私有构造函数处理：</span></div>&#13;
+<div><span style="font-size:18px"><br />&#13;
+</span></div>&#13;
+<div><span style="font-size:18px"></span><pre code_snippet_id="1798700" snippet_file_name="blog_20160910_11_8976416" name="code" class="java"> /**
+     * 反射导致单例失败：How to fix: Throw Runtime Exception if someone tries to make
+     * instance in case one instance already exists. This code will go into the
+     * private constructor of the Singleton class
+     */
+    private EagerInitializedSingleton() {
+        if (instance != null) {
+            throw new RuntimeException("plean use  getInstance() method");
+        }
+    }</pre><br />&#13;
+<br />&#13;
+</div>&#13;
+<div><span style="font-size:18px">反射实例化对象会导致失败：</span></div>&#13;
+<div><span style="font-size:18px"></span><pre code_snippet_id="1798700" snippet_file_name="blog_20160910_12_4134630" name="code" class="java">com.doctor.design_pattern.singleton.EagerInitializedSingleton@15db9742
+com.doctor.design_pattern.singleton.EagerInitializedSingleton@15db9742
+test
+true
+Exception in thread "main" java.lang.reflect.InvocationTargetException
+	at sun.reflect.NativeConstructorAccessorImpl.newInstance0(Native Method)
+	at sun.reflect.NativeConstructorAccessorImpl.newInstance(NativeConstructorAccessorImpl.java:62)
+	at sun.reflect.DelegatingConstructorAccessorImpl.newInstance(DelegatingConstructorAccessorImpl.java:45)
+	at java.lang.reflect.Constructor.newInstance(Constructor.java:423)
+	at com.doctor.design_pattern.singleton.EagerInitializedSingleton.main(EagerInitializedSingleton.java:57)
+Caused by: java.lang.RuntimeException: plean use  getInstance() method
+	at com.doctor.design_pattern.singleton.EagerInitializedSingleton.&lt;init&gt;(EagerInitializedSingleton.java:31)
+	... 5 more
+</pre><br />&#13;
+<br />&#13;
+</div>&#13;
+<div><span style="font-size:18px"><br />&#13;
+</span></div>&#13;
+<h2><span class="fontstyle0">Cloning</span> 与单例</h2>&#13;
+</div>&#13;
+<div><span style="font-size:18px">  实例化对象的一种方式就是通过克隆。当我们克隆单例对象的时候，我们也违反了单例原则，拿饿汉式单例来说：</span></div>&#13;
+<div><br />&#13;
+</div>&#13;
+<div><pre code_snippet_id="1798700" snippet_file_name="blog_20160910_13_372639" name="code" class="java">public class EagerInitializedSingleton implements Cloneable {
+    private static final EagerInitializedSingleton instance = new EagerInitializedSingleton();
+
+    /**
+     * 反射导致单例失败：How to fix: Throw Runtime Exception if someone tries to make
+     * instance in case one instance already exists. This code will go into the
+     * private constructor of the Singleton class
+     */
+    private EagerInitializedSingleton() {
+        if (instance != null) {
+            throw new RuntimeException("plean use  getInstance() method");
+        }
+    }
+
+    public static EagerInitializedSingleton getInstance() {
+        return instance;
+    }
+
+    public void doSomething() {
+        System.out.println("test");
+    }
+
+    @Override
+    protected Object clone() throws CloneNotSupportedException {
+        return super.clone();
+    }
+
+    public static void main(String[] args) throws ReflectiveOperationException, SecurityException, CloneNotSupportedException {
+        System.out.println(EagerInitializedSingleton.getInstance());
+        System.out.println(EagerInitializedSingleton.getInstance());
+        EagerInitializedSingleton.getInstance().doSomething();
+        // com.doctor.design_pattern.singleton.EagerInitializedSingleton@2a139a55
+        // com.doctor.design_pattern.singleton.EagerInitializedSingleton@2a139a55
+        // test
+
+        System.out.println(EagerInitializedSingleton.getInstance() == EagerInitializedSingleton.getInstance());
+        // true
+
+        // 反射破坏
+        // Constructor&lt;EagerInitializedSingleton&gt; constructor =
+        // EagerInitializedSingleton.class.getDeclaredConstructor();
+        // constructor.setAccessible(true);
+        // EagerInitializedSingleton newInstance = constructor.newInstance();
+        // System.out.println(newInstance);
+
+        // 克隆破坏
+        EagerInitializedSingleton eagerInitializedSingleton = EagerInitializedSingleton.getInstance();
+        EagerInitializedSingleton eagerInitializedSingletonClone = (EagerInitializedSingleton) eagerInitializedSingleton.clone();
+        System.out.println(eagerInitializedSingleton + "==" + eagerInitializedSingletonClone + " is " + (eagerInitializedSingleton == eagerInitializedSingletonClone));
+    }
+
+}</pre><br />&#13;
+<br />&#13;
+</div>&#13;
+<div><span style="font-size:18px">执行结果：</span></div>&#13;
+<div><pre code_snippet_id="1798700" snippet_file_name="blog_20160910_14_3230341" name="code" class="java">克隆破坏:
+com.doctor.design_pattern.singleton.EagerInitializedSingleton@15db9742==com.doctor.design_pattern.singleton.EagerInitializedSingleton@6d06d69c is false
+</pre><br />&#13;
+<span style="font-size:18px">为了防止克隆破坏，和反射一样，抛出异常：</span></div>&#13;
+<div><br />&#13;
+</div>&#13;
+<div><pre code_snippet_id="1798700" snippet_file_name="blog_20160910_15_8704199" name="code" class="java"> @Override
+    protected Object clone() throws CloneNotSupportedException {
+        if (instance != null) {
+            throw new CloneNotSupportedException("plean use  getInstance() method");
+        }
+        return super.clone();
+    }</pre><br />&#13;
+<br />&#13;
+</div>&#13;
+<h2>代码：</h2>&#13;
+<div><span style="font-size:18px"><a target="_blank" href="https://github.com/sdcuike/java8-learning/tree/master/src/main/java/com/doctor/design_pattern/singleton">https://github.com/sdcuike/java8-learning/tree/master/src/main/java/com/doctor/design_pattern/singleton</a><br />&#13;
+</span></div>&#13;
+<div><br />&#13;
+</div>&#13;
+<h2>参考：</h2>&#13;
+<p><span class="fontstyle0" style="color:rgb(85,85,85); font-family:'microsoft yahei'; line-height:35px"><span style="font-size:18px"><a target="_blank" href="http://www.journaldev.com/1377/java-singleton-design-pattern-best-practices-examples">http://www.journaldev.com/1377/java-singleton-design-pattern-best-practices-examples<br />&#13;
+</a></span></span><span style="font-size:18px"><a target="_blank" href="http://pan.baidu.com/s/1eRPc52q"><span class="fontstyle0" style="color:rgb(85,85,85); font-family:'microsoft yahei'; line-height:35px">JAVA  DESIGN  PATTERNS  </span><span class="fontstyle1" style="color:rgb(85,85,85); font-family:'microsoft yahei'; line-height:35px">By&#13;
+  Devendra Singh</span><span style="color:rgb(85,85,85); font-family:'microsoft yahei'; line-height:35px"> </span><span class="fontstyle0" style="color:rgb(85,85,85); font-family:'microsoft yahei'; line-height:35px">@Copyright 2016 Dev S</span></a></span></p>&#13;
+<div><br />&#13;
+</div>&#13;
+<div><br />&#13;
+</div>&#13;
+   &#13;

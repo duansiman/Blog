@@ -1,0 +1,228 @@
+
+        <div class="markdown_views"><h2 id="介绍">介绍</h2>
+
+<p>在项目开发中，经常会碰到需要根据不同的条件采用不同的算法，但是这些不同的算法又有些类似。例如商城下单中的打折功能（打八折、五折、一折），满减功能等等。 <br />
+地图中根据采用不同的出行方式计算时间、金额等等，如下图，不同的出行方式使用不同的算法计算需要花费的时间和最短的行驶距离。 <br />
+<img src="http://img.blog.csdn.net/20170902170852533?watermark/2/text/aHR0cDovL2Jsb2cuY3Nkbi5uZXQvdTAxMzIzOTExMQ==/font/5a6L5L2T/fontsize/400/fill/I0JBQkFCMA==/dissolve/70/gravity/SouthEast" alt="这里写图片描述" title="" /></p>
+
+
+
+<h2 id="结构图">结构图</h2>
+
+<p>那这些不同的行为，我们可以把它们封装成不同的算法，根据用户选择的不同采用不同的算法，这种可以采用策略模式来实现他们。 <br />
+<img src="http://img.blog.csdn.net/20170902171922473?watermark/2/text/aHR0cDovL2Jsb2cuY3Nkbi5uZXQvdTAxMzIzOTExMQ==/font/5a6L5L2T/fontsize/400/fill/I0JBQkFCMA==/dissolve/70/gravity/SouthEast" alt="这里写图片描述" title="" /></p>
+
+
+
+<h2 id="案例">案例</h2>
+
+<p>这次的案例就采用压缩文件的案例，用户选择不同的压缩策略后台相应采用不同的压缩算法进行压缩。 <br />
+<strong>算法接口类Algorithm </strong></p>
+
+
+
+<pre class="prettyprint"><code class=" hljs cs"><span class="hljs-keyword">public</span> <span class="hljs-keyword">interface</span> Algorithm {
+    <span class="hljs-keyword">void</span> compress();
+}</code></pre>
+
+<p><strong>算法接口类实现类RarAlgorithm </strong></p>
+
+
+
+<pre class="prettyprint"><code class=" hljs java"><span class="hljs-keyword">public</span> <span class="hljs-class"><span class="hljs-keyword">class</span> <span class="hljs-title">RarAlgorithm</span> <span class="hljs-keyword">implements</span> <span class="hljs-title">Algorithm</span> {</span>
+
+    <span class="hljs-annotation">@Override</span>
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">void</span> <span class="hljs-title">compress</span>() {
+        System.out.println(<span class="hljs-string">"Rar压缩文件。。。"</span>);
+    }
+
+}</code></pre>
+
+<p><strong>算法接口类实现类ZipAlgorithm </strong></p>
+
+
+
+<pre class="prettyprint"><code class=" hljs java"><span class="hljs-keyword">public</span> <span class="hljs-class"><span class="hljs-keyword">class</span> <span class="hljs-title">ZipAlgorithm</span> <span class="hljs-keyword">implements</span> <span class="hljs-title">Algorithm</span> {</span>
+
+    <span class="hljs-annotation">@Override</span>
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">void</span> <span class="hljs-title">compress</span>() {
+        System.out.println(<span class="hljs-string">"Zip压缩文件。。。"</span>);
+    }
+
+}</code></pre>
+
+<p><strong>算法上下文类AlgorithmContext</strong> </p>
+
+
+
+<pre class="prettyprint"><code class=" hljs cs"><span class="hljs-keyword">public</span> <span class="hljs-keyword">class</span> AlgorithmContext {
+    <span class="hljs-keyword">private</span> Algorithm algorithm;
+
+    <span class="hljs-keyword">public</span> <span class="hljs-title">AlgorithmContext</span>(Algorithm algorithm) {
+        <span class="hljs-keyword">this</span>.algorithm = algorithm;
+    }
+
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">void</span> <span class="hljs-title">handle</span>(){
+        algorithm.compress();
+    }
+}</code></pre>
+
+<p><strong>业务类</strong></p>
+
+
+
+<pre class="prettyprint"><code class=" hljs cs"><span class="hljs-keyword">public</span> <span class="hljs-keyword">class</span> Client {
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">static</span> <span class="hljs-keyword">void</span> <span class="hljs-title">main</span>(String[] args) {
+
+        <span class="hljs-comment">//String type = "RarAlgorithm";</span>
+        String type = <span class="hljs-string">"ZipAlgorithm"</span>;
+
+
+        AlgorithmContext algorithmContext = <span class="hljs-keyword">null</span>;
+        <span class="hljs-keyword">switch</span> (type) {
+        <span class="hljs-keyword">case</span> <span class="hljs-string">"ZipAlgorithm"</span>:
+            algorithmContext = <span class="hljs-keyword">new</span> AlgorithmContext(<span class="hljs-keyword">new</span> ZipAlgorithm());
+            <span class="hljs-keyword">break</span>;
+        <span class="hljs-keyword">case</span> <span class="hljs-string">"RarAlgorithm"</span>:
+            algorithmContext = <span class="hljs-keyword">new</span> AlgorithmContext(<span class="hljs-keyword">new</span> RarAlgorithm());
+            <span class="hljs-keyword">break</span>;
+        <span class="hljs-keyword">default</span>:
+            <span class="hljs-keyword">break</span>;
+        }
+
+        <span class="hljs-keyword">if</span> (algorithmContext != <span class="hljs-keyword">null</span>) {
+            algorithmContext.handle();
+        }
+
+    }
+}</code></pre>
+
+<p>上面就是策略模式的代码，其实还是有优化的地方，例如下面这一段代码可以交给算法上下文类AlgorithmContext来决定，让业务类只接触AlgorithmContext，而不用接触到具体的算法类，真正的实现解耦。而下面的代码可以挪到AlgorithmContext中使用简单工厂模式实现。</p>
+
+
+
+<pre class="prettyprint"><code class=" hljs go"><span class="hljs-keyword">switch</span> (<span class="hljs-keyword">type</span>) {
+        <span class="hljs-keyword">case</span> <span class="hljs-string">"ZipAlgorithm"</span>:
+            algorithmContext = <span class="hljs-built_in">new</span> AlgorithmContext(<span class="hljs-built_in">new</span> ZipAlgorithm());
+            <span class="hljs-keyword">break</span>;
+        <span class="hljs-keyword">case</span> <span class="hljs-string">"RarAlgorithm"</span>:
+            algorithmContext = <span class="hljs-built_in">new</span> AlgorithmContext(<span class="hljs-built_in">new</span> RarAlgorithm());
+            <span class="hljs-keyword">break</span>;
+        <span class="hljs-keyword">default</span>:
+            <span class="hljs-keyword">break</span>;
+        }</code></pre>
+
+
+
+<h2 id="简单工厂模式和策略模式结合">简单工厂模式和策略模式结合</h2>
+
+<p><strong>修改后的AlgorithmContext类</strong></p>
+
+
+
+<pre class="prettyprint"><code class=" hljs cs"><span class="hljs-keyword">public</span> <span class="hljs-keyword">class</span> AlgorithmContext {
+    <span class="hljs-keyword">private</span> Algorithm algorithm;
+    <span class="hljs-comment">//使用简单工厂模式</span>
+    <span class="hljs-keyword">public</span> <span class="hljs-title">AlgorithmContext</span>(String type) {
+        <span class="hljs-keyword">switch</span> (type) {
+        <span class="hljs-keyword">case</span> <span class="hljs-string">"ZipAlgorithm"</span>:
+            algorithm = <span class="hljs-keyword">new</span> ZipAlgorithm();
+            <span class="hljs-keyword">break</span>;
+        <span class="hljs-keyword">case</span> <span class="hljs-string">"RarAlgorithm"</span>:
+            algorithm = <span class="hljs-keyword">new</span> RarAlgorithm();
+            <span class="hljs-keyword">break</span>;
+        <span class="hljs-keyword">default</span>:
+            algorithm = <span class="hljs-keyword">new</span> ZipAlgorithm();
+            <span class="hljs-keyword">break</span>;
+        }
+    }
+
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">void</span> <span class="hljs-title">handle</span>(){
+        algorithm.compress();
+    }
+}</code></pre>
+
+<p><strong>业务类</strong></p>
+
+
+
+<pre class="prettyprint"><code class=" hljs cs"><span class="hljs-keyword">public</span> <span class="hljs-keyword">class</span> Client {
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">static</span> <span class="hljs-keyword">void</span> <span class="hljs-title">main</span>(String[] args) {
+
+        <span class="hljs-comment">//String type = "RarAlgorithm";</span>
+        String type = <span class="hljs-string">"ZipAlgorithm"</span>;
+
+        <span class="hljs-comment">//使用简单工厂模式</span>
+        AlgorithmContext algorithmContext = <span class="hljs-keyword">new</span> AlgorithmContext(type);
+
+        algorithmContext.handle();
+
+    }
+}</code></pre>
+
+<hr />
+
+<p>正常来说这篇博文到这里结束了，但是仔细想想，如果增加了一个压缩算法，那么switch重是不是还要增加一个条件？那么有没有办法解决？答案是有的，java可以使用反射技术.</p>
+
+
+
+<h2 id="使用反射来替换条件判断">使用反射来替换条件判断</h2>
+
+<p><strong>修改后的AlgorithmContext类</strong></p>
+
+
+
+<pre class="prettyprint"><code class=" hljs cs"><span class="hljs-keyword">public</span> <span class="hljs-keyword">class</span> AlgorithmContext {
+    <span class="hljs-keyword">private</span> Algorithm algorithm;
+
+    <span class="hljs-comment">//使用简单工厂模式</span>
+    <span class="hljs-keyword">public</span> <span class="hljs-title">AlgorithmContext</span>(String type) {
+        <span class="hljs-keyword">try</span> {
+            <span class="hljs-comment">//简单实现（可用配置文件来配置type对应的类全称）</span>
+            Class clazz = Class.forName(<span class="hljs-string">"com.dp.strategy.algorithm.impl."</span>+type);
+            algorithm = (Algorithm) clazz.newInstance();
+        } <span class="hljs-keyword">catch</span> (Exception e) {
+            algorithm = <span class="hljs-keyword">new</span> ZipAlgorithm();
+            e.printStackTrace();
+        }
+    }
+
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">void</span> <span class="hljs-title">handle</span>(){
+        algorithm.compress();
+    }
+}</code></pre>
+
+<p>上面只是提供个反射思路来替换条件判断而已，正常项目开发不会用这种方式，更多的会采用配置文件的方式来获取对应的类，就像spring的配置bean一样，就是下面这种方式，有兴趣可以研究研究</p>
+
+
+
+<pre class="prettyprint"><code class=" hljs xml"><span class="hljs-tag">&lt;<span class="hljs-title">bean</span> <span class="hljs-attribute">id</span>=<span class="hljs-value">"..."</span> <span class="hljs-attribute">class</span>=<span class="hljs-value">"..."</span> <span class="hljs-attribute">destroy-method</span>=<span class="hljs-value">"..."</span>&gt;</span>
+       <span class="hljs-comment">&lt;!-- collaborators and configuration for this bean go here --&gt;</span>
+<span class="hljs-tag">&lt;/<span class="hljs-title">bean</span>&gt;</span></code></pre>
+
+
+
+<h2 id="总结">总结</h2>
+
+<p>总的来说，策略模式就是将算法从业务逻辑中抽取出来，然后将选择权交给用户，这样在一定程度上提高了系统的灵活性。策略模式主要优点在于对“开闭原则”的完美支持，在不修改原有系统的基础上可以更换算法或者增加新的算法，它很好地管理算法族，提高了代码的复用性，是一种替换继承，避免多重条件转移语句的实现方式；其缺点在于客户端必须知道所有的策略类，并理解其区别，同时在一定程度上增加了系统中类的个数，可能会存在很多策略类。 <br />
+那么什么时候可以使用策略模式呢？ <br />
+在一个系统里面有许多类，它们之间的区别仅在于它们的行为，使用策略模式可以动态地让一个对象在许多行为中选择一种行为；一个系统需要动态地在几种算法中选择一种；避免使用难以维护的多重条件选择语句；希望在具体策略类中封装算法和与相关的数据结构。</p>
+
+<hr />
+
+<p>这篇博文相关的代码 <br />
+<a href="https://github.com/rainbowda/Design-Pattern/tree/master/dp-common/src/main/java/com/dp/strategy">https://github.com/rainbowda/Design-Pattern/tree/master/dp-common/src/main/java/com/dp/strategy</a></p></div>&#13;
+        <script type="text/javascript">&#13;
+            $(function () {&#13;
+                $('pre.prettyprint code').each(function () {&#13;
+                    var lines = $(this).text().split('\n').length;&#13;
+                    var $numbering = $('&lt;ul/&gt;').addClass('pre-numbering').hide();&#13;
+                    $(this).addClass('has-numbering').parent().append($numbering);&#13;
+                    for (i = 1; i &lt;= lines; i++) {&#13;
+                        $numbering.append($('&lt;li/&gt;').text(i));&#13;
+                    };&#13;
+                    $numbering.fadeIn(1700);&#13;
+                });&#13;
+            });&#13;
+        </script>&#13;
+   &#13;

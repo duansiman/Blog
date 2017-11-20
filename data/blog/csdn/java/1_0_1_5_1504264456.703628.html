@@ -1,0 +1,246 @@
+
+        <div class="markdown_views"><h1 id="1struts的几个基本概念"><strong>1.Struts的几个基本概念</strong></h1>
+
+<p>1.struts是一个开源框架（frameset） <br />
+2.struts是一个Web框架 <br />
+3.struts是一个基于MVC的Web框架</p>
+
+
+
+<h1 id="2为什么有struts"><strong>2.为什么有struts</strong></h1>
+
+<p>因为我们对MVC的理解不同，可能造成不同公司写程序的时候，规范不统一，这样不利于程序的维护和扩展以及提高开发效率，所以我们有必要用一个统一的规范来开发项目。所以出现了struts.</p>
+
+<p>struts是通过采用Java的Servlet／JSP技术，实现了基于Java EE Web应用的Model-View-Controller（MVC）设计模式的应用框架，是MVC经典设计模式中的一个经典产品</p>
+
+<p>struts的优缺点如下： <br />
+1.struts的好处：</p>
+
+<blockquote>
+  <p>程序更加规范化 <br />
+  程序开发的效率提高了 <br />
+  程序的可读性增加 <br />
+  程序的可维护性增加</p>
+</blockquote>
+
+<p>2.struts的不足之处：</p>
+
+<blockquote>
+  <p>form表单有点鸡肋 <br />
+  action是单态（对网站并发性的处理有影响）</p>
+</blockquote>
+
+<p><em>这些内容后面会介绍。</em></p>
+
+<p>我们要知道的是：框架在提高了程序的规范的同时，也约束了程序员的自由。</p>
+
+
+
+<h1 id="3struts的原理"><strong>3.struts的原理</strong></h1>
+
+<p>以一个用户登录验证的例子说明。</p>
+
+
+
+<h2 id="31时序图"><strong>3.1.时序图</strong></h2>
+
+<p><img src="http://img.blog.csdn.net/20160621204603781" alt="时序图" title="" /></p>
+
+<p>1.ActionServlet是总控制器，它是struts给我们提供的，我们无需自己写，只需要配置即可。ActionServlet管理struts-config.xml文件，而这个文件是struts的核心文件，该文件配置了ActionForm，还配置了Action，以及它们的对应关系等。 <br />
+2.ActionForm是表单，用于存放数据。开发ActionFrom必须要继承ActionForm类，这是规范。 <br />
+3.Action是分控制器，在Struts中，Action可以有多个.它的本质就是Servlet。开发一个Action也要继承Action类。 <br />
+4.Model(Java类，Service类，ejb等)</p>
+
+<h2 id="32struts入门案例"><strong>3.2.struts入门案例</strong></h2>
+
+<p>以上述用户登录验证来演示，并且使用手动配置的方式来开发第一个struts项目，项目名称为strutslogin。 <br />
+首先，项目目录结构如下所示：</p>
+
+<p><img src="http://img.blog.csdn.net/20160621204622704" alt="项目目录结构" title="" /></p>
+
+<p><strong>【步骤】：</strong> <br />
+<strong>1.在开发struts的时候，需要struts的开发包</strong></p>
+
+<p>struts的开发包可到官网下载<a href="https://struts.apache.org/download.cgi">【下载地址】</a>，它的最新版本是2.5.1（2016年6月21日）。由于目前所学为1.3的版本，所以我下载Struts 1.3.10。并把所有的jar包加入到当前项目的lib文件夹。</p>
+
+<hr />
+
+<p><strong>2.先写出login.jsp</strong></p>
+
+<p>写最简单的登录页面login.jsp，如下：</p>
+
+<pre class="prettyprint"><code class="language-java hljs ">&lt;%@ page language=<span class="hljs-string">"java"</span> <span class="hljs-keyword">import</span>=<span class="hljs-string">"java.util.*"</span> pageEncoding=<span class="hljs-string">"utf-8"</span>%&gt;
+&lt;!DOCTYPE HTML PUBLIC <span class="hljs-string">"-//W3C//DTD HTML 4.01 Transitional//EN"</span>&gt;
+&lt;html&gt;
+  &lt;head&gt;
+    &lt;meta http-equiv=<span class="hljs-string">"pragma"</span> content=<span class="hljs-string">"no-cache"</span>&gt;
+    &lt;meta http-equiv=<span class="hljs-string">"cache-control"</span> content=<span class="hljs-string">"no-cache"</span>&gt;
+    &lt;meta http-equiv=<span class="hljs-string">"expires"</span> content=<span class="hljs-string">"0"</span>&gt;    
+  &lt;/head&gt;
+  &lt;body&gt;
+    &lt;form action=<span class="hljs-string">"/strutslogin/login.do"</span> method=<span class="hljs-string">"post"</span>&gt;
+        UserName:&lt;input type=<span class="hljs-string">"text"</span> name=<span class="hljs-string">"username"</span>/&gt;&lt;br&gt;&lt;br&gt;
+        Password:&lt;input type=<span class="hljs-string">"password"</span> name=<span class="hljs-string">"password"</span>/&gt;&lt;br&gt;&lt;br&gt;
+        &lt;input type=<span class="hljs-string">"submit"</span> value=<span class="hljs-string">"Login"</span>/&gt;    
+    &lt;/form&gt;
+  &lt;/body&gt;
+&lt;/html&gt;</code></pre>
+
+<ul>
+<li>注意，为了安全起见，login.jsp放在WEB-INF目录下，在WEB-INF目录外通过index.jsp转发到login.jsp。</li>
+<li>注意form中的action跳转地址，是我们的web应用下的<code>login.do</code>页面，这里在稍后介绍的struts-config.xml配置中会再说明。 <br />
+<hr /></li>
+</ul>
+
+<p><strong>3.编写ActionForm和Action</strong></p>
+
+<p>(1)首先需要编写ActionForm，即用户登录所用的表单，用于填充用户输入的数据。我们取名为UserForm，它继承自ActionForm类，如下：</p>
+
+
+
+<pre class="prettyprint"><code class="language-java hljs "><span class="hljs-keyword">public</span> <span class="hljs-class"><span class="hljs-keyword">class</span> <span class="hljs-title">UserForm</span> <span class="hljs-keyword">extends</span> <span class="hljs-title">ActionForm</span> {</span>
+
+    <span class="hljs-keyword">private</span> String username;
+    <span class="hljs-keyword">private</span> String password;
+
+    <span class="hljs-keyword">public</span> String <span class="hljs-title">getUsername</span>() {
+        <span class="hljs-keyword">return</span> username;
+    }
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">void</span> <span class="hljs-title">setUsername</span>(String username) {
+        <span class="hljs-keyword">this</span>.username = username;
+    }
+    <span class="hljs-keyword">public</span> String <span class="hljs-title">getPassword</span>() {
+        <span class="hljs-keyword">return</span> password;
+    }
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">void</span> <span class="hljs-title">setPassword</span>(String password) {
+        <span class="hljs-keyword">this</span>.password = password;
+    }
+}</code></pre>
+
+<p>其实这就是一个很简单的JavaBean，它和login.jsp中的表单对应，我们在这个UserForm中定义属性<code>username</code>和<code>password</code>，并生成它们的<code>setter</code>和<code>getter</code>方法。 <br />
+这里需要注意的是：</p>
+
+<blockquote>
+  <p><strong>&lt;1&gt;.一般的规范：定义属性名称的时候应该和jsp页面的控件名称一样。</strong> <br />
+  &lt;2&gt;.但其实，属性的名称并非一定要一致，而真正要保持一致的是<code>setter</code>和<code>getter</code>方法。也就是说，如果你在jsp中定义的控件名称为username和password，那么<code>setter</code>方法的名称一定是<code>setUsername</code>和<code>setPassword</code>，同理，<code>getter</code>方法的名称一定是<code>getUsername</code>和<code>getPassword</code>。属性可以换其他的名字，但是这几个方法的名称一定要固定格式:<strong>get/set+控件名称并且首字母大写</strong> <br />
+  &lt;3&gt;.但我们遵守一般的规范最好。 <br />
+  &lt;4&gt;.ActionForm一定要按照上述规范写好，才能保证数据能够正确填充，才能保证work</p>
+</blockquote>
+
+<p>（2）然后，编写Action，即登录的Action，我们取名为<code>LoginAction</code>，它必须继承自<code>Action</code>类，如下：</p>
+
+<pre class="prettyprint"><code class="language-java hljs "><span class="hljs-keyword">public</span> <span class="hljs-class"><span class="hljs-keyword">class</span> <span class="hljs-title">LoginAction</span> <span class="hljs-keyword">extends</span> <span class="hljs-title">Action</span> {</span>
+    <span class="hljs-annotation">@Override</span>
+    <span class="hljs-keyword">public</span> ActionForward <span class="hljs-title">execute</span>(ActionMapping mapping, ActionForm form,
+            HttpServletRequest request, HttpServletResponse response)
+            <span class="hljs-keyword">throws</span> Exception {
+        <span class="hljs-comment">// 把form转成对应的UserForm对象</span>
+        UserForm userForm = (UserForm)form;
+        System.out.println(<span class="hljs-string">"用户名="</span>+userForm.getUsername());
+        System.out.println(<span class="hljs-string">"密码="</span>+userForm.getPassword());
+        <span class="hljs-comment">// 简单验证</span>
+        <span class="hljs-keyword">if</span>(<span class="hljs-string">"123"</span>.equals(userForm.getPassword())){
+            <span class="hljs-comment">// 如果用户密码为123，则为合法</span>
+            <span class="hljs-keyword">return</span> mapping.findForward(<span class="hljs-string">"ok"</span>);
+        }<span class="hljs-keyword">else</span>{
+            <span class="hljs-keyword">return</span> mapping.findForward(<span class="hljs-string">"error"</span>);
+        }
+    }
+}</code></pre>
+
+<p>在这个类中，我们需要重写一个方法：<code>excute</code>。这个方法会处理业务逻辑，会自动调用，它有点类似于Servlet中的service方法，或者doGet/doPost方法。</p>
+
+<hr />
+
+<p><strong>4.配置struts-config.xml文件，这个文件一般放在/WEB-INF目录下，它配置Action、ActionForm以及它们的对应关系和跳转</strong></p>
+
+
+
+<pre class="prettyprint"><code class="language-xml hljs "><span class="hljs-pi">&lt;?xml version="1.0" encoding="utf-8"?&gt;</span>
+<span class="hljs-doctype">&lt;!DOCTYPE struts-config PUBLIC "-//Apache Software Foundation//DTD Structs Configuration 1.3//EN" "http://struts.apache.org/dtds/struts-config_1_3.dtd"&gt;</span>
+
+<span class="hljs-tag">&lt;<span class="hljs-title">struts-config</span>&gt;</span>
+    <span class="hljs-comment">&lt;!-- 配置表单 --&gt;</span>
+    <span class="hljs-tag">&lt;<span class="hljs-title">form-beans</span>&gt;</span>
+        <span class="hljs-comment">&lt;!-- name是表单名字，可以随意写，但是建议取名规范：表单类名小写 --&gt;</span>
+        <span class="hljs-comment">&lt;!-- type用于指定表单类的全路径 --&gt;</span>
+        <span class="hljs-tag">&lt;<span class="hljs-title">form-bean</span> <span class="hljs-attribute">name</span>=<span class="hljs-value">"userForm"</span> <span class="hljs-attribute">type</span>=<span class="hljs-value">"com.gavin.forms.UserForm"</span>&gt;</span><span class="hljs-tag">&lt;/<span class="hljs-title">form-bean</span>&gt;</span>     
+    <span class="hljs-tag">&lt;/<span class="hljs-title">form-beans</span>&gt;</span>
+    <span class="hljs-comment">&lt;!-- 配置Action --&gt;</span>
+    <span class="hljs-tag">&lt;<span class="hljs-title">action-mappings</span>&gt;</span>
+        <span class="hljs-comment">&lt;!-- 配置一个具体的action --&gt;</span>
+        <span class="hljs-comment">&lt;!-- path表示将来访问该action的资源名，http://localhost:8080/web/path --&gt;</span>
+        <span class="hljs-comment">&lt;!-- name用于关联某个表单 --&gt;</span>
+        <span class="hljs-comment">&lt;!-- type用于指定该Action类的全路径 --&gt;</span>
+        <span class="hljs-tag">&lt;<span class="hljs-title">action</span> <span class="hljs-attribute">path</span>=<span class="hljs-value">"/login"</span> <span class="hljs-attribute">name</span>=<span class="hljs-value">"userForm"</span> <span class="hljs-attribute">type</span>=<span class="hljs-value">"com.gavin.actions.LoginAction"</span>&gt;</span>
+            <span class="hljs-comment">&lt;!-- 这里配置跳转关系 --&gt;</span>
+            <span class="hljs-comment">&lt;!-- name表示结果名称，path表示转发到的页面地址 --&gt;</span>
+            <span class="hljs-tag">&lt;<span class="hljs-title">forward</span> <span class="hljs-attribute">name</span>=<span class="hljs-value">"ok"</span> <span class="hljs-attribute">path</span>=<span class="hljs-value">"/WEB-INF/welcome.jsp"</span>/&gt;</span>
+            <span class="hljs-tag">&lt;<span class="hljs-title">forward</span> <span class="hljs-attribute">name</span>=<span class="hljs-value">"error"</span> <span class="hljs-attribute">path</span>=<span class="hljs-value">"/WEB-INF/error.jsp"</span>/&gt;</span>
+        <span class="hljs-tag">&lt;/<span class="hljs-title">action</span>&gt;</span>
+    <span class="hljs-tag">&lt;/<span class="hljs-title">action-mappings</span>&gt;</span>
+<span class="hljs-tag">&lt;/<span class="hljs-title">struts-config</span>&gt;</span></code></pre>
+
+<p>（1）这个struts-config.xml引入了一个DTD文件：struts-config_1_3.dtd，这个文件可以在我们下载的jar包中找到，它定义了我们这个xml的约束，根元素为<code>struts-config</code>。 <br />
+（2）该配置文件主要通过form-beans来配置ActionForm、通过action-mappings来配置Action。 <br />
+（3）我们在form-beans下用form-bean来配置具体的ActionForm，比如当前文件配置了我们写的UserForm <br />
+（4）在action-mappings下用action来配置具体的Action，比如当前文件配置了我们写的LoginAction <br />
+（5）<strong>要注意这里action中的path参数配置，它就是我们的login.jsp中的表单action提交的地址，login.jsp中写的是<code>login.do</code>，这个<code>login.do</code>会交给struts的总控制器ActionServlet来处理，最后ActionServlet将通过一定的机制找到这里的path参数配置为<code>/login</code>的action，再通过该action配置的type参数找到具体的类。</strong></p>
+
+<p><strong>从这个过程中我们可以发现，login.do在通过ActionServlet的处理后，最后找到的却是路径为<code>/login</code>的action，这似乎和<code>.do</code>这个后缀没有什么关系，的确是这样的，这个后缀只是习惯上的用法，我们完全可以在web.xml文件中将这个后缀设置成其他任何的名字。</strong> <br />
+（6）最后要在具体的action下配置跳转关系。这里配置的参数和LoginAction中的<code>excute</code>方法所写要对应起来。</p>
+
+<hr />
+
+<p><strong>5.写出welcome.jsp和error.jsp页面</strong></p>
+
+<p>写出两个简单的界面即可。</p>
+
+<hr />
+
+<p><strong>6.在web.xml中配置ActionServlet</strong></p>
+
+<p>struts的总控制器ActionServlet本质上还是一个Servlet，所以我们要在web.xml中配置，配置如下：</p>
+
+
+
+<pre class="prettyprint"><code class="language-xml hljs "><span class="hljs-tag">&lt;<span class="hljs-title">servlet</span>&gt;</span>
+    <span class="hljs-tag">&lt;<span class="hljs-title">servlet-name</span>&gt;</span>action<span class="hljs-tag">&lt;/<span class="hljs-title">servlet-name</span>&gt;</span>
+    <span class="hljs-tag">&lt;<span class="hljs-title">servlet-class</span>&gt;</span>org.apache.struts.action.ActionServlet<span class="hljs-tag">&lt;/<span class="hljs-title">servlet-class</span>&gt;</span>
+    <span class="hljs-comment">&lt;!-- 指定配置文件struts-config.xml的路径 --&gt;</span>
+    <span class="hljs-tag">&lt;<span class="hljs-title">init-param</span>&gt;</span>
+        <span class="hljs-tag">&lt;<span class="hljs-title">param-name</span>&gt;</span>config<span class="hljs-tag">&lt;/<span class="hljs-title">param-name</span>&gt;</span>
+        <span class="hljs-tag">&lt;<span class="hljs-title">param-value</span>&gt;</span>/WEB-INF/struts-config.xml<span class="hljs-tag">&lt;/<span class="hljs-title">param-value</span>&gt;</span>
+    <span class="hljs-tag">&lt;/<span class="hljs-title">init-param</span>&gt;</span>
+<span class="hljs-tag">&lt;/<span class="hljs-title">servlet</span>&gt;</span>
+
+<span class="hljs-tag">&lt;<span class="hljs-title">servlet-mapping</span>&gt;</span>
+    <span class="hljs-tag">&lt;<span class="hljs-title">servlet-name</span>&gt;</span>action<span class="hljs-tag">&lt;/<span class="hljs-title">servlet-name</span>&gt;</span>
+    <span class="hljs-tag">&lt;<span class="hljs-title">url-pattern</span>&gt;</span>*.do<span class="hljs-tag">&lt;/<span class="hljs-title">url-pattern</span>&gt;</span>
+<span class="hljs-tag">&lt;/<span class="hljs-title">servlet-mapping</span>&gt;</span></code></pre>
+
+<p>我们要在该配置中指定struts-config.xml文件的地址。同时可以看到，我们在这里配置的后缀为<code>*.do</code>，也就是说所有以<code>.do</code>结尾的请求都要交给ActionServlet来处理。到这里，也就明白了为什么我们的login.jsp中写的提交地址为<code>login.do</code>。</p>
+
+
+
+<h1 id="4总结"><strong>4.总结</strong></h1>
+
+<p>通过手工完成一个简单的struts项目，可以让我们对struts的工作流程和工作原理有更加深刻的认识。这个过程略微繁琐，后面会有工具直接生成，但是掌握底层原理是我们学习必不可少的一个步骤。</p>
+
+<p>总结一下，其实struts是对我们通过JSP/Servlet和使用MVC模式开发项目的一个更高层次地提炼，它帮我们做了大部分工作，我们只需要按照struts框架提供的流程填充即可，简化了我们的开发的难度。</p>
+
+<p>struts中的核心知识点：ActionServlet总控制器，Action分控制器，ActionForm表单，以及最重要的structs-config.xml和web.xml文件的配置。</p></div>&#13;
+        <script type="text/javascript">&#13;
+            $(function () {&#13;
+                $('pre.prettyprint code').each(function () {&#13;
+                    var lines = $(this).text().split('\n').length;&#13;
+                    var $numbering = $('&lt;ul/&gt;').addClass('pre-numbering').hide();&#13;
+                    $(this).addClass('has-numbering').parent().append($numbering);&#13;
+                    for (i = 1; i &lt;= lines; i++) {&#13;
+                        $numbering.append($('&lt;li/&gt;').text(i));&#13;
+                    };&#13;
+                    $numbering.fadeIn(1700);&#13;
+                });&#13;
+            });&#13;
+        </script>&#13;
+   &#13;

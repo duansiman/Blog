@@ -1,0 +1,97 @@
+
+<p style="margin-top: 0px; margin-bottom: 0px; padding-top: 0px; padding-bottom: 0px; font-family: Arial; line-height: 25.98958396911621px;"><span style="font-size:18px;"><strong>大家都知道在c语言的运行过程中，局部变量都是存放在栈中的，且是从高位到低位进行进行空间分配。</strong></span></p><p style="margin-top: 0px; margin-bottom: 0px; padding-top: 0px; padding-bottom: 0px; font-family: Arial; line-height: 25.98958396911621px;"><span style="font-size:18px;"><strong>先看一个程序。</strong></span></p><p style="margin-top: 0px; margin-bottom: 0px; padding-top: 0px; padding-bottom: 0px; font-family: Arial; line-height: 25.98958396911621px;"></p><p style="margin-top: 0px; margin-bottom: 0px; padding-top: 0px; padding-bottom: 0px; font-family: Arial; line-height: 25.98958396911621px;"><span style="font-size:18px;"><strong><img src="http://img.blog.csdn.net/20130506125822401" alt="" style="border: none; max-width: 100%;" /><br /></strong></span></p><p style="margin-top: 0px; margin-bottom: 0px; padding-top: 0px; padding-bottom: 0px; font-family: Arial; line-height: 25.98958396911621px;"><span style="font-size:18px;"><strong><br /></strong></span></p><p style="margin-top: 0px; margin-bottom: 0px; padding-top: 0px; padding-bottom: 0px; font-family: Arial; line-height: 25.98958396911621px;"><span style="font-size:18px;"><strong>很明显，地址从高到低分配，和预计的一样。</strong></span></p><p style="margin-top: 0px; margin-bottom: 0px; padding-top: 0px; padding-bottom: 0px; font-family: Arial; line-height: 25.98958396911621px;"><span style="font-size:18px;"><strong>稍微修改一下，再运行。</strong></span></p><p style="margin-top: 0px; margin-bottom: 0px; padding-top: 0px; padding-bottom: 0px; font-family: Arial; line-height: 25.98958396911621px;"><span style="font-size:18px;"><strong><br /></strong></span></p><p style="margin-top: 0px; margin-bottom: 0px; padding-top: 0px; padding-bottom: 0px; font-family: Arial; line-height: 25.98958396911621px;"><span style="font-size:18px;"><strong><img src="http://img.blog.csdn.net/20130506125520204" alt="" style="border: none; max-width: 100%;" /><br /></strong></span></p><p style="margin-top: 0px; margin-bottom: 0px; padding-top: 0px; padding-bottom: 0px; font-family: Arial; line-height: 25.98958396911621px;"><span style="font-size:18px;"><strong><br /></strong></span></p><p style="margin-top: 0px; margin-bottom: 0px; padding-top: 0px; padding-bottom: 0px; font-family: Arial; line-height: 25.98958396911621px;"><span style="font-size:18px;"><strong>很明显，从低位到高位！！！</strong></span></p><p style="margin-top: 0px; margin-bottom: 0px; padding-top: 0px; padding-bottom: 0px; font-family: Arial; line-height: 25.98958396911621px;"><span style="font-size:18px;"><strong>明确一下问题：栈区会应为局部变量的占内存的大小更改内存的分配方式。</strong></span></p><p style="margin-top: 0px; margin-bottom: 0px; padding-top: 0px; padding-bottom: 0px; font-family: Arial; line-height: 25.98958396911621px;"><span style="font-size:18px;"><strong>为什么？为什么？为什么？</strong></span></p><p style="margin-top: 0px; margin-bottom: 0px; padding-top: 0px; padding-bottom: 0px; font-family: Arial; line-height: 25.98958396911621px;"><span style="font-size:18px;"><strong><br /></strong></span></p><p style="margin-top: 0px; margin-bottom: 0px; padding-top: 0px; padding-bottom: 0px; font-family: Arial; line-height: 25.98958396911621px;"><span style="font-size:18px;"><strong>用-S生成汇编语言看一下</strong></span></p><p style="margin-top: 0px; margin-bottom: 0px; padding-top: 0px; padding-bottom: 0px; font-family: Arial; line-height: 25.98958396911621px;"><span style="font-size:18px;"><strong>第一种情况的汇编语言</strong></span></p><pre name="code" class="ruby"><span style="font-size:18px;"><strong>	.file	"main.c"
+	.section	.rodata
+.LC0:
+	.string	"Address s = Ox%x\n"
+.LC1:
+	.string	"Address d = Ox%x\n"
+	.text
+	.globl	main
+	.type	main, @function
+main:
+.LFB0:
+	.cfi_startproc
+	pushl	%ebp
+	.cfi_def_cfa_offset 8
+	.cfi_offset 5, -8
+	movl	%esp, %ebp
+	.cfi_def_cfa_register 5
+	andl	$-16, %esp
+	subl	$32, %esp
+	movl	%gs:20, %eax
+	movl	%eax, 28(%esp)
+	xorl	%eax, %eax
+	movl	$6513249, 24(%esp)
+	movw	$25185, 21(%esp)
+	movb	$0, 23(%esp)
+	leal	24(%esp), %eax
+	movl	%eax, 4(%esp)
+	movl	$.LC0, (%esp)
+	call	printf
+	leal	21(%esp), %eax
+	movl	%eax, 4(%esp)
+	movl	$.LC1, (%esp)
+	call	printf
+	movl	$1, %eax
+	movl	28(%esp), %edx
+	xorl	%gs:20, %edx
+	je	.L3
+	call	__stack_chk_fail
+.L3:
+	leave
+	.cfi_restore 5
+	.cfi_def_cfa 4, 4
+	ret
+	.cfi_endproc
+.LFE0:
+	.size	main, .-main
+	.ident	"GCC: (Ubuntu/Linaro 4.7.3-1ubuntu1) 4.7.3"
+	.section	.note.GNU-stack,"",@progbits</strong></span></pre><span style="font-size:18px;"><strong><br /><span style="font-family: Arial; line-height: 25.98958396911621px;">第二种情况的汇编语言</span><br /></strong></span><p style="margin-top: 0px; margin-bottom: 0px; padding-top: 0px; padding-bottom: 0px; font-family: Arial; line-height: 25.98958396911621px;"><span style="font-family: Arial; line-height: 25.98958396911621px;"><span style="font-size:18px;"><strong></strong></span></span></p><pre name="code" class="ruby">	.file	"main.c"
+	.section	.rodata
+.LC0:
+	.string	"Address s = Ox%x\n"
+.LC1:
+	.string	"Address d = Ox%x\n"
+	.text
+	.globl	main
+	.type	main, @function
+main:
+.LFB0:
+	.cfi_startproc
+	pushl	%ebp
+	.cfi_def_cfa_offset 8
+	.cfi_offset 5, -8
+	movl	%esp, %ebp
+	.cfi_def_cfa_register 5
+	andl	$-16, %esp
+	subl	$32, %esp
+	movl	%gs:20, %eax
+	movl	%eax, 28(%esp)
+	xorl	%eax, %eax
+	movl	$6513249, 17(%esp)
+	movl	$1684234849, 21(%esp)
+	movw	$26213, 25(%esp)
+	movb	$0, 27(%esp)
+	leal	17(%esp), %eax
+	movl	%eax, 4(%esp)
+	movl	$.LC0, (%esp)
+	call	printf
+	leal	21(%esp), %eax
+	movl	%eax, 4(%esp)
+	movl	$.LC1, (%esp)
+	call	printf
+	movl	$1, %eax
+	movl	28(%esp), %edx
+	xorl	%gs:20, %edx
+	je	.L3
+	call	__stack_chk_fail
+.L3:
+	leave
+	.cfi_restore 5
+	.cfi_def_cfa 4, 4
+	ret
+	.cfi_endproc
+.LFE0:
+	.size	main, .-main
+	.ident	"GCC: (Ubuntu/Linaro 4.7.3-1ubuntu1) 4.7.3"
+	.section	.note.GNU-stack,"",@progbits</pre><br /><p style="margin-top: 0px; margin-bottom: 0px; padding-top: 0px; padding-bottom: 0px; font-family: Arial; line-height: 25.98958396911621px;">在前面的几句mov有很明显的不同，一个是从低到高分配，一个是从高到低分配.</p><p style="margin-top: 0px; margin-bottom: 0px; padding-top: 0px; padding-bottom: 0px; font-family: Arial; line-height: 25.98958396911621px;"><br /></p><p style="margin-top: 0px; margin-bottom: 0px; padding-top: 0px; padding-bottom: 0px; font-family: Arial; line-height: 25.98958396911621px;">猜想：编译器对语言进行的优化，让长的字符串先进栈。</p><p style="margin-top: 0px; margin-bottom: 0px; padding-top: 0px; padding-bottom: 0px; font-family: Arial; line-height: 25.98958396911621px;"><br /></p><p style="margin-top: 0px; margin-bottom: 0px; padding-top: 0px; padding-bottom: 0px; font-family: Arial; line-height: 25.98958396911621px;">但为什么要这么做呢？</p><p style="margin-top: 0px; margin-bottom: 0px; padding-top: 0px; padding-bottom: 0px; font-family: Arial; line-height: 25.98958396911621px;">求解答。</p><br /><p style="margin-top: 0px; margin-bottom: 0px; padding-top: 0px; padding-bottom: 0px; font-family: Arial; line-height: 25.98958396911621px;"><span style="font-family: Arial; line-height: 25.98958396911621px;"><span style="font-size:18px;"><strong><span style="color:#ff0000;">本文转载自：http://blog.csdn.net/qp120291570/article/details/8889950</span></strong></span></span></p><p style="margin-top: 0px; margin-bottom: 0px; padding-top: 0px; padding-bottom: 0px; font-family: Arial; font-size: 14.44444465637207px; line-height: 25.98958396911621px;"><br /></p>   &#13;

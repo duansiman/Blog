@@ -1,0 +1,239 @@
+
+
+<div><span style="line-height:1.5"><span style="font-family:'Microsoft YaHei'"><span style="font-size:12px"><span style="line-height:1.5"><span style="font-family:Microsoft YaHei; color:#000000; background-color:#FFFFFF; font-style:normal; font-weight:normal; text-align:left"><span style="font-family:Microsoft YaHei; font-size:14px">【版权声明：尊重原创，转载请保留出处：blog.csdn.net/shallnet，文章仅供学习交流，请勿用于商业用</span><span style="font-family:Microsoft YaHei; font-size:14px"><span style="font-family:Microsoft YaHei; font-size:14px; line-height:1.5"><span style="font-family:Microsoft YaHei; font-size:14px; color:#000000; background-color:#FFFFFF; font-style:normal; font-weight:normal; text-align:left">途</span></span></span></span></span></span><span style="font-family:Microsoft YaHei; font-size:14px">】</span></span></span><br />&#13;
+<span style="font-family:Microsoft YaHei; font-size:14px">        工作队列是下半部的另外一种将工作推后执行形式。和软中断、tasklet不同，工作队列将工作推后交由一个内核线程去执行，并且该下</span><span style="font-family:Microsoft YaHei; font-size:14px">半部总会在进程上下文中执行。这样，工作队列允许重新调度甚至是睡眠。</span></div>&#13;
+<div><span style="font-family:Microsoft YaHei; font-size:14px">        所以，如果推后执行的任务需要睡眠，就选择工作队列。如果不需要睡眠，那就选择软中断或tasklet。工作队列是唯一能在进程上下文中运行的下半部实现机制，也只有它才可以睡眠。</span></div>&#13;
+<div><span style="font-family:Microsoft YaHei; font-size:14px">        工作队列子系统是一个用于创建内核线程的接口，通过它创建的进程负责执行由内核其他部分排到队列里的任务。它创建的这些内核线程称作工作者线程。工作队列可以让你的驱动程序创建一个专门的工作者线程来处理需要推后的工作。不过，工作队列子系统提供了一个缺省的工作者线程来处理这些工作。因此，工作队列最基本的表现形式就转变成一个把需要推后执行的任务交给特定的通用线程这样一种接口。缺省的工作线程叫做event/n.每个处理器对应一个线程，这里的n代表了处理器编号。除非一个驱动程序或者子系统必须建立一个属于自己的内核线程，否则最好还是使用缺省线程。</span></div>&#13;
+<div>&#13;
+<div style="background-color:#FFFFFF; color:#000000; font-family:微软雅黑; font-size:14px; font-style:normal; font-weight:normal; text-align:left">&#13;
+<span style="font-family:Microsoft YaHei; font-size:14px; color:#000000; background-color:rgb(255,255,255); font-style:normal; font-weight:normal; text-align:left"><span style="font-family:Microsoft YaHei; font-size:14px; background-color:inherit">使用下面命令可以看到默认event工作者线程，每个处理器对应一个线程：</span></span></div>&#13;
+<pre name="code" class="plain"># ps x | grep event | grep -v grep
+    9 ?        S      0:00 [events/0]
+   10 ?        S      0:00 [events/1]</pre></div>&#13;
+<div><span style="font-family:Microsoft YaHei; font-size:14px">        工作者线程使用workqueue_struct结构表示（位于&lt;kernel/workqueue.c&gt;中）：</span></div>&#13;
+<pre name="code" class="cpp">struct workqueue_struct {
+    struct cpu_workqueue_struct *cpu_wq;    //该数组每一项对应系统中的一个处理器
+    struct list_head list;
+    const char *name;
+    int singlethread;
+    int freezeable;     /* Freeze threads during suspend */
+    int rt;
+#ifdef CONFIG_LOCKDEP
+    struct lockdep_map lockdep_map;
+#endif
+}</pre>&#13;
+<div><span style="font-family:Microsoft YaHei; font-size:14px">每个处理器，每个工作者线程对应对应一个</span><span style="font-family:微软雅黑; font-size:14px; color:#000000; background-color:#FFFFFF; font-style:normal; font-weight:normal; text-align:left"><span style="font-family:Microsoft YaHei; font-size:14px">cpu_workqueue_struct结构体</span><span style="font-family:Microsoft YaHei; font-size:14px; color:#000000; background-color:rgb(255,255,255); font-style:normal; font-weight:normal; text-align:left">（位于&lt;kernel/workqueue.c&gt;中）：</span></span><br />&#13;
+</div>&#13;
+<pre name="code" class="cpp">struct cpu_workqueue_struct {
+
+    spinlock_t lock;    //保护该结构
+
+    struct list_head worklist;    //工作列表
+    wait_queue_head_t more_work;    //等待队列，其中的工作者线程因等待而处于睡眠状态
+    struct work_struct *current_work;
+
+    struct workqueue_struct *wq;    //关联工作队列结构
+    struct task_struct *thread;    // 关联线程,指向结构中工作者线程的进程描述符指针
+} ____cacheline_aligned;</pre>&#13;
+<div><span style="font-family:Microsoft YaHei; font-size:14px">        每个工作者线程类型关联一个自己的</span><span style="font-family:微软雅黑; font-size:14px; color:#000000; background-color:#FFFFFF; font-style:normal; font-weight:normal; text-align:left"><span style="font-family:Microsoft YaHei; font-size:14px">workqueue_struct，在该结构体里面，给每个线程分配一个</span><span style="font-family:微软雅黑; font-size:14px; color:#000000; background-color:#FFFFFF; font-style:normal; font-weight:normal; text-align:left"><span style="font-family:Microsoft YaHei; font-size:14px">cpu_workqueue_struct</span><span style="font-family:Microsoft YaHei; font-size:14px"> ，因而也就是给每个处理器分配一个，因为每个处理器都有一个该类型的工作者线程。</span></span></span></div>&#13;
+<div><span style="background-color:#FFFFFF; color:#000000; font-family:微软雅黑; font-size:14px; font-style:normal; font-weight:normal; text-align:left"><span style="font-family:微软雅黑; font-size:14px; color:#000000; background-color:#FFFFFF; font-style:normal; font-weight:normal; text-align:left"><span><span style="font-family:Microsoft YaHei; font-size:14px"> &#13;
+       所有的工作者线程都是使用普通的内核线程实现的，他们都要执行worker_thread()函数。在它初始化完以后，这个函数执行一个死循环执行一个循环并开始休眠，当有操作被插入到队列的时候，线程就会被唤醒，以便执行这些操作。当没有剩余的时候，它又会继续休眠。工作由work_struct</span><span style="font-family:Microsoft YaHei; font-size:14px; color:#000000; background-color:rgb(255,255,255); font-style:normal; font-weight:normal; text-align:left">（位于&lt;kernel/workqueue.c&gt;中）</span><span style="font-family:Microsoft YaHei; font-size:14px">结构表示：</span></span></span></span></div>&#13;
+<pre name="code" class="cpp">struct work_struct {                                                                                                                                    
+    atomic_long_t data;
+......
+    struct list_head entry;//连接所有链表
+    work_func_t func;
+.....
+};</pre>&#13;
+<div><span style="font-family:Microsoft YaHei; font-size:14px">        当一个工作线程被唤醒时，它会执行它的链表上的所有工作。工作一旦执行完毕，它就将相应的work_struct对象从链表上移去，当链表不再有对象时，它就继续休眠。woker_thread()函数如下：</span></div>&#13;
+<pre name="code" class="cpp">static int worker_thread(void *__cwq)
+{
+    struct cpu_workqueue_struct *cwq = __cwq;
+    DEFINE_WAIT(wait);
+
+    if (cwq-&gt;wq-&gt;freezeable)
+        set_freezable();
+
+    for (;;) {
+    //线程将自己设置为休眠状态并把自己加入等待队列
+        prepare_to_wait(&amp;cwq-&gt;more_work, &amp;wait, TASK_INTERRUPTIBLE);
+        if (!freezing(current) &amp;&amp;
+            !kthread_should_stop() &amp;&amp;
+            list_empty(&amp;cwq-&gt;worklist))
+            schedule();//如果工作对列是空的，线程调用schedule()函数进入睡眠状态
+        finish_wait(&amp;cwq-&gt;more_work, &amp;wait);
+
+        try_to_freeze();
+
+//如果链表有对象，线程就将自己设为运行态，脱离等待队列
+        if (kthread_should_stop())
+            break;
+
+//再次调用run_workqueue()执行推后的工作
+        run_workqueue(cwq);
+    }
+
+    return 0;
+}</pre>&#13;
+<div><span style="font-family:Microsoft YaHei; font-size:14px">之后由run_workqueue()函数来完成实际推后到此的工作：</span></div>&#13;
+<pre name="code" class="cpp">static void run_workqueue(struct cpu_workqueue_struct *cwq) 
+{
+    spin_lock_irq(&amp;cwq-&gt;lock);
+    while (!list_empty(&amp;cwq-&gt;worklist)) {
+        //链表不为空时，选取下一个节点对象
+        struct work_struct *work = list_entry(cwq-&gt;worklist.next,
+                        struct work_struct, entry);
+        //获取希望执行的函数func及其参数data
+        work_func_t f = work-&gt;func;
+......
+        trace_workqueue_execution(cwq-&gt;thread, work);
+        cwq-&gt;current_work = work;
+        //把该结点从链表上解下来
+        list_del_init(cwq-&gt;worklist.next);
+        spin_unlock_irq(&amp;cwq-&gt;lock);
+
+        BUG_ON(get_wq_data(work) != cwq);
+        //将待处理标志位pending清0
+        work_clear_pending(work);
+        lock_map_acquire(&amp;cwq-&gt;wq-&gt;lockdep_map);
+        lock_map_acquire(&amp;lockdep_map);
+        //执行函数
+        f(work);
+        lock_map_release(&amp;lockdep_map);
+        lock_map_release(&amp;cwq-&gt;wq-&gt;lockdep_map);
+
+......
+        spin_lock_irq(&amp;cwq-&gt;lock);
+        cwq-&gt;current_work = NULL;
+    }
+    spin_unlock_irq(&amp;cwq-&gt;lock);
+}</pre>&#13;
+<div><span style="font-family:Microsoft YaHei; font-size:14px">        系统允许有多种类型工作者线程存在，默认情况下内核只有event这一种类型的工作者线程，每个工作者线程都由一个</span><span style="font-family:微软雅黑; font-size:14px; color:#000000; background-color:#FFFFFF; font-style:normal; font-weight:normal; text-align:left"><span style="font-family:Microsoft YaHei; font-size:14px">cpu_workqueue_struct</span><span style="font-family:Microsoft YaHei; font-size:14px"> 结构体表示，大部分情况下，驱动程序都使用现存的默认工作者线程。</span></span></div>&#13;
+<div><span style="font-family:Microsoft YaHei; font-size:14px">        工作队列的使用很简单。可以使用缺省的events任务队列，也可以创建新的工作者线程。</span></div>&#13;
+<div><span style="font-family:Microsoft YaHei; font-size:14px">第一步、创建需要推后完成的工作。</span></div>&#13;
+<div><span style="font-family:Microsoft YaHei; font-size:14px">DECLARE_WORK(name,void (*func)(void *),void *data);        //编译时静态创建</span></div>&#13;
+<div><span style="font-family:Microsoft YaHei; font-size:14px">INIT_WORK(struct work_struct *work, void (*func)(void *));    //运行时动态创建</span></div>&#13;
+<div><span style="font-family:Microsoft YaHei; font-size:14px">第二步、编写队列处理函数，处理函数会由工作者线程执行，因此，函数会运行在进程上下文中，默认情况下，允许相应中断，并且不持有锁。如果需要，函数可以睡眠。需要注意的是，尽管处理函数运行在进程上下文中，但它不能访问用户空间，因为内核线程在用户空间没有相应的内存映射。函数原型如下：</span></div>&#13;
+<div><span style="font-family:Microsoft YaHei; font-size:14px">void work_hander(void *data);</span></div>&#13;
+<div><span style="font-family:Microsoft YaHei; font-size:14px">第三步、调度工作队列。</span></div>&#13;
+<div><span style="font-family:Microsoft YaHei; font-size:14px">调用</span></div>&#13;
+<div><span style="font-family:Microsoft YaHei; font-size:14px">schedule_work(&amp;work)；</span></div>&#13;
+<div><span style="font-family:Microsoft YaHei; font-size:14px">work马上就会被调度，一旦其所在的处理器上的工作者线程被唤醒，它就会被执行。当然如果不想快速执行，而是想延迟一段时间执行，调用</span></div>&#13;
+<div><span style="font-family:Microsoft YaHei; font-size:14px">schedule_delay_work(&amp;work,delay);</span></div>&#13;
+<div><span style="font-family:Microsoft YaHei; font-size:14px">delay是要延迟的时间节拍。</span></div>&#13;
+<div>&#13;
+<div style="background-color:#FFFFFF; color:#000000; font-family:微软雅黑; font-size:14px; font-style:normal; font-weight:normal; text-align:left">&#13;
+<span style="font-family:Microsoft YaHei; font-size:14px">默认工作者线程的调度函数其实就是做了一层封装，减少了 默认工作者线程的参数输入，如下：</span></div>&#13;
+<pre name="code" class="cpp">int schedule_work(struct work_struct *work)
+{
+    return queue_work(keventd_wq, work);
+}
+
+int schedule_delayed_work(struct delayed_work *dwork, unsigned long delay)                                             
+{
+    return queue_delayed_work(keventd_wq, dwork, delay);
+}</pre></div>&#13;
+<div><span style="font-family:Microsoft YaHei; font-size:14px">第四步、刷新操作，插入队列的工作会在工作者线程下一次被唤醒的时候执行。有时，在继续下一步工作之前，你必须保证一些操作已经执行完毕等等。由于这些原因，内核提供了一个用于刷新指定工作队列的函数：</span></div>&#13;
+<div><span style="font-family:Microsoft YaHei; font-size:14px">void flush_scheduled_work(void);</span></div>&#13;
+<div><span style="font-family:Microsoft YaHei; font-size:14px">这个函数会一直等待，直到队列中所有的对象都被执行后才返回。在等待所有待处理的工作执行的时候，该函数会进入休眠状态，所以只能在进程上下文中使用它。需要说明的是，该函数并不取消任何延迟执行的工作。取消延迟执行的工作应该调用：int cancel_delayed_work(struct work_struct *work);这个函数可以取消任何与work_struct 相关挂起的工作。</span></div>&#13;
+<div><span style="font-family:Microsoft YaHei; font-size:14px">下面为一个示例：</span></div>&#13;
+<pre name="code" class="cpp">#include &lt;linux/init.h&gt;
+#include &lt;linux/module.h&gt;
+
+#include &lt;linux/workqueue.h&gt; //work_strcut
+
+
+//struct work_struct      ws;
+struct delayed_work     dw;
+
+void workqueue_func(struct work_struct *ws)    //处理函数
+{
+    printk(KERN_ALERT"Hello, this is shallnet!\n");
+}
+
+static int __init kwq_init(void)
+{
+    printk(KERN_ALERT"===%s===\n", __func__);
+
+    //INIT_WORK(&amp;ws, workqueue_func);    //建需要推后完成的工作
+    //schedule_work(&amp;ws);    //调度工作
+
+    INIT_DELAYED_WORK(&amp;dw, workqueue_func);
+    schedule_delayed_work(&amp;dw, 10000);
+
+    return 0;
+}
+
+static void __exit kwq_exit(void)
+{
+    printk(KERN_ALERT"===%s===\n", __func__);
+
+    flush_scheduled_work();
+}
+
+module_init(kwq_init);
+module_exit(kwq_exit);
+
+MODULE_LICENSE("GPL");
+MODULE_AUTHOR("shallnet");
+MODULE_DESCRIPTION("blog.csdn.net/shallnet");</pre><span style="font-family:Microsoft YaHei; font-size:14px">上面的操作是使用缺省的工作队列，下面来看一下创建一个新的工作队列是如何操作的？</span>&#13;
+<div><span style="font-family:Microsoft YaHei; font-size:14px">        创建一个新的工作队列和与之相应的工作者线程，方法很简单，使用如下函数：</span></div>&#13;
+<div><span style="font-family:Microsoft YaHei; font-size:14px"></span><pre name="code" class="cpp">struct workqueue_struct *create_workqueue(const char *name);</pre>name是新内核线程的名字。比如缺省events队列的创建是这样使用的：</div>&#13;
+<div><pre name="code" class="cpp">struct workqueue_struct    *keventd_wq；
+kevent_wq = create_workqueue("event");</pre><span style="font-family:Microsoft YaHei; font-size:14px"></span></div>&#13;
+<div><span style="font-family:Microsoft YaHei; font-size:14px">这样就创建了所有的工作者线程，每个处理器都有一个。然后调用如下函数进行调度：</span></div>&#13;
+<pre name="code" class="cpp">int queue_work(struct workqueue_struct *wq, struct work_struct *work);
+int queue_delayed_work(struct workqueue_struct *wq,struct delayed_work *work,unsigned long delay);</pre>&#13;
+<div><span style="font-family:Microsoft YaHei; font-size:14px">最后可以调用flush_workqueue(struct workqueue_struct *wq);刷新指定工作队列。</span></div>&#13;
+<div><span style="font-family:Microsoft YaHei; font-size:14px">下面为自定义新的工作队列的示例：</span></div>&#13;
+<pre name="code" class="cpp">#include &lt;linux/init.h&gt;
+#include &lt;linux/module.h&gt;
+#include &lt;linux/workqueue.h&gt; //work_strcut
+
+struct workqueue_struct *sln_wq = NULL;
+//struct work_struct      ws;
+struct delayed_work     dw;
+
+void workqueue_func(struct work_struct *ws)
+{
+    printk(KERN_ALERT"Hello, this is shallnet!\n");
+}
+
+static int __init kwq_init(void)
+{
+    printk(KERN_ALERT"===%s===\n", __func__);
+
+    sln_wq = create_workqueue("sln_wq");    //创建名为sln_wq的工作队列
+
+    //INIT_WORK(&amp;ws, workqueue_func);
+    //queue_work(sln_wq, &amp;ws);
+
+    INIT_DELAYED_WORK(&amp;dw, workqueue_func);    //
+    queue_delayed_work(sln_wq, &amp;dw, 10000);    //
+
+    return 0;
+}
+
+static void __exit kwq_exit(void)
+{
+    printk(KERN_ALERT"===%s===\n", __func__);
+
+    flush_workqueue(sln_wq);
+}
+
+module_init(kwq_init);
+module_exit(kwq_exit);
+
+MODULE_LICENSE("GPL");
+MODULE_AUTHOR("shallnet");
+MODULE_DESCRIPTION("blog.csdn.net/shallnet");</pre>&#13;
+<div><span style="font-family:Microsoft YaHei; font-size:14px">使用ps可以查看到名为sln_wq的工作者线程。</span></div>&#13;
+<div><span style="font-family:Microsoft YaHei; font-size:14px"><a target="_blank" href="http://download.csdn.net/detail/gentleliu/8941433">本节源码下载</a>：</span></div>&#13;
+<div>http://download.csdn.net/detail/gentleliu/8941433<br />&#13;
+<br />&#13;
+</div>&#13;
+<div><span style="font-family:Microsoft YaHei; font-size:14px">        在当前2.6.32版本中，我们讲了三种下半部机制：软中断、tasklet、工作队列。其中tasklet基于软中断，而工作队列靠内核线程实现。</span></div>&#13;
+<div><span style="font-family:Microsoft YaHei; font-size:14px">        使用软中断必须要确保共享数据的安全，因为相同类别的软中断可能在不同处理器上同时执行。在对于时间要求是否严格和执行频率很高的应用，或准备利用每一处理器上的变量或类型情形，可以考虑使用软中断，如网络子系统。</span></div>&#13;
+<div><span style="font-family:Microsoft YaHei; font-size:14px">        tasklet接口简单，可以动态创建，且两个通知类型的tasklet不能同时执行，所以实现起来较简单。驱动程序应该尽量选择tasklet而不是软中断。</span></div>&#13;
+<div><span style="font-family:Microsoft YaHei; font-size:14px">        工作队列工作于进程上下文，易于使用。由于牵扯到内核线程或上下文的切换，可能开销较大。如果你需要把任务推后到进程上下文中，或你需要休眠，那就只有使用工作队列了。</span></div>&#13;
+   &#13;

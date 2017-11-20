@@ -1,0 +1,218 @@
+
+        <div class="markdown_views"><p><strong>工厂模式的概念:</strong></p>
+
+<p>实例化对象,用工厂方法代替new操作,工厂模式包括工厂方法模式和抽象工厂模式,抽象工厂模式是工厂方法模式的扩展</p>
+
+<p><strong>工厂模式的意图:</strong></p>
+
+<p>为创建对象提供过度接口,以便将创建对象的具体过程屏蔽隔离起来,达到提高灵活性的目的,即定义一个接口来创建对象,但是让子类来决定哪些类需要被实例化,工厂方法把实例化的工作推迟到子类中去实现</p>
+
+<p><strong>什么情况下适合工厂模式?</strong></p>
+
+<blockquote>
+  <p>1.有一组类似的对象需要创建 <br />
+  2.在编码是不能预见创建哪种类的实例 <br />
+  3.系统需要考虑扩展性,不应依赖于产品实例如何被创建,组合和表达的细节</p>
+</blockquote>
+
+<p>应用场景:由于需求变化,对象可能会随之变化,但拥有稳定接口,所以需提供一种封装机制来隔离这个易变化的对象,使依赖于此对象的对象不会随着改变</p>
+
+<p><strong>工厂模式的简单应用:</strong></p>
+
+<p>在一些APP,游戏,即时通信应用的人物装扮功能中,我们可选择人物的发型,脸型,眼睛,鼻子,嘴巴,睫毛,眉毛的样子来构造人物形象,类似这样功能可通过工厂模式思想来实现,比如说,现在我们要实现人物发型功能,我们就可以通过工厂模式来实现,我们简单的以左偏分,右偏分和中分为例来看一看源码应该如何实现:</p>
+
+<p>首先,我们需要定义一个统一的接口HairInterface.java,实现画发型的功能:</p>
+
+
+
+<pre class="prettyprint"><code class=" hljs cs"><span class="hljs-keyword">public</span> <span class="hljs-keyword">interface</span> HairInterface {<span class="hljs-comment">//然后左偏分,右偏分和中分的子类都实现HairInterface接口</span>
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">void</span> <span class="hljs-title">draw</span>();
+}</code></pre>
+
+<p>实现左偏分发型(LeftHair.java):</p>
+
+
+
+<pre class="prettyprint"><code class=" hljs java"><span class="hljs-keyword">public</span> <span class="hljs-class"><span class="hljs-keyword">class</span> <span class="hljs-title">LeftHair</span> <span class="hljs-keyword">implements</span> <span class="hljs-title">HairInterface</span> {</span>
+    <span class="hljs-annotation">@Override</span>
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">void</span> <span class="hljs-title">draw</span>() {
+        System.out.println(<span class="hljs-string">"左偏分"</span>);
+    }
+}</code></pre>
+
+<p>实现右偏分发型(RightHair.java):</p>
+
+
+
+<pre class="prettyprint"><code class=" hljs java"><span class="hljs-keyword">public</span> <span class="hljs-class"><span class="hljs-keyword">class</span> <span class="hljs-title">RightHair</span> <span class="hljs-keyword">implements</span> <span class="hljs-title">HairInterface</span> {</span>
+    <span class="hljs-annotation">@Override</span>
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">void</span> <span class="hljs-title">draw</span>() {
+        System.out.println(<span class="hljs-string">"右偏分"</span>);
+    }
+}</code></pre>
+
+<p>需要什么样的发型我们可以通过实例化具体的子类来实现,这样做后期有了新的发型不便于扩展,所以我们可以通过定义工厂来统一定义发型的实例:</p>
+
+
+
+<pre class="prettyprint"><code class=" hljs cs"><span class="hljs-keyword">public</span> <span class="hljs-keyword">class</span> HairFactory {
+    <span class="hljs-keyword">public</span> HairInterface <span class="hljs-title">getHair</span>(String key){<span class="hljs-comment">//发型工厂,生成发型</span>
+        <span class="hljs-keyword">if</span>(<span class="hljs-string">"left"</span>.equals(key)){
+            <span class="hljs-keyword">return</span> <span class="hljs-keyword">new</span> LeftHair();
+        }<span class="hljs-keyword">else</span> <span class="hljs-keyword">if</span>(<span class="hljs-string">"rigth"</span>.equals(key)){
+            <span class="hljs-keyword">return</span> <span class="hljs-keyword">new</span> RightHair();
+        }
+        <span class="hljs-keyword">return</span> <span class="hljs-keyword">null</span>;
+    }
+}
+
+<span class="hljs-comment">//使用如下方法进行测试:</span>
+HairFactory factory = <span class="hljs-keyword">new</span> HairFactory();
+HairInterface hairInterface = factory.getHair(<span class="hljs-string">"left"</span>);
+hairInterface.draw();</code></pre>
+
+<p>上面我们通过关键字来判读发型,我们可以通过Java的反射机制来对工厂方法进行修改,在HairFactory.java中添加方法:</p>
+
+
+
+<pre class="prettyprint"><code class=" hljs cs"><span class="hljs-keyword">public</span> HairInterface <span class="hljs-title">getHairByClassName</span>(String className) {
+    HairInterface hair =(HairInterface) Class.forName(className).newInstance();<span class="hljs-comment">//根据类的名称来获得对象</span>
+    <span class="hljs-keyword">return</span> hair;
+}
+
+<span class="hljs-comment">//在测试类中这样调用:</span>
+HairFactory factory = <span class="hljs-keyword">new</span> HairFactory();
+HairInterface left = factory.getHairByClassName(<span class="hljs-string">"com.imooc.project.LeftHair"</span>);
+left.draw();</code></pre>
+
+<p>上面的方法我们通过反射来判读发型,感觉关键字太长,不太方便,所以我们在该进一下,我们可以通过type.properties实现全类名和关键字的映射,创建文件type.properties,具体的内容如下:</p>
+
+
+
+<pre class="prettyprint"><code class=" hljs avrasm">left=<span class="hljs-keyword">com</span><span class="hljs-preprocessor">.imooc</span><span class="hljs-preprocessor">.project</span><span class="hljs-preprocessor">.LeftHair</span>
+right=<span class="hljs-keyword">com</span><span class="hljs-preprocessor">.imooc</span><span class="hljs-preprocessor">.project</span><span class="hljs-preprocessor">.RightHair</span></code></pre>
+
+<p>通过PropertiesReader.java类来读取type.properties文件:</p>
+
+
+
+<pre class="prettyprint"><code class=" hljs lasso"><span class="hljs-keyword">public</span> class PropertiesReader{
+     <span class="hljs-keyword">public</span> <span class="hljs-built_in">Map</span><span class="hljs-subst">&lt;</span><span class="hljs-built_in">String</span>, <span class="hljs-built_in">String</span><span class="hljs-subst">&gt;</span> getProperties(){
+
+         Propertiespro ps <span class="hljs-subst">=</span> <span class="hljs-literal">new</span> Properties();
+         <span class="hljs-built_in">Map</span><span class="hljs-subst">&lt;</span><span class="hljs-built_in">String</span>,<span class="hljs-built_in">String</span><span class="hljs-subst">&gt;</span> <span class="hljs-built_in">map</span> <span class="hljs-subst">=</span> <span class="hljs-literal">new</span> HashMap<span class="hljs-subst">&lt;&gt;</span>();
+
+         InputStream <span class="hljs-keyword">in</span> <span class="hljs-subst">=</span> getClass()<span class="hljs-built_in">.</span>getResourceAsStream(<span class="hljs-string">"type.properties"</span>);
+
+         Enumeration en <span class="hljs-subst">=</span> props<span class="hljs-built_in">.</span>propertyNames();
+         <span class="hljs-keyword">while</span>(en<span class="hljs-built_in">.</span>hasMoreElements()){
+             <span class="hljs-built_in">String</span> key <span class="hljs-subst">=</span> (<span class="hljs-built_in">String</span>)en<span class="hljs-built_in">.</span>nextElement();
+             <span class="hljs-built_in">String</span> property <span class="hljs-subst">=</span> props<span class="hljs-built_in">.</span>getProperty(key);
+             <span class="hljs-built_in">map</span><span class="hljs-built_in">.</span>put(key, property);
+         }
+         <span class="hljs-keyword">return</span> <span class="hljs-built_in">map</span>;
+     }
+}</code></pre>
+
+<p>在HairFactory.java中添加改进的方法getHairByClassKey():</p>
+
+
+
+<pre class="prettyprint"><code class=" hljs lasso"><span class="hljs-keyword">public</span> HairInterface getHairByClassKey(<span class="hljs-built_in">String</span> key) {
+    <span class="hljs-built_in">Map</span><span class="hljs-subst">&lt;</span><span class="hljs-built_in">String</span>, <span class="hljs-built_in">String</span><span class="hljs-subst">&gt;</span> <span class="hljs-built_in">map</span> <span class="hljs-subst">=</span> <span class="hljs-literal">new</span> PropertiesReader()<span class="hljs-built_in">.</span>getProperties();
+    HairInterface hair <span class="hljs-subst">=</span> (HairInterface) Class<span class="hljs-built_in">.</span>forName(<span class="hljs-built_in">map</span><span class="hljs-built_in">.</span>get(key))<span class="hljs-built_in">.</span>newInstance();
+    <span class="hljs-keyword">return</span> hair;
+}</code></pre>
+
+<p><strong>抽象工厂模式的简单应用:</strong></p>
+
+<p>前面我们以人物的发型为例简单讲解了工厂模式的源码实现,那么,比如新的需求圣诞节马上到了,老板要求实现<code>"圣诞系列男孩的装扮"</code>和<code>"圣诞系列女孩装扮"</code>,这个时候我们又该怎么办呢？这个时候我们就可以考虑抽象工厂模式的思想来实现老板的需求,这样的话不管是圣诞系列还是春节系列都so easy!</p>
+
+<p>首先,我们需要定义男孩和女孩的抽象类:</p>
+
+
+
+<pre class="prettyprint"><code class=" hljs cs"><span class="hljs-keyword">public</span> <span class="hljs-keyword">interface</span> Boy {
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">void</span> <span class="hljs-title">drawBoy</span>();
+}
+
+<span class="hljs-keyword">public</span> <span class="hljs-keyword">interface</span> Girl {
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">void</span> <span class="hljs-title">drawGirl</span>();
+}</code></pre>
+
+<p>然后,定义圣诞系装扮男孩和女孩的具体实现类:</p>
+
+
+
+<pre class="prettyprint"><code class=" hljs java"><span class="hljs-keyword">public</span> <span class="hljs-class"><span class="hljs-keyword">class</span> <span class="hljs-title">MCBoy</span> <span class="hljs-keyword">implements</span> <span class="hljs-title">Boy</span> {</span>
+     <span class="hljs-annotation">@Override</span>
+     <span class="hljs-keyword">public</span> <span class="hljs-keyword">void</span> <span class="hljs-title">drawBoy</span>() {
+         System.out.println(<span class="hljs-string">"圣诞系列男孩装扮"</span>);
+     } 
+}
+
+<span class="hljs-keyword">public</span> <span class="hljs-class"><span class="hljs-keyword">class</span> <span class="hljs-title">MCGirl</span> <span class="hljs-keyword">implements</span> <span class="hljs-title">Girl</span> {</span>
+    <span class="hljs-annotation">@Override</span>
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">void</span> <span class="hljs-title">drawGirl</span>() {
+        System.out.println(<span class="hljs-string">"圣诞系列女孩装扮"</span>);
+    } 
+}</code></pre>
+
+<p>接着,我们需要定义一个工厂接口用来获取男孩和女孩的实例:</p>
+
+
+
+<pre class="prettyprint"><code class=" hljs cs"><span class="hljs-keyword">public</span> <span class="hljs-keyword">interface</span> PersonFactory {
+     <span class="hljs-keyword">public</span> Boy <span class="hljs-title">getBoy</span>();
+     <span class="hljs-keyword">public</span> Girl <span class="hljs-title">getGirl</span>();
+}</code></pre>
+
+<p>最后,定义圣诞系装扮工厂实现PersonFactory接口:</p>
+
+
+
+<pre class="prettyprint"><code class=" hljs java"><span class="hljs-keyword">public</span> <span class="hljs-class"><span class="hljs-keyword">class</span> <span class="hljs-title">MCFactory</span> <span class="hljs-keyword">implements</span> <span class="hljs-title">PersonFactory</span> {</span>
+    <span class="hljs-annotation">@Override</span>
+    <span class="hljs-keyword">public</span> Boy <span class="hljs-title">getBoy</span>() {
+        <span class="hljs-keyword">return</span> <span class="hljs-keyword">new</span> MCBoy();
+    }
+    <span class="hljs-annotation">@Override</span>
+    <span class="hljs-keyword">public</span> Girl <span class="hljs-title">getGirl</span>() {
+        <span class="hljs-keyword">return</span> <span class="hljs-keyword">new</span> MCGirl();
+    } 
+}
+
+<span class="hljs-comment">//在测试类中这样调用:</span>
+PersonFactory factory2 = <span class="hljs-keyword">new</span> MCFactory();
+Girl girl =  factory2.getGirl();
+girl.drawGirl();<span class="hljs-comment">//当然什么中秋系装扮,元旦系装扮都和圣诞系装扮实现方式类似</span></code></pre>
+
+<p><strong>工厂方法和抽象工厂方法的对比:</strong></p>
+
+<blockquote>
+  <p>1.工厂模式是一种极端情况下的抽象工厂模式,而抽象工厂模式可以看成是工厂模式的推广</p>
+  
+  <p>2.工厂模式用来创建一个产品的等级结构,而抽象工厂模式是用来创建多个产品的等级结构</p>
+  
+  <p>3.工厂模式只有一个抽象产品类,而抽象工厂模式有多个抽象产品类,总之就是单一对多个产品的这种对比</p>
+</blockquote>
+
+<p><strong>最后简单介绍一下工厂模式的优点:</strong></p>
+
+<pre class="prettyprint"><code class=" hljs ">1.系统可以在不修改具体工厂角色的情况下引进新的产品
+2.客户端不必关心对象如何创建,明确了职责
+3.更好的理解面向对象的原则,面向接口编程,而不是面向实现编程</code></pre></div>&#13;
+        <script type="text/javascript">&#13;
+            $(function () {&#13;
+                $('pre.prettyprint code').each(function () {&#13;
+                    var lines = $(this).text().split('\n').length;&#13;
+                    var $numbering = $('&lt;ul/&gt;').addClass('pre-numbering').hide();&#13;
+                    $(this).addClass('has-numbering').parent().append($numbering);&#13;
+                    for (i = 1; i &lt;= lines; i++) {&#13;
+                        $numbering.append($('&lt;li/&gt;').text(i));&#13;
+                    };&#13;
+                    $numbering.fadeIn(1700);&#13;
+                });&#13;
+            });&#13;
+        </script>&#13;
+   &#13;

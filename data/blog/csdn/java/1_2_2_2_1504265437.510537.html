@@ -1,0 +1,97 @@
+
+                <div class="markdown_views"><h2 id="spring-data框架和spring-data-jpa简介">Spring Data框架和Spring Data JPA简介</h2>
+
+<p>Spring Data : Spring 的一个子项目。用于简化数据库访问，支持NoSQL 和 关系数据存储。 <br/>
+下面给出SpringData 项目所支持 NoSQL 存储： <br/>
+MongoDB （文档数据库） <br/>
+Neo4j（图形数据库） <br/>
+Redis（键/值存储） <br/>
+Hbase（列族数据库）</p>
+
+<p>SpringData 项目所支持的关系数据存储技术： <br/>
+JDBC <br/>
+JPA</p>
+
+<p>JPA Spring Data : 致力于减少数据访问层 (DAO) 的开发量。开发者只要写好持久层接口就好，然后其它的框架会帮程序员实现。</p>
+
+
+
+<h2 id="spring-data-jpa例子">Spring Data JPA例子</h2>
+
+<p>实现步骤： <br/>
+1.配置 Spring 整合 JPA <br/>
+2.在 Spring 配置文件中配置 Spring Data，让 Spring 为声明的接口创建代理对象。 <br/>
+3.声明持久层的接口，该接口继承  Repository <br/>
+4.在接口中声明需要的方法</p>
+
+<p>同时下载 Spring Data Commons 和 Spring Data JPA 两个发布包，也可以在maven里配置</p>
+
+
+
+<pre class="prettyprint"><code class=" hljs xml"><span class="hljs-tag">&lt;<span class="hljs-title">dependency</span>&gt;</span>
+            <span class="hljs-tag">&lt;<span class="hljs-title">groupId</span>&gt;</span>org.springframework.data<span class="hljs-tag">&lt;/<span class="hljs-title">groupId</span>&gt;</span>
+            <span class="hljs-tag">&lt;<span class="hljs-title">artifactId</span>&gt;</span>spring-data-jpa<span class="hljs-tag">&lt;/<span class="hljs-title">artifactId</span>&gt;</span>
+            <span class="hljs-tag">&lt;<span class="hljs-title">version</span>&gt;</span>${spring-data-jpa.version}<span class="hljs-tag">&lt;/<span class="hljs-title">version</span>&gt;</span>
+        <span class="hljs-tag">&lt;/<span class="hljs-title">dependency</span>&gt;</span></code></pre>
+
+<p>写个接口Repository：</p>
+
+<pre class="prettyprint"><code class=" hljs php"><span class="hljs-keyword">public</span> <span class="hljs-class"><span class="hljs-keyword">interface</span> <span class="hljs-title">UserRepository</span> <span class="hljs-keyword">extends</span> <span class="hljs-title">Repository</span>&lt;<span class="hljs-title">User</span>,<span class="hljs-title">Integer</span>&gt;{</span>
+    User getByUserId(Integer id);
+}</code></pre>
+
+<p>Repository接口概述： <br/>
+(1)Repository 接口是 Spring Data 的一个核心接口，它不提供任何方法，开发者需要在自己定义的接口中声明需要的方法  <br/>
+    public interface Repository</p>
+
+<h2 id="查询方法解析">查询方法解析</h2>
+
+<p>假如创建如下的查询：findByUserDepUuid()，框架在解析该方法时，首先剔除 findBy，然后对剩下的属性进行解析，假设查询实体为Doc <br/>
+（1）先判断 userDepUuid （根据 POJO 规范，首字母变为小写）是否为查询实体的一个属性，如果是，则表示根据该属性进行查询；如果没有该属性，继续第二步； <br/>
+（2）从右往左截取第一个大写字母开头的字符串(此处为Uuid)，然后检查剩下的字符串是否为查询实体的一个属性，如果是，则表示根据该属性进行查询；如果没有该属性，则重复第二步，继续从右往左截取；最后假设 user 为查询实体的一个属性； <br/>
+（3）接着处理剩下部分（DepUuid），先判断 user 所对应的类型是否有depUuid属性，如果有，则表示该方法最终是根据 “ Doc.user.depUuid” 的取值进行查询；否则继续按照步骤 2 的规则从右往左截取，最终表示根据 “Doc.user.dep.uuid” 的值进行查询。 <br/>
+（4）可能会存在一种特殊情况，比如 Doc包含一个 user 的属性，也有一个 userDep 属性，此时会存在混淆。可以明确在属性之间加上 “_” 以显式表达意图，比如 “findByUser_DepUuid()” 或者 “findByUserDep_uuid()” <br/>
+特殊的参数： 还可以直接在方法的参数上加入分页或排序的参数，比如： <br/>
+Page findByName(String name, Pageable pageable); <br/>
+List findByName(String name, Sort sort);</p>
+
+<h2 id="使用-query-注解">使用 @Query 注解</h2>
+
+<p>@Query来指定本地查询 <br/>
+注意要点</p>
+
+<p>如果是 @Query 中有 LIKE 关键字，后面的参数需要前面或者后面加 %，这样在传递参数值的时候就可以不加 %：</p>
+
+<pre class="prettyprint"><code class=" hljs sql">@Query("<span class="hljs-operator"><span class="hljs-keyword">select</span> o <span class="hljs-keyword">from</span> UserModel o <span class="hljs-keyword">where</span> o.name <span class="hljs-keyword">like</span> %?<span class="hljs-number">1</span><span class="hljs-string">")
+</span></span></code></pre>
+
+<p>使用@Query来指定本地查询，只要设置nativeQuery为true</p>
+
+<pre class="prettyprint"><code class=" hljs sql">@Query(value="<span class="hljs-operator"><span class="hljs-keyword">select</span> * <span class="hljs-keyword">from</span> tbl_user <span class="hljs-keyword">where</span> name <span class="hljs-keyword">like</span> %?<span class="hljs-number">1</span><span class="hljs-string">" ,nativeQuery=true)</span></span></code></pre>
+
+<p>@Query 与 @Modifying 这两个 annotation一起声明，可定义个性化更新操作，例如只涉及某些字段更新时最为常用</p>
+
+<p><strong>Spring Data 提供了默认的事务处理方式，即所有的查询均声明为只读事务。</strong></p>
+
+<h2 id="crudrepository-接口">CrudRepository 接口</h2>
+
+<p>CrudRepository 接口提供了最基本的对实体类的添删改查操作 </p>
+
+<h2 id="pagingandsortingrepository接口">PagingAndSortingRepository接口</h2>
+
+<p>该接口提供了分页与排序功能  <br/>
+Iterable findAll(Sort sort); //排序  <br/>
+Page findAll(Pageable pageable); //分页查询（含排序功能） </p>
+
+<h2 id="jparepository接口">JpaRepository接口</h2>
+
+<p>该接口提供了JPA的相关功能  <br/>
+List findAll(); //查找所有实体  <br/>
+List findAll(Sort sort); //排序、查找所有实体  <br/>
+List save(Iterable</p>
+
+<h2 id="jpaspecificationexecutor接口">JpaSpecificationExecutor接口</h2>
+
+<p>不属于Repository体系，实现一组 JPA Criteria 查询相关的方法  <br/>
+注意也可以自定义Repository的方法</p><link rel="stylesheet" href="http://static.blog.csdn.net/public/res-min/markdown_views.css?v=1.0"/></div><link rel="stylesheet" href="http://static.blog.csdn.net/public/res-min/markdown_views.css?v=1.0"/>&#13;
+            

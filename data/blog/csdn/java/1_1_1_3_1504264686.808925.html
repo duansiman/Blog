@@ -1,0 +1,280 @@
+
+                
+<p><span style="font-size:24px">RabbitMQ入门教程 For Java【5】 - Topic</span></p>&#13;
+<p><span style="font-size:24px"><br/>&#13;
+</span></p>&#13;
+<p><span style="font-size:24px"/></p>&#13;
+<h3 style="margin:0px; padding:0px; color:rgb(85,85,85); font-family:'microsoft yahei'; line-height:35px">&#13;
+<strong><span style="font-size:24px">我的开发环境：</span></strong></h3>&#13;
+<p/>&#13;
+<p style="margin-top:0px; margin-bottom:0px; padding-top:0px; padding-bottom:0px; color:rgb(85,85,85); font-family:'microsoft yahei'; font-size:15px; line-height:35px">&#13;
+<span style="font-size:18px">操作系统：<span style="white-space:pre"> </span><strong>Windows7 64bit </strong></span></p>&#13;
+<p style="margin-top:0px; margin-bottom:0px; padding-top:0px; padding-bottom:0px; color:rgb(85,85,85); font-family:'microsoft yahei'; font-size:15px; line-height:35px">&#13;
+<span style="font-size:18px">开发环境：<span style="white-space:pre"> </span><strong>JDK 1.7 - 1.7.0_55</strong></span></p>&#13;
+<p style="margin-top:0px; margin-bottom:0px; padding-top:0px; padding-bottom:0px; color:rgb(85,85,85); font-family:'microsoft yahei'; font-size:15px; line-height:35px">&#13;
+<span style="font-size:18px">开发工具：<span style="white-space:pre"> </span><strong>Eclipse Kepler SR2</strong></span></p>&#13;
+<p style="margin-top:0px; margin-bottom:0px; padding-top:0px; padding-bottom:0px; color:rgb(85,85,85); font-family:'microsoft yahei'; font-size:15px; line-height:35px">&#13;
+<span style="font-size:18px">RabbitMQ版本：<span style="white-space:pre"> </span> <strong>3.6.0</strong></span></p>&#13;
+<p style="margin-top:0px; margin-bottom:0px; padding-top:0px; padding-bottom:0px; color:rgb(85,85,85); font-family:'microsoft yahei'; font-size:15px; line-height:35px">&#13;
+<span style="font-size:18px">Elang版本：<span style="white-space:pre"> </span><strong>erl7.2.1</strong></span></p>&#13;
+<p style="margin-top:0px; margin-bottom:0px; padding-top:0px; padding-bottom:0px; color:rgb(85,85,85); font-family:'microsoft yahei'; font-size:15px; line-height:35px">&#13;
+<span style="font-size:18px">关于Windows7下安装RabbitMQ的教程请先在网上找一下，有空我再补安装教程。<br/>&#13;
+</span></p>&#13;
+<h3 style="margin:0px; padding:0px; color:rgb(85,85,85); font-family:'microsoft yahei'; line-height:35px">&#13;
+<a target="_blank" name="t2" style="color:rgb(12,137,207)"/><span style="font-size:24px">源码地址</span></h3>&#13;
+<p style="margin-top:0px; margin-bottom:0px; padding-top:0px; padding-bottom:0px; color:rgb(85,85,85); font-family:'microsoft yahei'; font-size:15px; line-height:35px">&#13;
+<span style="font-size:18px">https://github.com/chwshuang/rabbitmq.git</span></p>&#13;
+<br/>&#13;
+<h1><span style="font-size:24px"><span style="font-size:24px">Topic模式</span></span></h1>&#13;
+<p><span style="font-size:14px">  </span><span style="font-size:18px">      匹配模式，如果按照百度翻译和百度百科，直接叫主题或者话题就得了，但是如果你真的明白它在RabbitMQ中代表什么，就不能这么直接的翻译成中文了。如果要用中文理解它的意思，先了解它在RabbitMQ中用来做什么：topic类型的交换器允许在RabbitMQ中使用模糊匹配来绑定自己感兴趣的信息。</span></p>&#13;
+<p><span style="font-size:18px">        所以，我觉得这一章应该叫macth模式更合适，中文 - 匹配模式。<br/>&#13;
+</span></p>&#13;
+<p><span style="font-size:18px">        在上一章，通过直连交换器，生产者发送不同路由关键字的日志，消费者端通过绑定自己感兴趣的路由关键字来接收消息，进行完善日志系统。如果我想只接收生产者com.test.rabbitmq.topic包下的日志，其他包的忽略掉，之前的日志系统处理起来可能就非常麻烦，还好，我们有匹配模式，现在我们将生产者发送过来的消息按照包名来命名，那么消费者端就可以在匹配模式下使用【#.topic.*】这个路由关键字来获得感兴趣的消息。</span></p>&#13;
+<p><br/>&#13;
+</p>&#13;
+<h2><span style="font-size:24px">匹配交换器</span></h2>&#13;
+<p><span style="font-size:18px">通过匹配交换器，我们可以配置更灵活的消息系统，你可以在匹配交换器模式下发送这样的路由关键字：</span></p>&#13;
+<p><span style="font-size:18px">“a.b.c”、“c.d”、“quick.orange.rabbit”<br/>&#13;
+</span></p>&#13;
+<p><span style="font-size:18px">不过一定要记住，路由关键字【routingKey】不能超过255个字节（bytes）</span></p>&#13;
+<p><span style="font-size:18px">匹配交换器的匹配符</span><br/>&#13;
+</p>&#13;
+<ul>&#13;
+<li><span style="font-size:18px">*（星号）表示一个单词</span></li><li><span style="font-size:18px">#（井号）表示零个或者多个单词</span></li></ul>&#13;
+<h2><strong><span style="font-size:24px">示例说明：</span></strong></h2>&#13;
+<p><span style="font-size:18px">这一章的例子中，我们使用三个段式的路由关键字，有三个单词和两个点组成。第一个词是速度，第二个词是颜色，第三个是动物名称。</span></p>&#13;
+<p><span style="font-size:18px">我们用三个关键字来绑定，Q1绑定关键字是【*.orange.*】,Q2绑定关键字是【*.*.rabbit】和【lazy.#】，然后分析会发生什么：</span></p>&#13;
+<p style="text-align:center"><span style="font-size:18px"><span style="font-size:14px"><span style="font-size:18px"><span style="font-size:14px"><img src="http://img.blog.csdn.net/20160114155849562?watermark/2/text/aHR0cDovL2Jsb2cuY3Nkbi5uZXQv/font/5a6L5L2T/fontsize/400/fill/I0JBQkFCMA==/dissolve/70/gravity/SouthEast" alt="" height="302" width="739"/><br/>&#13;
+</span></span></span></span></p>&#13;
+<ul>&#13;
+<li><span style="font-size:18px">Q1会收到所有orange这种颜色相关的消息</span></li><li><span style="font-size:18px">Q2会收到所有rabbit这个动物相关的消息和所有速度lazy的动物的消息</span><br/>&#13;
+</li></ul>&#13;
+<h3><strong><span style="font-size:24px">分析：</span></strong></h3>&#13;
+<p><span style="font-size:18px">生产者发送“quick.orange.rabbit”的消息，两个队列都会收到</span></p>&#13;
+<p><span style="font-size:18px">生产者发送“lazy.orange.elephant”，两队列也都会收到。</span></p>&#13;
+<p><span style="font-size:18px">生产者发送"quick.orange.fox"，那么只有Q1会收到。</span></p>&#13;
+<p><span style="font-size:18px">生产者发送"lazy.brown.fox"，那么只会有Q2能收到。</span></p>&#13;
+<p><span style="font-size:18px">生产者发送"quick.brown.fox"，那么这条消息会被丢弃，谁也收不到。<br/>&#13;
+</span></p>&#13;
+<p><span style="font-size:18px">生产者发送"quick.orange.male.rabbit"，这个消息也会被丢弃，谁也收不到。</span></p>&#13;
+<p><span style="font-size:18px">生产者发送"lazy.orange.male.rabbit"，这个消息会被Q2的【lazy.#】规则匹配上，发送到Q2队列中。</span></p>&#13;
+<p><span style="font-size:14px"><br/>&#13;
+</span></p>&#13;
+<h2><em><span style="font-size:18px">注意</span></em></h2>&#13;
+<p><span style="font-size:18px">交换器在匹配模式下：</span></p>&#13;
+<p><span style="font-size:18px">如果消费者端的路由关键字只使用【#】来匹配消息，在匹配【topic】模式下，它会变成一个分发【fanout】模式，接收所有消息。<br/>&#13;
+</span></p>&#13;
+<p><span style="font-size:18px">如果消费者端的路由关键字中没有【#】或者【*】，它就变成直连【direct】模式来工作。</span><br/>&#13;
+</p>&#13;
+<p><span style="font-size:14px"><br/>&#13;
+</span></p>&#13;
+<br/>&#13;
+<p><br/>&#13;
+<span style="font-size:14px"/></p>&#13;
+<h2><span style="font-size:24px">测试代码</span></h2>&#13;
+<h3><span style="font-size:18px">包图</span></h3>&#13;
+<p style="text-align:center"><img src="http://img.blog.csdn.net/20160115114239274?watermark/2/text/aHR0cDovL2Jsb2cuY3Nkbi5uZXQv/font/5a6L5L2T/fontsize/400/fill/I0JBQkFCMA==/dissolve/70/gravity/Center" alt=""/><br/>&#13;
+</p>&#13;
+<h3><span style="font-size:24px">代码</span></h3>&#13;
+<p>ReceiveLogsTopic1.java</p>&#13;
+<p/>&#13;
+<pre code_snippet_id="1556439" snippet_file_name="blog_20160114_1_5452095" name="code" class="plain">import com.rabbitmq.client.*;
+import java.io.IOException;
+
+public class ReceiveLogsTopic1 {
+
+	private static final String EXCHANGE_NAME = "topic_logs";
+	 
+	public static void main(String[] argv) throws Exception {
+		ConnectionFactory factory = new ConnectionFactory();
+		factory.setHost("localhost");
+		Connection connection = factory.newConnection();
+		Channel channel = connection.createChannel();
+//		声明一个匹配模式的交换器
+		channel.exchangeDeclare(EXCHANGE_NAME, "topic");
+		String queueName = channel.queueDeclare().getQueue();
+		// 路由关键字
+		String[] routingKeys = new String[]{"*.orange.*"};
+//		绑定路由关键字
+		for (String bindingKey : routingKeys) {
+			channel.queueBind(queueName, EXCHANGE_NAME, bindingKey);
+			System.out.println("ReceiveLogsTopic1 exchange:"+EXCHANGE_NAME+", queue:"+queueName+", BindRoutingKey:" + bindingKey);
+		}
+
+		System.out.println("ReceiveLogsTopic1 [*] Waiting for messages. To exit press CTRL+C");
+
+		Consumer consumer = new DefaultConsumer(channel) {
+			@Override
+			public void handleDelivery(String consumerTag, Envelope envelope, AMQP.BasicProperties properties, byte[] body) throws IOException {
+				String message = new String(body, "UTF-8");
+				System.out.println("ReceiveLogsTopic1 [x] Received '" + envelope.getRoutingKey() + "':'" + message + "'");
+			}
+		};
+		channel.basicConsume(queueName, true, consumer);
+	}
+}</pre><br/>&#13;
+ReceiveLogsTopic2.java<br/>&#13;
+<p/>&#13;
+<p/>&#13;
+<pre code_snippet_id="1556439" snippet_file_name="blog_20160114_2_4786221" name="code" class="plain">import com.rabbitmq.client.*;
+import java.io.IOException;
+
+public class ReceiveLogsTopic2 {
+
+	private static final String EXCHANGE_NAME = "topic_logs";
+	 
+	public static void main(String[] argv) throws Exception {
+		ConnectionFactory factory = new ConnectionFactory();
+		factory.setHost("localhost");
+		Connection connection = factory.newConnection();
+		Channel channel = connection.createChannel();
+//		声明一个匹配模式的交换器
+		channel.exchangeDeclare(EXCHANGE_NAME, "topic");
+		String queueName = channel.queueDeclare().getQueue();
+		// 路由关键字
+		String[] routingKeys = new String[]{"*.*.rabbit", "lazy.#"};
+//		绑定路由关键字
+		for (String bindingKey : routingKeys) {
+			channel.queueBind(queueName, EXCHANGE_NAME, bindingKey);
+			System.out.println("ReceiveLogsTopic2 exchange:"+EXCHANGE_NAME+", queue:"+queueName+", BindRoutingKey:" + bindingKey);
+		}
+
+		System.out.println("ReceiveLogsTopic2 [*] Waiting for messages. To exit press CTRL+C");
+
+		Consumer consumer = new DefaultConsumer(channel) {
+			@Override
+			public void handleDelivery(String consumerTag, Envelope envelope, AMQP.BasicProperties properties, byte[] body) throws IOException {
+				String message = new String(body, "UTF-8");
+				System.out.println("ReceiveLogsTopic2 [x] Received '" + envelope.getRoutingKey() + "':'" + message + "'");
+			}
+		};
+		channel.basicConsume(queueName, true, consumer);
+	}
+}</pre><br/>&#13;
+TopicSend.java&#13;
+<p/>&#13;
+<p/>&#13;
+<pre code_snippet_id="1556439" snippet_file_name="blog_20160114_3_5724312" name="code" class="plain">import com.rabbitmq.client.ConnectionFactory;
+import com.rabbitmq.client.Connection;
+import com.rabbitmq.client.Channel;
+
+public class TopicSend {
+
+	private static final String EXCHANGE_NAME = "topic_logs";
+
+	public static void main(String[] argv) {
+		Connection connection = null;
+		Channel channel = null;
+		try {
+			ConnectionFactory factory = new ConnectionFactory();
+			factory.setHost("localhost");
+
+			connection = factory.newConnection();
+			channel = connection.createChannel();
+//			声明一个匹配模式的交换器
+			channel.exchangeDeclare(EXCHANGE_NAME, "topic");
+
+			// 待发送的消息
+			String[] routingKeys = new String[]{"quick.orange.rabbit", 
+												"lazy.orange.elephant", 
+												"quick.orange.fox", 
+												"lazy.brown.fox", 
+												"quick.brown.fox", 
+												"quick.orange.male.rabbit", 
+												"lazy.orange.male.rabbit"};
+//			发送消息
+	        for(String severity :routingKeys){
+	        	String message = "From "+severity+" routingKey' s message!";
+	        	channel.basicPublish(EXCHANGE_NAME, severity, null, message.getBytes());
+	        	System.out.println("TopicSend [x] Sent '" + severity + "':'" + message + "'");
+	        }
+			
+		} catch (Exception e) {
+			e.printStackTrace();
+		} finally {
+			if (connection != null) {
+				try {
+					connection.close();
+				} catch (Exception ignore) {
+				}
+			}
+		}
+	}
+}</pre><br/>&#13;
+<span style="font-size:18px">先运行ReceiveLogsTopic1.java</span>&#13;
+<p/>&#13;
+<p><span style="font-size:14px"/></p>&#13;
+<pre code_snippet_id="1556439" snippet_file_name="blog_20160114_4_8962915" name="code" class="plain">ReceiveLogsTopic1 [*] Waiting for messages. To exit press CTRL+C</pre><br/>&#13;
+<br/>&#13;
+<p/>&#13;
+<p><span style="font-size:18px">再运行ReceiveLogsTopic2</span></p>&#13;
+<p/>&#13;
+<pre code_snippet_id="1556439" snippet_file_name="blog_20160114_5_3281314" name="code" class="plain">ReceiveLogsTopic2 exchange:topic_logs, queue:amq.gen-JwqUJNUGpdFGkeY5B6TsLw, BindRoutingKey:*.*.rabbit
+ReceiveLogsTopic2 exchange:topic_logs, queue:amq.gen-JwqUJNUGpdFGkeY5B6TsLw, BindRoutingKey:lazy.#
+ReceiveLogsTopic2 [*] Waiting for messages. To exit press CTRL+C</pre><br/>&#13;
+<span style="font-size:18px">然后运行TopicSend.java发送7条消息</span>&#13;
+<p/>&#13;
+<p><span style="font-size:14px"/></p>&#13;
+<pre code_snippet_id="1556439" snippet_file_name="blog_20160114_6_3139610" name="code" class="plain">TopicSend [x] Sent 'quick.orange.rabbit':'From quick.orange.rabbit routingKey' s message!'
+TopicSend [x] Sent 'lazy.orange.elephant':'From lazy.orange.elephant routingKey' s message!'
+TopicSend [x] Sent 'quick.orange.fox':'From quick.orange.fox routingKey' s message!'
+TopicSend [x] Sent 'lazy.brown.fox':'From lazy.brown.fox routingKey' s message!'
+TopicSend [x] Sent 'quick.brown.fox':'From quick.brown.fox routingKey' s message!'
+TopicSend [x] Sent 'quick.orange.male.rabbit':'From quick.orange.male.rabbit routingKey' s message!'
+TopicSend [x] Sent 'lazy.orange.male.rabbit':'From lazy.orange.male.rabbit routingKey' s message!'</pre><br/>&#13;
+<span style="font-size:18px">再看ReceiveLogsTopic1.java，收到3条匹配的消息。</span><br/>&#13;
+<p/>&#13;
+<p><span style="font-size:14px"/></p>&#13;
+<pre code_snippet_id="1556439" snippet_file_name="blog_20160114_7_838316" name="code" class="plain">ReceiveLogsTopic1 [x] Received 'quick.orange.rabbit':'From quick.orange.rabbit routingKey' s message!'
+ReceiveLogsTopic1 [x] Received 'lazy.orange.elephant':'From lazy.orange.elephant routingKey' s message!'
+ReceiveLogsTopic1 [x] Received 'quick.orange.fox':'From quick.orange.fox routingKey' s message!'</pre><br/>&#13;
+<span style="font-size:18px">再看ReceiveLogsTopic2.java，收到4条匹配的消息。</span><br/>&#13;
+<p/>&#13;
+<p/>&#13;
+<pre code_snippet_id="1556439" snippet_file_name="blog_20160114_8_9060408" name="code" class="plain">ReceiveLogsTopic2 [x] Received 'quick.orange.rabbit':'From quick.orange.rabbit routingKey' s message!'
+ReceiveLogsTopic2 [x] Received 'lazy.orange.elephant':'From lazy.orange.elephant routingKey' s message!'
+ReceiveLogsTopic2 [x] Received 'lazy.brown.fox':'From lazy.brown.fox routingKey' s message!'
+ReceiveLogsTopic2 [x] Received 'lazy.orange.male.rabbit':'From lazy.orange.male.rabbit routingKey' s message!'</pre><br/>&#13;
+<p/>&#13;
+<p/>&#13;
+<p><span style="font-size:18px">最后，咱们来开动脑筋看看下面的题，当是我留的课外作业：</span></p>&#13;
+<ol>&#13;
+<li><span style="font-size:18px">在匹配交互器模式下，消费者端路由关键字 “*” 能接收到生产者端发来路由关键字为空的消息吗？</span></li><li><span style="font-size:18px">在匹配交换器模式下，消费者端路由关键字“#.*”能接收到生产者端以“..”为关键字的消息吗？如果发送来的消息只有一个单词，能匹配上吗？</span></li><li><span style="font-size:18px">“a.*.#” 与 “a.#” 有什么不同吗？</span></li></ol>&#13;
+<span style="font-size:18px"><br/>&#13;
+</span>&#13;
+<p><span style="font-size:18px">如果你的课外作业做完，并且自己动手验证过，OK，进入第六章-远程方法调用吧！</span></p>&#13;
+<p><br/>&#13;
+</p>&#13;
+<p/>&#13;
+<p><span style="font-size:18px">本教程所有文章：</span></p>&#13;
+<p><span style="font-size:18px"><a target="_blank" href="http://blog.csdn.net/chwshuang/article/details/50521708" style="font-family:Verdana,'Lucida Grande',Arial,Helvetica,sans-serif; list-style:none; text-decoration:none; word-break:break-all; word-wrap:break-word; color:rgb(59,89,152)">RabbitMQ入门教程&#13;
+ For Java【1】 - Hello World</a>  - 你好世界！ <br/>&#13;
+</span></p>&#13;
+<p><span style="font-size:18px"><a target="_blank" href="http://blog.csdn.net/chwshuang/article/details/50506284" style="font-family:Verdana,'Lucida Grande',Arial,Helvetica,sans-serif; list-style:none; text-decoration:none; word-break:break-all; word-wrap:break-word; color:rgb(59,89,152)">RabbitMQ入门教程&#13;
+ For Java【2】 - Work Queues</a> <span style="white-space:pre"> </span> - 工作队列<br/>&#13;
+</span></p>&#13;
+<p><span style="font-size:18px"><a target="_blank" href="http://blog.csdn.net/chwshuang/article/details/50512057" style="font-family:Verdana,'Lucida Grande',Arial,Helvetica,sans-serif; list-style:none; text-decoration:none; word-break:break-all; word-wrap:break-word; color:rgb(59,89,152)">RabbitMQ入门教程&#13;
+ For Java【3】 - Publish/Subscribe</a> - 发布/订阅<br/>&#13;
+</span></p>&#13;
+<p><span style="font-size:18px"><a target="_blank" href="http://blog.csdn.net/chwshuang/article/details/50505060" style="font-family:Verdana,'Lucida Grande',Arial,Helvetica,sans-serif; list-style:none; text-decoration:none; word-break:break-all; word-wrap:break-word; color:rgb(59,89,152)">RabbitMQ入门教程&#13;
+ For Java【4】 - Routing</a> -  消息路由<br/>&#13;
+</span></p>&#13;
+<p><span style="font-size:18px"><a target="_blank" href="http://blog.csdn.net/chwshuang/article/details/50516904" style="font-family:Verdana,'Lucida Grande',Arial,Helvetica,sans-serif; list-style:none; text-decoration:none; word-break:break-all; word-wrap:break-word; color:rgb(59,89,152)">RabbitMQ入门教程&#13;
+ For Java【5】 - Topic</a>  -  模糊匹配<br/>&#13;
+</span></p>&#13;
+<p><span style="font-size:18px; font-family:Verdana,'Lucida Grande',Arial,Helvetica,sans-serif; list-style:none; word-break:break-all; word-wrap:break-word; color:rgb(59,89,152)"><a target="_blank" href="http://blog.csdn.net/chwshuang/article/details/50518570" style="list-style:none; text-decoration:none; word-break:break-all; word-wrap:break-word; color:rgb(59,89,152)">RabbitMQ入门教程&#13;
+ For Java【6】 - Remote procedure call (RPC)</a> - 远程调用</span></p>&#13;
+<br/>&#13;
+<p><br/>&#13;
+</p>&#13;
+<p><span style="font-size:14px"/></p>&#13;
+<h2 id="&#x63D0;&#x793A;">提示</h2>&#13;
+<hr/>&#13;
+<p/>&#13;
+<p>由于本教程中rabbitmq是在本机安装，使用的是默认端口（5672）。 <br/>&#13;
+如果你的例子运行中的主机、端口不同，请进行必要设置，否则可能无法运行。</p>&#13;
+<h3 id="&#x83B7;&#x5F97;&#x5E2E;&#x52A9;"><a target="_blank" name="t10"/>获得帮助</h3>&#13;
+<p>如果你阅读这个教程有障碍，可以通过GitHub项目成员找到开发者的邮件地址联系他们。</p>&#13;
+<pre code_snippet_id="1556439" snippet_file_name="blog_20160114_9_7838909" name="code" class="prettyprint">https://github.com/orgs/rabbitmq/people</pre><br/>&#13;
+<link rel="stylesheet" href="http://static.blog.csdn.net/public/res-min/markdown_views.css?v=1.0"/>&#13;
+            

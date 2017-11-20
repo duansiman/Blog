@@ -1,0 +1,312 @@
+
+        <div class="markdown_views"><p><strong>摘要：</strong></p>
+
+<p>　　在Spring整体框架的核心概念中，容器的核心思想是管理Bean的整个生命周期。但在一个项目中，Spring容器往往不止一个，最常见的场景就是在一个项目中引入Spring和SpringMVC这两个框架，其本质就是两个容器：Spring是根容器，SpringMVC是其子容器。关于这两个容器的创建、联系及区别也正是本文所关注的问题。</p>
+
+<hr />
+
+<p><strong>版权声明：</strong></p>
+
+<p>　　本文原创作者：<a href="http://my.csdn.net/justloveyou_" target="_blank">书呆子Rico</a> <br />
+　　作者博客地址：<a href="http://blog.csdn.net/justloveyou_/" target="_blank">http://blog.csdn.net/justloveyou_/</a></p>
+
+<hr />
+
+
+
+<h2 id="一引子">一、引子</h2>
+
+<p>　　Spring和SpringMVC作为Bean管理容器和MVC层的默认框架，已被众多web应用采用。但是在实际应用中，初级开发者常常会因对Spring和SpringMVC的配置失当导致一些奇怪的异常现象，比如Controller的方法无法拦截、Bean被多次加载等问题，这种情况发生的根本原因在于开发者对Spring容器和SpringMVC容器之间的关系了解不够深入，这也正是本文要阐述的问题。</p>
+
+<hr />
+
+
+
+<h2 id="二spring容器springmvc容器与servletcontext之间的关系">二、Spring容器、SpringMVC容器与ServletContext之间的关系</h2>
+
+<p>　　在Web容器中配置Spring时，你可能已经司空见惯于web.xml文件中的以下配置代码，下面我们以该代码片段为基础来了解Spring容器、SpringMVC容器与ServletContext之间的关系。要想理解这三者的关系，需要先熟悉Spring是怎样在web容器中启动起来的。Spring的启动过程其实就是其Spring IOC容器的启动过程。特别地，对于web程序而言，IOC容器启动过程即是建立上下文的过程。</p>
+
+<pre class="prettyprint"><code class="language-xml hljs "><span class="hljs-tag">&lt;<span class="hljs-title">web-app</span>&gt;</span>
+
+    ...
+
+    <span class="hljs-comment">&lt;!-- 利用Spring提供的ContextLoaderListener监听器去监听ServletContext对象的创建，并初始化WebApplicationContext对象 --&gt;</span>
+    <span class="hljs-tag">&lt;<span class="hljs-title">listener</span>&gt;</span>
+        <span class="hljs-tag">&lt;<span class="hljs-title">listener-class</span>&gt;</span>org.springframework.web.context.ContextLoaderListener<span class="hljs-tag">&lt;/<span class="hljs-title">listener-class</span>&gt;</span>
+    <span class="hljs-tag">&lt;/<span class="hljs-title">listener</span>&gt;</span>
+    <span class="hljs-comment">&lt;!-- Context Configuration locations for Spring XML files(默认查找/WEB-INF/applicationContext.xml) --&gt;</span>
+    <span class="hljs-tag">&lt;<span class="hljs-title">context-param</span>&gt;</span>
+        <span class="hljs-tag">&lt;<span class="hljs-title">param-name</span>&gt;</span>contextConfigLocation<span class="hljs-tag">&lt;/<span class="hljs-title">param-name</span>&gt;</span>
+        <span class="hljs-tag">&lt;<span class="hljs-title">param-value</span>&gt;</span>classpath:applicationContext.xml<span class="hljs-tag">&lt;/<span class="hljs-title">param-value</span>&gt;</span>
+    <span class="hljs-tag">&lt;/<span class="hljs-title">context-param</span>&gt;</span>
+
+    <span class="hljs-comment">&lt;!-- 配置Spring MVC的前端控制器：DispatchcerServlet --&gt;</span>
+    <span class="hljs-tag">&lt;<span class="hljs-title">servlet</span>&gt;</span>
+        <span class="hljs-tag">&lt;<span class="hljs-title">servlet-name</span>&gt;</span>SpringMVC<span class="hljs-tag">&lt;/<span class="hljs-title">servlet-name</span>&gt;</span>
+        <span class="hljs-tag">&lt;<span class="hljs-title">servlet-class</span>&gt;</span>org.springframework.web.servlet.DispatcherServlet<span class="hljs-tag">&lt;/<span class="hljs-title">servlet-class</span>&gt;</span>
+        <span class="hljs-tag">&lt;<span class="hljs-title">init-param</span>&gt;</span>
+            <span class="hljs-tag">&lt;<span class="hljs-title">param-name</span>&gt;</span>contextConfigLocation<span class="hljs-tag">&lt;/<span class="hljs-title">param-name</span>&gt;</span>
+            <span class="hljs-tag">&lt;<span class="hljs-title">param-value</span>&gt;</span>classpath:springmvc.xml<span class="hljs-tag">&lt;/<span class="hljs-title">param-value</span>&gt;</span>
+        <span class="hljs-tag">&lt;/<span class="hljs-title">init-param</span>&gt;</span>
+        <span class="hljs-tag">&lt;<span class="hljs-title">load-on-startup</span>&gt;</span>1<span class="hljs-tag">&lt;/<span class="hljs-title">load-on-startup</span>&gt;</span>
+    <span class="hljs-tag">&lt;/<span class="hljs-title">servlet</span>&gt;</span>
+    <span class="hljs-tag">&lt;<span class="hljs-title">servlet-mapping</span>&gt;</span>
+        <span class="hljs-tag">&lt;<span class="hljs-title">servlet-name</span>&gt;</span>SpringMVC<span class="hljs-tag">&lt;/<span class="hljs-title">servlet-name</span>&gt;</span>
+        <span class="hljs-tag">&lt;<span class="hljs-title">url-pattern</span>&gt;</span>/<span class="hljs-tag">&lt;/<span class="hljs-title">url-pattern</span>&gt;</span>
+    <span class="hljs-tag">&lt;/<span class="hljs-title">servlet-mapping</span>&gt;</span>
+
+    ...
+
+<span class="hljs-tag">&lt;/<span class="hljs-title">web-app</span>&gt;</span></code></pre>
+
+<hr />
+
+<p><strong>1、Spring的启动过程</strong></p>
+
+<p>　　(1). 对于一个web应用，其部署在web容器中，web容器提供其一个全局的上下文环境，这个上下文就是ServletContext，其为后面的spring IoC容器提供宿主环境；</p>
+
+<p>　　(2). 在web.xml中会提供有contextLoaderListener。在web容器启动时，会触发容器初始化事件，此时contextLoaderListener会监听到这个事件，其contextInitialized方法会被调用。在这个方法中，spring会初始化一个启动上下文，这个上下文被称为根上下文，即WebApplicationContext。WebApplicationContext是一个接口类，确切的说，其实际的实现类是XmlWebApplicationContext，它就是spring的IoC容器，其对应的Bean定义的配置由web.xml中的&lt;context-param&gt;标签指定。在这个IoC容器初始化完毕后，Spring以WebApplicationContext.ROOTWEBAPPLICATIONCONTEXTATTRIBUTE为属性Key，将其存储到ServletContext中，便于获取； </p>
+
+<p>　　(3). ContextLoaderListener监听器初始化完毕后，开始初始化web.xml中配置的Servlet，这个servlet可以配置多个，以最常见的DispatcherServlet为例，这个servlet实际上是一个标准的前端控制器，用以转发、匹配、处理每个servlet请求。<font color="red"><b>DispatcherServlet上下文在初始化的时候会建立自己的IoC上下文，用以持有spring mvc相关的bean。特别地，在建立DispatcherServlet自己的IoC上下文前，会利用WebApplicationContext.ROOTWEBAPPLICATIONCONTEXTATTRIBUTE先从ServletContext中获取之前的根上下文(即WebApplicationContext)作为自己上下文的parent上下文。有了这个parent上下文之后，再初始化自己持有的上下文。</b></font>这个DispatcherServlet初始化自己上下文的工作在其initStrategies方法中可以看到，大概的工作就是初始化处理器映射、视图解析等。这个servlet自己持有的上下文默认实现类也是mlWebApplicationContext。初始化完毕后，spring以与servlet的名字相关(此处不是简单的以servlet名为Key，而是通过一些转换，具体可自行查看源码)的属性为属性Key，也将其存到ServletContext中，以便后续使用。这样每个servlet就持有自己的上下文，即拥有自己独立的bean空间，同时各个servlet共享相同的bean，即根上下文(第2步中初始化的上下文)定义的那些bean。</p>
+
+<hr />
+
+<p><strong>2、Spring容器与SpringMVC的容器联系与区别</strong></p>
+
+<p>　　ContextLoaderListener中创建Spring容器主要用于整个Web应用程序需要共享的一些组件，比如DAO、数据库的ConnectionFactory等；而由DispatcherServlet创建的SpringMVC的容器主要用于和该Servlet相关的一些组件，比如Controller、ViewResovler等。它们之间的关系如下：</p>
+
+<hr />
+
+<p>(1). <strong>作用范围</strong></p>
+
+<p>　　<font color="red"><b>子容器(SpringMVC容器)可以访问父容器(Spring容器)的Bean，父容器(Spring容器)不能访问子容器(SpringMVC容器)的Bean。</b></font>也就是说，当在SpringMVC容器中getBean时，如果在自己的容器中找不到对应的bean，则会去父容器中去找，这也解释了为什么由SpringMVC容器创建的Controller可以获取到Spring容器创建的Service组件的原因。</p>
+
+<hr />
+
+<p>(2). <strong>具体实现</strong></p>
+
+<p>　　在Spring的具体实现上，子容器和父容器都是通过ServletContext的setAttribute方法放到ServletContext中的。但是，ContextLoaderListener会先于DispatcherServlet创建ApplicationContext，DispatcherServlet在创建ApplicationContext时会先找到由ContextLoaderListener所创建的ApplicationContext，再将后者的ApplicationContext作为参数传给DispatcherServlet的ApplicationContext的setParent()方法。也就是说，<font color="red"><b>子容器的创建依赖于父容器的创建，父容器先于子容器创建。</b></font>在Spring源代码中，你可以在FrameServlet.java中找到如下代码：</p>
+
+
+
+<pre class="prettyprint"><code class="language-xml hljs ">wac.setParent(parent);</code></pre>
+
+<p>　　其中，wac即为由DisptcherServlet创建的ApplicationContext，而parent则为有ContextLoaderListener创建的ApplicationContext。此后，框架又会调用ServletContext的setAttribute()方法将wac加入到ServletContext中。</p>
+
+<hr />
+
+
+
+<h2 id="三spring容器和springmvc容器的配置">三、Spring容器和SpringMVC容器的配置</h2>
+
+<p>　　在Spring整体框架的核心概念中，容器是核心思想，就是用来管理Bean的整个生命周期的，而在一个项目中，容器不一定只有一个，Spring中可以包括多个容器，而且容器间有上下层关系，目前最常见的一种场景就是在一个项目中引入Spring和SpringMVC这两个框架，其实就是两个容器：Spring是根容器，SpringMVC是其子容器。在上文中，我们提到，SpringMVC容器可以访问Spring容器中的Bean，Spring容器不能访问SpringMVC容器的Bean。但是，若开发者对Spring容器和SpringMVC容器之间的关系了解不够深入，常常会因配置失当而导致同时配置Spring和SpringMVC时出现一些奇怪的异常，比如Controller的方法无法拦截、Bean被多次加载等问题。</p>
+
+<p>　　在实际工程中，一个项目中会包括很多配置，根据不同的业务模块来划分，我们一般思路是各负其责，明确边界，即：Spring根容器负责所有其他非controller的Bean的注册，而SpringMVC只负责controller相关的Bean的注册，下面我们演示这种配置方案。</p>
+
+<hr />
+
+<p>(1). <strong>Spring容器配置</strong></p>
+
+<p>　　Spring根容器负责所有其他非controller的Bean的注册：</p>
+
+
+
+<pre class="prettyprint"><code class="language-xml hljs ">    <span class="hljs-comment">&lt;!-- 启用注解扫描，并定义组件查找规则 ，除了@controller，扫描所有的Bean --&gt;</span>
+    <span class="hljs-tag">&lt;<span class="hljs-title">context:component-scan</span> <span class="hljs-attribute">base-package</span>=<span class="hljs-value">"cn.edu.tju.rico"</span>&gt;</span>
+        <span class="hljs-tag">&lt;<span class="hljs-title">context:exclude-filter</span> <span class="hljs-attribute">type</span>=<span class="hljs-value">"annotation"</span>
+            <span class="hljs-attribute">expression</span>=<span class="hljs-value">"org.springframework.stereotype.Controller"</span> /&gt;</span>
+    <span class="hljs-tag">&lt;/<span class="hljs-title">context:component-scan</span>&gt;</span></code></pre>
+
+<hr />
+
+<p>(2). <strong>SpringMVC容器配置</strong></p>
+
+<p>　　SpringMVC只负责controller相关的Bean的注册，其中@ControllerAdvice用于对控制器进行增强，常用于实现全局的异常处理类：</p>
+
+
+
+<pre class="prettyprint"><code class="language-xml hljs ">    <span class="hljs-comment">&lt;!-- 启用注解扫描，并定义组件查找规则 ，mvc层只负责扫描@Controller、@ControllerAdvice --&gt;</span>
+    <span class="hljs-comment">&lt;!-- base-package 如果多个，用“,”分隔 --&gt;</span>
+    <span class="hljs-tag">&lt;<span class="hljs-title">context:component-scan</span> <span class="hljs-attribute">base-package</span>=<span class="hljs-value">"cn.edu.tju.rico"</span>
+        <span class="hljs-attribute">use-default-filters</span>=<span class="hljs-value">"false"</span>&gt;</span>
+        <span class="hljs-comment">&lt;!-- 扫描@Controller --&gt;</span>
+        <span class="hljs-tag">&lt;<span class="hljs-title">context:include-filter</span> <span class="hljs-attribute">type</span>=<span class="hljs-value">"annotation"</span>
+            <span class="hljs-attribute">expression</span>=<span class="hljs-value">"org.springframework.stereotype.Controller"</span> /&gt;</span>
+        <span class="hljs-comment">&lt;!--控制器增强，使一个Contoller成为全局的异常处理类，类中用@ExceptionHandler方法注解的方法可以处理所有Controller发生的异常 --&gt;</span>
+        <span class="hljs-tag">&lt;<span class="hljs-title">context:include-filter</span> <span class="hljs-attribute">type</span>=<span class="hljs-value">"annotation"</span>
+            <span class="hljs-attribute">expression</span>=<span class="hljs-value">"org.springframework.web.bind.annotation.ControllerAdvice"</span> /&gt;</span>
+    <span class="hljs-tag">&lt;/<span class="hljs-title">context:component-scan</span>&gt;</span></code></pre>
+
+<p>　　在&lt;context:component-scan&gt;中可以添加use-default-filters，Spring配置中的use-default-filters用来指示是否自动扫描带有@Component、@Repository、@Service和@Controller的类。默认为true，即默认扫描。如果想要过滤其中这四个注解中的一个，比如@Repository，可以添加&lt;context:exclude-filter /&gt;子标签，如下：</p>
+
+
+
+<pre class="prettyprint"><code class="language-xml hljs ">    <span class="hljs-tag">&lt;<span class="hljs-title">context:component-scan</span> <span class="hljs-attribute">base-package</span>=<span class="hljs-value">"cn.edu.tju.rico"</span> <span class="hljs-attribute">scoped-proxy</span>=<span class="hljs-value">"targetClass"</span> <span class="hljs-attribute">use-default-filters</span>=<span class="hljs-value">"true"</span>&gt;</span>  
+    <span class="hljs-tag">&lt;<span class="hljs-title">context:exclude-filter</span> <span class="hljs-attribute">type</span>=<span class="hljs-value">"annotation"</span> <span class="hljs-attribute">expression</span>=<span class="hljs-value">"org.springframework.stereotype.Repository"</span>/&gt;</span>  
+<span class="hljs-tag">&lt;/<span class="hljs-title">context:component-scan</span>&gt;</span>  </code></pre>
+
+<p>　　而&lt;context:include-filter/&gt;子标签是用来添加扫描注解的：</p>
+
+
+
+<pre class="prettyprint"><code class="language-xml hljs "><span class="hljs-tag">&lt;<span class="hljs-title">context:component-scan</span> <span class="hljs-attribute">base-package</span>=<span class="hljs-value">"cn.edu.tju.rico"</span> <span class="hljs-attribute">scoped-proxy</span>=<span class="hljs-value">"targetClass"</span> <span class="hljs-attribute">use-default-filters</span>=<span class="hljs-value">"false"</span>&gt;</span>  
+    <span class="hljs-tag">&lt;<span class="hljs-title">context:include-filter</span> <span class="hljs-attribute">type</span>=<span class="hljs-value">"annotation"</span> <span class="hljs-attribute">expression</span>=<span class="hljs-value">"org.springframework.stereotype.Repository"</span>/&gt;</span>  
+<span class="hljs-tag">&lt;/<span class="hljs-title">context:component-scan</span>&gt;</span>  </code></pre>
+
+<hr />
+
+
+
+<h2 id="四spring容器和springmvc容器的配置失当带来的问题">四、Spring容器和SpringMVC容器的配置失当带来的问题</h2>
+
+<p><strong>1、问题描述</strong></p>
+
+<p>　　在一个项目中，想使用Spring AOP在Controller中切入一些逻辑，但发现不能切入到Controller的中，但可以切入到Service中。最初的配置情形如下：</p>
+
+<p>1). Spring的配置文件application.xml包含了开启AOP自动代理、Service扫描配置以及Aspect的自动扫描配置，如下所示：</p>
+
+
+
+<pre class="prettyprint"><code class="language-xml hljs "><span class="hljs-tag">&lt;<span class="hljs-title">aop:aspectj-autoproxy</span>/&gt;</span>
+<span class="hljs-tag">&lt;<span class="hljs-title">context:component-scan</span> <span class="hljs-attribute">base-package</span>=<span class="hljs-value">"cn.edu.tju.rico"</span>&gt;</span></code></pre>
+
+<hr />
+
+<p>2). Spring MVC的配置文件spring-mvc.xml主要内容是Controller层的自动扫描配置。</p>
+
+
+
+<pre class="prettyprint"><code class="language-xml hljs "><span class="hljs-tag">&lt;<span class="hljs-title">context:component-scan</span> <span class="hljs-attribute">base-package</span>=<span class="hljs-value">"cn.edu.tju.rico.controller"</span> /&gt;</span></code></pre>
+
+<hr />
+
+<p>3). 增强代码为如下:</p>
+
+
+
+<pre class="prettyprint"><code class="language-java hljs "><span class="hljs-annotation">@Component</span>
+<span class="hljs-annotation">@Aspect</span>
+<span class="hljs-keyword">public</span> <span class="hljs-class"><span class="hljs-keyword">class</span> <span class="hljs-title">SecurityAspect</span> {</span>
+
+    <span class="hljs-keyword">private</span> <span class="hljs-keyword">static</span> <span class="hljs-keyword">final</span> String DEFAULT_TOKEN_NAME = <span class="hljs-string">"X-Token"</span>;
+
+    <span class="hljs-keyword">private</span> TokenManager tokenManager;
+
+    <span class="hljs-annotation">@Resource</span>(name = <span class="hljs-string">"tokenManager"</span>)
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">void</span> <span class="hljs-title">setTokenManager</span>(TokenManager tokenManager) {
+        <span class="hljs-keyword">this</span>.tokenManager = tokenManager;
+    }
+
+    <span class="hljs-annotation">@Around</span>(<span class="hljs-string">"@annotation(org.springframework.web.bind.annotation.RequestMapping)"</span>)
+    <span class="hljs-keyword">public</span> Object <span class="hljs-title">execute</span>(ProceedingJoinPoint pjp) <span class="hljs-keyword">throws</span> Throwable {
+        <span class="hljs-comment">// 从切点上获取目标方法</span>
+        MethodSignature methodSignature = (MethodSignature) pjp.getSignature();
+        Method method = methodSignature.getMethod();
+        <span class="hljs-comment">// 若目标方法忽略了安全性检查，则直接调用目标方法</span>
+        <span class="hljs-keyword">if</span> (method.isAnnotationPresent(IgnoreSecurity.class)) {
+            System.out
+                    .println(<span class="hljs-string">"method.isAnnotationPresent(IgnoreSecurity.class) : "</span>
+                            + method.isAnnotationPresent(IgnoreSecurity.class));
+            <span class="hljs-keyword">return</span> pjp.proceed();
+        }
+        <span class="hljs-comment">// 从 request header 中获取当前 token</span>
+        String token = WebContext.getRequest().getHeader(DEFAULT_TOKEN_NAME);
+        <span class="hljs-comment">// 检查 token 有效性</span>
+        <span class="hljs-keyword">if</span> (!tokenManager.checkToken(token)) {
+            String message = String.format(<span class="hljs-string">"token [%s] is invalid"</span>, token);
+            <span class="hljs-keyword">throw</span> <span class="hljs-keyword">new</span> TokenException(message);
+        }
+        <span class="hljs-comment">// 调用目标方法</span>
+        <span class="hljs-keyword">return</span> pjp.proceed();
+    }
+}</code></pre>
+
+<hr />
+
+<p>4). 需要被代理的Controller如下:</p>
+
+
+
+<pre class="prettyprint"><code class="language-java hljs "><span class="hljs-annotation">@RestController</span>
+<span class="hljs-annotation">@RequestMapping</span>(<span class="hljs-string">"/tokens"</span>)
+<span class="hljs-keyword">public</span> <span class="hljs-class"><span class="hljs-keyword">class</span> <span class="hljs-title">TokenController</span> {</span>
+
+    <span class="hljs-keyword">private</span> UserService userService;
+    <span class="hljs-keyword">private</span> TokenManager tokenManager;
+
+    <span class="hljs-keyword">public</span> UserService <span class="hljs-title">getUserService</span>() {
+        <span class="hljs-keyword">return</span> userService;
+    }
+
+    <span class="hljs-annotation">@Resource</span>(name = <span class="hljs-string">"userService"</span>)
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">void</span> <span class="hljs-title">setUserService</span>(UserService userService) {
+        <span class="hljs-keyword">this</span>.userService = userService;
+    }
+
+    <span class="hljs-keyword">public</span> TokenManager <span class="hljs-title">getTokenManager</span>() {
+        <span class="hljs-keyword">return</span> tokenManager;
+    }
+
+    <span class="hljs-annotation">@Resource</span>(name = <span class="hljs-string">"tokenManager"</span>)
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">void</span> <span class="hljs-title">setTokenManager</span>(TokenManager tokenManager) {
+        <span class="hljs-keyword">this</span>.tokenManager = tokenManager;
+    }
+
+    <span class="hljs-annotation">@RequestMapping</span>(method = RequestMethod.POST)
+    <span class="hljs-annotation">@IgnoreSecurity</span>
+    <span class="hljs-keyword">public</span> Response <span class="hljs-title">login</span>(@<span class="hljs-title">RequestParam</span>("uname") String uname,
+            @<span class="hljs-title">RequestParam</span>("passwd") String passwd) {
+        <span class="hljs-keyword">boolean</span> flag = userService.login(uname, passwd);
+        <span class="hljs-keyword">if</span> (flag) {
+            String token = tokenManager.createToken(uname);
+            System.out.println(<span class="hljs-string">"**** Token **** : "</span> + token);
+            <span class="hljs-keyword">return</span> <span class="hljs-keyword">new</span> Response().success(<span class="hljs-string">"Login Success..."</span>);
+        }
+        <span class="hljs-keyword">return</span> <span class="hljs-keyword">new</span> Response().failure(<span class="hljs-string">"Login Failure..."</span>);
+    }
+
+    <span class="hljs-annotation">@RequestMapping</span>(method = RequestMethod.DELETE)
+    <span class="hljs-annotation">@IgnoreSecurity</span>
+    <span class="hljs-keyword">public</span> Response <span class="hljs-title">logout</span>(@<span class="hljs-title">RequestParam</span>("uname") String uname) {
+        tokenManager.deleteToken(uname);
+        <span class="hljs-keyword">return</span> <span class="hljs-keyword">new</span> Response().success(<span class="hljs-string">"Logout Success..."</span>);
+    }
+}</code></pre>
+
+<p>　　在运行过程中，发现这样配置并没有起作用，AOP配置不生效，没有生成TokenController的代理。 </p>
+
+<hr />
+
+<p><strong>2、解决方案</strong></p>
+
+<p>　　由上一节可知，Spring容器先于SpringMVC容器进行创建，并且SpringMVC容器的创建依赖于Spring容器。在SpringMVC容器创建TokenController时，由于其没有启用AOP代理，并且父容器的配置与子容器配置的独立性，导致SpringMVC容器没有为TokenController生成代理，所以没有生效。我们只需要在SpringMVC的配置文件中添加Aspect的自动扫描配置即可：</p>
+
+
+
+<pre class="prettyprint"><code class="language-xml hljs "><span class="hljs-tag">&lt;<span class="hljs-title">aop:aspectj-autoproxy</span>/&gt;</span>
+<span class="hljs-tag">&lt;<span class="hljs-title">context:component-scan</span> <span class="hljs-attribute">base-package</span>=<span class="hljs-value">"com.hodc.sdk.controller"</span> /&gt;</span></code></pre>
+
+<hr />
+
+<blockquote>
+  <h2 id="引用">引用</h2>
+  
+  <p><a href="http://www.cnblogs.com/Frank-Hao/p/5787813.html" target="_blank">Spring AOP无法拦截Controller中的方法</a> <br />
+  <a href="http://blog.csdn.net/u014520797/article/details/50667720" target="_blank">springmvc-servlet.xml中use-default-filters的作用</a> <br />
+  <a href="http://www.open-open.com/lib/view/open1452142677292.html" target="_blank">Spring与SpringMVC的容器关系分析</a> <br />
+  <a href="http://www.cnblogs.com/hujunzheng/p/5673377.html" target="_blank">深入分析Spring 与 Spring MVC容器</a></p>
+</blockquote></div>&#13;
+        <script type="text/javascript">&#13;
+            $(function () {&#13;
+                $('pre.prettyprint code').each(function () {&#13;
+                    var lines = $(this).text().split('\n').length;&#13;
+                    var $numbering = $('&lt;ul/&gt;').addClass('pre-numbering').hide();&#13;
+                    $(this).addClass('has-numbering').parent().append($numbering);&#13;
+                    for (i = 1; i &lt;= lines; i++) {&#13;
+                        $numbering.append($('&lt;li/&gt;').text(i));&#13;
+                    };&#13;
+                    $numbering.fadeIn(1700);&#13;
+                });&#13;
+            });&#13;
+        </script>&#13;
+   &#13;

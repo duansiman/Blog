@@ -1,0 +1,409 @@
+
+
+<p><span style="font-size:18px">解决竞态问题的途径是保证对共享资源的互斥访问，所谓互斥访问是指一个执行单元在访问共享资源的时候，其他的执行单元被禁止访问。</span></p>&#13;
+<p><span style="font-size:18px">访问共享资源的代码区域称谓临界区（critical sections），临界区需要以某种互斥机制加以保护。中断屏蔽、原子操作、自旋锁和信号量是Linux设备驱动中可采用的互斥途径。<br />&#13;
+</span></p>&#13;
+<p><strong><span style="font-size:18px">原子操作</span></strong></p>&#13;
+<p><span style="font-size:18px"><span style="white-space:pre"></span>原子操作指的是在执行过程中不会被别的代码路径所中断的操作。<br />&#13;
+Linux内核停工了一系列函数来实现内核中的原子操作。这些函数分为两类，分别针对位和整型变量进行原子操作。他们的共同点是在任何情况下操作都是原子的，内核代码可以安全地调用他们而不被打断。位和整型变量原子操作都是依赖底层cpu的原子操作来实现，因此所有这些函数都与cpu架构密切相关。</span></p>&#13;
+<p><span style="font-size:18px"><br />&#13;
+</span></p>&#13;
+<p><span style="font-size:18px"><strong>整型原子操作</strong><br />&#13;
+设置原子变量的值<br />&#13;
+void atomic_set(atomic_t *v, int i);//设置原子变量的值为i<br />&#13;
+atomic_t v = ATOMIC_INIT(0);//定义原子变量v并初始化为0<br />&#13;
+获取原子变量的值<br />&#13;
+atomic_read(atomic_t *v);//返回原子变量的值<br />&#13;
+原子变量加/减<br />&#13;
+void atomic_add(int i, atomic_t *v);//原子变量增加i<br />&#13;
+void atomic_sub(int i, atomic_t *v);//原子变量减少i<br />&#13;
+原子变量自增/自减<br />&#13;
+void atomic_inc(atomic_t *v);//原子变量增加i<br />&#13;
+void atomic_dec(atomic_t *v);//原子变量减少i<br />&#13;
+</span></p>&#13;
+<p><span style="font-size:18px">操作并测试<br />&#13;
+int atomic_inc_and_test(atomic_t *v);<br />&#13;
+int atomic_dec_and_test(atomic_t *v);<br />&#13;
+int atomic_sub_and_test(int i, atomic_t *v);<br />&#13;
+上述操作对原子变量执行自增、自减、和减操作后测试其是否为0，为0则返回true，否则返回false。<br />&#13;
+</span></p>&#13;
+<p><span style="font-size:18px">操作并返回<br />&#13;
+int atomic_add_return(int i, atomic_t *v);<br />&#13;
+int atomic_sub_return(int i, atomic_t *v);<br />&#13;
+int atomic_inc_return(atomic_t *v);<br />&#13;
+int atomic_dec_return(atomic_t *v);<br />&#13;
+上述操作对原子变量进行加、减和自增、自减操作，并返回新的值。<br />&#13;
+</span></p>&#13;
+<p><span style="font-size:18px"><strong>位原子操作</strong><br />&#13;
+设置位<br />&#13;
+void set_bit(nr, void *addr);//设置addr地址的第nr位，所谓设置位即将位写为1<br />&#13;
+清除位<br />&#13;
+void clear_bit(nr, void *addr);//清除addr地址的第nr位，将位写为0<br />&#13;
+改变位<br />&#13;
+void change_bit(nr, void *addr);//对addr地址的第nr位进行反置<br />&#13;
+测试位<br />&#13;
+Test_bit(nr, void *addr);//返回addr地址的第nr位<br />&#13;
+测试并操作位<br />&#13;
+int test_and_set_bit(nr, void *addr);<br />&#13;
+int test_and_clear_bit(nr, void *addr);<br />&#13;
+int test_and_change_bit(nr, void *addr);</span><br />&#13;
+</p>&#13;
+<p></p><pre code_snippet_id="147764" snippet_file_name="blog_20140108_1_7708718" name="code" class="objc">/**
+*Copyright (c) 2013.TianYuan
+*All rights reserved.
+*
+*文件名称: char_device_driver10.c
+*文件标识: 原子操作,针对设备节点打开的时候，不能再一次打开
+*原子操作
+*当前版本：1.0
+*作者：wuyq 
+*
+*取代版本：xxx
+*原作者：xxx
+*完成日期：2013-11-29
+*/
+#include &lt;linux/init.h&gt;
+#include &lt;linux/module.h&gt;
+#include &lt;linux/fs.h&gt;
+#include &lt;linux/cdev.h&gt;
+#include &lt;linux/device.h&gt;
+#include &lt;linux/slab.h&gt;
+#include &lt;asm/uaccess.h&gt;
+
+#include &lt;asm/gpio.h&gt;
+#include &lt;plat/gpio-cfg.h&gt;
+
+
+
+MODULE_LICENSE("GPL");
+#define CDD_MAJOR	200//cat /proc/devices找一个尚未使用的
+#define CDD_MINOR	0
+#define CDD_COUNT	1//一个cdev控制两个led
+dev_t dev = 0;
+u32 cdd_major = 0;
+u32 cdd_minor = 0;
+
+struct class *dev_class = NULL;
+#define BUF_SIZE	100
+struct cdd_cdev{
+	struct cdev cdev;
+	struct device *dev_device;
+	u8 led;
+	
+	char kbuf[BUF_SIZE];
+	
+	u32 data_len;//记录缓冲区中已经写入数据的长度
+	atomic_t av;//原子变量
+	//int opentimes;//打开计数
+};
+
+struct cdd_cdev *cdd_cdevp = NULL;
+
+unsigned long led_gpio_table[2] = {
+	S5PV210_GPC1(3),//数字
+	S5PV210_GPC1(4),
+};
+
+int cdd_open(struct inode* inode, struct file *filp)
+{
+	struct cdd_cdev *pcdevp = NULL;
+	printk("enter cdd_open!\n");
+
+	pcdevp = container_of(inode-&gt;i_cdev, struct cdd_cdev, cdev);
+	printk("led = %d\n", pcdevp-&gt;led);
+	//初值1 dec0
+	if(!atomic_dec_and_test(&amp;(pcdevp-&gt;av))){
+		printk("cdev is opened ,not allowed open again!\n");
+		atomic_inc(&amp;(pcdevp-&gt;av));
+		return -EBUSY;
+	}
+	/*
+		if(!(pcdevp-&gt;opentimes-- == 1)){
+			printk("cdev is already open!\n");
+			pcdevp-&gt;opentimes++;
+			return -EBUSY;
+		}
+		
+	*/
+	filp-&gt;private_data = pcdevp;
+	
+	return 0;
+}
+
+int cdd_read(struct file *filp, char __user *buf, size_t count, loff_t *offset)
+{
+	int ret = 0;
+	u32 pos = *offset;
+	u32 cnt = count;
+	
+	struct cdd_cdev *cdevp = filp-&gt;private_data;
+	//printk("enter cdd_read!\n");
+	if(cnt &gt; (cdevp-&gt;data_len-pos) ){
+		cnt = cdevp-&gt;data_len - pos;
+	}
+	
+	ret = copy_to_user(buf, cdevp-&gt;kbuf+pos, cnt);
+	//printk("kernel kbuf content:%s\n", cdevp-&gt;kbuf);
+	*offset += cnt;
+	
+	return ret;
+}
+
+int cdd_write(struct file *filp, const char __user *buf, size_t count, loff_t *offset)
+{
+	int ret = 0;
+	struct cdd_cdev *cdevp = filp-&gt;private_data;
+	u32 pos = *offset;
+	u32 cnt = count;
+	
+	//printk("enter cdd_write!\n");
+	if(cnt &gt; (BUF_SIZE - pos) ){
+		cnt = BUF_SIZE - pos;
+	}
+	ret = copy_from_user(cdevp-&gt;kbuf+pos, buf, cnt);
+	*offset += cnt;
+	if(*offset &gt; cdevp-&gt;data_len){
+		cdevp-&gt;data_len = *offset;
+	}
+	return ret;
+}
+
+int cdd_ioctl(struct inode *inode, struct file *filp, unsigned int cmd, unsigned long data)
+{
+	//printk("enter cdd_ioctl!\n");
+	switch(cmd){
+		case 1://点亮灯
+			//设置管脚为输出功能
+			//参数：1.要设置的管脚编号2.默认的输出值 0低电平1高电平
+			gpio_direction_output(led_gpio_table[data], 0);
+			//禁止内部上拉
+			s3c_gpio_setpull(led_gpio_table[data], SEC_GPIO_PULL_NONE);
+			//设置输出值
+			gpio_set_value(led_gpio_table[data], 1);
+			
+			break;
+		case 0://熄灭灯
+			
+			//设置管脚为输出功能
+			//参数：1.要设置的管脚编号2.默认的输出值 0低电平1高电平
+			gpio_direction_output(led_gpio_table[data], 0);
+			//禁止内部上拉
+			s3c_gpio_setpull(led_gpio_table[data], SEC_GPIO_PULL_NONE);
+			//设置输出值
+			gpio_set_value(led_gpio_table[data], 0);
+			
+			break;
+		default:
+			return -EINVAL;
+	}
+	
+	
+	return 0;
+}
+
+int cdd_release(struct inode *inode, struct file *filp)
+{
+	struct cdd_cdev *pcdevp = filp-&gt;private_data;
+	printk("enter cdd_release!\n");
+	atomic_inc(&amp;(pcdevp-&gt;av));
+	//pcdevp-&gt;opentimes++;
+	return 0;
+}
+
+loff_t cdd_llseek(struct file *filp, loff_t offset, int whence)
+{
+	struct cdd_cdev *pcdevp = filp-&gt;private_data;
+	loff_t newpos = 0;
+	switch(whence){
+		case SEEK_SET:
+			newpos = offset;
+			break;
+		case SEEK_CUR:
+			newpos = filp-&gt;f_pos + offset;
+			break;
+		case SEEK_END:
+			newpos = pcdevp-&gt;data_len + offset;
+			break;
+		default:
+			return -EINVAL;//无效的参数
+	}
+	
+	if( newpos&lt;0 || newpos&gt;= BUF_SIZE ){
+		return -EINVAL;
+	}
+	filp-&gt;f_pos = newpos;
+	return newpos;
+}
+
+struct file_operations cdd_fops = {
+	.owner = THIS_MODULE,
+	.open = cdd_open,
+	.read = cdd_read,
+	.write = cdd_write,
+	.ioctl = cdd_ioctl,
+	.release = cdd_release,
+	.llseek = cdd_llseek,
+	};
+
+int __init cdd_init(void)
+{
+	int ret = 0;
+	int i = 0;
+	
+	if(cdd_major){
+		dev = MKDEV(CDD_MAJOR, CDD_MINOR);//生成设备号
+		//注册设备号;1、要注册的起始设备号2、连续注册的设备号个数3、名字
+		ret = register_chrdev_region(dev, CDD_COUNT, "cdd_demo");
+	}else{
+		// 动态分配设备号
+		ret = alloc_chrdev_region(&amp;dev, cdd_minor, CDD_COUNT, "cdd_demo02");
+	}
+	
+	if(ret &lt; 0){
+		printk("register_chrdev_region failed!\n");
+		goto failure_register_chrdev;
+	}
+	//获取主设备号
+	cdd_major = MAJOR(dev);
+	printk("cdd_major = %d\n", cdd_major);
+	
+	cdd_cdevp = kzalloc(sizeof(struct cdd_cdev)*CDD_COUNT, GFP_KERNEL);
+	if(IS_ERR(cdd_cdevp)){
+		printk("kzalloc failed!\n");
+		goto failure_kzalloc;
+	}
+	/*创建设备类*/
+	dev_class = class_create(THIS_MODULE, "cdd_class");
+	if(IS_ERR(dev_class)){
+		printk("class_create failed!\n");
+		goto failure_dev_class;
+	}
+	for(i=0; i&lt;CDD_COUNT; i++){
+		/*初始化cdev*/
+		cdev_init(&amp;(cdd_cdevp[i].cdev), &amp;cdd_fops);
+		/*添加cdev到内核*/
+		cdev_add(&amp;(cdd_cdevp[i].cdev), dev+i, 1);
+		//初始化原子变量
+		ATOMIC_SET(&amp;(cdd_cdevp[i].av), 1);
+		/*
+		cdd_cdevp[i].opentimes = 1;
+		*/
+		
+		/* “/dev/xxx” */
+		device_create(dev_class, NULL, dev+i, NULL, "cdd%d", i);
+		
+		cdd_cdevp[i].led = i;
+		
+	}
+	
+	return 0;
+failure_dev_class:
+	kfree(cdd_cdevp);
+failure_kzalloc:
+	unregister_chrdev_region(dev, CDD_COUNT);
+failure_register_chrdev:
+	return ret;
+}
+
+void __exit cdd_exit(void)
+{
+/*逆序消除*/
+	int i = 0;
+	for(; i &lt; CDD_COUNT; i++){
+		device_destroy(dev_class, dev+i);
+		cdev_del(&amp;(cdd_cdevp[i].cdev));
+		//cdev_del(&amp;((cdd_cdevp+i)-&gt;cdev));
+	}
+	class_destroy(dev_class);
+	kfree(cdd_cdevp);
+	unregister_chrdev_region(dev, CDD_COUNT);
+	
+}	
+
+module_init(cdd_init);
+module_exit(cdd_exit);
+</pre><br />&#13;
+<pre code_snippet_id="147764" snippet_file_name="blog_20140108_2_9420585" name="code" class="objc">/**
+*Copyright (c) 2013.TianYuan
+*All rights reserved.
+*
+*文件名称: char_device_driver10_test.c
+*文件标识: 测试程序：telnet 连接上板子，执行一次。 板子本身再执行一次
+*	
+*当前版本：1.0
+*作者：wuyq 
+*
+*取代版本：xxx
+*原作者：xxx
+*完成日期：2013-11-29
+*/
+#include &lt;stdio.h&gt;
+#include &lt;fcntl.h&gt;
+#include &lt;stdlib.h&gt;
+#include &lt;string.h&gt;
+
+/*手工创建设备节点文件
+mknod /dev/cdd c 248 0
+*/
+int fd = 0;
+char rbuf[100];
+char wbuf[100] = "nihao!\n";
+
+
+int main()
+{
+	char ch;
+	
+	fd = open("/dev/led0", O_RDWR);
+	if(fd &lt; 0){
+		printf("open failed!\n");
+		return -1;
+	}
+	printf("open successed fd = %d\n", fd);
+	while(1)
+	{
+		printf("starting to test /dev/cdd...\n");
+		ch = getchar();
+		getchar();//取走回车
+		if(ch == 'q'){
+			break;
+		}
+		switch(ch){
+			case 'r':
+				memset(rbuf, 0, 100);//清空
+				read(fd, rbuf, 3);
+				printf("user space from kernel: %s\n", rbuf);
+				break;
+			case 'w':
+				write(fd, wbuf, strlen(wbuf) );
+				break;
+			case 'o':
+				ioctl(fd, 0, 0);
+				break;
+			case 'O':
+				ioctl(fd, 1, 0);
+				break;
+			case 'p':
+				ioctl(fd, 0, 1);
+				break;
+			case 'P':
+				ioctl(fd, 1, 1);
+				break;
+			case 'l':
+				lseek(fd, 0, SEEK_SET);//移动的文件的开头
+				break;
+				
+			default:
+				break;
+		}
+		sleep(1);
+	}
+	
+	close(fd);
+	return 0;
+}</pre><br />&#13;
+<br />&#13;
+&#13;
+<p><br />&#13;
+</p>&#13;
+   &#13;

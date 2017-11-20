@@ -1,0 +1,205 @@
+
+
+<p><span style="font-size:18px">         学过设计模式的编友们，一定对代理模式很熟悉，最近在学习中发现Spring中更好的使用了动态带来来降低耦合，提高代码复用性，那么为什么要使用动态代理？动态代理和我们之前使用的普通代理有什么区别和好处？</span></p>&#13;
+<p><span style="font-size:18px"> <strong><span style="color:#3333ff">♔ 预热代理模式</span></strong></span></p>&#13;
+<p><span style="font-size:18px">      <img src="http://img.blog.csdn.net/20160105153757418?watermark/2/text/aHR0cDovL2Jsb2cuY3Nkbi5uZXQv/font/5a6L5L2T/fontsize/400/fill/I0JBQkFCMA==/dissolve/70/gravity/Center" alt="" /></span></p>&#13;
+<p><span style="font-size:18px">      代理是代替某个对象去控制目标对象，且代理类不会改变原来的接口，在代理的同时控制相关的目标；代理类和真实对象目的相同；</span></p>&#13;
+<p><span style="font-size:18px"><span style="color:#3333ff"><strong>♔ 情景设置</strong></span><br />&#13;
+</span></p>&#13;
+<p><span style="font-size:18px">     现有一段程序，程序中有userManager的接口和UserManagerImpl的实现类，接口和实现类中都有对应实现的增删改查和安全校验的方法：</span></p>&#13;
+<p><span style="font-size:18px">    UserManagerImpl实现类：</span></p>&#13;
+<pre code_snippet_id="1710520" snippet_file_name="blog_20160607_1_4745330" name="code" class="java">&lt;span style="font-size:18px;"&gt;package com.bjpowernode.spring;
+
+public class UserManagerImpl implements UserManager {
+
+	@Override
+	public void addUser(String username, String password) {
+		checkSecurity();
+		System.out.println("----UserManagerImpl:addUser-----");
+		
+	}
+
+	@Override
+	public void delUser(int userId) {
+		checkSecurity();
+		System.out.println("----UserManagerImpl:delUser-----");
+	}
+
+	@Override
+	public String findUserByid(int userId) {
+		checkSecurity();
+		System.out.println("----UserManagerImpl:findUserByid-----");
+		return "张三";
+	}
+
+	@Override
+	public void modefyUser(int userId, String username, String password) {
+		//引入安全性校验的方法
+		checkSecurity();
+		System.out.println("----UserManagerImpl:modefyUser-----");
+	}
+  
+	/**
+	 * 校验安全性的方法
+	 */
+	private void checkSecurity(){
+		System.out.println("----UserManagerImpl:checkSecurity-----");
+	}
+}
+&lt;/span&gt;</pre><span style="font-size:18px"><br />&#13;
+      当我们需要对增删改查中的安全校验方法进行修改，或者删除四个方法中对“checkSecurity”的调用，我们需要更改四个方法，这样一来，如果上万个方法调用了“checkSecurity”方法我们就需要更改上万个方法，很明显不符合开闭原则，该实现类与checkSecurity方法之间的耦合太高；于是我们采用静态代理的方法来降低耦合：</span>&#13;
+<p></p>&#13;
+<p><span style="font-size:18px; color:#3333ff"><strong>♔ 回顾静态代理：</strong></span></p>&#13;
+<p><span style="font-size:18px">     为了降低耦合，我们为UserManagerImpl添加一个代理类UserManagerImplProxy;这两个类都实现UserManager的接口：</span></p>&#13;
+<p><span style="font-size:18px">    UserManagerImpl 类：</span></p>&#13;
+<p></p>&#13;
+<pre code_snippet_id="1710520" snippet_file_name="blog_20160607_2_8714281" name="code" class="java">&lt;span style="font-size:18px;"&gt;package com.bjpowernode.spring;
+
+public class UserManagerImpl implements UserManager {
+
+	@Override
+	public void addUser(String username, String password) {
+		//checkSecurity();
+		System.out.println("----UserManagerImpl:addUser-----");
+		
+	}
+
+	@Override
+	public void delUser(int userId) {
+		//checkSecurity();
+		System.out.println("----UserManagerImpl:delUser-----");
+	}
+
+	@Override
+	public String findUserByid(int userId) {
+		//checkSecurity();
+		System.out.println("----UserManagerImpl:findUserByid-----");
+		return "张三";
+	}
+
+	@Override
+	public void modefyUser(int userId, String username, String password) {
+		//引入安全性校验的方法
+		//checkSecurity();
+		System.out.println("----UserManagerImpl:modefyUser-----");
+	}
+  
+	
+}
+&lt;/span&gt;</pre><span style="font-size:18px"><br />&#13;
+      UserManagerImplProxy代理类：</span>&#13;
+<p></p>&#13;
+<p><span style="font-size:18px">   </span></p>&#13;
+<pre code_snippet_id="1710520" snippet_file_name="blog_20160607_3_524425" name="code" class="java">&lt;span style="font-size:18px;"&gt;package com.bjpowernode.spring;
+
+public class UserManagerImplProxy implements UserManager {
+
+	//使用代理时，添加对目标的引用：
+	private UserManager userManager;
+	
+	//使用构造方法传递usermanager
+	public UserManagerImplProxy(UserManager userManager){
+		this.userManager=userManager;
+	}
+	
+	@Override
+	public void addUser(String username, String password) {
+		checkSecurity();
+		userManager.addUser(username, password);
+	}
+
+	@Override
+	public void delUser(int userId) {
+		checkSecurity();
+		userManager.delUser(userId);
+	}
+
+	@Override
+	public String findUserByid(int userId) {
+		checkSecurity();
+		return userManager.findUserByid(userId);
+		
+	}
+
+	@Override
+	public void modefyUser(int userId, String username, String password) {
+		checkSecurity();
+		userManager.modefyUser(userId, username, password);
+	}
+ 
+	/**
+	 * 校验安全性的方法
+	 */
+	private void checkSecurity(){
+		System.out.println("----UserManagerImpl:checkSecurity-----");
+	}
+}&lt;/span&gt;</pre><span style="font-size:18px">        虽然使用静态代理我们我们已经可以降低耦合，避免直接修改UserManagerImpl的实现；但不得不考虑当需要代理的类足够多，而且每一个代理类中我们都需要有类似“checkSecurity”的方法，我们依旧面临耦合和代码复用问题；</span>&#13;
+<p></p>&#13;
+<p><span style="font-size:18px">      而且校验安全性的方法，与增删改查之间没有直接联系，也就是说没有太强的耦合，所以我们可以把“checkSecurity”作为遍布在各个角落的独立服务，也就是Java中所谓的横切关注点；</span></p>&#13;
+<p><span style="font-size:18px">     所以，我们可以将checkSecurity方法从程序中剥离出来，这样就可以保证程序变动，我们只需更更改剥离出来的这一个方法即可：</span></p>&#13;
+<p><span style="font-size:18px; color:#3333ff"><strong>  ♔  ”进攻“动态代理</strong></span></p>&#13;
+<p><span style="font-size:18px">     继续上面的程序优化，我们将“checkSecurity” 方法从静态代理类（UserManagerImplProxy）中剥离到动态代理类（SecurityHandler）：</span></p>&#13;
+<p><span style="font-size:18px">     动态代理类（SecurityHandler）：</span></p>&#13;
+<pre code_snippet_id="1710520" snippet_file_name="blog_20160607_4_4319436" name="code" class="java">&lt;span style="font-size:18px;"&gt;package com.bjpowernode.spring;
+
+import java.lang.reflect.InvocationHandler;
+import java.lang.reflect.Method;
+import java.lang.reflect.Proxy;
+
+public class SecurityHandler implements InvocationHandler{
+    //使用一个通用的对象
+	private Object targetObject;
+	
+	public Object createProxyInstance(Object object){
+		this.targetObject = targetObject;
+		//根据目标接口生成代理
+		return Proxy.newProxyInstance(targetObject.getClass().getClassLoader(), 
+								targetObject.getClass().getInterfaces(),
+								this);
+									
+	}
+	
+	@Override
+	public Object invoke(Object proxy, Method method, Object[] args)
+			throws Throwable {
+		checkSecurity();
+		
+		//调用目标方法
+		Object ret = method.invoke(targetObject, args);
+		return ret;
+	}
+
+	/**
+	 * 校验安全性的方法
+	 */
+	private void checkSecurity(){
+		System.out.println("----UserManagerImpl:checkSecurity-----");
+	}
+}
+&lt;/span&gt;</pre><span style="font-size:18px"><br />&#13;
+      这样我们就可以在客户端中对方法进行直接调用：</span>&#13;
+<p></p>&#13;
+<p><span style="font-size:18px"> </span></p>&#13;
+<pre code_snippet_id="1710520" snippet_file_name="blog_20160607_5_8430090" name="code" class="java">&lt;span style="font-size:18px;"&gt;package com.bjpowernode.spring;
+
+public class Client {
+
+	public static void main(String[] args) {
+		SecurityHandler handler = new SecurityHandler();
+		UserManager userManager = (UserManager)handler.createProxyInstance(new UserManagerImpl());
+		userManager.addUser("张三", "1234");
+	
+	}
+}
+&lt;/span&gt;</pre><span style="font-size:18px"><br />&#13;
+       使用动态代理，归根到底是面向接口编程，隐藏要调用的真正方法，降低类与类之间的耦合：我们通过object代理不同类型的对象，如果我们把对外的接口都通过动态代理来实现，那么所有的函数调用最终都会经过invoke函数的转发，因此我们就可以在这里做一些自己想做的操作，比如日志系统、事务、拦截器、权限控制等。这也就是AOP(面向切面编程)的基本原理。</span>&#13;
+<p></p>&#13;
+<p><span style="font-size:18px">       动态代理与静态代理相比较，最大的好处是接口中声明的所有方法都被转移到调用处理器一个集中的方法中处理（InvocationHandler.invoke）。这样，在接口方法数量比较多的时候，我们可以进行灵活处理，而不需要像静态代理那样每一个方法进行中转。而且动态代理的应用使我们的类职责更加单一，复用性更强；</span></p>&#13;
+<p><span style="font-size:18px">      诚然，Proxy 已经设计得非常优美，但是还是有一点点小小的遗憾之处，那就是它始终无法摆脱仅支持 interface 代理的桎梏，因为它的设计注定了这个遗憾。回想一下那些动态生成的代理类的继承关系图，它们已经注定有一个共同的父类叫 Proxy。Java 的继承机制注定了这些动态代理类们无法实现对 class 的动态代理，原因是多继承在 Java 中本质上就行不通。 </span></p>&#13;
+<p><span style="font-size:18px"><strong><span style="color:#3333ff"> ♔  总结不同代理</span></strong></span></p>&#13;
+<p><span style="font-size:18px">       代理扮演的是一个中介的角色，可以代替对象A去完成某一件事，这样一来，对象A可以完全不出面，就可以收获这件事“事成之后”的”丰厚回报“；</span></p>&#13;
+<p><span style="font-size:18px">       不论是静态代理还是动态代理，都是在代理的基础上进行再升华；从静态代理到动态代理，代理类被不断的封装和剥离，逐渐引入并践行AOP（面向切面编程）的思想，使得程序中代码的复用性和封装性更强，更好的执行开闭原则；所以说动态代理是AOP思想的一种体现；</span></p>&#13;
+<p><span style="font-size:18px"> </span></p>&#13;
+<p><span style="font-size:18px">    </span></p>&#13;
+<p><span style="font-size:18px">     </span></p>&#13;
+   &#13;

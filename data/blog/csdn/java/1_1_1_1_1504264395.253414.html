@@ -1,0 +1,224 @@
+
+        <div class="markdown_views"><p>对于楼主这样工作一年的菜鸟，偶尔会看到一些文章标题带有“分布式”“集群”关键字，然后就懵逼了。最近对这些概念进行了一定的了解，整理了一下思路，在这里分享给各位猿友。不足之处还望纠正，感谢。</p>
+
+<p><img src="http://img.blog.csdn.net/20160503165934963" alt="这里写图片描述" title="" /></p>
+
+<p>事实上，在这一年的工作中，对一些分布式和集群技术也有一些接触，只是研究得并不深入。比如分布式服务框架Dubbo、搜索引擎Elasticsearch。</p>
+
+<p>概念总是抽象的，配合实例会让你对概念的理解更加清晰。因此，如果刚好有使用到分布式和集群技术的猿友，可以边看本文的一些概念边回想你使用过的分布式和集群技术。如果你没有使用过相关技术，那其实也是可以以了解的心态将本文看完，后面接触到了，起码会有个大概的印象。</p>
+
+<p>下面我们先看看其他猿友对“分布式”和“集群”的看法：</p>
+
+<p>（1）另外一位博主的观点（<a href="http://blog.csdn.net/bluishglc/article/details/5483162">http://blog.csdn.net/bluishglc/article/details/5483162</a>）</p>
+
+<p>博主有对他的表述有作一点修改补充，方便各位猿友明天他的意思。</p>
+
+<pre class="prettyprint"><code class=" hljs mathematica">简单说，分布式是以缩短单个任务的执行时间来提升效率的，而集群则是通过提高单位时间内执行的任务数来提升效率。
+
+例如：
+
+如果一个任务由<span class="hljs-number">10</span>个子任务组成，每个子任务单独执行需<span class="hljs-number">1</span>小时，则在一台服务器上执行改任务需<span class="hljs-number">10</span>小时。
+
+采用分布式方案，提供<span class="hljs-number">10</span>台服务器，每台服务器只负责处理一个子任务，不考虑子任务间的依赖关系，执行完这个任务只需一个小时。(这种工作模式的一个典型代表就是Hadoop的<span class="hljs-keyword">Map</span>/<span class="hljs-keyword">Reduce</span>分布式计算模型）
+
+而采用集群方案，同样提供<span class="hljs-number">10</span>台服务器，每台服务器都能独立处理这个任务。假设有<span class="hljs-number">10</span>个任务同时到达，<span class="hljs-number">10</span>个服务器将同时工作，<span class="hljs-number">10</span>小后，<span class="hljs-number">10</span>个任务同时完成，这样，整身来看，还是平均<span class="hljs-number">1</span>小时完成一个任务！（注意这里的任务和子任务的区别）</code></pre>
+
+<p>（2）知乎（<a href="https://www.zhihu.com/question/20004877">https://www.zhihu.com/question/20004877</a>）</p>
+
+<p>这个猿友描述得很简单明了：</p>
+
+
+
+<pre class="prettyprint"><code class=" hljs ">分布式：一个业务分拆多个子业务，部署在不同的服务器上
+集群：同一个业务，部署在多个服务器上</code></pre>
+
+<p>另外一位猿友从另外一个角度去表述：</p>
+
+
+
+<pre class="prettyprint"><code class=" hljs ">集群是个物理形态，分布式是个工作方式。</code></pre>
+
+<p>这位猿友的描述也很简洁，但是比较抽象：</p>
+
+
+
+<pre class="prettyprint"><code class=" hljs ">按照我的理解，集群是解决高可用的，而分布式是解决高性能、高并发的</code></pre>
+
+<p>（3）百度百科（<a href="http://baike.baidu.com/view/4804677.htm">http://baike.baidu.com/view/4804677.htm</a>、<a href="http://baike.baidu.com/view/3022776.htm">http://baike.baidu.com/view/3022776.htm</a>）</p>
+
+<p>集群：</p>
+
+
+
+<pre class="prettyprint"><code class=" hljs ">集群是一组相互独立的、通过高速网络互联的计算机，它们构成了一个组，并以单一系统的模式加以管理。一个客户与集群相互作用时，集群像是一个独立的服务器。集群配置是用于提高可用性和可缩放性。</code></pre>
+
+<p>分布式：</p>
+
+
+
+<pre class="prettyprint"><code class=" hljs ">一种基于网络的计算机处理技术，与集中式相对应。由于个人计算机的性能得到极大的提高及其使用的普及，使处理能力分布到网络上的所有计算机成为可能。分布式计算是和集中式计算相对立的概念，分布式计算的数据可以分布在很大区域。</code></pre>
+
+<p>看完这些是不是有种似懂非懂的感觉？博主也是一样！所以我们接下来继续了解。</p>
+
+<p>上面博主有说过自己有接触过分布式服务框架Dubbo，那么我们看看它为什么说自己是分布式服务架构？（<a href="http://dubbo.io/User+Guide-zh.htm#UserGuide-zh-%E8%83%8C%E6%99%AF">http://dubbo.io/User+Guide-zh.htm#UserGuide-zh-%E8%83%8C%E6%99%AF</a>）</p>
+
+<p><img src="http://img.blog.csdn.net/20160503175500144" alt="这里写图片描述" title="" /></p>
+
+
+
+<pre class="prettyprint"><code class=" hljs ">分布式服务架构
+当垂直应用越来越多，应用之间交互不可避免，将核心业务抽取出来，作为独立的服务，逐渐形成稳定的服务中心，使前端应用能更快速的响应多变的市场需求。
+此时，用于提高业务复用及整合的 分布式服务框架(RPC) 是关键。</code></pre>
+
+<p>偶然之间，有发现据说“Git就是分布式版本控制系统”，为什么它是分布式的呢？（<a href="http://zhidao.baidu.com/link?url=WYNUjpVK8c-G5lq9EP6CMWAAwexIKduWUYlSC09iC5NRPYJI4L7HxoxgTRIiGxKoNQpBy4XCC_j_6toJOSbQzY8O6-NIXCBvUZ2--zcJwtK">http://zhidao.baidu.com/link?url=WYNUjpVK8c-G5lq9EP6CMWAAwexIKduWUYlSC09iC5NRPYJI4L7HxoxgTRIiGxKoNQpBy4XCC_j_6toJOSbQzY8O6-NIXCBvUZ2–zcJwtK</a>）</p>
+
+
+
+<pre class="prettyprint"><code class=" hljs ">Git就是分布式版本控制系统，对应的是集中式的版本控制如SVN。简单的说，分布式的版本控制就是每个人都可以创建一个独立的代码仓库用于管理，各种版本控制的操作都可以在本地完成。每个人修改的代码都可以推送合并到另外一个代码仓库中。而像SVN这样，只有一个中央控制，所有的开发人员都必须依赖于这个代码仓库。每次版本控制的操作也必须链接到服务器才能完成。很多公司喜欢用集中式的版本控制是为了更好的控制代码。如果个人开发，就可以选择Git这种分布式的。</code></pre>
+
+
+
+<pre class="prettyprint"><code class=" hljs glsl">从一般开发者的角度来看，git有以下功能：
+<span class="hljs-number">1</span>、从服务器上克隆完整的Git仓库（包括代码和版本信息）到单机上。
+<span class="hljs-number">2</span>、在自己的机器上根据不同的开发目的，创建分支，修改代码。
+<span class="hljs-number">3</span>、在单机上自己创建的分支上提交代码。
+<span class="hljs-number">4</span>、在单机上合并分支。
+<span class="hljs-number">5</span>、把服务器上最新版的代码fetch下来，然后跟自己的主分支合并。
+<span class="hljs-number">6</span>、生成补丁（<span class="hljs-keyword">patch</span>），把补丁发送给主开发者。
+<span class="hljs-number">7</span>、看主开发者的反馈，如果主开发者发现两个一般开发者之间有冲突（他们之间可以合作解决的冲突），就会要求他们先解决冲突，然后再由其中一个人提交。如果主开发者可以自己解决，或者没有冲突，就通过。
+<span class="hljs-number">8</span>、一般开发者之间解决冲突的方法，开发者之间可以使用pull 命令解决冲突，解决完冲突之后再向主开发者提交补丁。</code></pre>
+
+<p>看了分布式服务框架Dubbo和分布式版本控制系统Git的这些描述后，细想一下，似乎和上面的“分布式：一个业务分拆多个子业务，部署在不同的服务器上，集群：同一个业务，部署在多个服务器上”的观点些相似。</p>
+
+<p>Dubbo将核心业务抽取出来，作为独立的服务模块，各个模块之间只需要依赖接口，接口实现分离，那么开发人员可以各自完成自己负责的服务模块，最后完成一个完整的系统。他们的目标是完成一个系统，而各个子服务模块相当于子业务。Git也类似。</p>
+
+<p>事实上，分布式很多时候都开不了集群的，在Dubbo、Hadoop、Elasticsearch都有体现。</p>
+
+<p>现在分布式概念可能我们相对比较清晰了，集群概念可能还比较模糊。另外，集群是如何跟分布式配合的呢，接下来我们继续了解集群。</p>
+
+<p>集群主要分成三大类( 高可用集群， 负载均衡集群，科学计算集群)</p>
+
+<p>高可用集群( High Availability Cluster)</p>
+
+<p>负载均衡集群(Load Balance Cluster)</p>
+
+<p>科学计算集群(High Performance Computing Cluster)</p>
+
+<p><strong>1. 高可用集群(High Availability Cluster)</strong></p>
+
+<p>常见的就是2个节点做成的HA集群，有很多通俗的不科学的名称，比如”双机热备”, “双机互备”, “双机”. <br />
+高可用集群解决的是保障用户的应用程序持续对外提供服务的能力。 (请注意高可用集群既不是用来保护业务数据的，保护的是用户的业务程序对外不间断提供服务，把因软件/硬件/人为造成的故障对业务的影响降低到最小程度)。</p>
+
+<p><strong>2. 负载均衡集群(Load Balance Cluster)</strong></p>
+
+<p>负载均衡系统：集群中所有的节点都处于活动状态，它们分摊系统的工作负载。一般Web服务器集群、数据库集群和应用服务器集群都属于这种类型。</p>
+
+<p>负载均衡集群一般用于相应网络请求的网页服务器，数据库服务器。这种集群可以在接到请求时，检查接受请求较少，不繁忙的服务器，并把请求转到这些服务器上。从检查其他服务器状态这一点上看，负载均衡和容错集群很接近，不同之处是数量上更多。</p>
+
+<p><strong>3. 科学计算集群(High Performance Computing Cluster)</strong></p>
+
+<p>高性能计算(High Perfermance Computing)集群，简称HPC集群。这类集群致力于提供单个计算机所不能提供的强大的计算能力。</p>
+
+<p>高性能计算分类：　 <br />
+　 <br />
+3.1、高吞吐计算(High-throughput Computing) <br />
+　 <br />
+有一类高性能计算，可以把它分成若干可以并行的子任务，而且各个子任务彼此间没有什么关联。象在家搜寻外星人（ SETI@HOME – Search for Extraterrestrial Intelligence at Home ）就是这一类型应用。这一项目是利用Internet上的闲置的计算资源来搜寻外星人。SETI项目的服务器将一组数据和数据模式发给Internet上 参加SETI的计算节点，计算节点在给定的数据上用给定的模式进行搜索，然后将搜索的结果发给服务器。服务器负责将从各个计算节点返回的数据汇集成完整的 数据。因为这种类型应用的一个共同特征是在海量数据上搜索某些模式，所以把这类计算称为高吞吐计算。所谓的Internet计算都属于这一类。按照 Flynn的分类，高吞吐计算属于SIMD（Single Instruction/Multiple Data）的范畴。 <br />
+　　 <br />
+ 3.2、分布计算(Distributed Computing)</p>
+
+<p>另一类计算刚好和高吞吐计算相反，它们虽然可以给分成若干并行的子任务，但是子任务间联系很紧密，需要大量的数据交换。按照Flynn的分类，分布式的高性能计算属于MIMD（Multiple Instruction/Multiple Data）的范畴。</p>
+
+<p>下面说说这几种集群的应用场景：</p>
+
+<p>高可用集群这里不多作说明。</p>
+
+<p>想Dubbo是比较偏向于负载均衡集群，用过的猿友应该知道（不知道的可以自行了解一下），Dubbo同一个服务是可以有多个提供者的，当一个消费者过来，它要消费那个提供者，这里是有负载均衡机制在里面的。</p>
+
+<p>搜索引擎Elasticsearch比较偏向于科学计算集群的分布计算。</p>
+
+<p>而到这里，可能不少猿友都知道，集群的一些术语：集群容错、负载均衡。</p>
+
+<p>我们以Dubbo为例：</p>
+
+<p>集群容错（<a href="http://dubbo.io/User+Guide-zh.htm#UserGuide-zh-%E9%9B%86%E7%BE%A4%E5%AE%B9%E9%94%99">http://dubbo.io/User+Guide-zh.htm#UserGuide-zh-%E9%9B%86%E7%BE%A4%E5%AE%B9%E9%94%99</a>）</p>
+
+<p>Dubbo提供了这些容错策略：</p>
+
+
+
+<pre class="prettyprint"><code class=" hljs bash">集群容错模式：
+可以自行扩展集群容错策略，参见：集群扩展
+
+Failover Cluster
+失败自动切换，当出现失败，重试其它服务器。(缺省)
+通常用于读操作，但重试会带来更长延迟。
+可通过retries=<span class="hljs-string">"2"</span>来设置重试次数(不含第一次)。
+
+Failfast Cluster
+快速失败，只发起一次调用，失败立即报错。
+通常用于非幂等性的写操作，比如新增记录。
+
+Failsafe Cluster
+失败安全，出现异常时，直接忽略。
+通常用于写入审计日志等操作。
+
+Failback Cluster
+失败自动恢复，后台记录失败请求，定时重发。
+通常用于消息通知操作。
+
+Forking Cluster
+并行调用多个服务器，只要一个成功即返回。
+通常用于实时性要求较高的读操作，但需要浪费更多服务资源。
+可通过forks=<span class="hljs-string">"2"</span>来设置最大并行数。
+
+Broadcast Cluster
+广播调用所有提供者，逐个调用，任意一台报错则报错。(<span class="hljs-number">2.1</span>.<span class="hljs-number">0</span>开始支持)
+通常用于通知所有提供者更新缓存或日志等本地资源信息。</code></pre>
+
+<p>负载均衡（<a href="http://dubbo.io/User+Guide-zh.htm#UserGuide-zh-%E8%B4%9F%E8%BD%BD%E5%9D%87%E8%A1%A1">http://dubbo.io/User+Guide-zh.htm#UserGuide-zh-%E8%B4%9F%E8%BD%BD%E5%9D%87%E8%A1%A1</a>）</p>
+
+<p>Dubbo提供了这些负载均衡策略：</p>
+
+
+
+<pre class="prettyprint"><code class=" hljs cs">Random LoadBalance
+随机，按权重设置随机概率。
+在一个截面上碰撞的概率高，但调用量越大分布越均匀，而且按概率使用权重后也比较均匀，有利于动态调整提供者权重。
+
+RoundRobin LoadBalance
+轮循，按公约后的权重设置轮循比率。
+存在慢的提供者累积请求问题，比如：第二台机器很慢，但没挂，当请求调到第二台时就卡在那，久而久之，所有请求都卡在调到第二台上。
+
+LeastActive LoadBalance
+最少活跃调用数，相同活跃数的随机，活跃数指调用前后计数差。
+使慢的提供者收到更少请求，因为越慢的提供者的调用前后计数差会越大。
+
+ConsistentHash LoadBalance
+一致性Hash，相同参数的请求总是发到同一提供者。
+当某一台提供者挂时，原本发往该提供者的请求，基于虚拟节点，平摊到其它提供者，不会引起剧烈变动。
+算法参见：http:<span class="hljs-comment">//en.wikipedia.org/wiki/Consistent_hashing。</span>
+缺省只对第一个参数Hash，如果要修改，请配置&lt;dubbo:parameter key=<span class="hljs-string">"hash.arguments"</span> <span class="hljs-keyword">value</span>=<span class="hljs-string">"0,1"</span> /&gt;
+缺省用<span class="hljs-number">160</span>份虚拟节点，如果要修改，请配置&lt;dubbo:parameter key=<span class="hljs-string">"hash.nodes"</span> <span class="hljs-keyword">value</span>=<span class="hljs-string">"320"</span> /&gt;</code></pre>
+
+<p>还有比较好奇它们是怎么通信的？</p>
+
+<p>像早期版本的Elasticsearch的话，自动发现节点机制，ES是一个基于p2p的系统，它先通过广播寻找存在的节点，再通过多播协议来进行节点之间的通信，同时也支持点对点的交互。</p>
+
+<p>而Dubbo是有个注册中心，它支持多个注册中心，但是推荐使用ZooKeeper。关于ZooKeeper可以自行了解，很多集群相关的框架都有使用到它。当然像Elasticsearch是自己有相应的机制实现的。</p>
+
+<p>就到这里吧，小宝鸽也是有点累了，准备先下班了<del>~</del>~~~~~~~</p></div>&#13;
+        <script type="text/javascript">&#13;
+            $(function () {&#13;
+                $('pre.prettyprint code').each(function () {&#13;
+                    var lines = $(this).text().split('\n').length;&#13;
+                    var $numbering = $('&lt;ul/&gt;').addClass('pre-numbering').hide();&#13;
+                    $(this).addClass('has-numbering').parent().append($numbering);&#13;
+                    for (i = 1; i &lt;= lines; i++) {&#13;
+                        $numbering.append($('&lt;li/&gt;').text(i));&#13;
+                    };&#13;
+                    $numbering.fadeIn(1700);&#13;
+                });&#13;
+            });&#13;
+        </script>&#13;
+   &#13;

@@ -1,0 +1,198 @@
+
+        <div class="markdown_views"><h1 id="迭代器模式"><center> 迭代器模式</center></h1>
+
+<p>标签 ： Java与设计模式</p>
+
+<hr />
+
+<blockquote>
+  <p>迭代器模式: 提供一种方法顺序访问聚合对象(如<code>List</code>、<code>Set</code>)内的每个元素, 而又不暴露聚合对象的内部实现. <br />
+  <img src="http://7xrgh9.com1.z0.glb.clouddn.com/16-8-22/44096720.jpg" alt="" title="" /> <br />
+  (图片来源: <a href="https://book.douban.com/subject/1052241/">设计模式: 可复用面向对象软件的基础</a>)</p>
+</blockquote>
+
+<hr />
+
+
+
+<h2 id="模式实现">模式实现</h2>
+
+<p><img src="http://7xrgh9.com1.z0.glb.clouddn.com/16-8-21/32080513.jpg" alt="" title="" /></p>
+
+
+
+<h3 id="iterator-aggregate">Iterator &amp; Aggregate</h3>
+
+<ul>
+<li>Iterator: 迭代器 <br />
+定义访问和遍历元素的接口</li>
+<li>Aggregate: 聚合 <br />
+定义创建响应迭代器对象的接口</li>
+</ul>
+
+<p>由于Java已内置了<code>java.lang.Iterable</code>和<code>java.util.Iterator</code>接口, 而<code>Iterable</code>可以作为<strong>Aggregate</strong>存在(Abstract), 因此在Java中实现迭代器便可不用再定义这两个接口.</p>
+
+<hr />
+
+
+
+<h3 id="concreteaggregate-concreteiterator">ConcreteAggregate &amp; ConcreteIterator</h3>
+
+<ul>
+<li>ConcreteAggregate: 具体聚集 <br />
+实现<code>Iterable</code>接口, 返回ConcreteIterator的一个适当的实例;</li>
+<li>ConcreteIterator : 具体迭代器 <br />
+实现<code>Iterator</code>接口(最好作为具体聚集的内部类), 对该聚集遍历时跟踪当前位置.</li>
+</ul>
+
+
+
+<pre class="prettyprint"><code class=" hljs php"><span class="hljs-comment">/**
+ *<span class="hljs-phpdoc"> @author</span> jifang
+ *<span class="hljs-phpdoc"> @since</span> 15/12/15 下午8:33.
+ */</span>
+<span class="hljs-keyword">public</span> <span class="hljs-class"><span class="hljs-keyword">class</span> <span class="hljs-title">ConcreteAggregate</span> <span class="hljs-keyword">implements</span> <span class="hljs-title">Iterable</span>&lt;<span class="hljs-title">String</span>&gt; {</span>
+
+    <span class="hljs-keyword">private</span> <span class="hljs-keyword">List</span>&lt;String&gt; <span class="hljs-keyword">list</span>;
+
+    <span class="hljs-keyword">public</span> ConcreteAggregate() {
+        this.<span class="hljs-keyword">list</span> = <span class="hljs-keyword">new</span> ArrayList&lt;&gt;();
+    }
+
+    <span class="hljs-keyword">public</span> void add(String item) {
+        <span class="hljs-keyword">list</span>.add(item);
+    }
+
+    <span class="hljs-keyword">public</span> String get(int index) {
+        <span class="hljs-keyword">return</span> <span class="hljs-keyword">list</span>.get(index);
+    }
+
+    @Override
+    <span class="hljs-keyword">public</span> Iterator&lt;String&gt; iterator() {
+        <span class="hljs-keyword">return</span> <span class="hljs-keyword">new</span> ConcreteIterator();
+    }
+
+    <span class="hljs-comment">/**
+     * 具体迭代器实现类
+     */</span>
+    <span class="hljs-keyword">private</span> <span class="hljs-class"><span class="hljs-keyword">class</span> <span class="hljs-title">ConcreteIterator</span> <span class="hljs-keyword">implements</span> <span class="hljs-title">Iterator</span>&lt;<span class="hljs-title">String</span>&gt; {</span>
+
+        <span class="hljs-comment">// 游标</span>
+        int cursor = <span class="hljs-number">0</span>;
+        <span class="hljs-comment">// 比游标慢一个元素</span>
+        int lastRet = -<span class="hljs-number">1</span>;
+
+        @Override
+        <span class="hljs-keyword">public</span> boolean hasNext() {
+            <span class="hljs-keyword">return</span> cursor != <span class="hljs-keyword">list</span>.size();
+        }
+
+        @Override
+        <span class="hljs-keyword">public</span> String next() {
+            <span class="hljs-keyword">if</span> (cursor &gt;= <span class="hljs-keyword">list</span>.size())
+                <span class="hljs-keyword">throw</span> <span class="hljs-keyword">new</span> NoSuchElementException();
+            ++cursor;
+            <span class="hljs-keyword">return</span> <span class="hljs-keyword">list</span>.get((lastRet = cursor - <span class="hljs-number">1</span>));
+        }
+
+        @Override
+        <span class="hljs-keyword">public</span> void remove() {
+            <span class="hljs-keyword">list</span>.remove(lastRet);
+            cursor = lastRet;
+            lastRet = -<span class="hljs-number">1</span>;
+        }
+    }
+}
+</code></pre>
+
+<ul>
+<li>Client</li>
+</ul>
+
+
+
+<pre class="prettyprint"><code class=" hljs avrasm">public class Client {
+
+    @Test
+    public void client(){
+        ConcreteAggregate aggregate = new ConcreteAggregate()<span class="hljs-comment">;</span>
+        aggregate<span class="hljs-preprocessor">.add</span>(<span class="hljs-string">"aa"</span>)<span class="hljs-comment">;</span>
+        aggregate<span class="hljs-preprocessor">.add</span>(<span class="hljs-string">"bb"</span>)<span class="hljs-comment">;</span>
+        aggregate<span class="hljs-preprocessor">.add</span>(<span class="hljs-string">"remove"</span>)<span class="hljs-comment">;</span>
+        aggregate<span class="hljs-preprocessor">.add</span>(<span class="hljs-string">"cc"</span>)<span class="hljs-comment">;</span>
+        aggregate<span class="hljs-preprocessor">.add</span>(<span class="hljs-string">"dd"</span>)<span class="hljs-comment">;</span>
+        aggregate<span class="hljs-preprocessor">.add</span>(<span class="hljs-string">"remove"</span>)<span class="hljs-comment">;</span>
+        aggregate<span class="hljs-preprocessor">.add</span>(<span class="hljs-string">"ee"</span>)<span class="hljs-comment">;</span>
+
+        Iterator&lt;String&gt; iter = aggregate<span class="hljs-preprocessor">.iterator</span>()<span class="hljs-comment">;</span>
+        while (iter<span class="hljs-preprocessor">.hasNext</span>()){
+            String item = iter<span class="hljs-preprocessor">.next</span>()<span class="hljs-comment">;</span>
+            System<span class="hljs-preprocessor">.out</span><span class="hljs-preprocessor">.println</span>(item)<span class="hljs-comment">;</span>
+
+            if (item<span class="hljs-preprocessor">.equals</span>(<span class="hljs-string">"remove"</span>)){
+                iter<span class="hljs-preprocessor">.remove</span>()<span class="hljs-comment">;</span>
+            }
+        }
+
+        System<span class="hljs-preprocessor">.out</span><span class="hljs-preprocessor">.println</span>(<span class="hljs-string">"********----------********"</span>)<span class="hljs-comment">;</span>
+        for (String item : aggregate){
+            System<span class="hljs-preprocessor">.out</span><span class="hljs-preprocessor">.println</span>(item)<span class="hljs-comment">;</span>
+        }
+    }
+}</code></pre>
+
+<hr />
+
+
+
+<h2 id="小结">小结</h2>
+
+<ul>
+<li><p>适用</p>
+
+<ul><li>访问一个聚集对象的内容而无需暴露它的内部表示;</li>
+<li>支持对聚集对象的多种遍历(如: 不光可以正向遍历, 还可以<strong>反向遍历</strong>容器元素.);</li>
+<li>为遍历不同的聚合结构提供一个统一的接口(即: 支持多态迭代).</li></ul></li>
+<li><p><code>Iterator</code>使用场景不必多言, 由于Java已经将其固化到语言中,因此开发中天天都在使用:</p>
+
+<ul><li>当需要访问一个聚集对象, 且不需要了解其内部实现的时, 就应该考虑使用迭代器模式.</li>
+<li>当需要对聚集有多种方式遍历时, 可以考虑使用迭代器模式.</li></ul></li>
+</ul>
+
+<hr />
+
+<dl>
+<dt>参考</dt>
+<dd><a href="https://book.douban.com/subject/1052241/">设计模式: 可复用面向对象软件的基础</a></dd>
+
+<dd><a href="http://blog.csdn.net/fly_yr/article/details/8573898">迭代器模式（Iterator）- 指尖飞舞</a></dd>
+
+<dd><a href="https://www.douban.com/link2/?url=https://book.douban.com/subject/2334288/&amp;query=%E5%A4%A7%E8%AF%9D%E8%AE%BE%E8%AE%A1%E6%A8%A1%E5%BC%8F&amp;cat_id=1001&amp;type=search&amp;pos=0">大话设计模式</a></dd>
+
+<dd><a href="http://www.bjsxt.com/2014/down_0425/34.html">高淇讲设计模式</a></dd>
+</dl>
+
+<hr />
+
+<ul>
+<li><em>by</em> <strong>攻城师@翡青</strong> <br />
+<ul><li>Email: feiqing.zjf@gmail.com</li>
+<li>博客: <a href="http://blog.csdn.net/zjf280441589">攻城师-翡青</a> - <a href="http://blog.csdn.net/zjf280441589">http://blog.csdn.net/zjf280441589</a></li>
+<li>微博: <a href="http://weibo.com/u/3319050953">攻城师-翡青</a> - <a href="http://weibo.com/u/3319050953">http://weibo.com/u/3319050953</a></li></ul></li>
+</ul>
+
+<hr /></div>&#13;
+        <script type="text/javascript">&#13;
+            $(function () {&#13;
+                $('pre.prettyprint code').each(function () {&#13;
+                    var lines = $(this).text().split('\n').length;&#13;
+                    var $numbering = $('&lt;ul/&gt;').addClass('pre-numbering').hide();&#13;
+                    $(this).addClass('has-numbering').parent().append($numbering);&#13;
+                    for (i = 1; i &lt;= lines; i++) {&#13;
+                        $numbering.append($('&lt;li/&gt;').text(i));&#13;
+                    };&#13;
+                    $numbering.fadeIn(1700);&#13;
+                });&#13;
+            });&#13;
+        </script>&#13;
+   &#13;

@@ -1,0 +1,329 @@
+
+
+<p>        可以用前一篇<a target="_blank" href="http://blog.csdn.net/yuzhihui_no1/article/details/41749443">操作系统内核加载器（x86汇编）</a>的加载器来加载这个RTC中断程序，就可以显示时间了。</p>&#13;
+<p></p>&#13;
+<pre name="code" class="plain">;user.asm
+
+;程序的头文件，整个程序的信息表
+;--------header-----------------------------------
+section header align=16 vstart=0
+	program_length dd program_end
+	program_entry  dw start
+                       dd section.code.start
+	section_count  dw (section_end-section_begin)/4
+	
+	section_begin:
+		section_code  dd section.code.start
+		section_data  dd section.data.start
+		section_stack dd section.stack.start
+		section_int   dd section.interupt.start 
+	section_end:
+;header end
+
+;另外申请一个段用来作中断处理
+;--------------interupt-------------------------
+section interupt align=16 vstart=0
+RTC_INT:
+	push ax 
+	push bx 
+	push cx 
+	push dx
+	push es
+	push ds
+	
+	;等待读取RTC的时间
+	.waits:
+	mov dx , 0x70
+	mov al , 0xa
+	or  al , 0x80  ;阻断NMI
+	out dx , al
+	
+	mov dx , 0x71
+	in  al , dx 
+	test al , 0x80
+	jnz .waits
+	
+	mov cx , 3
+	xor al , al 
+	;读取RTC秒	;读取RTC分	;读取RTC时
+read_time:
+	or  al , 0x80
+	out 0x70 , al
+	mov bl , al 
+	in al , 0x71
+	push ax 
+	mov al , bl 
+	add al , 2
+	loop read_time
+	
+	;读取寄存器C，让再次产生中断
+	mov dx , 0x70
+	mov al , 0xc  ;这次不阻止NMI中断
+	out dx , al 
+	mov dx , 0x71
+	in  al , dx 
+	
+	;开始准备显示时间
+	mov ax , 0xb800
+	mov es , ax 
+	
+	mov bx , 12*160 + 40*2
+	mov cx , 3
+	
+show_rtc:	
+	pop ax 
+	call bcd_to_ascii
+	mov [es:bx] , ah 
+	mov [es:bx+2] , al
+	
+	cmp bx , (12*160 + 40*2 + 12)
+	je @1
+	mov al ,':'
+	mov [es:bx+4] , al 
+	not byte[es:bx+5]
+@1:	
+	add bx , 6
+	loop show_rtc
+	
+	mov al , 0x20
+	out 0x20 , al 
+	out 0xa0 , al 
+
+	
+	pop ds 
+	pop es
+	pop dx
+	pop cx
+	pop bx
+	pop ax
+	iret	
+
+	
+;bcd码转ascii码 ==》四个bcd转换成一个十进制数(0~9)，十进制数加上0x30成十六进制数
+bcd_to_ascii:
+	mov ah , al 
+	and al , 0x0f
+	add al , 0x30
+	
+	shr ah , 4
+	and ah , 0x0f
+	add ah , 0x30
+	ret 
+;bcd_to_ascii end 	
+
+;interupt end
+
+;-------------code begin-------------------------
+section code align=16 vstart=0
+	;设置堆栈
+start:	
+	mov ax , [section_stack]
+	mov ss , ax 
+	mov sp , ax 
+	
+	;设置数据段
+	mov ax , [section_data]
+	mov ds , ax 
+	
+	;显示安装中断前的内容
+	mov bx , begin_msg
+	call print_string
+	
+	mov bx , install_msg
+	call print_string
+	
+	cli
+	;安装中断
+	push ds 
+	mov ax , 0x00
+	mov ds , ax 
+	mov al , 0x70 ;从片默认开始中断号，主片为：0x80
+	mov bl , 4
+	mul bl 
+	mov bx , ax 
+	mov word[ds:bx] , RTC_INT
+	mov ax , [es:section_int]
+	mov word[ds:bx+2] , ax
+	pop ds
+	
+	;设置寄存器B ;coms端口 0x70 / 0x71
+	mov dx , 0x70
+	mov al , 0xb
+	or  al , 0x80 ;禁止NMI中断
+	out dx , al 
+	
+	mov dx , 0x71
+	mov al , 0x12
+	out dx , al 
+	
+	;读取寄存器C 开始中断
+	mov dx , 0x70
+	mov al , 0xc
+	out dx , al 
+	
+	mov dx , 0x71
+	in  al , dx 
+	
+	;设置从片的未决字位，0xa1 ;主片为 0x21
+	mov dx , 0xa1
+	in  al , dx 
+	and al , 0xfe
+	out dx , al 
+	
+	sti
+	
+	mov bx , done_msg
+	call print_string
+	
+	;显示time
+	mov ax , 0xb800
+	mov es , ax 
+	
+	mov si , time_msg
+	mov di , 12*160 + 32*2
+	mov cx , (data_end - time_msg)
+	
+show_time:	
+	mov al , [si]
+	mov [es:di] , al 
+	inc si 
+	add di , 2
+	loop show_time
+	
+.halt:
+	hlt
+	jmp .halt
+	
+;打印字符串的过程
+;--------------------print_string---------------
+print_string:
+	mov cl , [bx]
+	cmp cl , 0 
+	jz .ret
+	call print_char
+	inc bx 
+	jmp print_string
+	
+.ret:
+	ret 
+;print_string end
+
+;---------------------print_char-----------------
+print_char:
+	push ax 
+	push bx
+	push cx 
+	push dx 
+	push ds 
+	push es
+	
+;首先获取光标的位置	
+	mov dx , 0x3d4
+	mov al , 0xe
+	out dx , al 
+	mov dx , 0x3d5
+	in  al , dx 
+	mov ah , al 
+	
+	mov dx , 0x3d4
+	mov al , 0xf
+	out dx , al
+	mov dx , 0x3d5
+	in  al , dx
+	mov bx , ax 
+	
+;判断是不是回车符	
+	cmp cl , 0xd 
+	jnz if_nextLine
+	mov bl , 80
+	div bl 
+	mul bl 
+	mov bx , ax 
+	jmp set_cursor  ;其实这个还没有清屏，只是光标回车，但这一行还是有数据
+;	jmp roll_screen
+
+;判断是否为换行符	
+if_nextLine:
+	cmp cl , 0xa
+	jnz is_char
+	add bx , 80
+	jmp roll_screen
+
+;确定为正常字符	
+is_char:		
+	mov ax , 0xb800
+	mov ds , ax
+	shl bx , 1
+	mov [bx], cl
+	shr bx , 1
+	inc bx
+	
+roll_screen:
+	cmp bx , 2000 ;25 x 80 =2000
+	jl set_cursor
+	mov es , ax
+	
+	cld
+	mov si , 0xa0 ;16 x 10 = 80 x 2
+	mov di , 0x0
+	mov cx , 1920
+	rep movsw
+	mov bx , 1920
+	
+clean_lastLine:
+	mov cx , 80
+clean_Line:
+	mov word[di] , 0x720
+	add di , 2
+	loop clean_Line
+
+set_cursor:
+    mov dx , 0x3d4
+	mov al , 0xe
+	out dx , al
+	mov dx , 0x3d5
+	mov al , bh
+	out dx , al 
+	
+	mov dx , 0x3d4
+	mov al , 0xf
+	out dx , al
+	mov dx , 0x3d5
+	mov al , bl
+	out dx , al
+
+	pop es 
+	pop ds
+	pop dx
+	pop cx
+	pop bx
+	pop ax 
+	ret
+;print_stringf end
+
+;code end
+
+;-------------data begin-------------------------
+section data align=16 vstart=0
+	begin_msg db 'begin ...', 0xd, 0xa, 0
+	install_msg db 'installing...', 0xd,0xa, 0
+	done_msg db 'done....',0
+	time_msg db 'time:'
+	
+data_end:	
+	
+;data end
+
+;-------------stack begin-------------------------
+section stack align=16 vstart=0
+	resb 256
+	stack_end:
+;stack end
+
+;-------------tail begin--------------------------
+section tail align=16 
+	program_end:
+;tail end </pre>        转载地址：<a target="_blank" href="http://blog.csdn.net/yuzhihui_no1/article/details/41869291">http://blog.csdn.net/yuzhihui_no1/article/details/41869291</a><br />&#13;
+<br />&#13;
+<p></p>&#13;
+   &#13;

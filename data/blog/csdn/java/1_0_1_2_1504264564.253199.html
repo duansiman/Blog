@@ -1,0 +1,193 @@
+
+
+<p><span style="font-size:14px">上一篇说道JNIEnv中的方法的用法，这一篇我们就来通过例子来看一下这些方法的使用：</span></p>&#13;
+<p><span style="font-size:14px"><strong>首先是第一个例子:在Java代码中定义一个属性，然后再C++代码中将其设置成另外的值，并且输出来</strong></span></p>&#13;
+<p><span style="font-size:14px">先来看一下Java代码:</span></p>&#13;
+<p><span style="font-size:14px"></span></p>&#13;
+<pre code_snippet_id="125031" snippet_file_name="blog_20131223_1_2012021" name="code" class="java">package com.jni.demo;
+public class JNIDemo {
+
+public int number = 0;//定义一个属性
+
+//定义一个本地方法
+public native void sayHello();
+public static void main(String[] args){
+//调用动态链接库
+System.loadLibrary("JNIDemo");
+JNIDemo jniDemo = new JNIDemo();
+jniDemo.sayHello();
+System.out.print(jniDemo.number);
+}
+}</pre><br />&#13;
+<p></p>&#13;
+<p><span style="font-size:14px">在来看一下C++代码：</span></p>&#13;
+<p><span style="font-size:14px"></span></p>&#13;
+<pre code_snippet_id="125031" snippet_file_name="blog_20131223_2_2851836" name="code" class="cpp">#include&lt;iostream.h&gt;
+#include "com_jni_demo_JNIDemo.h"
+
+JNIEXPORT void JNICALL Java_com_jni_demo_JNIDemo_sayHello (JNIEnv * env, jobject obj)
+{
+//获取obj中对象的class对象
+jclass clazz = env-&gt;GetObjectClass(obj);
+//获取Java中的number字段的id(最后一个参数是number的签名)
+jfieldID id_number = env-&gt;GetFieldID(clazz,"number","I");
+//获取number的值
+jint number = env-&gt;GetIntField(obj,id_number);
+//输出到控制台
+cout&lt;&lt;number&lt;&lt;endl;
+//修改number的值为100,这里要注意的是jint对应C++是long类型,所以后面要加一个L
+env-&gt;SetIntField(obj,id_number,100L);
+}</pre><br />&#13;
+<p></p>&#13;
+<p><span style="font-size:14px">编译成功后，在Eclipse运行后的结果:</span></p>&#13;
+<p><span style="font-size:14px"><img src="http://img.blog.csdn.net/20131221151012687?watermark/2/text/aHR0cDovL2Jsb2cuY3Nkbi5uZXQvamlhbmd3ZWkwOTEwNDEwMDAz/font/5a6L5L2T/fontsize/400/fill/I0JBQkFCMA==/dissolve/70/gravity/Center" alt="" /><br />&#13;
+</span></p>&#13;
+<p><span style="font-size:14px">第一个0是在C++代码中的cout&lt;&lt;number&lt;&lt;endl;</span></p>&#13;
+<p><span style="font-size:14px">第二个100是在Java中的System.out.println(jniDemo.number);</span></p>&#13;
+<p><span style="font-size:14px"><br />&#13;
+</span></p>&#13;
+<p><span style="font-size:14px">JNIEnv提供了众多的Call&lt;Type&gt;Method和CallStatic&lt;Type&gt;Method，还有CallNonvirtual&lt;Type&gt;Method函数，需要通过GetMethodID取得相应方法的jmethodID来传入到上述函数的参数中</span></p>&#13;
+<p><span style="font-size:14px">调用示例方法的三种形式:</span></p>&#13;
+<p><span style="font-size:14px">Call&lt;Type&gt;Method(jobject obj,jmethodID id,....);</span></p>&#13;
+<p><span style="font-size:14px">Call&lt;Type&gt;Method(jobject obj,jmethodID id,va_list lst);</span></p>&#13;
+<p><span style="font-size:14px">Call&lt;Type&gt;Method(jobject obj,jmethodID id,jvalue* v);</span></p>&#13;
+<p><span style="font-size:14px">第一种是最常用的方式</span></p>&#13;
+<p><span style="font-size:14px">第二种是当调用这个函数的时候有一个指向参数表的va_list变量时使用的(很少使用)</span></p>&#13;
+<p><span style="font-size:14px">第三种是当调用这个函数的时候有一个指向jvalue或jvalue数组的指针时用的</span></p>&#13;
+<p><span style="font-size:14px">说明:</span></p>&#13;
+<p><span style="font-size:14px">jvalue在jni.h头文件中定义是一个union联合体，在C/C++中，我们知道union是可以存放不同类型的值，但是当你给其中一个类型赋值之后，这个union就是这种类型了，比如你给jvalue中的s赋值的话，jvalue就变成了jshort类型了，所以我们可以定义一个jvalue数组(这样就可以包含多种类型的参数了)传递到方法中。</span></p>&#13;
+<p><span style="font-size:14px"><img src="http://img.blog.csdn.net/20131221154659218?watermark/2/text/aHR0cDovL2Jsb2cuY3Nkbi5uZXQvamlhbmd3ZWkwOTEwNDEwMDAz/font/5a6L5L2T/fontsize/400/fill/I0JBQkFCMA==/dissolve/70/gravity/Center" alt="" /><br />&#13;
+</span></p>&#13;
+<p><span style="font-size:14px">假如现在Java中有这样的一个方法:</span></p>&#13;
+<p><span style="font-size:14px">boolean function(int a,double b,char c)</span></p>&#13;
+<p><span style="font-size:14px">{</span></p>&#13;
+<p><span style="font-size:14px">    ........</span></p>&#13;
+<p><span style="font-size:14px">}</span></p>&#13;
+<p><span style="font-size:14px"><strong>(1) 在C++中使用第一种方式调用function方法:</strong></span></p>&#13;
+<p><span style="font-size:14px">env-&gt;CallBooleanMethod(obj , id_function , 10L, 3.4 , L'a')</span></p>&#13;
+<p><span style="font-size:14px">obj是方法funtion的对象</span></p>&#13;
+<p><span style="font-size:14px">id_function是方法function的id;可以通过GetMethodID()方法获取</span></p>&#13;
+<p><span style="font-size:14px">然后就是对应的参数，这个和Java中的可变参数类似，对于最后一个char类型的参数L'a',为什么前面要加一个L,原因是Java中的字符时Unicode双字节的，而C++中的字符时单字节的，所以要变成宽字符，前面加一个L</span></p>&#13;
+<p><span style="font-size:14px"><strong>(2) 在C++中使用第三种法师调用function方法:</strong></span></p>&#13;
+<p><span style="font-size:14px">jvalue* args = new jvalue[3];//定义jvalue数组</span></p>&#13;
+<p><span style="font-size:14px">args[0].i = 10L;//i是jvalue中的jint值</span></p>&#13;
+<p><span style="font-size:14px">args[1].d = 3.44;</span></p>&#13;
+<p><span style="font-size:14px">args[2].c = L'a';</span></p>&#13;
+<p><span style="font-size:14px">env-&gt;CallBooleanMethod(obj, id_function, args);</span></p>&#13;
+<p><span style="font-size:14px">delete[] args;//是否指针堆内存</span></p>&#13;
+<p><span style="font-size:14px">例子:C++中调用Java中的方法:</span></p>&#13;
+<p><span style="font-size:14px">Java代码：</span></p>&#13;
+<p><span style="font-size:14px">public double max(double value1,double value2){<br />&#13;
+<span style="white-space:pre"></span>return value1&gt;value2 ? value1:value2;<br />&#13;
+<span style="white-space:pre"></span>}<br />&#13;
+</span></p>&#13;
+<p><span style="font-size:14px">这时候用javap获取max方法的签名:</span></p>&#13;
+<p><span style="font-size:14px"><img src="http://img.blog.csdn.net/20131221162923921?watermark/2/text/aHR0cDovL2Jsb2cuY3Nkbi5uZXQvamlhbmd3ZWkwOTEwNDEwMDAz/font/5a6L5L2T/fontsize/400/fill/I0JBQkFCMA==/dissolve/70/gravity/Center" alt="" /><br />&#13;
+</span></p>&#13;
+<p><span style="font-size:14px">max方法的签名是(DD)D</span></p>&#13;
+<p><span style="font-size:14px">在C++中的代码:</span></p>&#13;
+<p><span style="font-size:14px"></span></p><pre code_snippet_id="125031" snippet_file_name="blog_20131223_3_5423410" name="code" class="cpp">JNIEXPORT void JNICALL Java_com_jni_demo_JNIDemo_sayHello (JNIEnv * env, jobject obj)
+{
+//获取obj中对象的class对象
+jclass clazz = env-&gt;GetObjectClass(obj);
+//获取Java中的max方法的id(最后一个参数是max方法的签名)
+jmethodID id_max = env-&gt;GetMethodID(clazz,"max","(DD)D");
+//调用max方法
+jdouble doubles = env-&gt;CallDoubleMethod(obj,id_max,1.2,3.4);
+//输出返回值
+cout&lt;&lt;doubles&lt;&lt;endl;
+}</pre><br />&#13;
+&#13;
+<p><span style="font-size:14px">编译成动态文件后到Eclipse中执行sayHello方法，运行结果如下:</span></p>&#13;
+<p><span style="font-size:14px"><img src="http://img.blog.csdn.net/20131221163604671?watermark/2/text/aHR0cDovL2Jsb2cuY3Nkbi5uZXQvamlhbmd3ZWkwOTEwNDEwMDAz/font/5a6L5L2T/fontsize/400/fill/I0JBQkFCMA==/dissolve/70/gravity/Center" alt="" /><br />&#13;
+</span></p>&#13;
+<p><span style="font-size:14px">成功的输出了最大值</span></p>&#13;
+<p><span style="font-size:14px"><br />&#13;
+</span></p>&#13;
+<p><span style="font-size:14px">JNIEnv中有一个特殊的方法:CallNonvirtual&lt;Type&gt;Method方法</span></p>&#13;
+<p><span style="font-size:14px"><img src="http://img.blog.csdn.net/20131221163751281?watermark/2/text/aHR0cDovL2Jsb2cuY3Nkbi5uZXQvamlhbmd3ZWkwOTEwNDEwMDAz/font/5a6L5L2T/fontsize/400/fill/I0JBQkFCMA==/dissolve/70/gravity/Center" alt="" /><br />&#13;
+</span></p>&#13;
+<p><span style="font-size:14px">首先来了解一下上面调用的function是子类的function方法，这个我们都知道，但是在C++中就不一样了:</span></p>&#13;
+<p><span style="font-size:14px"><img src="http://img.blog.csdn.net/20131221164049625?watermark/2/text/aHR0cDovL2Jsb2cuY3Nkbi5uZXQvamlhbmd3ZWkwOTEwNDEwMDAz/font/5a6L5L2T/fontsize/400/fill/I0JBQkFCMA==/dissolve/70/gravity/Center" alt="" /><br />&#13;
+</span></p>&#13;
+<p><span style="font-size:14px">这段C++代码中执行的是父类的function方法，那如果想执行子类的function方法怎么办呢？那就需要将父类的function方法定义成virtual虚函数:</span></p>&#13;
+<p><span style="font-size:14px"><img src="http://img.blog.csdn.net/20131221164059859?watermark/2/text/aHR0cDovL2Jsb2cuY3Nkbi5uZXQvamlhbmd3ZWkwOTEwNDEwMDAz/font/5a6L5L2T/fontsize/400/fill/I0JBQkFCMA==/dissolve/70/gravity/Center" alt="" /><br />&#13;
+</span></p>&#13;
+<p><span style="font-size:14px">所以说C++和Java对于继承后执行的是父类的还是子类的方法是有区别的，在Java中所有的方法都是virtual的，所以总是调用子类的方法，所以CallNonVirtual&lt;Type&gt;Method这个方法就出来了，这个方法就可以帮助我们调用Java中的父类的方法：</span></p>&#13;
+<p><span style="font-size:14px">在JNI中定义的CallNonvirtual&lt;Type&gt;Method就能够实现子类对象调用父类方法的功能，如果想要调用一个对象的父类方法，而不是子类的方法的话，就可以使用CallNonvirtual&lt;Type&gt;Method了，要使用它，首先要获得父类及其要调用的父类方法的jmethodID,然后传入到这个函数就能通过子类对象调用被覆写的父类的方法了</span></p>&#13;
+<p><span style="font-size:14px">例子：在Java中定义Father类:</span></p>&#13;
+<p><span style="font-size:14px"></span></p>&#13;
+<pre code_snippet_id="125031" snippet_file_name="blog_20131223_3_6025182" name="code" class="java">package com.jni.demo;
+
+public class Father {
+
+public void function(){
+System.out.println("Father:function");
+}
+
+}</pre><br />&#13;
+<p></p>&#13;
+<p><span style="font-size:14px">在定义一个子类Child:继承Father类，从写父类中的function方法</span></p>&#13;
+<p><span style="font-size:14px"></span></p>&#13;
+<pre code_snippet_id="125031" snippet_file_name="blog_20131223_4_9754936" name="code" class="java">package com.jni.demo;
+
+public class Child extends Father{
+
+@Override
+public void function(){
+System.out.println("Child:function");
+}
+
+}</pre><br />&#13;
+<p></p>&#13;
+<p><span style="font-size:14px">在JNIDemo代码:定义Father类型的属性</span></p>&#13;
+<p><span style="font-size:14px"></span></p>&#13;
+<pre code_snippet_id="125031" snippet_file_name="blog_20131223_5_1499823" name="code" class="java">package com.jni.demo;
+public class JNIDemo {
+public Father father = new Child();
+//定义一个本地方法
+public native void sayHello();
+public static void main(String[] args){
+//调用动态链接库
+System.loadLibrary("JNIDemo");
+JNIDemo jniDemo = new JNIDemo();
+jniDemo.sayHello();
+}
+
+}</pre>&#13;
+<p></p>&#13;
+<p><span style="font-size:14px">在来看一下C++中的代码：</span></p>&#13;
+<p><span style="font-size:14px"></span></p>&#13;
+<pre code_snippet_id="125031" snippet_file_name="blog_20131223_6_5960708" name="code" class="cpp">#include&lt;iostream.h&gt;
+#include "com_jni_demo_JNIDemo.h"
+
+JNIEXPORT void JNICALL Java_com_jni_demo_JNIDemo_sayHello (JNIEnv * env, jobject obj)
+{
+//获取obj中对象的class对象
+jclass clazz = env-&gt;GetObjectClass(obj);
+//获取Java中的father字段的id(最后一个参数是father字段的签名)
+jfieldID id_father = env-&gt;GetFieldID(clazz,"father","Lcom/jni/demo/Father;");
+//获取father字段的对象类型
+jobject father = env-&gt;GetObjectField(obj,id_father);
+//获取father对象的class对象
+jclass clazz_father = env-&gt;FindClass("com/jni/demo/Father");
+//获取father对象中的function方法的id
+jmethodID id_father_function = env-&gt;GetMethodID(clazz_father,"function","()V");
+//调用父类中的function方法(但是会执行子类的方法)
+env-&gt;CallVoidMethod(father,id_father_function);
+//调用父类中的function方法(执行就是父类中的function方法)
+env-&gt;CallNonvirtualVoidMethod(father,clazz_father,id_father_function);
+
+}</pre>&#13;
+<p></p>&#13;
+<p><span style="font-size:14px">编译成功.dll文件，回到Eclipse中运行结果如下:</span></p>&#13;
+<p><span style="font-size:14px"><img src="http://img.blog.csdn.net/20131221170826875?watermark/2/text/aHR0cDovL2Jsb2cuY3Nkbi5uZXQvamlhbmd3ZWkwOTEwNDEwMDAz/font/5a6L5L2T/fontsize/400/fill/I0JBQkFCMA==/dissolve/70/gravity/Center" alt="" /><br />&#13;
+</span></p>&#13;
+<p><span style="font-size:14px">Child:function是调用env-&gt;CallVoidMethod(...)方法的</span></p>&#13;
+<p><span style="font-size:14px">Father:function是调用env-&gt;CallNonvirtualMethod(...)方法的</span></p>&#13;
+<p><span style="font-size:14px">这样就能够控制到底调用哪个类的function方法了。</span></p>&#13;
+<p><span style="font-size:14px"><br />&#13;
+</span></p>&#13;
+<p><br />&#13;
+</p>&#13;
+   &#13;

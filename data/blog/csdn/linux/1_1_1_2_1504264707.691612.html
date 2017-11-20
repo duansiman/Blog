@@ -1,0 +1,119 @@
+
+
+        USB Gadget驱动又称USB器件驱动。主要用于运行linux的嵌入式系统中，使得系统拥有普通USB设备的功能。mini2440具有USB1.1设备控制器，所以可以使用USB Gadget功能。但是linux2.6.32.2内核对于mini2440的支持不是很完全。开启USB Gadget功能之后，不能使得主机发现USB硬件。这个问题主要是USB接口的上拉电阻的问题，mini2440使用GPC5来上拉USB，使得主机集线器发现有USB设备链接从而枚举设备。但是在linux2.6.32.2内核中，没有设置GPC5的代码。所以导致不能使用Gadget功能。解决办法网上也有一些，就是增加额外的模块置位GPC5,但是我认为这样不是最好的办法。认真分析s3c2410_udc.c以及g_zero.c的代码后，发现在注册Gadget功能驱动的时候会调用s3c2410_udc.c提供的usb_gadget_register_driver函数，而这个函数最后会调用s3c2410_udc_enable。这个函数就是使能UDC的。代码如下：<pre name="code" class="cpp">static void s3c2410_udc_enable(struct s3c2410_udc *dev)
+{
+	int i;
+
+	dprintk(DEBUG_NORMAL, "s3c2410_udc_enable called\n");
+
+	/* dev-&gt;gadget.speed = USB_SPEED_UNKNOWN; */
+	dev-&gt;gadget.speed = USB_SPEED_FULL;
+
+	/* Set MAXP for all endpoints */
+	for (i = 0; i &lt; S3C2410_ENDPOINTS; i++) {
+		udc_write(i, S3C2410_UDC_INDEX_REG);
+		udc_write((dev-&gt;ep[i].ep.maxpacket &amp; 0x7ff) &gt;&gt; 3,
+				S3C2410_UDC_MAXP_REG);
+	}
+
+	/* Set default power state */
+	udc_write(DEFAULT_POWER_STATE, S3C2410_UDC_PWR_REG);
+
+	/* Enable reset and suspend interrupt interrupts */
+	udc_write(S3C2410_UDC_USBINT_RESET | S3C2410_UDC_USBINT_SUSPEND,
+			S3C2410_UDC_USB_INT_EN_REG);
+
+	/* Enable ep0 interrupt */
+	udc_write(S3C2410_UDC_INT_EP0, S3C2410_UDC_EP_INT_EN_REG);
+
+	/* time to say "hello, world" */
+
+	if (udc_info &amp;&amp; udc_info-&gt;udc_command) {
+		udc_info-&gt;udc_command(S3C2410_UDC_P_ENABLE);
+	}
+}</pre> &#13;
+       我们发现这个函数除了前面使能中断的操作后，最后有个判断语句，判断udc_info以及udc_info-&gt;command是否有值。然后调用udc_command,这个函数的调用参数为S3C2410_UDC_P_ENABLE。很显然这个就是使能UDC的关键操作。我们看一下udc_info又是什么，在s3c2410_udc.c的最开始有这样的定义：<pre name="code" class="cpp">static struct s3c2410_udc_mach_info *udc_info;
+</pre>        说明这是一个指向s3c2410_udc_mach_info结构的指针。s3c2410_udc_mach_info结构在udc.h中定义：<pre name="code" class="cpp">struct s3c2410_udc_mach_info {
+	void	(*udc_command)(enum s3c2410_udc_cmd_e);
+ 	void	(*vbus_draw)(unsigned int ma);
+	unsigned int vbus_pin;
+	unsigned char vbus_pin_inverted;
+};</pre> &#13;
+       那么这个指针又是什么时候赋值的，是在s3c2410_udc_probe函数中。这就说明在注册s3c2410_udc驱动的时候，由platform总线找到相应的设备匹配后，调用的。如下：<pre name="code" class="cpp">udc_info = pdev-&gt;dev.platform_data;
+</pre>        那么什么又是platfom_data呢,这个又是在什么时候赋值的呢。要理解这个还得需要平台驱动的只是，也就是platform driver的知识。s3c2410的udc驱动是一个platform驱动，所以USB设备控制器是platform device。那么这个platform_data又是在哪赋的值。一般而言platform&#13;
+ device在系统板级初始化的时候初始化的。也就是板级初始化的时候赋值。但是用Kscope怎么也找不到给他赋值的语句。说明根本就没人给他赋值。所以在注册g_zero功能驱动的时候udc_info是空的，没有执行udc_info-&gt;udc_command()。我们要做的就是给usb gadget platform device的platform_data初始化。在mach-mini2440.c中增加如下代码：<pre name="code" class="cpp">static void s3c2410_udc_pullup(enum s3c2410_udc_cmd_e cmd)
+{
+        switch (cmd) {
+        case S3C2410_UDC_P_ENABLE :
+                s3c2410_gpio_cfgpin(S3C2410_GPC(5), S3C2410_GPIO_OUTPUT); //参考评论增加的代码
+                s3c2410_gpio_setpin(S3C2410_GPC(5), 1);
+                break;
+        case S3C2410_UDC_P_DISABLE :
+                s3c2410_gpio_setpin(S3C2410_GPC(5), 0);
+                break;
+        case S3C2410_UDC_P_RESET :
+                break;
+        default:
+                break;
+        }
+}</pre>        这个函数就是udc_info-&gt;udc_command()执行的函数，在这里使得GPC5为高电平，使能USB设备。<pre name="code" class="cpp">static struct s3c2410_udc_mach_info s3c2410_udc_cfg __initdata = {
+	.udc_command		= s3c2410_udc_pullup,
+};</pre> &#13;
+       这个结构体定义了platform_data的初始值。<br />&#13;
+        修改mini2440_machine_init函数，增加s3c24xx_udc_set_platdata(&amp;s3c2410_udc_cfg);如下<pre name="code" class="cpp">static void __init mini2440_machine_init(void)
+{
+#if defined (LCD_WIDTH)
+	s3c24xx_fb_set_platdata(&amp;mini2440_fb_info);
+#endif
+	s3c_i2c0_set_platdata(NULL);
+
+	s3c2410_gpio_cfgpin(S3C2410_GPC(0), S3C2410_GPC0_LEND);
+
+	s3c_device_nand.dev.platform_data = &amp;friendly_arm_nand_info;
+	s3c_device_sdi.dev.platform_data = &amp;mini2440_mmc_cfg;
+	s3c24xx_udc_set_platdata(&amp;s3c2410_udc_cfg); //增加的代码
+	platform_add_devices(mini2440_devices, ARRAY_SIZE(mini2440_devices));
+	s3c_pm_init();
+}</pre>        s3c24xx_udc_set_platdata()这个函数定义与devs.c，如下：<pre name="code" class="cpp">void __init s3c24xx_udc_set_platdata(struct s3c2410_udc_mach_info *pd)
+{
+	struct s3c2410_udc_mach_info *npd;
+
+	npd = kmalloc(sizeof(*npd), GFP_KERNEL);
+	if (npd) {
+		memcpy(npd, pd, sizeof(*npd));
+		s3c_device_usbgadget.dev.platform_data = npd;
+	} else {
+		printk(KERN_ERR "no memory for udc platform data\n");
+	}
+}</pre>        最后还要在头文件中包含plat/udc.h。这样我们注册Gadget功能驱动的时候自动使能了USB设备功能。但是在卸载驱动的时候发生了问题，内核打印出一大堆调试信息。问题出在composite.c中的composite_unbind函数中。这个函数开头有一行代码WARN_ON(cdev-&gt;config);就是如果cdev-config不为0,那么内核就会打印出调试信息。上面还给了注释<pre name="code" class="cpp">int usb_gadget_unregister_driver(struct usb_gadget_driver *driver)
+{
+	struct s3c2410_udc *udc = the_controller;
+
+	if (!udc)
+		return -ENODEV;
+
+	if (!driver || driver != udc-&gt;driver || !driver-&gt;unbind)
+		return -EINVAL;
+
+	dprintk(DEBUG_NORMAL,"usb_gadget_register_driver() '%s'\n",
+		driver-&gt;driver.name);
+
+	driver-&gt;disconnect(&amp;udc-&gt;gadget);
+//此处为新加语句，这条语句调用 composite_disconnect，然后使得cdev-&gt;config为NULL
+	driver-&gt;unbind(&amp;udc-&gt;gadget);
+//这里就是composite_unbind
+
+
+	device_del(&amp;udc-&gt;gadget.dev);
+	udc-&gt;driver = NULL;
+
+	/* Disable udc */
+	s3c2410_udc_disable(udc);
+
+	return 0;
+}</pre> &#13;
+       从注释上可以看出调用composite_unbind的前提是要首先保证composite_disconnect被调用。这样才不会出现警告的内核信息。在增加上面的代码后重新编译内核，将USB Gadget设置称为模块。然后make modules 在通过ftp将s3c2410_udc.ko与g_zero.ko传入开发板，先后加载这两个模块。在主机上lsusb会发现出现新设备<br />&#13;
+Bus 005 Device 023: ID 0525:a4a0 Netchip Technology, Inc. Linux-USB "Gadget Zero"<br />&#13;
+        卸载g_zero.ko后，新设备就会消失。这样基本的USB Gadget驱动功能就开启了。类似的还可以测试其他的USB Gagget。<br />&#13;
+<br />&#13;
+   &#13;

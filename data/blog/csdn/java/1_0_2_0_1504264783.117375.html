@@ -1,0 +1,154 @@
+
+        <div class="markdown_views"><p><font color="brown"><strong>介绍：</strong></font>从字面上我们就能看出需要实现的功能—保证类只有一个实例，并提供一个访问此实例的方法。</p>
+
+<p><font color="brown"><strong>优点：</strong></font> <br />
+1. 频繁使用的对象，可以减少创建对象所消耗的时间。 <br />
+2. new操作次数的减少，对系统内存的使用频率也会减少，从而减轻GC压力，缩短GC停顿时间。</p>
+
+
+
+<h1 id="一懒汉式">一、懒汉式</h1>
+
+<p><font color="font">简述：</font>懒汉式单例 在使用的时候去判断单例是否已经存在，然后再调用实例或创建实例 在懒汉式中需要考虑并发问题</p>
+
+
+
+<h3 id="1-不使用同步方法">1. 不使用同步方法</h3>
+
+<p><font color="green">不使用同步方法，在不同情况下是可以实现单例的。但是在高并发的情况下可能会产生多个实例</font></p>
+
+
+
+<pre class="prettyprint"><code class=" hljs cs"><span class="hljs-keyword">public</span> <span class="hljs-keyword">class</span> SingletonLazyNoSync {
+    <span class="hljs-keyword">private</span> <span class="hljs-keyword">static</span> SingletonLazyNoSync uniqueInstance;
+
+    <span class="hljs-keyword">private</span> <span class="hljs-title">SingletonLazyNoSync</span>() {
+
+    }
+
+    <span class="hljs-comment">// 静态工厂方法</span>
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">static</span> SingletonLazyNoSync <span class="hljs-title">getInstance</span>() {
+        <span class="hljs-comment">// 下面是延迟实例化的方法</span>
+        <span class="hljs-keyword">if</span> (uniqueInstance == <span class="hljs-keyword">null</span>)
+            uniqueInstance = <span class="hljs-keyword">new</span> SingletonLazyNoSync();
+
+        <span class="hljs-keyword">return</span> uniqueInstance;
+    }
+}</code></pre>
+
+
+
+<h3 id="2-同步代码块">2. 同步代码块</h3>
+
+<p><font color="green">使用同步方法synchronized,能够在多线程中很好的工作，遗憾的是，效率很低</font></p>
+
+
+
+<pre class="prettyprint"><code class=" hljs cs"><span class="hljs-keyword">public</span> <span class="hljs-keyword">class</span> SingletonLazySync {
+    <span class="hljs-keyword">private</span> <span class="hljs-keyword">static</span> SingletonLazySync uniqueInstance;
+
+    <span class="hljs-keyword">private</span> <span class="hljs-title">SingletonLazySync</span>() {}
+
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">static</span> synchronized SingletonLazySync <span class="hljs-title">getInstance</span>() {
+        <span class="hljs-comment">// synchronized防止在多线程的情况下创建时会产生多个对象(但是synchronized会降低性能,同步一个方法能使程序效率下降100倍)</span>
+        <span class="hljs-comment">// 下面是延迟实例化的方法</span>
+        <span class="hljs-keyword">if</span> (uniqueInstance == <span class="hljs-keyword">null</span>)
+            uniqueInstance = <span class="hljs-keyword">new</span> SingletonLazySync();
+
+        <span class="hljs-keyword">return</span> uniqueInstance;
+    }
+
+}</code></pre>
+
+
+
+<h3 id="3-双重检验加锁">3. 双重检验加锁</h3>
+
+<p><font color="green">使用双重检验加锁，在getInstance方法中减少同步</font></p>
+
+
+
+<pre class="prettyprint"><code class=" hljs cs"><span class="hljs-keyword">public</span> <span class="hljs-keyword">class</span> SingletonVolatile {
+    <span class="hljs-comment">// volatile保证在多线程的时候，每个线程能正确的处理这个单例</span>
+    <span class="hljs-keyword">private</span> <span class="hljs-keyword">volatile</span> <span class="hljs-keyword">static</span> SingletonVolatile uniqueInstance;
+
+    <span class="hljs-keyword">private</span> <span class="hljs-title">SingletonVolatile</span>() {}
+
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">static</span> SingletonVolatile <span class="hljs-title">getInstance</span>() {
+
+        <span class="hljs-keyword">if</span> (uniqueInstance == <span class="hljs-keyword">null</span>)
+            synchronized (SingletonVolatile.class) {
+                <span class="hljs-keyword">if</span> (uniqueInstance == <span class="hljs-keyword">null</span>)
+                    uniqueInstance = <span class="hljs-keyword">new</span> SingletonVolatile();
+            }
+        <span class="hljs-keyword">return</span> uniqueInstance;
+    }
+}</code></pre>
+
+
+
+<h1 id="二饿汉式">二、饿汉式</h1>
+
+<p><font color="font">简述：</font>饿汉就是类一旦加载，就把单例初始化完成，保证getInstance的时候，单例是已经存在的了</p>
+
+
+
+<h3 id="1静态变量">1.静态变量</h3>
+
+<p><font color="green">饿汉式提前实例化，但只要我们初始化类SingletonStatic，不管我们是不是调用getInstance()都会存在一个实例在内存中</font></p>
+
+
+
+<pre class="prettyprint"><code class=" hljs cs"><span class="hljs-keyword">public</span> <span class="hljs-keyword">class</span> SingletonStatic {
+    <span class="hljs-keyword">private</span> <span class="hljs-title">SingletonStatic</span>() {}
+
+    <span class="hljs-keyword">private</span> <span class="hljs-keyword">static</span> final SingletonStatic single = <span class="hljs-keyword">new</span> SingletonStatic();
+
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">static</span> SingletonStatic <span class="hljs-title">getInstance</span>() {
+        <span class="hljs-keyword">return</span> single;
+    }
+}</code></pre>
+
+
+
+<h3 id="2静态内部类">2.静态内部类</h3>
+
+<p><font color="green">内部类式中，实现了延迟加载，当SingletonStaticClass被加载时，其内部类不会被初始化，即SingletonStaticClass被加载到JVM的时候，不会初始化单例类。只有我们调用了getInstance(),才会加载StaticClass创建唯一的实例INSTANCE到内存中.并且也解决了懒汉式中多线程的问题.</font></p>
+
+<p><font color="brown">ps：</font>这种方法也可能创建多个实例，比如，通过反射机制来加载单例类的私有构造函数。但是，这样的情况极少 <br />
+</p>
+
+
+
+<pre class="prettyprint"><code class=" hljs cs"><span class="hljs-keyword">public</span> <span class="hljs-keyword">class</span> SingletonStaticClass {
+
+    <span class="hljs-keyword">private</span> <span class="hljs-keyword">static</span> <span class="hljs-keyword">class</span> StaticClass {
+        <span class="hljs-keyword">private</span> <span class="hljs-keyword">static</span> final SingletonStaticClass INSTANCE = <span class="hljs-keyword">new</span> SingletonStaticClass();
+    }
+
+    <span class="hljs-keyword">private</span> <span class="hljs-title">SingletonStaticClass</span>() {}
+
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">static</span> SingletonStaticClass <span class="hljs-title">getInstance</span>() {
+        <span class="hljs-keyword">return</span> StaticClass.INSTANCE;
+    }
+}</code></pre>
+
+<hr />
+
+<p><strong><em>更多模式：</em></strong> <a href="http://blog.csdn.net/odeviloo/article/details/52382338">一天一个设计模式—分类与六大原则</a></p>
+
+<p><strong><em>更多源码：</em></strong> <a href="https://github.com/oDevilo/Java-Base">https://github.com/oDevilo/Java-Base</a></p></div>&#13;
+        <script type="text/javascript">&#13;
+            $(function () {&#13;
+                $('pre.prettyprint code').each(function () {&#13;
+                    var lines = $(this).text().split('\n').length;&#13;
+                    var $numbering = $('&lt;ul/&gt;').addClass('pre-numbering').hide();&#13;
+                    $(this).addClass('has-numbering').parent().append($numbering);&#13;
+                    for (i = 1; i &lt;= lines; i++) {&#13;
+                        $numbering.append($('&lt;li/&gt;').text(i));&#13;
+                    };&#13;
+                    $numbering.fadeIn(1700);&#13;
+                });&#13;
+            });&#13;
+        </script>&#13;
+   &#13;

@@ -1,0 +1,64 @@
+
+<p><span style="font-size:18px;"><strong><span style="white-space:pre">	</span>想知道内核什么时候给进程重新分配时间片，最好的办法就是阅读源代码（其中已经打了注释）</strong></span></p><p></p><pre name="code" class="cpp">/****************************************************************************/
+/* 功能：进程调度。															*/
+/*		 先对alarm和信号进行处理，如果某个进程处于可中断睡眠状态，并且收	*/
+/*		 到信号，则把进程状态改成可运行。之后在处可运行状态的进程中挑选一个	*/
+/*		 并用switch_to()切换到那个进程										*/
+/* 参数：（无）																*/
+/* 返回：（无）																*/
+/****************************************************************************/
+void schedule(void)
+{
+	int i,next,c;
+	struct task_struct ** p;
+/* check alarm, wake up any interruptible tasks that have got a signal */
+// 首先处理alarm信号，唤醒所有收到信号的可中断睡眠进程
+	for(p = &amp;LAST_TASK ; p &gt; &amp;FIRST_TASK ; --p)
+		if (*p) {
+			// 如果进程设置了alarm，并且alarm已经到时间了
+			if ((*p)-&gt;alarm &amp;&amp; (*p)-&gt;alarm &lt; jiffies) {
+					// 向该进程发送SIGALRM信号
+					(*p)-&gt;signal |= (1&lt;&lt;(SIGALRM-1));
+					(*p)-&gt;alarm = 0;	// 清除alarm
+				}
+//可屏蔽信号位图BLOCKABLE定义在sched.c第24行，(~(_S(SIGKILL) | _S(SIGSTOP)))
+// 说明SIGKILL和SIGSTOP是不能被屏蔽的。
+// 可屏蔽信号位图 &amp; 当前进程屏蔽的信号位图 = 当前进程实际屏蔽的信号位图
+// 当前进程收到的信号位图 &amp; ~当前进程实际屏蔽的信号位图 
+//							= 当前进程收到的允许相应的信号位图
+// 如果当前进程收到允许相应的信号，并且当前进程处于可中断睡眠态
+// 则把状态改成运行态，参与下面的选择过程
+			if (((*p)-&gt;signal &amp; ~(_BLOCKABLE &amp; (*p)-&gt;blocked)) &amp;&amp;
+			(*p)-&gt;state==TASK_INTERRUPTIBLE)
+				(*p)-&gt;state=TASK_RUNNING;
+		}
+/* this is the scheduler proper: */
+// 下面是进程调度的主要部分
+	while (1) {
+		c = -1;
+		next = 0;
+		i = NR_TASKS;
+		p = &amp;task[NR_TASKS];
+		while (--i) {		// 遍历整个task[]数组
+			if (!*--p)		// 跳过task[]中的空项
+				continue;
+			// 寻找剩余时间片最长的可运行进程，
+//  c记录目前找到的最长时间片
+// next记录目前最长时间片进程的任务号
+			if ((*p)-&gt;state == TASK_RUNNING &amp;&amp; (*p)-&gt;counter &gt; c)
+				c = (*p)-&gt;counter, next = i;
+		}
+	// 如果有进程时间片没有用完c一定大于0。这时退出循环，执行 switch_to任务切换
+		if (c) break;
+	// 到这里说明所有可运行进程的时间片都用完了，则利用任务优先级重新分配时间片。
+	// 这里需要重新设置所有任务的时间片，而不光是可运行任务的时间片。
+	// 利用公式：counter = counter/2 + priority
+		for(p = &amp;LAST_TASK ; p &gt; &amp;FIRST_TASK ; --p)
+			if (*p)
+				(*p)-&gt;counter = ((*p)-&gt;counter &gt;&gt; 1) +
+						(*p)-&gt;priority;
+	// 整个设置时间片过程结束后，重新进入进程选择过程
+	}
+	// 当的上面的循环退出时，说明找到了可以切换的任务
+	switch_to(next);
+}</pre><br /><span style="font-size:18px;"><strong><span style="white-space:pre">	</span>注意到，当系统中现在没有可以投入运行的进程，但是存在就绪态，不过其时间片为0，此时，就需要重新为进程分配时间片。</strong></span><p><span style="font-size:18px;"><strong><span style="white-space:pre">	</span>注意：</strong></span></p><p><span style="font-size:18px;"><strong><span style="white-space:pre">	</span>分配时间片不是对某一个进程而言的，是对系统中所有的进程而言，除进程0外。</strong></span></p>   &#13;

@@ -1,0 +1,64 @@
+
+
+<p>        今天突然心血来潮想起我前一家公司面试时遇到的一个面试题，就是实现个memcopy()函数。当初太紧张（刚毕业第二次面试），所以写的不是很好（可以说漏洞百出）；现在刚学了点汇编，刚好就用两种语言实现下；</p>&#13;
+<p>        首先来看汇编实现的memcpy函数，<span style="background-color:rgb(51,255,51)">是利用宏函数来实现的，用汇编指令rep和movsb配合循环把数据以字节为单位从ds:esi传送到es:edi中，把循环次数放在ecx中</span>。当然这样拷贝的才是真正的内存拷贝，其他的函数都稍微有点牵强。</p>&#13;
+<p></p><pre name="code" class="cpp"> #define myMemcpy(dest, src, n) ({\
+         void* _ret = dest;\
+         __asm__("cld;rep;movsb"\
+             ::"D"((long)(_ret)), "S"((long)(src)), "c"((long)(n)));\
+         _ret;})</pre>        在调试汇编实现的memcpy函数时，遇到个错误，这里记录下来：&#13;
+<p><img src="http://img.blog.csdn.net/20150207112830739?watermark/2/text/aHR0cDovL2Jsb2cuY3Nkbi5uZXQvWXVaaGlIdWlfTm8x/font/5a6L5L2T/fontsize/400/fill/I0JBQkFCMA==/dissolve/70/gravity/Center" alt="" /></p>&#13;
+<p>        错误：myMemcpy.c: In function ‘main’:<br />&#13;
+<span style="white-space:pre"></span>    myMemcpy.c:15: error: can't find a register in class ‘CREG’ while reloading ‘asm’<br />&#13;
+<span style="white-space:pre"></span>    myMemcpy.c:15: error: ‘asm’ operand has impossible constraints</p>&#13;
+<p><br />&#13;
+        发生这个错误是因为，我开始添加了 修改寄存器列表那一栏（添加了变更寄存器si, di, ex）；查了下资料说是同一个变量两次出现时使用了同一个寄存器，就会报这样的错误。解决办法是把变更寄存器中那些寄存器名称用占位符替代（di==0；si==1；cx==2）；但是还是不行，后来我干脆就把  修改寄存器列表 删了，因为我记得有些gcc编译器对于在输入输出中出现过的寄存器，不列入变更寄存器列表中；（我前几篇blog中也提到在输入输出中出现过的寄存器，不用添加到变更寄存器列表中去）但是有些版本的gcc却需要添加到变更寄存器那一栏；</p>&#13;
+<p><br />&#13;
+</p>&#13;
+<p>        下面来看下c语言方式来实现memcpy函数，其实我感觉c语言来实现还是比较简单的，<span style="background-color:rgb(51,255,51)">就是把输入的数据强制转换成字符来操作，因为在c语言中没有比字符更小的单位了</span>。而对于是否返回ret，如果要多次使用memcpy的话(   myMemcpy1(xxx,  myMemcpy1(xx, xx, xx),  xx)    )，那肯定是要返回的。如果不需要就没必要和原来的memcpy()一样，不要太死板（不过还是建议要返回ret，可以考虑以后扩展）。<span style="background-color:rgb(240,240,240)"></span></p>&#13;
+<p></p><pre name="code" class="cpp"> void* myMemcpy1(void* dest, void* src, unsigned int n)
+ {
+     char* d = (char*)dest;
+     char* s = (char*)src;
+     char* ret = d;
+
+     while(n--){
+         *d++ = *s++;
+     }   
+     return ret;
+ }</pre><br />&#13;
+        好了，该实现的都实现了，现在来测试下，当然我调试通过了，感兴趣的可以试着调试下。&#13;
+<p></p><pre name="code" class="cpp"> 
+ int main(void)
+ {
+     char test1[] = "yuzhihui";
+     char test2[1024] = {}; 
+     char test3[1024] = {}; 
+         
+     myMemcpy(test2, test1, sizeof(test1));
+     myMemcpy1(test3, test1, sizeof(test1));
+ 
+     printf("test1:%s\n", test1);
+     printf("test2:%s\n", test2);
+     printf("test3:%s\n", test3);
+ 
+     int t1 = 100;
+     int t2 = 0;
+     int t3 = 0;
+ 
+     myMemcpy(&amp;t2, &amp;t1, sizeof(t1));
+     myMemcpy1(&amp;t3, &amp;t1, sizeof(t1));
+ 
+     printf("t1:%d\n", t1);
+     printf("t2:%d\n", t2);
+     printf("t3:%d\n", t3);
+ 
+     return 0;
+ }&#13;
+</pre>        下面就贴下运行的结果：&#13;
+<p>        <img src="http://img.blog.csdn.net/20150207114740677?watermark/2/text/aHR0cDovL2Jsb2cuY3Nkbi5uZXQvWXVaaGlIdWlfTm8x/font/5a6L5L2T/fontsize/400/fill/I0JBQkFCMA==/dissolve/70/gravity/Center" alt="" />        <br />&#13;
+        转载请注明作者和原文出处，原文地址：<a target="_blank" href="http://blog.csdn.net/yuzhihui_no1/article/details/43601757">http://blog.csdn.net/yuzhihui_no1/article/details/43601757</a></p>&#13;
+<p>        如果有什么不正确之处，欢迎大家指正，一起努力，共同学习！！</p>&#13;
+<p><br />&#13;
+</p>&#13;
+   &#13;

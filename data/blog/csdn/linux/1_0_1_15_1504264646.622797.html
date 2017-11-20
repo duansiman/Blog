@@ -1,0 +1,17 @@
+
+<p><span style="font-size:24px;"><strong>   <span style="font-family:KaiTi_GB2312;">   Linux中的中断机制被分为两个部分，回应硬件的中断请求的部分成为上半部（一般都是这样），而真正在做处理工作（耗时工作）的部分成为下半部，实现下半部在Linux2.6内核中存在三种方法：软中断，tasklet和工作队列，如下图所示。</span></strong></span></p><p style="text-align: center;"><span style="font-size:24px;"><strong><img src="http://img.blog.csdn.net/20130821093248578?watermark/2/text/aHR0cDovL2Jsb2cuY3Nkbi5uZXQvRExVVEJydWNlWmhhbmc=/font/5a6L5L2T/fontsize/400/fill/I0JBQkFCMA==/dissolve/70/gravity/SouthEast" alt="" /><br /></strong></span></p><p><span style="font-size:24px;"><strong>      <span style="font-family:KaiTi_GB2312;">中断下半部处理的时机一般是在中断处理程序返回时。那么现在，我们考虑一种情况，中断下半部程序的执行时又再次触发它自己，这时，内核该怎么去处理这种情况呢？</span></strong></span></p><p><span style="font-size:24px;"><strong><span style="font-family:KaiTi_GB2312;">      根据这种情况，以前存在两种解决办法，我们来讨论下。</span></strong></span></p><p><span style="font-size:24px;"><strong><span style="font-family:KaiTi_GB2312;">1.中断下半部处理程序再次触发则再去处理</span></strong></span></p><p><span style="font-size:24px;"><strong><span style="font-family:KaiTi_GB2312;">2.再次触发不去处理，等到一段时间之后或是空闲时处理</span></strong></span></p><p><span style="font-size:24px;"><strong><span style="font-family:KaiTi_GB2312;">      这两种方法都不能达到我们满意的状态，为什么呢？</span></strong></span></p><p><span style="font-size:24px;"><strong><span style="font-family:KaiTi_GB2312;">      针对第一种方案，会导致用户程序的执行受到影响，如果是实施进程，那么更是不可忍受的。</span></strong></span></p><p><span style="font-size:24px;"><strong><span style="font-family:KaiTi_GB2312;">      针对第二种方法，会使硬件的操作受到影响，例如网卡的数据报不及时处理，则会造成内存堆积的情况。</span></strong></span></p><p><span style="font-size:24px;"><strong><span style="font-family:KaiTi_GB2312;">      根据以上所述，所以，我们需要找出更好的解决方法，这时就出现了 ksoftirqd ，它其实就是一个内核线程，每个CPU一个，命名方式就是第一个CPU的叫做 ksoftirqd/0 ,第二个叫做 <span style="font-size:24px;">ksoftirqd/1 ，如果中断下半部再次触发了它自己，那么就交给这个内核线程执行，这样做有这样一些好处。</span></span></strong></span></p><p><span style="font-size:24px;"><strong><span style="font-size:24px;"><span style="font-family:KaiTi_GB2312;">      1.中断下半部不会因为饥饿的情况而得不到执行</span></span></strong></span></p><p><span style="font-size:24px;"><strong><span style="font-size:24px;"><span style="font-family:KaiTi_GB2312;">      2.当系统空闲时，调度程序一定会选中这个内核线程，所以，系统资源利用率高</span></span></strong></span></p><p><span style="font-size:24px;"><strong><span style="font-size:24px;"><span style="font-family:KaiTi_GB2312;"><br /></span></span></strong></span></p><p><span style="font-size:24px;"><strong><span style="font-size:24px;"><span style="font-family:KaiTi_GB2312;">      下面，让我们看看这个内核线程的程序实现：</span></span></strong></span></p><p><span style="font-size:24px;"><strong><span style="font-size:24px;"></span></strong></span></p><pre name="code" class="cpp">for(; ;)
+{
+	if(!softirq_pending(cpu))
+		schedule();
+		
+	set_current_state(TASK_RUNNING);
+	
+	while(softirq_pending(cpu))
+	{
+		do_softirq();
+		if(need_resched())
+			schedule();
+	}
+	
+	set_current_state(TASK_INTERRUPTIBLE);
+}</pre>     <span style="font-family:KaiTi_GB2312;font-size:24px;"><strong> 由此可以看出，这个内核线程在一直执行一个死循环，直到软中断的到来才调度这个线程，然后执行中断下半部程序，当执行完后他在回到“可中断状态”。</strong></span><br /><br /><p></p>   &#13;

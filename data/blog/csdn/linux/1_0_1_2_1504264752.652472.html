@@ -1,0 +1,276 @@
+
+                <div class="markdown_views"><h2 id="c语言编写简单的菜单程序">C语言编写简单的菜单程序</h2>
+
+<pre class="prettyprint"><code class=" hljs erlang">工作过程分析
+<span class="hljs-function"><span class="hljs-title">getchoice</span><span class="hljs-params">()</span>
+显示程序介绍信息<span class="hljs-title">greet</span>及样本菜单<span class="hljs-title">choices</span>
+让用户选择初始字符
+<span class="hljs-title">main</span><span class="hljs-params">()</span>中的<span class="hljs-title">do</span>循环体
+通过<span class="hljs-title">getchar</span><span class="hljs-params">()</span>获取用户输入，直到接收到一个与菜单数组某个选项的首字符匹配的字符为止
+</span></code></pre>
+
+<h2 id="规范模式与非规范模式">规范模式与非规范模式</h2>
+
+<p>规范模式 <br/>
+按回车键后，才能读到终端输入 <br/>
+基于行处理 <br/>
+在输入行完成前，终端接口负责管理所有用户键盘输入，包括退格键，应用程序读不到用户输入的任何字符 <br/>
+非规范模式 <br/>
+应用程序对用户输入字符的处理拥有更大的控制权</p>
+
+<h2 id="换行符的处理">换行符的处理</h2>
+
+<pre class="prettyprint"><code class=" hljs scss">Linux
+行结束标志：换行符LF
+回车符的输入要由Linux终端处理部分负责完成
+优点
+对文本文件及二进制可执行文件无任何实际区别
+在对终端、打印机或绘图仪进行输入输出时，才需要对回车进行处理
+其他操作系统
+行结束标志：回车符<span class="hljs-function">CR(<span class="hljs-number">0</span>D)</span>+换行符<span class="hljs-function">LF(<span class="hljs-number">0</span>A)</span>
+对前例换行符的处理
+</code></pre>
+
+<h2 id="输出重定向处理">输出重定向处理</h2>
+
+<p>正常情形 <br/>
+所有数据都被重定向到文件，对用户不可见 <br/>
+一般需求 <br/>
+让用户看到提示信息，而看不到其他输出内容 <br/>
+判断标准输出是否被重定向 <br/>
+isatty() <br/>
+检查底层文件描述符是否关联到一个终端 <br/>
+如果打开的文件描述符关联到一个终端，则返回1 <br/>
+否则返回0 <br/>
+只能对文件描述符操作 <br/>
+需通过fileno()将文件流和文件描述符关联</p>
+
+<h2 id="与终端对话">与终端对话</h2>
+
+<p>基本需求 <br/>
+不希望程序中与用户交互部分被重定向，但允许其他的输入和输出被重定向 <br/>
+解决思想 <br/>
+将与用户交互部分与stdout、stderr分离 <br/>
+实现途径 <br/>
+直接对终端进行读写 <br/>
+特殊设备文件：/dev/tty <br/>
+该设备始终指向当前终端或者当前登录会话</p>
+
+<h2 id="终端驱动程序基本控制功能">终端驱动程序基本控制功能</h2>
+
+<p>行编辑 <br/>
+是否允许使用退格键进行编辑 <br/>
+缓存 <br/>
+立即读取字符，还是等一段可调配的延迟 <br/>
+回显 <br/>
+允许显示控制字符 <br/>
+回车/换行（CR/LF） <br/>
+如何在输入/输出时映射回车/换行符 <br/>
+如打印“\n”时该如何处理 <br/>
+线速 <br/>
+当用PC电脑作为控制台时，很少使用该功能 <br/>
+但使用调制解调器或者串行线连接的终端很重要</p>
+
+<h2 id="termios结构">termios结构</h2>
+
+<p>POSIX规范的标准结构 <br/>
+通过设置termios类型变量和使用一组函数调用，可对终端接口进行控制 <br/>
+termios.h需要链接到curses库 <br/>
+编译时需在末尾加上-lcurses <br/>
+支持的操作模式分类 <br/>
+输入模式 <br/>
+输出模式 <br/>
+控制模式 <br/>
+本地模式 <br/>
+特殊字符控制</p>
+
+
+
+<pre class="prettyprint"><code class=" hljs vala">头文件
+<span class="hljs-preprocessor">#include &lt;termios.h&gt;</span>
+函数原型
+<span class="hljs-keyword">int</span> tcgetattr(<span class="hljs-keyword">int</span> fd, <span class="hljs-keyword">struct</span> termios *termios_p);
+<span class="hljs-keyword">int</span> tcsetattr(<span class="hljs-keyword">int</span> fd, <span class="hljs-keyword">int</span> actions, <span class="hljs-keyword">const</span> <span class="hljs-keyword">struct</span> termios *termios_p);
+actions参数说明
+TCSANOW：立即对变量值进行修改
+TCSADRAIN：等当前输出完成后修改
+TCSAFLUSH：等当前输出完成后修改，但丢弃还未从read调用返回的当前可用输入
+</code></pre>
+
+<h2 id="输入模式">输入模式</h2>
+
+<pre class="prettyprint"><code class=" hljs avrasm">功能
+控制输入数据（终端驱动程序从串行口或键盘接收到的字符）在被传递给程序之前的处理方式
+通过termios中的c_iflag成员的标志对其控制
+<span class="hljs-label">BRKINT:</span> 当收到<span class="hljs-keyword">break</span> 时产生一个中断
+<span class="hljs-label">IGNBRK:</span> 忽略<span class="hljs-keyword">break</span> 
+<span class="hljs-label">ICRNL:</span> 将回车符转换成换行
+<span class="hljs-label">IGNCR:</span> 忽略回车符
+<span class="hljs-label">INLCR:</span> 将换行符转换成回车符
+<span class="hljs-label">IGNPAR:</span> 忽略有校验错的字符
+<span class="hljs-label">INPCK:</span> 对接收到的字符执行校验
+<span class="hljs-label">PARMRK:</span> 标记校验错误
+<span class="hljs-label">ISTRIP:</span> 条块化所有输入字符(设置成<span class="hljs-number">7</span>位)
+<span class="hljs-label">IXOFF:</span> 在输入上启用软件流控制
+<span class="hljs-label">IXON:</span> 在输出上启用软件流控制
+</code></pre>
+
+<h2 id="输出模式-1">输出模式</h2>
+
+<pre class="prettyprint"><code class=" hljs avrasm">功能
+控制输出字符（程序发出的字符）在传递到串行口或者屏幕之前的处理方式
+大多处理方式与输入模式相反，但有几个用于慢速终端的额外标志
+通过设置c_oflag来控制
+<span class="hljs-label">OPOST:</span> 打开输出处理
+<span class="hljs-label">ONLCR:</span> 将任何输出换行符转换成回车符/行输入对
+<span class="hljs-label">OCRNL:</span>将任何输出回车符转换成换行符
+<span class="hljs-label">ONOCR:</span> 在输出的<span class="hljs-number">0</span>列不包含回车符
+<span class="hljs-label">ONLRET:</span> 换行也执行回车符
+<span class="hljs-label">OFILL:</span> 发送结束符来提供延迟
+<span class="hljs-label">OFDEL:</span> 使用DEL作为结束符，而不使用 NULL
+<span class="hljs-label">NLDLY:</span> 换行延迟选择
+<span class="hljs-label">CRDLY:</span> 回车延迟选择
+<span class="hljs-label">TABDLY:</span> Tab键延迟选择
+<span class="hljs-label">BSDLY:</span> Backspace延迟选择
+<span class="hljs-label">VTDLY:</span> 垂直tab延迟选择
+<span class="hljs-label">FFDLY:</span> 表单（Form feed）延迟选择
+</code></pre>
+
+<h2 id="本地模式">本地模式</h2>
+
+<pre class="prettyprint"><code class=" hljs avrasm">功能
+控制终端的各种特性
+设置c_lflag标志
+<span class="hljs-label">ECHO:</span> 允许本地回显输入字符
+<span class="hljs-label">ECHOE:</span> 接收到ERASE 执行Backspace, Space, Backspace组合
+<span class="hljs-label">ECHOK:</span> 接收到KILL字符时执行删除行
+<span class="hljs-label">ECHONL:</span> 回显换行字符
+<span class="hljs-label">ICANON:</span> 启用规范输入处理
+<span class="hljs-label">IEXTEN:</span> 允许实现特定功能
+<span class="hljs-label">ISIG:</span> 支持信号
+<span class="hljs-label">NOFLSH:</span> 使队列上的flush失效
+<span class="hljs-label">TOSTOP:</span> 尝试通过写方法向后台进程发送信号
+</code></pre>
+
+<h2 id="特殊控制字符">特殊控制字符</h2>
+
+<pre class="prettyprint"><code class=" hljs avrasm">termios结构的c_cc数组成员将各种特殊字符映射到对应的支持函数
+根据终端是否设置成标准模式（即c_lflag是否设置了ICANON标志），该数组有两种差别很大的用法
+标准模式下的数组下标
+<span class="hljs-label">VEOF:</span> EOF字符
+<span class="hljs-label">VEOL:</span> EOL字符
+<span class="hljs-label">VERASE:</span> ERASE字符
+<span class="hljs-label">VINTR:</span> INTR字符
+<span class="hljs-label">VKILL:</span> KILL字符
+<span class="hljs-label">VQUIT:</span> QUIT字符
+<span class="hljs-label">VSUSP:</span> SUSP字符
+<span class="hljs-label">VSTART:</span> START字符
+<span class="hljs-label">VSTOP:</span> STOP字符
+</code></pre>
+
+
+
+<pre class="prettyprint"><code class=" hljs avrasm">非标准模式下的数组下标
+<span class="hljs-label">VINTR:</span> INTR字符
+<span class="hljs-label">VMIN:</span> MIN值
+<span class="hljs-label">VQUIT:</span> QUIT字符
+<span class="hljs-label">VSUSP:</span> SUSP字符
+<span class="hljs-label">VTIME:</span> TIME值
+<span class="hljs-label">VSTART:</span> START字符
+<span class="hljs-label">VSTOP:</span> STOP字符
+</code></pre>
+
+<h2 id="time与min值说明">TIME与MIN值说明</h2>
+
+<p>功能 <br/>
+只能用于非标准模式 <br/>
+控制对输入的读取 <br/>
+控制程序试图读取与某终端关联的文件描述符时将发生的情况 <br/>
+参数设置说明 <br/>
+MIN=0，TIME=0 <br/>
+read调用立即返回 <br/>
+有等待字符，返回该字符；否则返回0 <br/>
+MIN=0，TIME&gt;0 <br/>
+只要有可处理字符或者经过TIME个1/10秒的时间间隔，read调用返回 <br/>
+MIN&gt;0，TIME=0 <br/>
+read调用一直等待，直到有MIN个字符可以读取时才返回 <br/>
+MIN&gt;0，TIME&gt;0 <br/>
+read调用在接收到第一个字符及后续的每个字符后，启动一个字符间隔定时器（若已运行，将重新启动） <br/>
+当有MIN个字符或者两个字符之间时间间隔超过TIME个1/10秒时，read调用返回</p>
+
+<h2 id="在命令提示符下设置终端模式">在命令提示符下设置终端模式</h2>
+
+<pre class="prettyprint"><code class=" hljs cs">终端速度
+函数原型
+speed_t cfgetispeed(<span class="hljs-keyword">const</span> <span class="hljs-keyword">struct</span> termios *);
+speed_t cfgetospeed(<span class="hljs-keyword">const</span> <span class="hljs-keyword">struct</span> termios *);
+<span class="hljs-keyword">int</span> cfsetispeed(<span class="hljs-keyword">struct</span> termios *, speed_t speed);
+<span class="hljs-keyword">int</span> cfsetospeed(<span class="hljs-keyword">struct</span> termios *, speed_t speed);
+终端速度
+speed参数设置
+B0: 挂起终端
+B1200: <span class="hljs-number">1200</span>波特率
+B2400: <span class="hljs-number">2400</span>波特率
+B9600: <span class="hljs-number">9600</span>波特率
+B19200: <span class="hljs-number">19200</span>波特率
+B38400: <span class="hljs-number">38400</span>波特率
+</code></pre>
+
+<h2 id="其他函数">其他函数</h2>
+
+<pre class="prettyprint"><code class=" hljs cs"><span class="hljs-keyword">int</span> tcdrain(<span class="hljs-keyword">int</span> fd);
+让调用程序一直等待，直到所有队列的输出都发送完毕
+<span class="hljs-keyword">int</span> tcflow(<span class="hljs-keyword">int</span> fd, <span class="hljs-keyword">int</span> flowtype);
+暂停或者重新开始输出
+<span class="hljs-keyword">int</span> tcflush(<span class="hljs-keyword">int</span> fd, <span class="hljs-keyword">int</span> in_out_selector);
+用于清空输入、输出或者两者都清空
+</code></pre>
+
+<h2 id="获取光标移动功能标志cup">获取光标移动功能标志cup</h2>
+
+<p>通过tigetstr函数可以获得xterm类型终端的cup值 <br/>
+返回参数化结果\E[%p1%d;%p2%dH <br/>
+cup标志所需参数 <br/>
+光标要移动到的行号和列号 <br/>
+这两个坐标都是从0开始计算，表示左上角 <br/>
+tparm用实际数值替换功能标志中的参数 <br/>
+一次最多可替换9个参数，并返回一个可用escape序列</p>
+
+<pre class="prettyprint"><code class=" hljs r">函数原型
+<span class="hljs-comment">#include &lt;term.h&gt;</span>
+char *tparm(char *cap, long p1, long p2, <span class="hljs-keyword">...</span>, long p9);</code></pre>
+
+<p>说明 <br/>
+返回的escape转义序列不能通过printf发送到终端</p>
+
+<h2 id="tputs函数说明">tputs函数说明</h2>
+
+
+
+<pre class="prettyprint"><code class=" hljs cpp">功能
+为不能通过stdout访问终端时准备
+允许指定一个用于输出控制字符的函数
+函数原型
+<span class="hljs-keyword">int</span> tputs(<span class="hljs-keyword">char</span> *<span class="hljs-keyword">const</span> str, <span class="hljs-keyword">int</span> affcnt, <span class="hljs-keyword">int</span> (*putfunc)(<span class="hljs-keyword">int</span>));
+参数说明
+str
+待输出字符
+affcnt
+表明受变化影响的输出行数，一般为<span class="hljs-number">1</span>
+putfunc
+控制输出字符串，返回值类型必须与<span class="hljs-built_in">putchar</span>相同
+返回值
+用户指定的函数putfunc()的返回结果
+说明
+putp(<span class="hljs-built_in">string</span>)等价于tputs(<span class="hljs-built_in">string</span>, <span class="hljs-number">1</span>, <span class="hljs-built_in">putchar</span>)</code></pre>
+
+<h2 id="虚拟控制台">虚拟控制台</h2>
+
+<p>功能 <br/>
+一组终端设备共享PC电脑的屏幕、键盘和鼠标 <br/>
+Linux典型安装中将配置12个虚拟控制台 <br/>
+表示方法：/dev/ttyN <br/>
+查看方法 <br/>
+who：显示目前登录到系统的用户的信息 <br/>
+pe –e：显示当前使用的虚拟终端控制台及其运行的程序</p><link rel="stylesheet" href="http://static.blog.csdn.net/public/res-min/markdown_views.css?v=1.0"/></div><link rel="stylesheet" href="http://static.blog.csdn.net/public/res-min/markdown_views.css?v=1.0"/>&#13;
+            

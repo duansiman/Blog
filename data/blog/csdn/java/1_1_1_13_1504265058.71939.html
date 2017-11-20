@@ -1,0 +1,103 @@
+
+<h1>概述</h1><p>将一个请求封装为一个对象，从而使你可用不同的请求对客户进行参数化；对请求排队或记录请求日志，以及支持可撤消的操作。</p><h1>适用性</h1><p></p><ul><li>抽象出待执行的动作以参数化某对象，你可用过程语言中的回调（c a l l b a c k ）函数表达这种参数化机制。所谓回调函数是指函数先在某处注册，而它将在稍后某个需要的时候被调用。<strong>C o m m a n d 模式是回调机制的一个面向对象的替代品</strong>。 </li><li><strong>在不同的时刻指定、排列和执行请求</strong>。一个C o m m a n d 对象可以有一个与初始请求无关的生存期。如果一个请求的接收者可用一种与地址空间无关的方式表达，那么就可将负责该请求的命令对象传送给另一个不同的进程并在那儿实现该请求。 </li><li><strong>支持取消操作。</strong>C o m m a n d 的E x c u t e 操作可在实施操作前将状态存储起来，在取消操作时这个状态用来消除该操作的影响。C o m m a n d 接口必须添加一个U n e x e c u t e 操作，该操作取消上一次E x e c u t e 调用的效果。执行的命令被存储在一个历史列表中。可通过向后和向前遍历这一列表并分别调用U n e x e c u t e 和E x e c u t e 来实现重数不限的“取消”和“重做”。 </li><li><strong>支持修改日志，这样当系统崩溃时，这些修改可以被重做一遍。</strong>在C o m m a n d 接口中添加装载操作和存储操作，可以用来保持变动的一个一致的修改日志。从崩溃中恢复的过程包括从磁盘中重新读入记录下来的命令并用E x e c u t e 操作重新执行它们。 </li><li><strong>用构建在原语操作上的高层操作构造一个系统。这样一种结构在支持事务( t r a n s a c t i o n )的信息系统中很常见。</strong>一个事务封装了对数据的一组变动。C o m m a n d 模式提供了对事务进行建模的方法。C o m m a n d 有一个公共的接口，使得你可以用同一种方式调用所有的事务。同时使用该模式也易于添加新事务以扩展系统。 </li></ul><p></p><h1>结构</h1><p><img src="http://img.my.csdn.net/uploads/201211/22/1353536465_4424.jpg" alt="" /></p><h1>参与者</h1><p></p><pre>    1.Command
+      声明执行操作的接口。
+
+    2.ConcreteCommand
+      将一个接收者对象绑定于一个动作。
+      调用接收者相应的操作，以实现Execute。
+
+    3.Client
+      创建一个具体命令对象并设定它的接收者。
+
+    4.Invoker
+      要求该命令执行这个请求。
+
+    5.Receiver
+      知道如何实施与执行一个请求相关的操作。任何类都可能作为一个接收者。
+</pre><br /><p></p><h1>示例</h1><p></p><pre name="code" class="java">package com.sql9.actioned;
+
+class Receiver {
+    public void request() {
+        System.out.println("receiver here does request.");
+    }
+
+}
+
+abstract class Command {
+
+    protected Receiver receiver;
+
+    public Command(Receiver receiver) {
+        this.receiver = receiver;
+    }
+
+    public abstract void execute();
+}
+
+class ConcreteCommand extends Command {
+
+    public ConcreteCommand(Receiver receiver) {
+        super(receiver);
+    }
+
+    @Override
+    public void execute() {
+        receiver.request();
+        System.out.println("command executed in ConcreteCommand");
+        // you can do something none of this
+    }
+}
+
+class AnotherCommand extends Command {
+
+    public AnotherCommand(Receiver receiver) {
+        super(receiver);
+    }
+    
+    private void doSomeOtherWork() {
+        System.out.println("Do some other work in AnotherCommand");
+    }
+    
+    @Override
+    public void execute() {
+        // ignore receiver
+        doSomeOtherWork();
+    }
+    
+}
+
+class Invoker {
+
+    private Command command;
+
+    public void setCommand(Command command) {
+        this.command = command;
+    }
+
+    public void execute() {
+        command.execute();
+    }
+}
+
+public class CommandTest {
+
+    public static void main(String[] args) {
+        Receiver receiver = new Receiver();
+        Invoker invoker = new Invoker();
+        invoker.setCommand(new ConcreteCommand(receiver));
+        invoker.execute();
+        invoker.setCommand(new AnotherCommand(receiver));
+        invoker.execute();
+    }
+
+}
+</pre><br /><p></p><h1>结果</h1><p></p><pre name="code" class="java">receiver here does request.
+command executed in ConcreteCommand
+Do some other work in AnotherCommand
+</pre><br /><br /><p></p><br />&lt;script type="text/javascript"&gt;&lt;!--
+google_ad_client = "ca-pub-7104628658411459";
+/* wide1 */
+google_ad_slot = "8564482570";
+google_ad_width = 728;
+google_ad_height = 90;
+//--&gt;&lt;/script&gt;&lt;script type="text/javascript" src="http://pagead2.googlesyndication.com/pagead/show_ads.js"&gt;&lt;/script&gt;   &#13;

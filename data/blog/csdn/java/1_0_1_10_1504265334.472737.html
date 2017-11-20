@@ -1,0 +1,95 @@
+
+        <div class="markdown_views"><h1 id="docker学习记录三-构建非跨平台项目编译环境">Docker学习记录(三)-构建非跨平台项目编译环境</h1>
+
+<p>标签（空格分隔）： docker</p>
+
+<hr />
+
+<blockquote>
+  <p>个人独立博客: <a href="http://mrdear.cn">http://mrdear.cn</a></p>
+</blockquote>
+
+<p>因为毕业设计的问题所以去学了docker,本文描述这个问题解决的过程.</p>
+
+<hr />
+
+
+
+<h2 id="1问题">1.问题</h2>
+
+<p>在毕业设计AUSTOJ中,判题端使用JNI方式调用C++来编译和执行代码,得到输出结果,Java端进行结果对比.然而该C++代码在mac下无法编译,总是会报错,JNI也会出问题.另外该子模块在mac下无法使用maven打包,所以打包也需要放在docker中. <br />
+因此docker需要环境 java maven gcc g++ make</p>
+
+
+
+<h2 id="2构建编译环境">2.构建编译环境</h2>
+
+<p>编写dockerfile文件,该文件的maven包我是从本机复制进去的,同样你也可以从外网下载. <br />
+Dockerfile:</p>
+
+
+
+<pre class="prettyprint"><code class=" hljs ruby"><span class="hljs-comment">#构建judger端需要的环境,方便本地测试</span>
+<span class="hljs-comment">#基于java8环境</span>
+<span class="hljs-constant">FROM</span> <span class="hljs-symbol">java:</span><span class="hljs-number">8</span>
+
+<span class="hljs-comment">#维护人信息</span>
+<span class="hljs-constant">MAINTAINER</span> quding niudear<span class="hljs-variable">@foxmail</span>.com
+<span class="hljs-comment">#更新源</span>
+<span class="hljs-constant">RUN</span> apt-get update
+<span class="hljs-comment">#gcc g++ make安装</span>
+<span class="hljs-constant">RUN</span> apt-get install -y gcc-<span class="hljs-number">4.9</span>
+<span class="hljs-constant">RUN</span> apt-get install -y g++-<span class="hljs-number">4.9</span>
+<span class="hljs-constant">RUN</span> apt-get install -y build-essential
+
+<span class="hljs-comment">#配置mvn环境</span>
+<span class="hljs-constant">ADD</span> apache-maven-<span class="hljs-number">3.3</span>.<span class="hljs-number">9</span>.tar.gz /usr/local
+<span class="hljs-constant">ENV</span> <span class="hljs-constant">M2_HOME</span> /usr/local/apache-maven-<span class="hljs-number">3.3</span>.<span class="hljs-number">9</span>
+<span class="hljs-constant">ENV</span> <span class="hljs-constant">PATH</span> <span class="hljs-variable">$PATH</span><span class="hljs-symbol">:</span><span class="hljs-variable">$JAVA_HOME</span>/<span class="hljs-symbol">bin:</span><span class="hljs-variable">$M2_HOME</span>/bin
+
+<span class="hljs-comment">#jni环境</span>
+<span class="hljs-constant">RUN</span> cp <span class="hljs-variable">$JAVA_HOME</span>/<span class="hljs-keyword">include</span>/linux/jawt_md.h <span class="hljs-variable">$JAVA_HOME</span>/<span class="hljs-keyword">include</span>/
+<span class="hljs-constant">RUN</span> cp <span class="hljs-variable">$JAVA_HOME</span>/<span class="hljs-keyword">include</span>/linux/jni_md.h <span class="hljs-variable">$JAVA_HOME</span>/<span class="hljs-keyword">include</span>/
+</code></pre>
+
+<p>构建命令: <br />
+<code>docker build -t dev .</code></p>
+
+
+
+<h2 id="3挂载运行">3.挂载运行</h2>
+
+<p>运行时需要挂载本项目到docker中,该挂载是映射,因此本地和docker任意位置改变项目中文件都会反映在真实项目中,这也是想要的结果. <br />
+挂载命令:</p>
+
+
+
+<pre class="prettyprint"><code class=" hljs ruby">docker run -ti -p <span class="hljs-number">50013</span><span class="hljs-symbol">:</span><span class="hljs-number">50013</span>  -v /<span class="hljs-constant">Users</span>/niuli/workspace/git/<span class="hljs-constant">AUSTOJ2</span>/<span class="hljs-symbol">:/AUSTOJ2</span> 
+-v /<span class="hljs-constant">Users</span>/niuli/workspace/git/testcase/<span class="hljs-symbol">:/austoj/testcase</span> dev</code></pre>
+
+<p>该命令以交互模式启动一个docker容器,同时绑定docker的50013端口到此容器的50013,因为我的项目使用的是50013端口.另外我挂载了本项目目录AUSTOJ2和测试数据目录分别到docker的/AUSTOJ2目录和/austoj/testcase目录.</p>
+
+<p>那么启动之后如下所示: <br />
+<img src="http://ac-HSNl7zbI.clouddn.com/sVRm9T6RaAgcL0tqAX7vGz0kaTVDT21kJbSSokIA.jpg" alt="" title="" /></p>
+
+<p>ok,到此编译环境搞定,可以随心所欲的编译启动该子模块,并且还能实时反映到本机目录下</p>
+
+<p><img src="http://ac-HSNl7zbI.clouddn.com/y020GeCL2UrSuASyDaYbvWs0XF3LWRYqRbej5pAB.jpg" alt="" title="" /></p>
+
+<p><img src="http://ac-HSNl7zbI.clouddn.com/bOKHInF9SpgHTSmr361EhU2geUFRjKW1yPwHap6s.jpg" alt="" title="" /></p>
+
+<p><img src="http://ac-HSNl7zbI.clouddn.com/JXVXNAq7Q6JtPc9QhKzJAdu1h3HskLriYhruA1tY.jpg" alt="" title="" /></p></div>&#13;
+        <script type="text/javascript">&#13;
+            $(function () {&#13;
+                $('pre.prettyprint code').each(function () {&#13;
+                    var lines = $(this).text().split('\n').length;&#13;
+                    var $numbering = $('&lt;ul/&gt;').addClass('pre-numbering').hide();&#13;
+                    $(this).addClass('has-numbering').parent().append($numbering);&#13;
+                    for (i = 1; i &lt;= lines; i++) {&#13;
+                        $numbering.append($('&lt;li/&gt;').text(i));&#13;
+                    };&#13;
+                    $numbering.fadeIn(1700);&#13;
+                });&#13;
+            });&#13;
+        </script>&#13;
+   &#13;

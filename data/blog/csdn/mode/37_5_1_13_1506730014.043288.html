@@ -1,0 +1,438 @@
+
+                <div class="markdown_views"><h3 id="意图">意图</h3>
+
+<p>使多个对象都有机会处理请求，从而避免请求的发送者和接收者时间的耦合关系。将这些对象连成一条链，并沿着这条链传递请求直到有一个对象处理它为止。 <br/>
+责任转送 <br/>
+纯责任链模式：规定一个具体的处理角色只能对请求做出两个动作：自己处理；传给下家，而且在链中必须完成处理。</p>
+
+
+
+<h3 id="适用性">适用性</h3>
+
+<p>在以下条件下使用Responsibility链： <br/>
+1.  有多个的对象可以处理一个请求，哪个对象处理该请求运行时候自动确定 <br/>
+2.  你想在不明确指定接收者的情况下，向多个对象中的一个提交一个请求 <br/>
+3.  可处理一个请求的对象集合应被动态指定</p>
+
+
+
+<h3 id="结构">结构</h3>
+
+<p><img title="" alt="这里写图片描述" src="http://img.blog.csdn.net/20170412161853465?watermark/2/text/aHR0cDovL2Jsb2cuY3Nkbi5uZXQvc2xkODgwMzEx/font/5a6L5L2T/fontsize/400/fill/I0JBQkFCMA==/dissolve/70/gravity/SouthEast"/></p>
+
+
+
+<h3 id="参与者">参与者</h3>
+
+
+
+<h4 id="handler">Handler</h4>
+
+<p>定义一个处理请求的接口 <br/>
+（可选）实现后继链（当让对于链子的不同实现，也可以在这个角色中实现后继链）</p>
+
+
+
+<h4 id="concretehandler">ConcreteHandler</h4>
+
+<p>处理它所负责的请求 <br/>
+可访问它的后继者 <br/>
+如果可处理该请求，就处理之；否则将该请求转发给它的后继者</p>
+
+
+
+<h3 id="client">Client</h3>
+
+<p>向链上的具体处理者（ConcreteHandler）对象提交请求</p>
+
+
+
+<h3 id="代码">代码</h3>
+
+
+
+<h4 id="handler-1">Handler</h4>
+
+
+
+<pre class="prettyprint"><code class="language-java hljs "><span class="hljs-keyword">public</span> <span class="hljs-keyword">abstract</span> <span class="hljs-class"><span class="hljs-keyword">class</span> <span class="hljs-title">Handler</span> {</span>
+    <span class="hljs-keyword">private</span> Handler nextHandler;
+    <span class="hljs-keyword">private</span> String requestClassName;
+    <span class="hljs-keyword">public</span> Handler <span class="hljs-title">setNextHandler</span>(Handler nextHandler){
+        <span class="hljs-keyword">this</span>.nextHandler = nextHandler;
+        <span class="hljs-keyword">return</span> nextHandler;
+    }
+    <span class="hljs-keyword">public</span> <span class="hljs-title">Handler</span>(String requestClassName){<span class="hljs-keyword">this</span>.requestClassName = requestClassName;}
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">final</span> <span class="hljs-keyword">void</span> <span class="hljs-title">request</span>(){
+        <span class="hljs-keyword">if</span>(isDone()){
+            System.out.println(<span class="hljs-string">"由"</span>+requestClassName+<span class="hljs-string">"已处理"</span>);
+        }<span class="hljs-keyword">else</span> <span class="hljs-keyword">if</span>(nextHandler!=<span class="hljs-keyword">null</span>){
+            nextHandler.request();
+        }<span class="hljs-keyword">else</span>{
+            System.out.println(<span class="hljs-string">"未处理"</span>);
+        }
+    }
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">abstract</span> <span class="hljs-keyword">boolean</span> <span class="hljs-title">isDone</span>();
+}
+</code></pre>
+
+
+
+<h4 id="concretehandler-1">ConcreteHandler</h4>
+
+
+
+<pre class="prettyprint"><code class="language-java hljs "><span class="hljs-keyword">public</span> <span class="hljs-class"><span class="hljs-keyword">class</span> <span class="hljs-title">ConcreteHandler1</span> <span class="hljs-keyword">extends</span> <span class="hljs-title">Handler</span>{</span>
+    <span class="hljs-keyword">public</span> <span class="hljs-title">ConcreteHandler1</span>(String requestClassName) {
+        <span class="hljs-keyword">super</span>(requestClassName);
+    }
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">boolean</span> <span class="hljs-title">isDone</span>() {
+        <span class="hljs-keyword">return</span> <span class="hljs-keyword">false</span>;
+    }
+}
+<span class="hljs-keyword">public</span> <span class="hljs-class"><span class="hljs-keyword">class</span> <span class="hljs-title">ConcreteHandler2</span> <span class="hljs-keyword">extends</span> <span class="hljs-title">Handler</span>{</span>
+    <span class="hljs-keyword">public</span> <span class="hljs-title">ConcreteHandler2</span>(String requestClassName) {
+        <span class="hljs-keyword">super</span>(requestClassName);
+    }
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">boolean</span> <span class="hljs-title">isDone</span>() {
+        <span class="hljs-keyword">return</span> <span class="hljs-keyword">true</span>;
+    }
+}</code></pre>
+
+
+
+<h4 id="client-1">Client</h4>
+
+
+
+<pre class="prettyprint"><code class="language-java hljs "><span class="hljs-keyword">public</span> <span class="hljs-class"><span class="hljs-keyword">class</span> <span class="hljs-title">Client</span> {</span>
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">static</span> <span class="hljs-keyword">void</span> <span class="hljs-title">main</span>(String[] args) {
+        Handler concreteHandler1 = <span class="hljs-keyword">new</span> ConcreteHandler1(<span class="hljs-string">"concreteHandler1"</span>);
+        Handler concreteHandler2 = <span class="hljs-keyword">new</span> ConcreteHandler2(<span class="hljs-string">"concreteHandler2"</span>);
+        concreteHandler1.setNextHandler(concreteHandler2);
+        concreteHandler1.request();
+    }
+}</code></pre>
+
+
+
+<h3 id="协作">协作</h3>
+
+<p>当客户提交一个请求时，请求沿链传递直到有一个ConcreteHandler对象负责处理它。</p>
+
+
+
+<h3 id="效果">效果</h3>
+
+
+
+<h4 id="降低耦合度">降低耦合度</h4>
+
+<p>该模式使得一个对象无需直到是其他哪一个对象处理其请求。对象仅需知道该请求会被“正确”地处理。接收者和发送者都没有对方的明确的信息，且链中的对象不需知道链的结构。 <br/>
+结果是，职责链可简化对象的相互连接。它们仅需保持一个指向其后继者的引用，而不需保持它所有的候选接受者的引用。将请求的发送者和接收者解耦。可以简化你的对象，因为它不需要知道链的结构。</p>
+
+
+
+<h4 id="增强了给对象指派职责的灵活性">增强了给对象指派职责的灵活性</h4>
+
+<p>当在对象中分派职责时，职责链给你更多的灵活性。你可以通过在运行时刻对该链进行动态的增加或修改来增加或改变处理一个请求的那些职责。你可以将这种机制与静态的特例化处理对象的继承机制结合起来使用。通过改变链内的成员或调动他们的次序，允许你动态地新增或删除责任。</p>
+
+
+
+<h4 id="不保证被接收">不保证被接收</h4>
+
+<p>既然一个请求没有明确的接收者，那么就不能保证它一定会被处理，该请求可能一直到链的末端都得不到处理。一个请求也可能因该链没有被正确配置而得不到处理。可能不容观察运行时的特征，有碍于排错。</p>
+
+
+
+<h3 id="实现">实现</h3>
+
+
+
+<h4 id="实现后继者链">实现后继者链</h4>
+
+<ol>
+<li>定义新的链接（通常在Handler中定义，但也可由ConcreteHandler来定义）</li>
+<li>使用已有的链接（使用已有对象引用来形成后继者链），当已有的链接能够支持你所需的链时，完全可以使用它们。这样你不需要明确定义链接，而且可以节省空间。但如果该结构不能反映应用所需的职责链，那么你必须定义额外的链接。</li>
+</ol>
+
+
+
+<h4 id="连接后继者">连接后继者</h4>
+
+<p>如果没有已有的引用可定义一个链，那么你必须自己引入它们。这种情况下Handler不仅定义该请求的接口，通常也维护后继链接。这样Handler就提供了HandlerRequest的缺省实现：HandlerRequest向后继者（如果有的话）转发请求。如果ConcreteHandler子类对该请求不敢兴趣，它不需要重新定义转发操作，因为它的缺省实现进行无条件转发。</p>
+
+
+
+<h4 id="表示请求">表示请求</h4>
+
+<p>可以有不同的方法表示请求。 <br/>
+1.  硬编码：这种形式方便而且安全，但是你只能转发定义的固定请求。 <br/>
+2.  使用处理函数（钩子函数）：这个函数以一个请求码（比如一个整型常数或一个字符串）为参数。这种方法支持请求数目不限，唯一的要求是发送方和接收方在请求如何编码问题上应该达成一致。这种方法更为灵活，但它需要用条件语句来区分请求代码已分派请求。另外，无法用类型安全的方法来传递请求参数，因为他们必须被手动打包和解包。显然，相对于直接调用一个操作来说它不太安全。为解决参数传递问题，我们可使用独立的请求对象来封装请求参数。 Request类可明确地描述请求，而新类型的请求可用它的子类来定义。这些子类可定义不同的请求参数。处理者必须知道请求的类型 (即它们正使用哪一个Request子类)以访问这些参数。为标识请求，Request可定义一个访问器 (accessor)函数以返回该类的标识符。或者，如果实现语言支持的话，接受者可使用运行时的类型信息。</p>
+
+
+
+<h3 id="经典例子">经典例子</h3>
+
+<p>经常被使用在窗口系统中，处理鼠标和键盘之类的事件。 当算法牵涉到一种链型运算，而且不希望处理过程中有过多的循环和条件选择语句，并 且希望比较容易的扩充文法，可以采用职责链模式。  <br/>
+工作流（财务报销中的流程审批）、Java中的异常处理、典型现实生活中的推卸责任</p>
+
+
+
+<h4 id="springmvc">SpringMVC</h4>
+
+
+
+<h5 id="handlermapping">HandlerMapping</h5>
+
+
+
+<pre class="prettyprint"><code class="language-java hljs "><span class="hljs-keyword">public</span> <span class="hljs-class"><span class="hljs-keyword">interface</span> <span class="hljs-title">HandlerMapping</span> {</span>
+    <span class="hljs-javadoc">/**
+     * Return a handler and any interceptors for this request. The choice may be made
+     * on request URL, session state, or any factor the implementing class chooses.
+     * &lt;p&gt;The returned HandlerExecutionChain contains a handler Object, rather than
+     * even a tag interface, so that handlers are not constrained in any way.
+     * For example, a HandlerAdapter could be written to allow another framework's
+     * handler objects to be used.
+     * &lt;p&gt;Returns {@code null} if no match was found. This is not an error.
+     * The DispatcherServlet will query all registered HandlerMapping beans to find
+     * a match, and only decide there is an error if none can find a handler.
+     *<span class="hljs-javadoctag"> @param</span> request current HTTP request
+     *<span class="hljs-javadoctag"> @return</span> a HandlerExecutionChain instance containing handler object and
+     * any interceptors, or {@code null} if no mapping found
+     *<span class="hljs-javadoctag"> @throws</span> Exception if there is an internal error
+     */</span>
+    HandlerExecutionChain getHandler(HttpServletRequest request) <span class="hljs-keyword">throws</span> Exception;
+}
+</code></pre>
+
+
+
+<h5 id="handlerexecutionchain">HandlerExecutionChain</h5>
+
+
+
+<pre class="prettyprint"><code class="language-java hljs "><span class="hljs-keyword">package</span> org.springframework.web.servlet;
+
+<span class="hljs-keyword">import</span> java.util.ArrayList;
+<span class="hljs-keyword">import</span> java.util.Arrays;
+<span class="hljs-keyword">import</span> java.util.List;
+<span class="hljs-keyword">import</span> javax.servlet.http.HttpServletRequest;
+<span class="hljs-keyword">import</span> javax.servlet.http.HttpServletResponse;
+
+<span class="hljs-keyword">import</span> org.apache.commons.logging.Log;
+<span class="hljs-keyword">import</span> org.apache.commons.logging.LogFactory;
+
+<span class="hljs-keyword">import</span> org.springframework.util.CollectionUtils;
+<span class="hljs-keyword">import</span> org.springframework.util.ObjectUtils;
+
+<span class="hljs-javadoc">/**
+ * Handler execution chain, consisting of handler object and any handler interceptors.
+ * Returned by HandlerMapping's {@link HandlerMapping#getHandler} method.
+ * 这个HandlerExecutionChain持有一个Interceptor链和一个handler对象，这个handler对象实际上就是HTTP请求对应的Controller，在持有这个handler对象的同时，还在HandlerExecutionChain中设置了一个拦截器链，通过这个拦截器链中的拦截器，可以为handler对象提供功能的增强。要完成这些工作，需要对拦截器链和handler都进行配置，这些配置都是在HandlerExecutionChain的初始化函数中完成的。为了维护这个拦截器链和handler，HandlerExecutionChain还提供了一系列与拦截器链维护相关一些操作。
+ *<span class="hljs-javadoctag"> @author</span> Juergen Hoeller
+ *<span class="hljs-javadoctag"> @since</span> 20.06.2003
+ *<span class="hljs-javadoctag"> @see</span> HandlerInterceptor
+ */</span>
+<span class="hljs-keyword">public</span> <span class="hljs-class"><span class="hljs-keyword">class</span> <span class="hljs-title">HandlerExecutionChain</span> {</span>
+
+    <span class="hljs-keyword">private</span> <span class="hljs-keyword">static</span> <span class="hljs-keyword">final</span> Log logger = LogFactory.getLog(HandlerExecutionChain.class);
+
+    <span class="hljs-keyword">private</span> <span class="hljs-keyword">final</span> Object handler;
+
+    <span class="hljs-keyword">private</span> HandlerInterceptor[] interceptors;
+
+    <span class="hljs-keyword">private</span> List&lt;HandlerInterceptor&gt; interceptorList;
+
+    <span class="hljs-keyword">private</span> <span class="hljs-keyword">int</span> interceptorIndex = -<span class="hljs-number">1</span>;
+
+
+    <span class="hljs-javadoc">/**
+     * Create a new HandlerExecutionChain.
+     *<span class="hljs-javadoctag"> @param</span> handler the handler object to execute
+     */</span>
+    <span class="hljs-keyword">public</span> <span class="hljs-title">HandlerExecutionChain</span>(Object handler) {
+        <span class="hljs-keyword">this</span>(handler, (HandlerInterceptor[]) <span class="hljs-keyword">null</span>);
+    }
+
+    <span class="hljs-javadoc">/**
+     * Create a new HandlerExecutionChain.
+     *<span class="hljs-javadoctag"> @param</span> handler the handler object to execute
+     *<span class="hljs-javadoctag"> @param</span> interceptors the array of interceptors to apply
+     * (in the given order) before the handler itself executes
+     */</span>
+    <span class="hljs-keyword">public</span> <span class="hljs-title">HandlerExecutionChain</span>(Object handler, HandlerInterceptor... interceptors) {
+        <span class="hljs-keyword">if</span> (handler <span class="hljs-keyword">instanceof</span> HandlerExecutionChain) {
+            HandlerExecutionChain originalChain = (HandlerExecutionChain) handler;
+            <span class="hljs-keyword">this</span>.handler = originalChain.getHandler();
+            <span class="hljs-keyword">this</span>.interceptorList = <span class="hljs-keyword">new</span> ArrayList&lt;HandlerInterceptor&gt;();
+            CollectionUtils.mergeArrayIntoCollection(originalChain.getInterceptors(), <span class="hljs-keyword">this</span>.interceptorList);
+            CollectionUtils.mergeArrayIntoCollection(interceptors, <span class="hljs-keyword">this</span>.interceptorList);
+        }
+        <span class="hljs-keyword">else</span> {
+            <span class="hljs-keyword">this</span>.handler = handler;
+            <span class="hljs-keyword">this</span>.interceptors = interceptors;
+        }
+    }
+
+
+    <span class="hljs-javadoc">/**
+     * Return the handler object to execute.
+     *<span class="hljs-javadoctag"> @return</span> the handler object
+     */</span>
+    <span class="hljs-keyword">public</span> Object <span class="hljs-title">getHandler</span>() {
+        <span class="hljs-keyword">return</span> <span class="hljs-keyword">this</span>.handler;
+    }
+
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">void</span> <span class="hljs-title">addInterceptor</span>(HandlerInterceptor interceptor) {
+        initInterceptorList().add(interceptor);
+    }
+
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">void</span> <span class="hljs-title">addInterceptors</span>(HandlerInterceptor... interceptors) {
+        <span class="hljs-keyword">if</span> (!ObjectUtils.isEmpty(interceptors)) {
+            initInterceptorList().addAll(Arrays.asList(interceptors));
+        }
+    }
+
+    <span class="hljs-keyword">private</span> List&lt;HandlerInterceptor&gt; <span class="hljs-title">initInterceptorList</span>() {
+        <span class="hljs-keyword">if</span> (<span class="hljs-keyword">this</span>.interceptorList == <span class="hljs-keyword">null</span>) {
+            <span class="hljs-keyword">this</span>.interceptorList = <span class="hljs-keyword">new</span> ArrayList&lt;HandlerInterceptor&gt;();
+            <span class="hljs-keyword">if</span> (<span class="hljs-keyword">this</span>.interceptors != <span class="hljs-keyword">null</span>) {
+                <span class="hljs-comment">// An interceptor array specified through the constructor</span>
+                <span class="hljs-keyword">this</span>.interceptorList.addAll(Arrays.asList(<span class="hljs-keyword">this</span>.interceptors));
+            }
+        }
+        <span class="hljs-keyword">this</span>.interceptors = <span class="hljs-keyword">null</span>;
+        <span class="hljs-keyword">return</span> <span class="hljs-keyword">this</span>.interceptorList;
+    }
+
+    <span class="hljs-javadoc">/**
+     * Return the array of interceptors to apply (in the given order).
+     *<span class="hljs-javadoctag"> @return</span> the array of HandlerInterceptors instances (may be {@code null})
+     */</span>
+    <span class="hljs-keyword">public</span> HandlerInterceptor[] <span class="hljs-title">getInterceptors</span>() {
+        <span class="hljs-keyword">if</span> (<span class="hljs-keyword">this</span>.interceptors == <span class="hljs-keyword">null</span> &amp;&amp; <span class="hljs-keyword">this</span>.interceptorList != <span class="hljs-keyword">null</span>) {
+            <span class="hljs-keyword">this</span>.interceptors = <span class="hljs-keyword">this</span>.interceptorList.toArray(<span class="hljs-keyword">new</span> HandlerInterceptor[<span class="hljs-keyword">this</span>.interceptorList.size()]);
+        }
+        <span class="hljs-keyword">return</span> <span class="hljs-keyword">this</span>.interceptors;
+    }
+
+
+    <span class="hljs-javadoc">/**
+     * Apply preHandle methods of registered interceptors.
+     *<span class="hljs-javadoctag"> @return</span> {@code true} if the execution chain should proceed with the
+     * next interceptor or the handler itself. Else, DispatcherServlet assumes
+     * that this interceptor has already dealt with the response itself.
+     */</span>
+    <span class="hljs-keyword">boolean</span> applyPreHandle(HttpServletRequest request, HttpServletResponse response) <span class="hljs-keyword">throws</span> Exception {
+        HandlerInterceptor[] interceptors = getInterceptors();
+        <span class="hljs-keyword">if</span> (!ObjectUtils.isEmpty(interceptors)) {
+            <span class="hljs-keyword">for</span> (<span class="hljs-keyword">int</span> i = <span class="hljs-number">0</span>; i &lt; interceptors.length; i++) {
+                HandlerInterceptor interceptor = interceptors[i];
+                <span class="hljs-keyword">if</span> (!interceptor.preHandle(request, response, <span class="hljs-keyword">this</span>.handler)) {
+                    triggerAfterCompletion(request, response, <span class="hljs-keyword">null</span>);
+                    <span class="hljs-keyword">return</span> <span class="hljs-keyword">false</span>;
+                }
+                <span class="hljs-keyword">this</span>.interceptorIndex = i;
+            }
+        }
+        <span class="hljs-keyword">return</span> <span class="hljs-keyword">true</span>;
+    }
+
+    <span class="hljs-javadoc">/**
+     * Apply postHandle methods of registered interceptors.
+     */</span>
+    <span class="hljs-keyword">void</span> applyPostHandle(HttpServletRequest request, HttpServletResponse response, ModelAndView mv) <span class="hljs-keyword">throws</span> Exception {
+        HandlerInterceptor[] interceptors = getInterceptors();
+        <span class="hljs-keyword">if</span> (!ObjectUtils.isEmpty(interceptors)) {
+            <span class="hljs-keyword">for</span> (<span class="hljs-keyword">int</span> i = interceptors.length - <span class="hljs-number">1</span>; i &gt;= <span class="hljs-number">0</span>; i--) {
+                HandlerInterceptor interceptor = interceptors[i];
+                interceptor.postHandle(request, response, <span class="hljs-keyword">this</span>.handler, mv);
+            }
+        }
+    }
+
+    <span class="hljs-javadoc">/**
+     * Trigger afterCompletion callbacks on the mapped HandlerInterceptors.
+     * Will just invoke afterCompletion for all interceptors whose preHandle invocation
+     * has successfully completed and returned true.
+     */</span>
+    <span class="hljs-keyword">void</span> triggerAfterCompletion(HttpServletRequest request, HttpServletResponse response, Exception ex)
+            <span class="hljs-keyword">throws</span> Exception {
+
+        HandlerInterceptor[] interceptors = getInterceptors();
+        <span class="hljs-keyword">if</span> (!ObjectUtils.isEmpty(interceptors)) {
+            <span class="hljs-keyword">for</span> (<span class="hljs-keyword">int</span> i = <span class="hljs-keyword">this</span>.interceptorIndex; i &gt;= <span class="hljs-number">0</span>; i--) {
+                HandlerInterceptor interceptor = interceptors[i];
+                <span class="hljs-keyword">try</span> {
+                    interceptor.afterCompletion(request, response, <span class="hljs-keyword">this</span>.handler, ex);
+                }
+                <span class="hljs-keyword">catch</span> (Throwable ex2) {
+                    logger.error(<span class="hljs-string">"HandlerInterceptor.afterCompletion threw exception"</span>, ex2);
+                }
+            }
+        }
+    }
+
+    <span class="hljs-javadoc">/**
+     * Apply afterConcurrentHandlerStarted callback on mapped AsyncHandlerInterceptors.
+     */</span>
+    <span class="hljs-keyword">void</span> applyAfterConcurrentHandlingStarted(HttpServletRequest request, HttpServletResponse response) {
+        HandlerInterceptor[] interceptors = getInterceptors();
+        <span class="hljs-keyword">if</span> (!ObjectUtils.isEmpty(interceptors)) {
+            <span class="hljs-keyword">for</span> (<span class="hljs-keyword">int</span> i = interceptors.length - <span class="hljs-number">1</span>; i &gt;= <span class="hljs-number">0</span>; i--) {
+                <span class="hljs-keyword">if</span> (interceptors[i] <span class="hljs-keyword">instanceof</span> AsyncHandlerInterceptor) {
+                    <span class="hljs-keyword">try</span> {
+                        AsyncHandlerInterceptor asyncInterceptor = (AsyncHandlerInterceptor) interceptors[i];
+                        asyncInterceptor.afterConcurrentHandlingStarted(request, response, <span class="hljs-keyword">this</span>.handler);
+                    }
+                    <span class="hljs-keyword">catch</span> (Throwable ex) {
+                        logger.error(<span class="hljs-string">"Interceptor ["</span> + interceptors[i] + <span class="hljs-string">"] failed in afterConcurrentHandlingStarted"</span>, ex);
+                    }
+                }
+            }
+        }
+    }
+
+
+    <span class="hljs-javadoc">/**
+     * Delegates to the handler's {@code toString()}.
+     */</span>
+    <span class="hljs-annotation">@Override</span>
+    <span class="hljs-keyword">public</span> String <span class="hljs-title">toString</span>() {
+        <span class="hljs-keyword">if</span> (<span class="hljs-keyword">this</span>.handler == <span class="hljs-keyword">null</span>) {
+            <span class="hljs-keyword">return</span> <span class="hljs-string">"HandlerExecutionChain with no handler"</span>;
+        }
+        StringBuilder sb = <span class="hljs-keyword">new</span> StringBuilder();
+        sb.append(<span class="hljs-string">"HandlerExecutionChain with handler ["</span>).append(<span class="hljs-keyword">this</span>.handler).append(<span class="hljs-string">"]"</span>);
+        <span class="hljs-keyword">if</span> (!CollectionUtils.isEmpty(<span class="hljs-keyword">this</span>.interceptorList)) {
+            sb.append(<span class="hljs-string">" and "</span>).append(<span class="hljs-keyword">this</span>.interceptorList.size()).append(<span class="hljs-string">" interceptor"</span>);
+            <span class="hljs-keyword">if</span> (<span class="hljs-keyword">this</span>.interceptorList.size() &gt; <span class="hljs-number">1</span>) {
+                sb.append(<span class="hljs-string">"s"</span>);
+            }
+        }
+        <span class="hljs-keyword">return</span> sb.toString();
+    }
+
+}
+</code></pre>
+
+
+
+<h3 id="相关模式">相关模式</h3>
+
+
+
+<h4 id="composite-pattern">Composite Pattern</h4>
+
+<p>责任链模式常与Composite Pattern一起使用。这种情况下，一个构件的父构件可作为它的后继。Handler参与者经常会用到Composite Pattern。</p>
+
+
+
+<h4 id="command-pattern">Command Pattern</h4>
+
+<p>丢给Handler参与者的要求有时会用到Command Pattern。</p>
+
+<p><font color="#0099ff" face="黑体" size="3">敬请期待“命令模式（Command Action 事务模式 对象行为模式）”</font></p><link rel="stylesheet" href="http://static.blog.csdn.net/public/res-min/markdown_views.css?v=2.0"/></div><link rel="stylesheet" href="http://static.blog.csdn.net/public/res-min/markdown_views.css?v=2.0"/>&#13;
+            

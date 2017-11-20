@@ -1,0 +1,377 @@
+
+        <div class="markdown_views"><p><font color="brown">介绍：</font>将一个复杂对象的构建与它的表示分离，使得同样的构建过程可以创建不同的表示</p>
+
+<p><font color="green">场景：</font>我们在创建对象时可能会碰到过一个问题，比如，如果需要赋值的属性过多，构造函数会很多，而且有的会很长。通过JavaBean的方式可能不需要担心构造函数，但是，我们的set部分又会很长很难看，这里推荐大家试试builder模式</p>
+
+
+
+<h1 id="一角色及作用">一、角色及作用</h1>
+
+<table>
+<thead>
+<tr>
+  <th>角色</th>
+  <th>作用</th>
+</tr>
+</thead>
+<tbody><tr>
+  <td>产品(Product）</td>
+  <td>目标创建的复杂对象</td>
+</tr>
+<tr>
+  <td>抽象生成器(Builder)</td>
+  <td>提供创建一个Product对象的各个组件的方法及返回Product对象的方法</td>
+</tr>
+<tr>
+  <td>具体生成器(ConcreteBuilder)</td>
+  <td>实现Buidler接口的类。</td>
+</tr>
+<tr>
+  <td>管理者(Director)</td>
+  <td>用于管理builder对象的工作</td>
+</tr>
+</tbody></table>
+
+
+
+
+<h1 id="二场景">二、场景</h1>
+
+<p><strong>玩过《我的世界》这类沙盒游戏的玩家，很多都是冲着其开放式的制作功能去的。比如，我们要建造一个房子就需要以下：墙，屋顶，门，床。但是这些东西的制作也十分麻烦。如果每次都让客户端来创建会需要很多代码</strong></p>
+
+<p><strong>内部组件</strong></p>
+
+
+
+<pre class="prettyprint"><code class=" hljs cs"><span class="hljs-comment">// 床</span>
+<span class="hljs-keyword">public</span> <span class="hljs-keyword">class</span> Bed {
+    <span class="hljs-keyword">public</span> <span class="hljs-title">Bed</span>(String s) {
+        System.<span class="hljs-keyword">out</span>.println(s);
+    }
+}
+
+<span class="hljs-comment">// 门</span>
+<span class="hljs-keyword">public</span> <span class="hljs-keyword">class</span> Door {
+    <span class="hljs-keyword">public</span> <span class="hljs-title">Door</span>(String s) {
+        System.<span class="hljs-keyword">out</span>.println(s);
+    }
+}
+
+<span class="hljs-comment">// 屋顶</span>
+<span class="hljs-keyword">public</span> <span class="hljs-keyword">class</span> Roof {
+    <span class="hljs-keyword">public</span> <span class="hljs-title">Roof</span>(String s) {
+        System.<span class="hljs-keyword">out</span>.println(s);
+    }
+}
+
+<span class="hljs-comment">// 墙</span>
+<span class="hljs-keyword">public</span> <span class="hljs-keyword">class</span> Wall {
+    <span class="hljs-keyword">public</span> <span class="hljs-title">Wall</span>(String s) {
+        System.<span class="hljs-keyword">out</span>.println(s);
+    }
+}</code></pre>
+
+
+
+<h2 id="1使用构造函数的方式">1.使用构造函数的方式</h2>
+
+
+
+<pre class="prettyprint"><code class=" hljs cs"><span class="hljs-keyword">public</span> <span class="hljs-keyword">class</span> House {
+    <span class="hljs-keyword">public</span> Bed bed;
+    <span class="hljs-keyword">public</span> Door door;
+    <span class="hljs-keyword">public</span> Roof roof;
+    <span class="hljs-keyword">public</span> Wall wall;
+
+    <span class="hljs-keyword">public</span> <span class="hljs-title">House</span>(Bed bed){
+        <span class="hljs-keyword">this</span>.bed = bed;
+    }
+
+    <span class="hljs-keyword">public</span> <span class="hljs-title">House</span>(Bed bed,Door door){
+        <span class="hljs-keyword">this</span>.bed = bed;
+        <span class="hljs-keyword">this</span>.door = door;
+    }
+
+    <span class="hljs-comment">// ......省略各种组合的构造函数</span>
+
+}</code></pre>
+
+<p>可见，这种方式会使此类中存在很多构造方法，而且<font color="red">不能满足所有的组合，客户端在制作房屋的时候，比较不适用。</font></p>
+
+
+
+<h2 id="2使用setter方式">2.使用setter方式</h2>
+
+
+
+<pre class="prettyprint"><code class=" hljs cs"><span class="hljs-keyword">public</span> <span class="hljs-keyword">class</span> House {
+    <span class="hljs-keyword">public</span> Bed bed;
+    <span class="hljs-keyword">public</span> Door door;
+    <span class="hljs-keyword">public</span> Roof roof;
+    <span class="hljs-keyword">public</span> Wall wall;
+
+    <span class="hljs-comment">// setter and getter</span>
+}</code></pre>
+
+<p>典型的java bean 的形式，解决上面构造函数的不足，但是让我们来看看使用。</p>
+
+
+
+<pre class="prettyprint"><code class=" hljs cs">House house = <span class="hljs-keyword">new</span> House();
+house.setBed(<span class="hljs-number">1</span>);
+<span class="hljs-comment">// ......省略其它set方法</span></code></pre>
+
+<p>如果我们的私有属性增加到二十，那么我们<font color="red">每次创建的时候就需要写二十行setter代码</font>，累不累？</p>
+
+<p><font color="green">总结：</font> <br />
+上面这两种方法，在每次创建房屋的时候，客户端还需要每次去创建各种类型的对象，会产生很多重复代码。</p>
+
+
+
+<h1 id="三使用builder模式">三、使用builder模式</h1>
+
+<p><strong>产品-房子</strong></p>
+
+
+
+<pre class="prettyprint"><code class=" hljs cs"><span class="hljs-keyword">public</span> <span class="hljs-keyword">class</span> House {
+    <span class="hljs-keyword">public</span> Bed bed;
+    <span class="hljs-keyword">public</span> Door door;
+    <span class="hljs-keyword">public</span> Roof roof;
+    <span class="hljs-keyword">public</span> Wall wall;
+}</code></pre>
+
+<p><strong>抽象生成器</strong></p>
+
+
+
+<pre class="prettyprint"><code class=" hljs cs"><span class="hljs-keyword">public</span> <span class="hljs-keyword">interface</span> Builder {
+
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">void</span> <span class="hljs-title">bed</span>();
+
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">void</span> <span class="hljs-title">door</span>();
+
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">void</span> <span class="hljs-title">roof</span>();
+
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">void</span> <span class="hljs-title">wall</span>();
+
+    <span class="hljs-keyword">public</span> House <span class="hljs-title">getProduct</span>();
+}</code></pre>
+
+<p><strong>生成器的具体实现:木屋</strong></p>
+
+
+
+<pre class="prettyprint"><code class=" hljs java"><span class="hljs-keyword">public</span> <span class="hljs-class"><span class="hljs-keyword">class</span> <span class="hljs-title">WoodHouseBuilder</span> <span class="hljs-keyword">implements</span> <span class="hljs-title">Builder</span> {</span>
+
+    <span class="hljs-keyword">private</span> House house = <span class="hljs-keyword">new</span> House();
+
+    <span class="hljs-annotation">@Override</span>
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">void</span> <span class="hljs-title">bed</span>() {
+        house.bed=<span class="hljs-keyword">new</span> Bed(<span class="hljs-string">"木床"</span>);
+    }
+
+    <span class="hljs-annotation">@Override</span>
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">void</span> <span class="hljs-title">door</span>() {
+        house.door = <span class="hljs-keyword">new</span> Door(<span class="hljs-string">"木门"</span>);
+    }
+
+    <span class="hljs-annotation">@Override</span>
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">void</span> <span class="hljs-title">roof</span>() {
+        house.roof = <span class="hljs-keyword">new</span> Roof(<span class="hljs-string">"木头屋顶"</span>);
+    }
+
+    <span class="hljs-annotation">@Override</span>
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">void</span> <span class="hljs-title">wall</span>() {
+        house.wall = <span class="hljs-keyword">new</span> Wall(<span class="hljs-string">"木墙"</span>);
+    }
+
+    <span class="hljs-annotation">@Override</span>
+    <span class="hljs-keyword">public</span> House <span class="hljs-title">getProduct</span>() {
+        <span class="hljs-keyword">return</span> house;
+    }
+
+}</code></pre>
+
+<p><strong>生成器的具体实现:别墅</strong></p>
+
+
+
+<pre class="prettyprint"><code class=" hljs java"><span class="hljs-keyword">public</span> <span class="hljs-class"><span class="hljs-keyword">class</span> <span class="hljs-title">VillaHouseBuilder</span> <span class="hljs-keyword">implements</span> <span class="hljs-title">Builder</span> {</span>
+
+    <span class="hljs-keyword">private</span> House house = <span class="hljs-keyword">new</span> House();
+
+    <span class="hljs-annotation">@Override</span>
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">void</span> <span class="hljs-title">bed</span>() {
+        house.bed = <span class="hljs-keyword">new</span> Bed(<span class="hljs-string">"木床"</span>);
+    }
+
+    <span class="hljs-annotation">@Override</span>
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">void</span> <span class="hljs-title">door</span>() {
+        house.door = <span class="hljs-keyword">new</span> Door(<span class="hljs-string">"铁门"</span>);
+    }
+
+    <span class="hljs-annotation">@Override</span>
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">void</span> <span class="hljs-title">roof</span>() {
+        house.roof = <span class="hljs-keyword">new</span> Roof(<span class="hljs-string">"欧式带天窗屋顶"</span>);
+    }
+
+    <span class="hljs-annotation">@Override</span>
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">void</span> <span class="hljs-title">wall</span>() {
+        house.wall = <span class="hljs-keyword">new</span> Wall(<span class="hljs-string">"石墙"</span>);
+    }
+
+    <span class="hljs-annotation">@Override</span>
+    <span class="hljs-keyword">public</span> House <span class="hljs-title">getProduct</span>() {
+        <span class="hljs-keyword">return</span> house;
+    }
+
+}</code></pre>
+
+<p><strong>build管理者</strong></p>
+
+
+
+<pre class="prettyprint"><code class=" hljs cs"><span class="hljs-keyword">public</span> <span class="hljs-keyword">class</span> Director {
+    <span class="hljs-keyword">private</span> Builder builder;
+
+    <span class="hljs-keyword">public</span> <span class="hljs-title">Director</span>(Builder builder) {
+        <span class="hljs-keyword">this</span>.builder = builder;
+    }
+
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">void</span> <span class="hljs-title">construct</span>() {
+        builder.wall();
+        builder.roof();
+        builder.door();
+        builder.bed();
+    }
+}</code></pre>
+
+<p><strong>开始制作房子</strong></p>
+
+
+
+<pre class="prettyprint"><code class=" hljs cs"><span class="hljs-keyword">public</span> <span class="hljs-keyword">static</span> <span class="hljs-keyword">void</span> <span class="hljs-title">main</span>(String[] args) {
+    System.<span class="hljs-keyword">out</span>.println(<span class="hljs-string">"开始做木屋======="</span>);
+    Builder builder = <span class="hljs-keyword">new</span> WoodHouseBuilder();
+    Director director = <span class="hljs-keyword">new</span> Director(builder);
+    director.construct();
+    System.<span class="hljs-keyword">out</span>.println(<span class="hljs-string">"开始做别墅======="</span>);
+    Builder builder2 = <span class="hljs-keyword">new</span> VillaHouseBuilder();
+    director = <span class="hljs-keyword">new</span> Director(builder2);
+    director.construct();
+}</code></pre>
+
+<p>输出</p>
+
+
+
+<pre class="prettyprint"><code class=" hljs fix"><span class="hljs-attribute">开始做木屋======</span>=<span class="hljs-string">
+木墙
+木头屋顶
+木门
+木床
+开始做别墅=======
+石墙
+欧式带天窗屋顶
+铁门
+木床</span></code></pre>
+
+<p>这样，我们可以明显感觉到在创建对象时候代码量少了很多。而且，对于不同款式的房子，我们只需要不同的Director，对象的属性和创建分离。</p>
+
+<p><font color="red">优点：</font> <br />
+- 生产过程交给Director，客户端不必知道产品的内部结构 <br />
+- 可以有多个生成器，方便扩展</p>
+
+
+
+<h1 id="四effective-java中的builder模式">四、《Effective Java》中的Builder模式</h1>
+
+<p>在《Effective Java》中也有对Builder模式的使用，但是感觉在实现上和上面还是有点区别。<font color="brown"><strong>参考：《Effective Java》 第二章，第2条：遇到多个构造器参数时要考虑用构造器</strong></font></p>
+
+
+
+<pre class="prettyprint"><code class=" hljs java"><span class="hljs-keyword">public</span> <span class="hljs-class"><span class="hljs-keyword">class</span> <span class="hljs-title">NutFacts</span> {</span>
+    <span class="hljs-keyword">private</span> <span class="hljs-keyword">final</span> <span class="hljs-keyword">int</span> serSize;
+    <span class="hljs-keyword">private</span> <span class="hljs-keyword">final</span> <span class="hljs-keyword">int</span> fat;
+    <span class="hljs-keyword">private</span> <span class="hljs-keyword">final</span> <span class="hljs-keyword">int</span> car;
+    <span class="hljs-keyword">private</span> <span class="hljs-keyword">final</span> <span class="hljs-keyword">int</span> so;
+
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">static</span> <span class="hljs-class"><span class="hljs-keyword">class</span> <span class="hljs-title">Builder</span> {</span>
+
+        <span class="hljs-comment">// 必填字段</span>
+        <span class="hljs-keyword">private</span> <span class="hljs-keyword">final</span> <span class="hljs-keyword">int</span> serSize;
+
+        <span class="hljs-comment">// 非必填字段</span>
+        <span class="hljs-keyword">private</span> <span class="hljs-keyword">int</span> fat = <span class="hljs-number">0</span>;
+        <span class="hljs-keyword">private</span> <span class="hljs-keyword">int</span> car = <span class="hljs-number">0</span>;
+        <span class="hljs-keyword">private</span> <span class="hljs-keyword">int</span> so = <span class="hljs-number">0</span>;
+
+        <span class="hljs-keyword">public</span> <span class="hljs-title">Builder</span>(<span class="hljs-keyword">int</span> serSize) {
+            <span class="hljs-keyword">this</span>.serSize = serSize;
+        }
+
+        <span class="hljs-keyword">public</span> Builder <span class="hljs-title">fat</span>(<span class="hljs-keyword">int</span> val) {
+            fat = val;
+            <span class="hljs-keyword">return</span> <span class="hljs-keyword">this</span>;
+        }
+
+        <span class="hljs-keyword">public</span> Builder <span class="hljs-title">car</span>(<span class="hljs-keyword">int</span> val) {
+            car = val;
+            <span class="hljs-keyword">return</span> <span class="hljs-keyword">this</span>;
+        }
+
+        <span class="hljs-keyword">public</span> Builder <span class="hljs-title">so</span>(<span class="hljs-keyword">int</span> val) {
+            so = val;
+            <span class="hljs-keyword">return</span> <span class="hljs-keyword">this</span>;
+        }
+
+        <span class="hljs-keyword">public</span> NutFacts <span class="hljs-title">build</span>() {
+            <span class="hljs-keyword">return</span> <span class="hljs-keyword">new</span> NutFacts(<span class="hljs-keyword">this</span>);
+        }
+    }
+
+    <span class="hljs-keyword">private</span> <span class="hljs-title">NutFacts</span>(Builder builder) {
+        serSize = builder.serSize;
+        fat = builder.fat;
+        car = builder.car;
+        so = builder.so;
+    }
+}
+</code></pre>
+
+<p>创建对象的方法：</p>
+
+
+
+<pre class="prettyprint"><code class=" hljs avrasm">NutFacts no = new NutFacts<span class="hljs-preprocessor">.Builder</span>(<span class="hljs-number">1</span>)<span class="hljs-preprocessor">.car</span>(<span class="hljs-number">2</span>)<span class="hljs-preprocessor">.so</span>(<span class="hljs-number">1</span>)<span class="hljs-preprocessor">.build</span>()<span class="hljs-comment">;</span></code></pre>
+
+<p><strong><font color="red">比较：</font></strong></p>
+
+<p>这个创建对象的方法就像Python中的具名的可选参数。</p>
+
+<p>builder可以对参数加强约束条件，build方法可以用于检验这些约束。</p>
+
+<p>与构造器相比，builder的优势在于可以有多个可变参数，builder参数可以在创建对象期间调整。</p>
+
+<p>和setter相比，属性可以不可变，如上面NutFacts，属性都是不可变得final。但是通过构造器对Builer对象修改，又可以修改属性。</p>
+
+<hr />
+
+<p><strong><em>更多模式：</em></strong> <a href="http://blog.csdn.net/odeviloo/article/details/52382338">一天一个设计模式—分类与六大原则</a></p>
+
+<p><strong><em>更多源码：</em></strong> <a href="https://github.com/oDevilo/Java-Base">https://github.com/oDevilo/Java-Base</a></p></div>&#13;
+        <script type="text/javascript">&#13;
+            $(function () {&#13;
+                $('pre.prettyprint code').each(function () {&#13;
+                    var lines = $(this).text().split('\n').length;&#13;
+                    var $numbering = $('&lt;ul/&gt;').addClass('pre-numbering').hide();&#13;
+                    $(this).addClass('has-numbering').parent().append($numbering);&#13;
+                    for (i = 1; i &lt;= lines; i++) {&#13;
+                        $numbering.append($('&lt;li/&gt;').text(i));&#13;
+                    };&#13;
+                    $numbering.fadeIn(1700);&#13;
+                });&#13;
+            });&#13;
+        </script>&#13;
+   &#13;

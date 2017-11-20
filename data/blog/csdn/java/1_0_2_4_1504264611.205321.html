@@ -1,0 +1,189 @@
+
+
+<p>适配器(Adapter)详述：<a target="_blank" href="http://blog.csdn.net/jjwwmlp456/article/details/39893723">http://blog.csdn.net/jjwwmlp456/article/details/39893723</a></p>&#13;
+<p>观察者(Observer)详述：<a target="_blank" href="http://blog.csdn.net/jjwwmlp456/article/details/39967021">http://blog.csdn.net/jjwwmlp456/article/details/39967021</a><br />&#13;
+</p>&#13;
+<p><br />&#13;
+</p>&#13;
+<p>AdapterView 体系</p>&#13;
+<p><img src="http://img.blog.csdn.net/20150703162245134?watermark/2/text/aHR0cDovL2Jsb2cuY3Nkbi5uZXQv/font/5a6L5L2T/fontsize/400/fill/I0JBQkFCMA==/dissolve/70/gravity/Center" width="618" height="215" alt="" /><br />&#13;
+</p>&#13;
+<p>  <span style="color:#009900">AdapterView中会使用Adapter</span></p>&#13;
+<p><br />&#13;
+</p>&#13;
+<p>Adapter 体系</p>&#13;
+<p><img src="http://img.blog.csdn.net/20150703164659994?watermark/2/text/aHR0cDovL2Jsb2cuY3Nkbi5uZXQv/font/5a6L5L2T/fontsize/400/fill/I0JBQkFCMA==/dissolve/70/gravity/Center" width="654" height="403" alt="" /><br />&#13;
+</p>&#13;
+<p>  BaseAdapter 实现了 SpinnerAdapter、ListAdapter</p>&#13;
+<p>        <span style="color:#009900">这样的形式，就是 适配器模式的应用， 这里是采用的是  接口适配器</span></p>&#13;
+<p><br />&#13;
+</p>&#13;
+<p><span style="font-size:18px">观察者(Observer) 模式</span><br />&#13;
+</p>&#13;
+<p>在Adapter中定义了注册和反注册DataSetObserver的方法</p>&#13;
+<p></p>&#13;
+<pre name="code" class="java">public interface Adapter {
+  
+    void registerDataSetObserver(DataSetObserver observer);
+
+    void unregisterDataSetObserver(DataSetObserver observer);
+
+    ...
+}</pre>&#13;
+<p></p>&#13;
+<p></p>&#13;
+<pre name="code" class="java">public abstract class DataSetObserver {
+
+    public void onChanged() {
+        // Do nothing
+    }
+
+    public void onInvalidated() {
+        // Do nothing
+    }
+}</pre><br />&#13;
+<pre name="code" class="java">public abstract class BaseAdapter implements ListAdapter, SpinnerAdapter {
+    private final DataSetObservable mDataSetObservable = new DataSetObservable();
+
+    public void registerDataSetObserver(DataSetObserver observer) {
+        mDataSetObservable.registerObserver(observer);
+    }
+
+    public void unregisterDataSetObserver(DataSetObserver observer) {
+        mDataSetObservable.unregisterObserver(observer);
+    }
+
+    public void notifyDataSetChanged() {
+        mDataSetObservable.notifyChanged();
+    }
+
+    public void notifyDataSetInvalidated() {
+        mDataSetObservable.notifyInvalidated();
+    }
+    ...
+}</pre><pre name="code" class="java">public class DataSetObservable extends Observable&lt;DataSetObserver&gt; {
+
+    public void notifyChanged() {
+        synchronized(mObservers) {
+            for (int i = mObservers.size() - 1; i &gt;= 0; i--) {
+                mObservers.get(i).onChanged();
+            }
+        }
+    }
+
+    public void notifyInvalidated() {
+        synchronized (mObservers) {
+            for (int i = mObservers.size() - 1; i &gt;= 0; i--) {
+                mObservers.get(i).onInvalidated();
+            }
+        }
+    }
+}</pre><pre name="code" class="java">public abstract class Observable&lt;T&gt; {
+
+    protected final ArrayList&lt;T&gt; mObservers = new ArrayList&lt;T&gt;();
+
+    public void registerObserver(T observer) {
+        if (observer == null) {
+            throw new IllegalArgumentException("The observer is null.");
+        }
+        synchronized(mObservers) {
+            if (mObservers.contains(observer)) {
+                throw new IllegalStateException("Observer " + observer + " is already registered.");
+            }
+            mObservers.add(observer);
+        }
+    }
+
+    public void unregisterObserver(T observer) {
+        if (observer == null) {
+            throw new IllegalArgumentException("The observer is null.");
+        }
+        synchronized(mObservers) {
+            int index = mObservers.indexOf(observer);
+            if (index == -1) {
+                throw new IllegalStateException("Observer " + observer + " was not registered.");
+            }
+            mObservers.remove(index);
+        }
+    }
+
+    public void unregisterAll() {
+        synchronized(mObservers) {
+            mObservers.clear();
+        }
+    }
+}
+</pre><br />&#13;
+<span style="color:#009900">DataSetObserver  观察者（观察数据集：发生变化onChanged、无效onInvalidated）</span>&#13;
+<p></p>&#13;
+<p><span style="color:#009900">Observable 处理观察者（添加、移除、注册、反注册）</span></p>&#13;
+<p><span style="color:#009900">DataSetObservable extends Observable&lt;DataSetObserver&gt;   添加了通知数据改变和无效的 两个方法</span></p>&#13;
+<p><br />&#13;
+</p>&#13;
+<p>在AdapterView中</p>&#13;
+<p></p>&#13;
+<pre name="code" class="java">class AdapterDataSetObserver extends DataSetObserver {
+
+        private Parcelable mInstanceState = null;
+
+        @Override
+        public void onChanged() {
+            mDataChanged = true;
+            mOldItemCount = mItemCount;
+            mItemCount = getAdapter().getCount();
+
+            // Detect the case where a cursor that was previously invalidated has
+            // been repopulated with new data.
+            if (AdapterView.this.getAdapter().hasStableIds() &amp;&amp; mInstanceState != null
+                    &amp;&amp; mOldItemCount == 0 &amp;&amp; mItemCount &gt; 0) {
+                AdapterView.this.onRestoreInstanceState(mInstanceState);
+                mInstanceState = null;
+            } else {
+                rememberSyncState();
+            }
+            checkFocus();
+            requestLayout();
+        }
+
+        @Override
+        public void onInvalidated() {
+            mDataChanged = true;
+
+            if (AdapterView.this.getAdapter().hasStableIds()) {
+                // Remember the current state for the case where our hosting activity is being
+                // stopped and later restarted
+                mInstanceState = AdapterView.this.onSaveInstanceState();
+            }
+
+            // Data is invalid so we should reset our state
+            mOldItemCount = mItemCount;
+            mItemCount = 0;
+            mSelectedPosition = INVALID_POSITION;
+            mSelectedRowId = INVALID_ROW_ID;
+            mNextSelectedPosition = INVALID_POSITION;
+            mNextSelectedRowId = INVALID_ROW_ID;
+            mNeedSync = false;
+
+            checkFocus();
+            requestLayout();
+        }
+
+        public void clearSavedState() {
+            mInstanceState = null;
+        }
+    }</pre>&#13;
+<p></p>&#13;
+<p>   自定义了AdapterDataSetObserver，在两个实现方法中都调用了requestLayout()，重新设置layout  <br />&#13;
+<br />&#13;
+</p>&#13;
+<span style="font-size:14px; color:rgb(255,0,0)">整个观察数据变化导致界面改变的流程：</span><br />&#13;
+<span style="color:#009900">1.  在AdapterView体系中 自定义 AdapterDataSetObserver，并注册(即添加observer到observable)。<br />&#13;
+</span>&#13;
+<p><span style="color:#009900">2.  在调用adapter.notifyDataSetChanged()后，内部执行observable的notifyChanged()，</span></p>&#13;
+<p><span style="color:#009900">       将执行每一个observer的onChanged()，也就达到了更新界面的效果。</span></p>&#13;
+<p><span style="color:#009900">    notifyDataSetInvalidated同理</span></p>&#13;
+<p><br />&#13;
+</p>&#13;
+<p><br />&#13;
+</p>&#13;
+   &#13;

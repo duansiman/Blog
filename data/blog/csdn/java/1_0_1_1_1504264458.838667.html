@@ -1,0 +1,182 @@
+
+        <div class="markdown_views"><h1 id="1dispatchaction-分派action"><strong>1.DispatchAction-分派Action</strong></h1>
+
+
+
+<h2 id="11-为什么需要dispatchaction"><strong>1.1 为什么需要DispatchAction</strong></h2>
+
+<blockquote>
+  <p>如果每个请求都对应一个Action，就会造成action过多，程序显得比较臃肿，所以可以把一类请求写到一个action中处理，即DispatchAction</p>
+</blockquote>
+
+<p>在没有使用框架之前，当我们通过一个控制器处理多个请求的时候，我们是通过在URL后面跟上参数来区别不同的操作，比如，下述链接：</p>
+
+<blockquote>
+  <p><code>http://localhost:8080/UserManager/main?operateId=add&amp;uid=123</code> <br />
+  <code>http://localhost:8080/UserManager/main?operateId=delete&amp;uid=123</code></p>
+</blockquote>
+
+<p>在这里，main是我们的一个控制器，后面我们通过传递operateId参数来让控制器区别不同的操作，那么，在main控制器中，我们可以得到operateId，再根据其不同使用<code>if...else...</code>语句来分别处理即可。</p>
+
+
+
+<pre class="prettyprint"><code class="language-java hljs ">String operateId = request.getParameter(<span class="hljs-string">"operateId"</span>);
+<span class="hljs-keyword">if</span>(operateId.equals(<span class="hljs-string">"add"</span>)){
+    ...
+}<span class="hljs-keyword">else</span> <span class="hljs-keyword">if</span>(operateId.equals(<span class="hljs-string">"delete"</span>)){
+    ...
+}</code></pre>
+
+<p>同样的，如果我们使用了Struts框架，我们也可以在调用一个Action的时候给它传递参数：（这里假设Action为ManageAction，它的访问路径为<code>/manage</code>）</p>
+
+<blockquote>
+  <p><code>http://localhost:8080/UserManager/manage.do?operateId=add&amp;uid=123</code></p>
+</blockquote>
+
+<p>然后在这个ManageAction中，也根据operateId的不同来做不同的处理。</p>
+
+
+
+<h2 id="12-开发和配置dispatchaction"><strong>1.2 开发和配置DispatchAction</strong></h2>
+
+<p>Struts框架为了我们处理这种情况，专门提供了DispatchAction，即分派Action。</p>
+
+<p>开发DispatchAction需要继承DispatchAction类，而不是之前的Action类了。</p>
+
+<p><img src="http://img.blog.csdn.net/20160724202929353" alt="这里写图片描述" title="" /></p>
+
+<p>特别要注意的是，这里一定要配置<code>parameter</code>参数，这个参数也就是我们用来区分不同操作的标志，和1.1中所介绍的一样。那么，这里我仍然使用operateId这个字段。</p>
+
+<p>其实，它和我们之前使用的Action没有太多区别，就是在配置struts-config.xml文件的时候多了一个parameter参数:</p>
+
+
+
+<pre class="prettyprint"><code class="language-xml hljs "><span class="hljs-tag">&lt;<span class="hljs-title">action
+</span>      <span class="hljs-attribute">parameter</span>=<span class="hljs-value">"operateId"</span>
+      <span class="hljs-attribute">path</span>=<span class="hljs-value">"/manage"</span>
+      <span class="hljs-attribute">type</span>=<span class="hljs-value">"com.gavin.struts.action.ManageAction"</span>
+      <span class="hljs-attribute">validate</span>=<span class="hljs-value">"false"</span>
+      <span class="hljs-attribute">cancellable</span>=<span class="hljs-value">"true"</span> /&gt;</span></code></pre>
+
+<p><strong>不同的地方在于</strong>：在ManageAction类中，我们不需要只在一个方法中根据operateId来区分不同的操作了，也就是说，我们不需要写哪些繁琐的<code>if...else...</code>语句了。我们要做的是针对每一个不同的operateId直接写一个方法，方法的名称就是你的URL链接中指定的operateId名称，这个方法就是将之前的<code>execute</code>方法改名字即可，参数以及返回值都保持一致。</p>
+
+<p>比如，我们在程序中需要这两种链接：</p>
+
+<blockquote>
+  <p><code>http://localhost:8080/UserManager/manage.do?operateId=add&amp;uid=123</code> <br />
+  <code>http://localhost:8080/UserManager/manage.do?operateId=delete&amp;uid=123</code></p>
+</blockquote>
+
+<p>那么我们的ManageAction中，就要有add和delete两个方法：</p>
+
+
+
+<pre class="prettyprint"><code class="language-java hljs "><span class="hljs-keyword">public</span> <span class="hljs-class"><span class="hljs-keyword">class</span> <span class="hljs-title">ManageAction</span> <span class="hljs-keyword">extends</span> <span class="hljs-title">DispatchAction</span> {</span>
+
+    <span class="hljs-keyword">public</span> ActionForward <span class="hljs-title">add</span>(ActionMapping mapping, ActionForm form,
+            HttpServletRequest request, HttpServletResponse response) {
+        <span class="hljs-comment">// your code</span>
+        <span class="hljs-keyword">return</span> <span class="hljs-keyword">null</span>;
+    }
+
+    <span class="hljs-keyword">public</span> ActionForward <span class="hljs-title">delete</span>(ActionMapping mapping, ActionForm form,
+            HttpServletRequest request, HttpServletResponse response) {
+            <span class="hljs-comment">// your code</span>
+        <span class="hljs-keyword">return</span> <span class="hljs-keyword">null</span>;
+    }
+}</code></pre>
+
+<p>很显然，使用DispatchAction可以使程序条理更加清晰，容易扩展。</p>
+
+<p><strong>【但要注意的是，如果使用DispatchAction，一定要去掉原来的execute方法】</strong></p>
+
+<hr />
+
+
+
+<h1 id="2dynamicform-动态表单"><strong>2.DynamicForm-动态表单</strong></h1>
+
+<p>使用动态表单可以更加灵活地使用表单。在某些不能确定表单属性个数和类型的情况下，可以使用动态表单（DynamicForm）来解决问题。</p>
+
+<p>所谓动态表单，其实就是不需要单独写成Java类的表单，使用它只需要在struts-config.xml文件中配置即可。</p>
+
+
+
+<pre class="prettyprint"><code class="language-xml hljs "><span class="hljs-tag">&lt;<span class="hljs-title">form-bean</span> <span class="hljs-attribute">name</span>=<span class="hljs-value">"userForm"</span> <span class="hljs-attribute">type</span>=<span class="hljs-value">"org.apache.struts.action.DynaActionForm"</span>&gt;</span>
+    <span class="hljs-comment">&lt;!-- 该表单的属性是配置出来的 --&gt;</span>
+    <span class="hljs-tag">&lt;<span class="hljs-title">form-property</span> <span class="hljs-attribute">name</span>=<span class="hljs-value">"name"</span> <span class="hljs-attribute">type</span>=<span class="hljs-value">"java.lang.String"</span>/&gt;</span>
+    <span class="hljs-tag">&lt;<span class="hljs-title">form-property</span> <span class="hljs-attribute">name</span>=<span class="hljs-value">"password"</span> <span class="hljs-attribute">type</span>=<span class="hljs-value">"java.lang.String"</span>/&gt;</span>
+    <span class="hljs-tag">&lt;<span class="hljs-title">form-property</span> <span class="hljs-attribute">name</span>=<span class="hljs-value">"email"</span> <span class="hljs-attribute">type</span>=<span class="hljs-value">"java.lang.String"</span>/&gt;</span>
+<span class="hljs-tag">&lt;/<span class="hljs-title">form-bean</span>&gt;</span></code></pre>
+
+<p>动态表单的type属性，要写为<code>org.apache.struts.action.DynaActionForm</code>，同时，它比普通表单多了form-property配置，该配置就是配置表单的属性，由于我们可以在这里动态增减form-property属性的配置，所以称之为动态表单。</p>
+
+<p>另外，它与普通表单获取数据的方式也略有不同：</p>
+
+
+
+<pre class="prettyprint"><code class="language-java hljs ">DynaActionForm userForm = (DynaActionForm) form;
+<span class="hljs-comment">// 从动态表单中取出数据</span>
+String name = userForm.getString(<span class="hljs-string">"name"</span>);
+String password = userForm.getString(<span class="hljs-string">"password"</span>);
+String email = userForm.getString(<span class="hljs-string">"email"</span>);</code></pre>
+
+<p>除此之外，都是相同的。也可以看到，动态表单在使用上更为方便。</p>
+
+<p>我们可以通过MyEclipse工具，自动生成DynamicForm：</p>
+
+<p><img src="http://img.blog.csdn.net/20160724203044204" alt="DynamicForm" title="" /></p>
+
+
+
+<h1 id="3全局跳转"><strong>3.全局跳转</strong></h1>
+
+<p>全局跳转区别于局部跳转，之前我们在Action中配置的forward字段，都是针对当前Action的跳转，称之为局部跳转：</p>
+
+<pre class="prettyprint"><code class="language-xml hljs "><span class="hljs-tag">&lt;<span class="hljs-title">action-mappings</span> &gt;</span>
+    <span class="hljs-tag">&lt;<span class="hljs-title">action
+</span>      <span class="hljs-attribute">attribute</span>=<span class="hljs-value">"userForm"</span>
+      <span class="hljs-attribute">input</span>=<span class="hljs-value">"/WEB-INF/register.jsp"</span>
+      <span class="hljs-attribute">name</span>=<span class="hljs-value">"userForm"</span>
+      <span class="hljs-attribute">parameter</span>=<span class="hljs-value">"type"</span>
+      <span class="hljs-attribute">path</span>=<span class="hljs-value">"/register"</span>
+      <span class="hljs-attribute">scope</span>=<span class="hljs-value">"request"</span>
+      <span class="hljs-attribute">type</span>=<span class="hljs-value">"com.gavin.struts.action.RegisterAction"</span> &gt;</span>
+      <span class="hljs-comment">&lt;!--局部跳转--&gt;</span>
+      <span class="hljs-tag">&lt;<span class="hljs-title">forward</span> <span class="hljs-attribute">name</span>=<span class="hljs-value">"ok"</span> <span class="hljs-attribute">path</span>=<span class="hljs-value">"/WEB-INF/ok.jsp"</span> /&gt;</span>
+    <span class="hljs-tag">&lt;/<span class="hljs-title">action</span>&gt;</span>
+  <span class="hljs-tag">&lt;/<span class="hljs-title">action-mappings</span>&gt;</span></code></pre>
+
+<p>也就是说，只有对于当前的Action，我们才能够通过”ok”跳转到ok.jsp.</p>
+
+<p>那么，如果我们有一个公共的错误页面error.jsp，所有的Action都可以跳转到该Action，如果一个个地都配置，岂不是很麻烦，所以Struts框架也提供了全局跳转。</p>
+
+<p>使用全局跳转，只需要在struts-config.xml中配置global-forwards即可：</p>
+
+
+
+<pre class="prettyprint"><code class="language-xml hljs "><span class="hljs-tag">&lt;<span class="hljs-title">global-forwards</span> &gt;</span>
+    <span class="hljs-tag">&lt;<span class="hljs-title">forward</span> <span class="hljs-attribute">name</span>=<span class="hljs-value">"error"</span> <span class="hljs-attribute">path</span>=<span class="hljs-value">"/WEB-INF/error.jsp"</span> /&gt;</span>
+<span class="hljs-tag">&lt;/<span class="hljs-title">global-forwards</span>&gt;</span></code></pre>
+
+<p>所有的Action如果想要跳转到这个错误页面，直接在Action的代码中跳转即可，无需再作其他配置。</p>
+
+<p>使用MyEclipse的工具开发global-forward也很简单：</p>
+
+<p><img src="http://img.blog.csdn.net/20160724203128720" alt="global-forward1" title="" /></p>
+
+<p><img src="http://img.blog.csdn.net/20160724203148267" alt="global-forward2" title="" /></p></div>&#13;
+        <script type="text/javascript">&#13;
+            $(function () {&#13;
+                $('pre.prettyprint code').each(function () {&#13;
+                    var lines = $(this).text().split('\n').length;&#13;
+                    var $numbering = $('&lt;ul/&gt;').addClass('pre-numbering').hide();&#13;
+                    $(this).addClass('has-numbering').parent().append($numbering);&#13;
+                    for (i = 1; i &lt;= lines; i++) {&#13;
+                        $numbering.append($('&lt;li/&gt;').text(i));&#13;
+                    };&#13;
+                    $numbering.fadeIn(1700);&#13;
+                });&#13;
+            });&#13;
+        </script>&#13;
+   &#13;

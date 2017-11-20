@@ -1,0 +1,143 @@
+
+<h1>概述</h1>    使多个对象都有机会处理请求，从而避免请求的发送者和接收者之间的耦合关系。将这些对象连成一条链，<br />    并沿着这条链传递该请求，直到有一个对象处理它为止。<br />    <br />    这一模式的想法是，给多个对象处理一个请求的机会，从而解耦发送者和接受者.<br /><h1> 适用性</h1>    1.有多个的对象可以处理一个请求，哪个对象处理该请求运行时刻自动确定。<br /><br />    2.你想在不明确指定接收者的情况下，向多个对象中的一个提交一个请求。<br /><br />    3.可处理一个请求的对象集合应被动态指定。<br /><h1>参与者</h1>    1.Handler<br />      定义一个处理请求的接口。      （可选）实现后继链。<br />    2.ConcreteHandler<br />      处理它所负责的请求。      可访问它的后继者。<br />      如果可处理该请求，就处理之；否则将该请求转发给它的后继者。<br />    3.Client<br /><p>      向链上的具体处理者(ConcreteHandler)对象提交请求。</p><h1>类图：<br /></h1><p><img src="http://img.my.csdn.net/uploads/201211/21/1353498360_4984.png" alt="" /></p><p><br /></p><h1>示例</h1><p></p><pre name="code" class="java">package com.sql9.actioned;
+
+/**
+ * 责任链模式 示例
+ * 以结婚为例， 男方取身份证和户口簿(派出所)，婚姻状况证明(单位、居委会或村委会开具), 
+ * 女方取身份证和户口簿，婚姻状况证明 
+ * (现在已经不用婚检了)
+ * 然后去民证局登记
+ */
+
+abstract class Request {
+	
+}
+
+/**
+ * 身份证、户口
+ */
+class IDRequest extends Request {
+	String id;
+	public IDRequest(String id) {
+		this.id = id;
+	}
+}
+
+/**
+ * 婚姻状况
+ */
+class MariageStatusRequest extends Request {
+	String status;
+	public MariageStatusRequest(String status) {
+		this.status = status;
+		if ("已婚".equals(status)) {
+			throw new RuntimeException("异常，目标为已婚用户，不能申请结婚");
+		}
+	}
+}
+
+/**
+ * 登记注册
+ */
+class RegisterRequest extends Request {
+	String otherId;
+	public RegisterRequest(String otherId) {
+		this.otherId = otherId;
+	}
+}
+
+interface MariageHandler {
+	void handleRequest(Request request);
+}
+
+/**
+ * 派出所处理
+ */
+class PoliceHandler implements MariageHandler {
+	@Override
+	public void handleRequest(Request request) {
+		if (request instanceof IDRequest) {
+			String id = ((IDRequest)request).id;
+			System.out.println("Policehandler handled, targetId = " + id);
+		}
+		System.out.println("finished for PoliceHandler.");
+	}
+}
+
+/**
+ * 本单位处理
+ *
+ */
+class CompanyHandler implements MariageHandler {
+	MariageHandler rh;
+	public CompanyHandler(MariageHandler rh) {
+		this.rh = rh;
+	}
+	@Override
+	public void handleRequest(Request request) {
+		if (request instanceof MariageStatusRequest) {
+			String status = ((MariageStatusRequest)request).status;
+			System.out.println("CompanyHandler handled, status = " + status);
+			if ("已婚".equals(status)) {
+				throw new RuntimeException("异常，目标为已婚用户，不能申请结婚");
+			}
+		}
+		else {
+			rh.handleRequest(request);
+		}
+	}
+}
+
+/**
+ * 民政局处理
+ *
+ */
+class CivilServiceHandler implements MariageHandler {
+
+	MariageHandler rh;
+	public CivilServiceHandler(MariageHandler rh) {
+		this.rh = rh;
+	}
+	@Override
+	public void handleRequest(Request request) {
+		if (request instanceof RegisterRequest) {
+			String otherID = ((RegisterRequest)request).otherId;
+			System.out.println("CivilServiceHandler handled, otherId = " + otherID);
+		}
+		else {
+			rh.handleRequest(request);
+		}
+	}
+	
+}
+
+public class TestChainOfResponsibility {
+
+	public static void main(String[] args) {
+		 
+		MariageHandler ph = new PoliceHandler();
+		MariageHandler companyH = new CompanyHandler(ph);
+		MariageHandler civilH = new CivilServiceHandler(companyH);
+		
+		// 处理请求
+		Request req = new IDRequest("1000101990xxxxxxxx");
+		ph.handleRequest(req);
+		
+		req = new MariageStatusRequest("未婚");
+		companyH.handleRequest(req);
+		
+		req = new RegisterRequest("3000101990xxxxxxxx");
+		civilH.handleRequest(req);
+	}
+
+}
+</pre><br /><p></p><h1>结果</h1><p></p><pre name="code" class="java">Policehandler handled, targetId = 1000101990xxxxxxxx
+finished for PoliceHandler.
+CompanyHandler handled, status = 未婚
+CivilServiceHandler handled, otherId = 3000101990xxxxxxxx</pre><br /><br /><p></p><br />&lt;script type="text/javascript"&gt;&lt;!--
+google_ad_client = "ca-pub-7104628658411459";
+/* wide2 */
+google_ad_slot = "5922063526";
+google_ad_width = 468;
+google_ad_height = 60;
+//--&gt;&lt;/script&gt;&lt;script type="text/javascript" src="http://pagead2.googlesyndication.com/pagead/show_ads.js"&gt;&lt;/script&gt;   &#13;

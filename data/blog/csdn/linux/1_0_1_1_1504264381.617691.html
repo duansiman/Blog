@@ -1,0 +1,155 @@
+
+        <div class="markdown_views"><p>调度器的任务就是使程序之间共享CPU时间，创造并行执行的假象。其可分为两个方面：一是调度策略；二是上下文切换。 <br />
+<strong>1.总览</strong></p>
+
+<p><strong>一般原理</strong>：按所能分配的计算能力，向系统中每个进程提供最大的公正性。 <br />
+    调度器对于进程等待时间的记录如下图所示。所有的可运行程序都按时间在红黑树中排序。就绪队列装备了虚拟时钟，其精确速度依赖于当前等待调度器挑选的进程的数目，约为实时时钟速度的1/4。 <br />
+    <img src="http://img.blog.csdn.net/20170820102822510?watermark/2/text/aHR0cDovL2Jsb2cuY3Nkbi5uZXQvcXFfMjExMjcxNTE=/font/5a6L5L2T/fontsize/400/fill/I0JBQkFCMA==/dissolve/70/gravity/SouthEast" alt="这里写图片描述" title="" /> <br />
+<strong>2.数据结构</strong> <br />
+调度器子系统各组件概观如下图所示 <br />
+<img src="http://img.blog.csdn.net/20170820103048952?watermark/2/text/aHR0cDovL2Jsb2cuY3Nkbi5uZXQvcXFfMjExMjcxNTE=/font/5a6L5L2T/fontsize/400/fill/I0JBQkFCMA==/dissolve/70/gravity/SouthEast" alt="这里写图片描述" title="" /> <br />
+<strong>激活调度方法：</strong> <br />
+    1）直接由进程放弃CPU; <br />
+    2）周期性机制，以固定频率运行，不时检测是否进行进程切换。 <br />
+task_struct中与调度相关的成员：</p>
+
+<pre class="prettyprint"><code class=" hljs objectivec">&lt;sched<span class="hljs-variable">.h</span>&gt;
+<span class="hljs-keyword">struct</span> task_struct {
+......
+<span class="hljs-keyword">int</span> prio, static_prio, normal_prio; <span class="hljs-keyword">unsigned</span> <span class="hljs-keyword">int</span> rt_priority;
+
+<span class="hljs-keyword">struct</span> list_head run_list;
+<span class="hljs-keyword">const</span> <span class="hljs-keyword">struct</span> sched_class *sched_class; <span class="hljs-keyword">struct</span> sched_entity se;
+
+<span class="hljs-keyword">unsigned</span> <span class="hljs-keyword">int</span> policy; cpumask_t cpus_allowed; <span class="hljs-keyword">unsigned</span> <span class="hljs-keyword">int</span> time_slice;
+.....
+}
+
+prio、normal_prio：进程动态优先级
+static_prio:进程静态优先级，在进程启动时就被分配，可通过nice和sched_setscheduler函数进行修改。
+rt_priority：表示实时进程优先级。最高优先级<span class="hljs-number">99</span>，最低优先级<span class="hljs-number">0</span>。
+sched_class:表示该进程所属的调度类。
+policy:保存进程调度策略，Linux可取值为：SCHED_NORMAL用于普通进程，SCHED_BATCH用于非交互、CPU使用密集的批处理进程，SCHED_IDLE权重相对较小，SCHED_FIFO使用先进先出机制，SCHED_RR使用循环方法，两个都用于软实时进程。
+cpus_allow：位域，用来限制执行进程的CPU。
+run_list：用于维护包含各进程的一个运行表
+time_slice:：指定进程可使用CPU的剩余时间段。</code></pre>
+
+<p><strong>调度器类</strong> <br />
+其结构如下：</p>
+
+
+
+<pre class="prettyprint"><code class=" hljs cs"><span class="hljs-number">1.</span>  <span class="hljs-keyword">struct</span> sched_class {  
+<span class="hljs-number">2.</span>    <span class="hljs-keyword">const</span> <span class="hljs-keyword">struct</span> sched_class *next;   
+<span class="hljs-number">3.</span>  <span class="hljs-comment">/* 向就绪队列添加新进程*/</span>
+<span class="hljs-number">4.</span>    <span class="hljs-keyword">void</span> (*enqueue_task) (<span class="hljs-keyword">struct</span> rq *rq, <span class="hljs-keyword">struct</span> task_struct *p, <span class="hljs-keyword">int</span> flags);   <span class="hljs-comment">/* 从就绪队列中删除一个进程*/</span>
+<span class="hljs-number">5.</span>    <span class="hljs-keyword">void</span> (*dequeue_task) (<span class="hljs-keyword">struct</span> rq *rq, <span class="hljs-keyword">struct</span> task_struct *p, <span class="hljs-keyword">int</span> flags);   <span class="hljs-comment">/* 进程自愿放弃对处理器的控制权时调用sched_yield-&gt;yield_task */</span>
+<span class="hljs-number">6.</span>    <span class="hljs-keyword">void</span> (*yield_task) (<span class="hljs-keyword">struct</span> rq *rq);  
+<span class="hljs-number">7.</span>  <span class="hljs-comment">/* 用一个新唤醒的进程类抢占当前进程 */</span>
+<span class="hljs-number">8.</span>    <span class="hljs-keyword">void</span> (*check_preempt_curr) (<span class="hljs-keyword">struct</span> rq *rq, <span class="hljs-keyword">struct</span> task_struct *p, <span class="hljs-keyword">int</span> flags);  
+<span class="hljs-number">9.</span>  <span class="hljs-comment">/*  选择下一个要运行的进程*/</span>
+<span class="hljs-number">10.</span>    <span class="hljs-keyword">struct</span> task_struct * (*pick_next_task) (<span class="hljs-keyword">struct</span> rq *rq);  
+<span class="hljs-number">11.</span> <span class="hljs-comment">/* 用一个进程替代当前运行的进程 */</span>
+<span class="hljs-number">12.</span>   <span class="hljs-keyword">void</span> (*put_prev_task) (<span class="hljs-keyword">struct</span> rq *rq, <span class="hljs-keyword">struct</span> task_struct *p);  
+<span class="hljs-number">14.</span><span class="hljs-preprocessor">#ifdef CONFIG_SMP    /* 选择就绪队列*/</span>
+<span class="hljs-number">15.</span>    <span class="hljs-keyword">int</span>  (*select_task_rq)(<span class="hljs-keyword">struct</span> rq *rq, <span class="hljs-keyword">struct</span> task_struct *p,  
+<span class="hljs-number">16.</span>                   <span class="hljs-keyword">int</span> sd_flag, <span class="hljs-keyword">int</span> flags);  
+<span class="hljs-number">17.</span>  
+<span class="hljs-number">18.</span>    <span class="hljs-keyword">void</span> (*pre_schedule) (<span class="hljs-keyword">struct</span> rq *this_rq, <span class="hljs-keyword">struct</span> task_struct *task);  
+<span class="hljs-number">19.</span>    <span class="hljs-keyword">void</span> (*post_schedule) (<span class="hljs-keyword">struct</span> rq *this_rq);  
+<span class="hljs-number">20.</span>    <span class="hljs-keyword">void</span> (*task_waking) (<span class="hljs-keyword">struct</span> rq *this_rq, <span class="hljs-keyword">struct</span> task_struct *task);  
+<span class="hljs-number">21.</span>    <span class="hljs-keyword">void</span> (*task_woken) (<span class="hljs-keyword">struct</span> rq *this_rq, <span class="hljs-keyword">struct</span> task_struct *task);  
+<span class="hljs-number">22.</span>  
+<span class="hljs-number">23.</span>    <span class="hljs-keyword">void</span> (*set_cpus_allowed)(<span class="hljs-keyword">struct</span> task_struct *p,  
+<span class="hljs-number">24.</span>                 <span class="hljs-keyword">const</span> <span class="hljs-keyword">struct</span> cpumask *newmask);  
+<span class="hljs-number">25.</span>  
+<span class="hljs-number">26.</span>    <span class="hljs-keyword">void</span> (*rq_online)(<span class="hljs-keyword">struct</span> rq *rq);  
+<span class="hljs-number">27.</span>    <span class="hljs-keyword">void</span> (*rq_offline)(<span class="hljs-keyword">struct</span> rq *rq);  
+<span class="hljs-number">28.</span><span class="hljs-preprocessor">#<span class="hljs-keyword">endif</span>  </span>
+<span class="hljs-number">29.</span>  <span class="hljs-comment">/* 设置当前执行的进程 */</span>
+<span class="hljs-number">30.</span>    <span class="hljs-keyword">void</span> (*set_curr_task) (<span class="hljs-keyword">struct</span> rq *rq);  
+<span class="hljs-number">31.</span>  <span class="hljs-comment">/* 在每次激活周期性调度器时，由周期性调度器调用 */</span>
+<span class="hljs-number">32.</span> <span class="hljs-keyword">void</span> (*task_tick) (<span class="hljs-keyword">struct</span> rq *rq, <span class="hljs-keyword">struct</span> task_struct *p, <span class="hljs-keyword">int</span> queued);  
+<span class="hljs-number">33.</span>   <span class="hljs-comment">/* 创建一个新进程*/</span>
+<span class="hljs-number">34.</span>  <span class="hljs-keyword">void</span> (*task_fork) (<span class="hljs-keyword">struct</span> task_struct *p);  
+<span class="hljs-number">35.</span>  
+<span class="hljs-number">36.</span>    <span class="hljs-keyword">void</span> (*switched_from) (<span class="hljs-keyword">struct</span> rq *this_rq, <span class="hljs-keyword">struct</span> task_struct *task,  
+<span class="hljs-number">37.</span>                   <span class="hljs-keyword">int</span> running);  
+<span class="hljs-number">38.</span>    <span class="hljs-keyword">void</span> (*switched_to) (<span class="hljs-keyword">struct</span> rq *this_rq, <span class="hljs-keyword">struct</span> task_struct *task,  
+<span class="hljs-number">39.</span>                 <span class="hljs-keyword">int</span> running);  
+<span class="hljs-number">40.</span>    <span class="hljs-keyword">void</span> (*prio_changed) (<span class="hljs-keyword">struct</span> rq *this_rq, <span class="hljs-keyword">struct</span> task_struct *task,  
+<span class="hljs-number">41.</span>                 <span class="hljs-keyword">int</span> oldprio, <span class="hljs-keyword">int</span> running);  
+<span class="hljs-number">42.</span>  
+<span class="hljs-number">43.</span>    unsigned <span class="hljs-keyword">int</span> (*get_rr_interval) (<span class="hljs-keyword">struct</span> rq *rq,  
+<span class="hljs-number">44.</span>                     <span class="hljs-keyword">struct</span> task_struct *task);  
+<span class="hljs-number">45.</span>  
+<span class="hljs-number">46.</span><span class="hljs-preprocessor">#ifdef CONFIG_FAIR_GROUP_SCHED  </span>
+<span class="hljs-number">47.</span>    <span class="hljs-keyword">void</span> (*task_move_group) (<span class="hljs-keyword">struct</span> task_struct *p, <span class="hljs-keyword">int</span> on_rq);  
+<span class="hljs-number">48.</span><span class="hljs-preprocessor">#<span class="hljs-keyword">endif</span>  </span>
+<span class="hljs-number">49.</span>};  
+<span class="hljs-number">50.</span>  <span class="hljs-comment">/* 用于负载均衡* /
+51.struct load_weight {  
+52.    unsigned long weight, inv_weight;  
+53.};  </span></code></pre>
+
+<p><strong>就绪队列</strong> <br />
+核心调度器用于管理活动进程的主要数据结构称之为就绪队列。每个CPU都有自己的就绪队列，一个进程不可能出现在多个就绪队列，即不能多个CPU不能运行一个进程。 <br />
+    就绪队列的结构如下所示。</p>
+
+
+
+<pre class="prettyprint"><code class=" hljs objectivec">kernel/sched<span class="hljs-variable">.c</span>
+<span class="hljs-keyword">struct</span> rq {
+<span class="hljs-keyword">unsigned</span> <span class="hljs-keyword">long</span> nr_running;
+<span class="hljs-preprocessor">#define CPU_LOAD_IDX_MAX 5</span>
+<span class="hljs-keyword">unsigned</span> <span class="hljs-keyword">long</span> cpu_load[CPU_LOAD_IDX_MAX];
+......
+<span class="hljs-keyword">struct</span> load_weight load;
+
+<span class="hljs-keyword">struct</span> cfs_rq cfs; <span class="hljs-keyword">struct</span> rt_rq rt;
+
+<span class="hljs-keyword">struct</span> task_struct *curr, *idle; u64 clock;
+......
+};
+    nr_running：制定了队列上可运行进程的数目。
+    load：提供了就绪队列当前负荷的度量。
+    cpu_load：跟踪当前的负荷状态。
+    cfs和rt：嵌入的子就绪队列，分别用于完全公平调度器和实时调度器。
+    curr：指向当前运行的进程实例。
+    idle：指向idle进程的task_struct实例。
+    clock和pre_raw_clock：用于实现就绪队列自身的时钟。</code></pre>
+
+<p><strong>调度实体</strong> <br />
+    调度器的操作实体结构如下：</p>
+
+
+
+<pre class="prettyprint"><code class=" hljs rust">&lt;sched.h&gt;
+<span class="hljs-keyword">struct</span> sched_entity {
+<span class="hljs-keyword">struct</span> load_weight load; <span class="hljs-comment">/* 用于负载均衡 */</span>
+<span class="hljs-keyword">struct</span> rb_node run_node; unsigned <span class="hljs-keyword">int</span> on_rq;
+<span class="hljs-keyword">u64</span> exec_start;
+<span class="hljs-keyword">u64</span> sum_exec_runtime; <span class="hljs-keyword">u64</span> vruntime;
+<span class="hljs-keyword">u64</span> prev_sum_exec_runtime;
+......
+}
+load：指定了权重，决定了各个实体占队列总负荷的比例。
+    run_node：标准的树结点，使得实体可以在红黑树上排序。
+    on_rq：表示该实体当前是否在就绪队列上接受调度。
+exec_start：每次调用时，会计算当前时间和exec_start之间的差值，exec则更新到当前时间，差值则被加到sun_exec_time上。
+vruntime：统计在进程执行期间虚拟时钟上流逝的时间数量。
+pre_sun_exec_runtime：保存进程被撤销时的值。</code></pre></div>&#13;
+        <script type="text/javascript">&#13;
+            $(function () {&#13;
+                $('pre.prettyprint code').each(function () {&#13;
+                    var lines = $(this).text().split('\n').length;&#13;
+                    var $numbering = $('&lt;ul/&gt;').addClass('pre-numbering').hide();&#13;
+                    $(this).addClass('has-numbering').parent().append($numbering);&#13;
+                    for (i = 1; i &lt;= lines; i++) {&#13;
+                        $numbering.append($('&lt;li/&gt;').text(i));&#13;
+                    };&#13;
+                    $numbering.fadeIn(1700);&#13;
+                });&#13;
+            });&#13;
+        </script>&#13;
+   &#13;

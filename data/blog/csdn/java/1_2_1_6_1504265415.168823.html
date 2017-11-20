@@ -1,0 +1,225 @@
+
+                <div class="markdown_views"><h3 id="前言">前言</h3>
+
+<p>Spring框架对Bean进行装配提供了很灵活的方式，下面归纳一下主要的方式： <br/>
+•   在XML中进行显示配置 <br/>
+•   在Java中进行显示配置 <br/>
+•   隐式的bean发现机制和自动装配</p>
+
+<p>而自动装配实现就需要注解扫描，这时发现了两种开启注解扫描的方式，即<code>&lt;context:annotation-config/&gt;</code>和<code>&lt;context:component-scan&gt;</code> <br/>
+下面归纳一下这两种方式的异同点：</p>
+
+<blockquote>
+  <p><code>&lt;context:annotation-config&gt;</code>:<strong>注解扫描是针对已经在Spring容器里注册过的Bean</strong></p>
+  
+  <p><code>&lt;context:component-scan&gt;</code>:不仅具备<code>&lt;context:annotation-config&gt;</code>的所有功能，还可以在指定的package下面扫描对应的bean</p>
+</blockquote>
+
+<p>Demo:</p>
+
+
+
+<h3 id="demoxml注册bean方式">Demo:XML注册Bean方式</h3>
+
+<p>下面给出两个类，类A和类B</p>
+
+
+
+<pre class="prettyprint"><code class=" hljs cs">package com.test;
+pubic class B{
+
+    <span class="hljs-keyword">public</span> <span class="hljs-title">B</span>(){
+        System.<span class="hljs-keyword">out</span>.println(<span class="hljs-string">"B类"</span>);
+    }
+}</code></pre>
+
+
+
+<pre class="prettyprint"><code class=" hljs cs">package com.test;
+<span class="hljs-keyword">public</span> <span class="hljs-keyword">class</span> A {
+    <span class="hljs-keyword">private</span> B bClass;
+
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">void</span> <span class="hljs-title">setBClass</span>(B bClass){
+        <span class="hljs-keyword">this</span>.bClass = bClass;
+        System.<span class="hljs-keyword">out</span>.println(<span class="hljs-string">"通过set的方式注入B类"</span>);
+    }
+
+    <span class="hljs-keyword">public</span> <span class="hljs-title">A</span>(){
+        System.<span class="hljs-keyword">out</span>.println(<span class="hljs-string">"A类"</span>);
+    }
+}
+</code></pre>
+
+<p>如何我们这时可以通过传统的xml配置在Application.xml里进行bean注册</p>
+
+
+
+<pre class="prettyprint"><code class=" hljs applescript">&lt;bean <span class="hljs-property">id</span>=<span class="hljs-string">"bBean"</span><span class="hljs-type">class</span>=<span class="hljs-string">"com.test.B"</span>/&gt;
+&lt;bean <span class="hljs-property">id</span>=<span class="hljs-string">"aBean"</span><span class="hljs-type">class</span>=<span class="hljs-string">"com.test.A"</span>&gt;
+  &lt;<span class="hljs-keyword">property</span> <span class="hljs-property">name</span>=<span class="hljs-string">"bClass"</span> <span class="hljs-keyword">ref</span>=<span class="hljs-string">"bBean"</span>/&gt;
+&lt;/bean&gt;</code></pre>
+
+<p>启动加载Application.xml</p>
+
+<blockquote>
+  <p>输出: <br/>
+  类B <br/>
+  类A <br/>
+  通过set的方式注入B类</p>
+</blockquote>
+
+
+
+<h3 id="demoannotation配置注解开启方式">Demo：annotation配置注解开启方式</h3>
+
+<pre class="prettyprint"><code class=" hljs cs">package com.test;
+pubic class B{
+
+    <span class="hljs-keyword">public</span> <span class="hljs-title">B</span>(){
+        System.<span class="hljs-keyword">out</span>.println(<span class="hljs-string">"B类"</span>);
+    }
+}</code></pre>
+
+
+
+<pre class="prettyprint"><code class=" hljs cs">package com.test;
+<span class="hljs-keyword">public</span> <span class="hljs-keyword">class</span> A {
+    <span class="hljs-keyword">private</span> B bClass;
+
+    @Autowired 
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">void</span> <span class="hljs-title">setBClass</span>(B bClass){
+        <span class="hljs-keyword">this</span>.bClass = bClass;
+        System.<span class="hljs-keyword">out</span>.println(<span class="hljs-string">"通过set的方式注入B类"</span>);
+    }
+
+    <span class="hljs-keyword">public</span> <span class="hljs-title">A</span>(){
+        System.<span class="hljs-keyword">out</span>.println(<span class="hljs-string">"A类"</span>);
+    }
+}
+</code></pre>
+
+<p>然后我们需要在Application.xml里注册Bean，假如我们先这样配置，仅仅注册Bean，不开启扫描</p>
+
+
+
+<pre class="prettyprint"><code class=" hljs applescript">&lt;bean <span class="hljs-property">id</span>=<span class="hljs-string">"bBean"</span><span class="hljs-type">class</span>=<span class="hljs-string">"com.test.B"</span>/&gt;
+&lt;bean <span class="hljs-property">id</span>=<span class="hljs-string">"aBean"</span><span class="hljs-type">class</span>=<span class="hljs-string">"com.test.A"</span>/&gt;</code></pre>
+
+<p>或者仅仅开启扫描，不注册Bean</p>
+
+
+
+<pre class="prettyprint"><code class=" hljs xml"><span class="hljs-tag">&lt;<span class="hljs-title">context:annotation-config</span>/&gt;</span></code></pre>
+
+<p>这时加载Application.xml配置</p>
+
+<blockquote>
+  <p>输出: <br/>
+  类B <br/>
+  类A</p>
+</blockquote>
+
+<p>我们会发现下面的@Autowired的方法是不能被加载的</p>
+
+
+
+<pre class="prettyprint"><code class=" hljs cs">@Autowired 
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">void</span> <span class="hljs-title">setBClass</span>(B bClass){
+        <span class="hljs-keyword">this</span>.bClass = bClass;
+        System.<span class="hljs-keyword">out</span>.println(<span class="hljs-string">"通过set的方式注入B类"</span>);
+    }</code></pre>
+
+<p>解决方法： <br/>
+修改Application.xml配置文件</p>
+
+
+
+<pre class="prettyprint"><code class=" hljs applescript">&lt;context:annotation-config/&gt;
+&lt;bean <span class="hljs-property">id</span>=<span class="hljs-string">"bBean"</span><span class="hljs-type">class</span>=<span class="hljs-string">"com.test.B"</span>/&gt;
+&lt;bean <span class="hljs-property">id</span>=<span class="hljs-string">"aBean"</span><span class="hljs-type">class</span>=<span class="hljs-string">"com.test.A"</span>/&gt;</code></pre>
+
+<p>重新加载配置文件，输出正常了</p>
+
+<blockquote>
+  <p>输出: <br/>
+  类B <br/>
+  类A <br/>
+  通过set的方式注入B类</p>
+</blockquote>
+
+<p>归纳：<code>&lt;context:annotation-config&gt;</code>:<strong>注解扫描是针对已经在Spring容器里注册过的Bean</strong></p>
+
+
+
+<h3 id="democomponent配置注解开启方式">Demo：component配置注解开启方式</h3>
+
+<pre class="prettyprint"><code class=" hljs cs">package com.test;
+pubic class B{
+
+    <span class="hljs-keyword">public</span> <span class="hljs-title">B</span>(){
+        System.<span class="hljs-keyword">out</span>.println(<span class="hljs-string">"B类"</span>);
+    }
+}</code></pre>
+
+
+
+<pre class="prettyprint"><code class=" hljs cs">package com.test;
+@Component
+<span class="hljs-keyword">public</span> <span class="hljs-keyword">class</span> A {
+    <span class="hljs-keyword">private</span> B bClass;
+
+    @Autowired 
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">void</span> <span class="hljs-title">setBClass</span>(B bClass){
+        <span class="hljs-keyword">this</span>.bClass = bClass;
+        System.<span class="hljs-keyword">out</span>.println(<span class="hljs-string">"通过set的方式注入B类"</span>);
+    }
+
+    <span class="hljs-keyword">public</span> <span class="hljs-title">A</span>(){
+        System.<span class="hljs-keyword">out</span>.println(<span class="hljs-string">"A类"</span>);
+    }
+}
+</code></pre>
+
+<p>然后我们配置一下application.xml，开启annotaion-config扫描</p>
+
+
+
+<pre class="prettyprint"><code class=" hljs xml"><span class="hljs-tag">&lt;<span class="hljs-title">context:annotation-config</span> /&gt;</span></code></pre>
+
+<p>加载配置文件：</p>
+
+<blockquote>
+  <p>输出: <br/>
+  类B <br/>
+  类A</p>
+</blockquote>
+
+<p>原因：<code>&lt;context:annotation-config&gt;</code>:<strong>注解扫描是针对已经在Spring容器里注册过的Bean</strong>，Bean并没有注册过，所以即使开启了@Autowired、@Component注解 和配置开启了annotaion-config扫描还是加载不到</p>
+
+<p>修改配置文件：</p>
+
+
+
+<pre class="prettyprint"><code class=" hljs vhdl">&lt;<span class="hljs-keyword">context</span>:<span class="hljs-keyword">component</span>-scan base-<span class="hljs-keyword">package</span>=<span class="hljs-string">"com.test"</span>/&gt;</code></pre>
+
+<p>重新加载配置文件：</p>
+
+<blockquote>
+  <p>输出: <br/>
+  类B <br/>
+  类A <br/>
+  通过set的方式注入B类</p>
+</blockquote>
+
+<p>归纳：</p>
+
+<blockquote>
+  <p><code>&lt;context:annotation-config&gt;</code>:<strong>注解扫描是针对已经在Spring容器里注册过的Bean</strong></p>
+  
+  <p><code>&lt;context:component-scan&gt;</code>:不仅具备<code>&lt;context:annotation-config&gt;</code>的所有功能，还可以在指定的package下面扫描对应的bean</p>
+  
+  <p><code>&lt;context:annotation-config /&gt;</code>和 <code>&lt;context:component-scan&gt;</code>同时存在的时候，前者会被忽略。</p>
+  
+  <p>即使注册Bean，同时开启<code>&lt;context:annotation-config /&gt;</code>扫描，@autowire，@resource等注入注解只会被注入一次，也即只加载一次</p>
+</blockquote><link rel="stylesheet" href="http://static.blog.csdn.net/public/res-min/markdown_views.css?v=1.0"/></div><link rel="stylesheet" href="http://static.blog.csdn.net/public/res-min/markdown_views.css?v=1.0"/>&#13;
+            

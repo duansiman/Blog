@@ -1,0 +1,69 @@
+
+        <div class="markdown_views"><h1 id="摘要">摘要</h1>
+
+<p>一次类加载导致的错误，之所以要记录下来，是因为错误的发现不是在本地开发环境或者预部署环境，而是在生产环境。这应该是个易于重现的问题，但是不知道为什么直到生产环境部署时才报错。</p>
+
+
+
+<h1 id="问题">问题</h1>
+
+<p>Unsatisfied dependency expressed through constructor <strong>parameter 3</strong>: Could not convert argument value of type [com.mongodb.AuthenticationMechanism] to required type [[C]: Failed to convert value of type [com.mongodb.AuthenticationMechanism] to required type [char[]]; nested exception is java.lang.IllegalArgumentException: Cannot convert value of type [com.mongodb.AuthenticationMechanism] to required type [char]: PropertyEditor [org.springframework.beans.propertyeditors.CharacterEditor] returned inappropriate value of type [com.mongodb.AuthenticationMechanism]</p>
+
+
+
+<h1 id="分析">分析</h1>
+
+
+
+<pre class="prettyprint"><code class=" hljs xml"><span class="hljs-tag">&lt;<span class="hljs-title">bean</span> <span class="hljs-attribute">id</span>=<span class="hljs-value">"mongoCredentialList"</span> <span class="hljs-attribute">class</span>=<span class="hljs-value">"java.util.ArrayList"</span>&gt;</span>
+            <span class="hljs-tag">&lt;<span class="hljs-title">constructor-arg</span>&gt;</span>
+                <span class="hljs-tag">&lt;<span class="hljs-title">list</span>&gt;</span>
+                    <span class="hljs-tag">&lt;<span class="hljs-title">bean</span> <span class="hljs-attribute">id</span>=<span class="hljs-value">"mongoCredential"</span> <span class="hljs-attribute">class</span>=<span class="hljs-value">"com.mongodb.MongoCredential"</span>&gt;</span>
+                        <span class="hljs-tag">&lt;<span class="hljs-title">constructor-arg
+</span>                                <span class="hljs-attribute">value</span>=<span class="hljs-value">"#{T(com.mongodb.AuthenticationMechanism).SCRAM_SHA_1}"</span>/&gt;</span>
+                        <span class="hljs-tag">&lt;<span class="hljs-title">constructor-arg</span> <span class="hljs-attribute">value</span>=<span class="hljs-value">"test"</span>/&gt;</span>
+                        <span class="hljs-tag">&lt;<span class="hljs-title">constructor-arg</span> <span class="hljs-attribute">value</span>=<span class="hljs-value">"test"</span>/&gt;</span>
+                        <span class="hljs-tag">&lt;<span class="hljs-title">constructor-arg</span> <span class="hljs-attribute">value</span>=<span class="hljs-value">"1234"</span>/&gt;</span>
+                    <span class="hljs-tag">&lt;/<span class="hljs-title">bean</span>&gt;</span>
+                <span class="hljs-tag">&lt;/<span class="hljs-title">list</span>&gt;</span>
+            <span class="hljs-tag">&lt;/<span class="hljs-title">constructor-arg</span>&gt;</span>
+        <span class="hljs-tag">&lt;/<span class="hljs-title">bean</span>&gt;</span></code></pre>
+
+<ol>
+<li>直接原因就是创建mongoCredential bean时出错。第四个参数(从0开始，所以parameter 3就是第四个参数)</li>
+<li>这个通常就是依赖的类版本不对，再开发环境应该就会报出来的。所以开始没朝这方面思考，总是怀疑生产环境的web 容器有什么不对导致。</li>
+</ol>
+
+<p><strong>root cause</strong> <br />
+MongoCredential 这个类(同包，同名)在工程中不同的jar中存在。一个是被其他人封装了，换了个jar名字。所以maven检测不出来的，maven只能在artifact检测是否存在不同版本的jar，然后根据规则选择加载某个版本。这种不同jar的同一个类处理不了。</p>
+
+<p>如下图,mongo-java-driver-2.14是官方的driver类。里面没有上述的构造器方法。 <br />
+mongodb-driver-3.2.1是别人打包的。是有上述构造器方法。这个jar顺序是之前在开发环境，测试环境打包的顺序，这样没有问题。java加载器会先load mongodb-driver-3.2.1的MongoCredential类。</p>
+
+<p><img src="http://img.blog.csdn.net/20170722102814103?watermark/2/text/aHR0cDovL2Jsb2cuY3Nkbi5uZXQvRlMxMzYwNDcyMTc0/font/5a6L5L2T/fontsize/400/fill/I0JBQkFCMA==/dissolve/70/gravity/SouthEast" alt="这里写图片描述" title="" /></p>
+
+<p>但是不知道为什么，打包到线上环境时，顺序变成了下面这样，打包时对”-“的解析不同。如果是按照ASCII顺序，“-”ASCII值是47，比字母要小，应该是在最上面的。但是不知道为什么会到下面。造成了这样的错误。</p>
+
+<p><img src="http://img.blog.csdn.net/20170722102525257?watermark/2/text/aHR0cDovL2Jsb2cuY3Nkbi5uZXQvRlMxMzYwNDcyMTc0/font/5a6L5L2T/fontsize/400/fill/I0JBQkFCMA==/dissolve/70/gravity/SouthEast" alt="这里写图片描述" title="" /></p>
+
+
+
+<h1 id="总结">总结</h1>
+
+<ul>
+<li>包命名一定要规范，不要和官方的，通用的整成一样，非常愚蠢的错误。</li>
+</ul></div>&#13;
+        <script type="text/javascript">&#13;
+            $(function () {&#13;
+                $('pre.prettyprint code').each(function () {&#13;
+                    var lines = $(this).text().split('\n').length;&#13;
+                    var $numbering = $('&lt;ul/&gt;').addClass('pre-numbering').hide();&#13;
+                    $(this).addClass('has-numbering').parent().append($numbering);&#13;
+                    for (i = 1; i &lt;= lines; i++) {&#13;
+                        $numbering.append($('&lt;li/&gt;').text(i));&#13;
+                    };&#13;
+                    $numbering.fadeIn(1700);&#13;
+                });&#13;
+            });&#13;
+        </script>&#13;
+   &#13;

@@ -1,0 +1,229 @@
+
+        <div class="markdown_views"><h2 id="一定义">一、定义</h2>
+
+<hr />
+
+<p>用一个中介对象封装一系列对象的交互，中介者是多个对象不需要显示的相互作用，而且可以独立的改变他们的交互。</p>
+
+
+
+<h2 id="二举例">二、举例</h2>
+
+<hr />
+
+<p>通过上述定义可能不好理解，下面举一个例子，假如在一个没有总经理的公司中，有三个部门：财务部、市场部、研发部。那么财务部负责发工资，需要和市场部及研发部都通气；市场部负责接新项目，需要研发部处理技术、需要财务部出资金；虽然只有三个部门，但关系非常乱，就像下图：</p>
+
+<p><img src="http://img.blog.csdn.net/20161111210042381" alt="这里写图片描述" title="" /> <br />
+但是实际上，公司都有总经理，各个部门的事情都需要汇报给总经理，总经理再通知各个相关部门：</p>
+
+<p><img src="http://img.blog.csdn.net/20161111210058875" alt="这里写图片描述" title="" /></p>
+
+<p>这就是一个典型的“中介者模式”，总经理起到一个中介、协调的作用。</p>
+
+
+
+<h2 id="三模式核心">三、模式核心</h2>
+
+<hr />
+
+<p>　　如果一个系统中的对象之间的联系呈现网状结构，对象之间存在大量多对多的关系，将导致关系极其复杂，<font size="3" color="#f40">这些对象称为“同事关系”</font>,而我们可以 <font size="3" color="#f40"> 引进一个中介者对象</font>，使各个同事对象只跟中介者对象打交道，将复杂的网络结构化解为如下星形结构：</p>
+
+<p><img src="http://img.blog.csdn.net/20161111210201381" alt="这里写图片描述" title="" /></p>
+
+
+
+<h2 id="四模式结构">四、模式结构</h2>
+
+<hr />
+
+<p><font color="#789">中介者模式结构图:</font></p>
+
+<ul>
+<li><strong>抽象中介者(Mediator)</strong>:定义了同事对象到中介者对象的接口。</li>
+<li><strong>具体中介者(ConcreteMediator)</strong>：具体中介者对象，实现了抽象类方法，它需要知道所有具体同事类，并从具体同事对象接收消息，向其他同事类发送命令。</li>
+<li><strong>抽象同事类(Colleague)</strong>：定义抽象同事类中方法。</li>
+<li><strong>具体同事类(ConcreteColleague)</strong>：具体同事类，每个具体同事类只知道自己的行为，而不了解其他同事的情况，但他们都认识中介者对象。</li>
+</ul>
+
+<p><strong><em>示例代码：</em></strong> <br />
+<font size="3" color="#00f"> 抽象中介者(Mediator): </font></p>
+
+
+
+<pre class="prettyprint"><code class=" hljs cs"><span class="hljs-keyword">public</span> <span class="hljs-keyword">interface</span> Mediator {
+    <span class="hljs-keyword">void</span> register(String name,Department d);<span class="hljs-comment">//记录所有同事类</span>
+    <span class="hljs-keyword">void</span> command(String name);<span class="hljs-comment">//发出命令</span>
+} </code></pre>
+
+<p><font size="3" color="#00f"> 具体中介者(ConcreteMediator): </font></p>
+
+
+
+<pre class="prettyprint"><code class=" hljs java"><span class="hljs-comment">//中介者：总经理</span>
+<span class="hljs-keyword">public</span> <span class="hljs-class"><span class="hljs-keyword">class</span> <span class="hljs-title">President</span> <span class="hljs-keyword">implements</span> <span class="hljs-title">Mediator</span>{</span>
+
+    <span class="hljs-keyword">private</span> Map&lt;String,Department&gt; map=<span class="hljs-keyword">new</span> HashMap&lt;String,Department&gt;();
+
+    <span class="hljs-annotation">@Override</span>
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">void</span> <span class="hljs-title">register</span>(String name, Department d) {
+        map.put(name, d);
+    }
+
+    <span class="hljs-annotation">@Override</span>
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">void</span> <span class="hljs-title">command</span>(String name) {
+        map.get(name).ownWork();    
+    }
+}
+
+</code></pre>
+
+<p><font size="3" color="#00f"> 抽象同事类(Colleague): </font></p>
+
+
+
+<pre class="prettyprint"><code class=" hljs java"><span class="hljs-javadoc">/**
+ * 抽象同事类：部门
+ */</span>
+<span class="hljs-keyword">public</span> <span class="hljs-class"><span class="hljs-keyword">interface</span> <span class="hljs-title">Department</span> {</span>
+    <span class="hljs-keyword">void</span> ownWork();<span class="hljs-comment">//本部门自己的工作</span>
+    <span class="hljs-keyword">void</span> outWork();<span class="hljs-comment">//需要其他部门配合的工作</span>
+}</code></pre>
+
+<p><font size="3" color="#00f"> 具体同事类(ConcreteColleague): </font></p>
+
+
+
+<pre class="prettyprint"><code class=" hljs java"><span class="hljs-javadoc">/**
+ * 研发部
+ */</span>
+<span class="hljs-keyword">public</span> <span class="hljs-class"><span class="hljs-keyword">class</span> <span class="hljs-title">Development</span> <span class="hljs-keyword">implements</span> <span class="hljs-title">Department</span>{</span>
+    <span class="hljs-keyword">private</span> Mediator m;<span class="hljs-comment">//持有中介者对象引用</span>
+    <span class="hljs-keyword">public</span> <span class="hljs-title">Development</span>(Mediator m){
+        <span class="hljs-keyword">this</span>.m=m;
+        m.register(<span class="hljs-string">"development"</span>, <span class="hljs-keyword">this</span>);
+    }
+
+    <span class="hljs-annotation">@Override</span>
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">void</span> <span class="hljs-title">ownWork</span>() {
+        System.out.println(<span class="hljs-string">"研发部：负责研发工作！"</span>);
+    }
+
+    <span class="hljs-annotation">@Override</span>
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">void</span> <span class="hljs-title">outWork</span>() {
+        System.out.println(<span class="hljs-string">"研发部：请求财务部配合！"</span>);
+        m.command(<span class="hljs-string">"finacial"</span>);
+    }
+}
+
+
+<span class="hljs-javadoc">/**
+ * 市场部
+ */</span>
+<span class="hljs-keyword">public</span> <span class="hljs-class"><span class="hljs-keyword">class</span> <span class="hljs-title">Market</span> <span class="hljs-keyword">implements</span> <span class="hljs-title">Department</span>{</span>
+    <span class="hljs-keyword">private</span> Mediator m;<span class="hljs-comment">//持有中介者对象引用</span>
+    <span class="hljs-keyword">public</span> <span class="hljs-title">Market</span>(Mediator m){
+        <span class="hljs-keyword">this</span>.m=m;
+        m.register(<span class="hljs-string">"market"</span>, <span class="hljs-keyword">this</span>);
+    }
+
+    <span class="hljs-annotation">@Override</span>
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">void</span> <span class="hljs-title">ownWork</span>() {
+        System.out.println(<span class="hljs-string">"市场部：负责项目承接工作！"</span>);
+    }
+
+    <span class="hljs-annotation">@Override</span>
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">void</span> <span class="hljs-title">outWork</span>() {
+        System.out.println(<span class="hljs-string">"市场部：请求研发部门配合！"</span>);
+        m.command(<span class="hljs-string">"development"</span>);
+    }
+}
+
+
+
+
+<span class="hljs-javadoc">/**
+ * 财务部
+ */</span>
+<span class="hljs-keyword">public</span> <span class="hljs-class"><span class="hljs-keyword">class</span> <span class="hljs-title">Finacial</span> <span class="hljs-keyword">implements</span> <span class="hljs-title">Department</span>{</span>
+    <span class="hljs-keyword">private</span> Mediator m;<span class="hljs-comment">//持有中介者对象引用</span>
+    <span class="hljs-keyword">public</span> <span class="hljs-title">Finacial</span>(Mediator m){
+        <span class="hljs-keyword">this</span>.m=m;
+        m.register(<span class="hljs-string">"finacial"</span>, <span class="hljs-keyword">this</span>);
+    }
+
+    <span class="hljs-annotation">@Override</span>
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">void</span> <span class="hljs-title">ownWork</span>() {
+        System.out.println(<span class="hljs-string">"财务部：负责财务工作！"</span>);
+    }
+
+    <span class="hljs-annotation">@Override</span>
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">void</span> <span class="hljs-title">outWork</span>() {
+        System.out.println(<span class="hljs-string">"财务部：请求市场部配合！"</span>);
+        m.command(<span class="hljs-string">"market"</span>);        
+    }
+}
+
+</code></pre>
+
+<p><font size="3" color="#00f">客户端：</font></p>
+
+
+
+<pre class="prettyprint"><code class=" hljs cs"><span class="hljs-keyword">public</span> <span class="hljs-keyword">class</span> Client {
+
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">static</span> <span class="hljs-keyword">void</span> <span class="hljs-title">main</span>(String[] args) {
+        Mediator president=<span class="hljs-keyword">new</span> President();
+
+        Development devp=<span class="hljs-keyword">new</span> Development(president);
+        Finacial fin=<span class="hljs-keyword">new</span> Finacial(president);
+        Market mar=<span class="hljs-keyword">new</span> Market(president);
+
+        devp.ownWork();
+        devp.outWork();
+
+    }
+}
+
+
+<span class="hljs-comment">//输出结果</span>
+研发部：负责研发工作！
+研发部：请求财务部配合！
+财务部：负责财务工作！   
+
+</code></pre>
+
+
+
+<h2 id="五总结">五、总结</h2>
+
+<hr />
+
+<p>1.中介者模式本质：</p>
+
+<ul>
+<li>解耦多个同事对象之间的交互关系。每个对象都持有中介者对象的引用，只跟中介者对象打交道。我们通过中介者对象统一管理这些交互关系。</li>
+</ul>
+
+<p>2.开发中常见场景：</p>
+
+<ul>
+<li>MVC模式(其中的C，控制器就是一个中介者对象。M和V都和他打交道)。</li>
+<li>窗口游戏程序，窗口软件开发中窗口对象也是一个中介对象。</li>
+</ul>
+
+<p>3.注意事项： <br />
+　　 在面向对象编程中，一个类必然会与其他的类发生依赖关系，完全独立的类是没有意义的。一个类同时依赖多个类的情况也相当普遍，既然存在这样的情况，说明，一对多的依赖关系有它的合理性，适当的使用中介者模式可以使原本凌乱的对象关系清晰，但是如果滥用，则可能会带来反的效果。一般来说，只有对于那种同事类之间是网状结构的关系，才会考虑使用中介者模式。可以将网状结构变为星状结构，使同事类之间的关系变的清晰一些。 滥用中介者模式，可能让事情变的更复杂。</p></div>&#13;
+        <script type="text/javascript">&#13;
+            $(function () {&#13;
+                $('pre.prettyprint code').each(function () {&#13;
+                    var lines = $(this).text().split('\n').length;&#13;
+                    var $numbering = $('&lt;ul/&gt;').addClass('pre-numbering').hide();&#13;
+                    $(this).addClass('has-numbering').parent().append($numbering);&#13;
+                    for (i = 1; i &lt;= lines; i++) {&#13;
+                        $numbering.append($('&lt;li/&gt;').text(i));&#13;
+                    };&#13;
+                    $numbering.fadeIn(1700);&#13;
+                });&#13;
+            });&#13;
+        </script>&#13;
+   &#13;

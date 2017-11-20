@@ -1,0 +1,75 @@
+
+
+<p>        汇编代码是最接近机器码，所以也是执行效率最高的，在操作系统中有将近10%的关键性代码是由汇编编写的，而还有部分代码是由C代码嵌入汇编构成的。C代码中嵌入汇编可以提高程序的执行效率，同时这种程序还既有高级语言的特性，可以灵活的和其他模块进行配合工作；</p>&#13;
+<p>        c程序内嵌as汇编有比较多的规则，可以从最简单、最基本的开始学起直到后面学习现在通用的内嵌方式。</p>&#13;
+<p></p>&#13;
+<pre name="code" class="cpp"> #include&lt;stdio.h&gt;
+ 
+ int a = 10; 
+ int b = 20; 
+ int result;
+ 
+ int main(void)
+ {
+     asm(
+         "pusha \n\t"         
+         "movl a, %eax\n\t"
+         "movl b, %ebx\n\t"
+         "imull %ebx, %eax\n\t"
+         "movl %eax, result\n\t"
+         "popa"
+         );  
+     printf("the answord is :%d\n", result);
+     return 0;
+ }	</pre>        上面就是基础的C代码中内嵌as汇编，有几个规则说明下：&#13;
+<p></p>&#13;
+<p>        1、由关键字asm开始（好像所有的内嵌汇编都是由这个关键字开始的），汇编代码被包含在（）内，全部内嵌汇编作为C代码的一条语句；</p>&#13;
+<p>        2、这个是基础的内嵌汇编，只能使用全局变量，而不能使用局部变量，所以例题中变量都为全局的；</p>&#13;
+<p>        3、C代码中的全局变量的值在汇编中被用作内存地址，所以可以直接使用变量名：movl a,  %eax；</p>&#13;
+<p>        4、在汇编中每一条语句是要分开的，可以直接换行符也可以用分号（这里用\n来分割不同指令，\t不是必须的，只是为了代码对齐设置的），一点要把每一行语句放在双引号“”内；</p>&#13;
+<p>        5、记住一定要在汇编开始时执行pusha（把所有通用寄存器全部压栈）和在结束时执行popa，这样做是为了防止内嵌汇编程序破坏掉C代码编译成的汇编程序；</p>&#13;
+<p>        上面的例题中还可以用 volatile来修饰：asm volatile("assembly code")；其实我想大家还是看这种内嵌方式看得比较多：__asm__，这是ANSI c的内嵌汇编方式，用__asm__替代了asm；</p>&#13;
+<p><br />&#13;
+</p>&#13;
+<p>         ××××××××××××××××××××××××××××××××××××C程序中嵌入汇编扩展×××××××××××××××××××××××××××××××××××××××××</p>&#13;
+<p>        上面的例题只是基础的内嵌汇编方式，因为想也可以想得到在嵌入的汇编中只能用全局变量，那嵌入汇编还有什么意义呢？下面看下嵌入汇编扩展，可以使用局部变量：</p>&#13;
+<p></p>&#13;
+<pre name="code" class="cpp">#include&lt;stdio.h&gt;
+
+ int main(void)
+ {
+     int data1 = 10; 
+     int data2 = 20; 
+     int result;
+     asm(
+         "imull %%ebx, %%eax\n\t"
+         "movl %%eax, %%edx\n\t"
+         :"=d"(result)
+         :"a"(data1),"b"(data2)
+        );  
+     printf("the answord is :%d\n", result);
+     return 0;
+ }</pre>        我想如果是刚学嵌入汇编，上面的例题应该是没怎么看的懂的（至少我开始是没怎么看得懂的）。先来看看这个扩展后的汇编格式：&#13;
+<p></p>&#13;
+<p></p>&#13;
+<pre name="code" class="cpp">asm(
+			"assembly code"
+			:输出位置
+			:输入位置
+			:改变的寄存器
+		);</pre>        简单分析下：这里没有改变的寄存器列表，所以可以省略。&#13;
+<p></p>&#13;
+<p>        先来看输入位置 :"a"(data1), "b"(data2)，表示的意思是把data1传送到eax中，data2传送到ebx中（至于具体的哪个值对应哪个寄存器，随后会附上一张约束表）；</p>&#13;
+<p>        接着让ebx和eax相乘得到结果放在eax中，最后把eax中的结果传送给edx（这是一般的汇编语句，很容易的，为什么两个%，后面会解释）；</p>&#13;
+<p>        这时候可以看下输出位置  :"=d"(result)，表示返回结果从edx中传送给result变量中。</p>&#13;
+<p>       下面来说下扩展后的嵌入汇编的规则：</p>&#13;
+<p>        1、具体的输入输出位置格式  :"汇编寄存器"(c程序变量)，当然这里的汇编寄存器其实并不是eax之类的，而是一种约束（其实就是代替寄存器，可以查看约束表）比如："a"(data1)  代表的就是汇编中的%eax和c代码中的变量data1相对应；</p>&#13;
+<p>        2、可以使用全局变量和局部变量；若没有输出数据，输出位置可以空着，但需要有冒号。若改变寄存器列表没有，则可以什么都不写；</p>&#13;
+<p>        3、寄存器要用%%寄存器（%%eax）表示，看了很多解释为什么会有两个%，有的人说是前一个%当作转义字符，我感觉是为了区分%1（表示第二个寄存器，后面会分析到）。</p>&#13;
+<p>         约束代码表：<br />&#13;
+   <img src="http://img.blog.csdn.net/20150114162700718?watermark/2/text/aHR0cDovL2Jsb2cuY3Nkbi5uZXQvWXVaaGlIdWlfTm8x/font/5a6L5L2T/fontsize/400/fill/I0JBQkFCMA==/dissolve/70/gravity/Center" alt="" /><br />&#13;
+        输出修饰符列表：</p>&#13;
+<p>    <img src="http://img.blog.csdn.net/20150114163823445?watermark/2/text/aHR0cDovL2Jsb2cuY3Nkbi5uZXQvWXVaaGlIdWlfTm8x/font/5a6L5L2T/fontsize/400/fill/I0JBQkFCMA==/dissolve/70/gravity/Center" alt="" /><br />&#13;
+        上图皆来至于 &lt;&lt;Professional Assembly Language&gt;&gt;</p>&#13;
+<p>        转载请注明作者和原文出处，原文地址：<a target="_blank" href="http://blog.csdn.net/yuzhihui_no1/article/details/42709871">http://blog.csdn.net/yuzhihui_no1/article/details/42709871</a></p>&#13;
+   &#13;

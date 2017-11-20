@@ -1,0 +1,307 @@
+
+        <div class="markdown_views"><p>本文主要使用java mail和spring mail两种方式来发送邮件教程,比较啰嗦,因为除了发邮件还写了其他工具类,不过很详细.</p>
+
+<h2 id="1使用java-mail发送邮件">1.使用java mail发送邮件</h2>
+
+<p>首先把相关账号密码信息保存到一个properties中,读取注入到MailUtil工具类中,然后控制器中调用MailUtil里面的发送邮件方法,因为发邮件是一个耗时过程,所以放在一个线程里面运行.</p>
+
+
+
+<h3 id="11读取配置文件">1.1.读取配置文件</h3>
+
+<p>建立一个config.properties文件,写入如下配置(<strong>现在大多数邮箱都开启smtp都给你一个授权码,使用授权码验证,并且端口可能是465,比如qq的,这个要自己查看邮箱设置</strong>)</p>
+
+
+
+<pre class="prettyprint"><code class=" hljs avrasm"><span class="hljs-preprocessor">#mail配置</span>
+mail<span class="hljs-preprocessor">.host</span> = smtp<span class="hljs-number">.163</span><span class="hljs-preprocessor">.com</span>
+mail<span class="hljs-preprocessor">.protocol</span> = smtp
+mail<span class="hljs-preprocessor">.port</span> = <span class="hljs-number">25</span>
+mail<span class="hljs-preprocessor">.user</span> = 邮箱账号
+mail<span class="hljs-preprocessor">.pwd</span> = 授权码</code></pre>
+
+<p>写一个PropertiesUtil.java工具类读取这些配置</p>
+
+
+
+<pre class="prettyprint"><code class=" hljs java"><span class="hljs-keyword">package</span> cn.edu.aust.util;
+
+<span class="hljs-keyword">import</span> java.io.*;
+<span class="hljs-keyword">import</span> java.util.Properties;
+
+<span class="hljs-javadoc">/**
+ * 读取properties文件的工具类
+ */</span>
+<span class="hljs-keyword">public</span> <span class="hljs-class"><span class="hljs-keyword">class</span> <span class="hljs-title">PropertiesUtil</span> {</span>
+
+    <span class="hljs-keyword">private</span> <span class="hljs-keyword">static</span> Properties properties;
+    <span class="hljs-keyword">private</span> <span class="hljs-keyword">static</span> String url;
+    <span class="hljs-keyword">static</span> {
+        url = System.getProperty(<span class="hljs-string">"web.root"</span>) + <span class="hljs-string">"WEB-INF"</span>+File.separator+<span class="hljs-string">"classes"</span>+File.separator+<span class="hljs-string">"config.properties"</span>;
+        properties = <span class="hljs-keyword">new</span> Properties();
+        <span class="hljs-keyword">try</span> {
+           InputStream in = <span class="hljs-keyword">new</span> BufferedInputStream(<span class="hljs-keyword">new</span> FileInputStream(url));
+            properties.load(in);
+        } <span class="hljs-keyword">catch</span> (IOException e) {
+            e.printStackTrace();
+        }
+    }
+
+    <span class="hljs-javadoc">/**
+     * 读取属性
+     *<span class="hljs-javadoctag"> @param</span> key
+     *<span class="hljs-javadoctag"> @return</span>
+     */</span>
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">static</span> String <span class="hljs-title">getProperty</span>(String key){
+       <span class="hljs-keyword">return</span> properties.getProperty(key);
+    }
+
+    <span class="hljs-javadoc">/**
+     * 设置属性
+     *<span class="hljs-javadoctag"> @param</span> key
+     *<span class="hljs-javadoctag"> @param</span> value
+     */</span>
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">static</span> <span class="hljs-keyword">void</span> <span class="hljs-title">setProperty</span>(String key,String value) <span class="hljs-keyword">throws</span> IOException {
+        OutputStream out = <span class="hljs-keyword">new</span> FileOutputStream(url);
+        properties.setProperty(key,value);
+        properties.store(out,<span class="hljs-string">"『comments』Update key："</span> + key);
+    }
+}</code></pre>
+
+
+
+<h3 id="12mailutiljava工具类">1.2MailUtil.java工具类</h3>
+
+<p>首先maven加入mail支持:</p>
+
+
+
+<pre class="prettyprint"><code class=" hljs xml">    <span class="hljs-comment">&lt;!-- mail支持 --&gt;</span>
+    <span class="hljs-tag">&lt;<span class="hljs-title">dependency</span>&gt;</span>
+      <span class="hljs-tag">&lt;<span class="hljs-title">groupId</span>&gt;</span>javax.mail<span class="hljs-tag">&lt;/<span class="hljs-title">groupId</span>&gt;</span>
+      <span class="hljs-tag">&lt;<span class="hljs-title">artifactId</span>&gt;</span>mail<span class="hljs-tag">&lt;/<span class="hljs-title">artifactId</span>&gt;</span>
+      <span class="hljs-tag">&lt;<span class="hljs-title">version</span>&gt;</span>1.4.7<span class="hljs-tag">&lt;/<span class="hljs-title">version</span>&gt;</span>
+    <span class="hljs-tag">&lt;/<span class="hljs-title">dependency</span>&gt;</span></code></pre>
+
+<p>发送邮件总体步骤:</p>
+
+<ul>
+<li>构造session</li>
+<li>– 构造一个保存用户名密码的Authenticator类</li>
+<li>– 读取配置,放入一个Properties实例中</li>
+<li>构造邮件</li>
+<li>发送邮件 <br />
+这里只写了发送普通文本文件</li>
+</ul>
+
+
+
+<pre class="prettyprint"><code class=" hljs java"><span class="hljs-javadoc">/**
+ * 发送邮件的工具类
+ */</span>
+<span class="hljs-keyword">public</span> <span class="hljs-class"><span class="hljs-keyword">class</span> <span class="hljs-title">MailUtil</span> {</span>
+
+    <span class="hljs-keyword">private</span> <span class="hljs-keyword">static</span> String HOST;
+    <span class="hljs-keyword">private</span> <span class="hljs-keyword">static</span> String PROTOCOL;
+    <span class="hljs-keyword">private</span> <span class="hljs-keyword">static</span> String PORT;
+    <span class="hljs-keyword">private</span> <span class="hljs-keyword">static</span> String USER;<span class="hljs-comment">//发件人账号</span>
+    <span class="hljs-keyword">private</span> <span class="hljs-keyword">static</span> String PWD;<span class="hljs-comment">//发件人密码</span>
+
+    <span class="hljs-keyword">static</span>{
+        HOST = PropertiesUtil.getProperty(<span class="hljs-string">"mail.host"</span>);
+        PROTOCOL = PropertiesUtil.getProperty(<span class="hljs-string">"mail.protocol"</span>);
+        PORT = PropertiesUtil.getProperty(<span class="hljs-string">"mail.port"</span>);
+        USER = PropertiesUtil.getProperty(<span class="hljs-string">"mail.user"</span>);
+        PWD = PropertiesUtil.getProperty(<span class="hljs-string">"mail.pwd"</span>);
+    }
+
+    <span class="hljs-javadoc">/**
+     * 1.获取session
+     *<span class="hljs-javadoctag"> @return</span>
+     */</span>
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">static</span> Session <span class="hljs-title">getSession</span>(){
+        <span class="hljs-comment">//1.1构造一个保存用户名密码的Authenticator类</span>
+        Authenticator authenticator = <span class="hljs-keyword">new</span> Authenticator() {
+            <span class="hljs-annotation">@Override</span>
+            <span class="hljs-keyword">protected</span> PasswordAuthentication <span class="hljs-title">getPasswordAuthentication</span>() {
+                <span class="hljs-keyword">return</span> <span class="hljs-keyword">new</span> PasswordAuthentication(USER,PWD);
+            }
+        };
+        Properties props = <span class="hljs-keyword">new</span> Properties();
+        props.put(<span class="hljs-string">"mail.smtp.host"</span>,HOST);
+        props.put(<span class="hljs-string">"mail.store.protocol"</span>,PROTOCOL);
+        props.put(<span class="hljs-string">"mail.smtp.port"</span>,PORT);
+        props.put(<span class="hljs-string">"mail.smtp.auth"</span>,<span class="hljs-keyword">true</span>);
+        <span class="hljs-keyword">return</span> Session.getDefaultInstance(props,authenticator);
+    }
+
+    <span class="hljs-javadoc">/**
+     * 2.发送不带附件的邮件
+     *<span class="hljs-javadoctag"> @param</span> toEmail
+     *<span class="hljs-javadoctag"> @param</span> content
+     */</span>
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">static</span> <span class="hljs-keyword">void</span> <span class="hljs-title">send</span>(String toEmail,String content) <span class="hljs-keyword">throws</span> MessagingException {
+        Session session = getSession();
+        logger.debug(<span class="hljs-string">"准备发送邮件给"</span>+toEmail);
+        <span class="hljs-comment">//2.1构造message</span>
+        Message msg = <span class="hljs-keyword">new</span> MimeMessage(session);
+        msg.setFrom(<span class="hljs-keyword">new</span> InternetAddress(USER));
+        msg.setRecipient(Message.RecipientType.TO,<span class="hljs-keyword">new</span> InternetAddress(toEmail));
+        msg.setSubject(<span class="hljs-string">"账号激活邮件"</span>);
+        msg.setSentDate(<span class="hljs-keyword">new</span> Date());
+        msg.setContent(content,<span class="hljs-string">"text/html;charset=utf-8"</span>);
+        <span class="hljs-comment">//2.2发送邮件,因为发送比较慢,放入一个线程中</span>
+        Thread t = <span class="hljs-keyword">new</span> Thread(()-&gt;{
+            <span class="hljs-keyword">try</span> {
+                Transport.send(msg);
+                logger.info(<span class="hljs-string">"成功发送邮件"</span>+toEmail);
+            } <span class="hljs-keyword">catch</span> (MessagingException e) {
+                e.printStackTrace();
+            }
+        });
+        t.start();
+
+    }
+
+    <span class="hljs-keyword">private</span> <span class="hljs-keyword">static</span> Logger logger = Logger.getLogger(MailUtil.class);
+}</code></pre>
+
+<p>这样一个发送简单文本的邮件方法就完成了.</p>
+
+<hr />
+
+
+
+<h2 id="2spring-mail">2.Spring Mail</h2>
+
+<p>首先在spring配置文件中加入关于邮件服务器的配置</p>
+
+
+
+<pre class="prettyprint"><code class=" hljs xml"><span class="hljs-comment">&lt;!-- 加载邮件配置文件 --&gt;</span>
+    <span class="hljs-tag">&lt;<span class="hljs-title">context:property-placeholder</span> <span class="hljs-attribute">location</span>=<span class="hljs-value">"classpath:config.properties"</span>/&gt;</span>
+<span class="hljs-comment">&lt;!--邮件服务开始--&gt;</span>
+    <span class="hljs-tag">&lt;<span class="hljs-title">bean</span> <span class="hljs-attribute">id</span>=<span class="hljs-value">"mailSender"</span> <span class="hljs-attribute">class</span>=<span class="hljs-value">"org.springframework.mail.javamail.JavaMailSenderImpl"</span>&gt;</span>
+        <span class="hljs-tag">&lt;<span class="hljs-title">property</span> <span class="hljs-attribute">name</span>=<span class="hljs-value">"host"</span> <span class="hljs-attribute">value</span>=<span class="hljs-value">"${mail.host}"</span> /&gt;</span>
+        <span class="hljs-tag">&lt;<span class="hljs-title">property</span> <span class="hljs-attribute">name</span>=<span class="hljs-value">"port"</span> <span class="hljs-attribute">value</span>=<span class="hljs-value">"${mail.port}"</span>/&gt;</span>
+        <span class="hljs-tag">&lt;<span class="hljs-title">property</span> <span class="hljs-attribute">name</span>=<span class="hljs-value">"username"</span> <span class="hljs-attribute">value</span>=<span class="hljs-value">"${mail.user}"</span> /&gt;</span>
+        <span class="hljs-tag">&lt;<span class="hljs-title">property</span> <span class="hljs-attribute">name</span>=<span class="hljs-value">"password"</span> <span class="hljs-attribute">value</span>=<span class="hljs-value">"${mail.pwd}"</span> /&gt;</span>
+        <span class="hljs-tag">&lt;<span class="hljs-title">property</span> <span class="hljs-attribute">name</span>=<span class="hljs-value">"defaultEncoding"</span> <span class="hljs-attribute">value</span>=<span class="hljs-value">"UTF-8"</span>/&gt;</span>
+        <span class="hljs-tag">&lt;<span class="hljs-title">property</span> <span class="hljs-attribute">name</span>=<span class="hljs-value">"javaMailProperties"</span>&gt;</span>
+            <span class="hljs-tag">&lt;<span class="hljs-title">props</span>&gt;</span>
+                <span class="hljs-tag">&lt;<span class="hljs-title">prop</span> <span class="hljs-attribute">key</span>=<span class="hljs-value">"mail.smtp.auth"</span>&gt;</span>true<span class="hljs-tag">&lt;/<span class="hljs-title">prop</span>&gt;</span>
+                <span class="hljs-tag">&lt;<span class="hljs-title">prop</span> <span class="hljs-attribute">key</span>=<span class="hljs-value">"mail.smtp.timeout"</span>&gt;</span>25000<span class="hljs-tag">&lt;/<span class="hljs-title">prop</span>&gt;</span>
+            <span class="hljs-tag">&lt;/<span class="hljs-title">props</span>&gt;</span>
+        <span class="hljs-tag">&lt;/<span class="hljs-title">property</span>&gt;</span>
+    <span class="hljs-tag">&lt;/<span class="hljs-title">bean</span>&gt;</span>
+    <span class="hljs-comment">&lt;!--用于异步执行发送邮件的线程池--&gt;</span>
+    <span class="hljs-tag">&lt;<span class="hljs-title">bean</span> <span class="hljs-attribute">id</span>=<span class="hljs-value">"mailTaskExecutor"</span> <span class="hljs-attribute">class</span>=<span class="hljs-value">"org.springframework.scheduling.concurrent.ThreadPoolTaskExecutor"</span>&gt;</span>
+        <span class="hljs-tag">&lt;<span class="hljs-title">property</span> <span class="hljs-attribute">name</span>=<span class="hljs-value">"corePoolSize"</span> <span class="hljs-attribute">value</span>=<span class="hljs-value">"10"</span>/&gt;</span>
+        <span class="hljs-tag">&lt;<span class="hljs-title">property</span> <span class="hljs-attribute">name</span>=<span class="hljs-value">"maxPoolSize"</span> <span class="hljs-attribute">value</span>=<span class="hljs-value">"30"</span>/&gt;</span>
+    <span class="hljs-tag">&lt;/<span class="hljs-title">bean</span>&gt;</span>
+    <span class="hljs-comment">&lt;!--邮件服务结束--&gt;</span></code></pre>
+
+<p>具体发送就很简单了,总体步骤和之前的差不多</p>
+
+
+
+<pre class="prettyprint"><code class=" hljs java"><span class="hljs-annotation">@Controller</span>
+<span class="hljs-keyword">public</span> <span class="hljs-class"><span class="hljs-keyword">class</span> <span class="hljs-title">TestController</span> {</span>
+
+    <span class="hljs-annotation">@Resource</span>(name = <span class="hljs-string">"mailSender"</span>)
+    <span class="hljs-keyword">private</span> JavaMailSenderImpl sender;
+    <span class="hljs-annotation">@Resource</span>(name = <span class="hljs-string">"mailTaskExecutor"</span>)
+    <span class="hljs-keyword">private</span> TaskExecutor taskExecutor;
+    <span class="hljs-javadoc">/**
+     * 发送普通文本操作
+     *<span class="hljs-javadoctag"> @return</span>
+     */</span>
+    <span class="hljs-annotation">@RequestMapping</span>(value = <span class="hljs-string">"/test"</span>,method = RequestMethod.GET)
+    <span class="hljs-keyword">public</span> String <span class="hljs-title">toTest</span>() <span class="hljs-keyword">throws</span> MessagingException {
+        SimpleMailMessage message = <span class="hljs-keyword">new</span> SimpleMailMessage();
+        message.setFrom(sender.getUsername());
+        message.setTo(<span class="hljs-string">"101@qq.com"</span>);
+        message.setSubject(<span class="hljs-string">"激活邮件"</span>);
+        message.setText(<span class="hljs-string">"hello world"</span>);
+        taskExecutor.execute(()-&gt;{
+            sender.send(message);
+        });
+        <span class="hljs-keyword">return</span> <span class="hljs-string">"test"</span>;
+    }
+}</code></pre>
+
+<p>如果想要发送带有附件的,可以使用MimeMessage来进行包装</p>
+
+
+
+<pre class="prettyprint"><code class=" hljs lasso"><span class="hljs-keyword">public</span> static <span class="hljs-literal">void</span> send(<span class="hljs-built_in">String</span> <span class="hljs-keyword">to</span>,<span class="hljs-built_in">String</span> subject,<span class="hljs-built_in">String</span> text,
+     <span class="hljs-built_in">String</span> fileName,File file) throws MessagigException{
+    <span class="hljs-comment">//使用JavaMail的MimeMessage，支付更加复杂的邮件格式和内容</span>
+    MimeMessage msg <span class="hljs-subst">=</span> sender<span class="hljs-built_in">.</span>createMimeMessage();
+
+    <span class="hljs-comment">//创建MimeMessageHelper对象，处理MimeMessage的辅助类</span>
+    MimeMessageHelper helper <span class="hljs-subst">=</span> <span class="hljs-literal">new</span> MimeMessageHelper(msg, <span class="hljs-literal">true</span>);
+        <span class="hljs-comment">//使用辅助类MimeMessage设定参数</span>
+    helper<span class="hljs-built_in">.</span>setFrom(sender<span class="hljs-built_in">.</span>getUsername());
+    helper<span class="hljs-built_in">.</span>setTo(<span class="hljs-keyword">to</span>);
+    helper<span class="hljs-built_in">.</span>setSubject(subject);
+    helper<span class="hljs-built_in">.</span>setText(text,<span class="hljs-literal">true</span>);
+
+    <span class="hljs-comment">//加入附件</span>
+    <span class="hljs-keyword">if</span>(file<span class="hljs-subst">!=</span><span class="hljs-built_in">null</span>)helper<span class="hljs-built_in">.</span>addAttachment(fileName, file);
+
+    <span class="hljs-comment">//发送邮件</span>
+    sender<span class="hljs-built_in">.</span>send(msg);
+}</code></pre>
+
+
+
+<h2 id="3验证激活">3.验证激活</h2>
+
+<p>网上找了一下,感觉下面的思路是最好的</p>
+
+<p>//1.数据库加三个字段，state:（0:未激活，1：激活成功），ActiCode:(放激活码),token_exptime(过期时间，用来验证激活邮件是否过期)</p>
+
+<p>//2.用户填写资料，点击注册，插入数据成功，state字段默认是0,同时生成一个ActiCode（用传过来的邮箱、密码、和当前时间加密形成）也存入数据库</p>
+
+<p>//3.发送邮件。。。提示用户登录邮箱激活。。。邮件中带一个激活成功页的URL，URL里有两个参数（1，用户ID，2：激活码）</p>
+
+<p>//4.用户登录邮箱点击链接，来到处理激活的业务逻辑页面或Servlet，得到URL中两个参数，以这两个参数为条件查询数据库里的数据，如果有，取当前时间和之前存入数据库的过期时间作比较，看是否过期，过期，删除数据库中该条记录，并转到失败页面，没过期，查看链接传过来的激活码与数据库字段激活码是否一致，不一致，同样删除数据库中该条记录，并跳转到激活失败界面，一致，则将字段state为1，激活成功，转到激活成功页。。。</p>
+
+
+
+<h2 id="4忘记密码功能">4.忘记密码功能</h2>
+
+<p>来源于:<a href="http://www.jianshu.com/p/bc61e9192658">http://www.jianshu.com/p/bc61e9192658</a> <br />
+第一步:显示忘记密码页面</p>
+
+<p>一个简单的表单页面，输入用户名和一个60秒刷新一次的验证码。 <br />
+需要验证用户名是否存在，邮箱是否已填写。 <br />
+60秒刷新的验证码防止恶意重置密码。 <br />
+60秒刷新的验证码实现方式有很多，可以把时间信息存在session或cookie或Ehcache中。</p>
+
+<p>第二步:发送邮件，缓存重置密码令牌。</p>
+
+<p>生成一个5分钟内有效的令牌，将令牌和用户id映射保存在Ehcache中。 <br />
+用令牌值组成重置邮件链接。 <br />
+从数据库取出邮件地址并发送邮件。</p>
+
+<p>第三步:重置密码</p>
+
+<p>用户点击链接进入重置密码界面。 <br />
+验证令牌值，并得到用户Id,定位到具体用户。 <br />
+用户修改密码。</p></div>&#13;
+        <script type="text/javascript">&#13;
+            $(function () {&#13;
+                $('pre.prettyprint code').each(function () {&#13;
+                    var lines = $(this).text().split('\n').length;&#13;
+                    var $numbering = $('&lt;ul/&gt;').addClass('pre-numbering').hide();&#13;
+                    $(this).addClass('has-numbering').parent().append($numbering);&#13;
+                    for (i = 1; i &lt;= lines; i++) {&#13;
+                        $numbering.append($('&lt;li/&gt;').text(i));&#13;
+                    };&#13;
+                    $numbering.fadeIn(1700);&#13;
+                });&#13;
+            });&#13;
+        </script>&#13;
+   &#13;

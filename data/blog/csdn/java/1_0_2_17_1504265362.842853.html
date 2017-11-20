@@ -1,0 +1,242 @@
+
+        <div class="markdown_views"><p>这是一篇Log4j使用教程,并不是一篇配置文件详解教程,主要的使用是按照需求来使用,所以随着我的需求增加会不断更新使用方法的.</p>
+
+<hr />
+
+
+
+<h2 id="1环境配置">1.环境配置</h2>
+
+<p>直接导入JAR就可以了,这里使用maven导入</p>
+
+
+
+<pre class="prettyprint"><code class=" hljs xml"> <span class="hljs-tag">&lt;<span class="hljs-title">dependency</span>&gt;</span>
+      <span class="hljs-tag">&lt;<span class="hljs-title">groupId</span>&gt;</span>log4j<span class="hljs-tag">&lt;/<span class="hljs-title">groupId</span>&gt;</span>
+      <span class="hljs-tag">&lt;<span class="hljs-title">artifactId</span>&gt;</span>log4j<span class="hljs-tag">&lt;/<span class="hljs-title">artifactId</span>&gt;</span>
+      <span class="hljs-tag">&lt;<span class="hljs-title">version</span>&gt;</span>1.2.17<span class="hljs-tag">&lt;/<span class="hljs-title">version</span>&gt;</span>
+    <span class="hljs-tag">&lt;/<span class="hljs-title">dependency</span>&gt;</span></code></pre>
+
+<hr />
+
+
+
+<h2 id="2写配置文件">2.写配置文件</h2>
+
+<p>log4j可以使用xml配置,也可以使用properties文件配置,一半都使用后者,简单明了</p>
+
+
+
+<h3 id="1输出到控制台">1.输出到控制台</h3>
+
+<p><strong>控制台一半都是我们调试查看的地方,所以开发阶段直接全部日志都输出到控制台</strong></p>
+
+<p>log4j.appender:固定名称,表示这是一个appender配置 <br />
+stdout:自定义命名,可以通过制定哪些地方使用这个配置</p>
+
+
+
+<pre class="prettyprint"><code class=" hljs avrasm"><span class="hljs-preprocessor">#指定输出是控制台</span>
+log4j<span class="hljs-preprocessor">.appender</span><span class="hljs-preprocessor">.stdout</span>=org<span class="hljs-preprocessor">.apache</span><span class="hljs-preprocessor">.log</span>4j<span class="hljs-preprocessor">.ConsoleAppender</span>
+<span class="hljs-preprocessor">#指定输出样式为自定义样式</span>
+log4j<span class="hljs-preprocessor">.appender</span><span class="hljs-preprocessor">.stdout</span><span class="hljs-preprocessor">.layout</span>=org<span class="hljs-preprocessor">.apache</span><span class="hljs-preprocessor">.log</span>4j<span class="hljs-preprocessor">.PatternLayout</span>
+<span class="hljs-preprocessor">#自定义样式</span>
+log4j<span class="hljs-preprocessor">.appender</span><span class="hljs-preprocessor">.stdout</span><span class="hljs-preprocessor">.layout</span><span class="hljs-preprocessor">.ConversionPattern</span>=%-<span class="hljs-number">5</span>p - %m%n</code></pre>
+
+<p><strong>启用这个输出</strong></p>
+
+<p>log4j.rootLogger 是全局配置文件,也可以说默认配置,这里配置的是输出DEBUG以上的信息,输出位置到stdout这个appender,也就是到控制台</p>
+
+
+
+<pre class="prettyprint"><code class=" hljs vala"><span class="hljs-preprocessor">#一半放在配置文件开头</span>
+log4j.rootLogger=DEBUG, <span class="hljs-keyword">stdout</span></code></pre>
+
+<p><strong>测试这个配置</strong></p>
+
+
+
+<pre class="prettyprint"><code class=" hljs cs"><span class="hljs-keyword">public</span> <span class="hljs-keyword">class</span> App 
+{
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">static</span> <span class="hljs-keyword">void</span> <span class="hljs-title">main</span>( String[] args )
+    {
+        <span class="hljs-comment">//加载配置文件</span>
+        PropertyConfigurator.configure(<span class="hljs-string">"src/log4j.properties"</span>);
+        <span class="hljs-comment">//获取loger记录器,参数一般指定当前类的class</span>
+        Logger logger = Logger.getLogger(App.class);
+        logger.debug(<span class="hljs-string">"这是debug"</span>);
+        logger.info(<span class="hljs-string">"这是info"</span>);
+        logger.error(<span class="hljs-string">"这是error"</span>);
+        logger.fatal(<span class="hljs-string">"这是fatal"</span>);
+    }
+}</code></pre>
+
+<p><img src="http://img.blog.csdn.net/20160518230514747" alt="这里写图片描述" title="" /></p>
+
+<hr />
+
+
+
+<h3 id="2输出到文件">2.输出到文件</h3>
+
+<p>输出到文件和控制台差不多,只是多了不少参数,这里使用<strong>I命名</strong>这个appender,追加到properties配置文件中</p>
+
+
+
+<pre class="prettyprint"><code class=" hljs avrasm"><span class="hljs-preprocessor">#表示当前输出位置是文件</span>
+log4j<span class="hljs-preprocessor">.appender</span><span class="hljs-preprocessor">.I</span>=org<span class="hljs-preprocessor">.apache</span><span class="hljs-preprocessor">.log</span>4j<span class="hljs-preprocessor">.FileAppender</span>
+<span class="hljs-preprocessor">#指定当前输出路径</span>
+log4j<span class="hljs-preprocessor">.appender</span><span class="hljs-preprocessor">.I</span><span class="hljs-preprocessor">.File</span>=E:/test/log<span class="hljs-preprocessor">.log</span>
+<span class="hljs-preprocessor">#指定输出日志的最低级别</span>
+log4j<span class="hljs-preprocessor">.appender</span><span class="hljs-preprocessor">.I</span><span class="hljs-preprocessor">.Threshold</span>=INFO
+<span class="hljs-preprocessor">#指定输出样式</span>
+log4j<span class="hljs-preprocessor">.appender</span><span class="hljs-preprocessor">.I</span><span class="hljs-preprocessor">.layout</span>=org<span class="hljs-preprocessor">.apache</span><span class="hljs-preprocessor">.log</span>4j<span class="hljs-preprocessor">.PatternLayout</span>
+<span class="hljs-preprocessor">#指定输出编码</span>
+log4j<span class="hljs-preprocessor">.appender</span><span class="hljs-preprocessor">.I</span><span class="hljs-preprocessor">.encoding</span>=UTF-<span class="hljs-number">8</span>
+<span class="hljs-preprocessor">#自定义输出样式</span>
+log4j<span class="hljs-preprocessor">.appender</span><span class="hljs-preprocessor">.I</span><span class="hljs-preprocessor">.layout</span><span class="hljs-preprocessor">.ConversionPattern</span>=%d{ABSOLUTE} %<span class="hljs-number">5</span>p %c{<span class="hljs-number">1</span>}:%L - %m%n</code></pre>
+
+<p><strong>启动这个配置</strong> <br />
+在刚才的基础上,再加上<strong>I命名</strong>这样就可以启动这个配置了</p>
+
+
+
+<pre class="prettyprint"><code class=" hljs fix"><span class="hljs-attribute">log4j.rootLogger</span>=<span class="hljs-string">DEBUG, stdout,I</span></code></pre>
+
+<p><strong>测试这个配置</strong> <br />
+测试代码同上,这个时候是<strong>同时输出</strong>到控制台和文件 <br />
+文件中过滤了DEBUG级别的了 <br />
+<img src="http://img.blog.csdn.net/20160518231644917" alt="这里写图片描述" title="" /> <br />
+控制台正常输出 <br />
+<img src="http://img.blog.csdn.net/20160518230514747" alt="这里写图片描述" title="" /></p>
+
+<hr />
+
+
+
+<h3 id="3把error级别以上单独输出到一个文件">3.把error级别以上单独输出到一个文件</h3>
+
+<p>和之前一样,现在重新定义一个appender给error级别以上的用,命名为E</p>
+
+
+
+<pre class="prettyprint"><code class=" hljs avrasm"><span class="hljs-preprocessor">#log error级别的日志放在error.log</span>
+log4j<span class="hljs-preprocessor">.appender</span><span class="hljs-preprocessor">.E</span>=org<span class="hljs-preprocessor">.apache</span><span class="hljs-preprocessor">.log</span>4j<span class="hljs-preprocessor">.FileAppender</span>
+log4j<span class="hljs-preprocessor">.appender</span><span class="hljs-preprocessor">.E</span><span class="hljs-preprocessor">.File</span>=E:/test/error<span class="hljs-preprocessor">.log</span>
+log4j<span class="hljs-preprocessor">.appender</span><span class="hljs-preprocessor">.E</span><span class="hljs-preprocessor">.Threshold</span>=ERROR
+log4j<span class="hljs-preprocessor">.appender</span><span class="hljs-preprocessor">.E</span><span class="hljs-preprocessor">.layout</span>=org<span class="hljs-preprocessor">.apache</span><span class="hljs-preprocessor">.log</span>4j<span class="hljs-preprocessor">.PatternLayout</span>
+log4j<span class="hljs-preprocessor">.appender</span><span class="hljs-preprocessor">.E</span><span class="hljs-preprocessor">.encoding</span>=UTF-<span class="hljs-number">8</span>
+log4j<span class="hljs-preprocessor">.appender</span><span class="hljs-preprocessor">.E</span><span class="hljs-preprocessor">.layout</span><span class="hljs-preprocessor">.ConversionPattern</span>=%d{ABSOLUTE} %<span class="hljs-number">5</span>p %c{<span class="hljs-number">1</span>}:%L - %m%n</code></pre>
+
+<p><strong>启动这个配置</strong> <br />
+和之前一样,在最后增加上这个命名E即可</p>
+
+
+
+<pre class="prettyprint"><code class=" hljs mathematica">log4j.rootLogger=DEBUG, stdout,<span class="hljs-keyword">I</span>,<span class="hljs-keyword">E</span></code></pre>
+
+<p><strong>测试这个配置</strong> <br />
+测试代码同上</p>
+
+<p>成功把Error级别单独输出 <br />
+<img src="http://img.blog.csdn.net/20160518232106908" alt="这里写图片描述" title="" /></p>
+
+
+
+<h3 id="4指定包文件输出">4.指定包文件输出</h3>
+
+<p>很多情况下使用框架,框架本身就带有日志,而且特别多,这个时候就需要单独指定项目源码部分,也就是自己写的日志输出到指定文件</p>
+
+<p>在其他的基础上,修改下配置 <br />
+log4j.logger+包名:相当于局部配置,这里全局配置为DEBUG输出到控制台,但是com.test下面的INFO级别以上的日志输出到I命名和E命名中</p>
+
+
+
+<pre class="prettyprint"><code class=" hljs avrasm">log4j<span class="hljs-preprocessor">.rootLogger</span>=DEBUG, stdout
+log4j<span class="hljs-preprocessor">.logger</span><span class="hljs-preprocessor">.com</span><span class="hljs-preprocessor">.test</span>=INFO, I,E</code></pre>
+
+
+
+<h3 id="5每天产生一个新日志文件">5.每天产生一个新日志文件</h3>
+
+<p>只是使用的appender不一样了,每天产生日志使用的是org.apache.log4j.DailyRollingFileAppender这个类来控制</p>
+
+
+
+<pre class="prettyprint"><code class=" hljs avrasm"><span class="hljs-preprocessor">#打印INFO级别及以上的日志</span>
+<span class="hljs-preprocessor">#每天生成1个日志文件</span>
+log4j<span class="hljs-preprocessor">.appender</span><span class="hljs-preprocessor">.PRODUCT</span>=org<span class="hljs-preprocessor">.apache</span><span class="hljs-preprocessor">.log</span>4j<span class="hljs-preprocessor">.DailyRollingFileAppender</span>
+log4j<span class="hljs-preprocessor">.appender</span><span class="hljs-preprocessor">.PRODUCT</span><span class="hljs-preprocessor">.Append</span>=true
+<span class="hljs-preprocessor">#配置使其产生是每天凌晨</span>
+<span class="hljs-preprocessor">#如果想每小时则  log4j.appender.PRODUCT.DatePattern='.' yyyy-MM-dd -HH</span>
+log4j<span class="hljs-preprocessor">.appender</span><span class="hljs-preprocessor">.PRODUCT</span><span class="hljs-preprocessor">.DatePattern</span>=<span class="hljs-string">'.'</span> yyyy-MM-dd
+log4j<span class="hljs-preprocessor">.appender</span><span class="hljs-preprocessor">.PRODUCT</span><span class="hljs-preprocessor">.File</span>=irs<span class="hljs-preprocessor">.log</span>
+log4j<span class="hljs-preprocessor">.appender</span><span class="hljs-preprocessor">.PRODUCT</span><span class="hljs-preprocessor">.Threshold</span>=INFO
+log4j<span class="hljs-preprocessor">.appender</span><span class="hljs-preprocessor">.PRODUCT</span><span class="hljs-preprocessor">.Encoding</span>=UTF-<span class="hljs-number">8</span>
+<span class="hljs-preprocessor">#log4j.appender.PRODUCT.MaxFileSize=20MB</span>
+log4j<span class="hljs-preprocessor">.appender</span><span class="hljs-preprocessor">.PRODUCT</span><span class="hljs-preprocessor">.layout</span>=org<span class="hljs-preprocessor">.apache</span><span class="hljs-preprocessor">.log</span>4j<span class="hljs-preprocessor">.PatternLayout</span>
+log4j<span class="hljs-preprocessor">.appender</span><span class="hljs-preprocessor">.PRODUCT</span><span class="hljs-preprocessor">.layout</span><span class="hljs-preprocessor">.ConversionPattern</span>=&lt;%d{yyyy-MM-dd HH\:mm\:ss\:SSS} [%p]&gt;[Galaxy-IRS] %<span class="hljs-built_in">X</span>{module}-%<span class="hljs-built_in">X</span>{random}: %m%n</code></pre>
+
+<hr />
+
+
+
+<h2 id="3备注">3.备注</h2>
+
+
+
+<h3 id="1在和spring配合使用">1.在和spring配合使用</h3>
+
+<p>配合使用的时候,不需要显示的指定加载log4j.properties位置,默认放在src下,spring会自动加载这个配置的</p>
+
+<hr />
+
+<p>2.输出到webApp目录下 <br />
+这个就需要和spring配合使用,或者不用spring的话就需要自己写一个servlet,再加载配置文件前执行这个servlet,下面给出spring下指定路径方法</p>
+
+<p>在web.xml下配置,<strong>要放在加载spring之前才可以的哈</strong></p>
+
+
+
+<pre class="prettyprint"><code class=" hljs xml">  <span class="hljs-comment">&lt;!-- ******************* 初始化 "webAppRootKey" **************** --&gt;</span>
+  <span class="hljs-tag">&lt;<span class="hljs-title">context-param</span>&gt;</span>
+    <span class="hljs-tag">&lt;<span class="hljs-title">param-name</span>&gt;</span>webAppRootKey<span class="hljs-tag">&lt;/<span class="hljs-title">param-name</span>&gt;</span>
+    <span class="hljs-tag">&lt;<span class="hljs-title">param-value</span>&gt;</span>app.root<span class="hljs-tag">&lt;/<span class="hljs-title">param-value</span>&gt;</span>
+  <span class="hljs-tag">&lt;/<span class="hljs-title">context-param</span>&gt;</span>
+  <span class="hljs-comment">&lt;!-- ******************************************************************  --&gt;</span>
+
+  <span class="hljs-comment">&lt;!-- ***************** spring 设置 log4j 配置文件 ********************** --&gt;</span>
+  <span class="hljs-tag">&lt;<span class="hljs-title">context-param</span>&gt;</span>
+    <span class="hljs-tag">&lt;<span class="hljs-title">param-name</span>&gt;</span>log4jConfigLocation<span class="hljs-tag">&lt;/<span class="hljs-title">param-name</span>&gt;</span>
+    <span class="hljs-tag">&lt;<span class="hljs-title">param-value</span>&gt;</span>classpath:log4j.properties<span class="hljs-tag">&lt;/<span class="hljs-title">param-value</span>&gt;</span>
+  <span class="hljs-tag">&lt;/<span class="hljs-title">context-param</span>&gt;</span>
+  <span class="hljs-tag">&lt;<span class="hljs-title">listener</span>&gt;</span>
+    <span class="hljs-tag">&lt;<span class="hljs-title">listener-class</span>&gt;</span>org.springframework.web.util.Log4jConfigListener<span class="hljs-tag">&lt;/<span class="hljs-title">listener-class</span>&gt;</span>
+  <span class="hljs-tag">&lt;/<span class="hljs-title">listener</span>&gt;</span>
+  <span class="hljs-comment">&lt;!-- ******************************************************************* --&gt;</span></code></pre>
+
+<p>然后在log4j.properties中使用</p>
+
+
+
+<pre class="prettyprint"><code class=" hljs avrasm">log4j<span class="hljs-preprocessor">.appender</span><span class="hljs-preprocessor">.file</span><span class="hljs-preprocessor">.File</span>=${app<span class="hljs-preprocessor">.root</span>}/WEB-INF/logs/log<span class="hljs-preprocessor">.html</span></code></pre>
+
+<p>这样就实现了,输出到WEB-INF下,前提logs这个文件夹必须存在哈</p>
+
+<p>最后分享自己常用日志格式:</p>
+
+<pre class="prettyprint"><code class=" hljs perl"><span class="hljs-variable">%d</span>{HH:mm:ss} [<span class="hljs-variable">%t</span>] <span class="hljs-variable">%c</span> <span class="hljs-variable">%p</span> - <span class="hljs-variable">%m</span><span class="hljs-variable">%n</span></code></pre></div>&#13;
+        <script type="text/javascript">&#13;
+            $(function () {&#13;
+                $('pre.prettyprint code').each(function () {&#13;
+                    var lines = $(this).text().split('\n').length;&#13;
+                    var $numbering = $('&lt;ul/&gt;').addClass('pre-numbering').hide();&#13;
+                    $(this).addClass('has-numbering').parent().append($numbering);&#13;
+                    for (i = 1; i &lt;= lines; i++) {&#13;
+                        $numbering.append($('&lt;li/&gt;').text(i));&#13;
+                    };&#13;
+                    $numbering.fadeIn(1700);&#13;
+                });&#13;
+            });&#13;
+        </script>&#13;
+   &#13;

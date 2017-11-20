@@ -1,0 +1,278 @@
+
+        <div class="markdown_views"><p>学习springMVC从大牛那借鉴了很多经验,感谢<a href="http://haohaoxuexi.iteye.com/">ITEYE的大牛</a></p>
+
+<hr />
+
+<p>springMVC提供的异常处理主要有两种方式，一种是直接实现自己的<strong>HandlerExceptionResolver</strong>，当然这也包括使用Spring已经为我们提供好的<strong>SimpleMappingExceptionResolver</strong>和<strong>DefaultHandlerExceptionResolver</strong>，另一种是使用注解的方式实现一个专门用于处理异常的<strong>Controller——ExceptionHandler</strong>。和之前一样,前者相当于全局管理的异常,后者只针对当前<strong>controller</strong>有效</p>
+
+<hr />
+
+
+
+<h2 id="1全局异常">1.全局异常</h2>
+
+
+
+<h3 id="1创建异常并配置">1.创建异常并配置</h3>
+
+<p>首先定义一个全局异常类,可以看出这个类会把异常打印在控制台,并且放入model中,以便可以在jsp页面上展示出来</p>
+
+
+
+<pre class="prettyprint"><code class=" hljs java"><span class="hljs-keyword">import</span> javax.servlet.http.HttpServletRequest;
+<span class="hljs-keyword">import</span> javax.servlet.http.HttpServletResponse;
+
+<span class="hljs-keyword">import</span> org.springframework.web.servlet.HandlerExceptionResolver;
+<span class="hljs-keyword">import</span> org.springframework.web.servlet.ModelAndView;
+
+<span class="hljs-keyword">public</span> <span class="hljs-class"><span class="hljs-keyword">class</span> <span class="hljs-title">MyExceptionResolver</span> <span class="hljs-keyword">implements</span> <span class="hljs-title">HandlerExceptionResolver</span>{</span>
+
+    <span class="hljs-keyword">public</span> ModelAndView <span class="hljs-title">resolveException</span>(HttpServletRequest request,
+            HttpServletResponse response, Object handler, Exception ex) {
+
+        System.out.println(<span class="hljs-string">"==============异常开始============="</span>);
+        ex.printStackTrace();
+        System.out.println(<span class="hljs-string">"==============异常结束============="</span>);
+        <span class="hljs-comment">//设置返回页面为error.jsp</span>
+        ModelAndView mv = <span class="hljs-keyword">new</span> ModelAndView(<span class="hljs-string">"error"</span>);
+        mv.addObject(<span class="hljs-string">"exception"</span>, ex.toString().replaceAll(<span class="hljs-string">"\n"</span>, <span class="hljs-string">"&lt;br/&gt;"</span>));
+        <span class="hljs-keyword">return</span> mv;
+    }
+}</code></pre>
+
+<p>然后在error.jsp中显示异常</p>
+
+
+
+<pre class="prettyprint"><code class=" hljs xml"><span class="vbscript">&lt;%@ page language=<span class="hljs-string">"java"</span> contentType=<span class="hljs-string">"text/html; charset=UTF-8"</span> pageEncoding=<span class="hljs-string">"UTF-8"</span>%&gt;</span>
+<span class="vbscript">&lt;%@ taglib prefix=<span class="hljs-string">"c"</span> uri=<span class="hljs-string">"http://java.sun.com/jsp/jstl/core"</span>%&gt;</span>
+<span class="hljs-doctype">&lt;!DOCTYPE html&gt;</span>
+<span class="hljs-tag">&lt;<span class="hljs-title">html</span> <span class="hljs-attribute">lang</span>=<span class="hljs-value">"en"</span>&gt;</span>
+  <span class="hljs-tag">&lt;<span class="hljs-title">head</span>&gt;</span>
+  <span class="hljs-tag">&lt;<span class="hljs-title">meta</span> <span class="hljs-attribute">charset</span>=<span class="hljs-value">"utf-8"</span> /&gt;</span>
+<span class="hljs-tag">&lt;<span class="hljs-title">title</span>&gt;</span>应用程序异常 (500)<span class="hljs-tag">&lt;/<span class="hljs-title">title</span>&gt;</span> 
+<span class="hljs-tag">&lt;/<span class="hljs-title">head</span>&gt;</span> 
+<span class="hljs-tag">&lt;<span class="hljs-title">body</span>&gt;</span> 
+  <span class="hljs-tag">&lt;<span class="hljs-title">div</span>&gt;</span> 
+    <span class="hljs-tag">&lt;<span class="hljs-title">h1</span>&gt;</span>应用程序异常<span class="hljs-tag">&lt;/<span class="hljs-title">h1</span>&gt;</span> 
+    <span class="hljs-tag">&lt;<span class="hljs-title">p</span>&gt;</span>抱歉！您访问的页面出现异常，请稍后重试或联系管理员。<span class="hljs-tag">&lt;/<span class="hljs-title">p</span>&gt;</span> 
+    <span class="hljs-tag">&lt;<span class="hljs-title">p</span>&gt;</span><span class="hljs-tag">&lt;<span class="hljs-title">a</span> <span class="hljs-attribute">href</span>=<span class="hljs-value">"#"</span>&gt;</span>详 情<span class="hljs-tag">&lt;/<span class="hljs-title">a</span>&gt;</span> 
+<span class="hljs-tag">&lt;<span class="hljs-title">a</span> <span class="hljs-attribute">href</span>=<span class="hljs-value">"javascript:history.back(-1)"</span>&gt;</span>返 回<span class="hljs-tag">&lt;/<span class="hljs-title">a</span>&gt;</span> 
+    <span class="hljs-tag">&lt;/<span class="hljs-title">p</span>&gt;</span> 
+    <span class="hljs-tag">&lt;<span class="hljs-title">div</span> <span class="hljs-attribute">style</span>=<span class="hljs-value">"display:none;text-align: left;"</span> <span class="hljs-attribute">id</span>=<span class="hljs-value">"err"</span>&gt;</span>${exception }<span class="hljs-tag">&lt;/<span class="hljs-title">div</span>&gt;</span>
+  <span class="hljs-tag">&lt;/<span class="hljs-title">div</span>&gt;</span>
+<span class="hljs-tag">&lt;/<span class="hljs-title">body</span>&gt;</span> 
+<span class="hljs-tag">&lt;/<span class="hljs-title">html</span>&gt;</span></code></pre>
+
+<p>接着在springMVC.xml中配置这个异常</p>
+
+
+
+<pre class="prettyprint"><code class=" hljs xml">    <span class="hljs-comment">&lt;!--配置全局异常类--&gt;</span>
+    <span class="hljs-tag">&lt;<span class="hljs-title">bean</span> <span class="hljs-attribute">id</span>=<span class="hljs-value">"exceptionResolver"</span> <span class="hljs-attribute">class</span>=<span class="hljs-value">"main.java.controller.MyExceptionResolver"</span>/&gt;</span></code></pre>
+
+
+
+<h3 id="2使用上面的异常">2.使用上面的异常</h3>
+
+<p>在控制器里面模拟调用</p>
+
+
+
+<pre class="prettyprint"><code class=" hljs cs">    @RequestMapping(<span class="hljs-keyword">value</span> = <span class="hljs-string">"/hello"</span>,method = RequestMethod.GET)
+    <span class="hljs-keyword">public</span> String <span class="hljs-title">hello</span>(Model model){
+        String str = <span class="hljs-string">"asbd123"</span>;
+        <span class="hljs-comment">//这里会报NumberFormatException异常,然后spring会自动捕捉这个异常</span>
+        <span class="hljs-keyword">int</span> a = Integer.parseInt(str);
+
+        <span class="hljs-keyword">return</span> <span class="hljs-string">"hello"</span>;
+    }</code></pre>
+
+<p>然后访问localhost:8888/hello,页面就会显示如下 <br />
+<img src="http://img.blog.csdn.net/20160404190715797" alt="这里写图片描述" title="" /></p>
+
+<p>同样的再控制台会输出我们的异常信息 <br />
+<img src="http://img.blog.csdn.net/20160404190739516" alt="这里写图片描述" title="" /></p>
+
+<p>到此这就是一个全局异常.</p>
+
+<hr />
+
+
+
+<h2 id="2局部异常处理">2.局部异常处理</h2>
+
+<p>局部异常使用使用@ExceptionHandler进行处理,具体如下</p>
+
+<p><font color="red">使用@ExceptionHandler进行处理有一个不好的地方是进行异常处理的方法必须与出错的方法在同一个Controller里面</font></p>
+
+
+
+<pre class="prettyprint"><code class=" hljs cs">   <span class="hljs-comment">//创建处理异常的类,这个类会处理当前控制器下的Myexception这个异常</span>
+    @ExceptionHandler(Myexception.class)
+    <span class="hljs-keyword">public</span> String <span class="hljs-title">getError</span>(Myexception myexception,Model model){
+        System.<span class="hljs-keyword">out</span>.println(<span class="hljs-string">"==============异常开始============="</span>);
+        myexception.printStackTrace();
+        System.<span class="hljs-keyword">out</span>.println(<span class="hljs-string">"==============异常结束============="</span>);
+        model.addAttribute(<span class="hljs-string">"exception"</span>,myexception.getMessage());
+        <span class="hljs-keyword">return</span> <span class="hljs-string">"error"</span>;
+    }
+    <span class="hljs-comment">//当前这个请求会抛出异常</span>
+    @RequestMapping(<span class="hljs-keyword">value</span> = <span class="hljs-string">"/hello"</span>,method = RequestMethod.GET)
+    <span class="hljs-keyword">public</span> String <span class="hljs-title">hello</span>(Model model) throws Myexception {
+        <span class="hljs-keyword">if</span> (<span class="hljs-keyword">true</span>){
+            <span class="hljs-keyword">throw</span> <span class="hljs-keyword">new</span> Myexception(<span class="hljs-string">"出错了"</span>);
+        }
+
+        <span class="hljs-keyword">return</span> <span class="hljs-string">"hello"</span>;
+    }</code></pre>
+
+<p>对应的JSP视图中会显示出相应的错误信息</p>
+
+<p><img src="http://img.blog.csdn.net/20160404191859786" alt="这里写图片描述" title="" /></p>
+
+<p>对应的控制台也会输出相应的信息</p>
+
+<p><img src="http://img.blog.csdn.net/20160404191940161" alt="这里写图片描述" title="" /></p>
+
+<hr />
+
+
+
+<h2 id="3异常优先级">3.异常优先级</h2>
+
+<p>既然在SpringMVC中有两种处理异常的方式，那么就存在一个优先级的问题： <br />
+当发生异常的时候，SpringMVC会如下处理：</p>
+
+<ol>
+<li>SpringMVC会先从配置文件找异常解析器HandlerExceptionResolver</li>
+<li>如果找到了异常异常解析器，那么接下来就会判断该异常解析器能否处理当前发生的异常</li>
+<li>如果可以处理的话，那么就进行处理，然后给前台返回对应的异常视图</li>
+<li>如果没有找到对应的异常解析器或者是找到的异常解析器不能处理当前的异常的时候，就看当前的Controller中有没有提供对应的异常处理器，如果提供了就由Controller自己进行处理并返回对应的视图</li>
+<li>如果配置文件里面没有定义对应的异常解析器，而当前Controller中也没有定义的话，那么该异常就会被抛出来。</li>
+</ol>
+
+<hr />
+
+
+
+<h2 id="4spring提供的异常模板">4.spring提供的异常模板</h2>
+
+<p>Spring实现了一个SimpleMappingExceptionResolver，这两者都是继承自抽象类<strong>AbstractHandlerExceptionResolver</strong>，而AbstractHandlerExceptionResolver是实现了HandlerExceptionResolver接口的resolveException方法的，并由此抽取出两个抽象方法，一个是在<strong>进行异常处理之前执行</strong>的方法prepareResponse(exception, response)，一个是<strong>进行异常解析</strong>的doResolveException(request, response, handler, exception)方法。 <br />
+SimpleMappingExceptionResolver，顾名思义就是通过<strong>简单的映射关系</strong>来决定由哪个视图来处理当前的错误信息。SimpleMappingExceptionResolver提供了通过异常类型exceptionMappings来进行异常与视图之间的映射关系，提供了在发生异常时通过<strong>statusCodes</strong>来映射异常返回的视图名称和对应的HttpServletResponse的返回码。而且可以通过defaultErrorView和defaultErrorCode来指定默认值，<strong>defaultErrorView</strong>表示当没有在exceptionMappings里面找到对应的异常类型时就返回defaultErrorView定义的视图，<strong>defaultErrorCode</strong>表示在发生异常时当没有在视图与返回码的映射关系statusCodes里面找到对应的映射时默认返回的返回码。在使用SimpleMappingExceptionResolver时，当发生异常的时候，SimpleMappingExceptionResolver将会把当前的异常对象放到自身属性<strong>exceptionAttribute</strong>中，当没有指定exceptionAttribute时，exceptionAttribute就是用默认值exception。</p>
+
+<p>下面试一个其xml代码的简单配置</p>
+
+
+
+<pre class="prettyprint"><code class=" hljs xml">    <span class="hljs-tag">&lt;<span class="hljs-title">bean</span> <span class="hljs-attribute">class</span>=<span class="hljs-value">"org.springframework.web.servlet.handler.SimpleMappingExceptionResolver"</span>&gt;</span>
+        <span class="hljs-tag">&lt;<span class="hljs-title">property</span> <span class="hljs-attribute">name</span>=<span class="hljs-value">"exceptionMappings"</span>&gt;</span>
+            <span class="hljs-tag">&lt;<span class="hljs-title">props</span>&gt;</span>
+                <span class="hljs-tag">&lt;<span class="hljs-title">prop</span> <span class="hljs-attribute">key</span>=<span class="hljs-value">"NumberFormatException"</span>&gt;</span>number<span class="hljs-tag">&lt;/<span class="hljs-title">prop</span>&gt;</span><span class="hljs-comment">&lt;!-- 表示当抛出NumberFormatException的时候就返回名叫number的视图 --&gt;</span>
+                <span class="hljs-tag">&lt;<span class="hljs-title">prop</span> <span class="hljs-attribute">key</span>=<span class="hljs-value">"NullPointerException"</span>&gt;</span>null<span class="hljs-tag">&lt;/<span class="hljs-title">prop</span>&gt;</span>
+            <span class="hljs-tag">&lt;/<span class="hljs-title">props</span>&gt;</span>
+        <span class="hljs-tag">&lt;/<span class="hljs-title">property</span>&gt;</span>
+        <span class="hljs-tag">&lt;<span class="hljs-title">property</span> <span class="hljs-attribute">name</span>=<span class="hljs-value">"defaultErrorView"</span> <span class="hljs-attribute">value</span>=<span class="hljs-value">"exception"</span>/&gt;</span><span class="hljs-comment">&lt;!-- 表示当抛出异常但没有在exceptionMappings里面找到对应的异常时 返回名叫exception的视图--&gt;</span>
+        <span class="hljs-tag">&lt;<span class="hljs-title">property</span> <span class="hljs-attribute">name</span>=<span class="hljs-value">"statusCodes"</span>&gt;</span><span class="hljs-comment">&lt;!-- 定义在发生异常时视图跟返回码的对应关系 --&gt;</span>
+            <span class="hljs-tag">&lt;<span class="hljs-title">props</span>&gt;</span>
+                <span class="hljs-tag">&lt;<span class="hljs-title">prop</span> <span class="hljs-attribute">key</span>=<span class="hljs-value">"number"</span>&gt;</span>500<span class="hljs-tag">&lt;/<span class="hljs-title">prop</span>&gt;</span><span class="hljs-comment">&lt;!-- 表示在发生NumberFormatException时返回视图number，然后这里定义发生异常时视图number对应的HttpServletResponse的返回码是500 --&gt;</span>
+                <span class="hljs-tag">&lt;<span class="hljs-title">prop</span> <span class="hljs-attribute">key</span>=<span class="hljs-value">"null"</span>&gt;</span>503<span class="hljs-tag">&lt;/<span class="hljs-title">prop</span>&gt;</span>
+            <span class="hljs-tag">&lt;/<span class="hljs-title">props</span>&gt;</span>
+        <span class="hljs-tag">&lt;/<span class="hljs-title">property</span>&gt;</span>
+        <span class="hljs-tag">&lt;<span class="hljs-title">property</span> <span class="hljs-attribute">name</span>=<span class="hljs-value">"defaultStatusCode"</span> <span class="hljs-attribute">value</span>=<span class="hljs-value">"404"</span>/&gt;</span><span class="hljs-comment">&lt;!-- 表示在发生异常时默认的HttpServletResponse的返回码是多少，默认是200 --&gt;</span>
+    <span class="hljs-tag">&lt;/<span class="hljs-title">bean</span>&gt;</span></code></pre>
+
+<p>下面是引发这些异常的测试代码</p>
+
+
+
+<pre class="prettyprint"><code class=" hljs java"><span class="hljs-annotation">@Controller</span>
+<span class="hljs-annotation">@RequestMapping</span>(<span class="hljs-string">"/test"</span>)
+<span class="hljs-keyword">public</span> <span class="hljs-class"><span class="hljs-keyword">class</span> <span class="hljs-title">TestController</span> {</span>
+
+    <span class="hljs-annotation">@RequestMapping</span>(<span class="hljs-string">"/null"</span>)
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">void</span> <span class="hljs-title">testNullPointerException</span>() {
+        Blog blog = <span class="hljs-keyword">null</span>;
+        <span class="hljs-comment">//这里就会发生空指针异常，然后就会返回定义在SpringMVC配置文件中的null视图</span>
+        System.out.println(blog.getId());
+    }
+
+    <span class="hljs-annotation">@RequestMapping</span>(<span class="hljs-string">"/number"</span>)
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">void</span> <span class="hljs-title">testNumberFormatException</span>() {
+        <span class="hljs-comment">//这里就会发生NumberFormatException，然后就会返回定义在SpringMVC配置文件中的number视图</span>
+        Integer.parseInt(<span class="hljs-string">"abc"</span>);
+    }
+
+    <span class="hljs-annotation">@RequestMapping</span>(<span class="hljs-string">"/default"</span>)
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">void</span> <span class="hljs-title">testDefaultException</span>() {
+        <span class="hljs-keyword">if</span> (<span class="hljs-number">1</span>==<span class="hljs-number">1</span>)
+            <span class="hljs-comment">//由于该异常类型在SpringMVC的配置文件中没有指定，所以就会返回默认的exception视图</span>
+            <span class="hljs-keyword">throw</span> <span class="hljs-keyword">new</span> RuntimeException(<span class="hljs-string">"Error!"</span>);
+    }
+
+}
+</code></pre>
+
+<p>最后在jsp页面中可以访问这些异常</p>
+
+
+
+<pre class="prettyprint"><code class=" hljs xml"><span class="vbscript">&lt;%@ page language=<span class="hljs-string">"java"</span> import=<span class="hljs-string">"java.util.*"</span> pageEncoding=<span class="hljs-string">"GB18030"</span> isErrorPage=<span class="hljs-string">"true"</span>%&gt;</span>
+<span class="vbscript">&lt;%
+<span class="hljs-built_in">String</span> path = <span class="hljs-built_in">request</span>.getContextPath();
+<span class="hljs-built_in">String</span> basePath = <span class="hljs-built_in">request</span>.getScheme()+<span class="hljs-string">"://"</span>+<span class="hljs-built_in">request</span>.getServerName()+<span class="hljs-string">":"</span>+<span class="hljs-built_in">request</span>.getServerPort()+path+<span class="hljs-string">"/"</span>;
+%&gt;</span>
+
+<span class="hljs-doctype">&lt;!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN"&gt;</span>
+<span class="hljs-tag">&lt;<span class="hljs-title">html</span>&gt;</span>
+  <span class="hljs-tag">&lt;<span class="hljs-title">head</span>&gt;</span>
+    <span class="hljs-tag">&lt;<span class="hljs-title">base</span> <span class="hljs-attribute">href</span>=<span class="hljs-value">"&lt;%=basePath%&gt;"</span>&gt;</span>
+
+    <span class="hljs-tag">&lt;<span class="hljs-title">title</span>&gt;</span>My JSP 'number.jsp' starting page<span class="hljs-tag">&lt;/<span class="hljs-title">title</span>&gt;</span>
+
+    <span class="hljs-tag">&lt;<span class="hljs-title">meta</span> <span class="hljs-attribute">http-equiv</span>=<span class="hljs-value">"pragma"</span> <span class="hljs-attribute">content</span>=<span class="hljs-value">"no-cache"</span>&gt;</span>
+    <span class="hljs-tag">&lt;<span class="hljs-title">meta</span> <span class="hljs-attribute">http-equiv</span>=<span class="hljs-value">"cache-control"</span> <span class="hljs-attribute">content</span>=<span class="hljs-value">"no-cache"</span>&gt;</span>
+    <span class="hljs-tag">&lt;<span class="hljs-title">meta</span> <span class="hljs-attribute">http-equiv</span>=<span class="hljs-value">"expires"</span> <span class="hljs-attribute">content</span>=<span class="hljs-value">"0"</span>&gt;</span>    
+    <span class="hljs-tag">&lt;<span class="hljs-title">meta</span> <span class="hljs-attribute">http-equiv</span>=<span class="hljs-value">"keywords"</span> <span class="hljs-attribute">content</span>=<span class="hljs-value">"keyword1,keyword2,keyword3"</span>&gt;</span>
+    <span class="hljs-tag">&lt;<span class="hljs-title">meta</span> <span class="hljs-attribute">http-equiv</span>=<span class="hljs-value">"description"</span> <span class="hljs-attribute">content</span>=<span class="hljs-value">"This is my page"</span>&gt;</span>
+    <span class="hljs-comment">&lt;!--
+    &lt;link rel="stylesheet" type="text/css" href="styles.css"&gt;
+    --&gt;</span>
+
+  <span class="hljs-tag">&lt;/<span class="hljs-title">head</span>&gt;</span>
+
+  <span class="hljs-tag">&lt;<span class="hljs-title">body</span>&gt;</span>
+    NumberFormatException. <span class="hljs-tag">&lt;<span class="hljs-title">br</span>&gt;</span>
+    <span class="vbscript">&lt;%=exception.getMessage() %&gt;</span><span class="hljs-tag">&lt;<span class="hljs-title">br</span>/&gt;</span>
+    <span class="vbscript">&lt;%=exception %&gt;</span><span class="hljs-tag">&lt;<span class="hljs-title">br</span>/&gt;</span><span class="hljs-tag">&lt;<span class="hljs-title">span</span> <span class="hljs-attribute">style</span>=<span class="hljs-value">"color: #3366ff;"</span>&gt;</span><span class="hljs-comment">&lt;!-- 这是JSP中的内置对象exception --&gt;</span><span class="hljs-tag">&lt;/<span class="hljs-title">span</span>&gt;</span>
+
+
+
+    <span class="vbscript">&lt;%=<span class="hljs-built_in">request</span>.getAttribute(<span class="hljs-string">"ex"</span>) %&gt;</span><span class="hljs-tag">&lt;<span class="hljs-title">br</span>&gt;</span><span class="hljs-tag">&lt;<span class="hljs-title">span</span> <span class="hljs-attribute">style</span>=<span class="hljs-value">"color: #3366ff;"</span>&gt;</span><span class="hljs-comment">&lt;!-- 这是SpringMVC放在返回的Model中的异常对象 --&gt;</span><span class="hljs-tag">&lt;/<span class="hljs-title">span</span>&gt;</span>
+
+
+
+    <span class="vbscript">&lt;%=<span class="hljs-built_in">request</span>.getAttribute(<span class="hljs-string">"javax.servlet.error.status_code"</span>) %&gt;</span><span class="hljs-tag">&lt;<span class="hljs-title">span</span> <span class="hljs-attribute">style</span>=<span class="hljs-value">"color: #3366ff;"</span>&gt;</span><span class="hljs-comment">&lt;!-- HttpServletResponse返回的错误码信息，因为前面已经配置了NumberFormatException的错误码返回值为888，所以这里应该显示888 --&gt;</span><span class="hljs-tag">&lt;/<span class="hljs-title">span</span>&gt;</span>
+
+  <span class="hljs-tag">&lt;/<span class="hljs-title">body</span>&gt;</span>
+<span class="hljs-tag">&lt;/<span class="hljs-title">html</span>&gt;</span>
+</code></pre>
+
+<hr />
+
+<p>项目示例可以参考: <br />
+SSM框架整合:    <a href="https://github.com/nl101531/JavaWEB">https://github.com/nl101531/JavaWEB</a></p></div>&#13;
+        <script type="text/javascript">&#13;
+            $(function () {&#13;
+                $('pre.prettyprint code').each(function () {&#13;
+                    var lines = $(this).text().split('\n').length;&#13;
+                    var $numbering = $('&lt;ul/&gt;').addClass('pre-numbering').hide();&#13;
+                    $(this).addClass('has-numbering').parent().append($numbering);&#13;
+                    for (i = 1; i &lt;= lines; i++) {&#13;
+                        $numbering.append($('&lt;li/&gt;').text(i));&#13;
+                    };&#13;
+                    $numbering.fadeIn(1700);&#13;
+                });&#13;
+            });&#13;
+        </script>&#13;
+   &#13;

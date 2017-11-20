@@ -1,0 +1,98 @@
+
+
+<p><strong>工厂方法模式(factory method pattern)</strong>从2方面认识。</p>&#13;
+<p><strong>编程技巧：</strong>这是对<a target="_blank" href="http://blog.csdn.net/yqj2065/article/details/8561370">参数化工厂方法</a>加以改进的经典技术，以多态来重构if-else、switch-case等分支结构。</p>&#13;
+<p><strong>设计思路：</strong>你一定要注意，工厂方法模式中Client关注的不是的产品（所以静态工厂中Door的例子，不适合），<strong><span style="color:#ff0000">Client关注的是工厂</span></strong>！</p>&#13;
+<h3>1.以多态来重构分支结构</h3>&#13;
+<div>静态工厂的缺点是分支结构，需要增添新的分支时，程序不符合OCP。<br />&#13;
+</div>&#13;
+<div><pre name="code" class="java">package creational.factory;
+public class DoorFactory{
+    public static Door getObject(String typeName)	{//int ID
+        if(typeName.equals("D1")){
+            return new D1();
+        }else if(typeName.equals("D2")){
+            return new D2();
+        }else{
+            return null;
+        }
+    }
+}
+
+package creational.factory;
+public class Hand{
+    static Door d = null;    
+    public static void test(){
+        d = DoorFactory.getObject("D2")	;
+        d.m();
+    }
+}
+</pre>在<strong><span style="color:#ff0000">不使用配置文件和反射机制</span></strong>的情况下，</div>&#13;
+<div><br />&#13;
+</div>&#13;
+<div><pre name="code" class="java">interface IDoorFactory {
+	public Door createDoor();
+}
+
+class D1Factory implements IDoorFactory {
+	public D1 createDoor() {
+		return new D1();
+	}
+}//D2Factory 略
+
+
+public class Client {
+	public static void main(String[] args) {
+		IDoorFactory factory = new D1Factory();
+		Door door= factory.createDoor();//生产D1
+		door.m();
+	}
+}
+</pre>将工厂类泛化成抽象类型，以其子类多态地创建不同的产品如Door的子类。</div>&#13;
+<div>它体现了一种非常重要的思考方式——以多态来重构if-else或switch-case结构。从重构分支结构的角度看，<a target="_blank" href="http://blog.csdn.net/yqj2065/article/details/38909293">策略模式</a>与[2.1.3工厂方法模式（3.3）]和[4.2状态模式（5.8）]是三胞胎。</div>&#13;
+<div><br />&#13;
+</div>&#13;
+<h3>2.颠倒黑白</h3>&#13;
+<div>&#13;
+<p>上面例子中Hand采用工厂方法模式并不令人信服。Hand避免了依赖Door的具体子类D1、D2等，却<strong>变成了依赖具体的D1Factory、D2 Factory</strong>。通过依赖注入，可以使得Hand仅仅依赖Factory，但是，这样做不如直接通过依赖注入让Hand依赖抽象类型Door。</p>&#13;
+编程实践中，通常<strong><span style="color:#ff0000">工厂是Client关注的主体</span></strong>，而工厂生产的产品被Client所忽视。例如Client开车ICar，不管什么车Client都可以开。现在，Car要找它的4S店/I4S，Client会关注各种4S店吗？</div>&#13;
+<div style="text-align:center"><img src="http://img.blog.csdn.net/20140912152002875?watermark/2/text/aHR0cDovL2Jsb2cuY3Nkbi5uZXQveXFqMjA2NQ==/font/5a6L5L2T/fontsize/400/fill/I0JBQkFCMA==/dissolve/70/gravity/SouthEast" alt="" /><br />&#13;
+</div>&#13;
+<div><br />&#13;
+</div>&#13;
+<div><pre name="code" class="java">interface ICar{ //工厂接口	
+	public I4S get4S();//管你是那个4S店
+	public void move();
+}
+class BBCar implements ICar{
+    public I4S get4S() {
+        return new BB4S();
+    }
+
+    public void move(){
+        System.out.println("BBCar move");
+    }
+}//QQCar 略
+
+interface I4S{    
+    void doSomething();
+}//实现类略
+public class Client{
+    public static void main(String[] args) {
+		ICar car =(ICar)tool.God.create("2-6-Car"); //ICar car =new BBCar();
+		car.move();
+		I4S repair = car.get4S();
+		repair.doSomething();
+		car.move();
+	}
+}</pre><br />&#13;
+由于受通用工具类如God——反射+配置的压制，现在应用程序中使用工厂方法模式比较少见。</div>&#13;
+<div>在<strong>不使用配置文件</strong>的场合，如JDK的设计中广泛使用，典型例子：<br />&#13;
+<p>public interface Iterable{</p>&#13;
+<p>    Iterator iterator();//返回一个迭代器</p>&#13;
+}<br />&#13;
+<br />&#13;
+<a target="_blank" href="http://blog.csdn.net/yqj2065/article/details/8592375" style="text-align:center"><img src="http://img.blog.csdn.net/20140919170809965?watermark/2/text/aHR0cDovL2Jsb2cuY3Nkbi5uZXQveXFqMjA2NQ==/font/5a6L5L2T/fontsize/400/fill/I0JBQkFCMA==/dissolve/70/gravity/SouthEast" alt="" /></a><br />&#13;
+<br />&#13;
+</div>&#13;
+   &#13;

@@ -1,0 +1,201 @@
+
+        <div class="markdown_views"><p>本文将通过Channel(通道)、Buffer(缓冲区)以及Selector(选择器)来实现TCP下NIO的实例。 <br />
+主要通过ServerSocketChannel与SocketChannel信道来完成本次实例。</p>
+
+
+
+<h1 id="1服务端">1.服务端</h1>
+
+
+
+<pre class="prettyprint"><code class=" hljs axapta"><span class="hljs-keyword">public</span> <span class="hljs-class"><span class="hljs-keyword">class</span> <span class="hljs-title">ChannelServer2</span> {</span>
+
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">static</span> <span class="hljs-keyword">void</span> main(String[] args) {
+        ServerSocketChannel serverChannel;
+        Selector selector;
+        <span class="hljs-keyword">try</span> {
+            <span class="hljs-comment">// 打开监听信道,ServerSocketChannel最终实现的是channel接口</span>
+            serverChannel = ServerSocketChannel.open();
+            ServerSocket serverSocket = serverChannel.socket(); <span class="hljs-comment">// 创建一个服务端socket</span>
+            InetSocketAddress address = <span class="hljs-keyword">new</span> InetSocketAddress(<span class="hljs-number">7456</span>);
+            serverSocket.bind(address); <span class="hljs-comment">// 绑定IP及端口</span>
+            serverChannel.configureBlocking(<span class="hljs-keyword">false</span>);<span class="hljs-comment">// 设置为非阻塞方式,如果为true 那么就为传统的阻塞方式</span>
+            selector = Selector.open();<span class="hljs-comment">// 静态方法 实例化selector 创建选择器</span>
+            <span class="hljs-comment">/*如果你注册不止一种事件，那么可以用“位或”操作符将常量连接起来
+            SelectionKey.OP_READ |SelectionKey.OP_WRITE;*/</span>
+            serverChannel.register(selector, SelectionKey.OP_ACCEPT);
+            System.out.println(<span class="hljs-string">"服务端启动......"</span>);
+            <span class="hljs-keyword">while</span> (<span class="hljs-keyword">true</span>) {
+                <span class="hljs-comment">// 等待某信道就绪(或超时) 监听注册通道，当其中有注册的 IO操作可以进行时，该函数返回</span>
+                <span class="hljs-comment">// 并将对应的SelectionKey加入selected-key</span>
+                <span class="hljs-keyword">if</span> (selector.select(<span class="hljs-number">3000</span>) == <span class="hljs-number">0</span>) {
+                    System.out.println(<span class="hljs-string">"重新等待"</span>);
+                    <span class="hljs-keyword">continue</span>;
+                }
+                <span class="hljs-comment">// selectedKeys()中包含了每个准备好某一I/O操作的信道的SelectionKey</span>
+                Set&lt;SelectionKey&gt; readyKeys = selector.selectedKeys();
+                <span class="hljs-comment">// Selected-key代表了所有通过select()方法监测到可以进行IO操作的channel</span>
+                Iterator&lt;SelectionKey&gt; iterator = readyKeys.iterator();
+                <span class="hljs-keyword">while</span> (iterator.hasNext()) {<span class="hljs-comment">// 对每个信道进行一次循环，查看各个信道是否有事件需要处理</span>
+                    SelectionKey key = iterator.next();
+                    iterator.remove();
+                    <span class="hljs-keyword">if</span> (key.isAcceptable()) { <span class="hljs-comment">// 有客户端连接请求时</span>
+                        ServerSocketChannel <span class="hljs-keyword">server</span> = (ServerSocketChannel) key.channel();
+                        SocketChannel <span class="hljs-keyword">client</span> = <span class="hljs-keyword">server</span>.accept();
+                        System.out.println(<span class="hljs-string">"接收到连接:"</span> + <span class="hljs-keyword">client</span>);
+                        <span class="hljs-keyword">client</span>.configureBlocking(<span class="hljs-keyword">false</span>);
+                        SelectionKey clientKey = <span class="hljs-keyword">client</span>.register(selector,
+                                SelectionKey.OP_WRITE | SelectionKey.OP_READ);
+                        ByteBuffer buffer = ByteBuffer.allocate(<span class="hljs-number">1024</span>);<span class="hljs-comment">// 分配一个新的1024字节的缓冲区</span>
+                        clientKey.attach(buffer);<span class="hljs-comment">// 将给定的缓冲区附加到此键</span>
+                    }
+                    <span class="hljs-keyword">if</span> (key.isReadable()) {<span class="hljs-comment">// 判断是否有数据发送过来</span>
+                        SocketChannel <span class="hljs-keyword">client</span> = (SocketChannel) key.channel();
+                        ByteBuffer buffer = (ByteBuffer) key.attachment();
+                        buffer.clear();
+                        <span class="hljs-comment">// 读取信息获得读取的字节数</span>
+                        <span class="hljs-keyword">long</span> bytesRead = <span class="hljs-keyword">client</span>.read(buffer);
+                        <span class="hljs-keyword">if</span> (bytesRead == -<span class="hljs-number">1</span>) {
+                            <span class="hljs-comment">// 没有读取到内容的情况</span>
+                            <span class="hljs-keyword">client</span>.close();
+                        } <span class="hljs-keyword">else</span> {
+                            <span class="hljs-comment">// 将缓冲区准备为数据传出状态</span>
+                            buffer.flip();
+                            <span class="hljs-comment">// 将字节转化为为UTF-8的字符串</span>
+                            String receivedString = Charset.forName(<span class="hljs-string">"UTF-8"</span>).newDecoder()
+                                    .decode(buffer).toString();
+                            <span class="hljs-comment">// 控制台打印出来</span>
+                            System.out.println(<span class="hljs-keyword">client</span>.socket().getRemoteSocketAddress());
+                            System.out.println(<span class="hljs-string">"信息内容:"</span> + receivedString);
+                            <span class="hljs-comment">// 准备发送的文本</span>
+                            String sendString = <span class="hljs-string">"你好,已经收到你的信息"</span> + receivedString;
+                            <span class="hljs-comment">// 将byte数组包装到缓冲区中</span>
+                            buffer = ByteBuffer.wrap(sendString.getBytes(<span class="hljs-string">"UTF-8"</span>));
+                            <span class="hljs-comment">// 将字节序列从给定的缓冲区中写入此通道,并返回给客户端</span>
+                            <span class="hljs-keyword">client</span>.write(buffer);
+                        }
+                    }
+                }
+            }
+        } <span class="hljs-keyword">catch</span> (IOException ex) {
+            ex.printStackTrace();
+        }
+    }
+}</code></pre>
+
+
+
+<h1 id="2客户端">2.客户端</h1>
+
+<p><strong>客户端信道连接类</strong></p>
+
+
+
+<pre class="prettyprint"><code class=" hljs cs"><span class="hljs-keyword">public</span> <span class="hljs-keyword">class</span> ChannelClient {
+    <span class="hljs-comment">// 信道选择器</span>
+    Selector selector;
+    <span class="hljs-comment">// 与服务器通信的信道</span>
+    SocketChannel socketChannel;
+    <span class="hljs-comment">// 要连接的服务器Ip地址</span>
+    String hostIp;
+    <span class="hljs-comment">// 要连接的远程服务器在监听的端口</span>
+    <span class="hljs-keyword">int</span> hostListenningPort;
+
+    <span class="hljs-keyword">public</span> <span class="hljs-title">ChannelClient</span>(String HostIp, <span class="hljs-keyword">int</span> HostListenningPort) throws IOException {
+        <span class="hljs-keyword">this</span>.hostIp = HostIp;
+        <span class="hljs-keyword">this</span>.hostListenningPort = HostListenningPort;
+        <span class="hljs-comment">// 打开监听信道并设置为非阻塞模式</span>
+        socketChannel = SocketChannel.open(<span class="hljs-keyword">new</span> InetSocketAddress(hostIp, hostListenningPort));
+        socketChannel.configureBlocking(<span class="hljs-keyword">false</span>);
+
+        <span class="hljs-comment">// 打开并注册选择器(监听读)到信道</span>
+        selector = Selector.open();
+        socketChannel.register(selector, SelectionKey.OP_READ);
+
+        <span class="hljs-comment">// 启动读取线程</span>
+        ChannelClientReadThread ccrt = <span class="hljs-keyword">new</span> ChannelClientReadThread(selector);
+        ccrt.start();
+    }
+
+    <span class="hljs-comment">// 发送字符串到服务器</span>
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">void</span> <span class="hljs-title">sendMsg</span>(String message) throws IOException {
+        ByteBuffer writeBuffer = ByteBuffer.wrap(message.getBytes(<span class="hljs-string">"UTF-8"</span>));
+        socketChannel.write(writeBuffer);
+    }
+
+
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">static</span> <span class="hljs-keyword">void</span> <span class="hljs-title">main</span>(String[] args) throws IOException {
+        ChannelClient2 client = <span class="hljs-keyword">new</span> ChannelClient2(<span class="hljs-string">"localhost"</span>, <span class="hljs-number">7456</span>);
+        <span class="hljs-keyword">try</span> {
+            client.sendMsg(<span class="hljs-string">"我是客户端"</span>);
+            <span class="hljs-keyword">while</span> (<span class="hljs-keyword">true</span>) {
+                Scanner scan = <span class="hljs-keyword">new</span> Scanner(System.<span class="hljs-keyword">in</span>);<span class="hljs-comment">// 等待键盘输入数据</span>
+                String <span class="hljs-keyword">string</span> = scan.nextLine();
+                client.sendMsg(<span class="hljs-keyword">string</span>);
+            }
+        } <span class="hljs-keyword">catch</span> (IOException e) {
+            e.printStackTrace();
+        }
+    }
+}</code></pre>
+
+<p><strong>客户端处理读的线程</strong></p>
+
+
+
+<pre class="prettyprint"><code class=" hljs java"><span class="hljs-keyword">public</span> <span class="hljs-class"><span class="hljs-keyword">class</span> <span class="hljs-title">ChannelClientReadThread</span> <span class="hljs-keyword">extends</span> <span class="hljs-title">Thread</span> {</span>
+    <span class="hljs-keyword">private</span> Selector selector;
+
+    <span class="hljs-keyword">public</span> <span class="hljs-title">ChannelClientReadThread</span>(Selector selector) {
+        <span class="hljs-keyword">this</span>.selector = selector;
+    }
+
+    <span class="hljs-annotation">@Override</span>
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">void</span> <span class="hljs-title">run</span>() {
+        <span class="hljs-keyword">try</span> {
+            <span class="hljs-keyword">while</span> (selector.select() &gt; <span class="hljs-number">0</span>) {
+                <span class="hljs-comment">// 遍历每个有可用IO操作Channel对应的SelectionKey</span>
+                <span class="hljs-keyword">for</span> (SelectionKey sk : selector.selectedKeys()) {
+                    <span class="hljs-comment">// 如果该SelectionKey对应的Channel中有可读的数据</span>
+                    <span class="hljs-keyword">if</span> (sk.isReadable()) {
+                        <span class="hljs-comment">// 使用NIO读取Channel中的数据</span>
+                        SocketChannel sc = (SocketChannel) sk.channel();<span class="hljs-comment">// 获取通道信息</span>
+                        ByteBuffer buffer = ByteBuffer.allocate(<span class="hljs-number">1024</span>);<span class="hljs-comment">// 分配缓冲区大小</span>
+                        sc.read(buffer);<span class="hljs-comment">// 读取通道里面的数据放在缓冲区内</span>
+                        buffer.flip();<span class="hljs-comment">// 调用此方法为一系列通道写入或相对获取 操作做好准备</span>
+                        <span class="hljs-comment">// 将字节转化为为UTF-16的字符串</span>
+                        String receivedString = Charset.forName(<span class="hljs-string">"UTF-8"</span>).newDecoder().decode(buffer)
+                                .toString();
+                        <span class="hljs-comment">// 控制台打印返回信息</span>
+                        System.out.println(<span class="hljs-string">"服务器:"</span> + sc.socket().getRemoteSocketAddress());
+                        System.out.println(<span class="hljs-string">"信息内容:"</span> + receivedString);
+                        <span class="hljs-comment">// 为下一次读取作准备</span>
+                        sk.interestOps(SelectionKey.OP_READ);
+                    }
+                    <span class="hljs-comment">// 删除正在处理的SelectionKey</span>
+                    selector.selectedKeys().remove(sk);
+                }
+            }
+        } <span class="hljs-keyword">catch</span> (IOException ex) {
+            ex.printStackTrace();
+        }
+    }
+}</code></pre>
+
+<p>目前TCP部分大致完结，之后会继续研究UDP部分内容</p>
+
+<p><strong><em>源码位置：</em></strong><a href="https://github.com/oDevilo/Java-Network">https://github.com/oDevilo/Java-Network</a></p></div>&#13;
+        <script type="text/javascript">&#13;
+            $(function () {&#13;
+                $('pre.prettyprint code').each(function () {&#13;
+                    var lines = $(this).text().split('\n').length;&#13;
+                    var $numbering = $('&lt;ul/&gt;').addClass('pre-numbering').hide();&#13;
+                    $(this).addClass('has-numbering').parent().append($numbering);&#13;
+                    for (i = 1; i &lt;= lines; i++) {&#13;
+                        $numbering.append($('&lt;li/&gt;').text(i));&#13;
+                    };&#13;
+                    $numbering.fadeIn(1700);&#13;
+                });&#13;
+            });&#13;
+        </script>&#13;
+   &#13;

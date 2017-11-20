@@ -1,0 +1,741 @@
+
+        <div class="markdown_views"><h1 id="spring-实践"><center> Spring 实践</center></h1>
+
+<p>标签： Java与设计模式</p>
+
+<hr />
+
+<h2 id="junit集成">Junit集成</h2>
+
+<p>前面多次用到<code>@RunWith</code>与<code>@ContextConfiguration</code>,在测试类添加这两个注解,程序就会自动加载Spring配置并初始化Spring容器,方便Junit与Spring集成测试.使用这个功能需要在pom.xml中添加如下依赖:</p>
+
+<ul>
+<li>pom.xml</li>
+</ul>
+
+
+
+<pre class="prettyprint"><code class=" hljs xml"><span class="hljs-tag">&lt;<span class="hljs-title">dependency</span>&gt;</span>
+    <span class="hljs-tag">&lt;<span class="hljs-title">groupId</span>&gt;</span>org.springframework<span class="hljs-tag">&lt;/<span class="hljs-title">groupId</span>&gt;</span>
+    <span class="hljs-tag">&lt;<span class="hljs-title">artifactId</span>&gt;</span>spring-test<span class="hljs-tag">&lt;/<span class="hljs-title">artifactId</span>&gt;</span>
+    <span class="hljs-tag">&lt;<span class="hljs-title">version</span>&gt;</span>4.2.0.RELEASE<span class="hljs-tag">&lt;/<span class="hljs-title">version</span>&gt;</span>
+<span class="hljs-tag">&lt;/<span class="hljs-title">dependency</span>&gt;</span></code></pre>
+
+<ul>
+<li>以<code>@RunWith</code>和<code>@ContextConfiguration</code>加载Spring容器</li>
+</ul>
+
+
+
+<pre class="prettyprint"><code class=" hljs java"><span class="hljs-javadoc">/**
+ * Spring 整合 Junit
+ * Created by jifang on 15/12/9.
+ */</span>
+<span class="hljs-annotation">@RunWith</span>(SpringJUnit4ClassRunner.class)
+<span class="hljs-annotation">@ContextConfiguration</span>(locations = <span class="hljs-string">"classpath:spring/applicationContext.xml"</span>)
+<span class="hljs-keyword">public</span> <span class="hljs-class"><span class="hljs-keyword">class</span> <span class="hljs-title">BeanTest</span> {</span>
+
+    <span class="hljs-annotation">@Autowired</span>
+    <span class="hljs-keyword">private</span> Bean bean;
+
+    <span class="hljs-annotation">@Test</span>
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">void</span> <span class="hljs-title">testConstruct</span>() {
+        Car car = bean.getCar();
+        System.out.println(car);
+    }
+}</code></pre>
+
+<hr />
+
+
+
+<h2 id="web集成">Web集成</h2>
+
+<p>我们可以利用<code>ServletContext</code>容器保存数据的唯一性, 以及<code>ServletContextListener</code>会在容器初始化时只被调用一次的特性. 在web.xml中配置spring-web包下的<code>ContextLoaderListener</code>来加载Spring配置文件/初始化Spring容器:</p>
+
+<ul>
+<li>pom.xml/spring-web</li>
+</ul>
+
+
+
+<pre class="prettyprint"><code class=" hljs xml"><span class="hljs-tag">&lt;<span class="hljs-title">dependency</span>&gt;</span>
+    <span class="hljs-tag">&lt;<span class="hljs-title">groupId</span>&gt;</span>org.springframework<span class="hljs-tag">&lt;/<span class="hljs-title">groupId</span>&gt;</span>
+    <span class="hljs-tag">&lt;<span class="hljs-title">artifactId</span>&gt;</span>spring-web<span class="hljs-tag">&lt;/<span class="hljs-title">artifactId</span>&gt;</span>
+    <span class="hljs-tag">&lt;<span class="hljs-title">version</span>&gt;</span>4.2.0.RELEASE<span class="hljs-tag">&lt;/<span class="hljs-title">version</span>&gt;</span>
+<span class="hljs-tag">&lt;/<span class="hljs-title">dependency</span>&gt;</span></code></pre>
+
+<ul>
+<li>配置监听器(web.xml)</li>
+</ul>
+
+
+
+<pre class="prettyprint"><code class=" hljs xml"><span class="hljs-tag">&lt;<span class="hljs-title">listener</span>&gt;</span>
+    <span class="hljs-tag">&lt;<span class="hljs-title">listener-class</span>&gt;</span>org.springframework.web.context.ContextLoaderListener<span class="hljs-tag">&lt;/<span class="hljs-title">listener-class</span>&gt;</span>
+<span class="hljs-tag">&lt;/<span class="hljs-title">listener</span>&gt;</span></code></pre>
+
+<ul>
+<li>加载Spring配置文件</li>
+</ul>
+
+
+
+<pre class="prettyprint"><code class=" hljs livecodeserver">&lt;context-<span class="hljs-built_in">param</span>&gt;
+    &lt;<span class="hljs-built_in">param</span>-name&gt;contextConfigLocation&lt;/<span class="hljs-built_in">param</span>-name&gt;
+    &lt;<span class="hljs-built_in">param</span>-<span class="hljs-built_in">value</span>&gt;classpath:spring/applicationContext.xml&lt;/<span class="hljs-built_in">param</span>-<span class="hljs-built_in">value</span>&gt;
+&lt;/context-<span class="hljs-built_in">param</span>&gt;</code></pre>
+
+<blockquote>
+  <p>附: 完整web.xml文件<a href="http://git.oschina.net/feiqing/Basic-Java/blob/master/src/main/resources/web.xml?dir=0&amp;filepath=src/main/resources/web.xml&amp;oid=a98accf5004f33ff4cef590485179f9f6ebe303e&amp;sha=9c61f2ac995351f4ea2f277489ea0c01ef1028c0">git地址</a>.</p>
+</blockquote>
+
+<ul>
+<li>测试Servlet</li>
+</ul>
+
+
+
+<pre class="prettyprint"><code class=" hljs java"><span class="hljs-annotation">@WebServlet</span>(urlPatterns = <span class="hljs-string">"/servlet"</span>)
+<span class="hljs-keyword">public</span> <span class="hljs-class"><span class="hljs-keyword">class</span> <span class="hljs-title">Servlet</span> <span class="hljs-keyword">extends</span> <span class="hljs-title">HttpServlet</span> {</span>
+
+    <span class="hljs-keyword">protected</span> <span class="hljs-keyword">void</span> <span class="hljs-title">doPost</span>(HttpServletRequest request, HttpServletResponse response) <span class="hljs-keyword">throws</span> ServletException, IOException {
+        <span class="hljs-keyword">this</span>.doGet(request, response);
+    }
+
+    <span class="hljs-keyword">protected</span> <span class="hljs-keyword">void</span> <span class="hljs-title">doGet</span>(HttpServletRequest request, HttpServletResponse response) <span class="hljs-keyword">throws</span> ServletException, IOException {
+        ApplicationContext context = WebApplicationContextUtils.getWebApplicationContext(<span class="hljs-keyword">this</span>.getServletContext());
+        Bean bean = context.getBean(<span class="hljs-string">"bean"</span>, Bean.class);
+        Car car = bean.getCar();
+        System.out.println(car);
+    }
+}</code></pre>
+
+<blockquote>
+  <p>在应用中,普通的JavaBean由Spring管理,可以使用<code>@Autowired</code>自动注入.但<code>Filter</code>与<code>Servlet</code>例外,他们都是由Servlet容器管理,因此其属性不能用Spring注入,所以在实际项目中,一般都不会直接使用Servlet,而是用SpringMVC/WebX/Struts2之类的MVC框架以简化开发,后面会有专门的博客介绍这类框架,在此就不做深入介绍了.</p>
+</blockquote>
+
+<ul>
+<li>注: 运行Servlet不要忘记添加servlet-api依赖:</li>
+</ul>
+
+
+
+<pre class="prettyprint"><code class=" hljs xml"><span class="hljs-tag">&lt;<span class="hljs-title">dependency</span>&gt;</span>
+    <span class="hljs-tag">&lt;<span class="hljs-title">groupId</span>&gt;</span>javax.servlet<span class="hljs-tag">&lt;/<span class="hljs-title">groupId</span>&gt;</span>
+    <span class="hljs-tag">&lt;<span class="hljs-title">artifactId</span>&gt;</span>javax.servlet-api<span class="hljs-tag">&lt;/<span class="hljs-title">artifactId</span>&gt;</span>
+    <span class="hljs-tag">&lt;<span class="hljs-title">version</span>&gt;</span>3.1.0<span class="hljs-tag">&lt;/<span class="hljs-title">version</span>&gt;</span>
+<span class="hljs-tag">&lt;/<span class="hljs-title">dependency</span>&gt;</span></code></pre>
+
+<hr />
+
+
+
+<h2 id="文件加载">文件加载</h2>
+
+
+
+<h3 id="1-引入properties">1. 引入properties</h3>
+
+<blockquote>
+  <p>可以将需要经常修改的属性参数值放到properties文件, 并在Spring文件中引入.</p>
+</blockquote>
+
+<ul>
+<li>db.properties</li>
+</ul>
+
+
+
+<pre class="prettyprint"><code class=" hljs avrasm"><span class="hljs-preprocessor">## Data Source</span>
+mysql<span class="hljs-preprocessor">.driver</span><span class="hljs-preprocessor">.class</span>=<span class="hljs-keyword">com</span><span class="hljs-preprocessor">.mysql</span><span class="hljs-preprocessor">.jdbc</span><span class="hljs-preprocessor">.Driver</span>
+mysql<span class="hljs-preprocessor">.url</span>=jdbc:mysql://host:port/db?useUnicode=true&amp;characterEncoding=UTF8
+mysql<span class="hljs-preprocessor">.user</span>=user
+mysql<span class="hljs-preprocessor">.password</span>=password</code></pre>
+
+<blockquote>
+  <p>注意: value后不能有空格.</p>
+</blockquote>
+
+
+
+<h4 id="11-property-placeholde引入">1.1 property-placeholde引入</h4>
+
+<p>在Spring配置文件中使用<code>&lt;context:property-placeholder/&gt;</code>标签引入properties文件,XML文件可通过<code>${key}</code>引用, Java可通过<code>@Value("${key}")</code>引用:</p>
+
+<ul>
+<li>XML</li>
+</ul>
+
+
+
+<pre class="prettyprint"><code class=" hljs applescript">&lt;context:<span class="hljs-keyword">property</span>-placeholder location=<span class="hljs-string">"classpath:common.properties"</span>/&gt;
+
+&lt;bean <span class="hljs-property">id</span>=<span class="hljs-string">"hikariConfig"</span> <span class="hljs-type">class</span>=<span class="hljs-string">"com.zaxxer.hikari.HikariConfig"</span>&gt;
+    &lt;<span class="hljs-keyword">property</span> <span class="hljs-property">name</span>=<span class="hljs-string">"driverClassName"</span> value=<span class="hljs-string">"${mysql.driver.class}"</span>/&gt;
+    &lt;<span class="hljs-keyword">property</span> <span class="hljs-property">name</span>=<span class="hljs-string">"jdbcUrl"</span> value=<span class="hljs-string">"${mysql.url}"</span>/&gt;
+    &lt;<span class="hljs-keyword">property</span> <span class="hljs-property">name</span>=<span class="hljs-string">"username"</span> value=<span class="hljs-string">"${mysql.user}"</span>/&gt;
+    &lt;<span class="hljs-keyword">property</span> <span class="hljs-property">name</span>=<span class="hljs-string">"password"</span> value=<span class="hljs-string">"${mysql.password}"</span>/&gt;
+&lt;/bean&gt;</code></pre>
+
+<ul>
+<li>Java</li>
+</ul>
+
+
+
+<pre class="prettyprint"><code class=" hljs r">@Component
+public class AccessLog {
+
+    @Value(<span class="hljs-string">"${mysql.url}"</span>)
+    private String value;
+
+    // <span class="hljs-keyword">...</span>
+}</code></pre>
+
+
+
+<h4 id="12-propertiesfactorybean引入">1.2 <code>PropertiesFactoryBean</code>引入</h4>
+
+<p>Spring提供了<code>org.springframework.beans.factory.config.PropertiesFactoryBean</code>,以加载properties文件, 方便在JavaBean中注入properties属性值.</p>
+
+<ul>
+<li>XML</li>
+</ul>
+
+
+
+<pre class="prettyprint"><code class=" hljs xml"><span class="hljs-tag">&lt;<span class="hljs-title">bean</span> <span class="hljs-attribute">id</span>=<span class="hljs-value">"commonProperties"</span> <span class="hljs-attribute">class</span>=<span class="hljs-value">"org.springframework.beans.factory.config.PropertiesFactoryBean"</span>&gt;</span>
+    <span class="hljs-tag">&lt;<span class="hljs-title">property</span> <span class="hljs-attribute">name</span>=<span class="hljs-value">"locations"</span>&gt;</span>
+        <span class="hljs-tag">&lt;<span class="hljs-title">list</span>&gt;</span>
+            <span class="hljs-tag">&lt;<span class="hljs-title">value</span>&gt;</span>classpath*:common.properties<span class="hljs-tag">&lt;/<span class="hljs-title">value</span>&gt;</span>
+        <span class="hljs-tag">&lt;/<span class="hljs-title">list</span>&gt;</span>
+    <span class="hljs-tag">&lt;/<span class="hljs-title">property</span>&gt;</span>
+<span class="hljs-tag">&lt;/<span class="hljs-title">bean</span>&gt;</span></code></pre>
+
+<ul>
+<li>Java</li>
+</ul>
+
+
+
+<pre class="prettyprint"><code class=" hljs r">@Controller
+public class Bean {
+
+    @Value(<span class="hljs-string">"#{commonProperties['bean.properties.name']}"</span>)
+    private String name;
+
+    // <span class="hljs-keyword">...</span>
+}</code></pre>
+
+<hr />
+
+
+
+<h3 id="2-import其他spring配置">2. import其他Spring配置</h3>
+
+<p>如果Spring的配置项过多,可以按模块将配置划分多个配置文件(-datasource.xml/-dubbo-provider.xml/-bean.xml), 并由主配置<strong>applicationContext.xml</strong>文件引用他们,此时可用<code>&lt;import/&gt;</code>标签引入:</p>
+
+
+
+<pre class="prettyprint"><code class=" hljs xml"><span class="hljs-tag">&lt;<span class="hljs-title">import</span> <span class="hljs-attribute">resource</span>=<span class="hljs-value">"applicationContext-bean.xml"</span>/&gt;</span>
+<span class="hljs-tag">&lt;<span class="hljs-title">import</span> <span class="hljs-attribute">resource</span>=<span class="hljs-value">"applicationContext-dubbo-provider.xml"</span>/&gt;</span>
+<span class="hljs-tag">&lt;<span class="hljs-title">import</span> <span class="hljs-attribute">resource</span>=<span class="hljs-value">"applicationContext-dubbo-consumer.xml"</span>/&gt;</span></code></pre>
+
+<hr />
+
+
+
+<h2 id="事务管理">事务管理</h2>
+
+<blockquote>
+  <p>Spring事务管理高层抽象主要由<code>PlatformTransactionManager</code>/<code>TransactionDefinition</code>/<code>TransactionStatus</code>三个接口提供支持:</p>
+</blockquote>
+
+<hr />
+
+
+
+<h3 id="platformtransactionmanager事务管理器">PlatformTransactionManager(事务管理器)</h3>
+
+<p><code>PlatformTransactionManager</code>的主要功能是事务管理,Spring为不同的持久层框架提供了不同的<code>PlatformTransactionManager</code>实现:</p>
+
+<table>
+<thead>
+<tr>
+  <th align="center">事务</th>
+  <th align="left">描述</th>
+</tr>
+</thead>
+<tbody><tr>
+  <td align="center"><code>DataSourceTransactionManager</code></td>
+  <td align="left">JDBCTemplate/MyBatis/iBatis持久化使用</td>
+</tr>
+<tr>
+  <td align="center"><code>HibernateTransactionManager</code></td>
+  <td align="left">Hibernate持久化使用</td>
+</tr>
+<tr>
+  <td align="center"><code>JpaTransactionManager</code></td>
+  <td align="left">JPA持久化使用</td>
+</tr>
+<tr>
+  <td align="center"><code>JdoTransactionManager</code></td>
+  <td align="left">JDO持久化使用</td>
+</tr>
+<tr>
+  <td align="center"><code>JtaTransactionManager</code></td>
+  <td align="left">JTA实现管理事务,一个事务跨越多个资源时使用</td>
+</tr>
+</tbody></table>
+
+
+<p>因此使用Spring管理事务,需要为不同持久层配置不同事务管理器实现.</p>
+
+<hr />
+
+
+
+<h3 id="transactiondefinition事务定义信息">TransactionDefinition(事务定义信息)</h3>
+
+<p><code>TransactionDefinition</code>提供了对事务的相关配置, 如事务隔离级别/传播行为/只读/超时等:</p>
+
+<ul>
+<li>隔离级别(isolation) <br />
+为解决事务并发引起的问题(脏读/幻读/不可重复读),引入四个隔离级别:</li>
+</ul>
+
+<table>
+<thead>
+<tr>
+  <th align="center">隔离级别</th>
+  <th align="left">描述</th>
+</tr>
+</thead>
+<tbody><tr>
+  <td align="center"><code>DEFAULT</code></td>
+  <td align="left">使用数据库默认的隔离级别</td>
+</tr>
+<tr>
+  <td align="center"><code>READ_UNCOMMITED</code></td>
+  <td align="left">读未提交</td>
+</tr>
+<tr>
+  <td align="center"><code>READ_COMMITTED</code></td>
+  <td align="left">读已提交(Oracle默认)</td>
+</tr>
+<tr>
+  <td align="center"><code>REPEATABLE_READ</code></td>
+  <td align="left">可重复读(MySQL默认)</td>
+</tr>
+<tr>
+  <td align="center"><code>SERIALIZABLE</code></td>
+  <td align="left">串行化</td>
+</tr>
+</tbody></table>
+
+
+<blockquote>
+  <p>关于事务隔离级别的讨论, 可参考我的博客<a href="http://blog.csdn.net/zjf280441589/article/details/50714873#t25">JDBC基础-事务隔离级别部分</a>.</p>
+</blockquote>
+
+<ul>
+<li>传播行为(propagation) <br />
+传播行为不是数据库的特性, 而是为了在业务层解决两个事务相互调用的问题:</li>
+</ul>
+
+<table>
+<thead>
+<tr>
+  <th align="center">传播类型</th>
+  <th align="left">描述</th>
+</tr>
+</thead>
+<tbody><tr>
+  <td align="center"><strong><code>REQUIRED</code></strong></td>
+  <td align="left">支持当前事务,如果不存在就新建一个(默认)</td>
+</tr>
+<tr>
+  <td align="center"><code>SUPPORTS</code></td>
+  <td align="left">支持当前事务,如果不存在就不使用事务</td>
+</tr>
+<tr>
+  <td align="center"><code>MANDATORY</code></td>
+  <td align="left">支持当前事务,如果不存在则抛出异常</td>
+</tr>
+<tr>
+  <td align="center"><strong><code>REQUIRES_NEW</code></strong></td>
+  <td align="left">如果有事务存在,则挂起当前事务新建一个</td>
+</tr>
+<tr>
+  <td align="center"><code>NOT_SUPPORTED</code></td>
+  <td align="left">以非事务方式运行,如果有事务存在则挂起当前事务</td>
+</tr>
+<tr>
+  <td align="center"><code>NEVER</code></td>
+  <td align="left">以非事务方式运行,如果有事务存在则抛出异常</td>
+</tr>
+<tr>
+  <td align="center"><strong><code>NESTED</code></strong></td>
+  <td align="left">如果当前事务存在,则嵌套事务执行(只对<code>DataSourceTransactionManager</code>有效)</td>
+</tr>
+</tbody></table>
+
+
+<ul>
+<li>超时时间(timeout)</li>
+<li>只读(read-only) <br />
+只读事务, 不能执行<code>INSERT</code>/<code>UPDATE</code>/<code>DELETE</code>操作.</li>
+</ul>
+
+<hr />
+
+
+
+<h3 id="transactionstatus事务状态信息">TransactionStatus(事务状态信息)</h3>
+
+<p><img src="http://7xrgh9.com1.z0.glb.clouddn.com/16-3-11/44034808.jpg" alt="" title="" /></p>
+
+<blockquote>
+  <p>获得事务执行过程中某一个时间点状态.</p>
+</blockquote>
+
+<hr />
+
+
+
+<h3 id="声明式事务管理">声明式事务管理</h3>
+
+<p>Spring声明式事务管理:无需要修改原来代码,只需要为Spring添加配置(XML/Annotation),就可以为目标代码添加事务管理功能.</p>
+
+<blockquote>
+  <p>需求: 转账案例(使用MyBatis).</p>
+</blockquote>
+
+<ul>
+<li>AccountDAO</li>
+</ul>
+
+
+
+<pre class="prettyprint"><code class=" hljs xml"><span class="hljs-pi">&lt;?xml version="1.0" encoding="UTF-8" ?&gt;</span>
+<span class="hljs-doctype">&lt;!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd"&gt;</span>
+<span class="hljs-tag">&lt;<span class="hljs-title">mapper</span> <span class="hljs-attribute">namespace</span>=<span class="hljs-value">"com.fq.dao.AccountDAO"</span>&gt;</span>
+
+    <span class="hljs-tag">&lt;<span class="hljs-title">update</span> <span class="hljs-attribute">id</span>=<span class="hljs-value">"transferIn"</span>&gt;</span>
+        UPDATE account
+        SET money = money + #{0}
+        WHERE name = #{1};
+    <span class="hljs-tag">&lt;/<span class="hljs-title">update</span>&gt;</span>
+
+    <span class="hljs-tag">&lt;<span class="hljs-title">update</span> <span class="hljs-attribute">id</span>=<span class="hljs-value">"transferOut"</span>&gt;</span>
+        UPDATE account
+        SET money = money - #{0}
+        WHERE name = #{1};
+    <span class="hljs-tag">&lt;/<span class="hljs-title">update</span>&gt;</span>
+<span class="hljs-tag">&lt;/<span class="hljs-title">mapper</span>&gt;</span></code></pre>
+
+
+
+<pre class="prettyprint"><code class=" hljs java"><span class="hljs-javadoc">/**
+ *<span class="hljs-javadoctag"> @author</span> jifang
+ *<span class="hljs-javadoctag"> @since</span> 16/3/3 上午11:16.
+ */</span>
+<span class="hljs-keyword">public</span> <span class="hljs-class"><span class="hljs-keyword">interface</span> <span class="hljs-title">AccountDAO</span> {</span>
+
+    <span class="hljs-keyword">void</span> transferIn(Double inMoney, String name);
+
+    <span class="hljs-keyword">void</span> transferOut(Double outMoney, String name);
+}</code></pre>
+
+<ul>
+<li>Service</li>
+</ul>
+
+
+
+<pre class="prettyprint"><code class=" hljs cs"><span class="hljs-keyword">public</span> <span class="hljs-keyword">interface</span> AccountService {
+
+    <span class="hljs-keyword">void</span> transfer(String <span class="hljs-keyword">from</span>, String to, Double money);
+}</code></pre>
+
+
+
+<pre class="prettyprint"><code class=" hljs java"><span class="hljs-annotation">@Service</span>(<span class="hljs-string">"service"</span>)
+<span class="hljs-keyword">public</span> <span class="hljs-class"><span class="hljs-keyword">class</span> <span class="hljs-title">AccountServiceImpl</span> <span class="hljs-keyword">implements</span> <span class="hljs-title">AccountService</span> {</span>
+
+    <span class="hljs-annotation">@Autowired</span>
+    <span class="hljs-keyword">private</span> AccountDAO dao;
+
+    <span class="hljs-annotation">@Override</span>
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">void</span> <span class="hljs-title">transfer</span>(String from, String to, Double money) {
+        dao.transferOut(money, from);
+
+        <span class="hljs-comment">// 此处抛出异常, 没有事务将导致数据不一致</span>
+        <span class="hljs-keyword">int</span> a = <span class="hljs-number">1</span> / <span class="hljs-number">0</span>;
+
+        dao.transferIn(money, to);
+    }
+}</code></pre>
+
+<ul>
+<li>mybatis-configuration.xml/applicationContext-datasource.xml</li>
+</ul>
+
+
+
+<pre class="prettyprint"><code class=" hljs xml"><span class="hljs-pi">&lt;?xml version="1.0" encoding="UTF-8" ?&gt;</span>
+<span class="hljs-doctype">&lt;!DOCTYPE configuration PUBLIC "-//mybatis.org//DTD Config 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-config.dtd"&gt;</span>
+<span class="hljs-tag">&lt;<span class="hljs-title">configuration</span>&gt;</span>
+    <span class="hljs-comment">&lt;!-- 加载mapper映射文件 --&gt;</span>
+    <span class="hljs-tag">&lt;<span class="hljs-title">mappers</span>&gt;</span>
+        <span class="hljs-tag">&lt;<span class="hljs-title">mapper</span> <span class="hljs-attribute">resource</span>=<span class="hljs-value">"mybatis/mapper/AccountDAO.xml"</span>/&gt;</span>
+    <span class="hljs-tag">&lt;/<span class="hljs-title">mappers</span>&gt;</span>
+<span class="hljs-tag">&lt;/<span class="hljs-title">configuration</span>&gt;</span></code></pre>
+
+
+
+<pre class="prettyprint"><code class=" hljs xml"><span class="hljs-tag">&lt;<span class="hljs-title">beans</span> <span class="hljs-attribute">xmlns</span>=<span class="hljs-value">"http://www.springframework.org/schema/beans"</span>
+       <span class="hljs-attribute">xmlns:xsi</span>=<span class="hljs-value">"http://www.w3.org/2001/XMLSchema-instance"</span>
+       <span class="hljs-attribute">xmlns:context</span>=<span class="hljs-value">"http://www.springframework.org/schema/context"</span>
+       <span class="hljs-attribute">xsi:schemaLocation</span>=<span class="hljs-value">"http://www.springframework.org/schema/beans
+       http://www.springframework.org/schema/beans/spring-beans.xsd
+       http://www.springframework.org/schema/context
+       http://www.springframework.org/schema/context/spring-context.xsd"</span>&gt;</span>
+
+    <span class="hljs-tag">&lt;<span class="hljs-title">context:property-placeholder</span> <span class="hljs-attribute">location</span>=<span class="hljs-value">"classpath:db.properties"</span>/&gt;</span>
+
+    <span class="hljs-comment">&lt;!-- 配置数据源 --&gt;</span>
+    <span class="hljs-tag">&lt;<span class="hljs-title">bean</span> <span class="hljs-attribute">id</span>=<span class="hljs-value">"hikariConfig"</span> <span class="hljs-attribute">class</span>=<span class="hljs-value">"com.zaxxer.hikari.HikariConfig"</span>&gt;</span>
+        <span class="hljs-tag">&lt;<span class="hljs-title">property</span> <span class="hljs-attribute">name</span>=<span class="hljs-value">"driverClassName"</span> <span class="hljs-attribute">value</span>=<span class="hljs-value">"${mysql.driver.class}"</span>/&gt;</span>
+        <span class="hljs-tag">&lt;<span class="hljs-title">property</span> <span class="hljs-attribute">name</span>=<span class="hljs-value">"jdbcUrl"</span> <span class="hljs-attribute">value</span>=<span class="hljs-value">"${mysql.url}"</span>/&gt;</span>
+        <span class="hljs-tag">&lt;<span class="hljs-title">property</span> <span class="hljs-attribute">name</span>=<span class="hljs-value">"username"</span> <span class="hljs-attribute">value</span>=<span class="hljs-value">"${mysql.user}"</span>/&gt;</span>
+        <span class="hljs-tag">&lt;<span class="hljs-title">property</span> <span class="hljs-attribute">name</span>=<span class="hljs-value">"password"</span> <span class="hljs-attribute">value</span>=<span class="hljs-value">"${mysql.password}"</span>/&gt;</span>
+        <span class="hljs-tag">&lt;<span class="hljs-title">property</span> <span class="hljs-attribute">name</span>=<span class="hljs-value">"maximumPoolSize"</span> <span class="hljs-attribute">value</span>=<span class="hljs-value">"5"</span>/&gt;</span>
+        <span class="hljs-tag">&lt;<span class="hljs-title">property</span> <span class="hljs-attribute">name</span>=<span class="hljs-value">"maxLifetime"</span> <span class="hljs-attribute">value</span>=<span class="hljs-value">"700000"</span>/&gt;</span>
+        <span class="hljs-tag">&lt;<span class="hljs-title">property</span> <span class="hljs-attribute">name</span>=<span class="hljs-value">"idleTimeout"</span> <span class="hljs-attribute">value</span>=<span class="hljs-value">"600000"</span>/&gt;</span>
+        <span class="hljs-tag">&lt;<span class="hljs-title">property</span> <span class="hljs-attribute">name</span>=<span class="hljs-value">"connectionTimeout"</span> <span class="hljs-attribute">value</span>=<span class="hljs-value">"10000"</span>/&gt;</span>
+        <span class="hljs-tag">&lt;<span class="hljs-title">property</span> <span class="hljs-attribute">name</span>=<span class="hljs-value">"dataSourceProperties"</span>&gt;</span>
+            <span class="hljs-tag">&lt;<span class="hljs-title">props</span>&gt;</span>
+                <span class="hljs-tag">&lt;<span class="hljs-title">prop</span> <span class="hljs-attribute">key</span>=<span class="hljs-value">"dataSourceClassName"</span>&gt;</span>com.mysql.jdbc.jdbc2.optional.MysqlDataSource<span class="hljs-tag">&lt;/<span class="hljs-title">prop</span>&gt;</span>
+                <span class="hljs-tag">&lt;<span class="hljs-title">prop</span> <span class="hljs-attribute">key</span>=<span class="hljs-value">"cachePrepStmts"</span>&gt;</span>true<span class="hljs-tag">&lt;/<span class="hljs-title">prop</span>&gt;</span>
+                <span class="hljs-tag">&lt;<span class="hljs-title">prop</span> <span class="hljs-attribute">key</span>=<span class="hljs-value">"prepStmtCacheSize"</span>&gt;</span>250<span class="hljs-tag">&lt;/<span class="hljs-title">prop</span>&gt;</span>
+                <span class="hljs-tag">&lt;<span class="hljs-title">prop</span> <span class="hljs-attribute">key</span>=<span class="hljs-value">"prepStmtCacheSqlLimit"</span>&gt;</span>2048<span class="hljs-tag">&lt;/<span class="hljs-title">prop</span>&gt;</span>
+            <span class="hljs-tag">&lt;/<span class="hljs-title">props</span>&gt;</span>
+        <span class="hljs-tag">&lt;/<span class="hljs-title">property</span>&gt;</span>
+    <span class="hljs-tag">&lt;/<span class="hljs-title">bean</span>&gt;</span>
+
+    <span class="hljs-tag">&lt;<span class="hljs-title">bean</span> <span class="hljs-attribute">id</span>=<span class="hljs-value">"dataSource"</span> <span class="hljs-attribute">class</span>=<span class="hljs-value">"com.zaxxer.hikari.HikariDataSource"</span> <span class="hljs-attribute">destroy-method</span>=<span class="hljs-value">"close"</span>&gt;</span>
+        <span class="hljs-tag">&lt;<span class="hljs-title">constructor-arg</span> <span class="hljs-attribute">ref</span>=<span class="hljs-value">"hikariConfig"</span>/&gt;</span>
+    <span class="hljs-tag">&lt;/<span class="hljs-title">bean</span>&gt;</span>
+
+    <span class="hljs-comment">&lt;!-- 配置SqlSessionFactory --&gt;</span>
+    <span class="hljs-tag">&lt;<span class="hljs-title">bean</span> <span class="hljs-attribute">id</span>=<span class="hljs-value">"sqlSessionFactory"</span> <span class="hljs-attribute">class</span>=<span class="hljs-value">"org.mybatis.spring.SqlSessionFactoryBean"</span>&gt;</span>
+        <span class="hljs-tag">&lt;<span class="hljs-title">property</span> <span class="hljs-attribute">name</span>=<span class="hljs-value">"dataSource"</span> <span class="hljs-attribute">ref</span>=<span class="hljs-value">"dataSource"</span>/&gt;</span>
+        <span class="hljs-tag">&lt;<span class="hljs-title">property</span> <span class="hljs-attribute">name</span>=<span class="hljs-value">"configLocation"</span> <span class="hljs-attribute">value</span>=<span class="hljs-value">"classpath:mybatis/mybatis-configuration.xml"</span>/&gt;</span>
+    <span class="hljs-tag">&lt;/<span class="hljs-title">bean</span>&gt;</span>
+
+    <span class="hljs-comment">&lt;!-- 基于包扫描的mapper配置 --&gt;</span>
+    <span class="hljs-tag">&lt;<span class="hljs-title">bean</span> <span class="hljs-attribute">class</span>=<span class="hljs-value">"org.mybatis.spring.mapper.MapperScannerConfigurer"</span>&gt;</span>
+        <span class="hljs-tag">&lt;<span class="hljs-title">property</span> <span class="hljs-attribute">name</span>=<span class="hljs-value">"basePackage"</span> <span class="hljs-attribute">value</span>=<span class="hljs-value">"com.fq.dao"</span>/&gt;</span>
+        <span class="hljs-tag">&lt;<span class="hljs-title">property</span> <span class="hljs-attribute">name</span>=<span class="hljs-value">"sqlSessionFactoryBeanName"</span> <span class="hljs-attribute">value</span>=<span class="hljs-value">"sqlSessionFactory"</span>/&gt;</span>
+    <span class="hljs-tag">&lt;/<span class="hljs-title">bean</span>&gt;</span>
+
+<span class="hljs-tag">&lt;/<span class="hljs-title">beans</span>&gt;</span></code></pre>
+
+<ul>
+<li>applicationContext.xml(没有事务)</li>
+</ul>
+
+
+
+<pre class="prettyprint"><code class=" hljs xml"><span class="hljs-pi">&lt;?xml version="1.0" encoding="UTF-8"?&gt;</span>
+<span class="hljs-tag">&lt;<span class="hljs-title">beans</span> <span class="hljs-attribute">xmlns</span>=<span class="hljs-value">"http://www.springframework.org/schema/beans"</span>
+       <span class="hljs-attribute">xmlns:xsi</span>=<span class="hljs-value">"http://www.w3.org/2001/XMLSchema-instance"</span>
+       <span class="hljs-attribute">xmlns:context</span>=<span class="hljs-value">"http://www.springframework.org/schema/context"</span>
+       <span class="hljs-attribute">xsi:schemaLocation</span>=<span class="hljs-value">"http://www.springframework.org/schema/beans
+       http://www.springframework.org/schema/beans/spring-beans.xsd http://www.springframework.org/schema/context http://www.springframework.org/schema/context/spring-context.xsd"</span>&gt;</span>
+
+    <span class="hljs-tag">&lt;<span class="hljs-title">context:component-scan</span> <span class="hljs-attribute">base-package</span>=<span class="hljs-value">"com.fq.service"</span>/&gt;</span>
+
+    <span class="hljs-tag">&lt;<span class="hljs-title">import</span> <span class="hljs-attribute">resource</span>=<span class="hljs-value">"applicationContext-datasource.xml"</span>/&gt;</span>
+<span class="hljs-tag">&lt;/<span class="hljs-title">beans</span>&gt;</span></code></pre>
+
+<ul>
+<li>Client</li>
+</ul>
+
+
+
+<pre class="prettyprint"><code class=" hljs java"><span class="hljs-annotation">@RunWith</span>(SpringJUnit4ClassRunner.class)
+<span class="hljs-annotation">@ContextConfiguration</span>(locations = <span class="hljs-string">"classpath:spring/applicationContext.xml"</span>)
+<span class="hljs-keyword">public</span> <span class="hljs-class"><span class="hljs-keyword">class</span> <span class="hljs-title">SpringClient</span> {</span>
+
+    <span class="hljs-annotation">@Autowired</span>
+    <span class="hljs-keyword">private</span> AccountService service;
+
+    <span class="hljs-annotation">@Test</span>
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">void</span> <span class="hljs-title">client</span>() {
+        service.transfer(<span class="hljs-string">"from"</span>, <span class="hljs-string">"to"</span>, <span class="hljs-number">10</span>D);
+    }
+}</code></pre>
+
+<p>执行以上代码, 将会导致数据前后不一致.</p>
+
+<hr />
+
+
+
+<h4 id="xml配置">XML配置</h4>
+
+<p>Spring事务管理依赖AOP,而AOP需要定义切面(Advice+PointCut),在Spring内部提供了事务管理的默认Advice<code>org.springframework.transaction.interceptor.TransactionInterceptor</code>,并且Spring为了简化事务配置,引入tx标签:</p>
+
+<ul>
+<li>引入tx的命名空间,配置Advice:</li>
+</ul>
+
+
+
+<pre class="prettyprint"><code class=" hljs xml"><span class="hljs-tag">&lt;<span class="hljs-title">bean</span> <span class="hljs-attribute">id</span>=<span class="hljs-value">"transactionManager"</span> <span class="hljs-attribute">class</span>=<span class="hljs-value">"org.springframework.jdbc.datasource.DataSourceTransactionManager"</span>&gt;</span>
+    <span class="hljs-tag">&lt;<span class="hljs-title">property</span> <span class="hljs-attribute">name</span>=<span class="hljs-value">"dataSource"</span> <span class="hljs-attribute">ref</span>=<span class="hljs-value">"dataSource"</span>/&gt;</span>
+<span class="hljs-tag">&lt;/<span class="hljs-title">bean</span>&gt;</span>
+
+<span class="hljs-tag">&lt;<span class="hljs-title">tx:advice</span> <span class="hljs-attribute">id</span>=<span class="hljs-value">"txAdvice"</span> <span class="hljs-attribute">transaction-manager</span>=<span class="hljs-value">"transactionManager"</span>&gt;</span>
+    <span class="hljs-comment">&lt;!-- 事务配置属性, 对什么方法应用怎样的配置, 成为TransactionDefinition对象 --&gt;</span>
+    <span class="hljs-tag">&lt;<span class="hljs-title">tx:attributes</span>&gt;</span>
+        <span class="hljs-comment">&lt;!--
+            name: 方法名, 支持通配符
+            isolation: 隔离级别
+            propagation: 传播行为
+            timeout: 超时时间
+            read-only: 是否只读
+            rollback-for: 配置异常类型, 发生这些异常回滚事务
+            no-rollback-for: 配置异常类型, 发生这些异常不回滚事务
+        --&gt;</span>
+        <span class="hljs-tag">&lt;<span class="hljs-title">tx:method</span> <span class="hljs-attribute">name</span>=<span class="hljs-value">"transfer"</span> <span class="hljs-attribute">isolation</span>=<span class="hljs-value">"DEFAULT"</span> <span class="hljs-attribute">propagation</span>=<span class="hljs-value">"REQUIRED"</span> <span class="hljs-attribute">timeout</span>=<span class="hljs-value">"-1"</span> <span class="hljs-attribute">read-only</span>=<span class="hljs-value">"false"</span>/&gt;</span>
+    <span class="hljs-tag">&lt;/<span class="hljs-title">tx:attributes</span>&gt;</span>
+<span class="hljs-tag">&lt;/<span class="hljs-title">tx:advice</span>&gt;</span></code></pre>
+
+<ul>
+<li>配置切面 <br />
+Spring事务管理Advice基于SpringAOP,因此使用<code>&lt;aop:advisor/&gt;</code>配置:</li>
+</ul>
+
+
+
+<pre class="prettyprint"><code class=" hljs xml"><span class="hljs-tag">&lt;<span class="hljs-title">aop:config</span>&gt;</span>
+    <span class="hljs-tag">&lt;<span class="hljs-title">aop:advisor</span> <span class="hljs-attribute">advice-ref</span>=<span class="hljs-value">"txAdvice"</span> <span class="hljs-attribute">pointcut</span>=<span class="hljs-value">"execution(* com.fq.service.impl.AccountServiceImpl.*(..))"</span>/&gt;</span>
+<span class="hljs-tag">&lt;/<span class="hljs-title">aop:config</span>&gt;</span></code></pre>
+
+<hr />
+
+
+
+<h4 id="注解配置">注解配置</h4>
+
+<p>使用注解配置事务, 可以省略切点的定义(因为注解放置位置就已经确定了PointCut的置), 只需配置Advice即可:</p>
+
+<ul>
+<li>激活注解事务管理功能</li>
+</ul>
+
+
+
+<pre class="prettyprint"><code class=" hljs applescript">&lt;bean <span class="hljs-property">id</span>=<span class="hljs-string">"transactionManager"</span> <span class="hljs-type">class</span>=<span class="hljs-string">"org.springframework.jdbc.datasource.DataSourceTransactionManager"</span>&gt;
+    &lt;<span class="hljs-keyword">property</span> <span class="hljs-property">name</span>=<span class="hljs-string">"dataSource"</span> <span class="hljs-keyword">ref</span>=<span class="hljs-string">"dataSource"</span>/&gt;
+&lt;/bean&gt;
+
+&lt;tx:annotation-driven <span class="hljs-keyword">transaction</span>-manager=<span class="hljs-string">"transactionManager"</span>/&gt;</code></pre>
+
+<ul>
+<li>在需要管理事务的业务类/业务方法上添加<code>@Transactional</code>注解</li>
+</ul>
+
+
+
+<pre class="prettyprint"><code class=" hljs r">@Override
+@Transactional(transactionManager = <span class="hljs-string">"transactionManger"</span>, readOnly = true)
+public void transfer(String from, String to, Double money) {
+    // <span class="hljs-keyword">...</span>
+}</code></pre>
+
+<blockquote>
+  <p>可以在注解<code>@Transactional</code>中配置与XML相同的事务属性(isolation/propagation等).</p>
+</blockquote>
+
+<hr />
+
+
+
+<h4 id="实践">实践</h4>
+
+<blockquote>
+  <p>更推荐使用XML方式来配置事务,实际开发时一般将事务集中配置管理. 另外, 事务的isolation/propagation一般默认的策略就已经足够, 反而我们需要配置<strong>是否只读</strong>(比如MySQL主从备份时,主库一般提供读写操作,而从库只提供读操作), 因此其配置可以如下:</p>
+</blockquote>
+
+
+
+<pre class="prettyprint"><code class=" hljs xml"><span class="hljs-comment">&lt;!-- 配置声明式事务 --&gt;</span>
+<span class="hljs-tag">&lt;<span class="hljs-title">bean</span> <span class="hljs-attribute">id</span>=<span class="hljs-value">"transactionManager"</span> <span class="hljs-attribute">class</span>=<span class="hljs-value">"org.springframework.jdbc.datasource.DataSourceTransactionManager"</span>&gt;</span>
+    <span class="hljs-tag">&lt;<span class="hljs-title">property</span> <span class="hljs-attribute">name</span>=<span class="hljs-value">"dataSource"</span> <span class="hljs-attribute">ref</span>=<span class="hljs-value">"dataSource"</span>/&gt;</span>
+<span class="hljs-tag">&lt;/<span class="hljs-title">bean</span>&gt;</span>
+
+<span class="hljs-tag">&lt;<span class="hljs-title">tx:advice</span> <span class="hljs-attribute">id</span>=<span class="hljs-value">"txAdvice"</span> <span class="hljs-attribute">transaction-manager</span>=<span class="hljs-value">"transactionManager"</span>&gt;</span>
+    <span class="hljs-comment">&lt;!-- 定义方法的过滤规则 --&gt;</span>
+    <span class="hljs-tag">&lt;<span class="hljs-title">tx:attributes</span>&gt;</span>
+        <span class="hljs-comment">&lt;!-- 定义所有get开头的方法都是只读的 --&gt;</span>
+        <span class="hljs-tag">&lt;<span class="hljs-title">tx:method</span> <span class="hljs-attribute">name</span>=<span class="hljs-value">"get*"</span> <span class="hljs-attribute">read-only</span>=<span class="hljs-value">"true"</span>/&gt;</span>
+        <span class="hljs-tag">&lt;<span class="hljs-title">tx:method</span> <span class="hljs-attribute">name</span>=<span class="hljs-value">"find*"</span> <span class="hljs-attribute">read-only</span>=<span class="hljs-value">"true"</span>/&gt;</span>
+        <span class="hljs-tag">&lt;<span class="hljs-title">tx:method</span> <span class="hljs-attribute">name</span>=<span class="hljs-value">"select*"</span> <span class="hljs-attribute">read-only</span>=<span class="hljs-value">"true"</span>/&gt;</span>
+        <span class="hljs-tag">&lt;<span class="hljs-title">tx:method</span> <span class="hljs-attribute">name</span>=<span class="hljs-value">"*"</span>/&gt;</span>
+    <span class="hljs-tag">&lt;/<span class="hljs-title">tx:attributes</span>&gt;</span>
+<span class="hljs-tag">&lt;/<span class="hljs-title">tx:advice</span>&gt;</span>
+
+<span class="hljs-comment">&lt;!-- 配置事务AOP --&gt;</span>
+<span class="hljs-tag">&lt;<span class="hljs-title">aop:config</span>&gt;</span>
+    <span class="hljs-comment">&lt;!-- 定义切点 --&gt;</span>
+    <span class="hljs-tag">&lt;<span class="hljs-title">aop:pointcut</span> <span class="hljs-attribute">id</span>=<span class="hljs-value">"dao"</span> <span class="hljs-attribute">expression</span>=<span class="hljs-value">"execution (* com.fq.core.dao.*.*(..))"</span>/&gt;</span>
+    <span class="hljs-comment">&lt;!-- 为切点定义通知 --&gt;</span>
+    <span class="hljs-tag">&lt;<span class="hljs-title">aop:advisor</span> <span class="hljs-attribute">advice-ref</span>=<span class="hljs-value">"txAdvice"</span> <span class="hljs-attribute">pointcut-ref</span>=<span class="hljs-value">"dao"</span>/&gt;</span>
+<span class="hljs-tag">&lt;/<span class="hljs-title">aop:config</span>&gt;</span></code></pre>
+
+<ul>
+<li>主从</li>
+</ul>
+
+
+
+<pre class="prettyprint"><code class=" hljs xml"><span class="hljs-tag">&lt;<span class="hljs-title">tx:advice</span> <span class="hljs-attribute">id</span>=<span class="hljs-value">"txAdvice_slave"</span> <span class="hljs-attribute">transaction-manager</span>=<span class="hljs-value">"transactionManager_slave"</span>&gt;</span>
+    <span class="hljs-comment">&lt;!-- 定义方法的过滤规则 --&gt;</span>
+    <span class="hljs-tag">&lt;<span class="hljs-title">tx:attributes</span>&gt;</span>
+        <span class="hljs-tag">&lt;<span class="hljs-title">tx:method</span> <span class="hljs-attribute">name</span>=<span class="hljs-value">"*"</span> <span class="hljs-attribute">read-only</span>=<span class="hljs-value">"true"</span>/&gt;</span>
+    <span class="hljs-tag">&lt;/<span class="hljs-title">tx:attributes</span>&gt;</span>
+<span class="hljs-tag">&lt;/<span class="hljs-title">tx:advice</span>&gt;</span>
+
+<span class="hljs-tag">&lt;<span class="hljs-title">tx:advice</span> <span class="hljs-attribute">id</span>=<span class="hljs-value">"txAdvice_master"</span> <span class="hljs-attribute">transaction-manager</span>=<span class="hljs-value">"transactionManager_slave"</span>&gt;</span>
+    <span class="hljs-comment">&lt;!-- 定义方法的过滤规则 --&gt;</span>
+    <span class="hljs-tag">&lt;<span class="hljs-title">tx:attributes</span>&gt;</span>
+        <span class="hljs-comment">&lt;!-- 定义所有get开头的方法都是只读的 --&gt;</span>
+        <span class="hljs-tag">&lt;<span class="hljs-title">tx:method</span> <span class="hljs-attribute">name</span>=<span class="hljs-value">"get*"</span> <span class="hljs-attribute">read-only</span>=<span class="hljs-value">"true"</span>/&gt;</span>
+        <span class="hljs-tag">&lt;<span class="hljs-title">tx:method</span> <span class="hljs-attribute">name</span>=<span class="hljs-value">"find*"</span> <span class="hljs-attribute">read-only</span>=<span class="hljs-value">"true"</span>/&gt;</span>
+        <span class="hljs-tag">&lt;<span class="hljs-title">tx:method</span> <span class="hljs-attribute">name</span>=<span class="hljs-value">"select*"</span> <span class="hljs-attribute">read-only</span>=<span class="hljs-value">"true"</span>/&gt;</span>
+        <span class="hljs-tag">&lt;<span class="hljs-title">tx:method</span> <span class="hljs-attribute">name</span>=<span class="hljs-value">"*"</span>/&gt;</span>
+    <span class="hljs-tag">&lt;/<span class="hljs-title">tx:attributes</span>&gt;</span>
+<span class="hljs-tag">&lt;/<span class="hljs-title">tx:advice</span>&gt;</span></code></pre>
+
+<hr /></div>&#13;
+        <script type="text/javascript">&#13;
+            $(function () {&#13;
+                $('pre.prettyprint code').each(function () {&#13;
+                    var lines = $(this).text().split('\n').length;&#13;
+                    var $numbering = $('&lt;ul/&gt;').addClass('pre-numbering').hide();&#13;
+                    $(this).addClass('has-numbering').parent().append($numbering);&#13;
+                    for (i = 1; i &lt;= lines; i++) {&#13;
+                        $numbering.append($('&lt;li/&gt;').text(i));&#13;
+                    };&#13;
+                    $numbering.fadeIn(1700);&#13;
+                });&#13;
+            });&#13;
+        </script>&#13;
+   &#13;

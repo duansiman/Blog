@@ -1,0 +1,375 @@
+
+<pre code_snippet_id="2420299" snippet_file_name="blog_20170526_1_8008313" class="java" name="code">jdbc.properties
+url=jdbc:mysql://localhost:3306/cfms
+user=root
+password=123456
+driverClass=com.mysql.jdbc.Driver
+
+
+
+package cn.edu.hactcm.base.utils;
+
+import java.io.InputStream;
+import java.sql.Connection;
+import java.sql.DriverManager;
+import java.sql.ResultSet;
+import java.sql.SQLException;
+import java.sql.Statement;
+import java.util.Properties;
+
+/**</pre><pre code_snippet_id="2420299" snippet_file_name="blog_20170526_2_1846752" class="java" name="code"> * CFMS    ：Computer files management system
+ * version ：1.0 2013-2-19 上午08:44:27
+ * 
+ * 操作JDBC的工具类
+ */
+public class JdbcUtils {
+	private JdbcUtils() {
+	}
+
+	private static String url;
+	private static String user;
+	private static String password;
+
+	/*
+	 * 静态代码块
+	 */
+	static {
+		try {
+			// 读取配置文件,通过类加载器的方式读取属性文件
+			InputStream in = JdbcUtils.class.getClassLoader()
+					.getResourceAsStream("jdbc.properties");
+			Properties prop = new Properties();
+			prop.load(in);
+			url = prop.getProperty("url");
+			user = prop.getProperty("user");
+			password = prop.getProperty("password");
+
+			// 注册驱动
+			String driverClass = prop.getProperty("driverClass");
+			Class.forName(driverClass);
+			
+			in.close();
+			in = null;
+		} catch (Exception e) {
+			throw new ExceptionInInitializerError(e);
+		}
+	}
+
+	/**
+	 * @return 获取与指定数据库的连接
+	 * @throws SQLException
+	 */
+	public static Connection getConnection() throws SQLException {
+		// url,user,password可以直接使用是因为上面定义成静态的了。
+		Connection connection = DriverManager
+				.getConnection(url, user, password);
+		return connection;
+	}
+	
+	/**
+	 * @param rs  :结果集
+	 * @param stmt:在程序中将使用PrepareStatement,其中Statement是其父类
+	 * @param conn:数据库连接
+	 */
+	public static void release(ResultSet rs, Statement stmt, Connection conn) {
+		// 判断结果集是否为空，如果不为空，关闭清空
+		if (rs != null) {
+			try {
+				rs.close();
+			} catch (SQLException e) {
+				e.printStackTrace();
+			}
+			rs = null;
+		}
+		// 判断声明是否为空，如果不为空，关闭清空
+		if (stmt != null) {
+			try {
+				stmt.close();
+			} catch (SQLException e) {
+				e.printStackTrace();
+			}
+			stmt = null;
+		}
+		// 判断连接是否为空，如果不为空，关闭清空
+		if (conn != null) {
+			try {
+				conn.close();
+			} catch (SQLException e) {
+				e.printStackTrace();
+			}
+			conn = null;
+		}
+	}
+}
+
+
+
+package cn.edu.hactcm.base.dao;
+
+import java.sql.ResultSet;
+
+/**
+ * CFMS    ：Computer files management system  
+ * version ：1.0 2013-2-19 上午10:02:31
+ */
+public interface ResultSetHandler {
+	//处理结果集的方法
+	public Object handle(ResultSet rs);
+}
+
+
+
+/**
+ * 
+ */
+package cn.edu.hactcm.base.dao.impl;
+
+import java.sql.ResultSet;
+import java.sql.ResultSetMetaData;
+
+import cn.edu.hactcm.base.dao.ResultSetHandler;
+
+/**
+ * CFMS ：Computer files management system
+ * version ：1.0 2013-2-19 上午10:38:37
+ * 
+ * 取出第一行的所有记录存入一个Object数组
+ */
+@SuppressWarnings( { "unchecked", "unused" })
+public class ArrayHandler implements ResultSetHandler {
+	private Class clazz;
+
+	public ArrayHandler(Class clazz) {
+		this.clazz = clazz;
+	}
+
+	public Object handle(ResultSet rs) {
+		try {
+			if (rs.next()) {
+				// 指向了第一行的记录
+				// 获得元数据
+				ResultSetMetaData metaData = rs.getMetaData();
+				// 获得用于查询的sql中的字段列数
+				int count = metaData.getColumnCount();
+				// 创建数组
+				Object[] arr = new Object[count];
+				// 迭代所有列的值，存入数组
+				for (int i = 1; i &lt;= count; i++) {
+					Object value = rs.getObject(i); // 获得指定列的值
+					arr[i - 1] = value;
+				}
+				return arr;
+			}
+			return null;
+		} catch (Exception e) {
+			throw new RuntimeException(e);
+		}
+	}
+}
+
+
+
+
+
+/**
+ * 
+ */
+package cn.edu.hactcm.base.dao.impl;
+
+import java.lang.reflect.Field;
+import java.sql.ResultSet;
+import java.sql.ResultSetMetaData;
+
+import cn.edu.hactcm.base.dao.ResultSetHandler;
+
+/**
+ * CFMS ：Computer files management system
+ * version ：1.0 2013-2-19 上午10:38:37
+ * 
+ * 此助手类用于取得结果集中的第一条记录
+ */
+@SuppressWarnings("unchecked")
+public class BeanHandler implements ResultSetHandler {
+	private Class clazz;
+
+	public BeanHandler(Class clazz) {
+		this.clazz = clazz;
+	}
+
+	public Object handle(ResultSet rs) {
+		// 不知道有几列数据，不知道列名，不知道封装到什么样的bean
+		// 表的列明和javabean的字段名一致
+		try {
+			if(rs.next()) {
+				// 创建bean
+				Object bean = clazz.newInstance();
+				// 封装数据
+				// 获得结果集的元数据
+				ResultSetMetaData metaData = rs.getMetaData();
+				int count = metaData.getColumnCount();
+				// 迭代取每一列的数据
+				for(int i=1; i&lt;=count; i++) {
+					// 获得列名  username
+					String columnName = metaData.getColumnName(i);
+					// 获得数据 ddd
+					Object value = rs.getObject(columnName);
+					// 根据列名反射出映射的属性 username
+					Field field = clazz.getDeclaredField(columnName);
+					// 为属性赋值
+					field.setAccessible(true);
+					field.set(bean, value);
+				}
+				return bean;
+			}
+			return null;
+		} catch (Exception e) {
+			throw new RuntimeException(e);
+		}
+	}
+}
+
+
+
+package cn.edu.hactcm.base.dao.impl;
+
+import java.lang.reflect.Field;
+import java.sql.ResultSet;
+import java.sql.ResultSetMetaData;
+import java.util.ArrayList;
+import java.util.List;
+
+import cn.edu.hactcm.base.dao.ResultSetHandler;
+
+/**
+ * CFMS ：Computer files management system
+ * version ：1.0 2013-2-19 上午10:07:19
+ * 
+ * 此助手类用于取得结果集中的记录的list列表集合，集合中的每个元素是数据库中的一条记录
+ */
+@SuppressWarnings("unchecked")
+public class BeanListHandler implements ResultSetHandler {
+
+	private Class clazz;
+
+	public BeanListHandler(Class clazz) {
+		this.clazz = clazz;
+	}
+
+	public Object handle(ResultSet rs) {
+		try {
+			// 取出结果集所有的记录，封装到bean，存入list返回
+			List list = new ArrayList();
+			while (rs.next()) {
+				Object bean = clazz.newInstance();
+				// 获得元数据
+				ResultSetMetaData metaData = rs.getMetaData();
+				// 获得列的数量
+				int count = metaData.getColumnCount();
+				// 遍历列
+				for (int i = 1; i &lt;= count; i++) {
+					// 取列名
+					String columnName = metaData.getColumnName(i);
+					// 取这列的值
+					Object value = rs.getObject(columnName);
+					// 反射出属性
+					Field field = clazz.getDeclaredField(columnName);
+					// 设置属性
+					field.setAccessible(true);
+					field.set(bean, value);
+				}
+				// 加入list
+				list.add(bean);
+			}
+			return list;
+		} catch (Exception e) {
+			throw new RuntimeException(e);
+		}
+	}
+}
+
+
+
+
+
+package cn.edu.hactcm.base.dao.impl;
+
+import java.sql.Connection;
+import java.sql.PreparedStatement;
+import java.sql.ResultSet;
+import java.sql.SQLException;
+
+import cn.edu.hactcm.base.dao.ResultSetHandler;
+import cn.edu.hactcm.base.utils.JdbcUtils;
+
+
+public class GenericDaoImpl {
+	
+	/**
+	 * 用于处理公共的insert,update,delete操纵
+	 * @param sql    :这里是传入的sql语句
+	 * @param params :这里是参数数组
+	 * @return
+	 * @throws SQLException
+	 */
+	public static int update(String sql, Object[] params) throws SQLException {
+		Connection conn = null;
+		PreparedStatement pstmt = null;
+		ResultSet rs = null;
+		try {
+			conn = JdbcUtils.getConnection();
+			//预编译sql
+			pstmt = conn.prepareStatement(sql);
+			//将参数设置进去
+			for (int i = 0; i &lt; params.length; i++) {
+				pstmt.setObject(i+1, params[i]);
+			}
+			//发送sql
+			int num = pstmt.executeUpdate();
+			return num;
+		}  finally {
+			JdbcUtils.release(rs, pstmt, conn);
+		}
+	}
+	
+	/**
+	 * 用于处理公共"查询所有"的操作
+	 * @param sql    :查询参数
+	 * @param params :出入的id值
+	 * @param rsh    :表示要实现那个结果封装类
+	 * @return
+	 * @throws SQLException
+	 */
+	public static Object query(String sql,Object[] params,ResultSetHandler rsh) throws SQLException{
+		Connection conn = null;
+		PreparedStatement pstmt = null;
+		ResultSet rs = null;
+		try {
+			//获得连接
+			conn = JdbcUtils.getConnection();
+			//预编译sql
+			pstmt = conn.prepareStatement(sql);
+			//将参数设置进去
+			for (int i = 0; params != null &amp;&amp; i &lt; params.length; i++) {
+				pstmt.setObject(i+1, params[i]);
+			}
+			//发送sql
+			rs = pstmt.executeQuery();
+			//不知道别人想如何处理结果集
+			//干脆想别人所要一个结果集的处理器
+			//为了让当前代码继续，定义一个结果集处理器接口
+			//策略模式，规定算法，具体的算法留给将来的调用者实现
+			Object obj = rsh.handle(rs);
+			return obj;
+		} finally {
+			//释放资源
+			JdbcUtils.release(rs, pstmt, conn);
+		}
+	}
+}
+
+
+
+
+
+
+</pre><br />   &#13;

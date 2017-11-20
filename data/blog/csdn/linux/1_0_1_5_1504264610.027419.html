@@ -1,0 +1,39 @@
+
+                
+<p><span style="font-size:18px">在Linux中进程用结构体task_struct来管理一个进程所需的所有信息（所以一般较大，在32位机上，大约有1.7KB）。为了<u><strong>提高效率</strong></u>，Linux使用了一些卓越的技术。</span></p>&#13;
+<p/>&#13;
+<ul>&#13;
+<li><span style="font-size:18px"><u><strong>通过slab分配task_struct结构</strong></u></span></li></ul>&#13;
+<div><span style="font-size:18px">Linux创建进程迅速，正是因为slab分配器预先分配和重复使用task_struct，这样就避免了动态分配和释放所带来的资源消耗（毕竟一个task_struct较大，而且内核中进程的创建和消除很频繁）。</span></div>&#13;
+<div><span style="font-size:18px"><br/>&#13;
+</span></div>&#13;
+<div>&#13;
+<ul>&#13;
+<li><span style="font-size:18px"><u><strong>将task_struct放置在内核栈的尾端</strong></u></span></li></ul>&#13;
+<div><span style="font-size:18px">这样做是为了让那些像x86那样寄存器较少的硬件体系结构只需通过栈指针就能计算出它的位置，而避免使用额外的寄存器专门记录。由于linux使用slab动态给一个进程分配task_struct，所以linux在栈底（向下增长的栈，如图，高地址在上，且栈从高地址向低地址延伸）用一个数据结构指向slab中为之分配的task_struct，而这个数据结构是结构体thread_info，它的一个成员是指向task_struct的指针。</span></div>&#13;
+</div>&#13;
+<div style="text-align:center"><span style="font-size:18px"><img src="http://img.blog.csdn.net/20140614214848296" alt=""/><br/>&#13;
+</span></div>&#13;
+<div>&#13;
+<ul>&#13;
+<li><span style="font-size:18px"><u><strong>写时拷贝</strong></u></span></li></ul>&#13;
+<div><span style="font-size:18px">Linux创建一个进程要依次调用fork()和exec()。fork()创建子进程时，父进程和子进程共享同一份资源（以只读的方式共享），而只有当需要写入时，数据才会被复制，从而使各个进程拥有各自的拷贝，这种将拷贝推迟到实际发生写入时的技术称为写时拷贝。但对于那些fork()后立即调用exec()的就不用复制了（与父进程共享一份资源即可），因为这时不会发生写入，而大多数情况下，进程创建后会马上运行一个可执行的文件，所以这种写时拷贝可以避免拷贝大量根本就不会被使用的数据。这也是Linux能快速执行进程的原因。</span></div>&#13;
+</div>&#13;
+<div><span style="font-size:18px"><br/>&#13;
+</span></div>&#13;
+<div>&#13;
+<ul>&#13;
+<li><span style="font-size:18px"><u><strong>强大的进程调度算法</strong></u></span></li></ul>&#13;
+<div><span style="font-size:18px">多任务给Linux的效率提出了严峻的挑战。既要有并发的效果，又要保证公平。当代多数现代操作系统是在时间片和抢占上下功夫，从全局的角度让每个进程获得各自理想的时间片。但Linux独树一帜，它并没有采取时间片达到公平调度。</span></div>&#13;
+</div>&#13;
+<div><span style="font-size:18px"><br/>&#13;
+</span></div>&#13;
+<div><span style="font-size:18px">（1）<strong>O(1) 调度</strong>：不管输入有多大，调度程序都可以在恒定时间内完成工作，这对于大服务器的工作负载很理想。但在有很多交互程序要运行的桌面环境表现不佳。为此，2.6内核的开发人员引入了著名的”反转楼梯最后期限调度算法“，也就是后来的完全公平调度算法CFS。</span></div>&#13;
+<div><span style="font-size:18px"><br/>&#13;
+</span></div>&#13;
+<div><span style="font-size:18px">（2）<strong>CFS(完全公平调度)</strong>：允许每个进程运行一段时间、循环轮转、选择运行最少的进程作为下一个运行进程，而不再采用分配给每个进程时间片的做法，CFS在所有可运行进程总数基础上计算出一个进程应该运行多久，而不是依靠优先级（nice值）来计算时间片，nice值在CFS中被作为进程获得处理器运行比的权重——更低的nice值（优先级越高）的进程获得更高的处理器使用权重。简而言之一句话，以权重来代替实际的时间片。而这个调度周期则由CFS来定，为了较好的交互性，可以设置越小的调度周期，但同时要承受更高的切换代价和更差的系统总吞吐能力。但当进程趋于无穷时，高昂的切换开销肯定不可接受，为此CFS引入最小粒度1ms——即每个进程最少能获得1ms的运行时间，确保切换开销被限制在一定范围内。但这样就产生了不公平，因为会有一些进程在这个周期内得不到时间片，所以CFS并非是一个完美的公平调度（实际上，我个人认为不存在绝对公平的调度），不过通常情况下系统只会有几百个可运行进程，所以CFS还是相当公平的:)</span></div>&#13;
+<div><span style="font-size:18px"><br/>&#13;
+</span></div>&#13;
+<p/>&#13;
+<link rel="stylesheet" href="http://static.blog.csdn.net/public/res-min/markdown_views.css?v=1.0"/>&#13;
+            

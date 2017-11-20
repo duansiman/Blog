@@ -1,0 +1,260 @@
+
+                <div class="markdown_views"><h1 id="意图">意图</h1>
+
+<p>实现多重分配可以替换Instanceof <br/>
+在结构中穿梭还同时做事 <br/>
+访问者模式顾名思义使用这个模式后就可以在不修改已有程序结构的前提下，通过添加额外的“访问者”来完成对已有代码功能的提升。 <br/>
+作用于某对象结构中的各元素的操作。它使你可以在不改变各元素的类的前提下定义作用于这些元素的新操作。（新增对元素的操作） <br/>
+经典场景：在Java中访问者模式实际上分离了Collection（List、Vector、Hashtable等）结构中的元素和对这些元素进行操作的行为。 <br/>
+在使用Java实现动态多分派时一般会使用instanceof，这种方式会使用很多的if else，所以可以使用visitor替代 <br/>
+可见使用 Visitor 模式是有前提的，在两个接口 Visitor 和 Element中，确保 Visitor（对象结构）很少变化，变化的是 Element（元素的访问方式），这样使用 Visitor 最方便。 如果 Visitor 也经常变化， 也就是说，对象群中的对象类型经常改变，一般建议是，不如在这些对象类中逐个定义操作。但是 Java 的 Reflect 技术解决了这个问题。 Reflect 技术是在运行期间动态获取对象类型和方法的一种技术。</p>
+
+
+
+<h1 id="适用性">适用性</h1>
+
+<p>有比较稳定的数据结构，又有易于变化的算法的话，使用访问者模式就是比较合适的，因为访问者模式使得算法操作的增加变得容易。 <br/>
+在下列情况下使用Visitor模式： <br/>
+1.  一个对象结构包含很多类对象，它们有不同的接口，而你想对这些对象实施一些依赖于其具体类的实现。 <br/>
+2.  需要对一个对象接口中的对象进行很多不同的并且不相干的操作，而你想避免让这些操作“污染”这些对象的类。Visitor使得你可以将相关的操作集中起来定义在一个类中。当该对象结构被很多应用共享时，用Visitor模式让每个应用仅包含需要用到的操作。 <br/>
+3.  定义对象结构的类很少改变，但经常需要在此结构上定义新的操作。改变对象结构类需要重定义对所有访问者的接口，这可能需要很大的代价。如果对象结构类经常改变，那么可能还是在这些类中定义这些操作较好。</p>
+
+<h1 id="结构">结构</h1>
+
+<p><img title="" alt="这里写图片描述" src="http://img.blog.csdn.net/20170422113008106?watermark/2/text/aHR0cDovL2Jsb2cuY3Nkbi5uZXQvc2xkODgwMzEx/font/5a6L5L2T/fontsize/400/fill/I0JBQkFCMA==/dissolve/70/gravity/SouthEast"/></p>
+
+
+
+<h1 id="参与者">参与者</h1>
+
+
+
+<h2 id="visitor">Visitor</h2>
+
+<ol>
+<li>为该对象结构中ConcreteElement的每一个类声明一个Visit访问接口。该操作接口的名字和参数标识了发送访问请求给具体访问者的具体元素角色。这使得访问者可以正确被访问元素的具体的类。这样访问者就可以通过改元素的特定接口直接访问它。</li>
+</ol>
+
+<h2 id="concretevisitor">ConcreteVisitor</h2>
+
+<ol>
+<li>实现每个由Visitor声明的操作。每个操作实现本算法的一部分，而该算法片段乃是对应于结构中对象的类。ConcreteVisitor为该算法提供了上下文并存储它的局部状态。这一状态常常在遍历该结构的过程中累积结果。</li>
+</ol>
+
+<h2 id="element">Element</h2>
+
+<ol>
+<li>定义一个Accept操作，它以一个访问者为参数</li>
+</ol>
+
+<h2 id="concreteelement">ConcreteElement</h2>
+
+<ol>
+<li>实现Accept操作，该操作以一个访问者为参数</li>
+</ol>
+
+<h2 id="objectstructure">ObjectStructure</h2>
+
+<ol>
+<li>这是访问者模式必备的角色，能枚举它的元素</li>
+<li>可以提供一个高层的接口以允许访问者访问它的元素</li>
+<li>可以是一个复合（Composite）或是一个集合，如一个列表或一个无序集合。</li>
+</ol>
+
+
+
+<h1 id="代码">代码</h1>
+
+
+
+<h2 id="visitor-1">Visitor</h2>
+
+<pre class="prettyprint"><code class="language-java hljs "><span class="hljs-keyword">public</span> <span class="hljs-class"><span class="hljs-keyword">interface</span> <span class="hljs-title">Visitor</span> {</span>
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">void</span> <span class="hljs-title">visit</span>(Gladiolus g);
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">void</span> <span class="hljs-title">visit</span>(Runuculus r);
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">void</span> <span class="hljs-title">visit</span>(Chrysanthemum c);
+}
+</code></pre>
+
+<h2 id="concretevisitor-1">ConcreteVisitor</h2>
+
+<pre class="prettyprint"><code class="language-java hljs "><span class="hljs-keyword">public</span> <span class="hljs-class"><span class="hljs-keyword">class</span> <span class="hljs-title">BeeVisitor</span> <span class="hljs-keyword">implements</span> <span class="hljs-title">Visitor</span>{</span>
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">void</span> <span class="hljs-title">visit</span>(Gladiolus g) {
+        System.out.println(<span class="hljs-string">"Bee and Gladiolus"</span>);
+    }
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">void</span> <span class="hljs-title">visit</span>(Runuculus r) {
+        System.out.println(<span class="hljs-string">"Bee and Runuculus"</span>);
+    }
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">void</span> <span class="hljs-title">visit</span>(Chrysanthemum c) {
+        System.out.println(<span class="hljs-string">"Bee and Chrysanthemum"</span>);
+    }
+}
+<span class="hljs-keyword">public</span> <span class="hljs-class"><span class="hljs-keyword">class</span> <span class="hljs-title">StringValVisitor</span> <span class="hljs-keyword">implements</span> <span class="hljs-title">Visitor</span>{</span>
+    <span class="hljs-keyword">private</span> String s;
+    <span class="hljs-keyword">public</span> String <span class="hljs-title">toString</span>(){<span class="hljs-keyword">return</span> s;}
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">void</span> <span class="hljs-title">visit</span>(Gladiolus g) {
+        s = <span class="hljs-string">"Gladiolus"</span>;
+    }
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">void</span> <span class="hljs-title">visit</span>(Runuculus r) {
+        s = <span class="hljs-string">"Runuculus"</span>;
+    }
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">void</span> <span class="hljs-title">visit</span>(Chrysanthemum c) {
+        s = <span class="hljs-string">"Chrysanthemum"</span>;
+    }
+}
+</code></pre>
+
+<h2 id="element-1">Element</h2>
+
+<pre class="prettyprint"><code class="language-java hljs "><span class="hljs-keyword">public</span> <span class="hljs-class"><span class="hljs-keyword">interface</span> <span class="hljs-title">FlowerElement</span> {</span>
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">void</span> <span class="hljs-title">accept</span>(Visitor v);
+}
+</code></pre>
+
+<h2 id="concreteelement-1">ConcreteElement</h2>
+
+<pre class="prettyprint"><code class="language-java hljs "><span class="hljs-keyword">public</span> <span class="hljs-class"><span class="hljs-keyword">class</span> <span class="hljs-title">ChrysanthemumElement</span> <span class="hljs-keyword">implements</span> <span class="hljs-title">FlowerElement</span>{</span>
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">void</span> <span class="hljs-title">accept</span>(Visitor v){
+        v.visit(<span class="hljs-keyword">this</span>);
+    }
+}
+<span class="hljs-keyword">public</span> <span class="hljs-class"><span class="hljs-keyword">class</span> <span class="hljs-title">GladiolusElement</span> <span class="hljs-keyword">implements</span> <span class="hljs-title">FlowerElement</span>{</span>
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">void</span> <span class="hljs-title">accept</span>(Visitor v){
+        v.visit(<span class="hljs-keyword">this</span>);
+    }
+}
+<span class="hljs-keyword">public</span> <span class="hljs-class"><span class="hljs-keyword">class</span> <span class="hljs-title">RunuculusElement</span> <span class="hljs-keyword">implements</span> <span class="hljs-title">FlowerElement</span>{</span>
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">void</span> <span class="hljs-title">accept</span>(Visitor v){
+        v.visit(<span class="hljs-keyword">this</span>);
+    }
+}
+</code></pre>
+
+<h2 id="objectstructure-1">ObjectStructure</h2>
+
+
+
+<pre class="prettyprint"><code class="language-java hljs "><span class="hljs-keyword">public</span> <span class="hljs-class"><span class="hljs-keyword">class</span> <span class="hljs-title">FlowerGeneratorObjectStructure</span> {</span>
+    <span class="hljs-keyword">private</span> <span class="hljs-keyword">static</span> Random rand = <span class="hljs-keyword">new</span> Random();
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">static</span> FlowerElement <span class="hljs-title">newFlowerElement</span>(){
+        <span class="hljs-keyword">switch</span>(rand.nextInt(<span class="hljs-number">3</span>)){
+            <span class="hljs-keyword">default</span>:
+            <span class="hljs-keyword">case</span> <span class="hljs-number">0</span> : <span class="hljs-keyword">return</span> <span class="hljs-keyword">new</span> GladiolusElement();
+            <span class="hljs-keyword">case</span> <span class="hljs-number">1</span> : <span class="hljs-keyword">return</span> <span class="hljs-keyword">new</span> RunuculusElement();
+            <span class="hljs-keyword">case</span> <span class="hljs-number">2</span> : <span class="hljs-keyword">return</span> <span class="hljs-keyword">new</span> ChrysanthemumElement();
+        }
+    }
+}
+</code></pre>
+
+<h2 id="main">Main</h2>
+
+
+
+<pre class="prettyprint"><code class="language-java hljs "><span class="hljs-keyword">public</span> <span class="hljs-class"><span class="hljs-keyword">class</span> <span class="hljs-title">Main</span> {</span>
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">static</span> <span class="hljs-keyword">void</span> <span class="hljs-title">main</span>(String[] args) {
+        List&lt;FlowerElement&gt; folwers = <span class="hljs-keyword">new</span> ArrayList&lt;FlowerElement&gt;();
+        <span class="hljs-keyword">for</span>(<span class="hljs-keyword">int</span> i=<span class="hljs-number">0</span>;i&lt;<span class="hljs-number">10</span>;i++){
+            folwers.add(FlowerGeneratorObjectStructure.newFlowerElement());
+        }
+        Visitor visitor = <span class="hljs-keyword">new</span> StringValVisitor();
+        <span class="hljs-keyword">for</span>(FlowerElement fElement:folwers){
+            fElement.accept(visitor);
+            System.out.println(visitor+<span class="hljs-string">"======visitor===="</span>);
+        }
+    }
+}
+</code></pre>
+
+
+
+<h1 id="协作">协作</h1>
+
+<ol>
+<li>一个使用Visitor模式的客户必须创建一个ConcreteVisitor对象，然后遍历该对象结构，并用该访问者访问每一个元素。</li>
+<li>当一个元素被访问时，它调用对应于它的类的Visitor操作。如果必要，改元素将自身作为这个操作的一个参数以便该访问者访问它的状态。 <br/>
+下面的交互框图说明了一个对象结构、一个访问者和两个元素之间的协作： <br/>
+<img title="" alt="这里写图片描述" src="http://img.blog.csdn.net/20170422113509605?watermark/2/text/aHR0cDovL2Jsb2cuY3Nkbi5uZXQvc2xkODgwMzEx/font/5a6L5L2T/fontsize/400/fill/I0JBQkFCMA==/dissolve/70/gravity/SouthEast"/></li>
+</ol>
+
+<h1 id="效果">效果</h1>
+
+<h2 id="易于增加新的操作">易于增加新的操作</h2>
+
+<p>访问者使得增加依赖于复杂对象结构的构件的操作变得很容易了。仅需增加一个新的访问者即可在一个对象结构上定义一个新的操作。相反，如果每个功能都分散在多个类之上的话，定义新的操作时必须修改每一个类。</p>
+
+<h2 id="访问者集中相关的操作而分离无关的操作">访问者集中相关的操作而分离无关的操作</h2>
+
+<p>相关的行为不是分布在定义该对象结构的各个类上，而是集中在一个访问者中。无关行为却被分别放在它们各自的访问者子类中。这就既简化了这些元素的类，也简化了在这些访问者中定义的算法。所有与它的算法相关的数据结构都可以被隐藏在访问者中。</p>
+
+
+
+<h2 id="增加新的concreteelement类很困难">增加新的ConcreteElement类很困难</h2>
+
+<p>Visitor模式使得难以增加新的Element的子类。没添加一个新的ConcreteElement都要在Visitor中添加一个新的抽象操作，并在每一个ConcreteVisitor类中实现相应的操作。有时可以在Visitor中提供一个缺省的实现，这一实现可以被大多数的ConcreteVisitor继承，但这与其说是一个规律还不说是一种例外。 <br/>
+所以在应用访问者模式时考虑关键的问题时系统的哪些部分会经常变化，是作用于对象结构上的算法还是构成该结构的各个对象的类。如果老是有新的ConcreteElement类加入进来的话，Visitor类层次将变得难以维护。在这种情况下，直接在构成该结构的类中定义这些操作可能更容易一些。如果Element类层次时稳定的，而你不断地增加操作或修改算法，访问者模式可以帮助你管理这些改动。</p>
+
+<h2 id="通过类层次进行访问">通过类层次进行访问</h2>
+
+<p>一个迭代器可以通过调用节点对象的特定操作来遍历整个对象结构，同时访问这些对象。但是迭代器不能对具有不同元素类型的对象结构进行操作。这意味着所有迭代器能够访问的元素都有一个共同的父类。 <br/>
+访问者没有这种限制，它可以访问不具有相同父类的对象。可以对一个Visitor接口增加任何类型的对象。</p>
+
+<h2 id="累积状态">累积状态</h2>
+
+<p>当访问者访问对象结构中的每一个元素时，它可能会累积状态。如果没有访问者，这一状态将作为额外的参数传递给进行遍历的操作，或者定义全局变量。</p>
+
+<h2 id="破坏封装">破坏封装</h2>
+
+<p>访问者方法假定ConcreteElement接口的功能足够强，足以让访问者进行它们的工作。结果是，该模式常常迫使你提供访问元素内部状态的公共操作，这可能会破坏它的封装性。</p>
+
+
+
+<h2 id="优点">优点</h2>
+
+<ol>
+<li>允许你对组合结构加入新的操作，无需改变结构本身 </li>
+<li>想要加入新的操作相对容易 </li>
+<li>访问者所进行的操作，其代码是集中在一起的 </li>
+</ol>
+
+
+
+<h2 id="缺点">缺点</h2>
+
+<ol>
+<li>会打破组合类的封装 </li>
+<li>因为游走的功能牵涉其中，随意对组合结构的改变就更加困难。 </li>
+</ol>
+
+<h1 id="实现">实现</h1>
+
+<h2 id="双分派">双分派</h2>
+
+<p>访问者模式允许你不改变类即可有效地增加其上的操作。为达到这一效果使用了一种称为双分派的技术。 <br/>
+在分派语言中，到底由哪一种操作将来实现一个请求取决于两个方面：该请求的名和接收者的类型。 <br/>
+双分派意味着得到执行的操作决定于请求的种类和两个接收者的类型。Accept是一个double-dispatch操作。它的含义决定于两个类型：Visitor的类型和Element的类型。双分派使得访问者可以对每一个类元的素请求不同的操作。 <br/>
+这是Visitor模式的关键所在：得到执行的操作不仅决定于Visitor的类型还决定于它访问的Element的类型。可以不将操作静态地绑定在Element接口中，而将其安放在一个Visitor中，并使用Accept在运行时进行绑定。扩展Element接口就等于定义一个新的Visitor子类而不是多个新的Element子类。</p>
+
+<h2 id="谁负责遍历对象结构">谁负责遍历对象结构</h2>
+
+<p>一个访问者必须访问这个对象结构的每一个元素。问题是，它们怎么做？我们可以将遍历的责任放到下面三个地方的任意一个：对象结构中，访问者中，或一个独立的迭代器对象中。 <br/>
+通常由对象结构负责迭代。一个集合只需对它的元素进行迭代，并对每一个元素调用Accept操作。而一个复合操作通常让Accept操作遍历该元素的各子构件并对它们中的每一个递归地调用Accept。 <br/>
+另一个解决方案是使用一个迭代器来访问各个元素。主要区别在于一个内部迭代器不会产生双分派—它将以该元素为一个参数调用访问者 的一个操作而不是以访问者 为参数调用元素的一个操作。不过，如果访问者的操作仅简单地调用该元素的操作而无需递归的话，使用一个内部迭代器的Visitor模式很容易使用。 <br/>
+甚至可以将遍历算法放在访问者中，尽管这样将导致对每一个聚合ConcreteElement，在每一个ConcreteVisitor中都要复制遍历的代码。将该遍历策略放在访问者中的主要原因是想实现一个特别复杂的遍历，它依赖于对该对象结构的操作结果。</p>
+
+<h1 id="相关模式">相关模式</h1>
+
+<h2 id="iterator-pattern">Iterator Pattern</h2>
+
+<p>迭代模式和访问者模式都是在数据结构上进行处理，迭代模式是用在想逐一取得数据结构中的元素时，而访问者模式是用在想对数据结构内的元素进行特殊处理之时。</p>
+
+<h2 id="composite-pattern">Composite Pattern</h2>
+
+<p>被访问的数据结构有时可能是组合模式</p>
+
+<h2 id="interpreter-pattern">Interpreter Pattern</h2>
+
+<p>解释器模式有时会用到访问者模式，例如：在完成树状剖析（parser tree）后，穿梭在树状剖析的各个节点之间同时进行处理时。</p>
+
+<p><font color="#0099ff" face="黑体" size="3">敬请期待“对象行为型模式已经全部讲完，下一期将对对象行为型模式进行总结”</font></p><link rel="stylesheet" href="http://static.blog.csdn.net/public/res-min/markdown_views.css?v=2.0"/></div><link rel="stylesheet" href="http://static.blog.csdn.net/public/res-min/markdown_views.css?v=2.0"/>&#13;
+            

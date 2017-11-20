@@ -1,0 +1,298 @@
+
+                <div class="markdown_views"><h3 id="意图">意图</h3>
+
+<p>将一个复杂对象的构建与它的表示分离，使得同样的构建过程可以创建不同的表示，将一个构造复杂对象的过程和组合对象的部件解耦。 <br/>
+采用循环渐进的方式组合复杂的对象实例</p>
+
+
+
+<h3 id="适用性">适用性</h3>
+
+<p>在以下情况使用Builder模式： <br/>
+1.  当创建复杂对象的算法应该独立与该对象的组成部分以及它们的装配方式时。 <br/>
+2.  当构造过程必须允许被构造的对象有不同的表现时。 <br/>
+3.  用来创建组合结构。</p>
+
+
+
+<h3 id="结构">结构</h3>
+
+<p><img title="" alt="这里写图片描述" src="http://img.blog.csdn.net/20170410082818795?watermark/2/text/aHR0cDovL2Jsb2cuY3Nkbi5uZXQvc2xkODgwMzEx/font/5a6L5L2T/fontsize/400/fill/I0JBQkFCMA==/dissolve/70/gravity/SouthEast"/></p>
+
+
+
+<h3 id="参与者">参与者</h3>
+
+
+
+<h4 id="builder">Builder</h4>
+
+<p>1.为创建一个Product对象的各个部件指定抽象接口，规范产品对象的各个组成成分的建造，独立于业务逻辑</p>
+
+
+
+<h4 id="concretebuilder">ConcreteBuilder</h4>
+
+<ol>
+<li>实现Builder的接口以构造和装配该产品的各个部件</li>
+<li>定义并明确它所创建的表示</li>
+<li>提供一个检索产品的接口</li>
+<li>和业务逻辑紧密相关，并且在指导者的调用下创建产品实例</li>
+</ol>
+
+
+
+<h4 id="director">Director</h4>
+
+<p>1.构造一个使用Builder接口的对象</p>
+
+
+
+<h4 id="product">Product</h4>
+
+<ol>
+<li>表示被构造的复杂对象。ConcreteBuilder创建该产品的内部表示并定义它的装配过程</li>
+<li>包含定义组成组件的类，包括将这些部件装备成最终产品的接口。</li>
+</ol>
+
+
+
+<h3 id="代码">代码</h3>
+
+
+
+<h4 id="product-1">Product</h4>
+
+
+
+<pre class="prettyprint"><code class="language-java hljs "><span class="hljs-annotation">@SuppressWarnings</span>(<span class="hljs-string">"serial"</span>)
+<span class="hljs-keyword">public</span> <span class="hljs-class"><span class="hljs-keyword">class</span> <span class="hljs-title">Media</span>&lt;<span class="hljs-title">T</span>&gt; <span class="hljs-keyword">extends</span> <span class="hljs-title">ArrayList</span>&lt;<span class="hljs-title">T</span>&gt;{</span>}
+<span class="hljs-annotation">@SuppressWarnings</span>(<span class="hljs-string">"serial"</span>)
+class Book&lt;T&gt; extends Media&lt;T&gt;{}
+<span class="hljs-annotation">@SuppressWarnings</span>(<span class="hljs-string">"serial"</span>)
+class Magazine&lt;T&gt; extends Media&lt;T&gt;{}
+<span class="hljs-annotation">@SuppressWarnings</span>(<span class="hljs-string">"serial"</span>)
+class WebSite&lt;T&gt; extends Media&lt;T&gt;{}
+class MediaItem{
+    <span class="hljs-keyword">private</span> String s;
+    <span class="hljs-keyword">public</span> <span class="hljs-title">MediaItem</span>(String s){<span class="hljs-keyword">this</span>.s = s;}
+    <span class="hljs-keyword">public</span> String <span class="hljs-title">toString</span>(){<span class="hljs-keyword">return</span> s;}
+}
+class Chapter extends MediaItem {
+    <span class="hljs-keyword">public</span> <span class="hljs-title">Chapter</span>(String s) { <span class="hljs-keyword">super</span>(s); }
+}
+class Article extends MediaItem {
+    <span class="hljs-keyword">public</span> <span class="hljs-title">Article</span>(String s) { <span class="hljs-keyword">super</span>(s); }
+}
+class WebItem extends MediaItem {
+    <span class="hljs-keyword">public</span> <span class="hljs-title">WebItem</span>(String s) { <span class="hljs-keyword">super</span>(s); }
+}
+</code></pre>
+
+
+
+<h4 id="builder-1">Builder</h4>
+
+
+
+<pre class="prettyprint"><code class="language-java hljs "><span class="hljs-keyword">public</span> <span class="hljs-keyword">abstract</span> <span class="hljs-class"><span class="hljs-keyword">class</span> <span class="hljs-title">AbstractMediaBuilder</span> {</span>
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">abstract</span> <span class="hljs-keyword">void</span> <span class="hljs-title">buildBase</span>();
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">abstract</span> <span class="hljs-keyword">void</span> <span class="hljs-title">addMediaItem</span>(MediaItem mediaItem);
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">abstract</span> Media&lt;MediaItem&gt; <span class="hljs-title">getFinishedMedia</span>();
+}
+</code></pre>
+
+
+
+<h4 id="concretebuilder-1">ConcreteBuilder</h4>
+
+
+
+<pre class="prettyprint"><code class="language-java hljs "><span class="hljs-keyword">public</span> <span class="hljs-class"><span class="hljs-keyword">class</span> <span class="hljs-title">BookBuilder</span> <span class="hljs-keyword">extends</span> <span class="hljs-title">AbstractMediaBuilder</span> {</span>
+    <span class="hljs-keyword">private</span> Book&lt;MediaItem&gt; book;
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">void</span> <span class="hljs-title">buildBase</span>() {
+        System.out.println(<span class="hljs-string">"Building book framework"</span>);
+        book = <span class="hljs-keyword">new</span> Book&lt;MediaItem&gt;();
+    }
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">void</span> <span class="hljs-title">addMediaItem</span>(MediaItem chapter) {
+        System.out.println(<span class="hljs-string">"Adding chapter "</span> + chapter);
+        book.add(chapter);
+    }
+    <span class="hljs-keyword">public</span> Media&lt;MediaItem&gt; <span class="hljs-title">getFinishedMedia</span>() {
+        <span class="hljs-keyword">return</span> book;
+    }
+}
+<span class="hljs-keyword">public</span> <span class="hljs-class"><span class="hljs-keyword">class</span> <span class="hljs-title">MagazineBuilder</span> <span class="hljs-keyword">extends</span> <span class="hljs-title">AbstractMediaBuilder</span> {</span>
+    <span class="hljs-keyword">private</span> Magazine&lt;MediaItem&gt; magazine;
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">void</span> <span class="hljs-title">buildBase</span>() {
+        System.out.println(<span class="hljs-string">"Building magazine framework"</span>);
+        magazine = <span class="hljs-keyword">new</span> Magazine&lt;MediaItem&gt;();
+    }
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">void</span> <span class="hljs-title">addMediaItem</span>(MediaItem article) {
+        System.out.println(<span class="hljs-string">"Adding article "</span> + article);
+        magazine.add(article);
+    }
+    <span class="hljs-keyword">public</span> Media&lt;MediaItem&gt; <span class="hljs-title">getFinishedMedia</span>() {
+        <span class="hljs-keyword">return</span> magazine;
+    }
+}
+</code></pre>
+
+
+
+<h4 id="director-1">Director</h4>
+
+
+
+<pre class="prettyprint"><code class="language-java hljs "><span class="hljs-keyword">public</span> <span class="hljs-class"><span class="hljs-keyword">class</span> <span class="hljs-title">MediaDirector</span> {</span>
+    <span class="hljs-keyword">private</span> AbstractMediaBuilder abstractMediaBuilder;
+    <span class="hljs-keyword">public</span> <span class="hljs-title">MediaDirector</span>(AbstractMediaBuilder abstractMediaBuilder){
+        <span class="hljs-keyword">this</span>.abstractMediaBuilder = abstractMediaBuilder;
+    }
+    <span class="hljs-keyword">public</span> Media&lt;MediaItem&gt; <span class="hljs-title">produceMedia</span>(List&lt;MediaItem&gt; input) {
+        abstractMediaBuilder.buildBase();
+        <span class="hljs-keyword">for</span>(MediaItem mediaItem:input){
+            abstractMediaBuilder.addMediaItem(mediaItem);
+        }
+        <span class="hljs-keyword">return</span> abstractMediaBuilder.getFinishedMedia();
+    }
+}
+</code></pre>
+
+
+
+<h4 id="client">Client</h4>
+
+
+
+<pre class="prettyprint"><code class="language-java hljs "><span class="hljs-keyword">public</span> <span class="hljs-class"><span class="hljs-keyword">class</span> <span class="hljs-title">Test</span> {</span>
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">static</span> <span class="hljs-keyword">void</span> <span class="hljs-title">main</span>(String[] args) {
+        List&lt;MediaItem&gt; input = Arrays.asList(<span class="hljs-keyword">new</span> MediaItem[] {
+                 <span class="hljs-keyword">new</span> MediaItem(<span class="hljs-string">"item1"</span>), <span class="hljs-keyword">new</span> MediaItem(<span class="hljs-string">"item2"</span>),
+                 <span class="hljs-keyword">new</span> MediaItem(<span class="hljs-string">"item3"</span>), <span class="hljs-keyword">new</span> MediaItem(<span class="hljs-string">"item4"</span>),
+                 });
+        AbstractMediaBuilder book = <span class="hljs-keyword">new</span> BookBuilder();
+        AbstractMediaBuilder magazine = <span class="hljs-keyword">new</span> MagazineBuilder();
+        MediaDirector bookd = <span class="hljs-keyword">new</span> MediaDirector(book);
+        bookd.produceMedia(input);
+        MediaDirector magazined = <span class="hljs-keyword">new</span> MediaDirector(magazine);
+        magazined.produceMedia(input);
+    }
+}
+</code></pre>
+
+
+
+<h3 id="协作">协作</h3>
+
+<ol>
+<li>客户创建Director对象，并用它所需要的Builder对象进行配置</li>
+<li>一旦产品部件被生成，导向器就会通知生成器</li>
+<li>生成器处理导向器的请求，并将部件添加到该产品中</li>
+<li>客户从生成器中检索产品 <br/>
+<img title="" alt="这里写图片描述" src="http://img.blog.csdn.net/20170410083434711?watermark/2/text/aHR0cDovL2Jsb2cuY3Nkbi5uZXQvc2xkODgwMzEx/font/5a6L5L2T/fontsize/400/fill/I0JBQkFCMA==/dissolve/70/gravity/SouthEast"/></li>
+</ol>
+
+
+
+<h3 id="效果">效果</h3>
+
+
+
+<h4 id="可以改变一个产品的内部表示">可以改变一个产品的内部表示</h4>
+
+<p>Builder对象提供给导向器一个构造产品的抽象接口。该接口使得生成器可以隐藏这个产品的表示和内部结构。它同时也隐藏了该产品是如何装配的。因为产品是通过抽象接口构造的，你在改变该产品的内部表示时所要做的只是定义一个新的生成器。</p>
+
+
+
+<h4 id="将构造代码和表示代码分离">将构造代码和表示代码分离</h4>
+
+<p>Builder模式通过封装一个复杂对象的创建和表示方式提高了对象的模块性。客户不需要知道定义产品内部结构的类的所有信息；这些类是不会出现在Builder接口中的。每个ConcreteBuilder包含创建和装配一个特定产品的所有代码。这些代码只需要写一次；然后不同的Director可以复用它以在相同部件集合的基础上构作不同的Product。</p>
+
+
+
+<h4 id="使你可对构造过程进行更精细的控制">使你可对构造过程进行更精细的控制</h4>
+
+<p>Builder模式与一下子就生成产品的创建型模式不同，它是在导向者的控制下一步一步构造产品的。仅当该产品完成时导向者才从生成器中取回它。因此Builder接口相比其他创建型模式能更好的反映产品的构造过程。这使你可以更精细的控制构件过程，从而能更精细的控制所得产品的内部结构。</p>
+
+
+
+<h4 id="优点">优点</h4>
+
+<ol>
+<li>将一个复杂对象的创建过程封装起来 </li>
+<li>允许对象通过多个步骤来创建，并且可以改变创建过程 </li>
+<li>向客户隐藏内部的表现</li>
+<li>产品的实现可以被替换，因为客户只看到一个抽象的接口 </li>
+</ol>
+
+
+
+<h4 id="缺点">缺点</h4>
+
+<p>与工厂模式相比，采用生成器模式创建对象更复杂，其客户，需要更多的知识领域。</p>
+
+
+
+<h3 id="实现">实现</h3>
+
+<p>通常有一个抽象的Builder类为导向者可能要求创建的每一个构件定义一个操作。这些操作缺省情况下什么都不做。一个ConcreteBuilder类对它有兴趣创建的构建重新定义这些操作。</p>
+
+
+
+<h4 id="装配和构造接口">装配和构造接口</h4>
+
+<p>生成器逐步的构造它们的产品。因此Builder类接口必须足够普通，以便为各种类型的具体生成器构造产品。 <br/>
+一个关键的设计问题在于构造和装配过程的模型。构造请求的结构只是添加到产品中，通常这样的模型就已足够了。 <br/>
+但有时你可能需要访问前面已经构造了的产品部件。在这种情况下，生成器将子结点返回给导向者，然后导向者将它们回传给生成这去创建父结点。</p>
+
+
+
+<h4 id="为什么产品没有抽象类">为什么产品没有抽象类</h4>
+
+<p>通常情况下，由具体生成器生成的产品，它们的表示相差是如此之大以至于给不同的产品以公共父类没有太大的意思。</p>
+
+
+
+<h4 id="在builder中缺省的方法为空">在Builder中缺省的方法为空</h4>
+
+<p>C++中，生成方法故意不声明为纯虚成员函数，而是把它们定义为空方法，这使客户只重定义它们所感兴趣的操作。</p>
+
+
+
+<h3 id="经典例子">经典例子</h3>
+
+<p>电脑组装（商务型、娱乐游戏型、家用型） <br/>
+创建模式着重于逐渐将组件装配成一个产品并向外提供产品，通过相同的创建过程创建不同的对象，并且不直接返回 <br/>
+抽象工厂模式着重于得到产品族相关的多个产品对象，直接返回对象，并且强调的是创建多个相关依赖的对象提供一个统一的接口。</p>
+
+
+
+<h3 id="相关模式">相关模式</h3>
+
+
+
+<h4 id="template-method-pattern">Template Method Pattern</h4>
+
+<p>在构建模式中，Director参与者控制Builder参与者；在模板模式中则是父类控制子类。</p>
+
+
+
+<h4 id="facade-pattern">Facade Pattern</h4>
+
+<p>构建模式的指导者是组合构建者所提供的复杂方法，在把构成对象实例的接口提供给外部；而Facade Pattern的Facade参与者是组合内部模块再把执行操作的简单接口提供给外部。</p>
+
+
+
+<h4 id="abstract-factory-pattern">Abstract Factory Pattern</h4>
+
+<p>抽象工厂模式与Builder相似，因为它也可以创建复杂对象。主要的区别是Builder模式着重于一步步构造一个复杂对象。而Abstract Factory着重于多个系列的产品对象（简单的或是复杂的）。Builder在最后的一步返回产品，而对于Abstract Factory来说，产品是立即返回的。</p>
+
+
+
+<h4 id="composite-pattern">Composite Pattern</h4>
+
+<p>Composite通常是用Builder生成的。利用构建模式所产生的结果可能会变成组合模式。</p>
+
+<p><font color="#0099ff" face="黑体" size="3">敬请期待“原型模式（Prototype Pattern对象创建型模式）”</font></p><link rel="stylesheet" href="http://static.blog.csdn.net/public/res-min/markdown_views.css?v=2.0"/></div><link rel="stylesheet" href="http://static.blog.csdn.net/public/res-min/markdown_views.css?v=2.0"/>&#13;
+            

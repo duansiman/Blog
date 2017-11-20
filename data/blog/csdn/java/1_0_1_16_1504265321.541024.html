@@ -1,0 +1,1271 @@
+
+        <div class="markdown_views"><h1 id="springdatajpa学习记录三复杂查询的封装">SpringDataJPA学习记录(三)–复杂查询的封装</h1>
+
+<p>标签（空格分隔）： springJPA</p>
+
+<hr />
+
+
+
+<h3 id="1使用criteriabuilder构建jpql">1.使用CriteriaBuilder构建JPQL</h3>
+
+<p>在UserRepositoryImpl中使用CriteriaBuilder实现根据id查询,下面是代码:</p>
+
+
+
+<pre class="prettyprint"><code class=" hljs avrasm">    public void findById(Integer id){
+        //select u from User u where u<span class="hljs-preprocessor">.id</span> = <span class="hljs-number">1</span>
+
+        CriteriaBuilder cb = entityManager<span class="hljs-preprocessor">.getCriteriaBuilder</span>()<span class="hljs-comment">;</span>
+        CriteriaQuery&lt;User&gt; cq = cb<span class="hljs-preprocessor">.createQuery</span>(User<span class="hljs-preprocessor">.class</span>)<span class="hljs-comment">;</span>
+        Root&lt;User&gt; root = cq<span class="hljs-preprocessor">.from</span>(User<span class="hljs-preprocessor">.class</span>)<span class="hljs-comment">; //from User</span>
+        cq<span class="hljs-preprocessor">.select</span>(root)<span class="hljs-comment">; //select * from User</span>
+        javax<span class="hljs-preprocessor">.persistence</span><span class="hljs-preprocessor">.criteria</span><span class="hljs-preprocessor">.Predicate</span> pre = cb<span class="hljs-preprocessor">.equal</span>(root<span class="hljs-preprocessor">.get</span>(<span class="hljs-string">"id"</span>)<span class="hljs-preprocessor">.as</span>(Integer<span class="hljs-preprocessor">.class</span>),id)<span class="hljs-comment">;//id=1</span>
+        cq<span class="hljs-preprocessor">.where</span>(pre)<span class="hljs-comment">;//where id=1</span>
+        Query query = entityManager<span class="hljs-preprocessor">.createQuery</span>(cq)<span class="hljs-comment">;//select u from User u where u.id = 1</span>
+
+        System<span class="hljs-preprocessor">.out</span><span class="hljs-preprocessor">.println</span>(query<span class="hljs-preprocessor">.getResultList</span>())<span class="hljs-comment">;</span>
+    }</code></pre>
+
+<p>缺点: <br />
+1. 代码量多 <br />
+2. 不易维护 <br />
+3. 条件复杂的话,则会显得很混乱.</p>
+
+<p>个人认为,CriteriaQuery不适合用来复杂sql的查询实现,不过可以使用其对一些通用的sql查询封装到BaseDao中.具体封装接着往下看.</p>
+
+<hr />
+
+
+
+<h3 id="2使用jpaspecificationexecutor查询">2.使用JpaSpecificationExecutor查询</h3>
+
+<p>该接口有如下方法,里面传入条件都是Specification,该接口会返回一个Predicate条件集合,因此就可以在这里封装.</p>
+
+
+
+<pre class="prettyprint"><code class=" hljs r">public interface JpaSpecificationExecutor&lt;<span class="hljs-literal">T</span>&gt; {
+
+    <span class="hljs-literal">T</span> findOne(Specification&lt;<span class="hljs-literal">T</span>&gt; spec);
+
+    List&lt;<span class="hljs-literal">T</span>&gt; findAll(Specification&lt;<span class="hljs-literal">T</span>&gt; spec);
+
+    Page&lt;<span class="hljs-literal">T</span>&gt; findAll(Specification&lt;<span class="hljs-literal">T</span>&gt; spec, Pageable pageable);
+
+    List&lt;<span class="hljs-literal">T</span>&gt; findAll(Specification&lt;<span class="hljs-literal">T</span>&gt; spec, Sort sort);
+
+    long count(Specification&lt;<span class="hljs-literal">T</span>&gt; spec);
+}</code></pre>
+
+
+
+<h4 id="1构造过滤条件集合">1.构造过滤条件集合</h4>
+
+<p>写法学习自shop++项目. <br />
+Operator枚举类里面的operator属性为了构建原生sql使用</p>
+
+
+
+<pre class="prettyprint"><code class=" hljs java"><span class="hljs-javadoc">/**
+ *<span class="hljs-javadoctag"> @author</span> Niu Li
+ *<span class="hljs-javadoctag"> @date</span> 2016/11/17
+ */</span>
+
+<span class="hljs-keyword">import</span> org.apache.commons.lang3.builder.EqualsBuilder;
+<span class="hljs-keyword">import</span> org.apache.commons.lang3.builder.HashCodeBuilder;
+
+<span class="hljs-keyword">import</span> java.io.Serializable;
+
+<span class="hljs-javadoc">/**
+ * 筛选
+ * copy from shopXX
+ */</span>
+<span class="hljs-keyword">public</span> <span class="hljs-class"><span class="hljs-keyword">class</span> <span class="hljs-title">Filter</span> <span class="hljs-keyword">implements</span> <span class="hljs-title">Serializable</span> {</span>
+
+    <span class="hljs-keyword">private</span> <span class="hljs-keyword">static</span> <span class="hljs-keyword">final</span> <span class="hljs-keyword">long</span> serialVersionUID = -<span class="hljs-number">8712382358441065075</span>L;
+
+    <span class="hljs-javadoc">/**
+     * 运算符
+     */</span>
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">enum</span> Operator {
+
+        <span class="hljs-javadoc">/** 等于 */</span>
+        eq(<span class="hljs-string">" = "</span>),
+
+        <span class="hljs-javadoc">/** 不等于 */</span>
+        ne(<span class="hljs-string">" != "</span>),
+
+        <span class="hljs-javadoc">/** 大于 */</span>
+        gt(<span class="hljs-string">" &gt; "</span>),
+
+        <span class="hljs-javadoc">/** 小于 */</span>
+        lt(<span class="hljs-string">" &lt; "</span>),
+
+        <span class="hljs-javadoc">/** 大于等于 */</span>
+        ge(<span class="hljs-string">" &gt;= "</span>),
+
+        <span class="hljs-javadoc">/** 小于等于 */</span>
+        le(<span class="hljs-string">" &lt;= "</span>),
+
+        <span class="hljs-javadoc">/** 类似 */</span>
+        like(<span class="hljs-string">" like "</span>),
+
+        <span class="hljs-javadoc">/** 包含 */</span>
+        in(<span class="hljs-string">" in "</span>),
+
+        <span class="hljs-javadoc">/** 为Null */</span>
+        isNull(<span class="hljs-string">" is NULL "</span>),
+
+        <span class="hljs-javadoc">/** 不为Null */</span>
+        isNotNull(<span class="hljs-string">" is not NULL "</span>);
+        Operator(String operator) {
+            <span class="hljs-keyword">this</span>.operator = operator;
+        }
+
+        <span class="hljs-keyword">private</span> String operator;
+
+        <span class="hljs-keyword">public</span> String <span class="hljs-title">getOperator</span>() {
+            <span class="hljs-keyword">return</span> operator;
+        }
+
+        <span class="hljs-keyword">public</span> <span class="hljs-keyword">void</span> <span class="hljs-title">setOperator</span>(String operator) {
+            <span class="hljs-keyword">this</span>.operator = operator;
+        }
+    }
+
+    <span class="hljs-javadoc">/** 默认是否忽略大小写 */</span>
+    <span class="hljs-keyword">private</span> <span class="hljs-keyword">static</span> <span class="hljs-keyword">final</span> <span class="hljs-keyword">boolean</span> DEFAULT_IGNORE_CASE = <span class="hljs-keyword">false</span>;
+
+    <span class="hljs-javadoc">/** 属性 */</span>
+    <span class="hljs-keyword">private</span> String property;
+
+    <span class="hljs-javadoc">/** 运算符 */</span>
+    <span class="hljs-keyword">private</span> Filter.Operator operator;
+
+    <span class="hljs-javadoc">/** 值 */</span>
+    <span class="hljs-keyword">private</span> Object value;
+
+    <span class="hljs-javadoc">/** 是否忽略大小写 */</span>
+    <span class="hljs-keyword">private</span> Boolean ignoreCase = DEFAULT_IGNORE_CASE;
+
+    <span class="hljs-javadoc">/**
+     * 构造方法
+     */</span>
+    <span class="hljs-keyword">public</span> <span class="hljs-title">Filter</span>() {
+    }
+
+    <span class="hljs-javadoc">/**
+     * 构造方法
+     *
+     *<span class="hljs-javadoctag"> @param</span> property
+     *            属性
+     *<span class="hljs-javadoctag"> @param</span> operator
+     *            运算符
+     *<span class="hljs-javadoctag"> @param</span> value
+     *            值
+     */</span>
+    <span class="hljs-keyword">public</span> <span class="hljs-title">Filter</span>(String property, Filter.Operator operator, Object value) {
+        <span class="hljs-keyword">this</span>.property = property;
+        <span class="hljs-keyword">this</span>.operator = operator;
+        <span class="hljs-keyword">this</span>.value = value;
+    }
+
+    <span class="hljs-javadoc">/**
+     * 构造方法
+     *
+     *<span class="hljs-javadoctag"> @param</span> property
+     *            属性
+     *<span class="hljs-javadoctag"> @param</span> operator
+     *            运算符
+     *<span class="hljs-javadoctag"> @param</span> value
+     *            值
+     *<span class="hljs-javadoctag"> @param</span> ignoreCase
+     *            忽略大小写
+     */</span>
+    <span class="hljs-keyword">public</span> <span class="hljs-title">Filter</span>(String property, Filter.Operator operator, Object value, <span class="hljs-keyword">boolean</span> ignoreCase) {
+        <span class="hljs-keyword">this</span>.property = property;
+        <span class="hljs-keyword">this</span>.operator = operator;
+        <span class="hljs-keyword">this</span>.value = value;
+        <span class="hljs-keyword">this</span>.ignoreCase = ignoreCase;
+    }
+
+    <span class="hljs-javadoc">/**
+     * 返回等于筛选
+     *
+     *<span class="hljs-javadoctag"> @param</span> property
+     *            属性
+     *<span class="hljs-javadoctag"> @param</span> value
+     *            值
+     *<span class="hljs-javadoctag"> @return</span> 等于筛选
+     */</span>
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">static</span> Filter <span class="hljs-title">eq</span>(String property, Object value) {
+        <span class="hljs-keyword">return</span> <span class="hljs-keyword">new</span> Filter(property, Filter.Operator.eq, value);
+    }
+
+    <span class="hljs-javadoc">/**
+     * 返回等于筛选
+     *
+     *<span class="hljs-javadoctag"> @param</span> property
+     *            属性
+     *<span class="hljs-javadoctag"> @param</span> value
+     *            值
+     *<span class="hljs-javadoctag"> @param</span> ignoreCase
+     *            忽略大小写
+     *<span class="hljs-javadoctag"> @return</span> 等于筛选
+     */</span>
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">static</span> Filter <span class="hljs-title">eq</span>(String property, Object value, <span class="hljs-keyword">boolean</span> ignoreCase) {
+        <span class="hljs-keyword">return</span> <span class="hljs-keyword">new</span> Filter(property, Filter.Operator.eq, value, ignoreCase);
+    }
+
+    <span class="hljs-javadoc">/**
+     * 返回不等于筛选
+     *
+     *<span class="hljs-javadoctag"> @param</span> property
+     *            属性
+     *<span class="hljs-javadoctag"> @param</span> value
+     *            值
+     *<span class="hljs-javadoctag"> @return</span> 不等于筛选
+     */</span>
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">static</span> Filter <span class="hljs-title">ne</span>(String property, Object value) {
+        <span class="hljs-keyword">return</span> <span class="hljs-keyword">new</span> Filter(property, Filter.Operator.ne, value);
+    }
+
+    <span class="hljs-javadoc">/**
+     * 返回不等于筛选
+     *
+     *<span class="hljs-javadoctag"> @param</span> property
+     *            属性
+     *<span class="hljs-javadoctag"> @param</span> value
+     *            值
+     *<span class="hljs-javadoctag"> @param</span> ignoreCase
+     *            忽略大小写
+     *<span class="hljs-javadoctag"> @return</span> 不等于筛选
+     */</span>
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">static</span> Filter <span class="hljs-title">ne</span>(String property, Object value, <span class="hljs-keyword">boolean</span> ignoreCase) {
+        <span class="hljs-keyword">return</span> <span class="hljs-keyword">new</span> Filter(property, Filter.Operator.ne, value, ignoreCase);
+    }
+
+    <span class="hljs-javadoc">/**
+     * 返回大于筛选
+     *
+     *<span class="hljs-javadoctag"> @param</span> property
+     *            属性
+     *<span class="hljs-javadoctag"> @param</span> value
+     *            值
+     *<span class="hljs-javadoctag"> @return</span> 大于筛选
+     */</span>
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">static</span> Filter <span class="hljs-title">gt</span>(String property, Object value) {
+        <span class="hljs-keyword">return</span> <span class="hljs-keyword">new</span> Filter(property, Filter.Operator.gt, value);
+    }
+
+    <span class="hljs-javadoc">/**
+     * 返回小于筛选
+     *
+     *<span class="hljs-javadoctag"> @param</span> property
+     *            属性
+     *<span class="hljs-javadoctag"> @param</span> value
+     *            值
+     *<span class="hljs-javadoctag"> @return</span> 小于筛选
+     */</span>
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">static</span> Filter <span class="hljs-title">lt</span>(String property, Object value) {
+        <span class="hljs-keyword">return</span> <span class="hljs-keyword">new</span> Filter(property, Filter.Operator.lt, value);
+    }
+
+    <span class="hljs-javadoc">/**
+     * 返回大于等于筛选
+     *
+     *<span class="hljs-javadoctag"> @param</span> property
+     *            属性
+     *<span class="hljs-javadoctag"> @param</span> value
+     *            值
+     *<span class="hljs-javadoctag"> @return</span> 大于等于筛选
+     */</span>
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">static</span> Filter <span class="hljs-title">ge</span>(String property, Object value) {
+        <span class="hljs-keyword">return</span> <span class="hljs-keyword">new</span> Filter(property, Filter.Operator.ge, value);
+    }
+
+    <span class="hljs-javadoc">/**
+     * 返回小于等于筛选
+     *
+     *<span class="hljs-javadoctag"> @param</span> property
+     *            属性
+     *<span class="hljs-javadoctag"> @param</span> value
+     *            值
+     *<span class="hljs-javadoctag"> @return</span> 小于等于筛选
+     */</span>
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">static</span> Filter <span class="hljs-title">le</span>(String property, Object value) {
+        <span class="hljs-keyword">return</span> <span class="hljs-keyword">new</span> Filter(property, Filter.Operator.le, value);
+    }
+
+    <span class="hljs-javadoc">/**
+     * 返回相似筛选
+     *
+     *<span class="hljs-javadoctag"> @param</span> property
+     *            属性
+     *<span class="hljs-javadoctag"> @param</span> value
+     *            值
+     *<span class="hljs-javadoctag"> @return</span> 相似筛选
+     */</span>
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">static</span> Filter <span class="hljs-title">like</span>(String property, Object value) {
+        <span class="hljs-keyword">return</span> <span class="hljs-keyword">new</span> Filter(property, Filter.Operator.like, value);
+    }
+
+    <span class="hljs-javadoc">/**
+     * 返回包含筛选
+     *
+     *<span class="hljs-javadoctag"> @param</span> property
+     *            属性
+     *<span class="hljs-javadoctag"> @param</span> value
+     *            值
+     *<span class="hljs-javadoctag"> @return</span> 包含筛选
+     */</span>
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">static</span> Filter <span class="hljs-title">in</span>(String property, Object value) {
+        <span class="hljs-keyword">return</span> <span class="hljs-keyword">new</span> Filter(property, Filter.Operator.in, value);
+    }
+
+    <span class="hljs-javadoc">/**
+     * 返回为Null筛选
+     *
+     *<span class="hljs-javadoctag"> @param</span> property
+     *            属性
+     *<span class="hljs-javadoctag"> @return</span> 为Null筛选
+     */</span>
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">static</span> Filter <span class="hljs-title">isNull</span>(String property) {
+        <span class="hljs-keyword">return</span> <span class="hljs-keyword">new</span> Filter(property, Filter.Operator.isNull, <span class="hljs-keyword">null</span>);
+    }
+
+    <span class="hljs-javadoc">/**
+     * 返回不为Null筛选
+     *
+     *<span class="hljs-javadoctag"> @param</span> property
+     *            属性
+     *<span class="hljs-javadoctag"> @return</span> 不为Null筛选
+     */</span>
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">static</span> Filter <span class="hljs-title">isNotNull</span>(String property) {
+        <span class="hljs-keyword">return</span> <span class="hljs-keyword">new</span> Filter(property, Filter.Operator.isNotNull, <span class="hljs-keyword">null</span>);
+    }
+
+    <span class="hljs-javadoc">/**
+     * 返回忽略大小写筛选
+     *
+     *<span class="hljs-javadoctag"> @return</span> 忽略大小写筛选
+     */</span>
+    <span class="hljs-keyword">public</span> Filter <span class="hljs-title">ignoreCase</span>() {
+        <span class="hljs-keyword">this</span>.ignoreCase = <span class="hljs-keyword">true</span>;
+        <span class="hljs-keyword">return</span> <span class="hljs-keyword">this</span>;
+    }
+
+    <span class="hljs-javadoc">/**
+     * 获取属性
+     *
+     *<span class="hljs-javadoctag"> @return</span> 属性
+     */</span>
+    <span class="hljs-keyword">public</span> String <span class="hljs-title">getProperty</span>() {
+        <span class="hljs-keyword">return</span> property;
+    }
+
+    <span class="hljs-javadoc">/**
+     * 设置属性
+     *
+     *<span class="hljs-javadoctag"> @param</span> property
+     *            属性
+     */</span>
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">void</span> <span class="hljs-title">setProperty</span>(String property) {
+        <span class="hljs-keyword">this</span>.property = property;
+    }
+
+    <span class="hljs-javadoc">/**
+     * 获取运算符
+     *
+     *<span class="hljs-javadoctag"> @return</span> 运算符
+     */</span>
+    <span class="hljs-keyword">public</span> Filter.Operator <span class="hljs-title">getOperator</span>() {
+        <span class="hljs-keyword">return</span> operator;
+    }
+
+    <span class="hljs-javadoc">/**
+     * 设置运算符
+     *
+     *<span class="hljs-javadoctag"> @param</span> operator
+     *            运算符
+     */</span>
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">void</span> <span class="hljs-title">setOperator</span>(Filter.Operator operator) {
+        <span class="hljs-keyword">this</span>.operator = operator;
+    }
+
+    <span class="hljs-javadoc">/**
+     * 获取值
+     *
+     *<span class="hljs-javadoctag"> @return</span> 值
+     */</span>
+    <span class="hljs-keyword">public</span> Object <span class="hljs-title">getValue</span>() {
+        <span class="hljs-keyword">return</span> value;
+    }
+
+    <span class="hljs-javadoc">/**
+     * 设置值
+     *
+     *<span class="hljs-javadoctag"> @param</span> value
+     *            值
+     */</span>
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">void</span> <span class="hljs-title">setValue</span>(Object value) {
+        <span class="hljs-keyword">this</span>.value = value;
+    }
+
+    <span class="hljs-javadoc">/**
+     * 获取是否忽略大小写
+     *
+     *<span class="hljs-javadoctag"> @return</span> 是否忽略大小写
+     */</span>
+    <span class="hljs-keyword">public</span> Boolean <span class="hljs-title">getIgnoreCase</span>() {
+        <span class="hljs-keyword">return</span> ignoreCase;
+    }
+
+    <span class="hljs-javadoc">/**
+     * 设置是否忽略大小写
+     *
+     *<span class="hljs-javadoctag"> @param</span> ignoreCase
+     *            是否忽略大小写
+     */</span>
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">void</span> <span class="hljs-title">setIgnoreCase</span>(Boolean ignoreCase) {
+        <span class="hljs-keyword">this</span>.ignoreCase = ignoreCase;
+    }
+
+    <span class="hljs-javadoc">/**
+     * 重写equals方法
+     *
+     *<span class="hljs-javadoctag"> @param</span> obj
+     *            对象
+     *<span class="hljs-javadoctag"> @return</span> 是否相等
+     */</span>
+    <span class="hljs-annotation">@Override</span>
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">boolean</span> <span class="hljs-title">equals</span>(Object obj) {
+        <span class="hljs-keyword">if</span> (obj == <span class="hljs-keyword">null</span>) {
+            <span class="hljs-keyword">return</span> <span class="hljs-keyword">false</span>;
+        }
+        <span class="hljs-keyword">if</span> (getClass() != obj.getClass()) {
+            <span class="hljs-keyword">return</span> <span class="hljs-keyword">false</span>;
+        }
+        <span class="hljs-keyword">if</span> (<span class="hljs-keyword">this</span> == obj) {
+            <span class="hljs-keyword">return</span> <span class="hljs-keyword">true</span>;
+        }
+        Filter other = (Filter) obj;
+        <span class="hljs-keyword">return</span> <span class="hljs-keyword">new</span> EqualsBuilder().append(getProperty(), other.getProperty()).append(getOperator(), other.getOperator()).append(getValue(), other.getValue()).isEquals();
+    }
+
+    <span class="hljs-javadoc">/**
+     * 重写hashCode方法
+     *
+     *<span class="hljs-javadoctag"> @return</span> HashCode
+     */</span>
+    <span class="hljs-annotation">@Override</span>
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">int</span> <span class="hljs-title">hashCode</span>() {
+        <span class="hljs-keyword">return</span> <span class="hljs-keyword">new</span> HashCodeBuilder(<span class="hljs-number">17</span>, <span class="hljs-number">37</span>).append(getProperty()).append(getOperator()).append(getValue()).toHashCode();
+    }
+
+}
+</code></pre>
+
+
+
+<h4 id="2构造排序字段">2.构造排序字段</h4>
+
+
+
+<pre class="prettyprint"><code class=" hljs java"><span class="hljs-keyword">import</span> org.apache.commons.lang3.builder.EqualsBuilder;
+<span class="hljs-keyword">import</span> org.apache.commons.lang3.builder.HashCodeBuilder;
+<span class="hljs-keyword">import</span> java.io.Serializable;
+<span class="hljs-javadoc">/**
+ * 排序
+ *
+ *<span class="hljs-javadoctag"> @author</span> copy from shopxx
+ */</span>
+<span class="hljs-keyword">public</span> <span class="hljs-class"><span class="hljs-keyword">class</span> <span class="hljs-title">Order</span> <span class="hljs-keyword">implements</span> <span class="hljs-title">Serializable</span> {</span>
+
+    <span class="hljs-keyword">private</span> <span class="hljs-keyword">static</span> <span class="hljs-keyword">final</span> <span class="hljs-keyword">long</span> serialVersionUID = -<span class="hljs-number">3078342809727773232</span>L;
+
+    <span class="hljs-javadoc">/**
+     * 方向
+     */</span>
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">enum</span> Direction {
+
+        <span class="hljs-javadoc">/** 递增 */</span>
+        asc,
+
+        <span class="hljs-javadoc">/** 递减 */</span>
+        desc
+    }
+
+    <span class="hljs-javadoc">/** 默认方向 */</span>
+    <span class="hljs-keyword">private</span> <span class="hljs-keyword">static</span> <span class="hljs-keyword">final</span> Order.Direction DEFAULT_DIRECTION = Order.Direction.desc;
+
+    <span class="hljs-javadoc">/** 属性 */</span>
+    <span class="hljs-keyword">private</span> String property;
+
+    <span class="hljs-javadoc">/** 方向 */</span>
+    <span class="hljs-keyword">private</span> Order.Direction direction = DEFAULT_DIRECTION;
+
+    <span class="hljs-annotation">@Override</span>
+    <span class="hljs-keyword">public</span> String <span class="hljs-title">toString</span>() {
+        <span class="hljs-keyword">return</span> property+<span class="hljs-string">" "</span> + direction.name();
+    }
+
+    <span class="hljs-javadoc">/**
+     * 构造方法
+     */</span>
+    <span class="hljs-keyword">public</span> <span class="hljs-title">Order</span>() {
+    }
+
+    <span class="hljs-javadoc">/**
+     * 构造方法
+     *
+     *<span class="hljs-javadoctag"> @param</span> property
+     *            属性
+     *<span class="hljs-javadoctag"> @param</span> direction
+     *            方向
+     */</span>
+    <span class="hljs-keyword">public</span> <span class="hljs-title">Order</span>(String property, Order.Direction direction) {
+        <span class="hljs-keyword">this</span>.property = property;
+        <span class="hljs-keyword">this</span>.direction = direction;
+    }
+
+    <span class="hljs-javadoc">/**
+     * 返回递增排序
+     *
+     *<span class="hljs-javadoctag"> @param</span> property
+     *            属性
+     *<span class="hljs-javadoctag"> @return</span> 递增排序
+     */</span>
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">static</span> Order <span class="hljs-title">asc</span>(String property) {
+        <span class="hljs-keyword">return</span> <span class="hljs-keyword">new</span> Order(property, Order.Direction.asc);
+    }
+
+    <span class="hljs-javadoc">/**
+     * 返回递减排序
+     *
+     *<span class="hljs-javadoctag"> @param</span> property
+     *            属性
+     *<span class="hljs-javadoctag"> @return</span> 递减排序
+     */</span>
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">static</span> Order <span class="hljs-title">desc</span>(String property) {
+        <span class="hljs-keyword">return</span> <span class="hljs-keyword">new</span> Order(property, Order.Direction.desc);
+    }
+
+    <span class="hljs-javadoc">/**
+     * 获取属性
+     *
+     *<span class="hljs-javadoctag"> @return</span> 属性
+     */</span>
+    <span class="hljs-keyword">public</span> String <span class="hljs-title">getProperty</span>() {
+        <span class="hljs-keyword">return</span> property;
+    }
+
+    <span class="hljs-javadoc">/**
+     * 设置属性
+     *
+     *<span class="hljs-javadoctag"> @param</span> property
+     *            属性
+     */</span>
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">void</span> <span class="hljs-title">setProperty</span>(String property) {
+        <span class="hljs-keyword">this</span>.property = property;
+    }
+
+    <span class="hljs-javadoc">/**
+     * 获取方向
+     *
+     *<span class="hljs-javadoctag"> @return</span> 方向
+     */</span>
+    <span class="hljs-keyword">public</span> Order.Direction <span class="hljs-title">getDirection</span>() {
+        <span class="hljs-keyword">return</span> direction;
+    }
+
+    <span class="hljs-javadoc">/**
+     * 设置方向
+     *
+     *<span class="hljs-javadoctag"> @param</span> direction
+     *            方向
+     */</span>
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">void</span> <span class="hljs-title">setDirection</span>(Order.Direction direction) {
+        <span class="hljs-keyword">this</span>.direction = direction;
+    }
+
+    <span class="hljs-javadoc">/**
+     * 重写equals方法
+     *
+     *<span class="hljs-javadoctag"> @param</span> obj
+     *            对象
+     *<span class="hljs-javadoctag"> @return</span> 是否相等
+     */</span>
+    <span class="hljs-annotation">@Override</span>
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">boolean</span> <span class="hljs-title">equals</span>(Object obj) {
+        <span class="hljs-keyword">if</span> (obj == <span class="hljs-keyword">null</span>) {
+            <span class="hljs-keyword">return</span> <span class="hljs-keyword">false</span>;
+        }
+        <span class="hljs-keyword">if</span> (getClass() != obj.getClass()) {
+            <span class="hljs-keyword">return</span> <span class="hljs-keyword">false</span>;
+        }
+        <span class="hljs-keyword">if</span> (<span class="hljs-keyword">this</span> == obj) {
+            <span class="hljs-keyword">return</span> <span class="hljs-keyword">true</span>;
+        }
+        Order other = (Order) obj;
+        <span class="hljs-keyword">return</span> <span class="hljs-keyword">new</span> EqualsBuilder().append(getProperty(), other.getProperty()).append(getDirection(), other.getDirection()).isEquals();
+    }
+
+    <span class="hljs-javadoc">/**
+     * 重写hashCode方法
+     *
+     *<span class="hljs-javadoctag"> @return</span> HashCode
+     */</span>
+    <span class="hljs-annotation">@Override</span>
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">int</span> <span class="hljs-title">hashCode</span>() {
+        <span class="hljs-keyword">return</span> <span class="hljs-keyword">new</span> HashCodeBuilder(<span class="hljs-number">17</span>, <span class="hljs-number">37</span>).append(getProperty()).append(getDirection()).toHashCode();
+    }
+
+}
+</code></pre>
+
+
+
+<h4 id="3查询语句生成">3.查询语句生成</h4>
+
+
+
+<h5 id="31基本框架">3.1基本框架</h5>
+
+
+
+<pre class="prettyprint"><code class=" hljs scala"><span class="hljs-javadoc">/**
+ * 封装查询条件的实体
+ * <span class="hljs-javadoctag">@author</span> Niu Li
+ * <span class="hljs-javadoctag">@date</span> 2016/11/17
+ */</span>
+public <span class="hljs-class"><span class="hljs-keyword">class</span> <span class="hljs-title">QueryParams</span>&lt;<span class="hljs-title">T</span>&gt; <span class="hljs-title">implements</span> <span class="hljs-title">Specification</span>&lt;<span class="hljs-title">T</span>&gt; {</span>
+
+    <span class="hljs-javadoc">/** 属性分隔符 */</span>
+    <span class="hljs-keyword">private</span> static <span class="hljs-keyword">final</span> String PROPERTY_SEPARATOR = <span class="hljs-string">"."</span>;
+    <span class="hljs-javadoc">/**
+     * and条件
+     */</span>
+    <span class="hljs-keyword">private</span> List&lt;Filter&gt; andFilters = <span class="hljs-keyword">new</span> ArrayList&lt;&gt;();
+    <span class="hljs-javadoc">/**
+     * or条件
+     */</span>
+    <span class="hljs-keyword">private</span> List&lt;Filter&gt; orFilters = <span class="hljs-keyword">new</span> ArrayList&lt;&gt;();
+    <span class="hljs-javadoc">/**
+     * 排序属性
+     */</span>
+    <span class="hljs-keyword">private</span> List&lt;Order&gt; orders = <span class="hljs-keyword">new</span> ArrayList&lt;&gt;();
+        <span class="hljs-javadoc">/**
+     * 获取Path
+     *
+     * <span class="hljs-javadoctag">@param</span> path
+     *            Path
+     * <span class="hljs-javadoctag">@param</span> propertyPath
+     *            属性路径
+     * <span class="hljs-javadoctag">@return</span> Path
+     */</span>
+    <span class="hljs-annotation">@SuppressWarnings</span>(<span class="hljs-string">"unchecked"</span>)
+    <span class="hljs-keyword">private</span> &lt;X&gt; Path&lt;X&gt; getPath(Path&lt;?&gt; path, String propertyPath) {
+        <span class="hljs-keyword">if</span> (path == <span class="hljs-keyword">null</span> || StringUtils.isEmpty(propertyPath)) {
+            <span class="hljs-keyword">return</span> (Path&lt;X&gt;) path;
+        }
+        String property = StringUtils.substringBefore(propertyPath, PROPERTY_SEPARATOR);
+        <span class="hljs-keyword">return</span> getPath(path.get(property), StringUtils.substringAfter(propertyPath, PROPERTY_SEPARATOR));
+    }
+}</code></pre>
+
+
+
+<h5 id="32分析and条件">3.2分析and条件:</h5>
+
+
+
+<pre class="prettyprint"><code class=" hljs http">
+
+<span class="javascript">    <span class="hljs-comment">/**
+     * 转换为Predicate
+     *
+     * @param root
+     *            Root
+     * @return Predicate
+     */</span>
+    @SuppressWarnings(<span class="hljs-string">"unchecked"</span>)
+    private Predicate toAndPredicate(Root&lt;T&gt; root,CriteriaBuilder criteriaBuilder) {
+        Predicate restrictions = criteriaBuilder.conjunction();
+        <span class="hljs-keyword">if</span> (root == <span class="hljs-literal">null</span> || CollectionUtils.isEmpty(andFilters)) {
+            <span class="hljs-keyword">return</span> restrictions;
+        }
+        <span class="hljs-keyword">for</span> (Filter filter : andFilters) {
+            <span class="hljs-keyword">if</span> (filter == <span class="hljs-literal">null</span>) {
+                <span class="hljs-keyword">continue</span>;
+            }
+            <span class="hljs-built_in">String</span> property = filter.getProperty();
+            Filter.Operator operator = filter.getOperator();
+            <span class="hljs-built_in">Object</span> value = filter.getValue();
+            <span class="hljs-built_in">Boolean</span> ignoreCase = filter.getIgnoreCase();
+            Path&lt;?&gt; path = getPath(root, property);
+            <span class="hljs-keyword">if</span> (path == <span class="hljs-literal">null</span>) {
+                <span class="hljs-keyword">continue</span>;
+            }
+            <span class="hljs-comment">//根据运算符生成相应条件</span>
+            <span class="hljs-keyword">switch</span> (operator) {
+                <span class="hljs-keyword">case</span> eq:
+                    <span class="hljs-keyword">if</span> (value != <span class="hljs-literal">null</span>) {
+                        <span class="hljs-keyword">if</span> (BooleanUtils.isTrue(ignoreCase) &amp;&amp; <span class="hljs-built_in">String</span>.class.isAssignableFrom(path.getJavaType()) &amp;&amp; value <span class="hljs-keyword">instanceof</span> <span class="hljs-built_in">String</span>) {
+                            restrictions = criteriaBuilder.and(restrictions, criteriaBuilder.equal(criteriaBuilder.lower((Path&lt;<span class="hljs-built_in">String</span>&gt;) path), ((<span class="hljs-built_in">String</span>) value).toLowerCase()));
+                        } <span class="hljs-keyword">else</span> {
+                            restrictions = criteriaBuilder.and(restrictions, criteriaBuilder.equal(path, value));
+                        }
+                    } <span class="hljs-keyword">else</span> {
+                        restrictions = criteriaBuilder.and(restrictions, path.isNull());
+                    }
+                    <span class="hljs-keyword">break</span>;
+                <span class="hljs-keyword">case</span> ne:
+                    <span class="hljs-keyword">if</span> (value != <span class="hljs-literal">null</span>) {
+                        <span class="hljs-keyword">if</span> (BooleanUtils.isTrue(ignoreCase) &amp;&amp; <span class="hljs-built_in">String</span>.class.isAssignableFrom(path.getJavaType()) &amp;&amp; value <span class="hljs-keyword">instanceof</span> <span class="hljs-built_in">String</span>) {
+                            restrictions = criteriaBuilder.and(restrictions, criteriaBuilder.notEqual(criteriaBuilder.lower((Path&lt;<span class="hljs-built_in">String</span>&gt;) path), ((<span class="hljs-built_in">String</span>) value).toLowerCase()));
+                        } <span class="hljs-keyword">else</span> {
+                            restrictions = criteriaBuilder.and(restrictions, criteriaBuilder.notEqual(path, value));
+                        }
+                    } <span class="hljs-keyword">else</span> {
+                        restrictions = criteriaBuilder.and(restrictions, path.isNotNull());
+                    }
+                    <span class="hljs-keyword">break</span>;
+                <span class="hljs-keyword">case</span> gt:
+                    <span class="hljs-keyword">if</span> (<span class="hljs-built_in">Number</span>.class.isAssignableFrom(path.getJavaType()) &amp;&amp; value <span class="hljs-keyword">instanceof</span> <span class="hljs-built_in">Number</span>) {
+                        restrictions = criteriaBuilder.and(restrictions, criteriaBuilder.gt((Path&lt;<span class="hljs-built_in">Number</span>&gt;) path, (<span class="hljs-built_in">Number</span>) value));
+                    }
+                    <span class="hljs-keyword">break</span>;
+                <span class="hljs-keyword">case</span> lt:
+                    <span class="hljs-keyword">if</span> (<span class="hljs-built_in">Number</span>.class.isAssignableFrom(path.getJavaType()) &amp;&amp; value <span class="hljs-keyword">instanceof</span> <span class="hljs-built_in">Number</span>) {
+                        restrictions = criteriaBuilder.and(restrictions, criteriaBuilder.lt((Path&lt;<span class="hljs-built_in">Number</span>&gt;) path, (<span class="hljs-built_in">Number</span>) value));
+                    }
+                    <span class="hljs-keyword">break</span>;
+                <span class="hljs-keyword">case</span> ge:
+                    <span class="hljs-keyword">if</span> (<span class="hljs-built_in">Number</span>.class.isAssignableFrom(path.getJavaType()) &amp;&amp; value <span class="hljs-keyword">instanceof</span> <span class="hljs-built_in">Number</span>) {
+                        restrictions = criteriaBuilder.and(restrictions, criteriaBuilder.ge((Path&lt;<span class="hljs-built_in">Number</span>&gt;) path, (<span class="hljs-built_in">Number</span>) value));
+                    }
+                    <span class="hljs-keyword">break</span>;
+                <span class="hljs-keyword">case</span> le:
+                    <span class="hljs-keyword">if</span> (<span class="hljs-built_in">Number</span>.class.isAssignableFrom(path.getJavaType()) &amp;&amp; value <span class="hljs-keyword">instanceof</span> <span class="hljs-built_in">Number</span>) {
+                        restrictions = criteriaBuilder.and(restrictions, criteriaBuilder.le((Path&lt;<span class="hljs-built_in">Number</span>&gt;) path, (<span class="hljs-built_in">Number</span>) value));
+                    }
+                    <span class="hljs-keyword">break</span>;
+                <span class="hljs-keyword">case</span> like:
+                    <span class="hljs-keyword">if</span> (<span class="hljs-built_in">String</span>.class.isAssignableFrom(path.getJavaType()) &amp;&amp; value <span class="hljs-keyword">instanceof</span> <span class="hljs-built_in">String</span>) {
+                        <span class="hljs-keyword">if</span> (BooleanUtils.isTrue(ignoreCase)) {
+                            restrictions = criteriaBuilder.and(restrictions, criteriaBuilder.like(criteriaBuilder.lower((Path&lt;<span class="hljs-built_in">String</span>&gt;) path), ((<span class="hljs-built_in">String</span>) value).toLowerCase()));
+                        } <span class="hljs-keyword">else</span> {
+                            restrictions = criteriaBuilder.and(restrictions, criteriaBuilder.like((Path&lt;<span class="hljs-built_in">String</span>&gt;) path, (<span class="hljs-built_in">String</span>) value));
+                        }
+                    }
+                    <span class="hljs-keyword">break</span>;
+                <span class="hljs-keyword">case</span> <span class="hljs-keyword">in</span>:
+                    restrictions = criteriaBuilder.and(restrictions, path.in(value));
+                    <span class="hljs-keyword">break</span>;
+                <span class="hljs-keyword">case</span> isNull:
+                    restrictions = criteriaBuilder.and(restrictions, path.isNull());
+                    <span class="hljs-keyword">break</span>;
+                <span class="hljs-keyword">case</span> isNotNull:
+                    restrictions = criteriaBuilder.and(restrictions, path.isNotNull());
+                    <span class="hljs-keyword">break</span>;
+            }
+        }
+        <span class="hljs-keyword">return</span> restrictions;
+    }</span></code></pre>
+
+
+
+<h5 id="33分析or条件">3.3分析or条件:</h5>
+
+<p>把and中的and改为or即可</p>
+
+
+
+<pre class="prettyprint"><code class=" hljs javascript"> <span class="hljs-comment">/**
+     * 转换为Predicate
+     *
+     * @param root
+     *            Root
+     * @return Predicate
+     */</span>
+    @SuppressWarnings(<span class="hljs-string">"unchecked"</span>)
+    private Predicate toOrPredicate(Root&lt;T&gt; root,CriteriaBuilder criteriaBuilder) {
+        Predicate restrictions = criteriaBuilder.disjunction();
+        <span class="hljs-keyword">if</span> (root == <span class="hljs-literal">null</span> || CollectionUtils.isEmpty(andFilters)) {
+            <span class="hljs-keyword">return</span> restrictions;
+        }
+        <span class="hljs-keyword">for</span> (Filter filter : orFilters) {
+            <span class="hljs-keyword">if</span> (filter == <span class="hljs-literal">null</span>) {
+                <span class="hljs-keyword">continue</span>;
+            }
+            <span class="hljs-built_in">String</span> property = filter.getProperty();
+            Filter.Operator operator = filter.getOperator();
+            <span class="hljs-built_in">Object</span> value = filter.getValue();
+            <span class="hljs-built_in">Boolean</span> ignoreCase = filter.getIgnoreCase();
+            Path&lt;?&gt; path = getPath(root, property);
+            <span class="hljs-keyword">if</span> (path == <span class="hljs-literal">null</span>) {
+                <span class="hljs-keyword">continue</span>;
+            }
+            <span class="hljs-keyword">switch</span> (operator) {
+                <span class="hljs-keyword">case</span> eq:
+                    <span class="hljs-keyword">if</span> (value != <span class="hljs-literal">null</span>) {
+                        <span class="hljs-keyword">if</span> (BooleanUtils.isTrue(ignoreCase) &amp;&amp; <span class="hljs-built_in">String</span>.class.isAssignableFrom(path.getJavaType()) &amp;&amp; value <span class="hljs-keyword">instanceof</span> <span class="hljs-built_in">String</span>) {
+                            restrictions = criteriaBuilder.or(restrictions, criteriaBuilder.equal(criteriaBuilder.lower((Path&lt;<span class="hljs-built_in">String</span>&gt;) path), ((<span class="hljs-built_in">String</span>) value).toLowerCase()));
+                        } <span class="hljs-keyword">else</span> {
+                            restrictions = criteriaBuilder.or(restrictions, criteriaBuilder.equal(path, value));
+                        }
+                    } <span class="hljs-keyword">else</span> {
+                        restrictions = criteriaBuilder.or(restrictions, path.isNull());
+                    }
+                    <span class="hljs-keyword">break</span>;
+                <span class="hljs-keyword">case</span> ne:
+                    <span class="hljs-keyword">if</span> (value != <span class="hljs-literal">null</span>) {
+                        <span class="hljs-keyword">if</span> (BooleanUtils.isTrue(ignoreCase) &amp;&amp; <span class="hljs-built_in">String</span>.class.isAssignableFrom(path.getJavaType()) &amp;&amp; value <span class="hljs-keyword">instanceof</span> <span class="hljs-built_in">String</span>) {
+                            restrictions = criteriaBuilder.or(restrictions, criteriaBuilder.notEqual(criteriaBuilder.lower((Path&lt;<span class="hljs-built_in">String</span>&gt;) path), ((<span class="hljs-built_in">String</span>) value).toLowerCase()));
+                        } <span class="hljs-keyword">else</span> {
+                            restrictions = criteriaBuilder.or(restrictions, criteriaBuilder.notEqual(path, value));
+                        }
+                    } <span class="hljs-keyword">else</span> {
+                        restrictions = criteriaBuilder.or(restrictions, path.isNotNull());
+                    }
+                    <span class="hljs-keyword">break</span>;
+                <span class="hljs-keyword">case</span> gt:
+                    <span class="hljs-keyword">if</span> (<span class="hljs-built_in">Number</span>.class.isAssignableFrom(path.getJavaType()) &amp;&amp; value <span class="hljs-keyword">instanceof</span> <span class="hljs-built_in">Number</span>) {
+                        restrictions = criteriaBuilder.or(restrictions, criteriaBuilder.gt((Path&lt;<span class="hljs-built_in">Number</span>&gt;) path, (<span class="hljs-built_in">Number</span>) value));
+                    }
+                    <span class="hljs-keyword">break</span>;
+                <span class="hljs-keyword">case</span> lt:
+                    <span class="hljs-keyword">if</span> (<span class="hljs-built_in">Number</span>.class.isAssignableFrom(path.getJavaType()) &amp;&amp; value <span class="hljs-keyword">instanceof</span> <span class="hljs-built_in">Number</span>) {
+                        restrictions = criteriaBuilder.or(restrictions, criteriaBuilder.lt((Path&lt;<span class="hljs-built_in">Number</span>&gt;) path, (<span class="hljs-built_in">Number</span>) value));
+                    }
+                    <span class="hljs-keyword">break</span>;
+                <span class="hljs-keyword">case</span> ge:
+                    <span class="hljs-keyword">if</span> (<span class="hljs-built_in">Number</span>.class.isAssignableFrom(path.getJavaType()) &amp;&amp; value <span class="hljs-keyword">instanceof</span> <span class="hljs-built_in">Number</span>) {
+                        restrictions = criteriaBuilder.or(restrictions, criteriaBuilder.ge((Path&lt;<span class="hljs-built_in">Number</span>&gt;) path, (<span class="hljs-built_in">Number</span>) value));
+                    }
+                    <span class="hljs-keyword">break</span>;
+                <span class="hljs-keyword">case</span> le:
+                    <span class="hljs-keyword">if</span> (<span class="hljs-built_in">Number</span>.class.isAssignableFrom(path.getJavaType()) &amp;&amp; value <span class="hljs-keyword">instanceof</span> <span class="hljs-built_in">Number</span>) {
+                        restrictions = criteriaBuilder.or(restrictions, criteriaBuilder.le((Path&lt;<span class="hljs-built_in">Number</span>&gt;) path, (<span class="hljs-built_in">Number</span>) value));
+                    }
+                    <span class="hljs-keyword">break</span>;
+                <span class="hljs-keyword">case</span> like:
+                    <span class="hljs-keyword">if</span> (<span class="hljs-built_in">String</span>.class.isAssignableFrom(path.getJavaType()) &amp;&amp; value <span class="hljs-keyword">instanceof</span> <span class="hljs-built_in">String</span>) {
+                        <span class="hljs-keyword">if</span> (BooleanUtils.isTrue(ignoreCase)) {
+                            restrictions = criteriaBuilder.or(restrictions, criteriaBuilder.like(criteriaBuilder.lower((Path&lt;<span class="hljs-built_in">String</span>&gt;) path), ((<span class="hljs-built_in">String</span>) value).toLowerCase()));
+                        } <span class="hljs-keyword">else</span> {
+                            restrictions = criteriaBuilder.or(restrictions, criteriaBuilder.like((Path&lt;<span class="hljs-built_in">String</span>&gt;) path, (<span class="hljs-built_in">String</span>) value));
+                        }
+                    }
+                    <span class="hljs-keyword">break</span>;
+                <span class="hljs-keyword">case</span> <span class="hljs-keyword">in</span>:
+                    restrictions = criteriaBuilder.or(restrictions, path.in(value));
+                    <span class="hljs-keyword">break</span>;
+                <span class="hljs-keyword">case</span> isNull:
+                    restrictions = criteriaBuilder.or(restrictions, path.isNull());
+                    <span class="hljs-keyword">break</span>;
+                <span class="hljs-keyword">case</span> isNotNull:
+                    restrictions = criteriaBuilder.or(restrictions, path.isNotNull());
+                    <span class="hljs-keyword">break</span>;
+            }
+        }
+        <span class="hljs-keyword">return</span> restrictions;
+    }
+</code></pre>
+
+
+
+<h5 id="34分析排序条件">3.4分析排序条件:</h5>
+
+
+
+<pre class="prettyprint"><code class=" hljs java"><span class="hljs-javadoc">/**
+     * 转换为Order
+     *
+     *<span class="hljs-javadoctag"> @param</span> root
+     *            Root
+     *<span class="hljs-javadoctag"> @return</span> Order
+     */</span>
+    <span class="hljs-keyword">private</span> List&lt;javax.persistence.criteria.Order&gt; <span class="hljs-title">toOrders</span>(Root&lt;T&gt; root,CriteriaBuilder criteriaBuilder) {
+        List&lt;javax.persistence.criteria.Order&gt; orderList = <span class="hljs-keyword">new</span> ArrayList&lt;javax.persistence.criteria.Order&gt;();
+        <span class="hljs-keyword">if</span> (root == <span class="hljs-keyword">null</span> || CollectionUtils.isEmpty(orders)) {
+            <span class="hljs-keyword">return</span> orderList;
+        }
+        <span class="hljs-keyword">for</span> (Order order : orders) {
+            <span class="hljs-keyword">if</span> (order == <span class="hljs-keyword">null</span>) {
+                <span class="hljs-keyword">continue</span>;
+            }
+            String property = order.getProperty();
+            Order.Direction direction = order.getDirection();
+            Path&lt;?&gt; path = getPath(root, property);
+            <span class="hljs-keyword">if</span> (path == <span class="hljs-keyword">null</span> || direction == <span class="hljs-keyword">null</span>) {
+                <span class="hljs-keyword">continue</span>;
+            }
+            <span class="hljs-keyword">switch</span> (direction) {
+                <span class="hljs-keyword">case</span> asc:
+                    orderList.add(criteriaBuilder.asc(path));
+                    <span class="hljs-keyword">break</span>;
+                <span class="hljs-keyword">case</span> desc:
+                    orderList.add(criteriaBuilder.desc(path));
+                    <span class="hljs-keyword">break</span>;
+            }
+        }
+        <span class="hljs-keyword">return</span> orderList;
+    }
+</code></pre>
+
+<p>最后在toPredicate方法中构造最终条件</p>
+
+
+
+<pre class="prettyprint"><code class=" hljs java">    <span class="hljs-javadoc">/**
+     * 生成条件的
+     *<span class="hljs-javadoctag"> @param</span> root 该对象的封装
+     *<span class="hljs-javadoctag"> @param</span> query 查询构建器
+     *<span class="hljs-javadoctag"> @param</span> cb 构建器
+     *<span class="hljs-javadoctag"> @return</span> 条件集合
+     */</span>
+    <span class="hljs-annotation">@Override</span>
+    <span class="hljs-keyword">public</span> Predicate <span class="hljs-title">toPredicate</span>(Root&lt;T&gt; root, CriteriaQuery&lt;?&gt; query, CriteriaBuilder cb) {
+        Predicate restrictions = cb.and(toAndPredicate(root,cb));
+        restrictions = cb.and(restrictions,toOrPredicate(root,cb));
+        query.orderBy(toOrders(root,cb));
+        <span class="hljs-keyword">return</span> restrictions;
+    }</code></pre>
+
+<p>加上方便的链式调用方法</p>
+
+
+
+<pre class="prettyprint"><code class=" hljs java">    <span class="hljs-javadoc">/**
+     * 添加一个and条件
+     *<span class="hljs-javadoctag"> @param</span> filter 该条件
+     *<span class="hljs-javadoctag"> @return</span> 链式调用
+     */</span>
+    <span class="hljs-keyword">public</span>  QueryParams <span class="hljs-title">and</span>(Filter filter){
+        <span class="hljs-keyword">this</span>.andFilters.add(filter);
+        <span class="hljs-keyword">return</span> <span class="hljs-keyword">this</span>;
+    }
+    <span class="hljs-javadoc">/**
+     * 添加多个and条件
+     *<span class="hljs-javadoctag"> @param</span> filter 该条件
+     *<span class="hljs-javadoctag"> @return</span> 链式调用
+     */</span>
+    <span class="hljs-keyword">public</span>  QueryParams <span class="hljs-title">and</span>(Filter ...filter){
+        <span class="hljs-keyword">this</span>.andFilters.addAll(Arrays.asList(filter));
+        <span class="hljs-keyword">return</span> <span class="hljs-keyword">this</span>;
+    }
+    <span class="hljs-javadoc">/**
+     * 添加一个or条件
+     *<span class="hljs-javadoctag"> @param</span> filter 该条件
+     *<span class="hljs-javadoctag"> @return</span> 链式调用
+     */</span>
+    <span class="hljs-keyword">public</span>  QueryParams <span class="hljs-title">or</span>(Filter filter){
+        <span class="hljs-keyword">this</span>.orFilters.add(filter);
+        <span class="hljs-keyword">return</span> <span class="hljs-keyword">this</span>;
+    }
+    <span class="hljs-javadoc">/**
+     * 添加多个or条件
+     *<span class="hljs-javadoctag"> @param</span> filter 该条件
+     *<span class="hljs-javadoctag"> @return</span> 链式调用
+     */</span>
+    <span class="hljs-keyword">public</span>  QueryParams <span class="hljs-title">or</span>(Filter ...filter){
+        <span class="hljs-keyword">this</span>.orFilters.addAll(Arrays.asList(filter));
+        <span class="hljs-keyword">return</span> <span class="hljs-keyword">this</span>;
+    }
+    <span class="hljs-javadoc">/**
+     * 升序字段
+     *<span class="hljs-javadoctag"> @param</span> property 该字段对应变量名
+     *<span class="hljs-javadoctag"> @return</span> 链式调用
+     */</span>
+    <span class="hljs-keyword">public</span>  QueryParams <span class="hljs-title">orderASC</span>(String property){
+        <span class="hljs-keyword">this</span>.orders.add(Order.asc(property));
+        <span class="hljs-keyword">return</span> <span class="hljs-keyword">this</span>;
+    }
+    <span class="hljs-javadoc">/**
+     * 降序字段
+     *<span class="hljs-javadoctag"> @param</span> property 该字段对应变量名
+     *<span class="hljs-javadoctag"> @return</span> 链式调用
+     */</span>
+    <span class="hljs-keyword">public</span>  QueryParams <span class="hljs-title">orderDESC</span>(String property){
+        <span class="hljs-keyword">this</span>.orders.add(Order.desc(property));
+        <span class="hljs-keyword">return</span> <span class="hljs-keyword">this</span>;
+    }
+
+    <span class="hljs-javadoc">/**
+     * 清除所有条件
+     *<span class="hljs-javadoctag"> @return</span> 该实例
+     */</span>
+    <span class="hljs-keyword">public</span> QueryParams <span class="hljs-title">clearAll</span>(){
+        <span class="hljs-keyword">if</span> (!<span class="hljs-keyword">this</span>.andFilters.isEmpty()) <span class="hljs-keyword">this</span>.andFilters.clear();
+        <span class="hljs-keyword">if</span> (!<span class="hljs-keyword">this</span>.orFilters.isEmpty()) <span class="hljs-keyword">this</span>.orFilters.clear();
+        <span class="hljs-keyword">if</span> (!<span class="hljs-keyword">this</span>.orders.isEmpty()) <span class="hljs-keyword">this</span>.orders.clear();
+        <span class="hljs-keyword">return</span> <span class="hljs-keyword">this</span>;
+    }
+    <span class="hljs-javadoc">/**
+     * 清除and条件
+     *<span class="hljs-javadoctag"> @return</span> 该实例
+     */</span>
+    <span class="hljs-keyword">public</span> QueryParams <span class="hljs-title">clearAnd</span>(){
+        <span class="hljs-keyword">if</span> (!<span class="hljs-keyword">this</span>.andFilters.isEmpty()) <span class="hljs-keyword">this</span>.andFilters.clear();
+        <span class="hljs-keyword">return</span> <span class="hljs-keyword">this</span>;
+    }
+    <span class="hljs-javadoc">/**
+     * 清除or条件
+     *<span class="hljs-javadoctag"> @return</span> 该实例
+     */</span>
+    <span class="hljs-keyword">public</span> QueryParams <span class="hljs-title">clearOr</span>(){
+        <span class="hljs-keyword">if</span> (!<span class="hljs-keyword">this</span>.orFilters.isEmpty()) <span class="hljs-keyword">this</span>.andFilters.clear();
+        <span class="hljs-keyword">return</span> <span class="hljs-keyword">this</span>;
+    }
+    <span class="hljs-javadoc">/**
+     * 清除order条件
+     *<span class="hljs-javadoctag"> @return</span> 该实例
+     */</span>
+    <span class="hljs-keyword">public</span> QueryParams <span class="hljs-title">clearOrder</span>(){
+        <span class="hljs-keyword">if</span> (!<span class="hljs-keyword">this</span>.orders.isEmpty()) <span class="hljs-keyword">this</span>.orders.clear();
+        <span class="hljs-keyword">return</span> <span class="hljs-keyword">this</span>;
+    }
+    <span class="hljs-comment">//省略get和set方法</span></code></pre>
+
+
+
+<h5 id="35测试">3.5测试:</h5>
+
+<p>首先让PcardOrderRepository接口继承加上JpaSpecificationExecutor</p>
+
+
+
+<pre class="prettyprint"><code class=" hljs php"><span class="hljs-keyword">public</span> <span class="hljs-class"><span class="hljs-keyword">interface</span> <span class="hljs-title">PcardOrderRepository</span> <span class="hljs-keyword">extends</span> <span class="hljs-title">JpaRepository</span>&lt;<span class="hljs-title">PcardOrder</span>,<span class="hljs-title">String</span>&gt;
+        ,<span class="hljs-title">PcardOrderRepositoryCustom</span>,<span class="hljs-title">JpaSpecificationExecutor</span>&lt;<span class="hljs-title">PcardOrder</span>&gt; {</span>
+
+}</code></pre>
+
+<p>编写测试代码,这个使用的是CriteriaBuilder构建查询的,所以<strong>查询字段都是JPQL字段</strong>,并不是原生sql</p>
+
+
+
+<pre class="prettyprint"><code class=" hljs perl">     QueryParams&lt;PcardOrder&gt; queryParams = new QueryParams&lt;&gt;();
+        <span class="hljs-regexp">//</span>使用Specification条件查询,使用JPQL字段查询
+        queryParams
+                .<span class="hljs-keyword">and</span>(Filter.e<span class="hljs-string">q("acctId","0014779934917371041")</span>,Filter.<span class="hljs-keyword">ne</span>(<span class="hljs-string">"orderAmt"</span>,0L),
+                        Filter.e<span class="hljs-string">q("orderRespCd","00")</span>)
+                .<span class="hljs-keyword">or</span>(Filter.e<span class="hljs-string">q("orderTypeId","A003")</span>,Filter.e<span class="hljs-string">q("orderTypeId","A007")</span>,
+                        Filter.e<span class="hljs-string">q("orderTypeId","A021")</span>,Filter.e<span class="hljs-string">q("orderTypeId","A018")</span>)
+                .orderDESC(<span class="hljs-string">"createTime"</span>);
+
+        Page&lt;PcardOrder&gt; JPQLlist = pcardOrderRepository.findAll(queryParams,new PageRequest(<span class="hljs-number">0</span>,<span class="hljs-number">2</span>));
+
+        <span class="hljs-regexp">//</span>构造出来的条件
+        where
+        <span class="hljs-number">1</span>=<span class="hljs-number">1</span> 
+        <span class="hljs-keyword">and</span> pcardorder0<span class="hljs-number">_</span>.acct_id=? 
+        <span class="hljs-keyword">and</span> pcardorder0<span class="hljs-number">_</span>.order_amt&lt;&gt;<span class="hljs-number">0</span> 
+        <span class="hljs-keyword">and</span> pcardorder0<span class="hljs-number">_</span>.order_resp_cd=? 
+        <span class="hljs-keyword">and</span> (
+            <span class="hljs-number">0</span>=<span class="hljs-number">1</span> 
+            <span class="hljs-keyword">or</span> pcardorder0<span class="hljs-number">_</span>.order_type_id=? 
+            <span class="hljs-keyword">or</span> pcardorder0<span class="hljs-number">_</span>.order_type_id=? 
+            <span class="hljs-keyword">or</span> pcardorder0<span class="hljs-number">_</span>.order_type_id=? 
+            <span class="hljs-keyword">or</span> pcardorder0<span class="hljs-number">_</span>.order_type_id=?
+        ) 
+    order by
+        pcardorder0<span class="hljs-number">_</span>.create_time desc limit ?</code></pre>
+
+<hr />
+
+
+
+<h3 id="3原生sql查询">3.原生sql查询</h3>
+
+<p>还是利用上面的Filter,具体还是遍历+拼接,示例中我卸载了公共方法中,需要使用的Impl直接extends即可.</p>
+
+
+
+<h4 id="1解析条件">1.解析条件</h4>
+
+<p>解析条件实际上就是拼接sql,代码很简单.</p>
+
+
+
+<pre class="prettyprint"><code class=" hljs java"><span class="hljs-javadoc">/**
+ * 公共方法的repository
+ *<span class="hljs-javadoctag"> @author</span> Niu Li
+ *<span class="hljs-javadoctag"> @date</span> 2016/11/17
+ */</span>
+<span class="hljs-annotation">@NoRepositoryBean</span>
+<span class="hljs-keyword">public</span> <span class="hljs-class"><span class="hljs-keyword">class</span> <span class="hljs-title">BaseRepository</span> {</span>
+
+    <span class="hljs-keyword">private</span> <span class="hljs-keyword">static</span> Logger logger = LoggerFactory.getLogger(BaseRepository.class);
+
+    <span class="hljs-javadoc">/**
+     * 分析查询参数,并且合并到sql语句中
+     *<span class="hljs-javadoctag"> @param</span> sql JPQL查询语句
+     *<span class="hljs-javadoctag"> @param</span> params 查询参数
+     *<span class="hljs-javadoctag"> @return</span> 参数对应的value
+     */</span>
+    <span class="hljs-annotation">@SuppressWarnings</span>(<span class="hljs-string">"Unchecked"</span>)
+    <span class="hljs-keyword">protected</span> List&lt;Object&gt; <span class="hljs-title">analysisQueryParams</span>(StringBuilder sql, QueryParams&lt;?&gt; params){
+        List&lt;String&gt; strList = <span class="hljs-keyword">new</span> ArrayList&lt;&gt;();
+        List&lt;Object&gt; valueList = <span class="hljs-keyword">new</span> ArrayList&lt;&gt;();
+        <span class="hljs-keyword">int</span> i = <span class="hljs-number">1</span>;
+        <span class="hljs-comment">//分析or条件</span>
+        <span class="hljs-keyword">for</span> (Filter filter : params.getOrFilters()) {
+            <span class="hljs-keyword">if</span> (filter.getValue() != <span class="hljs-keyword">null</span>){
+                strList.add(filter.getProperty()+<span class="hljs-string">" "</span> + filter.getOperator().getOperator()+<span class="hljs-string">" ?"</span> + (i++));
+                valueList.add(filter.getValue());
+            }<span class="hljs-keyword">else</span> {
+                strList.add(filter.getProperty()+<span class="hljs-string">" "</span> + filter.getOperator().getOperator()+<span class="hljs-string">" "</span>);
+            }
+        }
+        <span class="hljs-keyword">if</span> (!strList.isEmpty()){
+            sql.append(<span class="hljs-string">" and "</span>).append(<span class="hljs-string">"( "</span>).append(StringUtils.join(strList,<span class="hljs-string">" or "</span>)).append(<span class="hljs-string">" )"</span>);
+        }
+        strList.clear();
+        <span class="hljs-comment">//分析and条件</span>
+        <span class="hljs-keyword">for</span> (Filter filter : params.getAndFilters()) {
+            <span class="hljs-keyword">if</span> (filter.getValue() != <span class="hljs-keyword">null</span>){
+                strList.add(filter.getProperty()+<span class="hljs-string">" "</span> + filter.getOperator().getOperator()+<span class="hljs-string">" ?"</span> + (i++));
+                valueList.add(filter.getValue());
+            }<span class="hljs-keyword">else</span> {
+                strList.add(filter.getProperty()+<span class="hljs-string">" "</span> + filter.getOperator().getOperator()+<span class="hljs-string">" "</span>);
+            }
+        }
+        sql.append(<span class="hljs-string">" and "</span>).append(StringUtils.join(strList,<span class="hljs-string">" and "</span>));
+        <span class="hljs-comment">//分析排序字段</span>
+        <span class="hljs-keyword">if</span> (!params.getOrders().isEmpty()){
+            sql.append(<span class="hljs-string">" order by "</span>);
+            sql.append(StringUtils.join(params.getOrders(),<span class="hljs-string">","</span>));
+        }
+        logger.debug(<span class="hljs-string">"解析后的sql:"</span>+sql.toString());
+        logger.debug(<span class="hljs-string">"对应的值为:"</span>+valueList);
+        <span class="hljs-keyword">return</span> valueList;
+    }
+
+}
+</code></pre>
+
+
+
+<h4 id="2测试">2.测试</h4>
+
+<p>在自定义接口中加入方法</p>
+
+
+
+<pre class="prettyprint"><code class=" hljs java"><span class="hljs-javadoc">/**
+ *<span class="hljs-javadoctag"> @author</span> Niu Li
+ *<span class="hljs-javadoctag"> @date</span> 2016/11/17
+ */</span>
+<span class="hljs-keyword">public</span> <span class="hljs-class"><span class="hljs-keyword">interface</span> <span class="hljs-title">PcardOrderRepositoryCustom</span> {</span>
+
+    List findByQueryParam(QueryParams queryParams, Pageable pageable);
+}</code></pre>
+
+<p>然后实现类中需要写部分sql</p>
+
+
+
+<pre class="prettyprint"><code class=" hljs java"><span class="hljs-javadoc">/**
+ *<span class="hljs-javadoctag"> @author</span> Niu Li
+ *<span class="hljs-javadoctag"> @date</span> 2016/11/18
+ */</span>
+<span class="hljs-annotation">@NoRepositoryBean</span>
+<span class="hljs-keyword">public</span> <span class="hljs-class"><span class="hljs-keyword">class</span> <span class="hljs-title">PcardOrderRepositoryImpl</span> <span class="hljs-keyword">extends</span> <span class="hljs-title">BaseRepository</span> <span class="hljs-keyword">implements</span> <span class="hljs-title">PcardOrderRepositoryCustom</span> {</span>
+
+    <span class="hljs-annotation">@PersistenceContext</span>
+    <span class="hljs-keyword">private</span> EntityManager entityManager;
+    <span class="hljs-annotation">@Override</span>
+    <span class="hljs-keyword">public</span> List <span class="hljs-title">findByQueryParam</span>(QueryParams queryParams, Pageable pageable) {
+        StringBuilder sql = <span class="hljs-keyword">new</span> StringBuilder(<span class="hljs-string">"select * from tbl_pcard_order where 1=1 "</span>);
+        List values = analysisQueryParams(sql,queryParams);
+        Query query = entityManager.createNativeQuery(sql.toString());
+        <span class="hljs-keyword">for</span> (<span class="hljs-keyword">int</span> i = <span class="hljs-number">0</span>; i &lt; values.size(); i++) {
+            query.setParameter(i+<span class="hljs-number">1</span>,values.get(i));
+        }
+        query.setFirstResult(pageable.getOffset());
+        query.setMaxResults(pageable.getPageSize());
+        <span class="hljs-keyword">return</span> query.getResultList();
+    }
+}</code></pre>
+
+<p>测试代码:</p>
+
+
+
+<pre class="prettyprint"><code class=" hljs perl">//使用原生sql查询,注意这里使用原生sql字段,并非JPQL字段,
+        <span class="hljs-regexp">//</span>本质是根据BaseRepository.analysisQueryParams 来拼接条件,可以根据自己的需求更改
+        queryParams.clearAll()
+                .<span class="hljs-keyword">and</span>(Filter.e<span class="hljs-string">q("acct_id","0014779934917371041")</span>,Filter.<span class="hljs-keyword">ne</span>(<span class="hljs-string">"order_amt"</span>,0L),
+                        Filter.e<span class="hljs-string">q("order_resp_cd","00")</span>)
+                .<span class="hljs-keyword">or</span>(Filter.e<span class="hljs-string">q("order_type_id","A003")</span>,Filter.e<span class="hljs-string">q("order_type_id","A007")</span>,
+                        Filter.e<span class="hljs-string">q("order_type_id","A021")</span>,Filter.e<span class="hljs-string">q("order_type_id","A018")</span>)
+                .orderDESC(<span class="hljs-string">"create_time"</span>);
+        List nativeSqlList = pcardOrderRepository.findByQueryParam(queryParams,new PageRequest(<span class="hljs-number">0</span>,<span class="hljs-number">2</span>));
+        <span class="hljs-regexp">//</span>构造出来的sql
+        where
+        <span class="hljs-number">1</span>=<span class="hljs-number">1</span>  
+        <span class="hljs-keyword">and</span> (
+            order_type_id  =  ? 
+            <span class="hljs-keyword">or</span> order_type_id  =  ? 
+            <span class="hljs-keyword">or</span> order_type_id  =  ? 
+            <span class="hljs-keyword">or</span> order_type_id  =  ? 
+        ) 
+        <span class="hljs-keyword">and</span> acct_id  =  ? 
+        <span class="hljs-keyword">and</span> order_amt  !=  ? 
+        <span class="hljs-keyword">and</span> order_resp_cd  =  ? 
+    order by
+        create_time desc limit ?</code></pre>
+
+<hr />
+
+
+
+<h3 id="4使用原生sql查询出map集合">4.使用原生sql查询出Map集合</h3>
+
+<p>使用原生sql进行表关联查询,返回值一般都用List</p>
+
+<pre class="prettyprint"><code class=" hljs cs">    <span class="hljs-keyword">public</span> List&lt;Object[]&gt; <span class="hljs-title">findById</span>(<span class="hljs-keyword">int</span> id) {
+        String sql = <span class="hljs-string">"select u.*,c.* from user u,commont c where u.id = c.id and id=?1"</span>;
+        Query query = entityManager.createNativeQuery(sql);
+        query.setParameter(<span class="hljs-number">1</span>,id);
+        <span class="hljs-keyword">return</span> query.getResultList();
+    }</code></pre>
+
+<p>那么就要改进,使其返回Map</p>
+
+
+
+<pre class="prettyprint"><code class=" hljs avrasm">    public List findById (int id) {
+        String sql = <span class="hljs-string">"select u.*,c.* from user u,commont c where u.id = c.id and id=?1"</span><span class="hljs-comment">;</span>
+        Query query = entityManager<span class="hljs-preprocessor">.createNativeQuery</span>(sql)<span class="hljs-comment">;</span>
+        query<span class="hljs-preprocessor">.setParameter</span>(<span class="hljs-number">1</span>,id)<span class="hljs-comment">;</span>
+        //转换为Map集合
+        query<span class="hljs-preprocessor">.unwrap</span>(org<span class="hljs-preprocessor">.hibernate</span><span class="hljs-preprocessor">.SQLQuery</span><span class="hljs-preprocessor">.class</span>)<span class="hljs-preprocessor">.setResultTransformer</span>(Transformers<span class="hljs-preprocessor">.ALIAS</span>_TO_ENTITY_MAP)<span class="hljs-comment">;</span>
+        return query<span class="hljs-preprocessor">.getResultList</span>()<span class="hljs-comment">;</span>
+    }
+
+    //实际上返回的是一个List&lt;Map&gt;集合</code></pre>
+
+<p>这样的返回值是一个List<map>类型,取出的时候直接根据键值取即可.</map></p>
+
+<hr />
+
+<p>代码地址:</p>
+
+<p>github地址:   <a href="https://github.com/nl101531/JavaWEB">https://github.com/nl101531/JavaWEB</a>       JPA-Demo</p></div>&#13;
+        <script type="text/javascript">&#13;
+            $(function () {&#13;
+                $('pre.prettyprint code').each(function () {&#13;
+                    var lines = $(this).text().split('\n').length;&#13;
+                    var $numbering = $('&lt;ul/&gt;').addClass('pre-numbering').hide();&#13;
+                    $(this).addClass('has-numbering').parent().append($numbering);&#13;
+                    for (i = 1; i &lt;= lines; i++) {&#13;
+                        $numbering.append($('&lt;li/&gt;').text(i));&#13;
+                    };&#13;
+                    $numbering.fadeIn(1700);&#13;
+                });&#13;
+            });&#13;
+        </script>&#13;
+   &#13;

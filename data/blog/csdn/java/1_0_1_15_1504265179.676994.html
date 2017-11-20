@@ -1,0 +1,268 @@
+
+        <div class="markdown_views"><p><strong>摘要：</strong> <br />
+　　作为 Struts2 的首篇文章，本文首先以 LoginDemo 为例介绍了构建一个简单的 Struts2 应用的一般步骤和流程，并结合 Struts2 框架的原理给出每个步骤的目的与内涵。紧接着以 MVC 为支撑、以该 Demo 为出发点概述了 Struts2 的运行机制，给出了 Struts2 应用的一次 “请求-响应” 的完整流程，揭示了 Struts2的 请求与视图相分离的本质。最后，针对该Demo所涉及到的知识点Namespace进行了深入探究，并总结出 Struts2 的请求路由规则。</p>
+
+<hr />
+
+
+
+<h2 id="一-第一个struts2应用的构建-登录demo">一. 第一个Struts2应用的构建 — 登录Demo</h2>
+
+<p><strong>创建一个 Struts2 应用一般需要以下几个步骤:</strong></p>
+
+<p>　　<font color="blue"><b>(1) 下载、解压 struts-2.1.6-all.zip 并为 Web 应用添加 Struts2 支持。</b></font>将目录 struts-2.1.6\apps\struts2-blank-2.1.6\WEB-INF\lib 下的 commons-fileupload.jar、commons-io.jar、freemarker.jar、commons-logging-1.1.jar、ognl.jar、struts2-core.jar 和 xwork-core.jar 七个jar包复制到Web应用的WEB-INF/lib路径下。如果需要在Web应用中使用 struts2 的更多特性，则需要将相应的jar文件复制到web应用的WEB-INF/lib路径下。</p>
+
+<hr />
+
+<p>　　<font color="blue"><b><strong>(2)</strong> 编辑 Web 应用的web.xml配置文件，配置 Struts 2 的核心 Filter，该Filter被用来拦截用户请求。</b></font>由于Web应用是基于请求/响应模式的，所以为了让 Struts2 框架介入 Web 应用中，需要在web.xml中配置该框架的核心filter。下面是Struts2 在web.xml文件中的配置片段：</p>
+
+
+
+<pre class="prettyprint"><code class="language-xml hljs "><span class="hljs-pi">&lt;?xml version="1.0" encoding="UTF-8"?&gt;</span>
+<span class="hljs-tag">&lt;<span class="hljs-title">web-app</span> <span class="hljs-attribute">version</span>=<span class="hljs-value">"2.5"</span> 
+    <span class="hljs-attribute">xmlns</span>=<span class="hljs-value">"http://java.sun.com/xml/ns/javaee"</span> 
+    <span class="hljs-attribute">xmlns:xsi</span>=<span class="hljs-value">"http://www.w3.org/2001/XMLSchema-instance"</span> 
+    <span class="hljs-attribute">xsi:schemaLocation</span>=<span class="hljs-value">"http://java.sun.com/xml/ns/javaee 
+    http://java.sun.com/xml/ns/javaee/web-app_2_5.xsd"</span>&gt;</span>
+  <span class="hljs-tag">&lt;<span class="hljs-title">display-name</span>&gt;</span><span class="hljs-tag">&lt;/<span class="hljs-title">display-name</span>&gt;</span> 
+  <span class="hljs-tag">&lt;<span class="hljs-title">welcome-file-list</span>&gt;</span>
+    <span class="hljs-tag">&lt;<span class="hljs-title">welcome-file</span>&gt;</span>index.jsp<span class="hljs-tag">&lt;/<span class="hljs-title">welcome-file</span>&gt;</span>
+  <span class="hljs-tag">&lt;/<span class="hljs-title">welcome-file-list</span>&gt;</span>
+
+   <span class="hljs-comment">&lt;!-- 定义Struts2的核心Filter --&gt;</span>
+  <span class="hljs-tag">&lt;<span class="hljs-title">filter</span>&gt;</span>
+    <span class="hljs-comment">&lt;!-- 可任意命名，但必须与 filter-mapping 中的 filter-name 一致--&gt;</span>
+    <span class="hljs-tag">&lt;<span class="hljs-title">filter-name</span>&gt;</span>Struts2<span class="hljs-tag">&lt;/<span class="hljs-title">filter-name</span>&gt;</span> 
+    <span class="hljs-comment">&lt;!--struts2-core-2.1.6.jar中 包org.apache.struts2.dispatcher.ng.filter下的一个类--&gt;</span>
+    <span class="hljs-tag">&lt;<span class="hljs-title">filter-class</span>&gt;</span>org.apache.struts2.dispatcher.ng.filter.StrutsPrepareAndExecuteFilter<span class="hljs-tag">&lt;/<span class="hljs-title">filter-class</span>&gt;</span>  
+  <span class="hljs-tag">&lt;/<span class="hljs-title">filter</span>&gt;</span>
+
+  <span class="hljs-comment">&lt;!-- 使Struts2的 Filter 拦截所有请求 --&gt;</span>
+  <span class="hljs-tag">&lt;<span class="hljs-title">filter-mapping</span>&gt;</span>
+    <span class="hljs-tag">&lt;<span class="hljs-title">filter-name</span>&gt;</span>Struts2<span class="hljs-tag">&lt;/<span class="hljs-title">filter-name</span>&gt;</span>
+    <span class="hljs-tag">&lt;<span class="hljs-title">url-pattern</span>&gt;</span>/*<span class="hljs-tag">&lt;/<span class="hljs-title">url-pattern</span>&gt;</span>
+  <span class="hljs-tag">&lt;/<span class="hljs-title">filter-mapping</span>&gt;</span>
+<span class="hljs-tag">&lt;/<span class="hljs-title">web-app</span>&gt;</span></code></pre>
+
+<hr />
+
+<p>　　<font color="blue"><b>(3) 定义处理用户请求的 Action 类，以便调用 Model 中的方法来处理请求。</b></font>实际上，<font color="DarkGreen"><b>StrutsPrepareAndExecuteFilter 和 Action 共同构成了 Struts2 的控制器(Controller)。其中， StrutsPrepareAndExecuteFilter 为核心控制器，负责拦截、处理所有用户请求；Action 为业务控制器，负责调用 Model处理实际业务并返回处理结果。</b></font> Action 的实现手段通常有以下三种：</p>
+
+<p>　　　<font color="blue">① 一个包含无参的execute()方法（返回类型为 String）的普通Java类；</font> <br />
+　　　<font color="blue">② 实现 com.opensymphony.xwork2.Action 接口并重写execute()方法的Java类；</font> <br />
+　　　<font color="blue">③ 继承 com.opensymphony.xwork2.ActionSupport 类并重写execute()方法的Java类。</font><font color="red"><b><strong>★★★ 推荐使用方式 ★★★</strong></b></font> <br />
+　　 <br />
+　　在该登录Demo中，Action 的实现采用的是第三种方式，代码如下所示。关于 Action 更详细、全面的介绍见我的下一篇博文，此不赘述。</p>
+
+
+
+<pre class="prettyprint"><code class="language-java hljs "><span class="hljs-keyword">public</span> <span class="hljs-class"><span class="hljs-keyword">class</span> <span class="hljs-title">LoginAction</span> <span class="hljs-keyword">extends</span> <span class="hljs-title">ActionSupport</span>{</span>
+
+    <span class="hljs-keyword">private</span> <span class="hljs-keyword">static</span> <span class="hljs-keyword">final</span> <span class="hljs-keyword">long</span> serialVersionUID = <span class="hljs-number">1</span>L;
+
+    <span class="hljs-comment">// 使用  Action 来封装 HTTP 请求参数</span>
+    <span class="hljs-keyword">private</span> String username;
+    <span class="hljs-keyword">private</span> String password;
+
+
+    <span class="hljs-comment">// getter and setter</span>
+    <span class="hljs-keyword">public</span> String <span class="hljs-title">getUsername</span>() {
+        <span class="hljs-keyword">return</span> username;
+    }
+
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">void</span> <span class="hljs-title">setUsername</span>(String username) {
+        <span class="hljs-keyword">this</span>.username = username;
+    }
+
+    <span class="hljs-keyword">public</span> String <span class="hljs-title">getPassword</span>() {
+        <span class="hljs-keyword">return</span> password;
+    }
+
+
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">void</span> <span class="hljs-title">setPassword</span>(String password) {
+        <span class="hljs-keyword">this</span>.password = password;
+    }
+
+
+    <span class="hljs-comment">// 处理用户请求的逻辑</span>
+    <span class="hljs-annotation">@Override</span>
+    <span class="hljs-keyword">public</span> String <span class="hljs-title">execute</span>() <span class="hljs-keyword">throws</span> Exception {
+        <span class="hljs-keyword">if</span>(username.equals(<span class="hljs-string">"rico"</span>) &amp;&amp; password.equals(<span class="hljs-string">"root"</span>)){
+            System.out.println(<span class="hljs-string">"登录成功..."</span>);
+            <span class="hljs-keyword">return</span> SUCCESS;
+        }<span class="hljs-keyword">else</span> <span class="hljs-keyword">if</span>(username.equals(<span class="hljs-string">""</span>) || password.equals(<span class="hljs-string">""</span>)){
+            System.out.println(<span class="hljs-string">"用户名或密码未填写..."</span>);
+            <span class="hljs-keyword">return</span> INPUT;
+        }<span class="hljs-keyword">else</span> {
+            System.out.println(<span class="hljs-string">"登录失败..."</span>);
+            <span class="hljs-keyword">return</span> ERROR;
+        }
+    }
+}</code></pre>
+
+<hr />
+
+<p>　　<font color="blue"><b>(4) 配置 Action，并编辑 struts.xml。配置 Action 实际上就是 <font color="DarkGreen"><b>使具体请求与具体的Action相关联，从而使得核心控制器(StrutsPrepareAndExecuteFilter) 可以根据该配置来创建合适的 Action实例，并调用对应的业务控制方法处理用户请求。</b></font></b></font>在配置Action过程中，首先复制目录 struts-2.1.6\apps\struts2-blank-2.1.6\WEB-INF\src\java 下的 struts.xml 到 Web应用的src目录，然后编辑 struts.xml 如下：</p>
+
+
+
+<pre class="prettyprint"><code class="language-xml hljs "><span class="hljs-pi">&lt;?xml version="1.0" encoding="UTF-8" ?&gt;</span>
+<span class="hljs-doctype">&lt;!DOCTYPE struts PUBLIC
+    "-//Apache Software Foundation//DTD Struts Configuration 2.0//EN"
+    "http://struts.apache.org/dtds/struts-2.0.dtd"&gt;</span>
+
+<span class="hljs-tag">&lt;<span class="hljs-title">struts</span>&gt;</span>
+    <span class="hljs-comment">&lt;!--开发模式下，修改 struts.xml 后不需重启Tomcat便可立即生效  --&gt;</span>
+    <span class="hljs-tag">&lt;<span class="hljs-title">constant</span> <span class="hljs-attribute">name</span>=<span class="hljs-value">"struts.devMode"</span> <span class="hljs-attribute">value</span>=<span class="hljs-value">"true"</span> /&gt;</span>
+    <span class="hljs-tag">&lt;<span class="hljs-title">package</span> <span class="hljs-attribute">name</span>=<span class="hljs-value">"default"</span> <span class="hljs-attribute">namespace</span>=<span class="hljs-value">"/"</span> <span class="hljs-attribute">extends</span>=<span class="hljs-value">"struts-default"</span>&gt;</span>
+        <span class="hljs-tag">&lt;<span class="hljs-title">action</span> <span class="hljs-attribute">name</span>=<span class="hljs-value">"login"</span> <span class="hljs-attribute">class</span>=<span class="hljs-value">"com.tju.rico.action.LoginAction"</span>&gt;</span>
+            <span class="hljs-comment">&lt;!-- ................................................. --&gt;</span>
+            <span class="hljs-comment">&lt;!-- 配置 Action 处理结果与物理视图资源之间的对应关系... --&gt;</span>
+            <span class="hljs-comment">&lt;!-- ................................................. --&gt;</span>
+        <span class="hljs-tag">&lt;/<span class="hljs-title">action</span>&gt;</span>
+    <span class="hljs-tag">&lt;/<span class="hljs-title">package</span>&gt;</span>
+<span class="hljs-tag">&lt;/<span class="hljs-title">struts</span>&gt;</span></code></pre>
+
+<hr />
+
+<p>　　<font color="blue"><b>(5) 配置 <font color="DarkGreen"><b>Action 处理结果 </b></font>与<font color="DarkGreen"><b> 物理视图资源 </b></font>之间的对应关系。当 Action 处理用户请求后，通常会返回一个处理结果，即<font color="DarkGreen"><b> 逻辑视图名<font color="red"><b>（Action 接口中的五个静态字段：success，error，input，login 和 none）</b></font> </b></font>，而这个逻辑视图名必须与具体的物理视图资源关联才有价值。</b></font>最终在 struts.xml 中的配置如下所示：</p>
+
+
+
+<pre class="prettyprint"><code class="language-jsp hljs xml"><span class="hljs-pi">&lt;?xml version="1.0" encoding="UTF-8" ?&gt;</span>
+<span class="hljs-doctype">&lt;!DOCTYPE struts PUBLIC
+    "-//Apache Software Foundation//DTD Struts Configuration 2.0//EN"
+    "http://struts.apache.org/dtds/struts-2.0.dtd"&gt;</span>
+
+<span class="hljs-tag">&lt;<span class="hljs-title">struts</span>&gt;</span>
+    <span class="hljs-comment">&lt;!--开发模式下，修改 struts.xml 后不需重启Tomcat便可立即生效  --&gt;</span>
+    <span class="hljs-tag">&lt;<span class="hljs-title">constant</span> <span class="hljs-attribute">name</span>=<span class="hljs-value">"struts.devMode"</span> <span class="hljs-attribute">value</span>=<span class="hljs-value">"true"</span> /&gt;</span>
+    <span class="hljs-tag">&lt;<span class="hljs-title">package</span> <span class="hljs-attribute">name</span>=<span class="hljs-value">"default"</span> <span class="hljs-attribute">namespace</span>=<span class="hljs-value">"/"</span> <span class="hljs-attribute">extends</span>=<span class="hljs-value">"struts-default"</span>&gt;</span>
+        <span class="hljs-tag">&lt;<span class="hljs-title">action</span> <span class="hljs-attribute">name</span>=<span class="hljs-value">"login"</span> <span class="hljs-attribute">class</span>=<span class="hljs-value">"com.tju.rico.action.LoginAction"</span>&gt;</span>
+            <span class="hljs-tag">&lt;<span class="hljs-title">result</span> <span class="hljs-attribute">name</span>=<span class="hljs-value">"success"</span>&gt;</span>/welcome.jsp<span class="hljs-tag">&lt;/<span class="hljs-title">result</span>&gt;</span>
+            <span class="hljs-tag">&lt;<span class="hljs-title">result</span> <span class="hljs-attribute">name</span>=<span class="hljs-value">"error"</span>&gt;</span>/error.jsp<span class="hljs-tag">&lt;/<span class="hljs-title">result</span>&gt;</span>
+            <span class="hljs-tag">&lt;<span class="hljs-title">result</span> <span class="hljs-attribute">name</span>=<span class="hljs-value">"input"</span>&gt;</span>/login.jsp<span class="hljs-tag">&lt;/<span class="hljs-title">result</span>&gt;</span>
+        <span class="hljs-tag">&lt;/<span class="hljs-title">action</span>&gt;</span>
+    <span class="hljs-tag">&lt;/<span class="hljs-title">package</span>&gt;</span>
+<span class="hljs-tag">&lt;/<span class="hljs-title">struts</span>&gt;</span></code></pre>
+
+<hr />
+
+<p>　　<font color="blue"><b>(6) 到此为止，第一个Struts2应用 — 登录Demo 便完成，</b></font>其组织结构与运行结果如下图所示：</p>
+
+<p>　　　　　　　　　　　　<img src="http://static.zybuluo.com/Rico123/o2hssb9jpr78exqwkdi84g0u/Demo%E7%BB%84%E7%BB%87%E7%BB%93%E6%9E%84%E4%B8%8E%E8%BF%90%E8%A1%8C%E7%BB%93%E6%9E%9C.png" alt="Demo组织结构与运行结果.png-326.2kB" title="" /></p>
+
+<hr />
+
+
+
+<h2 id="二-struts2-应用的运行逻辑">二. Struts2 应用的运行逻辑</h2>
+
+<p><strong>1、Struts2 应用的运行逻辑</strong></p>
+
+<p>　　上面所述的 Struts2 应用的构建流程是以“请求-响应”为主线的，下面给出 Struts2 应用的一次 “请求-响应” 的完整流程，如下图所示：</p>
+
+<p>　　　　　　　　　　　　<img src="http://img.blog.csdn.net/20170215174157452?watermark/2/text/aHR0cDovL2Jsb2cuY3Nkbi5uZXQvanVzdGxvdmV5b3Vf/font/5a6L5L2T/fontsize/400/fill/I0JBQkFCMA==/dissolve/70/gravity/SouthEast" alt="" title="" /></p>
+
+<p>　　可以从上面图示看出，<font color="red"><b>Struts2 的核心在于 <font color="DarkGreen"><b>将用户请求与响应视图相分离</b></font>。也就是说，用户的所有请求都只向控制器发送，由控制器调用模型组件、视图组件向用户展现响应。</b></font>特别需要注意以下几点：</p>
+
+<ul>
+<li><p><font color="blue">在 Struts2 应用中，StrutsPrepareAndExecuteFilter 和 Action 一起充当 Controller，并由其调用 Model、View 响应用户请求；</font></p></li>
+<li><p><font color="blue">在 Struts2 应用中，StrutsPrepareAndExecuteFilter 通过反射生成 Action 实例并通过该实例调用相应的方法（一般是 execute() 方法）处理用户请求；</font></p></li>
+<li><p><font color="blue">业务控制器Action 并不与物理视图相关联，也就是说，业务处理结果(数据)与显示逻辑相分离。特别地，业务处理结果与怎样的视图关联依然由 StrutsPrepareAndExecuteFilter 决定（通过在 struts.xml 中配置）。</font></p></li>
+</ul>
+
+<hr />
+
+<p><strong>2、Struts2 应用的运行逻辑实例</strong></p>
+
+<p>　　我们反过头结合 登录Demo来看 Struts2 的运行逻辑，如下图所示：</p>
+
+<p>(1) 用户在客户端（浏览器）键入请求地址，例如：<a href="http://servername/WebAppname/login">http://servername/WebAppname/login</a>； <br />
+(2) 客户端将上述请求进一步封装成HTTP请求，并发送给服务器（Tomcat）； <br />
+(3) 服务器找到对应已部署的Web应用，并参考其 web.xml； <br />
+(4) 请求被 Struts2 Filter 过滤，参考 struts.xml 进行对请求响应； <br />
+(5) 匹配 Namespace 与 请求URL，从而确定对应的 Package，并在该Package内进一步匹配 Action； <br />
+(6) 成功匹配 Action 后，通过Action实例调用其 execute() 方法处理用户请求，并返回逻辑视图名；  <br />
+(7) 根据逻辑视图名匹配物理视图资源，并forward到该视图; <br />
+(7) 服务器生成响应并将对应视图通过客户端（浏览器）展现给用户。</p>
+
+<p>　　　　　　　　　　　　<img src="http://static.zybuluo.com/Rico123/k0bn4i4u3zpvnqcnt7fj80dp/Struts2%E8%BF%90%E8%A1%8C%E9%80%BB%E8%BE%91%E5%AE%9E%E4%BE%8B.png" alt="Struts2运行逻辑实例.png-23.2kB" title="" /></p>
+
+<hr />
+
+
+
+<h2 id="三-namespace-命名空间与请求路由规则">三. NameSpace： 命名空间与请求路由规则</h2>
+
+<p>　　Struts2 之所以提供命名空间的功能，主要是为了处理在同一个WebApp中包含同名的 Action 的情形。其以命名空间的方式来管理 Action，使得同一个命名空间里不能有同名的 Action， 而不同的命名空间里可以有同名的 Action。但是 Struts2 不支持为单独的 Action 设置命名空间，而是通过为Package指定namespace属性来为Package下面的所有Action指定共同的命名空间，从而解决Action命名冲突问题。实际上，我们在 Struts2 中所提到的 Package 与 Java 中的 package 作用类似。<font color="red"><b>我们可以将每个Action划分到一个Package中，</b></font>例如，每个命名空间下都可以有一个名为 ”help” 的 Action，并且有着各自不同的实现。此外，<font color="blue"><b>如果在Package中没有指定namespace属性，则该包下的所有Action处于默认的命名空间下，即等价于namespace的属性值为空字符串(“”)的情形。</b></font><font color="blue"><b>Struts2还支持根命名空间(“/”)。</b></font>有几点需要注意：</p>
+
+<ul>
+<li><font color="DarkGreen"><b>Namespace为空就意味着只要在该默认命名空间下找到可以匹配的 Action，该请求就一定会被响应（具体响应结果取决于匹配精度，精度越高，越优先被用来响应请求）， 而不管是否能够找到与请求URL相匹配（无论精确匹配还是模糊匹配）的 Package； </b></font></li>
+<li>除Namespace的属性值为空(“”)的情形外，<font color="blue"> Namespace 必须以 “/” 开头</font>；</li>
+<li>Namespace 与 Package 一般以<font color="blue"> 模块名 </font>命名。</li>
+</ul>
+
+
+
+<hr />
+
+<p><strong>1) 请求路由规则</strong></p>
+
+<p>　　<font color="red"><b>在匹配一个Action时，遵循如下规则</b></font> (以”<a href="http://server/WebAppName/path1/path2/path3/test">http://server/WebAppName/path1/path2/path3/test</a>“为例 )：</p>
+
+<ul>
+<li><p><strong>① 寻找Namespace为”/path1/path2/path3”的Package</strong>。如果存在这个Package，则在这个Package中<font color="red"><b> 寻找名字为test的Action</b></font>，若找到，则执行；否则 (不存在该Package 或者 这个 Package 中不存在该Action)，转步骤2；</p></li>
+<li><p><strong>② 寻找Namespace为”/path1/path2”的Package</strong>。如果存在这个Package，则在这个Package中<font color="red"><b> 寻找名字为test的Action</b></font>，若找到，则执行；否则 (不存在该Package 或者 这个 Package 中不存在该Action)，转步骤3；</p></li>
+<li><p><strong>③ 寻找Namespace为”/path1”的Package</strong>。如果存在这个Package，则在这个Package中<font color="red"><b> 寻找名字为test的Action</b></font>，若找到，则执行；<font color="red"><b>否则 (不存在该Package 或者 这个 Package 中不存在该Action)，就去缺省 Namespace 或者 Namespace为空字符串的Package下面去找名为test的Action，如果还是找不到，则页面提示找不到 Action。</b></font> <br />
+　　 <br />
+<strong>特别地，</strong> <br />
+　　(1). <font color="blue">若存在根命名空间，当一个request直接请求 ContextPath (即：”<a href="http://server/WebAppName/">http://server/WebAppName/</a>“) 下面的资源时，Struts2会首先到根命名空间下去寻找匹配的Action，若找到则执行，否则，报错；</font></p>
+
+<p>　　(2). <font color="blue">若不存在根命名空间，假如直接请求 “<a href="http://server/WebAppName/">http://server/WebAppName/</a>“, 则Struts2会直接从web.xml找到相应的welcome-file并返回。</font></p></li>
+</ul>
+
+<hr />
+
+<p><font color="DarkGreen"><b>2) 请求路由规则小结</b></font></p>
+
+<p>　　总的来说，请求路由规则为<font color="blue"><b> 精度越高越优先 (精度相同时，看先后顺序)</b></font>，可总结为如下两条：</p>
+
+<ul>
+<li><p><font color="red"><b>FilterDispatcher在请求路由时，将请求URL按上述规则与Namespace进行逐个匹配。一旦匹配成功，要么正常响应(找到特定Action)，要么报404(未找到特定Action)。至此，本次请求路由结束；</b></font></p></li>
+<li><p><font color="red"><b>当一个request直接请求ContextPath (“<a href="http://server/WebAppName/">http://server/WebAppName/</a>“) 下面的资源时，若存在根命名空间，则参照第一条；若不存在根命名空间，则Struts2会直接从web.xml找到相应的welcome-file并返回。至此，本次请求路由结束；</b></font></p></li>
+</ul>
+
+<hr />
+
+
+
+<h2 id="四-小结">四. 小结</h2>
+
+<p>　　作为 Struts2 入门文章，本文首先以HelloWorld为例介绍了创建一个简单的 Struts2 应用的一般步骤和流程，紧接着以该 HelloWorld Web应用为出发点简述了 Struts2 的运行机制，揭示了 Struts2 的核心：将请求与视图相分离。最后，针对该Web应用所涉及到的知识点Namespace进行了深入探究，并总结出Struts2的请求路由规则。</p>
+
+<p>　　更复杂、全面的 Struts2 应用实例和关于Action的详细解读见我的下一篇博客。</p>
+
+<hr />
+
+<blockquote>
+  <h2 id="引用">引用</h2>
+  
+  <p>《轻量级 Java EE 企业应用实战（第四版）》 <br />
+  <a href="http://blog.csdn.net/chenssy/article/details/7262568">struts 2读书笔记—–struts2的开发流程</a> <br />
+  <a href="http://blog.csdn.net/cmtobby/article/details/1707171">Struts2学习(一)：创建一个Struts2应用</a></p>
+</blockquote></div>&#13;
+        <script type="text/javascript">&#13;
+            $(function () {&#13;
+                $('pre.prettyprint code').each(function () {&#13;
+                    var lines = $(this).text().split('\n').length;&#13;
+                    var $numbering = $('&lt;ul/&gt;').addClass('pre-numbering').hide();&#13;
+                    $(this).addClass('has-numbering').parent().append($numbering);&#13;
+                    for (i = 1; i &lt;= lines; i++) {&#13;
+                        $numbering.append($('&lt;li/&gt;').text(i));&#13;
+                    };&#13;
+                    $numbering.fadeIn(1700);&#13;
+                });&#13;
+            });&#13;
+        </script>&#13;
+   &#13;

@@ -1,0 +1,165 @@
+
+        <div class="markdown_views"><p><font color="brown">介绍：</font>将抽象部分与实现部分分离，使他们都可以独立地变化。这个设计使用多态实现</p>
+
+<p><font color="green">场景：</font>看到桥接模式，我先想到的是桥梁……所以我就举个桥梁的例子来说明。对于桥梁，有两种：中国桥和美国桥。对于建筑师，也有两种：中国建筑师和美国建筑师。首先，说下原来的业务，中国建筑师只会造中国桥，美国建筑师会造美国桥。但是中国建筑师牛逼啊，学会了美国桥的建造。如果没有使用桥接模式，可能代码上会有很多问题。</p>
+
+
+
+<h1 id="一未使用桥接">一、未使用桥接</h1>
+
+<p>首先，我们有两个基础接口：1.建筑师-负责建造，2.桥梁-被建造</p>
+
+<p><strong>建筑师</strong></p>
+
+
+
+<pre class="prettyprint"><code class=" hljs cs"><span class="hljs-keyword">public</span> <span class="hljs-keyword">interface</span> Architect {
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">void</span> <span class="hljs-title">build</span>();
+}</code></pre>
+
+<p><strong>中国建筑师</strong></p>
+
+
+
+<pre class="prettyprint"><code class=" hljs java"><span class="hljs-keyword">public</span> <span class="hljs-class"><span class="hljs-keyword">class</span> <span class="hljs-title">ChineseArchitect</span> <span class="hljs-keyword">implements</span> <span class="hljs-title">Architect</span> {</span>
+
+    <span class="hljs-annotation">@Override</span>
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">void</span> <span class="hljs-title">build</span>() {
+        System.out.println(<span class="hljs-string">"this is a ChineseArchitect"</span>);
+    }
+
+}</code></pre>
+
+<p><strong>桥梁</strong></p>
+
+
+
+<pre class="prettyprint"><code class=" hljs cs"><span class="hljs-keyword">public</span> <span class="hljs-keyword">interface</span> Bridge {
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">void</span> <span class="hljs-title">beBuild</span>();
+}</code></pre>
+
+<p><strong>美国建筑师</strong></p>
+
+
+
+<pre class="prettyprint"><code class=" hljs java"><span class="hljs-keyword">public</span> <span class="hljs-class"><span class="hljs-keyword">class</span> <span class="hljs-title">USArchitect</span> <span class="hljs-keyword">implements</span> <span class="hljs-title">Architect</span> {</span>
+
+    <span class="hljs-annotation">@Override</span>
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">void</span> <span class="hljs-title">build</span>() {
+        System.out.println(<span class="hljs-string">"this is a USArchitect"</span>);
+    }
+
+}</code></pre>
+
+<p><strong>中国桥</strong></p>
+
+
+
+<pre class="prettyprint"><code class=" hljs java"><span class="hljs-keyword">public</span> <span class="hljs-class"><span class="hljs-keyword">class</span> <span class="hljs-title">ChineseBridgeByChineseArchitect</span> <span class="hljs-keyword">implements</span> <span class="hljs-title">Bridge</span> {</span>
+
+    <span class="hljs-annotation">@Override</span>
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">void</span> <span class="hljs-title">beBuild</span>() {
+        System.out.println(<span class="hljs-string">"buil a ChinaBridge by ChineseArchitect"</span>);
+    }
+
+}</code></pre>
+
+<p><font color="red">ps:</font>后面的3中组合为了节省篇幅，这里就不再说明</p>
+
+
+
+<h1 id="二使用桥接">二、使用桥接</h1>
+
+<p>这里有两种做法，桥梁绑定建筑师，或者建筑师绑定桥梁，我选择了桥梁绑定建筑师。</p>
+
+<p><strong>中国桥</strong></p>
+
+
+
+<pre class="prettyprint"><code class=" hljs java"><span class="hljs-keyword">public</span> <span class="hljs-class"><span class="hljs-keyword">class</span> <span class="hljs-title">ChineseBridge</span> <span class="hljs-keyword">implements</span> <span class="hljs-title">Bridge</span> {</span>
+
+    <span class="hljs-keyword">private</span> Architect architect;
+
+    <span class="hljs-keyword">public</span> <span class="hljs-title">ChineseBridge</span>(Architect architect) {
+        <span class="hljs-keyword">this</span>.architect = architect;
+    }
+
+    <span class="hljs-annotation">@Override</span>
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">void</span> <span class="hljs-title">beBuild</span>() {
+        architect.build();
+        System.out.println(<span class="hljs-string">"buil a ChinaBridge"</span>);
+    }
+
+}</code></pre>
+
+<p><strong>美国桥</strong></p>
+
+
+
+<pre class="prettyprint"><code class=" hljs java"><span class="hljs-keyword">public</span> <span class="hljs-class"><span class="hljs-keyword">class</span> <span class="hljs-title">USBridge</span> <span class="hljs-keyword">implements</span> <span class="hljs-title">Bridge</span> {</span>
+
+    <span class="hljs-keyword">private</span> Architect architect;
+
+    <span class="hljs-keyword">public</span> <span class="hljs-title">USBridge</span>(Architect architect) {
+        <span class="hljs-keyword">this</span>.architect = architect;
+    }
+
+    <span class="hljs-annotation">@Override</span>
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">void</span> <span class="hljs-title">beBuild</span>() {
+        architect.build();
+        System.out.println(<span class="hljs-string">"build a USBridge"</span>);
+    }
+
+}</code></pre>
+
+<p><strong>开始造桥</strong></p>
+
+
+
+<pre class="prettyprint"><code class=" hljs cs">Architect cArchitect = <span class="hljs-keyword">new</span> ChineseArchitect();
+Architect uArchitect = <span class="hljs-keyword">new</span> USArchitect();
+Bridge ccbBridge = <span class="hljs-keyword">new</span> ChineseBridge(cArchitect);
+Bridge ucBridge = <span class="hljs-keyword">new</span> USBridge(cArchitect);
+Bridge uuBridge = <span class="hljs-keyword">new</span> USBridge(uArchitect);
+
+ccbBridge.beBuild();
+System.<span class="hljs-keyword">out</span>.println(<span class="hljs-string">"======="</span>);
+ucBridge.beBuild();
+System.<span class="hljs-keyword">out</span>.println(<span class="hljs-string">"======="</span>);
+uuBridge.beBuild();</code></pre>
+
+<p>输出示例</p>
+
+
+
+<pre class="prettyprint"><code class=" hljs asciidoc">this is a ChineseArchitect
+<span class="hljs-header">buil a ChinaBridge
+=======</span>
+this is a ChineseArchitect
+<span class="hljs-header">build a USBridge
+=======</span>
+this is a USArchitect
+build a USBridge</code></pre>
+
+<p><font color="red">总结：</font> <br />
+很好的体现了六大原则，保证模块的解耦，并且很方便扩展。我们这里如果需要扩展桥梁，只需要增加一个桥梁类。如果想要在维度上扩展，只需要在新的接口的具体实现类中添加桥梁类，并调用beBuild()方法即可。</p>
+
+<hr />
+
+<p><strong><em>更多模式：</em></strong><a href="http://blog.csdn.net/odeviloo/article/details/52382338">一天一个设计模式—分类与六大原则</a></p>
+
+<p><strong><em>更多源码：</em></strong> <a href="https://github.com/oDevilo/Java-Base">https://github.com/oDevilo/Java-Base</a></p></div>&#13;
+        <script type="text/javascript">&#13;
+            $(function () {&#13;
+                $('pre.prettyprint code').each(function () {&#13;
+                    var lines = $(this).text().split('\n').length;&#13;
+                    var $numbering = $('&lt;ul/&gt;').addClass('pre-numbering').hide();&#13;
+                    $(this).addClass('has-numbering').parent().append($numbering);&#13;
+                    for (i = 1; i &lt;= lines; i++) {&#13;
+                        $numbering.append($('&lt;li/&gt;').text(i));&#13;
+                    };&#13;
+                    $numbering.fadeIn(1700);&#13;
+                });&#13;
+            });&#13;
+        </script>&#13;
+   &#13;

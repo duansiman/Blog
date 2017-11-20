@@ -1,0 +1,413 @@
+
+
+<p><br />&#13;
+</p>&#13;
+<p><br />&#13;
+</p>&#13;
+<p>你需要知道的：</p>&#13;
+<p><br />&#13;
+注意：首先你要有一个测试文件存在！( 因为下面要打开一个文件，然后传递它的描述符 )<br />&#13;
+<br />&#13;
+1 &gt;:<br />&#13;
+<br />&#13;
+此程序的整体结构是：<br />&#13;
+<br />&#13;
+进程1中创建一个socketpair用于父子进程通信<br />&#13;
+            |<br />&#13;
+进程1中创建一个子进程<br />&#13;
+            |<br />&#13;
+子进程中使用execl启动另一个进程来打开此文件并将fd通过参数传入的socket传回子进程<br />&#13;
+注意：父进程在这个时候的动作是waitpid而已<br />&#13;
+            |<br />&#13;
+那么由于父子进程是的socket端口是全双工的，所以一旦子进程那里有信息就会发送过来<br />&#13;
+            |<br />&#13;
+那么父进程就可以在一个端口上获得信息，然后再在自己的环境下打开文件，写到stdout<br />&#13;
+<br />&#13;
+请注意：其中最重要的就是怎么使用struct msghdr来封装数据传递！！！<br />&#13;
+<br />&#13;
+<br />&#13;
+2 &gt;:<br />&#13;
+<br />&#13;
+关于msghdr结构体：<br />&#13;
+struct msghdr <br />&#13;
+{<br />&#13;
+    void                 *msg_name;                //!&gt; 对方主机的地址<br />&#13;
+    socklen_t        msg_namelen;            //!&gt; 长度<br />&#13;
+    <br />&#13;
+    struct iovec     *msg_iov;                    //!&gt; io vector 的内容<br />&#13;
+    size_t               msg_iovlen;                //!&gt; 个数<br />&#13;
+    <br />&#13;
+    void                  *msg_control;            //!&gt; 控制信息<br />&#13;
+    size_t               msg_controllen;            //!&gt; 控制信息长度<br />&#13;
+    <br />&#13;
+    int                      msg_flags;                    //!&gt; 标志<br />&#13;
+};<br />&#13;
+<br />&#13;
+分成4组，具体的信息网上到处都是，此处不多说哦～<br />&#13;
+<br />&#13;
+3 &gt;:<br />&#13;
+<br />&#13;
+关于：struct cmsghdr<br />&#13;
+&gt;: 我们在接收msghdr的时候需要这样一个结构体的指针来遍历整个CMSG_DATA的内容！<br />&#13;
+&gt;: 在发送的时候需要使用这个写入头信息：pCmsghdr = CMSG_FIRSTHD(&amp;msghdr_send); <br />&#13;
+    pCmsghdr = CMSG_FIRSTHDR( &amp;msghdr_send );    //!&gt; the info of head<br />&#13;
+    pCmsghdr-&gt;cmsg_len = CMSG_LEN(sizeof(int));       //!&gt; the msg len<br />&#13;
+    pCmsghdr-&gt;cmsg_level = SOL_SOCKET;             //!&gt; -&gt; stream mode               <br />&#13;
+    pCmsghdr-&gt;cmsg_type = SCM_RIGHTS;              //!&gt; -&gt; file descriptor<br />&#13;
+    *((int *)CMSG_DATA( pCmsghdr )) = file_fd;            //!&gt; data: the file fd <br />&#13;
+<br />&#13;
+&gt;: cmsg_len与CMSG_LEN()宏值所显示的长度相同。<br />&#13;
+   cmsg_level        这个值表明了原始的协议级别(例如，SOL_SOCKET)。<br />&#13;
+   cmsg_type        这个值表明了控制信息类型(例如，SCM_RIGHTS代表文件描述符)。<br />&#13;
+                       SCM_RIGHTS        附属数据对象是一个文件描述符<br />&#13;
+                    SCM_CREDENTIALS        附属数据对象是一个包含证书信息的结构<br />&#13;
+<br />&#13;
+4 &gt;: <br />&#13;
+<br />&#13;
+关于一些宏：<br />&#13;
+<br />&#13;
+&gt;: CMSG_LEN：计算cmsghdr头结构加上所需要的填充字符的字节长度。<br />&#13;
+                     这个值用来设置cmsghdr对象的cmsg_len成员<br />&#13;
+                     上面的意思也就是说：输入的CMSG_DATA是什么类型的，对应的长度！<br />&#13;
+                     例如此处是fd，那么 就是CSMG_LEN(sizeof( int ))！！！<br />&#13;
+                     <br />&#13;
+&gt;: CMSG_SPACE：计算附属数据以及其头部所需的总空白。尽管CMSG_LEN()宏计算了一<br />&#13;
+                       个相似的长度，CMSG_LEN()值并不包括可能的结尾的填充字符。<br />&#13;
+                        CMSG_SPACE(sizeof fd)<br />&#13;
+                        此宏调用来得到所需的总空间<br />&#13;
+<br />&#13;
+&gt;: CMSG_DATA：接受一个指向cmsghdr结构的指针。返回的指针值指向跟随在头部以及填<br />&#13;
+                      充字节之后的附属数据的第一个字节(如果存在)。<br />&#13;
+                      fd = *(int *)CMSG_DATA(ptr)；<br />&#13;
+                      <br />&#13;
+&gt;: CMSG_FIRSTHDR：返回一个指向附属数据缓冲区内的第一个附属对象的struct cmsghdr指<br />&#13;
+                           针。输入值为是指向struct msghdr结构的指针(不要与structcmsghdr相<br />&#13;
+                           混淆)。<br />&#13;
+                           这个宏会估计msghdr的成员msg_control与msg_controllen来确定在缓<br />&#13;
+                           冲区中是否存在附属对象。然后，他会计算返回的指针。如果不存在<br />&#13;
+                               附属数据对象则返回的指针值为NULL。否则，这个指针会指向存在<br />&#13;
+                               的第一个struct cmsghdr。这个宏用在一个for循环的开始处，来开始<br />&#13;
+                               在附属数据对象中遍历。<br />&#13;
+                           <br />&#13;
+&gt;: CMSG_NXTHDR：返回下一个附属数据对象的struct cmsghdr指针。这个宏会接受两个输<br />&#13;
+                         入参数：指向struct msghdr结构的指针指向当前struct cmsghdr的指针<br />&#13;
+                         如果没有下一个附属数据对象，这个宏就会返回NULL。遍历附属数据<br />&#13;
+                         当接收到一个附属数据时，我们可以使用CMSG_FIRSTHDR()与<br />&#13;
+                         CMSG_NXTHDR()宏来在附属数据对象中进行遍历。<br />&#13;
+<br />&#13;
+5 &gt;:<br />&#13;
+<br />&#13;
+注意的是：此处是采用socketpair来创建两个socket来处理的，本是是采用的“全双工”模式而已～<br />&#13;
+<br />&#13;
+<br />&#13;
+6 &gt;:<br />&#13;
+<br />&#13;
+注意： WIFEXITED, WEXITSTATUS<br />&#13;
+<br />&#13;
+WIFEXITED(status) 这个宏用来指出子进程是否为正常退出的，如果是，它会返回一个非零值。<br />&#13;
+( 当然status是由waitpid得到的！waitpid( pid, &amp;status, 0 ) )<br />&#13;
+<br />&#13;
+WEXITSTATUS：<br />&#13;
+解释：<br />&#13;
+    WEXITSTATUS(status) 当WIFEXITED返回非零值时，我们可以用这个宏来提取子进程的返回值，如果子进程调用exit(5)退出，WEXITSTATUS(status) 就会返回5；如果子进程调用exit(7)，    <br />&#13;
+    WEXITSTATUS(status)就会返回7。请注意，如果进程不是正常退出的，也就是说，WIFEXITED返回0，这个值就毫无意义。<br />&#13;
+<br />&#13;
+<br />&#13;
+</p>&#13;
+<p>第一个进程代码：</p>&#13;
+<p></p>&#13;
+<pre name="code" class="cpp">/*
+	这个进程需要做的就是创建一个子进程，然后
+	在子进程中尝试打开一个文件，注意是调用另
+	外一个进程处理，然后另外的进程将文件描述符
+	返回给此进程，再有此进程的处理！
+*/
+
+#include &lt;stdio.h&gt;
+#include &lt;stdlib.h&gt;
+#include &lt;string.h&gt;
+#include &lt;errno.h&gt;
+#include &lt;unistd.h&gt;
+#include &lt;fcntl.h&gt;
+#include &lt;sys/wait.h&gt;
+#include &lt;sys/types.h&gt;
+#include &lt;sys/socket.h&gt;
+#include &lt;sys/un.h&gt;
+
+#define 	BUFLINE		1024
+
+//!&gt; when we recv from the socket,we should give the same data struct
+int recv_file_fd( int fd, void * data, size_t len, int * recv_fd )
+{
+	struct msghdr 	msghdr_recv;		//!&gt; the info struct
+	struct iovec	iov[1];	                //!&gt; io vector
+	size_t		n;	                //!&gt;
+	
+	union
+	{
+		struct cmsghdr	cm;			//!&gt; control msg
+		char 	ctl[CMSG_SPACE(sizeof( int ))];	//!&gt; the pointer of char
+	}ctl_un;
+	
+	struct cmsghdr * pCmsghdr = NULL;		//!&gt; the pointer of control
+	
+	msghdr_recv.msg_control = ctl_un.ctl;	
+	msghdr_recv.msg_controllen = sizeof( ctl_un.ctl );
+	
+	//!&gt; these infos are nosignification
+	msghdr_recv.msg_name = NULL;			//!&gt; the name	
+	msghdr_recv.msg_namelen = 0;		        //!&gt; len of name
+	
+	iov[0].iov_base = data;			        //!&gt; no data here
+	iov[0].iov_len = len;				//!&gt; the len of data
+	
+	msghdr_recv.msg_iov = iov;			//!&gt; the io/vector info
+	msghdr_recv.msg_iovlen = 1;			//!&gt; the num of iov
+	
+	if( ( n = recvmsg( fd, &amp;msghdr_recv, 0 ) ) &lt; 0 )//!&gt; recv msg
+	{						//!&gt; the msg is recv by msghdr_recv
+		printf("recv error : %d\n", errno);
+		exit(EXIT_FAILURE);
+	}
+	
+	//!&gt; now, we not use 'for' just because only one test_data_ 
+	if(     ( pCmsghdr = CMSG_FIRSTHDR( &amp;msghdr_recv ) ) != NULL 	//!&gt; now we need only one,
+	  &amp;&amp; pCmsghdr-&gt;cmsg_len == CMSG_LEN( sizeof( int ) )		//!&gt; we should use 'for' when 
+	 )																				//!&gt; there are many fds
+	 {
+	 	if( pCmsghdr-&gt;cmsg_level != SOL_SOCKET )
+	 	{
+	 		printf("Ctl level should be SOL_SOCKET\n");
+	 		exit(EXIT_FAILURE);
+	 	}
+	 	
+	 	if( pCmsghdr-&gt;cmsg_type != SCM_RIGHTS )
+	 	{
+	 		printf("Ctl type should be SCM_RIGHTS\n");
+	 		exit(EXIT_FAILURE);
+	 	}
+	 	
+	 	*recv_fd =*((int*)CMSG_DATA(pCmsghdr));	//!&gt; get the data : the file des* 
+	 }
+	 else
+	 {
+	 	*recv_fd = -1;
+	 }
+	 
+	 return n;
+	
+}
+
+int open_file( char * path_name, int mode )
+{
+	int 		fd;
+	int		sockfd[2];		//!&gt; for sockpair()
+	int 		status;			//!&gt; the status of child process
+	char 	c;
+	char	arg_fd[10];			//&gt; fd arg
+	char	arg_mode[10]; 	//&gt; mode arg
+	pid_t	chi_pid;
+	
+	//!&gt; create the socketpair
+	if( socketpair( AF_LOCAL, SOCK_STREAM, 0, sockfd ) == -1 )
+	{
+		printf( "create socketpair error : %d\n", errno );
+		exit( EXIT_FAILURE );
+	}
+	
+	//!&gt; the child process
+	if( ( chi_pid = fork() ) == 0 )
+	{
+		close( sockfd[0] );		//!&gt; child use the #1 port; so , close the #0
+		
+		snprintf( arg_fd, sizeof( arg_fd ), "%d", sockfd[1] );
+		snprintf( arg_mode, sizeof( arg_mode ), "%d", mode );
+
+		//!&gt; call the new process
+		execl( "./second", "second", arg_fd, path_name, arg_mode, (char*)NULL );
+		printf("execl the second process error : %d\n", errno);	
+		//!&gt; you know : the usge of execl
+		exit( EXIT_FAILURE );
+	}
+	
+	//!&gt; parent :
+	
+	close( sockfd[1] );				//!&gt; yes
+	
+	waitpid( chi_pid, &amp;status, 0 );			//!&gt; wait the child process
+
+	if( WIFEXITED( status ) != 0 )			//!&gt; we should know the usge of WIFEXITED
+	{
+		if( ( status = WEXITSTATUS( status ) ) == 0 )	//!&gt; end
+		{
+			recv_file_fd( sockfd[0], &amp;c, 1, &amp;fd );	//!&gt; recv from sockfd[0]
+		}
+		else
+		{
+			errno = status;
+			fd = -1;
+		}		
+		close( sockfd[0] );
+		return fd;
+	}
+	
+	return -1;
+
+}
+
+int main( int argc, char ** argv )
+{
+	int 		fd;		//!&gt; get the file_descriptor
+	int 		n_read;
+	char	buf[BUFLINE];
+
+	if( argc != 2 )			//!&gt; input the file path
+	{
+		printf("Input : file path\n");
+		exit( EXIT_FAILURE );
+	}
+	
+	if( ( fd = open_file( argv[1], O_RDONLY ) ) &lt; 0 ) //!&gt; fork a child
+	{						  //!&gt; then: child -&gt; execl a new process
+		printf("Open file error : %d\n", errno);  //!&gt;        parent -&gt; wair and recv the fd from child
+		exit( EXIT_FAILURE );
+	}
+	
+	printf("Get the new fd == %d\n", fd);
+	
+	while( ( n_read = read( fd, buf, BUFLINE ) ) &gt; 0 ) //!&gt; read from fd
+	{
+		write( 1, buf, n_read );		   //!&gt; write to std_out
+	}
+	
+	return 0;
+}
+
+
+
+</pre><br />&#13;
+第二个个进程代码：&#13;
+<p></p>&#13;
+<p></p>&#13;
+<pre name="code" class="cpp">/*
+	在这个文件中我们需要做的是：将打开的文件描述符，
+	这个文件描述符是第二个进程进行fork的子进程中init的，
+	所以也就是相当于在第二个进程的子进程中执行此程序，
+	此程序传递打开的文件描述符再给第二个进程！
+	这里其实是复杂化了程序，就是故意构造这样的一个状态！
+	呵呵！～
+	( 注意不仅仅是文件描述符，可以是所有的描述符 )
+	例如open()、pipe()、mkfifo()、socket()或者accept() 都可以
+	
+	注意：此进程的是由第二个进程进行调用的！
+	use UDP 
+*/
+
+#include &lt;stdio.h&gt;
+#include &lt;stdlib.h&gt;
+#include &lt;string.h&gt;
+#include &lt;errno.h&gt;
+#include &lt;unistd.h&gt;
+#include &lt;sys/types.h&gt;
+#include &lt;sys/socket.h&gt;
+#include &lt;sys/un.h&gt;
+#include &lt;sys/wait.h&gt;
+
+int send_back( int fd_send_to, void * data, size_t len, int file_fd )
+{
+	struct msghdr 	msghdr_send;		//!&gt; the info struct
+	struct iovec		iov[1];		//!&gt; io vector
+	size_t				n;	//!&gt;
+	
+	union
+	{
+		struct cmsghdr	cm;			//!&gt; control msg
+		char 	ctl[CMSG_SPACE(sizeof( int ))];	//!&gt; the pointer of char
+	}ctl_un;
+	
+	struct cmsghdr * pCmsghdr = NULL;		//!&gt; the pointer of control
+	
+	msghdr_send.msg_control = ctl_un.ctl;	
+	msghdr_send.msg_controllen = sizeof( ctl_un.ctl );
+	
+	//!&gt; design : the first info
+	pCmsghdr = CMSG_FIRSTHDR( &amp;msghdr_send );	//!&gt; the info of head
+	pCmsghdr-&gt;cmsg_len = CMSG_LEN(sizeof(int));     //!&gt; the msg len
+	pCmsghdr-&gt;cmsg_level = SOL_SOCKET; 		//!&gt; -&gt; stream mode           	
+	pCmsghdr-&gt;cmsg_type = SCM_RIGHTS;  		//!&gt; -&gt; file descriptor
+	*((int *)CMSG_DATA( pCmsghdr )) = file_fd;	//!&gt; data: the file fd 
+	
+	//!&gt; these infos are nosignification
+	msghdr_send.msg_name = NULL;			//!&gt; the name	
+	msghdr_send.msg_namelen = 0;		        //!&gt; len of name
+	
+	iov[0].iov_base = data;				//!&gt; no data here
+	iov[0].iov_len = len;				//!&gt; the len of data
+	
+	msghdr_send.msg_iov = iov;			//!&gt; the io/vector info
+	msghdr_send.msg_iovlen = 1;			//!&gt; the num of iov
+	
+	return ( sendmsg( fd_send_to, &amp;msghdr_send, 0 ) );	//!&gt; send msg now
+}
+
+int main( int argc, char ** argv )
+{
+	
+	int 		fd;	//!&gt; the fd of the open_file
+	ssize_t		ret_n;	//!&gt; the return of n
+	
+	if( argc != 4 )
+	{
+		printf("useg:&lt;unix_domain socket&gt; &lt;file_name&gt; &lt;open_mode&gt;\n");
+		exit( 0 );
+	}
+	
+	//!&gt; open the file
+	if( ( fd = open( argv[2], atoi( argv[3] ) ) ) &lt; 0 )
+	{
+		printf("open file error : %d\n", errno);
+		exit( EXIT_FAILURE );
+	}
+	
+	printf("Open the file, the fd == %d\n", fd);
+	
+	if( ( ret_n = send_back( atoi( argv[1]) , "", 1, fd ) ) &lt; 0 )	//!&gt; send back by the socket
+	{
+		printf("send back error : %d\n", errno);
+		exit( EXIT_FAILURE );
+	}
+	
+	return 0;
+}
+
+
+</pre><br />&#13;
+<br />&#13;
+<p></p>&#13;
+<p><br />&#13;
+在我的机子上输出的结果：</p>&#13;
+<p>pt@ubuntu:~/桌面$ ./f file<br />&#13;
+<br />&#13;
+<br />&#13;
+Open the file, the fd == 3<br />&#13;
+Get the new fd == 4<br />&#13;
+//!&gt; 注意，下面是我的文件中的内容<br />&#13;
+sdfvas<br />&#13;
+dv<br />&#13;
+asdf<br />&#13;
+sdfb<br />&#13;
+sfgn<br />&#13;
+d<br />&#13;
+sfynhfdgobfnadlfknjvbasdf<br />&#13;
+bsdf'bsmd<br />&#13;
+gfbka<br />&#13;
+dfk<br />&#13;
+ag <br />&#13;
+as <br />&#13;
+s<br />&#13;
+<br />&#13;
+<br />&#13;
+</p>&#13;
+<p><br />&#13;
+</p>&#13;
+   &#13;

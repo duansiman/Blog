@@ -1,0 +1,571 @@
+
+        <div class="markdown_views"><h1 id="单例模式"><center> 单例模式</center></h1>
+
+<p>标签 ： Java与设计模式</p>
+
+<hr />
+
+<blockquote>
+  <p>经典的《<a href="https://book.douban.com/subject/1052241/">设计模式:可复用面向对象软件的基础</a>》一书归纳出23种设计模式, 23种设计模式又可划分为3类: <strong><em>创建型模式</em></strong>, <strong><em>结构型模式</em></strong>, <strong><em>行为型模式</em></strong>.</p>
+</blockquote>
+
+<hr />
+
+<h2 id="创建型模式">创建型模式</h2>
+
+<blockquote>
+  <p>社会分工越来越细, 在软件设计方面自然也是如此,对象的创建和使用分开也就成了必然趋势: 如果对象创建会消耗很多系统资源, 那么单独对对象的创建进行研究, 从而<strong>高效地创建对象</strong>就是 <strong><em>创建型模式</em></strong> 要探讨的问题. 有6个具体的创建型模式可供研究,它们分别是: <strong>单例模式</strong> 、<strong>工厂模式(简单工厂/工厂方法/抽象工厂)</strong> 、<strong>建造者模式</strong> 、<strong>原型模式</strong>. </p>
+</blockquote>
+
+<hr />
+
+
+
+<h2 id="单例模式-1">单例模式</h2>
+
+<blockquote>
+  <p>保证一个类只有一个实例, 并提供一个访问他的全局访问点.</p>
+</blockquote>
+
+<ul>
+<li>场景: <br />
+<ul><li>Windows任务管理器;</li>
+<li><code>文件系统</code>: 一个操作系统只能有一个文件系统;</li>
+<li>数据库连接池;</li>
+<li>Spring: 一个<code>Component</code>就只有一个实例;</li>
+<li>JavaWeb: 一个<code>Servlet</code>只有一个实例;</li></ul></li>
+</ul>
+
+<hr />
+
+
+
+<h3 id="实现">实现</h3>
+
+<blockquote>
+  <p>常见的<strong>单例模式</strong>实现方式有五种: 饿汉式, 懒汉式, 双重检测锁, 静态内部类, enum枚举.</p>
+</blockquote>
+
+<ul>
+<li><p>实现要点:  </p>
+
+<ul><li>隐藏构造器</li>
+<li>static Singleton实例</li>
+<li>暴露实例获取方法 <br />
+<img src="http://7xrgh9.com1.z0.glb.clouddn.com/16-8-16/44974353.jpg" alt="此处输入图片的描述" title="" /></li></ul></li>
+<li><p>追求目标</p>
+
+<ul><li>线程安全</li>
+<li>调用效率高</li>
+<li>延迟加载</li></ul></li>
+</ul>
+
+<hr />
+
+
+
+<h3 id="1-饿汉式">1. 饿汉式</h3>
+
+
+
+<pre class="prettyprint"><code class=" hljs java"><span class="hljs-javadoc">/**
+ * 饿汉式
+ * 问题: 如果只是加载本类, 而没有调用getInstance方法, 会造成资源浪费
+ * Created by jifang on 15/12/4.
+ */</span>
+<span class="hljs-keyword">public</span> <span class="hljs-class"><span class="hljs-keyword">class</span> <span class="hljs-title">HungerSingleton</span> {</span>
+
+    <span class="hljs-javadoc">/**
+     * 类初始化时理解初始化该实例
+     * 类加载时, 天然的线程安全时刻
+     */</span>
+    <span class="hljs-keyword">private</span> <span class="hljs-keyword">static</span> <span class="hljs-keyword">final</span> HungerSingleton instance = <span class="hljs-keyword">new</span> HungerSingleton();
+
+    <span class="hljs-keyword">private</span> <span class="hljs-title">HungerSingleton</span>() {
+    }
+
+    <span class="hljs-javadoc">/**
+     * 方法没有同步(synchronized), 调用效率高
+     */</span>
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">static</span> HungerSingleton <span class="hljs-title">getInstance</span>() {
+        <span class="hljs-keyword">return</span> instance;
+    }
+
+    <span class="hljs-annotation">@Override</span>
+    <span class="hljs-keyword">public</span> String <span class="hljs-title">toString</span>() {
+        <span class="hljs-keyword">return</span> <span class="hljs-string">"HungerSingleton{}"</span>;
+    }
+}</code></pre>
+
+<hr />
+
+
+
+<h3 id="2-懒汉式">2. 懒汉式</h3>
+
+
+
+<pre class="prettyprint"><code class=" hljs java"><span class="hljs-javadoc">/**
+ * 懒汉式
+ * 问题: 每次调用getInstance都要同步(synchronized), 效率降低
+ * Created by jifang on 15/12/4.
+ */</span>
+<span class="hljs-keyword">public</span> <span class="hljs-class"><span class="hljs-keyword">class</span> <span class="hljs-title">LazySingleton</span> {</span>
+
+    <span class="hljs-javadoc">/**
+     * 类加载时并没初始化, 延迟加载
+     */</span>
+    <span class="hljs-keyword">private</span> <span class="hljs-keyword">static</span> LazySingleton instance;
+
+    <span class="hljs-keyword">private</span> <span class="hljs-title">LazySingleton</span>() {
+    }
+
+    <span class="hljs-javadoc">/**
+     * 注意synchronized, 线程安全
+     */</span>
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">static</span> <span class="hljs-keyword">synchronized</span> LazySingleton <span class="hljs-title">getInstance</span>() {
+        <span class="hljs-keyword">if</span> (instance == <span class="hljs-keyword">null</span>) {
+            instance = <span class="hljs-keyword">new</span> LazySingleton();
+        }
+        <span class="hljs-keyword">return</span> instance;
+    }
+
+    <span class="hljs-annotation">@Override</span>
+    <span class="hljs-keyword">public</span> String <span class="hljs-title">toString</span>() {
+        <span class="hljs-keyword">return</span> <span class="hljs-string">"LazySingleton{}"</span>;
+    }
+}</code></pre>
+
+<hr />
+
+
+
+<h3 id="3-双重检测锁">3. 双重检测锁</h3>
+
+<p>由于<strong>同步</strong>(<code>synchronized</code>)只在第一次实例化<code>Instance</code>时才需要,也就是单例类实例创建时, 因此我们使用双重检测锁(double checked locking pattern)实现:</p>
+
+
+
+<pre class="prettyprint"><code class=" hljs java"><span class="hljs-javadoc">/**
+ * 双重锁定实现
+ * 问题: 适用于JDK1.5之后的版本
+ * Created by jifang on 15/12/4.
+ */</span>
+<span class="hljs-keyword">public</span> <span class="hljs-class"><span class="hljs-keyword">class</span> <span class="hljs-title">DoubleCheckSingleton</span> {</span>
+
+    <span class="hljs-javadoc">/**
+     * 需要使用volatile
+     * 保证所有的写(write)都将先行发生于读(read)
+     */</span>
+    <span class="hljs-keyword">private</span> <span class="hljs-keyword">static</span> <span class="hljs-keyword">volatile</span> DoubleCheckSingleton instance;
+
+    <span class="hljs-keyword">private</span> <span class="hljs-title">DoubleCheckSingleton</span>() {
+    }
+
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">static</span> DoubleCheckSingleton <span class="hljs-title">getInstance</span>() {
+        <span class="hljs-keyword">if</span> (instance == <span class="hljs-keyword">null</span>) {                          <span class="hljs-comment">//Single Checked</span>
+            <span class="hljs-keyword">synchronized</span> (DoubleCheckSingleton.class) {
+                <span class="hljs-keyword">if</span> (instance == <span class="hljs-keyword">null</span>) {                  <span class="hljs-comment">// Double Checked</span>
+                    instance = <span class="hljs-keyword">new</span> DoubleCheckSingleton();
+                }
+            }
+        }
+
+        <span class="hljs-keyword">return</span> instance;
+    }
+
+    <span class="hljs-annotation">@Override</span>
+    <span class="hljs-keyword">public</span> String <span class="hljs-title">toString</span>() {
+        <span class="hljs-keyword">return</span> <span class="hljs-string">"DoubleCheckSingleton{}"</span>;
+    }
+}</code></pre>
+
+<blockquote>
+  <p>注: 有文章中指出 <strong><em>由于JVM底层内部模型原因, 双重锁定偶尔会出问题, 不建议使用</em></strong>, 但自1.5开始, 该问题已经被解决, 因此可放心使用, 详见<a href="http://www.importnew.com/12196.html">如何在Java中使用双重检查锁实现单例</a>.</p>
+</blockquote>
+
+<hr />
+
+
+
+<h3 id="4-静态内部类">4. 静态内部类</h3>
+
+
+
+<pre class="prettyprint"><code class=" hljs java"><span class="hljs-javadoc">/**
+ * 静态内部类实现Singleton
+ * Created by jifang on 15/12/4.
+ */</span>
+<span class="hljs-keyword">public</span> <span class="hljs-class"><span class="hljs-keyword">class</span> <span class="hljs-title">StaticInnerSingleton</span> {</span>
+
+    <span class="hljs-javadoc">/**
+     * 外部类没有static属性, 因此加载本类时不会立即初始化对象
+     */</span>
+    <span class="hljs-keyword">private</span> <span class="hljs-keyword">static</span> <span class="hljs-class"><span class="hljs-keyword">class</span> <span class="hljs-title">InnerClassInstance</span> {</span>
+        <span class="hljs-keyword">private</span> <span class="hljs-keyword">static</span> <span class="hljs-keyword">final</span> StaticInnerSingleton instance = <span class="hljs-keyword">new</span> StaticInnerSingleton();
+    }
+
+    <span class="hljs-keyword">private</span> <span class="hljs-title">StaticInnerSingleton</span>() {
+    }
+
+    <span class="hljs-javadoc">/**
+     * 只有真正调用getInstance方法时, 才会加载静态内部类(延迟加载), 而且加载类是天然的线程安全的(线程安全), 没有synchronized(调用效率高)
+     *
+     *<span class="hljs-javadoctag"> @return</span>
+     */</span>
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">static</span> StaticInnerSingleton <span class="hljs-title">getInstance</span>() {
+        <span class="hljs-keyword">return</span> InnerClassInstance.instance;
+    }
+
+    <span class="hljs-annotation">@Override</span>
+    <span class="hljs-keyword">public</span> String <span class="hljs-title">toString</span>() {
+        <span class="hljs-keyword">return</span> <span class="hljs-string">"StaticInnerSingleton{}"</span>;
+    }
+}</code></pre>
+
+<hr />
+
+
+
+<h3 id="5-枚举">5. 枚举</h3>
+
+
+
+<pre class="prettyprint"><code class=" hljs java"><span class="hljs-javadoc">/**
+ * 枚举实现单例
+ * 基于JVM底层实现, Enum天然的单例以及线程安全
+ * Created by jifang on 15/12/5.
+ */</span>
+<span class="hljs-keyword">public</span> <span class="hljs-keyword">enum</span> EnumSingleton {
+
+    <span class="hljs-javadoc">/**
+     * 构造方法默认为private
+     */</span>
+    INSTANCE;
+
+    <span class="hljs-javadoc">/**
+     * 可以添加其他操作
+     * other operation
+     */</span>
+    <span class="hljs-keyword">private</span> String name;
+
+    <span class="hljs-keyword">public</span> String <span class="hljs-title">getName</span>() {
+        <span class="hljs-keyword">return</span> name;
+    }
+
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">void</span> <span class="hljs-title">setName</span>(String name) {
+        <span class="hljs-keyword">this</span>.name = name;
+    }
+
+    <span class="hljs-annotation">@Override</span>
+    <span class="hljs-keyword">public</span> String <span class="hljs-title">toString</span>() {
+        <span class="hljs-keyword">return</span> <span class="hljs-string">"EnumSingleton{"</span> +
+                <span class="hljs-string">"name='"</span> + name + <span class="hljs-string">'\''</span> +
+                <span class="hljs-string">'}'</span>;
+    }
+}</code></pre>
+
+<hr />
+
+
+
+<h3 id="实现对比">实现对比</h3>
+
+<table>
+<thead>
+<tr>
+  <th align="center">方式</th>
+  <th align="center">优点</th>
+  <th align="center">缺点</th>
+</tr>
+</thead>
+<tbody><tr>
+  <td align="center">饿汉式</td>
+  <td align="center">线程安全, 调用效率高</td>
+  <td align="center">不能延迟加载</td>
+</tr>
+<tr>
+  <td align="center">懒汉式</td>
+  <td align="center">线程安全, 可以延迟加载</td>
+  <td align="center">调用效率不高</td>
+</tr>
+<tr>
+  <td align="center">双重检测锁</td>
+  <td align="center">线程安全, 调用效率高, 可以延迟加载</td>
+  <td align="center">-</td>
+</tr>
+<tr>
+  <td align="center">静态内部类</td>
+  <td align="center">线程安全, 调用效率高, 可以延迟加载</td>
+  <td align="center">-</td>
+</tr>
+<tr>
+  <td align="center">枚举</td>
+  <td align="center">线程安全, 调用效率高</td>
+  <td align="center">不能延迟加载</td>
+</tr>
+</tbody></table>
+
+
+<hr />
+
+
+
+<h2 id="破解与防御">破解与防御</h2>
+
+
+
+<h3 id="反射破解单例">反射破解单例</h3>
+
+<p>可以利用Java的反射机制破解单例模式(<code>Enum</code>无法破解, 由于基于JVM底层实现),下面仅破解<strong>双重检测锁</strong>, 其他类同不再赘述:</p>
+
+
+
+<pre class="prettyprint"><code class=" hljs java"><span class="hljs-javadoc">/**
+ * 单例破解
+ * Created by jifang on 15/12/4.
+ */</span>
+<span class="hljs-keyword">public</span> <span class="hljs-class"><span class="hljs-keyword">class</span> <span class="hljs-title">TestCase</span> {</span>
+
+    <span class="hljs-annotation">@Test</span>
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">void</span> <span class="hljs-title">testBreakDoubleCheck</span>() {
+        <span class="hljs-keyword">try</span> {
+            Class&lt;DoubleCheckSingleton&gt; clazz = (Class&lt;DoubleCheckSingleton&gt;) Class.forName(<span class="hljs-string">"com.feiqing.singleton.DoubleCheckSingleton"</span>);
+            Constructor&lt;DoubleCheckSingleton&gt; constructor = clazz.getDeclaredConstructor();
+            constructor.setAccessible(<span class="hljs-keyword">true</span>);
+
+            DoubleCheckSingleton instance1 = constructor.newInstance();
+            DoubleCheckSingleton instance2 = constructor.newInstance();
+            System.out.println(<span class="hljs-string">"singleton? "</span> + (instance1 == instance2));
+            System.out.println(instance1.hashCode());
+            System.out.println(instance2.hashCode());
+
+        } <span class="hljs-keyword">catch</span> (ClassNotFoundException e) {
+            e.printStackTrace();
+        } <span class="hljs-keyword">catch</span> (NoSuchMethodException e) {
+            e.printStackTrace();
+        } <span class="hljs-keyword">catch</span> (InvocationTargetException e) {
+            e.printStackTrace();
+        } <span class="hljs-keyword">catch</span> (InstantiationException e) {
+            e.printStackTrace();
+        } <span class="hljs-keyword">catch</span> (IllegalAccessException e) {
+            e.printStackTrace();
+        }
+    }
+
+}</code></pre>
+
+<hr />
+
+
+
+<h3 id="序列化破解单例">序列化破解单例</h3>
+
+<ul>
+<li>对懒汉式破解, 需要首先对<code>LazySingleton</code>进行改造,支持序列化:</li>
+</ul>
+
+
+
+<pre class="prettyprint"><code class=" hljs java"><span class="hljs-keyword">public</span> <span class="hljs-class"><span class="hljs-keyword">class</span> <span class="hljs-title">LazySingleton</span> <span class="hljs-keyword">implements</span> <span class="hljs-title">Serializable</span>{</span>
+
+    <span class="hljs-keyword">private</span> <span class="hljs-keyword">static</span> <span class="hljs-keyword">final</span> <span class="hljs-keyword">long</span> serialVersionUID = <span class="hljs-number">8511876423469188139</span>L;
+    <span class="hljs-javadoc">/**
+     * 类加载时并没初始化, 延迟加载
+     */</span>
+    <span class="hljs-keyword">private</span> <span class="hljs-keyword">static</span> LazySingleton instance;
+
+    <span class="hljs-keyword">private</span> <span class="hljs-title">LazySingleton</span>() {
+        <span class="hljs-keyword">if</span> (instance != <span class="hljs-keyword">null</span>){
+            <span class="hljs-keyword">throw</span> <span class="hljs-keyword">new</span> RuntimeException();
+        }
+    }
+
+    <span class="hljs-javadoc">/**
+     * 注意synchronized, 线程安全
+     */</span>
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">static</span> <span class="hljs-keyword">synchronized</span> LazySingleton <span class="hljs-title">getInstance</span>() {
+        <span class="hljs-keyword">if</span> (instance == <span class="hljs-keyword">null</span>) {
+            instance = <span class="hljs-keyword">new</span> LazySingleton();
+        }
+        <span class="hljs-keyword">return</span> instance;
+    }
+
+    <span class="hljs-annotation">@Override</span>
+    <span class="hljs-keyword">public</span> String <span class="hljs-title">toString</span>() {
+        <span class="hljs-keyword">return</span> <span class="hljs-string">"LazySingleton{}"</span>;
+    }
+}</code></pre>
+
+<ul>
+<li>破解:</li>
+</ul>
+
+
+
+<pre class="prettyprint"><code class=" hljs cs"><span class="hljs-keyword">public</span> <span class="hljs-keyword">class</span> TestCase {
+
+    <span class="hljs-keyword">private</span> <span class="hljs-keyword">static</span> final String SYSTEM_FILE = <span class="hljs-string">"/tmp/save.txt"</span>;
+
+    @Test
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">void</span> <span class="hljs-title">testBreakLazy</span>() {
+        LazySingleton instance1 = LazySingleton.getInstance();
+
+        <span class="hljs-keyword">try</span> {
+            ObjectOutputStream oos = <span class="hljs-keyword">new</span> ObjectOutputStream(<span class="hljs-keyword">new</span> FileOutputStream(SYSTEM_FILE));
+            oos.writeObject(instance1);
+
+            ObjectInputStream ois = <span class="hljs-keyword">new</span> ObjectInputStream(<span class="hljs-keyword">new</span> FileInputStream(SYSTEM_FILE));
+            LazySingleton instance2 = (LazySingleton) ois.readObject();
+
+            System.<span class="hljs-keyword">out</span>.println(<span class="hljs-string">"singleton? "</span> + (instance1 == instance2));
+            System.<span class="hljs-keyword">out</span>.println(instance1.hashCode());
+            System.<span class="hljs-keyword">out</span>.println(instance2.hashCode());
+        } <span class="hljs-keyword">catch</span> (IOException e) {
+            e.printStackTrace();
+        } <span class="hljs-keyword">catch</span> (ClassNotFoundException e) {
+            e.printStackTrace();
+        }
+    }
+
+}</code></pre>
+
+<hr />
+
+
+
+<h3 id="序列化防御">序列化防御</h3>
+
+<ul>
+<li>在<code>LazySingleton</code>添加<code>readResolve()</code>方法:</li>
+</ul>
+
+
+
+<pre class="prettyprint"><code class=" hljs java">    <span class="hljs-javadoc">/**
+     * 反序列化时, 如果定义了readResolve方法, 则直接返回此方法制定的对象.
+     *
+     *<span class="hljs-javadoctag"> @return</span>
+     */</span>
+    <span class="hljs-keyword">private</span> Object <span class="hljs-title">readResolve</span>() {
+        <span class="hljs-keyword">return</span> instance;
+    }</code></pre>
+
+<blockquote>
+  <p>详细可参考: <a href="http://developer.51cto.com/art/201202/317181.htm">深入理解Java对象序列化</a>.</p>
+</blockquote>
+
+<hr />
+
+
+
+<h2 id="性能测试">性能测试</h2>
+
+
+
+<pre class="prettyprint"><code class=" hljs java"><span class="hljs-javadoc">/**
+ * 单例性能测试
+ * Created by jifang on 15/12/4.
+ */</span>
+<span class="hljs-keyword">public</span> <span class="hljs-class"><span class="hljs-keyword">class</span> <span class="hljs-title">TestCase</span> {</span>
+
+    <span class="hljs-keyword">private</span> <span class="hljs-keyword">static</span> <span class="hljs-keyword">final</span> String SYSTEM_FILE = <span class="hljs-string">"/tmp/save.txt"</span>;
+    <span class="hljs-keyword">private</span> <span class="hljs-keyword">static</span> <span class="hljs-keyword">final</span> <span class="hljs-keyword">int</span> THREAD_COUNT = <span class="hljs-number">10</span>;
+    <span class="hljs-keyword">private</span> <span class="hljs-keyword">static</span> <span class="hljs-keyword">final</span> <span class="hljs-keyword">int</span> CIRCLE_COUNT = <span class="hljs-number">100000</span>;
+
+    <span class="hljs-annotation">@Test</span>
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">void</span> <span class="hljs-title">testSingletonPerformance</span>() <span class="hljs-keyword">throws</span> IOException, InterruptedException {
+        <span class="hljs-keyword">final</span> CountDownLatch latch = <span class="hljs-keyword">new</span> CountDownLatch(THREAD_COUNT);
+        FileWriter writer = <span class="hljs-keyword">new</span> FileWriter(<span class="hljs-keyword">new</span> File(SYSTEM_FILE), <span class="hljs-keyword">true</span>);
+
+        <span class="hljs-keyword">long</span> start = System.currentTimeMillis();
+        <span class="hljs-keyword">for</span> (<span class="hljs-keyword">int</span> i = <span class="hljs-number">0</span>; i &lt; THREAD_COUNT; ++i) {
+            <span class="hljs-keyword">new</span> Thread(
+                    <span class="hljs-keyword">new</span> Runnable() {
+                        <span class="hljs-annotation">@Override</span>
+                        <span class="hljs-keyword">public</span> <span class="hljs-keyword">void</span> <span class="hljs-title">run</span>() {
+                            <span class="hljs-keyword">for</span> (<span class="hljs-keyword">int</span> i = <span class="hljs-number">0</span>; i &lt; CIRCLE_COUNT; ++i) {
+                                Object instance = HungerSingleton.getInstance();
+                            }
+                            latch.countDown();
+                        }
+                    }
+            ).start();
+        }
+        latch.await();
+        <span class="hljs-keyword">long</span> end = System.currentTimeMillis();
+
+        writer.append(<span class="hljs-string">"HungerSingleton 共耗时: "</span> + (end - start) + <span class="hljs-string">" 毫秒\n"</span>);
+        writer.close();
+    }
+}</code></pre>
+
+<ul>
+<li>结果</li>
+</ul>
+
+<table>
+<thead>
+<tr>
+  <th align="center">*</th>
+  <th align="center">单例实现</th>
+  <th align="center">耗时</th>
+</tr>
+</thead>
+<tbody><tr>
+  <td align="center">1</td>
+  <td align="center"><code>HungerSingleton</code></td>
+  <td align="center">30 毫秒</td>
+</tr>
+<tr>
+  <td align="center">2</td>
+  <td align="center"><code>LazySingleton</code></td>
+  <td align="center">48 毫秒</td>
+</tr>
+<tr>
+  <td align="center">3</td>
+  <td align="center"><code>DoubleCheckSingleton</code></td>
+  <td align="center">25 毫秒</td>
+</tr>
+<tr>
+  <td align="center">4</td>
+  <td align="center"><code>StaticInnerSingleton</code></td>
+  <td align="center">16 毫秒</td>
+</tr>
+<tr>
+  <td align="center">5</td>
+  <td align="center"><code>EnumSingleton</code></td>
+  <td align="center">6 毫秒</td>
+</tr>
+</tbody></table>
+
+
+<blockquote>
+  <p><code>Enum</code>毫无疑问的成为了实现单例的王者, <a href="https://book.douban.com/subject/3998727/">＜Effective Java＞</a>中也推荐使用, 因此Enum成为Java中实现单例的最好方式, 但是Enum也有其自身的限制, 因此在使用时还需要做一番权衡.</p>
+</blockquote>
+
+<hr />
+
+
+
+<h2 id="小结">小结</h2>
+
+<blockquote>
+  <p>由于单例模式只生成一个实例, 减少了系统性能开销, 因此 <strong><em>当一个对象的产生需要比较多的资源时(如读取配置/产生其他依赖对象), 则可以通过只产生一个单例对象, 然后永久驻留内存的方式来提高系统整体性能</em></strong>.</p>
+</blockquote>
+
+<hr /></div>&#13;
+        <script type="text/javascript">&#13;
+            $(function () {&#13;
+                $('pre.prettyprint code').each(function () {&#13;
+                    var lines = $(this).text().split('\n').length;&#13;
+                    var $numbering = $('&lt;ul/&gt;').addClass('pre-numbering').hide();&#13;
+                    $(this).addClass('has-numbering').parent().append($numbering);&#13;
+                    for (i = 1; i &lt;= lines; i++) {&#13;
+                        $numbering.append($('&lt;li/&gt;').text(i));&#13;
+                    };&#13;
+                    $numbering.fadeIn(1700);&#13;
+                });&#13;
+            });&#13;
+        </script>&#13;
+   &#13;

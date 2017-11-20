@@ -1,0 +1,476 @@
+
+        <div class="markdown_views"><p>SpringMVC服务器验证一种是有两种方式,一种是基于Validator接口,一种是使用Annotaion JSR-303标准的验证,下面主要是学习这两种,工作中推荐后者,方便很多</p>
+
+<hr />
+
+
+
+<h2 id="一基于validator接口的验证">一.基于Validator接口的验证.</h2>
+
+<p>首先创建User实例,并加入几个属性</p>
+
+
+
+<pre class="prettyprint"><code class=" hljs cs"><span class="hljs-keyword">public</span> <span class="hljs-keyword">class</span> User {
+    <span class="hljs-keyword">private</span> String username;
+    <span class="hljs-keyword">private</span> String password;
+    <span class="hljs-keyword">private</span> String nickname;
+
+    <span class="hljs-keyword">public</span> String <span class="hljs-title">getUsername</span>() {
+        <span class="hljs-keyword">return</span> username;
+    }
+
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">void</span> <span class="hljs-title">setUsername</span>(String username) {
+        <span class="hljs-keyword">this</span>.username = username;
+    }
+
+    <span class="hljs-keyword">public</span> String <span class="hljs-title">getPassword</span>() {
+        <span class="hljs-keyword">return</span> password;
+    }
+
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">void</span> <span class="hljs-title">setPassword</span>(String password) {
+        <span class="hljs-keyword">this</span>.password = password;
+    }
+
+    <span class="hljs-keyword">public</span> String <span class="hljs-title">getNickname</span>() {
+        <span class="hljs-keyword">return</span> nickname;
+    }
+
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">void</span> <span class="hljs-title">setNickname</span>(String nickname) {
+        <span class="hljs-keyword">this</span>.nickname = nickname;
+    }
+
+    @Override
+    <span class="hljs-keyword">public</span> String <span class="hljs-title">toString</span>() {
+        <span class="hljs-keyword">return</span> <span class="hljs-string">"username--"</span>+username+<span class="hljs-string">"password--"</span>+password+<span class="hljs-string">"nickname--"</span>+nickname;
+    }
+}</code></pre>
+
+<p>接着创建用于校检的类UserValidator,让其实现Validator,覆盖其中的两个方法</p>
+
+
+
+<pre class="prettyprint"><code class=" hljs java"><span class="hljs-keyword">import</span> main.java.model.User;
+<span class="hljs-keyword">import</span> org.springframework.validation.Errors;
+<span class="hljs-keyword">import</span> org.springframework.validation.Validator;
+
+<span class="hljs-keyword">public</span> <span class="hljs-class"><span class="hljs-keyword">class</span> <span class="hljs-title">UserValidator</span> <span class="hljs-keyword">implements</span> <span class="hljs-title">Validator</span> {</span>
+
+
+    <span class="hljs-annotation">@Override</span>
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">boolean</span> <span class="hljs-title">supports</span>(Class&lt;?&gt; aClass) {
+        <span class="hljs-comment">//判断是否是要校验的类,这里是User</span>
+        <span class="hljs-keyword">return</span> User.class.equals(aClass);
+    }
+
+    <span class="hljs-annotation">@Override</span>
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">void</span> <span class="hljs-title">validate</span>(Object o, Errors errors) {
+        User u = (User) o;
+        <span class="hljs-keyword">if</span> (<span class="hljs-keyword">null</span> == u.getPassword() || <span class="hljs-string">""</span>.equals(u.getPassword())){
+            <span class="hljs-comment">//此方法可以加四个参数,第一个表单域field,</span>
+            <span class="hljs-comment">//区分是哪个表单出错,第二个errorCode错误码,</span>
+            <span class="hljs-comment">//第三个制定了资源文件中占位符,第四个具体错误返回信息</span>
+            <span class="hljs-comment">//简写版可以把2,3参数去掉</span>
+            errors.rejectValue(<span class="hljs-string">"password"</span>,<span class="hljs-keyword">null</span>,<span class="hljs-keyword">null</span>,<span class="hljs-string">"password is null"</span>);
+        }
+    }
+}</code></pre>
+
+<p>上面的类只实现了对密码判断是否为空,为空则注册这一错误信息,也就是”password is null”,接下来要实现控制器,控制器要做的事情,第一是注册这个校验器,第二是实现校验.</p>
+
+
+
+<pre class="prettyprint"><code class=" hljs java"><span class="hljs-keyword">import</span> main.java.model.User;
+......
+
+<span class="hljs-javadoc">/**
+ * 加上@Controller决定这个类是一个控制器
+ */</span>
+<span class="hljs-annotation">@Controller</span>
+<span class="hljs-annotation">@RequestMapping</span>(<span class="hljs-string">"/user"</span>)
+<span class="hljs-keyword">public</span> <span class="hljs-class"><span class="hljs-keyword">class</span> <span class="hljs-title">HelloController</span> {</span>
+
+    <span class="hljs-comment">//我们知道在Controller类中通过@InitBinder标记的方法只有在请求当前Controller的时候才会被执行</span>
+    <span class="hljs-comment">//所以在这里注册校验器</span>
+    <span class="hljs-annotation">@InitBinder</span>
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">void</span> <span class="hljs-title">initBainder</span>(DataBinder binder){
+        binder.replaceValidators(<span class="hljs-keyword">new</span> UserValidator());
+
+    }
+    <span class="hljs-comment">//这个方法主要是跳转到登录页面</span>
+    <span class="hljs-annotation">@RequestMapping</span>(value = <span class="hljs-string">"/login"</span>,method = RequestMethod.GET)
+    <span class="hljs-keyword">public</span> String <span class="hljs-title">login</span>(Model model){
+        model.addAttribute(<span class="hljs-keyword">new</span> User());
+        <span class="hljs-keyword">return</span> <span class="hljs-string">"user/login"</span>;
+    }
+    <span class="hljs-comment">//处理登录表单</span>
+    <span class="hljs-annotation">@RequestMapping</span>(value = <span class="hljs-string">"/login"</span>,method = RequestMethod.POST)
+    <span class="hljs-keyword">public</span> String <span class="hljs-title">login</span>(@Validated User user, BindingResult br){
+
+        <span class="hljs-keyword">if</span> (br.hasErrors()){
+            <span class="hljs-keyword">return</span> <span class="hljs-string">"user/login"</span>;
+        }
+        <span class="hljs-keyword">return</span> <span class="hljs-string">"--"</span>;
+    }
+    }</code></pre>
+
+<p>上面代码可以看到@Validated User user, BindingResult br这两个参数,<strong>@Validated</strong>表明参数user是要校验的类,<strong>BindingResult</strong>是存储错误信息的类,两者必须一一对应,并且位置挨着,不能中间有其他参数, <br />
+最后随便写一个jsp页面实现校检</p>
+
+
+
+<pre class="prettyprint"><code class=" hljs xml"><span class="vbscript">&lt;%@ page contentType=<span class="hljs-string">"text/html;charset=UTF-8"</span> language=<span class="hljs-string">"java"</span> %&gt;</span>
+<span class="vbscript">&lt;%@taglib prefix=<span class="hljs-string">"sf"</span> uri=<span class="hljs-string">"http://www.springframework.org/tags/form"</span> %&gt;</span>
+<span class="vbscript">&lt;%
+    <span class="hljs-built_in">request</span>.setCharacterEncoding(<span class="hljs-string">"utf-8"</span>);
+%&gt;</span>
+<span class="hljs-tag">&lt;<span class="hljs-title">html</span>&gt;</span>
+<span class="hljs-tag">&lt;<span class="hljs-title">head</span>&gt;</span>
+    <span class="hljs-tag">&lt;<span class="hljs-title">meta</span> <span class="hljs-attribute">charset</span>=<span class="hljs-value">"utf-8"</span>&gt;</span>
+    <span class="hljs-tag">&lt;<span class="hljs-title">title</span>&gt;</span>用户登录<span class="hljs-tag">&lt;/<span class="hljs-title">title</span>&gt;</span>
+<span class="hljs-tag">&lt;/<span class="hljs-title">head</span>&gt;</span>
+<span class="hljs-tag">&lt;<span class="hljs-title">body</span>&gt;</span>
+    <span class="hljs-tag">&lt;<span class="hljs-title">sf:form</span> <span class="hljs-attribute">modelAttribute</span>=<span class="hljs-value">"user"</span> <span class="hljs-attribute">method</span>=<span class="hljs-value">"post"</span>&gt;</span>
+        用户名:<span class="hljs-tag">&lt;<span class="hljs-title">sf:input</span> <span class="hljs-attribute">path</span>=<span class="hljs-value">"username"</span>/&gt;</span><span class="hljs-tag">&lt;<span class="hljs-title">sf:errors</span> <span class="hljs-attribute">path</span>=<span class="hljs-value">"username"</span>/&gt;</span>
+        <span class="hljs-tag">&lt;<span class="hljs-title">br</span>&gt;</span>
+        密码:<span class="hljs-tag">&lt;<span class="hljs-title">sf:input</span> <span class="hljs-attribute">path</span>=<span class="hljs-value">"password"</span>/&gt;</span><span class="hljs-tag">&lt;<span class="hljs-title">sf:errors</span> <span class="hljs-attribute">path</span>=<span class="hljs-value">"password"</span>/&gt;</span>
+        <span class="hljs-tag">&lt;<span class="hljs-title">br</span>&gt;</span>
+        昵称:<span class="hljs-tag">&lt;<span class="hljs-title">sf:input</span> <span class="hljs-attribute">path</span>=<span class="hljs-value">"nickname"</span>/&gt;</span><span class="hljs-tag">&lt;<span class="hljs-title">sf:errors</span> <span class="hljs-attribute">path</span>=<span class="hljs-value">"nickname"</span>/&gt;</span>
+        <span class="hljs-tag">&lt;<span class="hljs-title">br</span>&gt;</span>
+        <span class="hljs-tag">&lt;<span class="hljs-title">input</span> <span class="hljs-attribute">type</span>=<span class="hljs-value">"submit"</span> <span class="hljs-attribute">value</span>=<span class="hljs-value">"提交"</span>&gt;</span>
+    <span class="hljs-tag">&lt;/<span class="hljs-title">sf:form</span>&gt;</span>
+<span class="hljs-tag">&lt;/<span class="hljs-title">body</span>&gt;</span>
+<span class="hljs-tag">&lt;/<span class="hljs-title">html</span>&gt;</span></code></pre>
+
+<p><img src="http://img.blog.csdn.net/20160406225008055" alt="这里写图片描述" title="" /></p>
+
+<p><font color="red">前面实现的是局部校验,只对当前控制器有效,如果要实现全局校验的话需要配置springMVC.xml文件</font></p>
+
+
+
+<pre class="prettyprint"><code class=" hljs xml"><span class="hljs-pi">&lt;?xml version="1.0" encoding="UTF-8"?&gt;</span>
+<span class="hljs-tag">&lt;<span class="hljs-title">beans</span> <span class="hljs-attribute">xmlns</span>=<span class="hljs-value">"http://www.springframework.org/schema/beans"</span>
+    <span class="hljs-attribute">xmlns:xsi</span>=<span class="hljs-value">"http://www.w3.org/2001/XMLSchema-instance"</span> <span class="hljs-attribute">xmlns:context</span>=<span class="hljs-value">"http://www.springframework.org/schema/context"</span>
+    <span class="hljs-attribute">xmlns:mvc</span>=<span class="hljs-value">"http://www.springframework.org/schema/mvc"</span>
+    <span class="hljs-attribute">xsi:schemaLocation</span>=<span class="hljs-value">"http://www.springframework.org/schema/beans
+     http://www.springframework.org/schema/beans/spring-beans-3.0.xsd
+     http://www.springframework.org/schema/context
+     http://www.springframework.org/schema/context/spring-context-3.0.xsd
+     http://www.springframework.org/schema/mvc
+     http://www.springframework.org/schema/mvc/spring-mvc-3.0.xsd"</span>&gt;</span>
+
+    <span class="hljs-tag">&lt;<span class="hljs-title">mvc:annotation-driven</span> <span class="hljs-attribute">validator</span>=<span class="hljs-value">"userValidator"</span>/&gt;</span>
+
+    <span class="hljs-tag">&lt;<span class="hljs-title">bean</span> <span class="hljs-attribute">id</span>=<span class="hljs-value">"userValidator"</span> <span class="hljs-attribute">class</span>=<span class="hljs-value">"com.xxx.xxx.UserValidator"</span>/&gt;</span>
+
+    ...
+<span class="hljs-tag">&lt;/<span class="hljs-title">beans</span>&gt;</span></code></pre>
+
+<hr />
+
+
+
+<h2 id="二使用annotaion-jsr-303标准的验证">二.使用Annotaion JSR-303标准的验证</h2>
+
+<p>使用这个需要导入支持JSR-303标准的包,建议使用Hibernate Validator这个包,先看这个标准的<strong>原生标注</strong></p>
+
+<table>
+<thead>
+<tr>
+  <th>限制</th>
+  <th align="right">说明</th>
+</tr>
+</thead>
+<tbody><tr>
+  <td>@Null</td>
+  <td align="right">限制只能为null</td>
+</tr>
+<tr>
+  <td>@NotNull</td>
+  <td align="right">限制必须不为null</td>
+</tr>
+<tr>
+  <td>@AssertFalse</td>
+  <td align="right">限制必须为false</td>
+</tr>
+<tr>
+  <td>@AssertTrue</td>
+  <td align="right">限制必须为true</td>
+</tr>
+<tr>
+  <td>@DecimalMax(value)</td>
+  <td align="right">限制必须为一个不大于指定值的数字</td>
+</tr>
+<tr>
+  <td>@DecimalMin(value)</td>
+  <td align="right">限制必须为一个不小于指定值的数字</td>
+</tr>
+<tr>
+  <td>@Digits(integer,fraction)</td>
+  <td align="right">限制必须为一个小数，且整数部分的位数不能超过integer，小数部分的位数不能超过fraction</td>
+</tr>
+<tr>
+  <td>@Future</td>
+  <td align="right">限制必须是一个将来的日期</td>
+</tr>
+<tr>
+  <td>@Max(value)</td>
+  <td align="right">限制必须为一个不大于指定值的数字</td>
+</tr>
+<tr>
+  <td>@Min(value)</td>
+  <td align="right">限制必须为一个不小于指定值的数字</td>
+</tr>
+<tr>
+  <td>@Past</td>
+  <td align="right">限制必须是一个过去的日期</td>
+</tr>
+<tr>
+  <td>@Pattern(value)</td>
+  <td align="right">限制必须符合指定的正则表达式</td>
+</tr>
+<tr>
+  <td>@Size(max,min)</td>
+  <td align="right">限制字符长度必须在min到max之间</td>
+</tr>
+<tr>
+  <td>@Past</td>
+  <td align="right">验证注解的元素值（日期类型）比当前时间早</td>
+</tr>
+<tr>
+  <td>@NotEmpty</td>
+  <td align="right">验证注解的元素值不为null且不为空（字符串长度不为0、集合大小不为0）</td>
+</tr>
+<tr>
+  <td>@NotBlank</td>
+  <td align="right">验证注解的元素值不为空（不为null、去除首位空格后长度为0），不同于@NotEmpty，@NotBlank只应用于字符串且在比较时会去除字符串的空格</td>
+</tr>
+<tr>
+  <td>@Email</td>
+  <td align="right">验证注解的元素值是Email，也可以通过正则表达式和flag指定自定义的email格式</td>
+</tr>
+</tbody></table>
+
+
+<hr />
+
+<p>要使用很简单,在需要验证的变量前面加上该Annotation即可,看下面使用后的User</p>
+
+
+
+<pre class="prettyprint"><code class=" hljs java"><span class="hljs-keyword">public</span> <span class="hljs-class"><span class="hljs-keyword">class</span> <span class="hljs-title">User</span> {</span>
+    <span class="hljs-annotation">@NotEmpty</span>(message = <span class="hljs-string">"用户名不能为空"</span>)
+    <span class="hljs-keyword">private</span> String username;
+    <span class="hljs-annotation">@Size</span>(min=<span class="hljs-number">6</span> ,max= <span class="hljs-number">20</span> ,message = <span class="hljs-string">"密码长度不符合标准"</span>)
+    <span class="hljs-keyword">private</span> String password;
+    <span class="hljs-keyword">private</span> String nickname;
+
+   ......
+}</code></pre>
+
+<p>然后再控制器里面加入验证就可以了</p>
+
+
+
+<pre class="prettyprint"><code class=" hljs java"><span class="hljs-annotation">@Controller</span>
+<span class="hljs-annotation">@RequestMapping</span>(<span class="hljs-string">"/user"</span>)
+<span class="hljs-keyword">public</span> <span class="hljs-class"><span class="hljs-keyword">class</span> <span class="hljs-title">HelloController</span> {</span>
+
+
+    <span class="hljs-annotation">@RequestMapping</span>(value = <span class="hljs-string">"/login"</span>,method = RequestMethod.GET)
+    <span class="hljs-keyword">public</span> String <span class="hljs-title">login</span>(Model model){
+        model.addAttribute(<span class="hljs-keyword">new</span> User());
+        <span class="hljs-keyword">return</span> <span class="hljs-string">"user/login"</span>;
+    }
+
+    <span class="hljs-annotation">@RequestMapping</span>(value = <span class="hljs-string">"/login"</span>,method = RequestMethod.POST)
+    <span class="hljs-keyword">public</span> String <span class="hljs-title">login</span>(@Validated User user, BindingResult br){
+
+        <span class="hljs-keyword">if</span> (br.hasErrors()){
+            <span class="hljs-keyword">return</span> <span class="hljs-string">"user/login"</span>;
+        }
+        <span class="hljs-keyword">return</span> <span class="hljs-string">"user/login"</span>;
+    }
+    }</code></pre>
+
+<p>然后jsp页面还是之前的页面,验证效果如下,这种方法明显简单多了 <br />
+<img src="http://img.blog.csdn.net/20160406231441302" alt="这里写图片描述" title="" /></p>
+
+<hr />
+
+
+
+<h2 id="3定义自己的annotation-validator">3.定义自己的Annotation Validator</h2>
+
+<p>这部分直接从[大牛][1]那拷贝过来的.</p>
+
+<p>除了JSR-303原生支持的限制类型之外我们还可以定义自己的限制类型。定义自己的限制类型首先我们得定义一个该种限制类型的注解，而且该注解需要使用@Constraint标注。现在假设我们需要定义一个表示金额的限制类型，那么我们可以这样定义：</p>
+
+
+
+<pre class="prettyprint"><code class=" hljs avrasm">
+import java<span class="hljs-preprocessor">.lang</span><span class="hljs-preprocessor">.annotation</span><span class="hljs-preprocessor">.ElementType</span><span class="hljs-comment">;</span>
+import java<span class="hljs-preprocessor">.lang</span><span class="hljs-preprocessor">.annotation</span><span class="hljs-preprocessor">.Retention</span><span class="hljs-comment">;</span>
+import java<span class="hljs-preprocessor">.lang</span><span class="hljs-preprocessor">.annotation</span><span class="hljs-preprocessor">.RetentionPolicy</span><span class="hljs-comment">;</span>
+import java<span class="hljs-preprocessor">.lang</span><span class="hljs-preprocessor">.annotation</span><span class="hljs-preprocessor">.Target</span><span class="hljs-comment">;</span>
+
+import javax<span class="hljs-preprocessor">.validation</span><span class="hljs-preprocessor">.Constraint</span><span class="hljs-comment">;</span>
+import javax<span class="hljs-preprocessor">.validation</span><span class="hljs-preprocessor">.Payload</span><span class="hljs-comment">;</span>
+
+import <span class="hljs-keyword">com</span><span class="hljs-preprocessor">.xxx</span><span class="hljs-preprocessor">.xxx</span><span class="hljs-preprocessor">.constraint</span><span class="hljs-preprocessor">.impl</span><span class="hljs-preprocessor">.MoneyValidator</span><span class="hljs-comment">;</span>
+
+@Target({ElementType<span class="hljs-preprocessor">.FIELD</span>, ElementType<span class="hljs-preprocessor">.METHOD</span>})
+@Retention(RetentionPolicy<span class="hljs-preprocessor">.RUNTIME</span>)
+@Constraint(validatedBy=MoneyValidator<span class="hljs-preprocessor">.class</span>)
+public @interface Money {
+
+    String message() default<span class="hljs-string">"不是金额形式"</span><span class="hljs-comment">;</span>
+
+    Class&lt;?&gt;[] groups() default {}<span class="hljs-comment">;</span>
+
+    Class&lt;? extends Payload&gt;[] payload() default {}<span class="hljs-comment">;</span>
+
+}</code></pre>
+
+<p>我们可以看到在上面代码中我们定义了一个Money注解，而且该注解上标注了@Constraint注解，使用@Constraint注解标注表明我们定义了一个用于限制的注解。@Constraint注解的validatedBy属性用于指定我们定义的当前限制类型需要被哪个ConstraintValidator进行校验。在上面代码中我们指定了Money限制类型的校验类是MoneyValidator。另外需要注意的是我们在定义自己的限制类型的注解时有三个属性是必须定义的，如上面代码所示的message、groups和payload属性。 <br />
+       在定义了限制类型Money之后，接下来就是定义我们的限制类型校验类MoneyValidator了。限制类型校验类必须实现接口javax.validation.ConstraintValidator，并实现它的initialize和isValid方法。我们先来看一下MoneyValidator的代码示例：</p>
+
+
+
+<pre class="prettyprint"><code class=" hljs axapta">
+import java.util.regex.Pattern;
+
+import javax.validation.ConstraintValidator;
+import javax.validation.ConstraintValidatorContext;
+
+import com.xxx.xxx.constraint.Money;
+
+<span class="hljs-keyword">public</span> <span class="hljs-class"><span class="hljs-keyword">class</span> <span class="hljs-title">MoneyValidator</span> <span class="hljs-inheritance"><span class="hljs-keyword">implements</span></span> <span class="hljs-title">ConstraintValidator</span>&lt;<span class="hljs-title">Money</span>, <span class="hljs-title">Double</span>&gt; {</span>
+
+    <span class="hljs-keyword">private</span> String moneyReg = <span class="hljs-string">"^\\d+(\\.\\d{1,2})?$"</span>;<span class="hljs-comment">//表示金额的正则表达式</span>
+    <span class="hljs-keyword">private</span> Pattern moneyPattern = Pattern.compile(moneyReg);
+
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">void</span> initialize(Money money) {
+       <span class="hljs-comment">// TODO Auto-generated method stub</span>
+
+    }
+
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">boolean</span> isValid(Double value, ConstraintValidatorContext arg1) {
+       <span class="hljs-comment">// TODO Auto-generated method stub</span>
+       <span class="hljs-keyword">if</span> (value == <span class="hljs-keyword">null</span>)
+           <span class="hljs-keyword">return</span> <span class="hljs-keyword">true</span>;
+       <span class="hljs-keyword">return</span> moneyPattern.matcher(value.toString()).matches();
+    }
+
+}</code></pre>
+
+<p>从上面代码中我们可以看到ConstraintValidator是使用了泛型的。它一共需要指定两种类型，第一个类型是对应的initialize方法的参数类型，第二个类型是对应的isValid方法的第一个参数类型。从上面的两个方法我们可以看出isValid方法是用于进行校验的，有时候我们在校验的过程中是需要取当前的限制类型的属性来进行校验的，比如我们在对@Min限制类型进行校验的时候我们是需要通过其value属性获取到当前校验类型定义的最小值的，我们可以看到isValid方法无法获取到当前的限制类型Money。这个时候initialize方法的作用就出来了。我们知道initialize方法是可以获取到当前的限制类型的，所以当我们在校验某种限制类型时需要获取当前限制类型的某种属性的时候，我们可以给当前的ConstraintValidator定义对应的属性，然后在initialize方法中给该属性赋值，接下来我们就可以在isValid方法中使用其对应的属性了。针对于这种情况我们来看一个代码示例，现在假设我要定义自己的@Min限制类型和对应的MinValidator校验器，那么我可以如下定义：</p>
+
+
+
+<pre class="prettyprint"><code class=" hljs handlebars"><span class="xml"><span class="php">@Target({ElementType.FIELD, ElementType.METHOD})
+@Retention(RetentionPolicy.RUNTIME)
+@Constraint(validatedBy=MinValidator.class)
+<span class="hljs-keyword">public</span> @<span class="hljs-class"><span class="hljs-keyword">interface</span> <span class="hljs-title">Min</span> {</span>
+
+    int value() <span class="hljs-keyword">default</span> <span class="hljs-number">0</span>;
+
+    String message();
+
+    <span class="hljs-class"><span class="hljs-keyword">Class</span>&lt;?&gt;</span></span>[] groups() default {};
+
+    Class<span class="php"><span class="hljs-class">&lt;? <span class="hljs-keyword">extends</span> <span class="hljs-title">Payload</span>&gt;[] <span class="hljs-title">payload</span>() <span class="hljs-title">default</span> {</span>};
+}</span></span></code></pre>
+
+<p>MinValidator校验器</p>
+
+
+
+<pre class="prettyprint"><code class=" hljs axapta"><span class="hljs-keyword">public</span> <span class="hljs-class"><span class="hljs-keyword">class</span> <span class="hljs-title">MinValidator</span> <span class="hljs-inheritance"><span class="hljs-keyword">implements</span></span> <span class="hljs-title">ConstraintValidator</span>&lt;<span class="hljs-title">Min</span>, <span class="hljs-title">Integer</span>&gt; {</span>
+
+    <span class="hljs-keyword">private</span> <span class="hljs-keyword">int</span> minValue;
+
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">void</span> initialize(Min min) {
+       <span class="hljs-comment">// TODO Auto-generated method stub</span>
+       <span class="hljs-comment">//把Min限制类型的属性value赋值给当前ConstraintValidator的成员变量minValue</span>
+       minValue = min.value();
+    }
+
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">boolean</span> isValid(Integer value, ConstraintValidatorContext arg1) {
+       <span class="hljs-comment">// TODO Auto-generated method stub</span>
+       <span class="hljs-comment">//在这里我们就可以通过当前ConstraintValidator的成员变量minValue访问到当前限制类型Min的value属性了</span>
+       <span class="hljs-keyword">return</span> value &gt;= minValue;
+    }
+
+}</code></pre>
+
+<p>继续来说一下ConstraintValidator泛型的第二个类型，我们已经知道它的第二个类型是对应的isValid的方法的第一个参数，从我给的参数名称value来看也可以知道isValid方法的第一个参数正是对应的当前需要校验的数据的值，而它的类型也正是对应的我们需要校验的数据的数据类型。这两者的数据类型必须保持一致，否则Spring会提示找不到对应数据类型的ConstraintValidator。建立了自己的限制类型及其对应的ConstraintValidator后，其用法跟标准的JSR-303限制类型是一样的。以下就是使用了上述自己定义的JSR-303限制类型——Money限制和Min限制的一个实体类：</p>
+
+
+
+<pre class="prettyprint"><code class=" hljs cs"><span class="hljs-keyword">public</span> <span class="hljs-keyword">class</span> User {
+
+    <span class="hljs-keyword">private</span> <span class="hljs-keyword">int</span> age;
+
+    <span class="hljs-keyword">private</span> Double salary;
+
+    @Min(<span class="hljs-keyword">value</span>=<span class="hljs-number">8</span>, message=<span class="hljs-string">"年龄不能小于8岁"</span>)
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">int</span> <span class="hljs-title">getAge</span>() {
+       <span class="hljs-keyword">return</span> age;
+    }
+
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">void</span> <span class="hljs-title">setAge</span>(<span class="hljs-keyword">int</span> age) {
+       <span class="hljs-keyword">this</span>.age = age;
+    }
+
+    @Money(message=<span class="hljs-string">"标准的金额形式为xxx.xx"</span>)
+    <span class="hljs-keyword">public</span> Double <span class="hljs-title">getSalary</span>() {
+       <span class="hljs-keyword">return</span> salary;
+    }
+
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">void</span> <span class="hljs-title">setSalary</span>(Double salary) {
+       <span class="hljs-keyword">this</span>.salary = salary;
+    }
+
+}</code></pre>
+
+
+
+<h2 id="4配合ajax验证">4.配合ajax验证</h2>
+
+<p>最近写的项目,感觉直接使用validator不太好用,主要是返回时会刷新整个页面才会出来错误信息,体验相当不好,验证还是用ajax体验比较好,所以配合ajax</p>
+
+<p>思路:验证还是使用springMVC来验证,只是这次发现错误的话,把错误取出,存放到一个map中,然后ajax返回,页面根据ajax返回值来判断,从而显示不同的信息</p>
+
+<p>主要代码:</p>
+
+
+
+<pre class="prettyprint"><code class="language-java hljs "> <span class="hljs-keyword">if</span> (br.hasErrors()){<span class="hljs-comment">//判断是否有错误</span>
+             <span class="hljs-comment">//对错误集合进行遍历,有的话,直接放入map集合中</span>
+            br.getFieldErrors().forEach(p-&gt;{
+                maps.put(p.getField(),p.getDefaultMessage());
+            });
+            <span class="hljs-keyword">return</span> maps;
+        }</code></pre>
+
+<p>这样的话 maps里面存放的就是 错误变量名,错误信息,例如 username -‘用户名不能为空’</p>
+
+<hr />
+
+<p>项目示例可以参考: <br />
+SSM框架整合:    <a href="https://github.com/nl101531/JavaWEB">https://github.com/nl101531/JavaWEB</a></p></div>&#13;
+        <script type="text/javascript">&#13;
+            $(function () {&#13;
+                $('pre.prettyprint code').each(function () {&#13;
+                    var lines = $(this).text().split('\n').length;&#13;
+                    var $numbering = $('&lt;ul/&gt;').addClass('pre-numbering').hide();&#13;
+                    $(this).addClass('has-numbering').parent().append($numbering);&#13;
+                    for (i = 1; i &lt;= lines; i++) {&#13;
+                        $numbering.append($('&lt;li/&gt;').text(i));&#13;
+                    };&#13;
+                    $numbering.fadeIn(1700);&#13;
+                });&#13;
+            });&#13;
+        </script>&#13;
+   &#13;

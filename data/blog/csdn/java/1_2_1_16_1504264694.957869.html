@@ -1,0 +1,316 @@
+
+
+<p><span style="font-size:18px; color:#ff0000"><strong>理论篇：</strong></span></p>&#13;
+<p><span style="font-size:18px; color:#ff0000"><strong>什么是事务？</strong></span></p>&#13;
+<p><span style="font-size:18px">举个简单点的例子，张三和李四之间相互转账，假设张三通过支付宝转给李四400元，首先会修改张三的账户余额，把张三的总金额减去400，然后再找到李四的账户，为李四的账户增加400元；我们说这才是一件完整的事情，很简单的这件事情就是张三给李四转账，这个事情的任务就是李四要收到张三的400元，如果张三因为转账途中断网断电了，那就说明这个事务不完整；所以我们要控制这个事务要么一起成功，一起失败；</span></p>&#13;
+<p><span style="font-size:18px; color:#ff0000"><strong>事务的四大特性：</strong></span></p>&#13;
+<p><span style="font-size:18px"><strong><span style="color:#000099">原子性：</span></strong>所谓原子是指我这个单位已经是最小不可分割的了，一个事务应该是具有原子性的，他们应该是要么一起改变状态，要么都不会改变；</span></p>&#13;
+<p><span style="font-size:18px"><span style="color:#000099"><strong>一致性：</strong></span>一致性是指事务在改变前后的数据完整性一定要保持一致，这里假设张三有2000元转给李四400元后还剩下1600，李四假设也有2000元，接收到了张三的400元后，变成了2400，他们的总数加起来还是4000；中间没有丢失任何金额和数据；</span></p>&#13;
+<p><span style="font-size:18px"><span style="background-color:rgb(255,255,255)"><strong><span style="color:#000099">隔离性</span></strong>：</span>隔离性指多个用户并发访问数据库时，一个用户的事务不能被其他用户的事务所干扰，多个并发事务之间的数据要隔离起来；这里解释起来就比较复杂了，这里说张三正在向李四转账400元的途中，又有一个叫王五的也在给李四转账，那么我们说一个事务不能被另外一个事务所影响，他们之间必须要有一个先后顺序；我们的数据库都有自己定义的一套隔离级别，具体实现后面再说；</span></p>&#13;
+<p><span style="font-size:18px"><strong><span style="color:#000099">持久性</span>：</strong>持久性是指一个事务一旦提交了，它对数据库的改变就是永久性的，即使数据库忽然断了，那么也要保证不会对其事务有任何影响；</span></p>&#13;
+<p><span style="font-size:18px">Spring事务管理的的主要三个接口：</span></p>&#13;
+<p><span style="font-size:18px">PlatformTransactionManager 事务管理器</span></p>&#13;
+<p><span style="font-size:18px">TransactionDefinition 事务定义信息（隔离，传播，超时，只读)</span></p>&#13;
+<p><span style="font-size:18px">TransactionStatus 事务具体运行状态</span></p>&#13;
+<p><span style="font-size:18px"><img src="http://img.blog.csdn.net/20160416212055293?watermark/2/text/aHR0cDovL2Jsb2cuY3Nkbi5uZXQv/font/5a6L5L2T/fontsize/400/fill/I0JBQkFCMA==/dissolve/70/gravity/Center" alt="" /><br />&#13;
+</span></p>&#13;
+<p><span style="font-size:18px"><br />&#13;
+</span></p>&#13;
+<p><span style="font-size:18px"><br />&#13;
+</span></p>&#13;
+<p><span style="font-size:18px"><span style="font-size:18px">PlatformTransactionManager会根据不同的ORM框架来选择不同的实现类，下面列举几个主要实现</span><br />&#13;
+</span></p>&#13;
+<p><span style="font-size:18px"><span style="font-size:18px"><img src="http://img.blog.csdn.net/20160416212300747?watermark/2/text/aHR0cDovL2Jsb2cuY3Nkbi5uZXQv/font/5a6L5L2T/fontsize/400/fill/I0JBQkFCMA==/dissolve/70/gravity/Center" alt="" /><br />&#13;
+</span></span></p>&#13;
+<p><span style="font-size:18px"><span style="font-size:18px"><span style="font-size:18px">TransactionDefinition：</span><br />&#13;
+</span></span></p>&#13;
+<p><span style="font-size:18px"><span style="font-size:18px"><span style="font-size:18px">主要来控制我们事务的隔离级别，如果不控制隔离级别就会发生脏读，不可重复读和幻读的问题；</span></span></span></p>&#13;
+<p><span style="font-size:18px"><span style="font-size:18px"><span style="font-size:18px">脏读：一个事务读取了另一个事务改写但未提交的数据，如果这些数据被回滚，则读到的数据是无效的；</span></span></span></p>&#13;
+<p><span style="font-size:18px"><span style="font-size:18px"><span style="font-size:18px"> 不可重复读：在同一事务中，多次读取同一数据返回的结果有所不同；</span></span></span></p>&#13;
+<p><span style="font-size:18px"><span style="font-size:18px"><span style="font-size:18px">幻读：一个事务读取了几行记录后，另一个事务插入一些记录，幻读就发生了。再后来的查询中，第一个事务 就会发现有些原来没有的记录；</span></span></span></p>&#13;
+<p><span style="font-size:18px"><span style="font-size:18px"><span style="font-size:18px"><img src="http://img.blog.csdn.net/20160416213123251?watermark/2/text/aHR0cDovL2Jsb2cuY3Nkbi5uZXQv/font/5a6L5L2T/fontsize/400/fill/I0JBQkFCMA==/dissolve/70/gravity/Center" alt="" /><br />&#13;
+</span></span></span></p>&#13;
+<p><span style="font-size:18px"><span style="font-size:18px"><span style="font-size:18px">实战篇：</span></span></span></p>&#13;
+<p><span style="font-size:18px"><span style="font-size:18px"><span style="font-size:18px">第一种编程式事务管理，所谓编程式是指，我们会事先配置好事务的模板，但是当我们需要事务的时候会采用编程的时候去执行事务；</span></span></span></p>&#13;
+<p><span style="font-size:18px"><span style="font-size:18px"><span style="font-size:18px">我们先创建一个数据库表结构，模拟上面的转账;</span></span></span></p>&#13;
+<p><span style="font-size:18px"><span style="font-size:18px"><span style="font-size:18px"></span></span></span></p><pre code_snippet_id="1650090" snippet_file_name="blog_20160416_1_638859" name="code" class="sql">CREATE TABLE `account` (
+  `id` int(11) NOT NULL AUTO_INCREMENT,
+  `name` varchar(20) NOT NULL,
+  `money` double DEFAULT NULL,
+  PRIMARY KEY (`id`)
+) ENGINE=InnoDB AUTO_INCREMENT=4 DEFAULT CHARSET=utf8;
+INSERT INTO `account` VALUES ('1', '张三', '1000');
+INSERT INTO `account` VALUES ('2', '李四', '1000');
+INSERT INTO `account` VALUES ('3', '王五', '1000');</pre><br />&#13;
+接着再配置一下spring容器，再里面声明一下事务：&#13;
+<p><span style="font-size:18px"><span style="font-size:18px"><span style="font-size:18px"></span></span></span></p><pre code_snippet_id="1650090" snippet_file_name="blog_20160416_2_2002062" name="code" class="java">&lt;?xml version="1.0" encoding="UTF-8"?&gt;
+&lt;beans xmlns="http://www.springframework.org/schema/beans"
+     xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+     xmlns:context="http://www.springframework.org/schema/context"
+     xmlns:aop="http://www.springframework.org/schema/aop"
+     xmlns:tx="http://www.springframework.org/schema/tx"
+     xmlns:task="http://www.springframework.org/schema/task"
+     xsi:schemaLocation="http://www.springframework.org/schema/beans
+         http://www.springframework.org/schema/beans/spring-beans-3.1.xsd
+         http://www.springframework.org/schema/context
+         http://www.springframework.org/schema/context/spring-context-3.1.xsd
+         http://www.springframework.org/schema/aop
+         http://www.springframework.org/schema/aop/spring-aop-3.1.xsd
+         http://www.springframework.org/schema/tx
+         http://www.springframework.org/schema/tx/spring-tx-3.1.xsd
+         http://www.springframework.org/schema/task
+		 http://www.springframework.org/schema/task/spring-task-3.1.xsd"&gt;
+
+	&lt;!-- 引入外部的属性文件 --&gt;
+	&lt;context:property-placeholder location="classpath:jdbc.properties"/&gt;
+	
+	&lt;!-- 配置c3p0连接池 --&gt;
+	&lt;bean id="dataSource" class="com.mchange.v2.c3p0.ComboPooledDataSource"&gt;
+		&lt;property name="driverClass" value="${jdbc.driverClass}" /&gt;
+		&lt;property name="jdbcUrl" value="${jdbc.url}" /&gt;
+		&lt;property name="user" value="${jdbc.username}" /&gt;
+		&lt;property name="password" value="${jdbc.password}" /&gt;
+	&lt;/bean&gt;
+	
+	&lt;!-- 配置业务层类 --&gt;
+	&lt;bean id="accountService" class="com.zs.spring.demo1.AccountServiceImpl"&gt;
+		&lt;property name="accountDao" ref="accountDao" /&gt;
+		&lt;!-- 注入事务管理的模板 --&gt;
+		&lt;property name="transactionTemplate" ref="transactionTemplate" /&gt;
+	&lt;/bean&gt;
+	
+	&lt;!-- 配置DAO类(简化，会自动配置JdbcTemplate) --&gt;
+	&lt;bean id="accountDao" class="com.zs.spring.demo1.AccountDaoImpl"&gt;
+		&lt;property name="dataSource" ref="dataSource" /&gt;
+	&lt;/bean&gt;
+	
+	&lt;!-- 配置DAO类(未简化) --&gt;
+	&lt;!-- &lt;bean id="jdbcTemplate" class="org.springframework.jdbc.core.JdbcTemplate"&gt;
+		&lt;property name="dataSource" ref="dataSource" /&gt;
+	&lt;/bean&gt;
+	&lt;bean id="accountDao" class="com.zs.spring.demo1.AccountDaoImpl"&gt;
+		&lt;property name="jdbcTemplate" ref="jdbcTemplate" /&gt;
+	&lt;/bean&gt; --&gt;
+	
+	&lt;!-- ==================================1.编程式的事务管理=============================================== --&gt;
+	&lt;!-- 配置事务管理器 --&gt;
+	&lt;bean id="transactionManager" class="org.springframework.jdbc.datasource.DataSourceTransactionManager"&gt;
+		&lt;property name="dataSource" ref="dataSource" /&gt;
+	&lt;/bean&gt;
+	
+	&lt;!-- 配置事务管理的模板:Spring为了简化事务管理的代码而提供的类 --&gt;
+	&lt;bean id="transactionTemplate" class="org.springframework.transaction.support.TransactionTemplate"&gt;
+		&lt;property name="transactionManager" ref="transactionManager"/&gt;
+	&lt;/bean&gt;
+	
+&lt;/beans&gt;
+</pre>声明DAO：&#13;
+<p><span style="font-size:18px"><span style="font-size:18px"><span style="font-size:18px"></span></span></span></p><pre code_snippet_id="1650090" snippet_file_name="blog_20160416_3_1620378" name="code" class="java">public interface AccountDao {
+
+	/**
+	 * @param out	:转出账号
+	 * @param money	:转账金额
+	 */
+	public void outMoney(String out,Double money);
+	
+	/**
+	 * 
+	 * @param in	:转入账号
+	 * @param money	:转账金额
+	 */
+	public void inMoney(String in,Double money);
+}
+</pre><br />&#13;
+<pre code_snippet_id="1650090" snippet_file_name="blog_20160416_4_6778591" name="code" class="java">/**
+	 * @param out	:转出账号
+	 * @param money	:转账金额
+	 */
+	@Override
+	public void outMoney(String out, Double money) {
+		String sql = "update account set money = money-? where name = ?";
+		this.getJdbcTemplate().update(sql, money, out);
+	}
+
+	/**
+	 * @param in	:转入账号
+	 * @param money	:转账金额
+	 */
+	@Override
+	public void inMoney(String in, Double money) {
+		String sql = "update account set money = money+? where name = ?";
+		this.getJdbcTemplate().update(sql,money,in);
+	}</pre>声明service&#13;
+<p><span style="font-size:18px"><span style="font-size:18px"><span style="font-size:18px"></span></span></span></p><pre code_snippet_id="1650090" snippet_file_name="blog_20160416_5_6920295" name="code" class="java">public interface AccountService {
+
+	/**
+	 * @param out	:转出账号
+	 * @param in	:转入账号
+	 * @param money	:转账金额
+	 */
+	public void transfer(String out,String in,Double money);
+}</pre><br />&#13;
+<pre code_snippet_id="1650090" snippet_file_name="blog_20160416_6_2286252" name="code" class="java">public class AccountServiceImpl implements AccountService {
+	
+	//注入转账的DAO
+	private AccountDao accountDao;
+	
+	
+	//注入事务管理的模板
+	private TransactionTemplate transactionTemplate;
+
+	/**
+	 * @param out	:转出账号
+	 * @param in	:转入账号
+	 * @param money	:转账金额
+	 */
+	@Override
+	public void transfer(final String out, final String in, final Double money) {
+		/*accountDao.outMoney(out, money);
+		//int i = 1/0;
+		accountDao.inMoney(in, money);*/
+		
+		
+		transactionTemplate.execute(new TransactionCallbackWithoutResult() {
+
+			@Override
+			protected void doInTransactionWithoutResult(TransactionStatus transactionStatus) {
+				accountDao.outMoney(out, money);
+				//int i = 1/0;
+				accountDao.inMoney(in, money);
+			}
+		});
+	}
+
+	public void setAccountDao(AccountDao accountDao) {
+		this.accountDao = accountDao;
+	}
+
+	public void setTransactionTemplate(TransactionTemplate transactionTemplate) {
+		this.transactionTemplate = transactionTemplate;
+	}
+
+}
+</pre>测试：&#13;
+<p><span style="font-size:18px"><span style="font-size:18px"><span style="font-size:18px"></span></span></span></p><pre code_snippet_id="1650090" snippet_file_name="blog_20160416_7_476109" name="code" class="java">@RunWith(SpringJUnit4ClassRunner.class)
+@ContextConfiguration("classpath:applicationContext1.xml")
+public class TransactionTest {
+
+	@Resource(name="accountService")
+	private AccountService accountService;
+	
+	@Test
+	public void demo1(){
+		accountService.transfer("张三", "李四", 200d);
+	}
+}</pre>使用XML配置声明式的事务管理(原始方式)：<br />&#13;
+&#13;
+<p><span style="font-size:18px"><span style="font-size:18px"><span style="font-size:18px"></span></span></span></p><pre code_snippet_id="1650090" snippet_file_name="blog_20160416_8_5634322" name="code" class="html">&lt;!-- 配置事务管理器 --&gt;
+	&lt;bean id="transactionManager" class="org.springframework.jdbc.datasource.DataSourceTransactionManager"&gt;
+		&lt;property name="dataSource" ref="dataSource" /&gt;
+	&lt;/bean&gt;
+	
+	&lt;!-- 配置业务层的代理 --&gt;
+	&lt;bean id="accountServiceProxy" class="org.springframework.transaction.interceptor.TransactionProxyFactoryBean"&gt;
+		&lt;!-- 配置目标对象 --&gt;
+		&lt;property name="target" ref="accountService" /&gt;
+		&lt;!-- 注入事务管理器 --&gt;
+		&lt;property name="transactionManager" ref="transactionManager"&gt;&lt;/property&gt;
+		&lt;!-- 注入事务的属性 --&gt;
+		&lt;property name="transactionAttributes"&gt;
+			&lt;props&gt;
+				&lt;!-- 
+					prop的格式:
+						* PROPAGATION	:事务的传播行为
+						* ISOTATION		:事务的隔离级别
+						* readOnly		:只读
+						* -EXCEPTION	:发生哪些异常回滚事务
+						* +EXCEPTION 	:发生哪些异常不回滚事务
+				 --&gt;
+				&lt;prop key="transfer"&gt;PROPAGATION_REQUIRED&lt;/prop&gt;
+				&lt;!-- &lt;prop key="transfer"&gt;PROPAGATION_REQUIRED,readOnly&lt;/prop&gt; --&gt;
+				&lt;!-- &lt;prop key="transfer"&gt;PROPAGATION_REQUIRED,+java.lang.ArithmeticException&lt;/prop&gt; --&gt;
+			&lt;/props&gt;
+		&lt;/property&gt;
+	&lt;/bean&gt;</pre><span style="color:#ff0000">使用XML配置声明式的事务管理,基于tx/aop：</span><br />&#13;
+<pre code_snippet_id="1650090" snippet_file_name="blog_20160416_9_4139823" name="code" class="html">&lt;!-- ==================================3.使用XML配置声明式的事务管理,基于tx/aop=============================================== --&gt;
+	
+	&lt;!-- 配置事务管理器 --&gt;
+	&lt;bean id="transactionManager" class="org.springframework.jdbc.datasource.DataSourceTransactionManager"&gt;
+		&lt;property name="dataSource" ref="dataSource" /&gt;
+	&lt;/bean&gt;
+	
+	&lt;!-- 配置事务的通知 --&gt;
+	&lt;tx:advice id="txAdvice" transaction-manager="transactionManager"&gt;
+		&lt;tx:attributes&gt;
+			&lt;!-- 
+				propagation	:事务传播行为
+				isolation	:事务的隔离级别
+				read-only	:只读
+				rollback-for:发生哪些异常回滚
+				no-rollback-for	:发生哪些异常不回滚
+				timeout		:过期信息
+			 --&gt;
+			&lt;tx:method name="transfer" propagation="REQUIRED"/&gt;
+		&lt;/tx:attributes&gt;
+	&lt;/tx:advice&gt;
+	
+	&lt;!-- 配置切面 --&gt;
+	&lt;aop:config&gt;
+		&lt;!-- 配置切入点 --&gt;
+		&lt;aop:pointcut expression="execution(* com.zs.spring.demo3.AccountService+.*(..))" id="pointcut1"/&gt;
+		&lt;!-- 配置切面 --&gt;
+		&lt;aop:advisor advice-ref="txAdvice" pointcut-ref="pointcut1"/&gt;
+	&lt;/aop:config&gt;</pre>使用注解配置声明式事务&#13;
+<p><span style="font-size:18px"><span style="font-size:18px"><span style="font-size:18px"></span></span></span></p><pre code_snippet_id="1650090" snippet_file_name="blog_20160416_10_8982392" name="code" class="html">&lt;!-- ==================================4.使用注解配置声明式事务============================================ --&gt;
+
+	&lt;!-- 配置事务管理器 --&gt;
+	&lt;bean id="transactionManager" class="org.springframework.jdbc.datasource.DataSourceTransactionManager"&gt;
+		&lt;property name="dataSource" ref="dataSource" /&gt;
+	&lt;/bean&gt;
+	
+	&lt;!-- 开启注解事务 --&gt;
+	&lt;tx:annotation-driven transaction-manager="transactionManager"/&gt;</pre>&#13;
+<p><span style="font-size:18px"><span style="font-size:18px"><span style="font-size:18px"><br />&#13;
+</span></span></span></p>&#13;
+<pre code_snippet_id="1650090" snippet_file_name="blog_20160416_11_5187381" name="code" class="java">/**
+ * 
+ * @author admin
+ *
+ *
+ *@Transactional中的的属性
+ *propagation	:事务的传播行为
+ *isolation		:事务的隔离级别
+ *readOnly		:只读
+ *rollbackFor	:发生哪些异常回滚
+ *noRollbackFor	:发生哪些异常不回滚
+ *rollbackForClassName 根据异常类名回滚
+ */
+@Transactional
+public class AccountServiceImpl implements AccountService {
+	
+	//注入转账的DAO
+	private AccountDao accountDao;
+	
+
+	/**
+	 * @param out	:转出账号
+	 * @param in	:转入账号
+	 * @param money	:转账金额
+	 */
+	@Override
+	public void transfer( String out, String in, Double money) {
+		accountDao.outMoney(out, money);
+		//int i = 1/0;
+		accountDao.inMoney(in, money);
+		
+	}
+
+	public void setAccountDao(AccountDao accountDao) {
+		this.accountDao = accountDao;
+	}
+
+}</pre><br />&#13;
+<br />&#13;
+<br />&#13;
+<br />&#13;
+   &#13;

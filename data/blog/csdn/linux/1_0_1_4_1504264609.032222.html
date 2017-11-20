@@ -1,0 +1,144 @@
+
+                
+<p><span style="font-size:18px"><u><strong>（1）Linux层次结构：</strong></u></span></p>&#13;
+<p style="text-align:center"><span style="font-size:18px"><img src="http://img.blog.csdn.net/20140615101016906" alt=""/><br/>&#13;
+</span></p>&#13;
+<p><span style="font-size:18px"><br/>&#13;
+</span></p>&#13;
+<p><span style="font-size:18px"><u><strong>（2）Linux内核组成：</strong></u></span></p>&#13;
+<p><span style="font-size:18px">主要由进程调度（SCHED）、内存管理（MM）、虚拟文件系统（VFS）、网络接口（NET）和进程间通信（IPC）等5个子系统组成。</span></p>&#13;
+<p><span style="font-size:18px"><br/>&#13;
+</span></p>&#13;
+<p><span style="font-size:18px"><u><strong>（3）与Unix的差异：</strong></u></span></p>&#13;
+<p/>&#13;
+<ul>&#13;
+<li><span style="font-size:18px">Linux支持动态加载内核模块</span></li><li><span style="font-size:18px">支持对称多处理（SMP）机制</span></li><li><span style="font-size:18px">Linux内核可以抢占</span></li><li><span style="font-size:18px">Linux内核并不区分线程和其他的一般进程</span></li><li><span style="font-size:18px">Linux提供具有设备类的面向对象的设备模型、热插拔事件，以及用户空间的设备文件系统（sysfs）</span></li></ul>&#13;
+<div><span style="font-size:18px"><br/>&#13;
+</span></div>&#13;
+<div><span style="font-size:18px"><u><strong>（4）内核开发的特点：</strong></u></span></div>&#13;
+<div><span style="font-size:18px"><u><strong><br/>&#13;
+</strong></u></span></div>&#13;
+<div>&#13;
+<ul>&#13;
+<li><span style="font-size:18px">内核编程时既不能访问C库也不能访问标准的C头文件</span></li><li><span style="font-size:18px">内核编程时必须使用GNU C</span></li><li><span style="font-size:18px">内核编程时缺乏像用户空间那样的内存保护机制</span></li><li><span style="font-size:18px">内核编程时难以执行浮点运算</span></li><li><span style="font-size:18px">内核给每个进程只有一个很小的定长堆栈</span></li><li><span style="font-size:18px">由于内核支持异步中断、抢占和SMP，因此必须时刻注意同步和并发</span></li><li><span style="font-size:18px">要考虑可移植性的重要性</span></li></ul>&#13;
+<div><span style="font-size:18px"><br/>&#13;
+</span></div>&#13;
+</div>&#13;
+<div><span style="font-size:18px"><u><strong>（5）模块的编写及运行：</strong></u></span></div>&#13;
+<div><span style="font-size:18px"><br/>&#13;
+</span></div>&#13;
+<div><span style="font-size:18px">来个Hello World，程序员的老朋友了。</span></div>&#13;
+<div><span style="font-size:18px"><br/>&#13;
+</span></div>&#13;
+<div><pre code_snippet_id="393287" snippet_file_name="blog_20140615_1_3527700" name="code" class="cpp">#include &lt;linux/init.h&gt;
+#include &lt;linux/module.h&gt;
+#include &lt;linux/kernel.h&gt;
+
+/*
+ * hello_init 初始化函数，当模块装载时被调用，如果装载成功返回0，
+ * 否则返回非零值
+ */
+static int hello_init(void)
+{
+	printk(KERN_ALERT "I bear a charmed life.\n");
+	return 0;
+}
+
+/*
+ * hello_exit 退出函数，当模块卸载时被调用
+ */
+static void hello_exit(void)
+{
+	printk(KERN_ALERT "Out, out, brief candle!\n");
+}
+
+module_init(hello_init);
+module_exit(hello_exit);
+
+MODULE_LICENSE("GPL");
+MODULE_AUTHOR("Qiushan");
+MODULE_DESCRIPTION("A Hello, World Module");</pre><br/>&#13;
+<span style="font-size:18px">这是最简单的内核模块，hello_init()是模块的入口点，通过module_init()注册到系统，在被装载时被调用。另外所有模块初始化函数必须符合下面的形式：</span></div>&#13;
+<div><span style="font-size:18px"><br/>&#13;
+</span></div>&#13;
+<div><pre code_snippet_id="393287" snippet_file_name="blog_20140615_2_605525" name="code" class="cpp">int my_init(void);</pre><br/>&#13;
+<span style="font-size:18px">下面是Makefile的示例：</span></div>&#13;
+<div><br/>&#13;
+</div>&#13;
+<div><pre code_snippet_id="393287" snippet_file_name="blog_20140615_3_4302259" name="code" class="plain">obj-m := hello.o
+
+make -C /kernel/source/location SUBDIRS=$PWD modules</pre><br/>&#13;
+<span style="font-size:18px">然后执行</span></div>&#13;
+<div><span style="font-size:18px"><br/>&#13;
+</span></div>&#13;
+<div><pre code_snippet_id="393287" snippet_file_name="blog_20140615_4_9286531" name="code" class="plain">sudo make modules_install
+
+sudo insmod hello.ko //装载
+
+sudo rmmod hello //卸载</pre><br/>&#13;
+<br/>&#13;
+</div>&#13;
+<div><br/>&#13;
+</div>&#13;
+<div><span style="font-size:18px"><u><strong>（6）移植要注意对齐：</strong></u></span></div>&#13;
+<div><span style="font-size:18px"><br/>&#13;
+</span></div>&#13;
+<div><span style="font-size:18px">如果一个变量的内存地址正好是它长度的整数倍，那它就自然对齐。如，对于一个32位类型的数据，如果它在内存中的地址刚好可以被4整除（也就是最低两位为0），那它就自然对齐。对于RISC，载入未对齐的数据会导致处理器<strong>陷入</strong>。</span></div>&#13;
+<div><span style="font-size:18px"><br/>&#13;
+</span></div>&#13;
+<div><span style="font-size:18px"><em><strong>对齐原则：</strong></em></span></div>&#13;
+<div>&#13;
+<ul>&#13;
+<li><span style="font-size:18px">对于标准数据类型，地址只要是其长度的整数倍就对齐了。</span></li><li><span style="font-size:18px">对于数组，只要按照基本数据类型进行对齐就可以了，随后的所有元素自然能够对齐。</span></li><li><span style="font-size:18px">对于联合体，只要它包含的长度最大的数据类型能够对齐就可以了。</span></li><li><span style="font-size:18px">对于结构体，只要结构体中每个元素能够正确对齐就可以了。</span></li></ul>&#13;
+<div><span style="font-size:18px">对于结构体，这里介绍一个例子：</span></div>&#13;
+</div>&#13;
+<div><span style="font-size:18px"><br/>&#13;
+</span></div>&#13;
+<div><pre code_snippet_id="393287" snippet_file_name="blog_20140615_5_7443368" name="code" class="cpp">struct animal_struct {
+	char dog;                   /* 1 byte */
+	unsigned long cat;    /* 4 bytes */
+	unsigned short pig;  /* 2 bytes */
+	char fox;                  /* 1 byte */
+};</pre><br/>&#13;
+<br/>&#13;
+</div>&#13;
+<div><span style="font-size:18px"><br/>&#13;
+</span></div>&#13;
+<div><span style="font-size:18px">这可不是每个元素正确对齐。实际上编译器会作如下变动：</span></div>&#13;
+<div><span style="font-size:18px"><br/>&#13;
+</span></div>&#13;
+<div><span style="font-size:18px"/>&#13;
+<div><pre code_snippet_id="393287" snippet_file_name="blog_20140615_6_7759796" name="code" class="cpp">struct animal_struct {
+	char dog;                   /* 1 byte */
+	u8 __pad0[3];            /* 3 bytes */
+	unsigned long cat;     /* 4 bytes */
+	unsigned short pig;   /* 2 bytes */
+	char fox;                    /* 1 byte */
+	u8 __pad1;               /* 1 byte */
+};</pre><br/>&#13;
+<span style="font-size:18px">第一个填充__pad0是为了保证cat可以按照4字节对齐，这样自动使其它小对象都对齐了，最后一个填充__pad1是为了填补struct本身的大小，是这个结构体长度能被4整除，这样，由该结构体组成的数组中，每个数组项也就会自然对齐了。</span></div>&#13;
+<div><br/>&#13;
+</div>&#13;
+<div><pre code_snippet_id="393287" snippet_file_name="blog_20140615_7_1664274" name="code" class="cpp">struct animal_struct {
+	unsigned long cat;     /* 4 bytes */
+	unsigned short pig;   /* 2 bytes */
+	char dog;                    /* 1 byte */
+	char fox;                     /* 1 byte */
+};</pre><br/>&#13;
+<br/>&#13;
+</div>&#13;
+<div><br/>&#13;
+</div>&#13;
+<div><br/>&#13;
+</div>&#13;
+<div><span style="font-size:18px"><br/>&#13;
+</span></div>&#13;
+<br/>&#13;
+</div>&#13;
+<div><span style="font-size:18px"><br/>&#13;
+</span></div>&#13;
+<div><span style="font-size:18px"><br/>&#13;
+</span></div>&#13;
+<p/>&#13;
+<link rel="stylesheet" href="http://static.blog.csdn.net/public/res-min/markdown_views.css?v=1.0"/>&#13;
+            

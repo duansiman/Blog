@@ -1,0 +1,419 @@
+
+        <div class="markdown_views"><h1 id="建造者模式"><center> 建造者模式</center></h1>
+
+<p>标签 ： Java与设计模式</p>
+
+<hr />
+
+<blockquote>
+  <p><strong>建造者模式</strong>: 又称<strong>生成器模式</strong>, 可以将一个产品的<strong>内部表象</strong>与产品的<strong>生成过程</strong>分割开来, 从而可以使一个建造过程生成具有不同的内部表象的产品(将一个复杂对象的构建与它的表示分离, 使得<strong>同样的构建过程可以创建不同的表示</strong>). 这样用户只需指定需要建造的类型就可以得到具体产品,而不需要了解具体的建造过程和细节.</p>
+</blockquote>
+
+<ul>
+<li>与抽象工厂的区别: <br />
+在建造者模式中,角色分<strong>指导者(Director)</strong>与<strong>建造者(Builder)</strong>: <em>用户联系指导者, 指导者指挥建造者, 最后得到产品</em>. <strong>建造者模式可以强制实行一种分步骤进行的建造过程</strong>.</li>
+</ul>
+
+<hr />
+
+
+
+<h2 id="实现">实现</h2>
+
+<pre><code>需求: 模仿宇宙飞船的建造过程
+    假设宇宙飞船有很多零部件: 引擎、轨道舱、逃逸塔、各种小零件... 因此宇宙飞船的建造/装配非常复杂(需要很好的生产/装配技术),而建造者模式可以将部件的建造与装配分开:
+</code></pre>
+
+<p><img src="http://7xrgh9.com1.z0.glb.clouddn.com/16-8-17/55110290.jpg" alt="" title="" /></p>
+
+<hr />
+
+
+
+<h3 id="产品与部件">产品与部件</h3>
+
+<blockquote>
+  <p>产品<code>AirShip</code>由多个零部件(<code>Engine</code>/<code>EscapeTower</code>/<code>OrbitalModule</code>)组成:</p>
+</blockquote>
+
+
+
+<pre class="prettyprint"><code class=" hljs java"><span class="hljs-javadoc">/**
+ * 目标对象 - 宇宙飞船
+ * (代表复杂对象, 拥有复杂的建造过程)
+ * Created by jifang on 15/12/8.
+ */</span>
+<span class="hljs-keyword">public</span> <span class="hljs-class"><span class="hljs-keyword">class</span> <span class="hljs-title">AirShip</span> {</span>
+
+    <span class="hljs-keyword">private</span> Engine engine;
+
+    <span class="hljs-keyword">private</span> EscapeTower escapeTower;
+
+    <span class="hljs-keyword">private</span> OrbitalModule orbitalModule;
+
+    <span class="hljs-keyword">public</span> Engine <span class="hljs-title">getEngine</span>() {
+        <span class="hljs-keyword">return</span> engine;
+    }
+
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">void</span> <span class="hljs-title">setEngine</span>(Engine engine) {
+        <span class="hljs-keyword">this</span>.engine = engine;
+    }
+
+    <span class="hljs-keyword">public</span> EscapeTower <span class="hljs-title">getEscapeTower</span>() {
+        <span class="hljs-keyword">return</span> escapeTower;
+    }
+
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">void</span> <span class="hljs-title">setEscapeTower</span>(EscapeTower escapeTower) {
+        <span class="hljs-keyword">this</span>.escapeTower = escapeTower;
+    }
+
+    <span class="hljs-keyword">public</span> OrbitalModule <span class="hljs-title">getOrbitalModule</span>() {
+        <span class="hljs-keyword">return</span> orbitalModule;
+    }
+
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">void</span> <span class="hljs-title">setOrbitalModule</span>(OrbitalModule orbitalModule) {
+        <span class="hljs-keyword">this</span>.orbitalModule = orbitalModule;
+    }
+
+    <span class="hljs-annotation">@Override</span>
+    <span class="hljs-keyword">public</span> String <span class="hljs-title">toString</span>() {
+        <span class="hljs-keyword">return</span> <span class="hljs-string">"AirShip{"</span> +
+                <span class="hljs-string">"engine="</span> + engine +
+                <span class="hljs-string">", escapeTower="</span> + escapeTower +
+                <span class="hljs-string">", orbitalModule="</span> + orbitalModule +
+                <span class="hljs-string">'}'</span>;
+    }
+}
+
+class Engine {
+
+    <span class="hljs-keyword">private</span> String description;
+
+    <span class="hljs-keyword">public</span> <span class="hljs-title">Engine</span>(String description) {
+        <span class="hljs-keyword">this</span>.description = description;
+    }
+
+    <span class="hljs-annotation">@Override</span>
+    <span class="hljs-keyword">public</span> String <span class="hljs-title">toString</span>() {
+        <span class="hljs-keyword">return</span> <span class="hljs-string">"Engine{"</span> +
+                <span class="hljs-string">"description='"</span> + description + <span class="hljs-string">'\''</span> +
+                <span class="hljs-string">'}'</span>;
+    }
+}
+
+class EscapeTower {
+
+    <span class="hljs-keyword">private</span> String description;
+
+    <span class="hljs-keyword">public</span> <span class="hljs-title">EscapeTower</span>(String description) {
+        <span class="hljs-keyword">this</span>.description = description;
+    }
+
+    <span class="hljs-annotation">@Override</span>
+    <span class="hljs-keyword">public</span> String <span class="hljs-title">toString</span>() {
+        <span class="hljs-keyword">return</span> <span class="hljs-string">"EscapeTower{"</span> +
+                <span class="hljs-string">"description='"</span> + description + <span class="hljs-string">'\''</span> +
+                <span class="hljs-string">'}'</span>;
+    }
+}
+
+class OrbitalModule {
+
+    <span class="hljs-keyword">private</span> String description;
+
+    <span class="hljs-keyword">public</span> <span class="hljs-title">OrbitalModule</span>(String description) {
+        <span class="hljs-keyword">this</span>.description = description;
+    }
+
+    <span class="hljs-annotation">@Override</span>
+    <span class="hljs-keyword">public</span> String <span class="hljs-title">toString</span>() {
+        <span class="hljs-keyword">return</span> <span class="hljs-string">"OrbitalModule{"</span> +
+                <span class="hljs-string">"description='"</span> + description + <span class="hljs-string">'\''</span> +
+                <span class="hljs-string">'}'</span>;
+    }
+}</code></pre>
+
+<hr />
+
+
+
+<h3 id="建造者builder">建造者(Builder)</h3>
+
+<blockquote>
+  <p><strong>Builder</strong>(<code>AirShipBuilder</code>)是为创建一个<strong>Product</strong>对象的各个部件指定的抽象接口, <strong>ConcreteBuilder</strong>(<code>LowerAirShipBuilder</code>/<code>HigherAirShipBuilder</code>)是具体的建造者, 实现<strong>Builder</strong>接口, 构造和装配各个部件.</p>
+</blockquote>
+
+
+
+<pre class="prettyprint"><code class=" hljs java"><span class="hljs-javadoc">/**
+ *<span class="hljs-javadoctag"> @author</span> jifang
+ *<span class="hljs-javadoctag"> @since</span> 16/8/17 下午2:13.
+ */</span>
+<span class="hljs-keyword">public</span> <span class="hljs-class"><span class="hljs-keyword">interface</span> <span class="hljs-title">AirShipBuilder</span> {</span>
+
+    <span class="hljs-keyword">void</span> builtEngine();
+
+    <span class="hljs-keyword">void</span> builtEscapeTower();
+
+    <span class="hljs-keyword">void</span> builtOrbitalModule();
+
+    AirShip getResult();
+}</code></pre>
+
+<p>生产<strong>低端</strong>飞船, 需要<code>LowerAirShipBuilder</code>; 生产<strong>高端</strong>飞船, 就需要<code>HigherAirShipBuilder</code>:</p>
+
+
+
+<pre class="prettyprint"><code class=" hljs java">class LowerAirShipBuilder implements AirShipBuilder {
+
+    <span class="hljs-keyword">private</span> AirShip airShip = <span class="hljs-keyword">new</span> AirShip();
+
+    <span class="hljs-annotation">@Override</span>
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">void</span> <span class="hljs-title">builtEngine</span>() {
+        System.out.println(<span class="hljs-string">"\t\t构造低端引擎"</span>);
+        airShip.setEngine(<span class="hljs-keyword">new</span> Engine(<span class="hljs-string">"低端 - 引擎"</span>));
+    }
+
+    <span class="hljs-annotation">@Override</span>
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">void</span> <span class="hljs-title">builtEscapeTower</span>() {
+        System.out.println(<span class="hljs-string">"\t\t构造低端逃逸塔"</span>);
+        airShip.setEscapeTower(<span class="hljs-keyword">new</span> EscapeTower(<span class="hljs-string">"低端 - 逃逸塔"</span>));
+    }
+
+    <span class="hljs-annotation">@Override</span>
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">void</span> <span class="hljs-title">builtOrbitalModule</span>() {
+        System.out.println(<span class="hljs-string">"\t\t构造低端轨道舱"</span>);
+        airShip.setOrbitalModule(<span class="hljs-keyword">new</span> OrbitalModule(<span class="hljs-string">"低端 - 轨道舱"</span>));
+    }
+
+    <span class="hljs-annotation">@Override</span>
+    <span class="hljs-keyword">public</span> AirShip <span class="hljs-title">getResult</span>() {
+        <span class="hljs-keyword">return</span> airShip;
+    }
+}
+
+class HigherAirShipBuilder implements AirShipBuilder {
+
+    <span class="hljs-keyword">private</span> AirShip airShip = <span class="hljs-keyword">new</span> AirShip();
+
+    <span class="hljs-annotation">@Override</span>
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">void</span> <span class="hljs-title">builtEngine</span>() {
+        System.out.println(<span class="hljs-string">"\t\t构造高端引擎"</span>);
+        airShip.setEngine(<span class="hljs-keyword">new</span> Engine(<span class="hljs-string">"高端 - 引擎"</span>));
+    }
+
+    <span class="hljs-annotation">@Override</span>
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">void</span> <span class="hljs-title">builtEscapeTower</span>() {
+        System.out.println(<span class="hljs-string">"\t\t构造高端逃逸塔"</span>);
+        airShip.setEscapeTower(<span class="hljs-keyword">new</span> EscapeTower(<span class="hljs-string">"高端 - 逃逸塔"</span>));
+    }
+
+    <span class="hljs-annotation">@Override</span>
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">void</span> <span class="hljs-title">builtOrbitalModule</span>() {
+        System.out.println(<span class="hljs-string">"\t\t构造高端轨道舱"</span>);
+        airShip.setOrbitalModule(<span class="hljs-keyword">new</span> OrbitalModule(<span class="hljs-string">"高端 - 轨道舱"</span>));
+    }
+
+    <span class="hljs-annotation">@Override</span>
+    <span class="hljs-keyword">public</span> AirShip <span class="hljs-title">getResult</span>() {
+        <span class="hljs-keyword">return</span> airShip;
+    }
+}</code></pre>
+
+<hr />
+
+
+
+<h3 id="指挥者director">指挥者(Director)</h3>
+
+<blockquote>
+  <p>使用<strong>Director</strong>(<code>AirShipDirector</code>)控制建造过程, 也用它来隔离用户与建造过程的关联:</p>
+</blockquote>
+
+
+
+<pre class="prettyprint"><code class=" hljs java"><span class="hljs-javadoc">/**
+ *<span class="hljs-javadoctag"> @author</span> jifang
+ *<span class="hljs-javadoctag"> @since</span> 16/8/17 下午2:15.
+ */</span>
+<span class="hljs-keyword">public</span> <span class="hljs-class"><span class="hljs-keyword">class</span> <span class="hljs-title">AirShipDirector</span> {</span>
+
+    <span class="hljs-javadoc">/**
+     * 确定一种稳定的构造过程
+     *
+     *<span class="hljs-javadoctag"> @param</span> builder
+     */</span>
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">static</span> <span class="hljs-keyword">void</span> <span class="hljs-title">construct</span>(AirShipBuilder builder) {
+
+        builder.builtEngine();
+
+        builder.builtEscapeTower();
+
+        builder.builtOrbitalModule();
+    }
+}</code></pre>
+
+<hr />
+
+
+
+<h3 id="client">Client</h3>
+
+<blockquote>
+  <p>完全不需知道具体的创建/装配过程, 只需指定<strong>Builder</strong>:</p>
+</blockquote>
+
+
+
+<pre class="prettyprint"><code class=" hljs cs"><span class="hljs-keyword">public</span> <span class="hljs-keyword">class</span> Client {
+
+    @Test
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">void</span> <span class="hljs-title">client</span>() {
+        AirShipBuilder lowBuilder = <span class="hljs-keyword">new</span> LowerAirShipBuilder();
+        <span class="hljs-comment">// 构造低端飞船</span>
+        AirShipDirector.construct(lowBuilder);
+        AirShip lowShip = lowBuilder.getResult();
+        System.<span class="hljs-keyword">out</span>.println(lowShip);
+
+        AirShipBuilder highBuilder = <span class="hljs-keyword">new</span> HigherAirShipBuilder();
+        <span class="hljs-comment">// 相同的构造过程, 不同的Builder, 可以构造出不同的飞船</span>
+        AirShipDirector.construct(highBuilder);
+        AirShip highShip = highBuilder.getResult();
+        System.<span class="hljs-keyword">out</span>.println(highShip);
+    }
+}</code></pre>
+
+<hr />
+
+
+
+<h2 id="实例-mybatis中的建造者模式">实例-MyBatis中的建造者模式</h2>
+
+<blockquote>
+  <p>MyBatis的<code>SqlSessionFactoryBuilder</code>是对<code>SqlSessionFactory</code>建造过程的简单封装,他对建造者模式做了<strong>简化</strong>处理(只有<code>Builder</code>而无<code>Director</code>),以减小编程复杂度:</p>
+</blockquote>
+
+
+
+<pre class="prettyprint"><code class=" hljs java"><span class="hljs-javadoc">/**
+ *<span class="hljs-javadoctag"> @author</span> Clinton Begin
+ */</span>
+<span class="hljs-keyword">public</span> <span class="hljs-class"><span class="hljs-keyword">class</span> <span class="hljs-title">SqlSessionFactoryBuilder</span> {</span>
+
+  <span class="hljs-keyword">public</span> SqlSessionFactory <span class="hljs-title">build</span>(Reader reader) {
+    <span class="hljs-keyword">return</span> build(reader, <span class="hljs-keyword">null</span>, <span class="hljs-keyword">null</span>);
+  }
+
+  <span class="hljs-keyword">public</span> SqlSessionFactory <span class="hljs-title">build</span>(Reader reader, String environment) {
+    <span class="hljs-keyword">return</span> build(reader, environment, <span class="hljs-keyword">null</span>);
+  }
+
+  <span class="hljs-keyword">public</span> SqlSessionFactory <span class="hljs-title">build</span>(Reader reader, Properties properties) {
+    <span class="hljs-keyword">return</span> build(reader, <span class="hljs-keyword">null</span>, properties);
+  }
+
+  <span class="hljs-keyword">public</span> SqlSessionFactory <span class="hljs-title">build</span>(Reader reader, String environment, Properties properties) {
+    <span class="hljs-keyword">try</span> {
+      XMLConfigBuilder parser = <span class="hljs-keyword">new</span> XMLConfigBuilder(reader, environment, properties);
+      <span class="hljs-keyword">return</span> build(parser.parse());
+    } <span class="hljs-keyword">catch</span> (Exception e) {
+      <span class="hljs-keyword">throw</span> ExceptionFactory.wrapException(<span class="hljs-string">"Error building SqlSession."</span>, e);
+    } <span class="hljs-keyword">finally</span> {
+      ErrorContext.instance().reset();
+      <span class="hljs-keyword">try</span> {
+        reader.close();
+      } <span class="hljs-keyword">catch</span> (IOException e) {
+        <span class="hljs-comment">// Intentionally ignore. Prefer previous error.</span>
+      }
+    }
+  }
+
+  <span class="hljs-keyword">public</span> SqlSessionFactory <span class="hljs-title">build</span>(InputStream inputStream) {
+    <span class="hljs-keyword">return</span> build(inputStream, <span class="hljs-keyword">null</span>, <span class="hljs-keyword">null</span>);
+  }
+
+  <span class="hljs-keyword">public</span> SqlSessionFactory <span class="hljs-title">build</span>(InputStream inputStream, String environment) {
+    <span class="hljs-keyword">return</span> build(inputStream, environment, <span class="hljs-keyword">null</span>);
+  }
+
+  <span class="hljs-keyword">public</span> SqlSessionFactory <span class="hljs-title">build</span>(InputStream inputStream, Properties properties) {
+    <span class="hljs-keyword">return</span> build(inputStream, <span class="hljs-keyword">null</span>, properties);
+  }
+
+  <span class="hljs-keyword">public</span> SqlSessionFactory <span class="hljs-title">build</span>(InputStream inputStream, String environment, Properties properties) {
+    <span class="hljs-keyword">try</span> {
+      XMLConfigBuilder parser = <span class="hljs-keyword">new</span> XMLConfigBuilder(inputStream, environment, properties);
+      <span class="hljs-keyword">return</span> build(parser.parse());
+    } <span class="hljs-keyword">catch</span> (Exception e) {
+      <span class="hljs-keyword">throw</span> ExceptionFactory.wrapException(<span class="hljs-string">"Error building SqlSession."</span>, e);
+    } <span class="hljs-keyword">finally</span> {
+      ErrorContext.instance().reset();
+      <span class="hljs-keyword">try</span> {
+        inputStream.close();
+      } <span class="hljs-keyword">catch</span> (IOException e) {
+        <span class="hljs-comment">// Intentionally ignore. Prefer previous error.</span>
+      }
+    }
+  }
+
+  <span class="hljs-keyword">public</span> SqlSessionFactory <span class="hljs-title">build</span>(Configuration config) {
+    <span class="hljs-keyword">return</span> <span class="hljs-keyword">new</span> DefaultSqlSessionFactory(config);
+  }
+
+}</code></pre>
+
+<p>由于<code>SqlSessionFactory</code>创建的<code>SqlSession</code>需要支持很多操作(如<code>selectOne()</code>、<code>selectList()</code>、<code>update()</code>等), 因此<code>SqlSessionFactory</code>的构造过程是非常复杂的(可参考<code>SqlSessionManager</code>、<code>DefaultSqlSessionFactory</code>实现),因此使用<code>SqlSessionFactoryBuilder</code>作为<strong>Builder</strong>简化其构造过程,并且为其设置配置文件(<em>mybatis-configuration.xml</em>)作为<strong>Director</strong>来指导<strong>Builder</strong>的构造过程:</p>
+
+
+
+<pre class="prettyprint"><code class=" hljs applescript">&lt;bean <span class="hljs-property">id</span>=<span class="hljs-string">"sqlSessionFactory"</span> <span class="hljs-type">class</span>=<span class="hljs-string">"org.mybatis.spring.SqlSessionFactoryBean"</span>&gt;
+    &lt;<span class="hljs-keyword">property</span> <span class="hljs-property">name</span>=<span class="hljs-string">"dataSource"</span> <span class="hljs-keyword">ref</span>=<span class="hljs-string">"dataSource"</span>/&gt;
+    &lt;<span class="hljs-keyword">property</span> <span class="hljs-property">name</span>=<span class="hljs-string">"mapperLocations"</span> value=<span class="hljs-string">"classpath:mybatis/mapper/*DAO.xml"</span>/&gt;
+    &lt;<span class="hljs-keyword">property</span> <span class="hljs-property">name</span>=<span class="hljs-string">"typeAliases"</span> value=<span class="hljs-string">"com.feiqing.domain.User"</span>/&gt;
+    &lt;<span class="hljs-keyword">property</span> <span class="hljs-property">name</span>=<span class="hljs-string">"configLocation"</span> value=<span class="hljs-string">"classpath:mybatis/mybatis-configuration.xml"</span>/&gt;
+&lt;/bean&gt;</code></pre>
+
+<blockquote>
+  <p>详细可参考博客: <a href="http://www.cnblogs.com/hzhuxin/p/3349836.html">mybatis源码分析(1)——SqlSessionFactory实例的产生过程</a></p>
+</blockquote>
+
+<hr />
+
+
+
+<h2 id="小结">小结</h2>
+
+<blockquote>
+  <ul>
+  <li>由于<strong>构建</strong>和<strong>装配</strong>的解耦, 不同的构建器, 相同的装配过程, 可以产生不同的产品,实现了更好的复用.因此常用于创建一些复杂的对象, 这些<strong>对象内部构建间的建造顺序通常是稳定的</strong>, 但内部的构建通常面临着复杂的变化. 如: <br />
+  <ul><li><code>StringBuilder</code>的<code>append()</code>;</li>
+  <li>JDBC的<code>PreparedStatement</code>;</li>
+  <li>JDOM的<code>DomBuilder</code>、<code>SAXBuilder</code>;</li>
+  <li>MyBatis的<code>SqlSessionFactoryBuilder</code>.</li></ul></li>
+  </ul>
+</blockquote>
+
+<hr />
+
+<p>参考:</p>
+
+<ul>
+<li><a href="http://book.douban.com/subject/2334288/">大话设计模式</a></li>
+<li><a href="http://www.cnblogs.com/java-my-life/archive/2012/04/07/2433939.html">《JAVA与模式》之建造模式</a></li>
+<li><a href="http://www.bjsxt.com/2014/down_0425/34.html">高淇讲设计模式</a></li>
+<li><a href="http://www.cnblogs.com/hzhuxin/p/3349836.html">SqlSessionFactory实例的产生过程</a></li>
+</ul></div>&#13;
+        <script type="text/javascript">&#13;
+            $(function () {&#13;
+                $('pre.prettyprint code').each(function () {&#13;
+                    var lines = $(this).text().split('\n').length;&#13;
+                    var $numbering = $('&lt;ul/&gt;').addClass('pre-numbering').hide();&#13;
+                    $(this).addClass('has-numbering').parent().append($numbering);&#13;
+                    for (i = 1; i &lt;= lines; i++) {&#13;
+                        $numbering.append($('&lt;li/&gt;').text(i));&#13;
+                    };&#13;
+                    $numbering.fadeIn(1700);&#13;
+                });&#13;
+            });&#13;
+        </script>&#13;
+   &#13;

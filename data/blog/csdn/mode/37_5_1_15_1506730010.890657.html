@@ -1,0 +1,278 @@
+
+                <div class="markdown_views"><h3 id="意图">意图</h3>
+
+<p>以类来表达语法规则 <br/>
+给定一个语言，定义它的文法的一种表示，并定义一个解释器，这个解释器使用该表示来解释语言中的句子。</p>
+
+
+
+<h3 id="适用性">适用性</h3>
+
+<p>当有一个语言需要解释执行，并且你可将该语言中的句子表示为一个抽象语法树时，可使用解释器模式。而当存在以下情况时该模式效果最好： <br/>
+1.  该文法简单对于复杂的文法，文法的类层次变得庞大而无法管理。此时语法分析程序生成器这样的工具是更好的选择。它们无需构建抽象语法树即可解释表达式，这样可以节省空间而且还可能节省时间。 <br/>
+2.  效率不是一个关键问题最高效的解释器通常不是通过直接解释语法分析树实现的，而是首先将它们转换成另一种形式。例如，正则表达式通常被转换成状态机。但即使在这种情况下，转换器仍可用解释器模式实现，该模式仍是有用的。 <br/>
+3.  如果一种特定类型的问题发生的频率足够高 <br/>
+4.  文法简单，不考虑效率 <br/>
+5.  可以处理脚本语言和编程语言</p>
+
+
+
+<h3 id="结构">结构</h3>
+
+<p><img title="" alt="这里写图片描述" src="http://img.blog.csdn.net/20170414092646306?watermark/2/text/aHR0cDovL2Jsb2cuY3Nkbi5uZXQvc2xkODgwMzEx/font/5a6L5L2T/fontsize/400/fill/I0JBQkFCMA==/dissolve/70/gravity/SouthEast"/></p>
+
+
+
+<h3 id="参与者">参与者</h3>
+
+
+
+<h4 id="abstractexpression抽象表达式">AbstractExpression（抽象表达式）</h4>
+
+<p>声明一个抽象的解释操作，这个接口为抽象语法树中的所有的节点所共享，这个接口为所有具体表达式角色（抽象语法树中的节点）都要实现的。 <br/>
+什么叫做抽象语法树呢？《java 与模式》中给的解释为：抽象语法树的每一个节点都 <br/>
+代表一个语句，而在每个节点上都可以执行解释方法。这个解释方法的执行就代表这个语句被解释。由于每一个语句都代表这个语句被解释。由于每一个语句都代表一个常见的问题的实例，因此每一个节点上的解释操作都代表对一个问题实例的解答。</p>
+
+
+
+<h4 id="terminalexpression终结符表达式">TerminalExpression（终结符表达式）</h4>
+
+<ol>
+<li>实现与文法中的终结符相关联的解释操作</li>
+<li>一个句子中的每个终结符需要该类的一个实例</li>
+</ol>
+
+
+
+<h4 id="nonterminalexpression非终结符表达式">NonterminalExpression（非终结符表达式）</h4>
+
+<ol>
+<li>对文法中的每一条规则 R ::= R1R2..Rn都需要一个NonterminalExpression类</li>
+<li>对于从R1到Rn的每个符号都维护一个AbstractExpression的实例变量</li>
+<li>为文法中的非终结符实现解释（Interpreter）操纵。解释（Interpreter）一般要递归地调用表示R1到Rn的那些对象的解释操作。</li>
+</ol>
+
+
+
+<h4 id="context上下文">Context（上下文）</h4>
+
+<p>包含解释器之外的一些全局信息。</p>
+
+
+
+<h4 id="client客户">Client（客户）</h4>
+
+<ol>
+<li>构建（或被给定）表示该文法定义的语言中一个特定的句子的抽象语法树。该抽象语法树由NonterminalExpression和TerminalExpression的实例装配而成。</li>
+<li>调用解释操作。</li>
+</ol>
+
+
+
+<h3 id="代码">代码</h3>
+
+
+
+<h4 id="abstractexpression">AbstractExpression</h4>
+
+
+
+<pre class="prettyprint"><code class="language-java hljs "><span class="hljs-keyword">public</span> <span class="hljs-keyword">abstract</span> <span class="hljs-class"><span class="hljs-keyword">class</span> <span class="hljs-title">Expression</span> {</span>
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">abstract</span> <span class="hljs-keyword">int</span> <span class="hljs-title">interpret</span>(Context con);
+}
+</code></pre>
+
+
+
+<h4 id="terminalexpression">TerminalExpression</h4>
+
+
+
+<pre class="prettyprint"><code class="language-java hljs "><span class="hljs-keyword">public</span> <span class="hljs-class"><span class="hljs-keyword">class</span> <span class="hljs-title">TerminalExpression</span> <span class="hljs-keyword">extends</span> <span class="hljs-title">Expression</span>{</span>
+    <span class="hljs-keyword">private</span> <span class="hljs-keyword">int</span> i;
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">int</span> <span class="hljs-title">interpret</span>(Context con) {
+        <span class="hljs-keyword">return</span> i;
+    }
+    <span class="hljs-keyword">public</span> <span class="hljs-title">TerminalExpression</span>(<span class="hljs-keyword">int</span> i){
+        <span class="hljs-keyword">this</span>.i = i;
+    }
+}
+<span class="hljs-keyword">public</span> <span class="hljs-class"><span class="hljs-keyword">class</span> <span class="hljs-title">Variable</span> <span class="hljs-keyword">extends</span> <span class="hljs-title">Expression</span>{</span>
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">int</span> <span class="hljs-title">interpret</span>(Context con) {
+        <span class="hljs-keyword">return</span> con.getContextValue(<span class="hljs-keyword">this</span>);
+    }
+}
+</code></pre>
+
+
+
+<h4 id="nonterminalexpression">NonTerminalExpression</h4>
+
+
+
+<pre class="prettyprint"><code class="language-java hljs "><span class="hljs-keyword">public</span> <span class="hljs-class"><span class="hljs-keyword">class</span> <span class="hljs-title">AddNonTermainalExpression</span> <span class="hljs-keyword">extends</span> <span class="hljs-title">Expression</span>{</span>
+    <span class="hljs-keyword">private</span> Expression left,right;
+    <span class="hljs-keyword">public</span> <span class="hljs-title">AddNonTermainalExpression</span>(Expression left,Expression right){
+        <span class="hljs-keyword">this</span>.left = left;
+        <span class="hljs-keyword">this</span>.right = right;
+    }
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">int</span> <span class="hljs-title">interpret</span>(Context con) {
+        <span class="hljs-keyword">return</span> left.interpret(con)+right.interpret(con);
+    }
+}
+<span class="hljs-keyword">public</span> <span class="hljs-class"><span class="hljs-keyword">class</span> <span class="hljs-title">MutiplyNonTermainalExpression</span> <span class="hljs-keyword">extends</span> <span class="hljs-title">Expression</span>{</span>
+    <span class="hljs-keyword">private</span> Expression left,right;
+    <span class="hljs-keyword">public</span> <span class="hljs-title">MutiplyNonTermainalExpression</span>(Expression left,Expression right){
+        <span class="hljs-keyword">this</span>.left = left;
+        <span class="hljs-keyword">this</span>.right = right;
+    }
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">int</span> <span class="hljs-title">interpret</span>(Context con) {
+        <span class="hljs-keyword">return</span> left.interpret(con)*right.interpret(con);
+    }
+}
+</code></pre>
+
+
+
+<h4 id="context">Context</h4>
+
+
+
+<pre class="prettyprint"><code class="language-java hljs "><span class="hljs-keyword">public</span> <span class="hljs-class"><span class="hljs-keyword">class</span> <span class="hljs-title">Context</span> {</span>
+    <span class="hljs-keyword">private</span> Map&lt;Variable,Integer&gt; contextMap = <span class="hljs-keyword">new</span> HashMap&lt;Variable,Integer&gt;();
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">void</span> <span class="hljs-title">addContextValue</span>(Variable x,Integer y){
+        contextMap.put(x, y);
+    }
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">int</span> <span class="hljs-title">getContextValue</span>(Variable x){
+        <span class="hljs-keyword">return</span> contextMap.get(x).intValue();
+    }
+}
+</code></pre>
+
+
+
+<h4 id="client">Client</h4>
+
+
+
+<pre class="prettyprint"><code class="language-java hljs "><span class="hljs-keyword">public</span> <span class="hljs-class"><span class="hljs-keyword">class</span> <span class="hljs-title">Client</span> {</span>
+    <span class="hljs-keyword">private</span> <span class="hljs-keyword">static</span> Expression ex;
+    <span class="hljs-keyword">private</span> <span class="hljs-keyword">static</span> Context con;
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">static</span> <span class="hljs-keyword">void</span> <span class="hljs-title">main</span>(String[] args) {
+        con = <span class="hljs-keyword">new</span> Context();
+        Variable a = <span class="hljs-keyword">new</span> Variable();
+        Variable b = <span class="hljs-keyword">new</span> Variable();
+        TerminalExpression c = <span class="hljs-keyword">new</span> TerminalExpression(<span class="hljs-number">2</span>);
+        con.addContextValue(a, <span class="hljs-number">5</span>);
+        con.addContextValue(b, <span class="hljs-number">7</span>);
+        ex = <span class="hljs-keyword">new</span> AddNonTermainalExpression(<span class="hljs-keyword">new</span> MutiplyNonTermainalExpression(a, b), <span class="hljs-keyword">new</span> AddNonTermainalExpression(a, c));
+        System.out.println(ex.interpret(con));
+    }
+}</code></pre>
+
+<h3 id="协作">协作</h3>
+
+<ol>
+<li>Client构建（或被给定）一个句子，它是NonterminalExpression和TerminalExpression的实例的一个抽象语法树。然后初始化上下文并调用解释操作。</li>
+<li>每一个非终结符表达式节点定义相应子表达式的解释操作。而各终结符表达式的解释操作构成了递归的基础。</li>
+<li>每一节点的解释操作用上下文来存储和访问解释器的状态。</li>
+</ol>
+
+
+
+<h3 id="效果">效果</h3>
+
+
+
+<h4 id="易于改变和扩展文法">易于改变和扩展文法</h4>
+
+<p>因为该模式使用类来表示文法规则，你可使用继承来改变或扩展该文法。已有的表达式可被增量式的改变，而新的表达式可定义为旧表达式的变体。</p>
+
+
+
+<h4 id="易于实现文法">易于实现文法</h4>
+
+<p>定义抽象语法树中各个节点的类的实现大体类似。这些类易于直接编写，通常它们也可用一个解释器或语法分析程序生成器自动生成。</p>
+
+
+
+<h4 id="复杂的文法难以维护">复杂的文法难以维护</h4>
+
+<p>解释器模式为文法中的每一条规则至少定义了一个类（使用BNF定义的文法规则需要更多的类）。因此包含许多规则的文法可能难以管理和维护。可应用其他的设计模式来缓解这一问题。但当文法非常复杂时，其他的技术如语法分析程序或编译器生成器更为合适。</p>
+
+
+
+<h4 id="增加了新的解释表达式的方式">增加了新的解释表达式的方式</h4>
+
+<p>解释器模式使得实现新表达式“计算”变得容易。例如，你可以在表达式类上定义一个新的操作以支持优美打印或表达式的类型检查。如果你经常创建新的解释表达式的方式，那么可以考虑使用Visitor模式以避免修改这些代表文法的类。</p>
+
+
+
+<h4 id="优点">优点</h4>
+
+<p>解释器模式提供了一个简单的方式来执行语法，而且容易修改和扩展语法。</p>
+
+
+
+<h4 id="缺点">缺点</h4>
+
+<p>当语法规则数目太大时，这个模式可能会变得非常繁琐。</p>
+
+
+
+<h3 id="实现">实现</h3>
+
+
+
+<h4 id="创建抽象语法树">创建抽象语法树</h4>
+
+<p>解释器模式并未解释如何创建一个抽象的语法树。换言之，它不涉及语法分析。抽象语法树可用一个表驱动的语法分析程序来生成，也可用手写的（通常为递归下降法）语法分析程序创建，或直接由Client提供。</p>
+
+
+
+<h4 id="定义解释操作">定义解释操作</h4>
+
+<p>并不一定要在表达式类中定义解释操作。如果经常要创建一种新的解释器，那么使用Visitor模式将解释放入一个独立的“访问者”对象更好一些。例如，一个程序设计语言的会有许多在抽象语法分析树上的操作，比如类型检查、优化、代码生成，等等。恰当的做法是使用一个访问者以避免在每一个类上都定义这些操作。</p>
+
+
+
+<h4 id="与flyweight模式共享终结符">与Flyweight模式共享终结符</h4>
+
+<p>在一些文法中，一个句子可能多次出现同一个终结符。此时最好共享那个符号的单个拷贝。计算机程序的文法是最好的例子，每个程序变量在整个代码中将会出现多次。 <br/>
+终结节点通常不存储关于它们在抽象语法树中位置的信息。在解释过程中，任何它们所需要的上下文信息都由父节点传递给它们。因此在共享的（内部的）状态和传入的（外部的）状态区分得很明确，这就用到了Flyweight模式。</p>
+
+
+
+<h3 id="经典例子">经典例子</h3>
+
+<p>正则表达式、实现计算器</p>
+
+
+
+<h3 id="相关模式">相关模式</h3>
+
+
+
+<h4 id="iterator">Iterator</h4>
+
+<p>解释器可用一个迭代器遍历该结构。</p>
+
+
+
+<h4 id="composite-pattern">Composite Pattern</h4>
+
+<p>NonterminalExpression参与者通常都会有递归结构，因此会用到组合模式。抽象语法树是一个复合模式的实例。</p>
+
+
+
+<h4 id="flyweight-pattern">Flyweight Pattern</h4>
+
+<p>有时TerminalExpression参与者会使用到享元模式进行对象共享。说明了如何在抽象语法树中共享终结符。</p>
+
+
+
+<h4 id="visitor-pattern">Visitor Pattern</h4>
+
+<p>完成树状剖析之后，穿梭在树状剖析的各个节点间进行处理，可能会用到Visitor Pattern。可用来在一个类中维护抽象语法树中的各节点的行为。 <br/>
+<font color="#0099ff" face="黑体" size="3">敬请期待“迭代模式（Iterator Pattern 游标模式 CursorPattern，对象行为型模式）”</font></p><link rel="stylesheet" href="http://static.blog.csdn.net/public/res-min/markdown_views.css?v=2.0"/></div><link rel="stylesheet" href="http://static.blog.csdn.net/public/res-min/markdown_views.css?v=2.0"/>&#13;
+            

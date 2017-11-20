@@ -1,0 +1,175 @@
+
+
+<h3>代理模式</h3>&#13;
+<p>为其他对象提供一种代理以控制对这个对象的访问。在某些情况下，一个对象不适合或者不能直接引用另一个对象，而代理对象可以在客户端和目标对象之间起到中介的作用。</p>&#13;
+<p> </p>&#13;
+<p>抽象角色：声明真实对象和代理对象的共同接口； </p>&#13;
+<p>代理角色：代理对象角色内部含有对真实对象的引用，从而可以操作真实对象，同时代理对象提供与真实对象相同的接口以便在任何时刻都能代替真实对象。同时，代理对象可以在执行真实对象操作时，附加其他的操作，相当于对真实对象进行封装。&#13;
+</p>&#13;
+<p>真实角色：代理角色所代表的真实对象，是我们最终要引用的对象。</p>&#13;
+<p>实例代码-静态代理</p>&#13;
+<p><span style="font-size:12px"></span></p><pre code_snippet_id="157859" snippet_file_name="blog_20140115_1_2778236" name="code" class="java">package com.ruishenh.designPatter.structure.proxy;
+ 
+public class ProxyClient {
+   public static void main(String[] args) {
+      ISell sell =new Proxy();
+      Computer c=sell.sellComputer();
+      System.out.println("小明从代理商那儿买了一台："+c.getName());
+   }
+}
+ 
+//抽象角色
+interface ISell{
+   Computer sellComputer();
+}
+//代理商
+class Proxy implements ISell{
+  
+   Merchant merchant=new Merchant();
+   @Override
+   public Computer sellComputer() {
+      return merchant.sellComputer();
+   }
+}
+//商家
+class Merchant implements ISell{
+   @Override
+   public Computer sellComputer() {
+      return new Computer("DELL小型服务器");
+   }
+}
+class Computer{
+   String name;
+   public Computer(String name) {
+      super();
+      this.name = name;
+   }
+   public String getName() {
+      return name;
+   }
+}</pre><br />&#13;
+<br />&#13;
+<br />&#13;
+&#13;
+<p> 代理模式的核心任务就是把对象的真实身份掩饰起来用一个代理来完成所有的操作。从某种意义来讲可以增加很好的扩展性。</p>&#13;
+<p>实例代码-动态代理</p>&#13;
+<p><span style="font-size:12px"><br />&#13;
+</span></p><pre code_snippet_id="157859" snippet_file_name="blog_20140115_2_8350370" name="code" class="java">package com.ruishenh.designPatter.structure.dynamicProxy;
+ 
+import java.lang.reflect.InvocationHandler;
+import java.lang.reflect.Method;
+import java.lang.reflect.Proxy;
+ 
+public class DynamicProxyClient {
+   public static void main(String[] args) {
+      Merchant mc=new Merchant();
+      DynamicProxy&lt;ISell&gt; proxy = new DynamicProxy&lt;ISell&gt;(mc); 
+      ISell sell= proxy.getProxy();
+      Computer c=sell.sellComputer();
+      System.out.println("小明从代理商那儿买了一台："+c.getName());
+   }
+}
+ 
+//抽象角色
+interface ISell{
+   Computer sellComputer();
+}
+//动态代理
+class DynamicProxy&lt;T&gt; implements InvocationHandler{
+  
+    private T obj; 
+    
+       public DynamicProxy(T obj) { 
+           this.obj = obj; 
+       }
+      
+   @SuppressWarnings("unchecked")
+   T getProxy(){
+      return (T) Proxy.newProxyInstance(obj.getClass().getClassLoader(), obj.getClass().getInterfaces(), this);
+    }
+  
+   @Override
+   public Object invoke(Object proxy, Method method, Object[] args)
+        throws Throwable {
+      before();
+      Object ret=method.invoke(obj, args);
+      after();
+      return ret;
+   }
+ 
+   void before(){System.out.println("before....");};
+   void after(){System.out.println("after....");};
+  
+}
+//商家
+class Merchant implements ISell{
+   @Override
+   public Computer sellComputer() {
+      return new Computer("DELL小型服务器");
+   }
+}
+class Computer{
+   String name;
+   public Computer(String name) {
+      super();
+      this.name = name;
+   }
+   public String getName() {
+      return name;
+   }
+}</pre><br />&#13;
+<br />&#13;
+&#13;
+<p> 动态代理可以对请求进行任何处理(如事务，日志等，这都是网上说的，我当然可以做任何处理)，在spring中被大量的应用到。</p>&#13;
+<h3>适配器模式</h3>&#13;
+<p>将一类的接口转换成客户希望的另外一个接口，Adapter模式使得原本由于接口不兼容而不能一起工作那些类可以一起工作。</p>&#13;
+<p> </p>&#13;
+<p>目标(Target)角色：这就是所期待得到的接口。</p>&#13;
+<p>源(Adapee)角色：现在需要适配的接口。</p>&#13;
+<p>适配器(Adaper)角色：适配器类是本模式的核心。适配器把源接口转换成目标接口。</p>&#13;
+<p> </p>&#13;
+<p><span style="font-size:12px"><br />&#13;
+</span></p><pre code_snippet_id="157859" snippet_file_name="blog_20140115_3_1588973" name="code" class="java">package com.ruishenh.designPatter.structure.adapter;
+ 
+public class AdapterClient {
+   public static void main(String[] args) {
+      Noodle target = new Adapter(new Thick());
+      target.getNoodle();
+   }
+}
+//目标-想要面条
+interface Noodle {
+   public void getNoodle();
+}
+//面条机器也就是adaptee的接口
+interface NoodleMachine{
+   void makeNoodle();
+  
+}
+class Thick implements NoodleMachine {
+   @Override
+   public void makeNoodle() {
+      System.out.println("生产宽大的面条");
+   }
+}
+class Thin implements NoodleMachine {
+   @Override
+   public void makeNoodle() {
+      System.out.println("生产细小的面条");
+   }
+}
+//适配器，根据要求返回对应的结果
+class Adapter implements Noodle{
+   public Adapter(NoodleMachine machine) {
+      this.machine = machine;
+   }
+   NoodleMachine machine;
+   @Override
+   public void getNoodle() {
+      machine.makeNoodle();
+     
+   }
+}</pre><br />&#13;
+适配器模式的核心任务就是把一个需求接口和另一个应答接口连接在一起，因为两方对应的程序都有可能发生变动，因此适配器模式可以很好的扩展。 &#13;
+<p> </p>&#13;
+   &#13;

@@ -1,0 +1,154 @@
+
+
+<p>【最后编辑时间：2017.5.20】</p>&#13;
+<p></p>&#13;
+<p>依赖抽象类型，就是为了利用面向对象技术的多态/动态绑定的强大能力。例程2-3不仅说明了这一点，还体现了一种设计模式——策略模式。</p>&#13;
+所谓策略/strategy或政策/policy指做事情的方式。处理同一件事情可以有不同的策略，正所谓“杀猪杀屁股，各有各的刀法”。例如外出旅游时，可以在多种不同的出行方式中选择，如坐汽车/火车/飞机、骑自行车或步行；海关对不同的商品按照不同的税率征收关税……。<br />&#13;
+<p><strong><span style="color:#ff0000">★策略模式，以策略的类层次定义和封装算法集合，环境类针对抽象策略编程。</span></strong><br />&#13;
+</p>&#13;
+<p><strong><span style="color:#ff0000">★策略模式定义了一系列的算法，并将每一个算法封装起来，而且使它们还可以相互替换。策略模式让算法独立于使用它的客户而独立变化。[GoF]<br />&#13;
+</span></strong></p>&#13;
+<p>[算法，描述处理过程的步骤。一个简单的算法，可以用一个Java方法实现，也可以加上若干个private方法(以功能分解为目的)。</p>&#13;
+<p>写策略模式，我觉得，要给读者一个这样的感觉：“你知道的！” 或者说，不需要我说太多，你就应该知道。]</p>&#13;
+<hr />&#13;
+<h2>1.环境类</h2>&#13;
+<p></p>&#13;
+<p>面对例程2-1所示的最简单粗暴的代码，一种直接的改进方式是在BubbleSort基础上重构-提取超类，将所有方法提取到超类中，其中sort(int[])指定为抽象。得到的抽象类NewClass其实是IntSort和SortTest的复合体。NewClass违反了<strong><span style="color:#ff0000">单一职责原则</span></strong>，把NewClass中接口sort(int[]arr)和工具方法swap(int[],int, int)抽取、独立出来，并形成策略IntSort类层次，（NewClass就变成了SortTest），避免了直接编写SortTest的类层次。</p>&#13;
+SortTest被称为IntSort的环境类。<strong>[5.9·8效果2一个代替继承的方法]的正确解读是“一个代替编写环境类的类层次的手段”</strong>。&#13;
+<h2>2. 重构分支结构</h2>&#13;
+<p>下面以较复杂的例子，说明重构分支结构需要考虑到问题。</p>&#13;
+<p>假定Context有一个方法sum()计算比赛成绩的某种得分：例如计算所得分数的平均数；或者去掉一个最高和一个最低分，再计算平均数；某些黑箱操作场合，计算关键人士(key)给出的分数或关键人士们给出分数的平均数。<br />&#13;
+</p>&#13;
+<p>应用系统中有一个类Context，除了其他有意义的方法外，还有一个方法sum()计算比赛的某种得分。例如计算所得分数的平均数；或者去掉一个最高和一个最低分，再计算平均数；某些黑箱操作场合，计算关键人士(key)给出的分数或关键人士们给出分数的平均数。</p>&#13;
+<p>在糟糕的设计中，Context以分支结构判断将执行何种算法。按照[2.1.2多态取代分支结构]，需要对下面的代码进行重构。</p>&#13;
+<p></p>&#13;
+<pre name="code" class="java">package method.strategy;
+import tool.God;
+import static tool.Print.*;
+/**
+ * 环境类通常是系统中有价值的类。
+ * @author yqj2065
+ * @version 0.1
+ */
+public class Context{
+    //其他有意义的方法
+    ////////////////////////////////////////分支结构///////////////////////
+    public double sum(int  s/*elect*/,double[] array,int... key){
+        if(s == 0) return m1(array);
+        if(s == 1) return m2(array);
+        if(s == 2) return m3(array,key);
+        return 0;
+    }
+    /**平均分*/
+    private double sum1(double[] array){
+        double sum=0;
+        for(double x: array){
+            sum+=x;
+        }
+        return sum/array.length;
+    }
+    /**去掉一个最高和一个最低分*/
+    private double sum2(double[] array){
+        double sum=0,max=0,min=array[0];
+        for(double x: array){
+            if(x&gt;max)max=x;
+            if(x&lt;min)min=x;
+            sum+=x;
+        }
+        return (sum-max-min)/(array.length-2);
+}
+/**黑箱操作*/
+    private double sum3(double[] array,int... key){
+        double sum=0;
+        for(int i:key){
+            sum += array[i];
+        }
+        return sum/ key.length;
+    } 
+}
+</pre>&#13;
+<p>重构分支结构，本例在归纳出一个接口时，需要将不同的方法名加以统一，还需要注意，其参数列表是具体的策略类所需数据的最大集合。最大集合意味着宁可多不可少——某些具体策略类可以不使用参数列表提供的数据，但是不可因为参数少而导致某些具体策略类缺乏需要的数据。[5.9·8效果6通信开销、9实现1]。<br />&#13;
+</p>&#13;
+<p>[我觉得写到这里就可以了，除了环境类值得提一下外，<strong><span style="color:rgb(255,0,0)">策略模式=多态</span></strong>。yqj2065将学习和理解策略模式的难度系数设为0）]</p>&#13;
+<p></p>&#13;
+<hr />&#13;
+<p></p>&#13;
+<p>下面为遗留文字。</p>&#13;
+<p><br />&#13;
+</p>&#13;
+<h2>2. 封装算法</h2>&#13;
+<p>对于策略模式最直观的例子，是用Test类测试各种各样的(对int数据)排序算法：选择、插入和交换排序等。非常自然地，设计一个抽象类<a target="_blank" href="http://download.csdn.net/detail/yqj2065/7705107">algorithm.sorting.IntSort</a>封装抽象方法int[] sort(int[] arr)，而各种排序算法被设计成IntSort的子类。当然，IntSort除了包括策略sort(int[]&#13;
+ arr)，还可以提供了工具方法：如public static void swap(int[] arr ,int one, int two)——交换数组的两个元素。</p>&#13;
+<p>当程序员设计第一个IntSort的子类如BubbleSort(冒泡排序算法)时，通常会在BubbleSort中编写一些简单的测试；但是，当编写十几个排序算法时，为每一种排序算法编写相同的一些测试(可以直接复制、粘贴)会很乏味，也使得子类的代码很难看。一堆相关的类，彼此的唯一差别是所使用的算法。将相同的测试代码放在测试类Test中是自然地设计，程序员们通常能够无师自通地使用策略模式。</p>&#13;
+这种场景下，很难想象环境类Test有什么值得关注之处。&#13;
+<p></p>&#13;
+<p>策略模式仅仅简单地使用了多态技术。而多态给策略模式赋予了诸多优点。</p>&#13;
+<p></p>&#13;
+<ul>&#13;
+<li>算法可以有新的变体。程序员可以自定义新的策略实现。（类的扩展性）</li><li>用户可以自由切换具体策略。</li><li>替代显式的分支语句。传统的多重条件判断不容易维护，需要重构。</li></ul>&#13;
+<p></p>&#13;
+<p></p>&#13;
+<h2>3.策略类的设计</h2>&#13;
+<p></p>&#13;
+<p>策略模式中，策略类是设计为抽象类、接口还是函数接口？</p>&#13;
+<p>在Java8之前，策略类如果需要提供子类共享的方法，如IntSort提供swap()则设计为抽象类；或者都设计为接口。</p>&#13;
+Java 8之后，如果可能尽量将策略类设计为函数接口。重构例程3-4<br />&#13;
+<p></p>&#13;
+<pre name="code" class="java">package method.strategy;
+public interface Sum{    
+     double sum(double[] array,int... key);
+}
+
+package method.strategy;
+public class Sum1 implements Sum{//平均分
+    public double sum(double[] array,int... key){ //注意：没有使用参数列表提供的数据key
+        double sum=0;
+        for(double x: array){
+            sum+=x;
+        }
+        return sum/array.length;
+    }
+}
+
+package method.strategy;
+import static tool.Print.*;
+public class Context2{
+    public static void printSum(Sum s,int... key){
+        double[] array ={ 8,9,9,9,9,10,5};
+        pln(s.sum(array,key));        
+    }
+
+    public static void test(){
+        printSum(new Sum1(),0);
+        printSum(new Sum2(),0);
+        printSum(new Sum3(),0);
+        printSum(new Sum3(),0,1);
+        printSum((double[] array,int... key)-&gt;{//假设没有单独的不能上台面的Sum3类
+                double sum=0;
+                for(int i:key){
+                    sum += array[i];
+                }
+                return sum/ key.length;
+            },0,1);
+    } 
+}
+</pre>&#13;
+<p></p>&#13;
+<p class="a">策略类Sum的抽象方法sum()的参数列表问题：<br />&#13;
+①参数列表是具体的策略类所需数据的最大集合。最大集合意味着宁可多不可少——某些具体策略类可以不使用参数列表提供的数据，但是不可使得某些具体策略类缺乏需要的数据。[5.9·8效果6通信开销、9实现1]。当然，Sum也可以设计更多的setter方法，以获得需要数据。<br />&#13;
+②假定为了体现公平公正公开，sum()的参数列表只能够为：double sum(double[] array);但是，程序员又必须满足某些人的要求，让Sum类获得Context的某些数据（如int... key），怎么办？<br />&#13;
+可以让Sum与Context双向依赖——Sum有成员变量Context或局部变量Context (Context通过参数传递给Sum)；相互依赖通常是糟糕的选择。<br />&#13;
+如果Sum属于类库而Context是应用，则只能够在类库中设计IContext，IContext定义回调接口int[] getKey()。<br />&#13;
+</p>&#13;
+<p class="a"><br />&#13;
+</p>&#13;
+<p class="a"></p>&#13;
+<p>糟糕之处在于：</p>&#13;
+<p></p>&#13;
+<ul>&#13;
+<li>在需要增加新分支的时候，该代码不遵循OCP。可以通过设计类层次重构分支结构。从重构分支结构的角度看，<span style="color:rgb(255,0,0)"><strong>策略模式与[2.1.3工厂方法模式（3.3）]和[4.2状态模式（5.8）]是三胞胎</strong></span>。</li><li>各种sum()加上其他有意义的方法外，Context非常庞大。可以将各种sum()分离出去。换言之，不设计Context的一系列子类，而是Context有一个Sum而Sum有一系列子类。</li></ul>&#13;
+<p></p>&#13;
+<p>在讨论策略模式时，环境类通常被视为引子，从中推演策略模式。通常情况下，Strategy作为服务而环境类被称为Client。是否需要将Strategy的算法从环境类中分离出去，并不是什么原则问题而是设计者的权衡。[5.9·8效果2<del><span style="color:rgb(0,102,0)">一个代替继承的方法</span></del> 文不对题]</p>&#13;
+<br />&#13;
+<p style="text-align:start"><a target="_blank" href="http://blog.csdn.net/yqj2065/article/details/8592375" style="text-align:center"><img src="http://img.blog.csdn.net/20140919170809965?watermark/2/text/aHR0cDovL2Jsb2cuY3Nkbi5uZXQveXFqMjA2NQ==/font/5a6L5L2T/fontsize/400/fill/I0JBQkFCMA==/dissolve/70/gravity/SouthEast" alt="" /></a></p>&#13;
+   &#13;

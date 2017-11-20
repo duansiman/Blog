@@ -1,0 +1,229 @@
+
+        <div class="markdown_views"><p><font color="brown">介绍：</font>用原型实例指定创建对象的种类，并且通过拷贝这些原型创建新的对象。这个模式相对简单，其实我们只需要掌握对象拷贝的知识。</p>
+
+<p><font color="green">场景：</font>我们在使用对象的时候可能会通过下面的方式来创建新的对象。但是，这样只是将stu2引用指向stu1，而并非创建一个新的对象。在我们之后对stu2的属性改变时，也会造成stu1的改变。</p>
+
+
+
+<pre class="prettyprint"><code class=" hljs fix"><span class="hljs-attribute">Student stu2 </span>=<span class="hljs-string"> stu1;</span></code></pre>
+
+
+
+<h1 id="一对象拷贝的概念">一、对象拷贝的概念</h1>
+
+<p><font color="brown">我们在实现对象拷贝的时候，首先应该实现Cloneable接口，并重写clone()方法。</font></p>
+
+<p>这里，我们不得不提到对象拷贝的概念—也就是浅拷贝和深拷贝。</p>
+
+<p><font color="red"><strong>浅拷贝：</strong></font> <br />
+对值类型的成员变量进行值的复制，对引用类型的成员变量只复制引用,不复制引用的对象。也就是说，如果拷贝的对象中还有对象类型的属性，那么它的在之后的变换中是会对所用的引用造成影响的。</p>
+
+<p><font color="brown"><strong>深拷贝：</strong></font> <br />
+对值类型的成员变量进行值的复制,对引用类型的成员变量也进行引用对象的复制。这样就避免了上面的这种情况的发生。</p>
+
+
+
+<h1 id="二浅拷贝">二、浅拷贝</h1>
+
+<p><font color="green">场景：</font>小米买了个PSP，小明看到了也让小米帮忙买了一个。但是，小米买来的时候激活用的是自己的账号。小明在用了一段时间后想修改用户名密码，并且增加内存大小。内存是增加了，但是由于自己修改了账号，导致小米的账号不能用了。。。</p>
+
+<p><strong>账号</strong></p>
+
+
+
+<pre class="prettyprint"><code class=" hljs cs"><span class="hljs-keyword">public</span> <span class="hljs-keyword">class</span> Account {
+    <span class="hljs-keyword">private</span> String name;
+    <span class="hljs-keyword">private</span> String password;
+
+    @Override
+    <span class="hljs-keyword">public</span> String <span class="hljs-title">toString</span>() {
+        <span class="hljs-keyword">return</span> <span class="hljs-string">"Acount name:"</span> + name + <span class="hljs-string">",Acount name:"</span> + password;
+    }
+
+    <span class="hljs-comment">// setter and getter</span>
+}</code></pre>
+
+<p><strong>PSP</strong></p>
+
+
+
+<pre class="prettyprint"><code class=" hljs java"><span class="hljs-keyword">public</span> <span class="hljs-class"><span class="hljs-keyword">class</span> <span class="hljs-title">PSP</span> <span class="hljs-keyword">implements</span> <span class="hljs-title">Cloneable</span> {</span>
+    <span class="hljs-keyword">private</span> String color;
+    <span class="hljs-keyword">private</span> <span class="hljs-keyword">double</span> price;
+    <span class="hljs-keyword">private</span> Account account;
+    <span class="hljs-keyword">private</span> <span class="hljs-keyword">int</span> ram;
+
+    <span class="hljs-annotation">@Override</span>
+    <span class="hljs-keyword">protected</span> Object <span class="hljs-title">clone</span>() {
+        PSP psp = <span class="hljs-keyword">null</span>;
+        <span class="hljs-keyword">try</span> {
+            psp = (PSP) <span class="hljs-keyword">super</span>.clone();
+        } <span class="hljs-keyword">catch</span> (CloneNotSupportedException e) {
+            e.printStackTrace();
+        }
+        <span class="hljs-keyword">return</span> psp;
+    }
+
+    <span class="hljs-annotation">@Override</span>
+    <span class="hljs-keyword">public</span> String <span class="hljs-title">toString</span>() {
+        <span class="hljs-keyword">return</span> color + <span class="hljs-string">","</span> + ram + <span class="hljs-string">","</span> + price + <span class="hljs-string">","</span> + account;
+    }
+    <span class="hljs-comment">// setter and getter</span>
+}</code></pre>
+
+<p><strong>测试</strong></p>
+
+
+
+<pre class="prettyprint"><code class=" hljs avrasm">    public static void main(String[] args) {
+        PSP psp1 = new PSP()<span class="hljs-comment">;</span>
+        Account acc = new Account()<span class="hljs-comment">;</span>
+        acc<span class="hljs-preprocessor">.setName</span>(<span class="hljs-string">"小米"</span>)<span class="hljs-comment">;</span>
+        acc<span class="hljs-preprocessor">.setPassword</span>(<span class="hljs-string">"123"</span>)<span class="hljs-comment">;</span>
+        psp1<span class="hljs-preprocessor">.setAccount</span>(acc)<span class="hljs-comment">;</span>
+        psp1<span class="hljs-preprocessor">.setColor</span>(<span class="hljs-string">"red"</span>)<span class="hljs-comment">;</span>
+        psp1<span class="hljs-preprocessor">.setPrice</span>(<span class="hljs-number">1600.0</span>)<span class="hljs-comment">;</span>
+        psp1<span class="hljs-preprocessor">.setRam</span>(<span class="hljs-number">8</span>)<span class="hljs-comment">;</span>
+        System<span class="hljs-preprocessor">.out</span><span class="hljs-preprocessor">.println</span>(<span class="hljs-string">"小米："</span> + psp1<span class="hljs-preprocessor">.toString</span>())<span class="hljs-comment">;</span>
+
+        PSP psp2 = (PSP) psp1<span class="hljs-preprocessor">.clone</span>()<span class="hljs-comment">;</span>
+        System<span class="hljs-preprocessor">.out</span><span class="hljs-preprocessor">.println</span>(<span class="hljs-string">"小明："</span> + psp2<span class="hljs-preprocessor">.toString</span>())<span class="hljs-comment">;</span>
+
+        System<span class="hljs-preprocessor">.out</span><span class="hljs-preprocessor">.println</span>(<span class="hljs-string">"小明修改内存和账号=========="</span>)<span class="hljs-comment">;</span>
+        psp2<span class="hljs-preprocessor">.getAccount</span>()<span class="hljs-preprocessor">.setName</span>(<span class="hljs-string">"小明"</span>)<span class="hljs-comment">;</span>
+        psp2<span class="hljs-preprocessor">.getAccount</span>()<span class="hljs-preprocessor">.setPassword</span>(<span class="hljs-string">"555"</span>)<span class="hljs-comment">;</span>
+        psp2<span class="hljs-preprocessor">.setRam</span>(<span class="hljs-number">16</span>)<span class="hljs-comment">;</span>
+        System<span class="hljs-preprocessor">.out</span><span class="hljs-preprocessor">.println</span>(<span class="hljs-string">"小米："</span> + psp1<span class="hljs-preprocessor">.toString</span>())<span class="hljs-comment">;</span>
+        System<span class="hljs-preprocessor">.out</span><span class="hljs-preprocessor">.println</span>(<span class="hljs-string">"小明："</span> + psp2<span class="hljs-preprocessor">.toString</span>())<span class="hljs-comment">;</span>
+    }</code></pre>
+
+<p>输出</p>
+
+
+
+<pre class="prettyprint"><code class=" hljs applescript">小米：red,<span class="hljs-number">8</span>,<span class="hljs-number">1600.0</span>,Acount <span class="hljs-property">name</span>:小米,Acount <span class="hljs-property">name</span>:<span class="hljs-number">123</span>
+小明：red,<span class="hljs-number">8</span>,<span class="hljs-number">1600.0</span>,Acount <span class="hljs-property">name</span>:小米,Acount <span class="hljs-property">name</span>:<span class="hljs-number">123</span>
+小明修改内存和账号==========
+小米：red,<span class="hljs-number">8</span>,<span class="hljs-number">1600.0</span>,Acount <span class="hljs-property">name</span>:小明,Acount <span class="hljs-property">name</span>:<span class="hljs-number">555</span>
+小明：red,<span class="hljs-number">16</span>,<span class="hljs-number">1600.0</span>,Acount <span class="hljs-property">name</span>:小明,Acount <span class="hljs-property">name</span>:<span class="hljs-number">555</span></code></pre>
+
+<p>可以看到，浅拷贝的方式，基本属性是进行复制，而对象类型则还是使用原来的引用(也可通过查看两者Account的hashCode来说明)。</p>
+
+
+
+<h1 id="三深拷贝">三、深拷贝</h1>
+
+<p>实现深拷贝，我们可以借助序列化(Serialization)，我们可以将对象序列化写入流中，然后通过反序列化再获取，这样就能得到一个完整的拷贝。这里需要注意，我们的类需要实现Serializable接口，否则会报java.io.NotSerializableException的异常。</p>
+
+<p><strong>账号</strong></p>
+
+
+
+<pre class="prettyprint"><code class=" hljs java"><span class="hljs-keyword">public</span> <span class="hljs-class"><span class="hljs-keyword">class</span> <span class="hljs-title">Account</span> <span class="hljs-keyword">implements</span> <span class="hljs-title">Serializable</span> {</span>
+    <span class="hljs-keyword">private</span> <span class="hljs-keyword">static</span> <span class="hljs-keyword">final</span> <span class="hljs-keyword">long</span> serialVersionUID = -<span class="hljs-number">7747721962690262418</span>L;
+    <span class="hljs-keyword">private</span> String name;
+    <span class="hljs-keyword">private</span> String password;
+
+    <span class="hljs-annotation">@Override</span>
+    <span class="hljs-keyword">public</span> String <span class="hljs-title">toString</span>() {
+        <span class="hljs-keyword">return</span> <span class="hljs-string">"Acount name:"</span> + name + <span class="hljs-string">",Acount name:"</span> + password;
+    }
+
+    <span class="hljs-comment">// setter and getter</span>
+}</code></pre>
+
+<p><strong>PSP</strong></p>
+
+
+
+<pre class="prettyprint"><code class=" hljs java"><span class="hljs-keyword">public</span> <span class="hljs-class"><span class="hljs-keyword">class</span> <span class="hljs-title">PSP</span> <span class="hljs-keyword">implements</span> <span class="hljs-title">Cloneable</span>, <span class="hljs-title">Serializable</span> {</span>
+    <span class="hljs-keyword">private</span> <span class="hljs-keyword">static</span> <span class="hljs-keyword">final</span> <span class="hljs-keyword">long</span> serialVersionUID = <span class="hljs-number">6401635201114419015</span>L;
+    <span class="hljs-keyword">private</span> String color;
+    <span class="hljs-keyword">private</span> <span class="hljs-keyword">double</span> price;
+    <span class="hljs-keyword">private</span> Account account;
+    <span class="hljs-keyword">private</span> <span class="hljs-keyword">int</span> ram;
+
+    <span class="hljs-annotation">@Override</span>
+    <span class="hljs-keyword">protected</span> Object <span class="hljs-title">clone</span>() {
+        PSP psp = <span class="hljs-keyword">null</span>;
+        <span class="hljs-keyword">try</span> {
+            <span class="hljs-comment">// 将对象写到流里</span>
+            ByteArrayOutputStream bos = <span class="hljs-keyword">new</span> ByteArrayOutputStream();
+            ObjectOutputStream oos;
+            oos = <span class="hljs-keyword">new</span> ObjectOutputStream(bos);
+            oos.writeObject(<span class="hljs-keyword">this</span>);
+
+            <span class="hljs-comment">// 从流里读回来</span>
+            ByteArrayInputStream bis = <span class="hljs-keyword">new</span> ByteArrayInputStream(bos.toByteArray());
+            ObjectInputStream ois = <span class="hljs-keyword">new</span> ObjectInputStream(bis);
+            psp = (PSP) ois.readObject();
+        } <span class="hljs-keyword">catch</span> (IOException | ClassNotFoundException e) {
+            e.printStackTrace();
+        }
+        <span class="hljs-keyword">return</span> psp;
+    }
+
+    <span class="hljs-annotation">@Override</span>
+    <span class="hljs-keyword">public</span> String <span class="hljs-title">toString</span>() {
+        <span class="hljs-keyword">return</span> color + <span class="hljs-string">","</span> + ram + <span class="hljs-string">","</span> + price + <span class="hljs-string">","</span> + account;
+    }
+    <span class="hljs-comment">// setter and getter</span>
+}</code></pre>
+
+<p><strong>测试</strong></p>
+
+
+
+<pre class="prettyprint"><code class=" hljs avrasm">    public static void main(String[] args) {
+        PSP psp1 = new PSP()<span class="hljs-comment">;</span>
+        Account acc = new Account()<span class="hljs-comment">;</span>
+        acc<span class="hljs-preprocessor">.setName</span>(<span class="hljs-string">"小米"</span>)<span class="hljs-comment">;</span>
+        acc<span class="hljs-preprocessor">.setPassword</span>(<span class="hljs-string">"123"</span>)<span class="hljs-comment">;</span>
+        psp1<span class="hljs-preprocessor">.setAccount</span>(acc)<span class="hljs-comment">;</span>
+        psp1<span class="hljs-preprocessor">.setColor</span>(<span class="hljs-string">"red"</span>)<span class="hljs-comment">;</span>
+        psp1<span class="hljs-preprocessor">.setPrice</span>(<span class="hljs-number">1600.0</span>)<span class="hljs-comment">;</span>
+        psp1<span class="hljs-preprocessor">.setRam</span>(<span class="hljs-number">8</span>)<span class="hljs-comment">;</span>
+        System<span class="hljs-preprocessor">.out</span><span class="hljs-preprocessor">.println</span>(<span class="hljs-string">"小米："</span> + psp1<span class="hljs-preprocessor">.toString</span>())<span class="hljs-comment">;</span>
+
+        PSP psp2 = (PSP) psp1<span class="hljs-preprocessor">.clone</span>()<span class="hljs-comment">;</span>
+        System<span class="hljs-preprocessor">.out</span><span class="hljs-preprocessor">.println</span>(<span class="hljs-string">"小明："</span> + psp2<span class="hljs-preprocessor">.toString</span>())<span class="hljs-comment">;</span>
+
+        System<span class="hljs-preprocessor">.out</span><span class="hljs-preprocessor">.println</span>(<span class="hljs-string">"小明修改内存和账号=========="</span>)<span class="hljs-comment">;</span>
+        psp2<span class="hljs-preprocessor">.getAccount</span>()<span class="hljs-preprocessor">.setName</span>(<span class="hljs-string">"小明"</span>)<span class="hljs-comment">;</span>
+        psp2<span class="hljs-preprocessor">.getAccount</span>()<span class="hljs-preprocessor">.setPassword</span>(<span class="hljs-string">"555"</span>)<span class="hljs-comment">;</span>
+        psp2<span class="hljs-preprocessor">.setRam</span>(<span class="hljs-number">16</span>)<span class="hljs-comment">;</span>
+        System<span class="hljs-preprocessor">.out</span><span class="hljs-preprocessor">.println</span>(<span class="hljs-string">"小米："</span> + psp1<span class="hljs-preprocessor">.toString</span>())<span class="hljs-comment">;</span>
+        System<span class="hljs-preprocessor">.out</span><span class="hljs-preprocessor">.println</span>(<span class="hljs-string">"小明："</span> + psp2<span class="hljs-preprocessor">.toString</span>())<span class="hljs-comment">;</span>
+    }</code></pre>
+
+<p>输出</p>
+
+
+
+<pre class="prettyprint"><code class=" hljs applescript">小米：red,<span class="hljs-number">8</span>,<span class="hljs-number">1600.0</span>,Acount <span class="hljs-property">name</span>:小米,Acount <span class="hljs-property">name</span>:<span class="hljs-number">123</span>
+小明：red,<span class="hljs-number">8</span>,<span class="hljs-number">1600.0</span>,Acount <span class="hljs-property">name</span>:小米,Acount <span class="hljs-property">name</span>:<span class="hljs-number">123</span>
+小明修改内存和账号==========
+小米：red,<span class="hljs-number">8</span>,<span class="hljs-number">1600.0</span>,Acount <span class="hljs-property">name</span>:小米,Acount <span class="hljs-property">name</span>:<span class="hljs-number">123</span>
+小明：red,<span class="hljs-number">16</span>,<span class="hljs-number">1600.0</span>,Acount <span class="hljs-property">name</span>:小明,Acount <span class="hljs-property">name</span>:<span class="hljs-number">555</span></code></pre>
+
+<p>可以看到，这样小明修改账号，小明的账号密码都不会修改，这样就避免上面的这种情况。</p>
+
+<hr />
+
+<p><strong><em>更多模式：</em></strong> <a href="http://blog.csdn.net/odeviloo/article/details/52382338">一天一个设计模式—分类与六大原则</a></p>
+
+<p><strong><em>更多源码：</em></strong> <a href="https://github.com/oDevilo/Java-Base">https://github.com/oDevilo/Java-Base</a></p></div>&#13;
+        <script type="text/javascript">&#13;
+            $(function () {&#13;
+                $('pre.prettyprint code').each(function () {&#13;
+                    var lines = $(this).text().split('\n').length;&#13;
+                    var $numbering = $('&lt;ul/&gt;').addClass('pre-numbering').hide();&#13;
+                    $(this).addClass('has-numbering').parent().append($numbering);&#13;
+                    for (i = 1; i &lt;= lines; i++) {&#13;
+                        $numbering.append($('&lt;li/&gt;').text(i));&#13;
+                    };&#13;
+                    $numbering.fadeIn(1700);&#13;
+                });&#13;
+            });&#13;
+        </script>&#13;
+   &#13;

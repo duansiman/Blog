@@ -1,0 +1,407 @@
+
+                <div class="markdown_views"><p>RabbitMQ入门教程 For Java【2】 - Work Queues</p>
+
+<hr/>
+
+<p>提示： <br/>
+我的开发环境： <br/>
+操作系统： Windows7 64bit  <br/>
+开发环境： JDK 1.7 - 1.7.0_55 <br/>
+开发工具： Eclipse Kepler SR2 <br/>
+RabbitMQ版本：  3.6.0 <br/>
+Elang版本： erl7.2.1 <br/>
+关于Windows7下安装RabbitMQ的教程请先在网上找一下，有空我再补安装教程。 <br/>
+源码地址 <br/>
+<a href="https://github.com/chwshuang/rabbitmq.git">https://github.com/chwshuang/rabbitmq.git</a></p>
+
+<hr/>
+
+<hr/>
+
+
+
+<h1 id="工作队列">工作队列</h1>
+
+<hr/>
+
+<p><img src="http://img.blog.csdn.net/20160112191303799" alt="工作队列" title=""/></p>
+
+<hr/>
+
+<blockquote>
+  <p>在使用此教程的时候，请记住，一定要将所有内容看一遍，特别是代码片段说明部分，这是非常重要的基础，如果你跳过这里直接将最后的源码拿去运行查看，效果会大打折扣。基础不牢固的情况下，后面学习就更难了。学习一定要静下心、琢磨透。</p>
+</blockquote>
+
+<p>在第一个教程中，我们编写了一个程序来发送和接收来自一个指定队列的消息。在这一篇，我们将创建一个工作队列，将信息发送到多个消费者。这中分配方式主要场景是消费者需要根据消息中的内容进行业务逻辑处理，这种消息可以看成是一个任务指令，处理起来比较耗时，通过多个消费者来处理这些消息，来提高数据的吞吐能力。 <br/>
+工作队列（即任务队列）的主要思想是不用一直等待资源密集型的任务处理完成，这就像一个生产线，将半成品放到生产线中，然后在生产线后面安排多个工人同时对半成品进行处理，这样比一个生产线对应一个工人的吞吐量大几个数量级。</p>
+
+<p>准备 <br/>
+在第一篇教程中，我们通过Hello World的例子，从生产者发送一条消息到RabbitMQ，然后消费者接收到这条消息并打印出来。这次我们模拟一个工厂流水线的场景，由工厂任务安排者（生产者P）向流水线（RabbitMQ的队列hello）放入半成品，然后由多个工人（消费者C1和C2）从流水线获取半成品进行处理。 <br/>
+我们先来看看工厂任务安排者的代码，我们一共发送5条消息，然后给每个消息编号，看看消费者分别收到了那些消息：</p>
+
+
+
+<pre class="prettyprint"><code class=" hljs avrasm">for(int i = <span class="hljs-number">0</span> <span class="hljs-comment">; i &lt; 5; i++){</span>
+    String message = <span class="hljs-string">"Hello World! "</span> + i<span class="hljs-comment">;</span>
+    channel<span class="hljs-preprocessor">.basicPublish</span>(<span class="hljs-string">""</span>, TASK_QUEUE_NAME,   MessageProperties<span class="hljs-preprocessor">.PERSISTENT</span>_TEXT_PLAIN, message<span class="hljs-preprocessor">.getBytes</span>())<span class="hljs-comment">;</span>
+    System<span class="hljs-preprocessor">.out</span><span class="hljs-preprocessor">.println</span>(<span class="hljs-string">" [x] Sent '"</span> + message + <span class="hljs-string">"'"</span>)<span class="hljs-comment">;</span>
+}</code></pre>
+
+<p>再来看看流水线上的工人处理半成品的函数，我们使用线程休眠模拟工作处理一条消息花费1秒钟：</p>
+
+
+
+<pre class="prettyprint"><code class=" hljs cs">    <span class="hljs-keyword">private</span> <span class="hljs-keyword">static</span> <span class="hljs-keyword">void</span> <span class="hljs-title">doWork</span>(String task) {
+        <span class="hljs-keyword">try</span> {
+            Thread.sleep(<span class="hljs-number">1000</span>); <span class="hljs-comment">// 暂停1秒钟</span>
+        } <span class="hljs-keyword">catch</span> (InterruptedException _ignored) {
+            Thread.currentThread().interrupt();
+        }
+    }</code></pre>
+
+
+
+<h2 id="源码">源码</h2>
+
+<p>目录结构： <br/>
+           <img src="http://img.blog.csdn.net/20160115113549790" alt="这里写图片描述" title=""/> <br/>
+工厂任务安排者（生产者P）NewTask.java：</p>
+
+
+
+<pre class="prettyprint"><code class=" hljs java"><span class="hljs-keyword">import</span> com.rabbitmq.client.Channel;
+<span class="hljs-keyword">import</span> com.rabbitmq.client.Connection;
+<span class="hljs-keyword">import</span> com.rabbitmq.client.ConnectionFactory;
+<span class="hljs-keyword">import</span> com.rabbitmq.client.MessageProperties;
+
+<span class="hljs-javadoc">/**
+ *<span class="hljs-javadoctag"> @author</span> hushuang
+ * 
+ */</span>
+<span class="hljs-keyword">public</span> <span class="hljs-class"><span class="hljs-keyword">class</span> <span class="hljs-title">NewTask</span> {</span>
+
+    <span class="hljs-keyword">private</span> <span class="hljs-keyword">static</span> <span class="hljs-keyword">final</span> String TASK_QUEUE_NAME = <span class="hljs-string">"task_queue"</span>;
+
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">static</span> <span class="hljs-keyword">void</span> <span class="hljs-title">main</span>(String[] argv) <span class="hljs-keyword">throws</span> java.io.IOException, Exception {
+
+        ConnectionFactory factory = <span class="hljs-keyword">new</span> ConnectionFactory();
+        factory.setHost(<span class="hljs-string">"localhost"</span>);
+        Connection connection = factory.newConnection();
+        Channel channel = connection.createChannel();
+
+        channel.queueDeclare(TASK_QUEUE_NAME, <span class="hljs-keyword">true</span>, <span class="hljs-keyword">false</span>, <span class="hljs-keyword">false</span>, <span class="hljs-keyword">null</span>);
+<span class="hljs-comment">//      分发消息</span>
+        <span class="hljs-keyword">for</span>(<span class="hljs-keyword">int</span> i = <span class="hljs-number">0</span> ; i &lt; <span class="hljs-number">5</span>; i++){
+            String message = <span class="hljs-string">"Hello World! "</span> + i;
+            channel.basicPublish(<span class="hljs-string">""</span>, TASK_QUEUE_NAME, MessageProperties.PERSISTENT_TEXT_PLAIN, message.getBytes());
+            System.out.println(<span class="hljs-string">" [x] Sent '"</span> + message + <span class="hljs-string">"'"</span>);
+        }
+        channel.close();
+        connection.close();
+    }
+}</code></pre>
+
+<p>工人（消费者C1和C2）Worker1.java </p>
+
+
+
+<pre class="prettyprint"><code class=" hljs java"><span class="hljs-keyword">import</span> java.io.IOException;
+
+<span class="hljs-keyword">public</span> <span class="hljs-class"><span class="hljs-keyword">class</span> <span class="hljs-title">Worker1</span> {</span>
+    <span class="hljs-keyword">private</span> <span class="hljs-keyword">static</span> <span class="hljs-keyword">final</span> String TASK_QUEUE_NAME = <span class="hljs-string">"task_queue"</span>;
+
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">static</span> <span class="hljs-keyword">void</span> <span class="hljs-title">main</span>(String[] argv) <span class="hljs-keyword">throws</span> Exception {
+        ConnectionFactory factory = <span class="hljs-keyword">new</span> ConnectionFactory();
+        factory.setHost(<span class="hljs-string">"localhost"</span>);
+        <span class="hljs-keyword">final</span> Connection connection = factory.newConnection();
+        <span class="hljs-keyword">final</span> Channel channel = connection.createChannel();
+
+        channel.queueDeclare(TASK_QUEUE_NAME, <span class="hljs-keyword">true</span>, <span class="hljs-keyword">false</span>, <span class="hljs-keyword">false</span>, <span class="hljs-keyword">null</span>);
+        System.out.println(<span class="hljs-string">"Worker1 [*] Waiting for messages. To exit press CTRL+C"</span>);
+        <span class="hljs-comment">// 每次从队列中获取数量</span>
+        channel.basicQos(<span class="hljs-number">1</span>);
+
+        <span class="hljs-keyword">final</span> Consumer consumer = <span class="hljs-keyword">new</span> DefaultConsumer(channel) {
+            <span class="hljs-annotation">@Override</span>
+            <span class="hljs-keyword">public</span> <span class="hljs-keyword">void</span> <span class="hljs-title">handleDelivery</span>(String consumerTag, Envelope envelope, AMQP.BasicProperties properties, <span class="hljs-keyword">byte</span>[] body) <span class="hljs-keyword">throws</span> IOException {
+                String message = <span class="hljs-keyword">new</span> String(body, <span class="hljs-string">"UTF-8"</span>);
+
+                System.out.println(<span class="hljs-string">"Worker1 [x] Received '"</span> + message + <span class="hljs-string">"'"</span>);
+                <span class="hljs-keyword">try</span> {
+                    doWork(message);
+                } <span class="hljs-keyword">finally</span> {
+                    System.out.println(<span class="hljs-string">"Worker1 [x] Done"</span>);
+                    <span class="hljs-comment">// 消息处理完成确认</span>
+                    channel.basicAck(envelope.getDeliveryTag(), <span class="hljs-keyword">false</span>);
+                }
+            }
+        };
+        <span class="hljs-comment">// 消息消费完成确认</span>
+        channel.basicConsume(TASK_QUEUE_NAME, <span class="hljs-keyword">false</span>, consumer);
+    }
+
+    <span class="hljs-keyword">private</span> <span class="hljs-keyword">static</span> <span class="hljs-keyword">void</span> <span class="hljs-title">doWork</span>(String task) {
+        <span class="hljs-keyword">try</span> {
+            Thread.sleep(<span class="hljs-number">1000</span>); <span class="hljs-comment">// 暂停1秒钟</span>
+        } <span class="hljs-keyword">catch</span> (InterruptedException _ignored) {
+            Thread.currentThread().interrupt();
+        }
+    }
+}</code></pre>
+
+<p>工人（消费者C1和C2）Worker2.java</p>
+
+
+
+<pre class="prettyprint"><code class=" hljs java"><span class="hljs-keyword">import</span> com.rabbitmq.client.*;
+<span class="hljs-keyword">import</span> java.io.IOException;
+
+<span class="hljs-keyword">public</span> <span class="hljs-class"><span class="hljs-keyword">class</span> <span class="hljs-title">Worker2</span> {</span>
+    <span class="hljs-keyword">private</span> <span class="hljs-keyword">static</span> <span class="hljs-keyword">final</span> String TASK_QUEUE_NAME = <span class="hljs-string">"task_queue"</span>;
+
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">static</span> <span class="hljs-keyword">void</span> <span class="hljs-title">main</span>(String[] argv) <span class="hljs-keyword">throws</span> Exception {
+        ConnectionFactory factory = <span class="hljs-keyword">new</span> ConnectionFactory();
+        factory.setHost(<span class="hljs-string">"localhost"</span>);
+        <span class="hljs-keyword">final</span> Connection connection = factory.newConnection();
+        <span class="hljs-keyword">final</span> Channel channel = connection.createChannel();
+
+        channel.queueDeclare(TASK_QUEUE_NAME, <span class="hljs-keyword">true</span>, <span class="hljs-keyword">false</span>, <span class="hljs-keyword">false</span>, <span class="hljs-keyword">null</span>);
+        System.out.println(<span class="hljs-string">"Worker2 [*] Waiting for messages. To exit press CTRL+C"</span>);
+        <span class="hljs-comment">// 每次从队列中获取数量</span>
+        channel.basicQos(<span class="hljs-number">1</span>);
+
+        <span class="hljs-keyword">final</span> Consumer consumer = <span class="hljs-keyword">new</span> DefaultConsumer(channel) {
+            <span class="hljs-annotation">@Override</span>
+            <span class="hljs-keyword">public</span> <span class="hljs-keyword">void</span> <span class="hljs-title">handleDelivery</span>(String consumerTag, Envelope envelope, AMQP.BasicProperties properties, <span class="hljs-keyword">byte</span>[] body) <span class="hljs-keyword">throws</span> IOException {
+                String message = <span class="hljs-keyword">new</span> String(body, <span class="hljs-string">"UTF-8"</span>);
+
+                System.out.println(<span class="hljs-string">"Worker2 [x] Received '"</span> + message + <span class="hljs-string">"'"</span>);
+                <span class="hljs-keyword">try</span> {
+                    doWork(message);
+                } <span class="hljs-keyword">finally</span> {
+                    System.out.println(<span class="hljs-string">"Worker2 [x] Done"</span>);
+                    <span class="hljs-comment">// 消息处理完成确认</span>
+                    channel.basicAck(envelope.getDeliveryTag(), <span class="hljs-keyword">false</span>);
+                }
+            }
+        };
+        <span class="hljs-comment">// 消息消费完成确认</span>
+        channel.basicConsume(TASK_QUEUE_NAME, <span class="hljs-keyword">false</span>, consumer);
+    }
+
+    <span class="hljs-javadoc">/**
+     * 任务处理
+     * 
+     *<span class="hljs-javadoctag"> @param</span> task
+     *            void
+     */</span>
+    <span class="hljs-keyword">private</span> <span class="hljs-keyword">static</span> <span class="hljs-keyword">void</span> <span class="hljs-title">doWork</span>(String task) {
+        <span class="hljs-keyword">try</span> {
+            Thread.sleep(<span class="hljs-number">1000</span>); <span class="hljs-comment">// 暂停1秒钟</span>
+        } <span class="hljs-keyword">catch</span> (InterruptedException _ignored) {
+            Thread.currentThread().interrupt();
+        }
+    }
+}</code></pre>
+
+<hr/>
+
+
+
+<h2 id="消息轮询分发">消息轮询分发</h2>
+
+<hr/>
+
+
+
+<h4 id="启动rabbitmq-服务器"><strong>启动RabbitMQ 服务器</strong></h4>
+
+<p>在RabbitMQ Server\rabbitmq_server-3.6.0\sbin目录中，我们双击rabbitmq-server.bat，启动RabbitMQ ，Window下会弹出一个窗口，看到下面Starting broker…的信息就说明启动成功了：（关于RabbitMQ 在Windows7下的安装参考这里） <br/>
+<img src="http://img.blog.csdn.net/20160113100837411" alt="这里写图片描述" title=""/></p>
+
+
+
+<h4 id="启动工人消费者"><strong>启动工人（消费者）</strong></h4>
+
+<p>然后在eclipse中，启动Worker1.java 和Worker2.java，可以看到Worker的启动日志： <br/>
+<img src="http://img.blog.csdn.net/20160113101248656" alt="这里写图片描述" title=""/></p>
+
+
+
+<pre class="prettyprint"><code class=" hljs vbnet">Worker1 [*] Waiting <span class="hljs-keyword">for</span> messages. <span class="hljs-keyword">To</span> <span class="hljs-keyword">exit</span> press CTRL+C
+
+Worker2 [*] Waiting <span class="hljs-keyword">for</span> messages. <span class="hljs-keyword">To</span> <span class="hljs-keyword">exit</span> press CTRL+C</code></pre>
+
+
+
+<h4 id="启动工厂任务安排者生产者"><strong>启动工厂任务安排者（生产者）</strong></h4>
+
+<p>生产者启动后打印的日志：</p>
+
+
+
+<pre class="prettyprint"><code class=" hljs bash"> [x] Sent <span class="hljs-string">'Hello World! 0'</span>
+ [x] Sent <span class="hljs-string">'Hello World! 1'</span>
+ [x] Sent <span class="hljs-string">'Hello World! 2'</span>
+ [x] Sent <span class="hljs-string">'Hello World! 3'</span>
+ [x] Sent <span class="hljs-string">'Hello World! 4'</span></code></pre>
+
+<p>Worker1日志输入结果：</p>
+
+
+
+<pre class="prettyprint"><code class=" hljs bash">Worker1 [x] Received <span class="hljs-string">'Hello World! 1'</span>
+Worker1 [x] Done
+Worker1 [x] Received <span class="hljs-string">'Hello World! 3'</span>
+Worker1 [x] Done
+Worker1 [x] Received <span class="hljs-string">'Hello World! 4'</span>
+Worker1 [x] Done</code></pre>
+
+<p>Worker2日志输入结果：</p>
+
+
+
+<pre class="prettyprint"><code class=" hljs bash">Worker2 [x] Received <span class="hljs-string">'Hello World! 0'</span>
+Worker2 [x] Done
+Worker2 [x] Received <span class="hljs-string">'Hello World! 2'</span>
+Worker2 [x] Done</code></pre>
+
+
+
+<h2 id="消息确认">消息确认</h2>
+
+<hr/>
+
+<p>如果处理一条消息需要几秒钟的时间，你可能会想，如果在处理消息的过程中，消费者服务器、网络、网卡出现故障挂了，那可能这条正在处理的消息或者任务就没有完成，就会失去这个消息和任务。 <br/>
+为了确保消息或者任务不会丢失，RabbitMQ支持消息确认–ACK。ACK机制是消费者端从RabbitMQ收到消息并处理完成后，反馈给RabbitMQ，RabbitMQ收到反馈后才将此消息从队列中删除。如果一个消费者在处理消息时挂掉（网络不稳定、服务器异常、网站故障等原因导致频道、连接关闭或者TCP连接丢失等），那么他就不会有ACK反馈，RabbitMQ会认为这个消息没有正常消费，会将此消息重新放入队列中。如果有其他消费者同时在线，RabbitMQ会立即将这个消息推送给这个在线的消费者。这种机制保证了在消费者服务器故障的时候，能不丢失任何消息和任务。 <br/>
+如果RabbitMQ向消费者发送消息时，消费者服务器挂了，消息也不会有超时；即使一个消息需要非常长的时间处理，也不会导致消息超时。这样消息永远不会从RabbitMQ服务器中删除。只有当消费者正确的发送ACK确认反馈，RabbitMQ确认收到后，消息才会从RabbitMQ服务器的数据中删除。 <br/>
+消息的ACK确认机制默认是打开的。在上面的代码中，我们显示返回autoAck=true 这个标签。 <br/>
+看看下面的代码，即使你在发送消息过程中，停掉一个消费者，消费者没有通过ACK反馈确认的消息，很快会被退回。</p>
+
+
+
+<pre class="prettyprint"><code class=" hljs d">channel.basicQos(<span class="hljs-number">1</span>);
+
+<span class="hljs-keyword">final</span> Consumer consumer = <span class="hljs-keyword">new</span> DefaultConsumer(channel) {
+  <span class="hljs-keyword">@Override</span>
+  <span class="hljs-keyword">public</span> <span class="hljs-keyword">void</span> handleDelivery(String consumerTag, Envelope envelope, AMQP.BasicProperties properties, <span class="hljs-keyword">byte</span>[] <span class="hljs-keyword">body</span>) throws IOException {
+    String message = <span class="hljs-keyword">new</span> String(<span class="hljs-keyword">body</span>, <span class="hljs-string">"UTF-8"</span>);
+
+    System.<span class="hljs-keyword">out</span>.println(<span class="hljs-string">" [x] Received '"</span> + message + <span class="hljs-string">"'"</span>);
+    <span class="hljs-keyword">try</span> {
+      doWork(message);
+    } <span class="hljs-keyword">finally</span> {
+      System.<span class="hljs-keyword">out</span>.println(<span class="hljs-string">" [x] Done"</span>);
+      channel.basicAck(envelope.getDeliveryTag(), <span class="hljs-literal">false</span>);
+    }
+  }
+};</code></pre>
+
+<blockquote>
+  <p>忘记确认 <br/>
+  忘记通过basicAck返回确认信息是常见的错误。这个错误非常严重，将导致消费者客户端退出或者关闭后，消息会被退回RabbitMQ服务器，这会使RabbitMQ服务器内存爆满，而且RabbitMQ也不会主动删除这些被退回的消息。 <br/>
+  如果要监控这种错误，可以使用rabbitmqctl messages_unacknowledged命令打印出出相关的信息。</p>
+</blockquote>
+
+
+
+<pre class="prettyprint"><code class=" hljs r">$ sudo rabbitmqctl list_queues name messages_ready messages_unacknowledged
+Listing queues <span class="hljs-keyword">...</span>
+hello    <span class="hljs-number">0</span>       <span class="hljs-number">0</span>
+...done.</code></pre>
+
+<hr/>
+
+
+
+<h2 id="消息持久化">消息持久化</h2>
+
+<hr/>
+
+<p>通过上一节我们已经知道如何确保消费者挂掉的情况下，任务不会消失。但是如果RabbitMQ服务器挂了呢？ <br/>
+如果你不告诉RabbitMQ，当RabbitMQ服务器挂了，她可能就丢失所有队列中的消息和任务。如果你想让RabbitMQ记住她当前的状态和内容，就需要通过2件事来确保消息和任务不会丢失。 <br/>
+第一件事，在队列声明时，告诉RabbitMQ，这个队列需要持久化：</p>
+
+
+
+<pre class="prettyprint"><code class=" hljs java"><span class="hljs-keyword">boolean</span> durable = <span class="hljs-keyword">true</span>;
+channel.queueDeclare(<span class="hljs-string">"hello"</span>, durable, <span class="hljs-keyword">false</span>, <span class="hljs-keyword">false</span>, <span class="hljs-keyword">null</span>);</code></pre>
+
+<p>上面的这个方法是正确的，当在我们的例子中也无法持久化！因为已经定义的队列，再次定义是无效的，这就是幂次原理。RabbitMQ不允许重新定义一个已有的队列信息，也就是说不允许修改已经存在的队列的参数。如果你非要这样做，只会返回异常。 <br/>
+咋整？ <br/>
+一个快速有效的方法就是重新声明另一个名称的队列，不过这需要修改生产者和消费者的代码，所以，在开发时，最好是将队列名称放到配置文件中。 <br/>
+这时，即使RabbitMQ服务器重启，新队列中的消息也不会丢失。 <br/>
+下面我们来看看新消息发送的代码：</p>
+
+
+
+<pre class="prettyprint"><code class=" hljs avrasm">import <span class="hljs-keyword">com</span><span class="hljs-preprocessor">.rabbitmq</span><span class="hljs-preprocessor">.client</span><span class="hljs-preprocessor">.MessageProperties</span><span class="hljs-comment">;</span>
+
+channel<span class="hljs-preprocessor">.basicPublish</span>(<span class="hljs-string">""</span>, <span class="hljs-string">"task_queue"</span>,
+            MessageProperties<span class="hljs-preprocessor">.PERSISTENT</span>_TEXT_PLAIN,
+            message<span class="hljs-preprocessor">.getBytes</span>())<span class="hljs-comment">;</span></code></pre>
+
+<blockquote>
+  <p>关于消息持久化的说明 <br/>
+  标记为持久化后的消息也不能完全保证不会丢失。虽然已经告诉RabbitMQ消息要保存到磁盘上，但是理论上，RabbitMQ已经接收到生产者的消息，但是还没有来得及保存到磁盘上，服务器就挂了（比如机房断电），那么重启后，RabbitMQ中的这条未及时保存的消息就会丢失。因为RabbitMQ不做实时立即的磁盘同步（fsync）。这种情况下，对于持久化要求不是特别高的简单任务队列来说，还是可以满足的。如果需要更强大的保证，那么你可以考虑使用生产者确认反馈机制。</p>
+</blockquote>
+
+<hr/>
+
+
+
+<h2 id="负载均衡">负载均衡</h2>
+
+<hr/>
+
+<p>默认情况下，RabbitMQ将队列消息随机分配给每个消费者，这时可能出现消息调度不均衡的问题。例如有两台消费者服务器，一个服务器可能非常繁忙，消息不断，另外一个却很悠闲，没有什么负载。RabbitMQ不会主动介入这些情况，还是会随机调度消息到每台服务器。 <br/>
+这是因为RabbitMQ此时只负责调度消息，不会根据ACK的反馈机制来分析那台服务器返回反馈慢，是不是处理不过来啊？</p>
+
+<p>就像下面这个图： <br/>
+<img src="http://img.blog.csdn.net/20160112191417287" alt="这里写图片描述" title=""/></p>
+
+<p>为了解决这个问题，我们可以使用【prefetchcount = 1】这个设置。这个设置告诉RabbitMQ，不要一次将多个消息发送给一个消费者。这样做的好处是只有当消费者处理完成当前消息并反馈后，才会收到另外一条消息或任务。这样就避免了负载不均衡的事情了。</p>
+
+
+
+<pre class="prettyprint"><code class=" hljs fix"><span class="hljs-attribute">int prefetchCount </span>=<span class="hljs-string"> 1;
+channel.basicQos(prefetchCount);</span></code></pre>
+
+<blockquote>
+  <p>关于队列大小的说明 <br/>
+  你必选注意：如果所有的消费者负载都很高，你的队列很可能会被塞满。这时你需要增加更多的消费者或者其他方案。</p>
+</blockquote>
+
+<p>想了解更多关于 Channel 方法和 MessageProperties 的信息，请浏览以下相关的文档：</p>
+
+<p><a href="http://www.rabbitmq.com/releases/rabbitmq-java-client/current-javadoc/">javadocs 在线文档.</a></p>
+
+<p>现在，咱们可以进入第三章的教程了。</p>
+
+<p>本教程所有文章： <br/>
+<a href="http://blog.csdn.net/chwshuang/article/details/50521708">RabbitMQ入门教程 For Java【1】 - Hello World - 你好世界！</a> <br/>
+<a href="http://blog.csdn.net/chwshuang/article/details/50506284">RabbitMQ入门教程 For Java【2】 - Work Queues      - 工作队列</a> <br/>
+<a href="http://blog.csdn.net/chwshuang/article/details/50512057">RabbitMQ入门教程 For Java【3】 - Publish/Subscribe - 发布/订阅</a> <br/>
+<a href="http://blog.csdn.net/chwshuang/article/details/50505060">RabbitMQ入门教程 For Java【4】 - Routing -  消息路由</a> <br/>
+<a href="http://blog.csdn.net/chwshuang/article/details/50516904">RabbitMQ入门教程 For Java【5】 - Topic  -  模糊匹配</a> <br/>
+<a href="http://blog.csdn.net/chwshuang/article/details/50518570">RabbitMQ入门教程 For Java【6】 - Remote procedure call (RPC) - 远程调用</a></p>
+
+<hr/>
+
+<h2 id="提示">提示</h2>
+
+<hr/>
+
+<p>由于本教程中rabbitmq是在本机安装，使用的是默认端口（5672）。 <br/>
+如果你的例子运行中的主机、端口不同，请进行必要设置，否则可能无法运行。</p>
+
+
+
+<h3 id="获得帮助">获得帮助</h3>
+
+<p>如果你阅读这个教程有障碍，可以通过GitHub项目成员找到开发者的邮件地址联系他们。</p>
+
+
+
+<pre class="prettyprint"><code class=" hljs ruby"><span class="hljs-symbol">https:</span>/<span class="hljs-regexp">/github.com/orgs</span><span class="hljs-regexp">/rabbitmq/people</span></code></pre><link rel="stylesheet" href="http://static.blog.csdn.net/public/res-min/markdown_views.css?v=1.0"/></div><link rel="stylesheet" href="http://static.blog.csdn.net/public/res-min/markdown_views.css?v=1.0"/>&#13;
+            

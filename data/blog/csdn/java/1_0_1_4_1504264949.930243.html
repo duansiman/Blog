@@ -1,0 +1,357 @@
+
+
+<h3>职责链模式</h3>&#13;
+<p>使多个对象都有机会处理请求，从而避免请求的发送者和接收者之间的耦合关系 </p>&#13;
+<p> </p><pre code_snippet_id="154041" snippet_file_name="blog_20140113_1_3594034" name="code" class="java">package com.ruishenh.designPatter.action.chainOfResp;
+ 
+import java.util.LinkedList;
+ 
+public class ChainOfRespClient {
+   public static void main(String[] args) {
+      GroupLeader gl=new GroupLeader();
+      Manager mgr=new Manager();
+      CTO cto=new CTO();
+      gl.setNextLead(mgr);
+      mgr.setNextLead(cto);
+      Request request = null;
+      Response response;
+      LinkedList&lt;Response&gt; ress;
+     
+      //按照模式来走只能一个处理对象来处理
+      request=new Request(1, "小明", "领老婆去医院");
+      response=gl.approve(request);
+      System.out.println(response);
+      //按照模式来走只能一个处理对象来处理
+      request=new Request(10, "小明", "请婚假");
+      response=gl.approve(request);
+      System.out.println(response);
+     
+     
+      //一般现实业务正常流程所有领导都要签
+     
+      ress=gl.linkedListApprove(request,null);
+      for (Response response2 : ress) {
+         System.out.println(response2);
+      }
+     
+   }
+}
+ 
+class Request{
+   public Request(int leaveDay, String name, String reason) {
+      super();
+      this.leaveDay = leaveDay;
+      this.name = name;
+      this.reason = reason;
+   }
+   int leaveDay;
+   String name;
+   String reason;
+}
+class Response{
+   public Response(boolean approved, String remark,String approveName) {
+      super();
+      this.approved = approved;
+      this.remark = remark;
+      this.approveName=approveName;
+   }
+   boolean approved;
+   String approveName;
+   String remark;
+   @Override
+   public String toString() {
+      return "申请通过:"+approved+",备注:"+this.remark+",批准人:"+approveName;
+   }
+}
+abstract class Position{
+  
+   private Position nextLead;
+  
+   Response approve(Request request){
+       Response response = null; 
+        
+           if(canHandler(request)){ 
+               response = this.handler(request); 
+           }else{ 
+             response=  this.nextLead.approve(request); 
+           } 
+           return response; 
+   }
+  
+   LinkedList&lt;Response&gt; linkedListApprove(Request request, LinkedList&lt;Response&gt; responses){
+      if (responses==null) {
+         responses =new LinkedList&lt;Response&gt;();
+      }
+        responses=this.handler(request,responses); 
+        return  nextLead==null?responses:this.nextLead.linkedListApprove(request,responses); 
+   }
+   abstract boolean canHandler(Request request);
+   abstract Response handler(Request request);
+   abstract LinkedList&lt;Response&gt; handler(Request request,LinkedList&lt;Response&gt; response);
+ 
+   public void setNextLead(Position nextLead) {
+      this.nextLead = nextLead;
+   }
+  
+}
+class GroupLeader extends Position {
+ 
+   @Override
+   boolean canHandler(Request request) {
+      if (request.leaveDay&lt;=1) {
+         return true;
+      }
+      return false;
+   }
+ 
+   @Override
+   Response handler(Request request) {
+      return new Response(true,"通过","主管");
+   }
+ 
+   @Override
+   LinkedList&lt;Response&gt; handler(Request request, LinkedList&lt;Response&gt; response) {
+      response.add(new Response(true,"通过","主管"));
+      return response;
+   }
+}
+class Manager  extends Position{
+ 
+   @Override
+   boolean canHandler(Request request) {
+      if (request.leaveDay&lt;=5) {
+         return true;
+      }
+      return false;
+   }
+ 
+   @Override
+   Response handler(Request request) {
+      return new Response(true,"通过","经理");
+   }
+ 
+   @Override
+   LinkedList&lt;Response&gt; handler(Request request, LinkedList&lt;Response&gt; response) {
+      response.add(new Response(true,"通过","经理"));
+      return response;
+   }
+}
+class CTO extends Position{
+   @Override
+   boolean canHandler(Request request) {
+      return true;
+   }
+ 
+   @Override
+   Response handler(Request request) {
+      return new Response(true,"通过","总监");
+   }
+ 
+   @Override
+   LinkedList&lt;Response&gt; handler(Request request, LinkedList&lt;Response&gt; response) {
+      response.add(new Response(true,"通过","总监"));
+      return response;
+   }
+}</pre><br />&#13;
+&#13;
+<br clear="all" />&#13;
+<p align="left"> </p>&#13;
+<p><span style="font-size:12px"><br />&#13;
+职责链模式核心任务就是把所有的有可能处理这个请求的接受者连接在一起,当发起请求处理后,会沿着这个链总有一个对象会处理,处理完毕后,直接返回.可能是上边例子取的不恰当,所以衍生了链表处理的请求.</span> </p>&#13;
+<p> </p>&#13;
+<h3>中介者模式</h3>&#13;
+<p> 又叫调停者模式   用一个中介者对象封装一系列的对象交互，中介者使各对象不需要显示地相互作用，从而使耦合松散，而且可以独立地改变它们之间的交互</p>&#13;
+<p></p><pre code_snippet_id="154041" snippet_file_name="blog_20140113_2_9417339" name="code" class="java">package com.ruishenh.designPatter.action.mediator;
+ 
+public class MediatorClient {
+public static void main(String[] args) {
+   Seller seller=new Seller();
+   Buyer buyer =new Buyer();
+   HouseMediator am =new HouseMediator(seller,buyer);
+   seller.sellHouse(am);
+   buyer.buyHouse(am);
+}
+}
+abstract class Mediator{
+   //注册房源
+   abstract void registerHouse(String msg);
+   //用户买房
+   abstract void  buyHouse(String name);
+}
+class HouseMediator extends Mediator{
+   Seller seller;
+   Buyer buyer;
+   public HouseMediator(Seller seller, Buyer buyer) {
+      super();
+      this.seller = seller;
+      this.buyer = buyer;
+   }
+ 
+   @Override
+   void registerHouse(String msg) {
+      System.out.println(msg);
+      buyer.seeMsg(msg);
+   }
+ 
+   @Override
+   void buyHouse(String name) {
+      System.out.println(name+"相中了刘先生的房子,要买.");
+      seller.inform(name);
+   }
+  
+}
+class  Seller{
+   void sellHouse(HouseMediator mediator){
+      mediator.registerHouse("我要往外卖一座2室一厅的90平米的房子,联系人:刘德华");
+   }
+   void inform(String name){
+      System.out.println("刘先生,"+name+"要买您的房子.");
+   }
+}
+class Buyer{
+   void buyHouse(HouseMediator mediator) {
+      mediator.buyHouse("小明");
+   }
+   void  seeMsg(String msg){
+      System.out.println("我看到了一则消息:"+msg);
+   }
+}</pre><br />&#13;
+<br />&#13;
+&#13;
+<p> </p>&#13;
+<p>中介者模式因为他会增加一个中介者对象,这个对象会帮助两个或者多个交互对象之间的复杂关系简化操作,这样避免了,可能会很混乱的操作,而这一切都被中介者给封装成了一个对一个的操作方式.</p>&#13;
+<p> </p>&#13;
+<p> </p>&#13;
+<h3>访问者模式</h3>&#13;
+<p>         表示一个作用于某对象结构中的各元素的操作，它使你可以在不改变各元素类的前提下定义作用于这个元素的新操作。</p>&#13;
+<p><span style="font-size:12px"></span></p><pre code_snippet_id="154041" snippet_file_name="blog_20140113_3_7607195" name="code" class="java">package com.ruishenh.designPatter.action.visitor;
+ 
+ 
+public class VisitorClient {
+   static public void main(String[] args) {
+      RobotStructure structure =new RobotStructure();
+      structure.view(new PrintVisitor());
+   }
+}
+//抽象访问者
+abstract class Visitor {
+   abstract void visit(Head element);
+   abstract void visit(Arms element);
+   abstract void visit(Body element);
+   abstract void visit(Legs element);
+}
+//具体访问者
+class PrintVisitor extends Visitor {
+ 
+   @Override
+   void visit(Head element) {
+      System.out.println("我有一双"+element.getEyes());
+   }
+   @Override
+   void visit(Arms element) {
+      System.out.println("我有一双"+element.getHand());
+   }
+ 
+   @Override
+   void visit(Body element) {
+      System.out.println("我有一个"+element.getBelly());
+   }
+ 
+   @Override
+   void visit(Legs element) {
+      System.out.println("我有一双"+element.getFoot());
+   }
+}
+abstract class Robot {
+   abstract void accept(Visitor visitor);
+}
+class Head extends Robot {
+   public Head(String eyes) {
+      super();
+      this.eyes = eyes;
+   }
+   String eyes;
+   public String getEyes() {
+      return eyes;
+   }
+   public void setEyes(String eyes) {
+      this.eyes = eyes;
+   }
+   @Override
+   void accept(Visitor visitor) {
+      visitor.visit(this);
+   }
+}
+class Arms extends Robot {
+  
+   public Arms(String hand) {
+      super();
+      this.hand = hand;
+   }
+   String hand;
+   public String getHand() {
+      return hand;
+   }
+   public void setHand(String hand) {
+      this.hand = hand;
+   }
+   @Override
+   void accept(Visitor visitor) {
+      visitor.visit(this);
+   }
+}
+class Body extends Robot {
+  
+   public Body(String belly) {
+      super();
+      this.belly = belly;
+   }
+   String belly;
+   public String getBelly() {
+      return belly;
+   }
+   public void setBelly(String belly) {
+      this.belly = belly;
+   }
+   @Override
+   void accept(Visitor visitor) {
+      visitor.visit(this);
+   }
+}
+class Legs extends Robot {
+   public Legs(String foot) {
+      super();
+      this.foot = foot;
+   }
+   String foot;
+   public String getFoot() {
+      return foot;
+   }
+   public void setFoot(String foot) {
+      this.foot = foot;
+   }
+   @Override
+   void accept(Visitor visitor) {
+      visitor.visit(this);
+   }
+}
+//对象结构
+class RobotStructure{
+    private Head  head = new Head("明亮的双眼");
+    private Arms  arms = new Arms("大大的双手");
+    private Body  body   = new Body("圆圆的肚皮");
+    private Legs  legs = new Legs("粗壮的双腿");
+     void view(Visitor visitor) {
+       head.accept(visitor);
+       arms.accept(visitor);
+       body.accept(visitor);
+       legs.accept(visitor);
+       System.out.println("我组成了超级机器人");
+     }
+}</pre><br />&#13;
+<br />&#13;
+<br />&#13;
+&#13;
+<p>访问者模式代码有点长，但是为了更好的阐述设计模式的定义 </p>&#13;
+<p>访问者模式需要在数据结构中注入进去一个访问者对象。通过回调，在具体的访问者中去实现相对应的业务逻辑操作。实现了数据结构和作用于结构上的操作之间的解耦合</p>&#13;
+   &#13;

@@ -1,0 +1,54 @@
+
+
+<p><span style="font-size:18px">        当我们面对一个数据表，且表结构为：</span></p>&#13;
+<p></p>&#13;
+<pre code_snippet_id="1720753" snippet_file_name="blog_20160618_1_5329270" name="code" class="java">&lt;span style="font-size:18px;"&gt;create table R_ExtSubFina_Month
+(
+        rptdate date not null,
+        rptname varchar2(10) not null,
+        rptNum varchar2(10) not null,
+        SaleMoney number(18,3),
+        proMoney number(18,3),
+	,Status varchar2(2) 
+);&lt;/span&gt;</pre><span style="font-size:18px">      现在表中已经存在的数据如下（PS：这里的报送编码需要从别的表中获取）：</span>&#13;
+<p></p>&#13;
+<p><span style="font-size:18px">          <img src="http://img.blog.csdn.net/20151126225410150?watermark/2/text/aHR0cDovL2Jsb2cuY3Nkbi5uZXQv/font/5a6L5L2T/fontsize/400/fill/I0JBQkFCMA==/dissolve/70/gravity/Center" alt="" /></span></p>&#13;
+<p><span style="font-size:18px">           但是我们需要从当前表中统计出今年的本月，去年的本月和今年上个月的销售额和定金的数据，那么我们的sql语句应该怎么写？？</span></p>&#13;
+<p><strong><span style="font-size:24px; color:#3333ff">方案一：union </span></strong></p>&#13;
+<p><span style="font-size:18px">     我们都知道union是对表格进行联合查询的，当我们需要对两个表的数据进行查询我们可以使用，但是要遵守：</span></p>&#13;
+<p><span style="font-size:18px">     1.要求我们获取两个表的字段个数和字段数据类型是要完全一致的；</span></p>&#13;
+<p><span style="font-size:18px">     2.如果数据类型一致，但是个数不一致，我们可以对某个表中设计空字段，比如需要查询A表中的两个字段，需要B表中的1个字段，那么我们就要将语句这样写：</span></p>&#13;
+<p><span style="font-size:18px">         select * from A </span></p>&#13;
+<p><span style="font-size:18px">            <span style="color:#ff0000"> union </span></span></p>&#13;
+<p><span style="font-size:18px">        select a, '  ' from B </span></p>&#13;
+<p><span style="font-size:18px">         此处的  ‘  ’ 就保证了A 和B表的字段数量一致；</span></p>&#13;
+<p><span style="font-size:18px">         但是我们的sql语句不单单是为了查询结果，对结果进行显示和分析，更重要的是性能；所以union不能入围我们的选择方案（具体原因稍后在方案2中讲解）</span></p>&#13;
+<p><strong><span style="font-size:24px; color:#3333ff">方案二：union all</span></strong></p>&#13;
+<p><span style="font-size:18px">      使用union 需要将两个表的字段数量和字段的数据类型都一致，为了避免这种问题，我们使用union all，这样我们可以直接将上面的语句修改为：</span></p>&#13;
+<p><span style="font-size:18px">      　　　select * from A  <span style="color:#ff0000">union all</span>(select * from B)；</span></p>&#13;
+<p><span style="font-size:18px">　　虽然可以解决这个查询的问题，但是显示的结果中需要三个不同日期的结果，而这三个日期需要我们手动进行加减计算，然后再同一个表的同一个字段中取不同的值，那么问题来了，当我们使用union all  我们需要以每一个日期作为条件对表进行查询，这样就对表进行了至少三次的扫描，所以我们需要担心这样的语句带来的性能问题；</span></p>&#13;
+<p><span style="font-size:18px">      那么相比方案一我们有没有一些进步呢？答案是有的；</span></p>&#13;
+<p><span style="font-size:18px">     <span style="font-family:KaiTi_GB2312">   Union：对两个结果集进行并集操作，不包括重复行，同时进行默认规则的排序； </span></span></p>&#13;
+<p><span style="font-family:KaiTi_GB2312; font-size:18px">      Union All：对两个结果集进行并集操作，包括重复行，不进行排序；</span></p>&#13;
+<p><span style="font-family:KaiTi_GB2312; font-size:18px">      <span style="color:#ff0000">Union因为要进行重复值扫描，所以效率低。</span>如果合并没有刻意要删除重复行，那么就使用Union All</span></p>&#13;
+<p><span style="font-size:24px; color:#3333ff"><strong>方案三：decode转码求和</strong></span></p>&#13;
+<p><span style="font-size:18px">      原理：我们将每一个日期作为条件一次性将所有的数据都查询出来，这样我们会查询出来三条数据，详细如下：</span></p>&#13;
+<p><span style="font-size:18px">     <img src="http://img.blog.csdn.net/20151126225438737?watermark/2/text/aHR0cDovL2Jsb2cuY3Nkbi5uZXQv/font/5a6L5L2T/fontsize/400/fill/I0JBQkFCMA==/dissolve/70/gravity/Center" alt="" /><br />&#13;
+</span></p>&#13;
+<p><span style="font-size:18px">     我们可以发现红色框内的数据有为0的数据，这样我们想要的数据已经呈现出来，但是我们如何把三条数据合成一条（不含0）呢？？</span></p>&#13;
+<p><span style="font-size:18px">     <span style="color:#ff0000"><u>思路： 行专列--&gt;decode--&gt;求和</u></span></span></p>&#13;
+<p><span style="font-size:18px">     我们将上面的数据看成一个矩阵，矩阵行专列之后结果是不变的，所以上图中的数据就会变成下图中的数据：</span></p>&#13;
+<p><span style="font-size:18px">                                 <img src="http://img.blog.csdn.net/20151126225805772?watermark/2/text/aHR0cDovL2Jsb2cuY3Nkbi5uZXQv/font/5a6L5L2T/fontsize/400/fill/I0JBQkFCMA==/dissolve/70/gravity/Center" width="400" height="200" alt="" /></span></p>&#13;
+<p><span style="font-size:18px">      这样我们可以对每一列求和，然后和刚才的三个日期进行合并，这样三条数据就会被我们合成一条；</span></p>&#13;
+<p><span style="font-size:18px">      实现代码如下：</span></p>&#13;
+<p><span style="font-size:18px">    <span style="color:#3366ff">  PS：参数设置：l_year :当前的年月 ； l_curLastMonth :今年的上个月；  l_lastYear :去年的这个月</span></span></p>&#13;
+<p></p>&#13;
+<pre code_snippet_id="1720753" snippet_file_name="blog_20160618_2_759702" name="code" class="html">&lt;span style="font-size:18px;"&gt;select   l_year  year, l_curLastMonth lmon,l_lastYear lymon,
+               decode(A.rptdate,l_year,A.saleMoney ,0)  AS ,
+               decode(A.rptdate, l_curLastMonth,A.saleMoney ,0)  ASS,
+               decode(A.rptdate,l_lastYear,A.saleMoney ,0)  ASSS
+ from A &lt;/span&gt;</pre><span style="font-size:18px">        到这里我们已经得到我们想要的数据，还挺简单的吧，以上只是一点小积累，有不对的地方欢迎大家指点。Oracle的sql语句正在进一步的总结，如果有什么好的建议或者意见请大家留言！！</span>&#13;
+<p></p>&#13;
+<p><span style="font-size:18px">  <img src="http://img.blog.csdn.net/20151126230924393?watermark/2/text/aHR0cDovL2Jsb2cuY3Nkbi5uZXQv/font/5a6L5L2T/fontsize/400/fill/I0JBQkFCMA==/dissolve/70/gravity/Center" alt="" /></span></p>&#13;
+<p><span style="font-size:18px">    </span></p>&#13;
+   &#13;

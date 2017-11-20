@@ -1,0 +1,716 @@
+
+
+<p>      这里讲的仅仅是一个简单的server的模型！为了处理同时来到很多小的链接请求( 解释：就是请求很简单，持续时间很短，那么if  server在请求到来时在fork来处理它，有可能fork的时间比应答请求的还要少，那么就是不合理的服务设计 )，所以我们采用的是“prefork”和“prethread”模型！</p>&#13;
+<p><br />&#13;
+</p>&#13;
+<p>      Unix 网络编程 上的4个模型是：prefork：主进程accept<br />&#13;
+</p>&#13;
+<p>                                                                                子进程accept</p>&#13;
+<p>                                                                prethread：</p>&#13;
+<p>                                                                                 主线程accept</p>&#13;
+<p>                                                                                 子线程accept   ( 姑且使用主线程和子线程来描述 )<br />&#13;
+</p>&#13;
+<p><br />&#13;
+</p>&#13;
+<p>       第一部分是：使用“预先生成进程”处理</p>&#13;
+<p><br />&#13;
+</p>&#13;
+<p>       CODE_1 : server是：主进程accept，那么这是4种方法中最复杂的，因为要涉及到进程间传递socket描述符的问题！( 进程间传递描述符在上一篇bolg中有过 ！)，server采用轮询的方式将socket传递给子进程！<br />&#13;
+</p>&#13;
+<p>       话不多说，贴上代码：</p>&#13;
+<p><span style="font-size:18px"><strong> Server：</strong></span></p>&#13;
+<p><br />&#13;
+</p><pre name="code" class="cpp">/*
+	基本思路：
+	server预先创建几个子进程，他们都在各自与server独立链接的pipe socket等待数据，
+	server调用accept，然后遍历子进程，将connfd通过pipe给字进程处理！
+	一旦子进程结束就返回任意内容告知已经处理结束！那么server将其状态位置为闲置！！！
+	注意：这里应该使用select或者epoll，因为server接受的不仅仅是listen的msg，还有child
+	处理完成返回的标志信息！  
+*/
+
+#include &lt;stdio.h&gt;
+#include &lt;unistd.h&gt;
+#include &lt;stdlib.h&gt;
+#include &lt;string.h&gt;
+#include &lt;sys/select.h&gt;
+#include &lt;sys/types.h&gt;
+#include &lt;errno.h&gt;
+#include &lt;sys/socket.h&gt;
+#include &lt;netinet/in.h&gt;
+#include &lt;sys/epoll.h&gt;
+#include &lt;fcntl.h&gt;
+
+#define	PORT			6000
+#define	MAXBACK	100
+#define	MAXLINE		1024
+#define	CHILD_NUM	10
+
+typedef struct child_process
+{
+	pid_t		s_pid;			//!&gt; 子进程的pid
+	int		s_pipe_fd;		//!&gt; 与子进程通信的pipe口
+	int		s_status;		//!&gt; 子进程的状态！0：闲 1：忙
+}child_process;
+
+child_process  child[CHILD_NUM];	//!&gt; 定义10个子进程( 此处以10个为例 )
+
+static	int	n_child_use = 0;        //!&gt; 几个child在工作( if 全忙就不给他们 )
+
+
+//!&gt; 发送socket描述符( 这个代码在上一篇博文上有 )
+//!&gt;
+int send_fd( int fd_send_to, void * data, size_t len, int sock_fd )
+{
+	struct msghdr 	msghdr_send;		//!&gt; the info struct
+	struct iovec		iov[1];		//!&gt; io vector
+	size_t				n;      //!&gt;
+	
+	union
+	{
+		struct cmsghdr	cm;		//!&gt; control msg
+		char 	ctl[CMSG_SPACE(sizeof( int ))];	//!&gt; the pointer of char
+	}ctl_un;
+	
+	struct cmsghdr * pCmsghdr = NULL;	//!&gt; the pointer of control
+	
+	msghdr_send.msg_control = ctl_un.ctl;	
+	msghdr_send.msg_controllen = sizeof( ctl_un.ctl );
+	
+	//!&gt; design : the first info
+	pCmsghdr = CMSG_FIRSTHDR( &amp;msghdr_send );       //!&gt; the info of head
+	pCmsghdr-&gt;cmsg_len = CMSG_LEN(sizeof(int));     //!&gt; the msg len
+	pCmsghdr-&gt;cmsg_level = SOL_SOCKET; 		//!&gt; -&gt; stream mode           	
+	pCmsghdr-&gt;cmsg_type = SCM_RIGHTS;  		//!&gt; -&gt; file descriptor
+	*((int *)CMSG_DATA( pCmsghdr )) = sock_fd;	//!&gt; data: the file fd 
+	
+	//!&gt; these infos are nosignification
+	msghdr_send.msg_name = NULL;			//!&gt; the name	
+	msghdr_send.msg_namelen = 0;			//!&gt; len of name
+	
+	iov[0].iov_base = data;				//!&gt; no data here
+	iov[0].iov_len = len;				//!&gt; the len of data
+	
+	msghdr_send.msg_iov = iov;			//!&gt; the io/vector info
+	msghdr_send.msg_iovlen = 1;			//!&gt; the num of iov
+	
+	return ( sendmsg( fd_send_to, &amp;msghdr_send, 0 ) );	//!&gt; send msg now
+}
+
+//!&gt; 接收socket描述符
+//!&gt; 
+int recv_sock_fd( int fd, void * data, size_t len, int * recv_fd )
+{
+	struct msghdr 	msghdr_recv;		//!&gt; the info struct
+	struct iovec		iov[1];		//!&gt; io vector
+	size_t				n;	//!&gt;
+	
+	union
+	{
+		struct cmsghdr	cm;		//!&gt; control msg
+		char 	ctl[CMSG_SPACE(sizeof( int ))];	//!&gt; the pointer of char
+	}ctl_un;
+	
+	struct cmsghdr * pCmsghdr = NULL;       //!&gt; the pointer of control
+	
+	msghdr_recv.msg_control = ctl_un.ctl;	
+	msghdr_recv.msg_controllen = sizeof( ctl_un.ctl );
+	
+	//!&gt; these infos are nosignification
+	msghdr_recv.msg_name = NULL;		//!&gt; the name	
+	msghdr_recv.msg_namelen = 0;		//!&gt; len of name
+	
+	iov[0].iov_base = data;			//!&gt; no data here
+	iov[0].iov_len = len;			//!&gt; the len of data
+	
+	msghdr_recv.msg_iov = iov;		//!&gt; the io/vector info
+	msghdr_recv.msg_iovlen = 1;		//!&gt; the num of iov
+	
+	if( ( n = recvmsg( fd, &amp;msghdr_recv, 0 ) ) &lt; 0 )	//!&gt; recv msg
+	{						//!&gt; the msg is recv by msghdr_recv
+		printf("recv error : %d\n", errno);
+		exit(EXIT_FAILURE);
+	}
+	
+	//!&gt; now, we not use 'for' just because only one test_data_ 
+	if(     ( pCmsghdr = CMSG_FIRSTHDR( &amp;msghdr_recv ) ) != NULL 	//!&gt; now we need only one,
+	  &amp;&amp; pCmsghdr-&gt;cmsg_len == CMSG_LEN( sizeof( int ) )		//!&gt; we should use 'for' when 
+	 )																				//!&gt; there are many fds
+	 {
+	 	if( pCmsghdr-&gt;cmsg_level != SOL_SOCKET )
+	 	{
+	 		printf("Ctl level should be SOL_SOCKET :%d \n", errno);
+	 		exit(EXIT_FAILURE);
+	 	}
+	 	
+	 	if( pCmsghdr-&gt;cmsg_type != SCM_RIGHTS )
+	 	{
+	 		printf("Ctl type should be SCM_RIGHTS : %d\n", errno);
+	 		exit(EXIT_FAILURE);
+	 	}
+	 	
+	 	*recv_fd =*((int*)CMSG_DATA(pCmsghdr));	//!&gt; get the data : the file des* 
+	 }
+	 else
+	 {
+	 	*recv_fd = -1;
+	 }
+	 
+	 return n;	
+}
+
+
+//!&gt; 子进程具体的执行过程
+//!&gt;
+void web_child( int con_fd )
+{
+	char 		buf[MAXLINE];
+	int			n_read;
+	int			i = 0;
+	
+	while( strcmp( buf, "Q" ) != 0 &amp;&amp; strcmp( buf, "q" ) != 0  )
+	{
+		memset( buf, 0, sizeof( buf ) );
+		
+		if( ( n_read = read( conn_fd, buf, MAXLINE ) ) &lt; 0 )
+		{
+			printf( "Read errnr! :%d \n", errno );
+			exit( EXIT_FAILURE );
+		}
+		else if( n_read == 0 )
+		{
+			continue;
+		}
+		else
+		{
+			while( buf[i] )
+			{
+				buf[i] = toupper( buf[i] );
+				i++;
+			}
+			buf[i] = '\0';
+				
+			printf("Child %d done! \n", ( unsigned int )pthread_self());
+			printf("Child %d send %s\n", ( unsigned int )pthread_self(), buf);
+			write( conn_fd, buf, strlen( buf ) );			//!&gt; 写回给client
+		}
+	}
+	
+	printf("Child %d : Dating end!\n", ( unsigned int )pthread_self());
+		
+}
+
+
+//!&gt; child process 的主函数 
+//!&gt;
+void child_main( int i )
+{
+	char 	data;		//!&gt; 由于此处我们主要是传递socket，那么data一般就给一个” “做一个标志就好
+	int		con_fd;	//!&gt; 接受con_fd
+	int		n_read;	//!&gt; 读取长度
+	
+	printf( "Child %d starting ... \n", i );
+	
+	while( 1 )
+	{
+		if( ( n_read = recv_sock_fd( STDERR_FILENO, &amp;data, 1, &amp;con_fd ) ) == 0 ) 
+		{
+			continue;			//!&gt; 此处理论上应该是阻塞，但是简化为轮询
+			//printf( " Child process %d read errnr! : %d\n", i, errno );
+			//exit( EXIT_FAILURE );
+		}
+		
+		if( con_fd &lt; 0 )
+		{
+			printf("Child %d read connfd errnr! : %d\n", i, errno);
+			exit( EXIT_FAILURE );
+		}
+		
+		web_child( con_fd );				//!&gt; child具体的执行过程
+		
+		write( STDERR_FILENO, " ", 1 );	//!&gt; 随便写点什么让server知道我处理完成了，那么就可以将状态位置为0了
+	}
+}
+
+//!&gt; 产生子进程及相关处理
+//!&gt; 
+void child_make( int i, int listen_fd )
+{
+	int		sock_fd[2];		//!&gt; 为了和主进程通信创建socket pair
+	pid_t	pid;
+	
+	//!&gt; 创建 socketpair
+	if( socketpair( AF_LOCAL, SOCK_STREAM, 0, sock_fd ) == -1 )
+	{
+		printf( "create socketpair error : %d\n", errno );
+		exit( EXIT_FAILURE );
+	}
+	
+	if( ( pid = fork() ) &gt; 0 )		//!&gt; 父进程
+	{
+		close( sock_fd[1] );
+		child[i].s_pid = pid;
+		child[i].s_pipe_fd = sock_fd[0];
+		child[i].s_status = 0;
+		return;
+	}
+	
+	if( dup2( sock_fd[0], STDERR_FILENO ) == -1 )	//!&gt; 现在可以使用STDERR_FILENO替换刚刚创建的sock描述符
+	{						//!&gt; 往后的child的操作就可以STDERR_FILENO中进行！
+		printf("socket pair errnr! : %d\n", errno);
+		exit( EXIT_FAILURE );
+	}
+	
+	close( sock_fd[0] );		//!&gt; 这些描述符都bu需要了!
+	close( sock_fd[1] );
+	close( listen_fd );
+	
+	child_main( i );			//!&gt; child 主循环
+}
+
+//!&gt; MAIN PROCESS
+//!&gt;
+int main( int argc, char ** argv )
+{
+	int		i;
+	int 		listen_fd;
+	int 		conn_fd;
+	int		max_fd;
+	int		n_select;
+	int		n_read;
+	char	buf[5];
+	fd_set	all_set, now_set;
+	struct sockaddr_in servaddr;
+	struct sockaddr_in cliaddr;
+	int		len = sizeof( struct sockaddr_in );
+	
+	//!&gt; server 套接口
+	//!&gt; 
+	bzero( &amp;servaddr, sizeof( servaddr ) );
+	servaddr.sin_family = AF_INET;
+	servaddr.sin_addr.s_addr = htonl( INADDR_ANY );
+	servaddr.sin_port = htons( PORT );
+	
+	//!&gt; 建立套接字
+	if( ( listen_fd = socket( AF_INET, SOCK_STREAM, 0 ) ) == -1 )
+	{
+		printf("Socket Error...\n" , errno );
+		exit( EXIT_FAILURE );
+	}
+	
+	//!&gt; 绑定
+	//!&gt;
+	if( bind( listen_fd, ( struct sockaddr *)&amp;servaddr, sizeof( servaddr ) ) == -1 )
+	{
+		printf("Bind Error : %d\n", errno);
+		exit( EXIT_FAILURE );
+	}
+	
+	//!&gt; 监听
+	//!&gt; 
+	if( listen( listen_fd, MAXBACK ) == -1 )
+	{
+		printf("Listen Error : %d\n", errno);
+		exit( EXIT_FAILURE );
+	}
+	
+	FD_ZERO( &amp;all_set );
+	FD_SET( listen_fd, &amp;all_set );			//!&gt; 将listenfd加入select
+	max_fd = listen_fd;
+	
+	for( i = 0; i &lt; CHILD_NUM; i++ )
+	{
+		child_make( i, listen_fd );
+		FD_SET( child[i].s_pipe_fd, &amp;all_set );	//!&gt; 将子进程socket加入
+		max_fd = max_fd &gt; child[i].s_pipe_fd ? max_fd : child[i].s_pipe_fd;
+	}
+	
+	while( 1 )					//!&gt; 主进程循环
+	{
+		now_set = all_set;
+		if( n_child_use &gt;= CHILD_NUM )	//!&gt; 没有可以使用的child 了
+		{				//!&gt; 那么就将listenfd从中清空，也就是不在响应listen了，直到有child空闲
+			FD_CLR( listen_fd, &amp;now_set );
+		}
+		
+		if( (n_select = select( max_fd + 1, &amp;now_set, NULL, NULL, NULL )) == -1)
+		{
+			printf(" Main process select errnr~ :%d\n", errno);
+			exit( EXIT_FAILURE );
+		}
+		
+		if( FD_ISSET( listen_fd, &amp;now_set ) )			//!&gt; if来了请求
+		{
+			if( ( conn_fd = accept( listen_fd, ( struct sockaddr *)&amp;cliaddr , &amp;len ) ) == -1 )
+			{
+				printf("Server accept errnr! : %d\n", errno);
+				exit( EXIT_FAILURE );
+			}
+			
+			for( i = 0; i &lt; CHILD_NUM; i++ )
+			{
+				if( child[i].s_status == 0 )		//!&gt; 此child闲置
+				{
+					break;
+				}
+			}
+			
+			if( i == CHILD_NUM )		//!&gt; 说明child已经全部处于忙态
+			{
+				printf("All childs are busy! \n");
+				exit( EXIT_FAILURE );		//!&gt; 此处可以等待哦，或者丢弃数据
+			}
+			
+			child[i].s_status = 1;			//!&gt; busy
+			n_child_use++;				//!&gt; busy child ++
+			
+			send_fd( child[i].s_pipe_fd, " ", 1, conn_fd );	//!&gt; 发送socket描述符
+			close( conn_fd );				//!&gt; server不需要处理了
+			
+			if( --n_select == 0 )			//!&gt; 没有其他的请求了
+			{
+				continue;
+			}
+		}
+		
+		for( i = 0; i &lt; CHILD_NUM;  i++ )		//!&gt; 看看那些child发来了msg，其实server知道肯定是child完成处理的提示标志
+		{
+			if( FD_ISSET( child[i].s_pipe_fd, &amp;now_set ) )
+			{
+				if( ( n_read = read( child[i].s_pipe_fd, buf, 5 ) ) == 0 )	//!&gt; 这里的buf中data没有用，仅仅是child告诉server我完成了
+				{
+					printf("Child %d exit error! : %d\n", i,  errno);
+					exit( EXIT_FAILURE );
+				}
+				
+				child[i].s_status = 0;		//!&gt; 状态位置闲
+				
+				if( --n_select == 0 )		//!&gt; if没有其他child回送消息就不要浪费时间for了
+				{
+					break;
+				}
+			}
+		}  
+		
+	}
+	
+	return 0;
+}
+
+
+</pre>&#13;
+<p><span style="font-size:18px"><strong>Client：</strong></span></p>&#13;
+<p></p><pre name="code" class="cpp">#include &lt;stdio.h&gt;
+#include &lt;unistd.h&gt;
+#include &lt;stdlib.h&gt;
+#include &lt;string.h&gt;
+#include &lt;errno.h&gt;
+#include &lt;netinet/in.h&gt;
+#include &lt;sys/types.h&gt;
+#include &lt;sys/socket.h&gt;
+#include  &lt;arpa/inet.h&gt;
+#include &lt;sys/select.h&gt;
+
+#define MAXLINE 1024
+#define SERV_PORT 6000
+
+//!&gt; 注意输入是由stdin，接受是由server发送过来
+//!&gt; 所以在client端也是需要select进行处理的
+void send_and_recv( int connfd )
+{
+	FILE * fp = stdin;
+	int   lens;
+	char send[MAXLINE];
+	char recv[MAXLINE];
+	fd_set rset;
+	FD_ZERO( &amp;rset );
+	int maxfd = ( fileno( fp ) &gt; connfd ? fileno( fp ) : connfd  + 1 );	
+								//!&gt; 输入和输出的最大值
+	int n;
+	
+	while( 1 )
+	{
+		FD_SET( fileno( fp ), &amp;rset );
+		FD_SET( connfd, &amp;rset );			//!&gt; 注意不要把rset看作是简单的一个变量
+								//!&gt; 注意它其实是可以包含一组套接字的哦，
+								//!&gt; 相当于是封装的数组！每次都要是新的哦！
+		
+		if( select( maxfd, &amp;rset, NULL, NULL, NULL ) == -1 )
+		{
+			printf("Client Select Error..\n");
+			exit(EXIT_FAILURE  );
+		}
+		
+		//!&gt; if 连接口有信息
+		if( FD_ISSET( connfd, &amp;rset ) )	//!&gt; if 连接端口有信息
+		{
+			printf( "client get from server ...\n" );
+			memset( recv, 0, sizeof( recv ) );
+			n = read( connfd, recv, MAXLINE );
+			if( n == 0 )
+			{
+				printf("Recv ok...\n");
+				break;
+			}
+			else if( n == -1 )
+			{
+				printf("Recv error...\n");
+				break;
+			}
+			else
+			{
+				lens = strlen( recv );
+				recv[lens] = '\0';
+				//!&gt; 写到stdout
+				write( STDOUT_FILENO, recv, MAXLINE );
+				printf("\n");
+			}
+		
+		}
+		
+		//!&gt; if 有stdin输入
+		if( FD_ISSET( fileno( fp ), &amp;rset ) )	//!&gt; if 有输入
+		{
+			//!&gt; printf("client stdin ...\n");
+			
+			memset( send, 0, sizeof( send ) );
+			if( fgets( send, MAXLINE, fp ) == NULL )
+			{
+				printf("End...\n");
+				exit( EXIT_FAILURE );
+			}
+			else
+			{
+				//!&gt;if( str )
+				lens = strlen( send );
+				send[lens-1] = '\0';		//!&gt; 减一的原因是不要回车字符
+								//!&gt; 经验值：这一步非常重要的哦！！！！！！！！
+				if( strcmp( send, "q" ) == 0 )
+				{
+					printf( "Bye..\n" );
+					return;
+				}
+				
+				printf("Client send : %s\n", send);
+				write( connfd, send, strlen( send ) );
+			}
+		}
+		
+	}
+	
+}
+
+int main( int argc, char ** argv )
+{
+	//!&gt; char * SERV_IP = "10.30.97.188";
+	char 	buf[MAXLINE];
+	int   	connfd;
+	struct sockaddr_in servaddr;
+	
+	if( argc != 2 )
+	{
+		printf("Input server ip !\n");
+		exit( EXIT_FAILURE );
+	}
+	
+	//!&gt; 建立套接字
+	if( ( connfd = socket( AF_INET, SOCK_STREAM, 0 ) ) == -1 )
+	{
+		printf("Socket Error...\n" , errno );
+		exit( EXIT_FAILURE );
+	}
+
+	//!&gt; 套接字信息
+	bzero(&amp;servaddr, sizeof(servaddr));
+    servaddr.sin_family = AF_INET;
+    servaddr.sin_port = htons(SERV_PORT);
+    inet_pton(AF_INET, argv[1], &amp;servaddr.sin_addr);
+	
+	//!&gt; 链接server
+	if( connect( connfd, ( struct sockaddr *  )&amp;servaddr, sizeof( servaddr ) ) &lt; 0 )
+	{
+		printf("Connect error..\n");
+		exit(EXIT_FAILURE);
+	}	
+	/*else
+	{
+		printf("Connet ok..\n");
+	}*/
+
+	//!&gt;
+	//!&gt; send and recv
+	send_and_recv( connfd );
+	
+	//!&gt; 
+
+	close( connfd );
+	printf("Exit\n");
+	
+	return 0;
+}</pre><br />&#13;
+&#13;
+<p><br />&#13;
+</p>&#13;
+<p>CODE_2 : server 是“子进程accept”，那么就是要比第一个简单一点，但是有一个新的问题就是，子进程要“抢”accept，那么必然存在一个“互斥”accept的问题，当然我么可以使用文件锁，但是效率比较低，而且在此处只是一个实验，所以姑且就使用“线程互斥量”，看起来有点不和谐，呵呵呵！～</p>&#13;
+<p><br />&#13;
+</p>&#13;
+<p><span style="font-size:18px"><strong>Server</strong></span>：</p>&#13;
+<p><br />&#13;
+</p>&#13;
+<p></p><pre name="code" class="cpp">/*
+	基本思路：
+	server预先创建几个子进程，由子进程进行互斥accept，
+	由于此处使用文件锁的效率会低一点，那么就使用互斥量
+	代替！
+	当然这是不协调的，这里只是简单处理！
+*/
+
+#include &lt;stdio.h&gt;
+#include &lt;unistd.h&gt;
+#include &lt;stdlib.h&gt;
+#include &lt;string.h&gt;
+#include &lt;pthread.h&gt;
+#include &lt;sys/select.h&gt;
+#include &lt;sys/types.h&gt;
+#include &lt;errno.h&gt;
+#include &lt;sys/socket.h&gt;
+#include &lt;netinet/in.h&gt;
+#include &lt;sys/epoll.h&gt;
+#include &lt;fcntl.h&gt;
+
+#define	PORT			6000
+#define	MAXBACK	100
+#define	MAXLINE		1024
+#define	CHILD_NUM	10
+
+pthread_mutex_t		g_mutex;		//!&gt; 互斥量
+pthread_mutexattr_t 	g_mattr ;		//!&gt; 属性
+
+//!&gt; 产生子进程及相关处理
+//!&gt; 
+void child_make( int i_num, int listen_fd )
+{
+	int 			i = 0;
+	pid_t		pid;
+	int			conn_fd;
+	int			n_read;
+	char		buf[MAXLINE];
+	struct sockaddr_in cliaddr;
+	int		len = sizeof( struct sockaddr_in );
+	
+	if( ( pid = fork() ) &gt; 0 )
+	{
+		return;
+	}
+	
+	while( 1 )
+	{
+		pthread_mutex_lock( &amp;g_mutex );		//!&gt; 加锁
+		
+		if( ( conn_fd = accept( listen_fd, ( struct sockaddr *)&amp;cliaddr , &amp;len ) ) == -1 )
+		{
+			printf("Accept errnr! :%d\n", errno);
+			exit( EXIT_FAILURE );
+		}
+		
+		pthread_mutex_unlock( &amp;g_mutex );	//!&gt; 解锁
+		
+		if( ( n_read = read( conn_fd, buf, MAXLINE ) ) &lt; 0 )
+		{
+			printf( "Read errnr! :%d \n", errno );
+			exit( EXIT_FAILURE );
+		}
+		else if( n_read == 0 )
+		{
+			continue;
+		}
+		else
+		{
+			while( buf[i] )
+			{
+				buf[i] = toupper( buf[i] );
+				i++;
+			}
+			
+			printf("Child %d done! \n", i_num);
+			printf("Child %d send %s\n", i_num, buf);
+			write( conn_fd, buf, strlen( buf ) );			//!&gt; 写回给client
+		}
+		
+	}
+}
+
+//!&gt; MAIN PROCESS
+//!&gt;
+int main( int argc, char ** argv )
+{
+	int		i;
+	int 		listen_fd;
+	int 		conn_fd;
+	int		n_read;
+	char	buf[5];
+	struct sockaddr_in servaddr;
+	
+	//!&gt;下面需要设置进程间共享此锁
+	//!&gt; 
+	pthread_mutexattr_init( &amp;g_mattr );
+	pthread_mutexattr_setpshared( &amp;g_mattr, PTHREAD_PROCESS_SHARED );
+	pthread_mutex_init( &amp;g_mutex, &amp;g_mattr );	//!&gt; 初始化
+	
+	//!&gt; server 套接口
+	//!&gt; 
+	bzero( &amp;servaddr, sizeof( servaddr ) );
+	servaddr.sin_family = AF_INET;
+	servaddr.sin_addr.s_addr = htonl( INADDR_ANY );
+	servaddr.sin_port = htons( PORT );
+	
+	//!&gt; 建立套接字
+	if( ( listen_fd = socket( AF_INET, SOCK_STREAM, 0 ) ) == -1 )
+	{
+		printf("Socket Error...\n" , errno );
+		exit( EXIT_FAILURE );
+	}
+	
+	//!&gt; 绑定
+	//!&gt;
+	if( bind( listen_fd, ( struct sockaddr *)&amp;servaddr, sizeof( servaddr ) ) == -1 )
+	{
+		printf("Bind Error : %d\n", errno);
+		exit( EXIT_FAILURE );
+	}
+	
+	//!&gt; 监听
+	//!&gt; 
+	if( listen( listen_fd, MAXBACK ) == -1 )
+	{
+		printf("Listen Error : %d\n", errno);
+		exit( EXIT_FAILURE );
+	}
+	
+	for( i = 0; i &lt; CHILD_NUM; i++ )
+	{
+		child_make( i, listen_fd );
+	}
+	
+	waitpid( 0 );				//!&gt; 等待所有子进程而已
+	
+	pthread_mutex_destroy( &amp;g_mutex );	//!&gt; 删除互斥灯
+	
+	return 0;
+}
+
+</pre>&#13;
+<p><br />&#13;
+</p>&#13;
+<p><span style="font-size:18px"><strong>Client</strong></span>：和上面的一样！！！<br />&#13;
+</p>&#13;
+<p><br />&#13;
+</p>&#13;
+<p>到这里，使用进程的简单处理结束，下一篇会是线程处理～～～<br />&#13;
+</p>&#13;
+<p><br />&#13;
+</p>&#13;
+<p>Bye～</p>&#13;
+<p><br />&#13;
+</p>&#13;
+   &#13;

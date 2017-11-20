@@ -1,0 +1,215 @@
+
+        <div class="markdown_views"><h2 id="一代理模式">一、代理模式</h2>
+
+<hr />
+
+<p>为某个对象提供一个代理，从而控制这个代理的访问。代理类和委托类具有共同的父类或父接口，这样在任何使用委托类对象的地方都可以使用代理类对象替代。代理类负责请求的预处理、过滤、将请求分配给委托类处理、以及委托类处理完请求的后续处理。</p>
+
+
+
+<h2 id="二代理模式结构">二、代理模式结构</h2>
+
+<hr />
+
+<p><strong>UML类图：</strong></p>
+
+<p><img src="http://img.blog.csdn.net/20161030094846127" alt="这里写图片描述" title="" /></p>
+
+<p>由上图代理模式的结构为：</p>
+
+<ul>
+<li><strong>抽象角色</strong>： 真实对象和代理对象的共同接口。</li>
+<li><strong>代理角色</strong>： 代理对象角色内部含有对真实对象的引用，从而可以操作真实对象，同时代理对象提供与真实对象相同的接口以便在任何时刻都能代替真实对象。同时，代理对象可以在执行真实对象操作时，附加其他的操作，相当于对真实对象进行封装。  </li>
+<li><strong>真实角色</strong>： 代理角色所代表的真实对象，是我们最终要引用的对象。</li>
+</ul>
+
+<p><strong>根据代理类的生成时间不同可以将代理分为静态代理和动态代理两种。</strong></p>
+
+
+
+<h2 id="三静态代理">三、静态代理</h2>
+
+<hr />
+
+<p>由程序员创建或工具生成代理类的源码，再编译代理类。<strong>所谓静态</strong>也就是在程序运行前就已经存在代理类的字节码文件，代理类和委托类的关系在运行前就确定了。 <br />
+<strong><em>示例代码：</em></strong> <br />
+<font color="#00f" size="3">1.抽象角色</font></p>
+
+
+
+<pre class="prettyprint"><code class=" hljs cs"><span class="hljs-keyword">public</span> <span class="hljs-keyword">interface</span> AbstractSubject {
+     <span class="hljs-keyword">void</span> doSomething();
+}   
+</code></pre>
+
+<p><font color="#00f" size="3">2.代理角色</font></p>
+
+
+
+<pre class="prettyprint"><code class=" hljs java"><span class="hljs-keyword">public</span> <span class="hljs-class"><span class="hljs-keyword">class</span> <span class="hljs-title">ProxySubject</span> <span class="hljs-keyword">implements</span> <span class="hljs-title">AbstractSubject</span>{</span>
+     <span class="hljs-keyword">private</span> AbstractSubject  real ;
+     <span class="hljs-keyword">public</span> <span class="hljs-title">ProxySubject</span>(AbstractSubject  real) {
+         <span class="hljs-keyword">this</span>.real=real ;
+    }
+     <span class="hljs-annotation">@Override</span>
+     <span class="hljs-keyword">public</span> <span class="hljs-keyword">void</span> <span class="hljs-title">doSomething</span>() {
+
+         real.doSomething();
+    }
+
+     <span class="hljs-keyword">public</span> <span class="hljs-keyword">void</span> <span class="hljs-title">doOtherthing</span>() {
+
+    }
+}   
+</code></pre>
+
+<p><font color="#00f" size="3">3.真实角色</font></p>
+
+
+
+<pre class="prettyprint"><code class=" hljs java"><span class="hljs-keyword">public</span> <span class="hljs-class"><span class="hljs-keyword">class</span> <span class="hljs-title">RealSubject</span> <span class="hljs-keyword">implements</span> <span class="hljs-title">AbstractSubject</span>{</span>
+     <span class="hljs-annotation">@Override</span>
+     <span class="hljs-keyword">public</span> <span class="hljs-keyword">void</span> <span class="hljs-title">doSomething</span>() {
+        System.out.println( <span class="hljs-string">"真实角色被使用"</span> );
+    }
+}   
+</code></pre>
+
+<p><font color="#00f" size="3">4.客户端</font></p>
+
+
+
+<pre class="prettyprint"><code class=" hljs cs"><span class="hljs-keyword">public</span> <span class="hljs-keyword">class</span> Client {
+     <span class="hljs-keyword">public</span> <span class="hljs-keyword">static</span> <span class="hljs-keyword">void</span> <span class="hljs-title">main</span>(String[]  args ) {
+        RealSubject real = <span class="hljs-keyword">new</span>  RealSubject();
+        ProxySubject proxy = <span class="hljs-keyword">new</span>  ProxySubject( real );
+         proxy.doSomething();
+    }
+}   
+</code></pre>
+
+<p><font color="#00f" size="3">5.静态代理的优缺点</font></p>
+
+<p><strong>优点：</strong> 业务类只需要关注业务逻辑本身，保证了业务类的重用性。这是代理的共有优点。 <br />
+<strong>缺点：</strong></p>
+
+<ul>
+<li>代理对象的一个接口只服务于一种类型的对象，如果要代理的方法很多，势必要为每一种方法都进行代理，静态代理在程序规模稍大时就无法胜任了。  </li>
+<li>如果接口增加一个方法，除了所有实现类需要实现这个方法外，所有代理类也需要实现此方法。增加了代码维护的复杂度。  </li>
+</ul>
+
+
+
+<h2 id="四动态代理">四、动态代理</h2>
+
+<hr />
+
+<p><strong>动态代理类</strong>的源码是程序在运行期间由JVM根据反射等机制动态生成的，所以不存在代理类的字节码文件。代理角色和真实角色的联系在程序运行时确定。 <br />
+<font size="3" color="#00f">1.首先看看和动态代理相关JavaAPI</font> <br />
+<font size="3" color="#0f0"> ① .java.lang.reflect.Proxy</font> <br />
+这是Java动态代理机制生成的所有代理类的父类，它提供了一组静态的方法来为一组接口动态的生成代理类及其对象。 <br />
+<strong>Proxy类的静态方法：</strong></p>
+
+
+
+<pre class="prettyprint"><code class=" hljs delphi"><span class="hljs-comment">//方法 1: 该方法用于获取指定代理对象所关联的调用处理器  </span>
+<span class="hljs-keyword">static</span> InvocationHandler getInvocationHandler(<span class="hljs-keyword">Object</span> proxy )  
+
+<span class="hljs-comment">//方法 2：该方法用于获取关联于指定类装载器和一组接口的动态代理类的类对象  </span>
+<span class="hljs-keyword">static</span> <span class="hljs-keyword">Class</span> getProxyClass(ClassLoader loader,<span class="hljs-keyword">Class</span>[] interfaces)  
+
+<span class="hljs-comment">//方法 3：该方法用于判断指定类对象是否是一个动态代理类  </span>
+<span class="hljs-keyword">static</span> boolean isProxyClass(<span class="hljs-keyword">Class</span> cl )    
+
+
+<span class="hljs-comment">//方法 4：该方法用于为指定类装载器、一组接口及调用处理器生成动态代理类实例</span>
+<span class="hljs-keyword">static</span> <span class="hljs-keyword">Object</span> newProxyInstance(ClassLoader loader,  <span class="hljs-keyword">Class</span>[] interfaces, InvocationHandler  h )   
+</code></pre>
+
+<p><font size="3" color="#0f0"> ②.java.lang.reflect.InvocationHandler</font> <br />
+这是调用处理器接口，它自定义了一个 invoke 方法，用于集中处理在动态代理类对象上的方法调用，通常在该方法中实现对委托类的代理访问。每次生成动态代理类对象时都要指定一个对应的调用处理器对象。 <br />
+<strong>InvocationHandler核心方法 </strong> </p>
+
+
+
+<pre class="prettyprint"><code class=" hljs oxygene"><span class="hljs-comment">//该方法负责集中处理动态代理类上的所有方法调用。第一个参数既是代理类实例，第二个参数是被调用的方法对象  </span>
+<span class="hljs-comment">//第三个方法是调用参数。调用处理器根据这三个参数进行预处理或分派到委托类实例上反射执行   </span>
+Object invoke(Object proxy, <span class="hljs-function"><span class="hljs-keyword">Method</span>  <span class="hljs-title">method</span>,<span class="hljs-title">Object</span>[] <span class="hljs-title">args</span> )     </span></code></pre>
+
+<p><font size="3" color="#0f0"> ③ .java.lang.reflect.ClassLoader</font> <br />
+　　这是类装载器类，负责将类的字节码装载到 Java 虚拟机（JVM）中并为其定义类对象，然后该类才能被使用。Proxy 静态方法生成动态代理类同样需要通过类装载器来进行装载才能使用，它与普通类的唯一区别就是其字节码是由 JVM 在运行时动态生成的而非预存在于任何一个 .class 文件中。每次生成动态代理类对象时都需要指定一个类装载器对象 。</p>
+
+<p><font size="3" color="#00f">2.动态代理实现步骤</font></p>
+
+<ul>
+<li>实现InvocationHandler接口创建自己的调用处理器  。</li>
+<li>给Proxy类提供ClassLoader和代理接口类型数组创建动态代理类 。 </li>
+<li>执行真实角色具体任务。</li>
+</ul>
+
+<p><strong><em>示例代码</em></strong></p>
+
+<p><font color="#f00" size="3">1.抽象角色和真实角色代码与上述相同 。</font> <br />
+<font color="#f00" size="3">2. 创建自己的调用处理器: </font></p>
+
+
+
+<pre class="prettyprint"><code class=" hljs java"><span class="hljs-keyword">public</span> <span class="hljs-class"><span class="hljs-keyword">class</span> <span class="hljs-title">SubjectHandler</span> <span class="hljs-keyword">implements</span> <span class="hljs-title">InvocationHandler</span>{</span>
+    AbstractSubject real;
+    <span class="hljs-keyword">public</span> <span class="hljs-title">SubjectHandler</span>(AbstractSubject real){
+        <span class="hljs-keyword">this</span>.real=real;
+    }
+
+    <span class="hljs-annotation">@Override</span>
+    <span class="hljs-keyword">public</span> Object <span class="hljs-title">invoke</span>(Object obj, Method method, Object[] args)<span class="hljs-keyword">throws</span> Throwable {
+        System.out.println(<span class="hljs-string">"代理类预处理任务"</span>);
+        <span class="hljs-comment">//利用反射机制将请求分派给委托类处理。Method的invoke返回Object对象作为方法执行结果。  </span>
+  <span class="hljs-comment">//因为示例程序没有返回值，所以这里忽略了返回值处理</span>
+        method.invoke(real, args);
+        System.out.println(<span class="hljs-string">"代理类后续处理任务"</span>);
+        <span class="hljs-keyword">return</span> <span class="hljs-keyword">null</span>;
+    }
+
+}
+</code></pre>
+
+<p><font color="#f00" size="3">3.客户端 : </font></p>
+
+
+
+<pre class="prettyprint"><code class=" hljs cs"><span class="hljs-keyword">public</span> <span class="hljs-keyword">class</span> Client {
+
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">static</span> <span class="hljs-keyword">void</span> <span class="hljs-title">main</span>(String[] args) {
+        RealSubject real=<span class="hljs-keyword">new</span> RealSubject();
+        SubjectHandler handler=<span class="hljs-keyword">new</span> SubjectHandler(real);
+        <span class="hljs-comment">//生成代理类对象</span>
+        AbstractSubject proxy=(AbstractSubject) Proxy.newProxyInstance(ClassLoader.getSystemClassLoader(), <span class="hljs-keyword">new</span> Class[]{AbstractSubject.class},handler);
+        proxy.doSomething();
+
+    }
+
+}</code></pre>
+
+<p><font color="#f00" size="3">4.动态代理的优缺点</font></p>
+
+<p><strong>优点</strong>： <br />
+　　动态代理与静态代理相比较，最大的好处是接口中声明的所有方法都被转移到调用处理器一个集中的方法中处理（InvocationHandler.invoke）。这样，在接口方法数量比较多的时候，我们可以进行灵活处理，而不需要像静态代理那样每一个方法进行中转。</p>
+
+<p><strong>不足</strong>： <br />
+　　诚然，Proxy 已经设计得非常优美，但是还是有一点点小小的遗憾之处，那就是它始终无法摆脱仅支持 interface 代理的桎梏，因为它的设计注定了这个遗憾。回想一下那些动态生成的代理类的继承关系图，它们已经注定有一个共同的父类叫 Proxy。Java 的继承机制注定了这些动态代理类们无法实现对 class 的动态代理，原因是多继承在 Java 中本质上就行不通。 </p>
+
+<p>本文动态代理部分内容大量引自：<a href="http://layznet.iteye.com/blog/1182924">http://layznet.iteye.com/blog/1182924</a></p></div>&#13;
+        <script type="text/javascript">&#13;
+            $(function () {&#13;
+                $('pre.prettyprint code').each(function () {&#13;
+                    var lines = $(this).text().split('\n').length;&#13;
+                    var $numbering = $('&lt;ul/&gt;').addClass('pre-numbering').hide();&#13;
+                    $(this).addClass('has-numbering').parent().append($numbering);&#13;
+                    for (i = 1; i &lt;= lines; i++) {&#13;
+                        $numbering.append($('&lt;li/&gt;').text(i));&#13;
+                    };&#13;
+                    $numbering.fadeIn(1700);&#13;
+                });&#13;
+            });&#13;
+        </script>&#13;
+   &#13;

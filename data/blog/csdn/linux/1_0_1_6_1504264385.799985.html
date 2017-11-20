@@ -1,0 +1,70 @@
+
+        <div class="markdown_views"><h2 id="1进程的命名空间"><strong>（1）进程的命名空间</strong></h2>
+
+<p><strong>1.基本概念</strong> <br />
+        传统上Linux及其衍生版的UNIX变体中，许多资源都是全局管理的。例如进程PID和用户的UID等全局ID。为了节约成本并且能够保证用户之间的权限不受影响，命名空间提供了一种与KVMhe VMare不同的解决方案。内核通过命名空间将全局资源进行抽象，使得各个进程组分别放到不同的容器，彼此隔离，但是可以允许提供一些接口使得其可以相互通信来降低容器间的间隔。 <br />
+        命名空间给系统建立了不同的视图，如下图所示 <br />
+<img src="http://img.blog.csdn.net/20170814235121364?watermark/2/text/aHR0cDovL2Jsb2cuY3Nkbi5uZXQvcXFfMjExMjcxNTE=/font/5a6L5L2T/fontsize/400/fill/I0JBQkFCMA==/dissolve/70/gravity/SouthEast" alt="这里写图片描述" title="" /> <br />
+    新的命名空间的创建方法： <br />
+1）在用fork和clone系统调用创建进程时，可以选特定的选项控制是否与父进程共享命名空间。 <br />
+2）unshare系统调用可将某些部分，如命名空间等从父进程分离。 <br />
+<strong>2.命名空间的实现</strong> <br />
+命名空间的实现需要两个部分：每个子系统的命名空间结构；将给定进程关联到所属各个命名空间的机制。 <br />
+<img src="http://img.blog.csdn.net/20170814235338444?watermark/2/text/aHR0cDovL2Jsb2cuY3Nkbi5uZXQvcXFfMjExMjcxNTE=/font/5a6L5L2T/fontsize/400/fill/I0JBQkFCMA==/dissolve/70/gravity/SouthEast" alt="进程和命名空间之间的联系" title="" /> <br />
+struct nsproxy结构体汇集了指向特定于子系统的命名空间包装器的指针。其具体成员结构如下： <br />
+<img src="http://img.blog.csdn.net/20170814235539156?watermark/2/text/aHR0cDovL2Jsb2cuY3Nkbi5uZXQvcXFfMjExMjcxNTE=/font/5a6L5L2T/fontsize/400/fill/I0JBQkFCMA==/dissolve/70/gravity/SouthEast" alt="这里写图片描述" title="" /> <br />
+每个进程都关联到了自身的命名空间视图，每个命名空间都有一个对应的标志： <br />
+<img src="http://img.blog.csdn.net/20170814235711693?watermark/2/text/aHR0cDovL2Jsb2cuY3Nkbi5uZXQvcXFfMjExMjcxNTE=/font/5a6L5L2T/fontsize/400/fill/I0JBQkFCMA==/dissolve/70/gravity/SouthEast" alt="这里写图片描述" title="" /> <br />
+默认命名空间的作用所有属性都相当于全局的。init_nsproxy定义了初始的全局命名空间，其中维护了指向各子系统初始的命名空间对象的指针。 <br />
+<img src="http://img.blog.csdn.net/20170814235753199?watermark/2/text/aHR0cDovL2Jsb2cuY3Nkbi5uZXQvcXFfMjExMjcxNTE=/font/5a6L5L2T/fontsize/400/fill/I0JBQkFCMA==/dissolve/70/gravity/SouthEast" alt="这里写图片描述" title="" /> <br />
+UTS命名空间所有相关信息都汇集到下列结构中的一个实例中： <br />
+<img src="http://img.blog.csdn.net/20170814235824701?watermark/2/text/aHR0cDovL2Jsb2cuY3Nkbi5uZXQvcXFfMjExMjcxNTE=/font/5a6L5L2T/fontsize/400/fill/I0JBQkFCMA==/dissolve/70/gravity/SouthEast" alt="这里写图片描述" title="" /></p>
+
+<p>其中kref是一个嵌入的引用计数器，用于对使用struct uts_namespace的实例进行跟踪，name包含了uts_namespace的属性信息。struct newname的结构如下所示。 <br />
+<img src="http://img.blog.csdn.net/20170814235922537?watermark/2/text/aHR0cDovL2Jsb2cuY3Nkbi5uZXQvcXFfMjExMjcxNTE=/font/5a6L5L2T/fontsize/400/fill/I0JBQkFCMA==/dissolve/70/gravity/SouthEast" alt="这里写图片描述" title="" /> <br />
+初始设置保存在init_uts_ns中： <br />
+<img src="http://img.blog.csdn.net/20170815000004200?watermark/2/text/aHR0cDovL2Jsb2cuY3Nkbi5uZXQvcXFfMjExMjcxNTE=/font/5a6L5L2T/fontsize/400/fill/I0JBQkFCMA==/dissolve/70/gravity/SouthEast" alt="这里写图片描述" title="" /><img src="http://img.blog.csdn.net/20170815000016662?watermark/2/text/aHR0cDovL2Jsb2cuY3Nkbi5uZXQvcXFfMjExMjcxNTE=/font/5a6L5L2T/fontsize/400/fill/I0JBQkFCMA==/dissolve/70/gravity/SouthEast" alt="这里写图片描述" title="" /> <br />
+内核创建一个UTS命名空间，是通过copy_utsname函数实现的，在某个进程调用fork()并通过CLONE_NEWUTS标志指定创建新的UTS命名空间时 ，则调用该函数。</p>
+
+
+
+<h2 id="2用户的命名空间">（2）用户的命名空间</h2>
+
+<p>用户命名空间在要求创建新的用户命名空间时，则生成当前用户命名空间的一份副本，并关联到当前进程的nsproxy实例。 <br />
+<img src="http://img.blog.csdn.net/20170815000349291?watermark/2/text/aHR0cDovL2Jsb2cuY3Nkbi5uZXQvcXFfMjExMjcxNTE=/font/5a6L5L2T/fontsize/400/fill/I0JBQkFCMA==/dissolve/70/gravity/SouthEast" alt="这里写图片描述" title="" /> <br />
+其中kref：引用计数器。 <br />
+uidhash_table：每个struct user_struct的实例可通过uidhash_table访问其资源消耗情况。 <br />
+root_user：指向root用户的命名空间的指针。</p>
+
+<p><strong>root用户命名空间clone实现：</strong></p>
+
+
+
+<p><code> <br />
+kernel/user_namespace.c <br />
+static struct　　user_namespace　　*clone_user_ns(struct user_namespace　　*old_ns) <br />
+{ <br />
+struct user_namespace　　*ns; <br />
+struct　user_struct　　*new_user; <br />
+ns = kmalloc(sizeof(struct user_namespace) , GFP_KERNEL); <br />
+ns-&gt;root_user　　=　　alloc_uid(ns, 0); <br />
+new_user　　= alloc_uid(ns, current-&gt;uid); <br />
+switch_uid(new_user); <br />
+return ns; <br />
+</code>、 <br />
+其中alloc_uid()：对当前命名空间中给定一个用户，若无对应user_struct实例，则分配一个新实例。 <br />
+switch_uid()：确保从现在开始将新的user_struct实例用于资源统计，即将struct task_struct的user成员指向新的user_struct实例。</p></div>&#13;
+        <script type="text/javascript">&#13;
+            $(function () {&#13;
+                $('pre.prettyprint code').each(function () {&#13;
+                    var lines = $(this).text().split('\n').length;&#13;
+                    var $numbering = $('&lt;ul/&gt;').addClass('pre-numbering').hide();&#13;
+                    $(this).addClass('has-numbering').parent().append($numbering);&#13;
+                    for (i = 1; i &lt;= lines; i++) {&#13;
+                        $numbering.append($('&lt;li/&gt;').text(i));&#13;
+                    };&#13;
+                    $numbering.fadeIn(1700);&#13;
+                });&#13;
+            });&#13;
+        </script>&#13;
+   &#13;

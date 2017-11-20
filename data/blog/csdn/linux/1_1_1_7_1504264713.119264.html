@@ -1,0 +1,102 @@
+
+
+<p style="text-align:center"><strong><span style="font-size:18px">linux input子系统分析--概述与数据结构</span></strong></p>&#13;
+<p>        Input子系统处理输入事务，任何输入设备的驱动程序都可以通过Input输入子系统提供的接口注册到内核，利用子系统提供的功能来与用户空间交互。输入设备一般包括键盘，鼠标，触摸屏等，在内核中都是以输入设备出现的。下面分析input输入子系统的结构，以及功能实现。<br />&#13;
+<span style="font-size:16px">一. Input子系统结构与功能实现</span><br />&#13;
+  1. Input子系统是分层结构的，总共分为三层： 硬件驱动层，子系统核心层，事件处理层。 <br />&#13;
+    （1）其中硬件驱动层负责操作具体的硬件设备，这层的代码是针对具体的驱动程序的，需要驱动程序的作者来编写。<br />&#13;
+    （2）子系统核心层是链接其他两个层之间的纽带与桥梁，向下提供驱动层的接口，向上提供事件处理层的接口。<br />&#13;
+    （3）事件处理层负责与用户程序打交道，将硬件驱动层传来的事件报告给用户程序。<br />&#13;
+  2. 各层之间通信的基本单位就是事件，任何一个输入设备的动作都可以抽象成一种事件，如键盘的按下，触摸屏的按下，鼠标的移动等。事件有三种属性：类型（type），编码(code)，值(value)，Input子系统支持的所有事件都定义在input.h中，包括所有支持的类型，所属类型支持的编码等。事件传送的方向是 硬件驱动层--&gt;子系统核心--&gt;事件处理层--&gt;用户空间<br />&#13;
+  3. 以触摸屏为例说明输入子系统的工作流程:<br />&#13;
+     注：mini2440的触摸屏驱动所用驱动层对应的模块文件为：s3c2410_ts.c，事件处理层对应的模块文件为 evdev.c<br />&#13;
+    （1）s3c2410_ts模块初始化函数中将触摸屏注册到了输入子系统中，于此同时，注册函数在事件处理层链表中寻找事件处理器，这里找到的是evdev，并且将驱动与事件处理器挂载。并且在/dev/input中生成设备文件event0，以后我们访问这个文件就会找的我们的触摸屏驱动程序。<br />&#13;
+    （2）应用程序打开设备文件/dev/input/event0，读取设备文件，调用evdev模块中read,如果没有事件进程就会睡眠。  <br />&#13;
+    （3）当触摸屏按下，驱动层通过子系统核心将事件（就是X，Y坐标）,传给事件处理层也就是evdev,evdev唤醒睡眠的进程，将事件传给进程处理。<br />&#13;
+</p>&#13;
+<p><span style="font-size:16px">二.主要input通用数据结构</span><br />&#13;
+  1.input_dev 这是input设备基本的设备结构，每个input驱动程序中都必须分配初始化这样一个结构，成员比较多 <br />&#13;
+    （1）有以下几个数组：<br />&#13;
+</p>&#13;
+<p></p>&#13;
+<pre name="code" class="cpp">unsigned long evbit[BITS_TO_LONGS(EV_CNT)];   //事件支持的类型
+        // 下面是每种类型支持的编码
+	unsigned long keybit[BITS_TO_LONGS(KEY_CNT)];   //按键  
+	unsigned long relbit[BITS_TO_LONGS(REL_CNT)];   
+	unsigned long absbit[BITS_TO_LONGS(ABS_CNT)];   //绝对坐标，其中触摸屏驱动使用的就是这个
+	unsigned long mscbit[BITS_TO_LONGS(MSC_CNT)];
+	unsigned long ledbit[BITS_TO_LONGS(LED_CNT)];
+	unsigned long sndbit[BITS_TO_LONGS(SND_CNT)];
+	unsigned long ffbit[BITS_TO_LONGS(FF_CNT)];
+	unsigned long swbit[BITS_TO_LONGS(SW_CNT)];</pre>    evbit[BITS_TO_LONGS(EV_CNT)]; 这个数组以位掩码的形式，代表了这个设备支持的事件的类型。设置方式如：<br />&#13;
+    dev-&gt;evbit[0] = BIT(EV_SYN) | BIT(EV_KEY) | BIT(EV_ABS)<br />&#13;
+    absbit[BITS_TO_LONGS(ABS_CNT)]; 这个数组也是以位掩码的形式，代表这个类型的事件支持的编码<br />&#13;
+    触摸屏驱动支持EV_ABS,所以要设置这个数组， 有一个专门设置这个数组的函数input_set_abs_params，代码如下:&#13;
+<p></p>&#13;
+<p></p>&#13;
+<pre name="code" class="cpp">static inline void input_set_abs_params(struct input_dev *dev, int axis, int min, int max, int fuzz, int flat)
+{
+	dev-&gt;absmin[axis] = min;
+	dev-&gt;absmax[axis] = max;
+	dev-&gt;absfuzz[axis] = fuzz;
+	dev-&gt;absflat[axis] = flat;
+
+	dev-&gt;absbit[BIT_WORD(axis)] |= BIT_MASK(axis);  //填充了absbit这个数组
+}</pre>   触摸屏驱动中是这样调用的<br />&#13;
+    input_set_abs_params(dev, ABS_X, 0, 0x3FF, 0, 0)；   //这个是设置ad转换的x坐标<br />&#13;
+    input_set_abs_params(dev, ABS_Y, 0, 0x3FF, 0, 0);   //这个是设置ad转换的y坐标<br />&#13;
+    input_set_abs_params(dev, ABS_PRESSURE, 0, 1, 0, 0); //这个是设置触摸屏是否按下的标志<br />&#13;
+    设置ABS_X编码值范围为0-0x3ff，因为mini2440的AD转换出的数据最大为10位，所以不会超过0x3ff。&#13;
+<p></p>&#13;
+<p>  （2） struct input_id id 成员<br />&#13;
+     这个是标识设备驱动特征的</p>&#13;
+<p></p>&#13;
+<pre name="code" class="cpp">struct input_id {
+	__u16 bustype;   //总线类型
+	__u16 vendor;    //生产厂商
+	__u16 product;   //产品类型
+	__u16 version;   //版本
+ };</pre>    如果需要特定的事件处理器来处理这个设备的话，这几个就非常重要，因为子系统核心是通过他们，将设备驱动与事件处理层联系起来的。但是因为触摸屏驱动所用的事件处理器为evdev，匹配所有，所有这个初始化<br />&#13;
+    也无关紧要。<br />&#13;
+  （3） 还有其他一些成员，也比较重要，但是驱动程序可以不用管，都是由子系统核心来处理的。<br />&#13;
+  （4） 可以看出input_dev 结构所属层为硬件驱动层，以后就用input_dev来表示输入设备。<br />&#13;
+  2. input_handler 这是事件处理器的数据结构，代表一个事件处理器<br />&#13;
+   （1）几个操作函数<br />&#13;
+    <span style="white-space:pre"></span>void (*event)(struct input_handle *handle, unsigned int type, unsigned int code, int value);<br />&#13;
+<span style="white-space:pre"></span>    int (*connect)(struct input_handler *handler, struct input_dev *dev, const struct input_device_id *id);<br />&#13;
+<span style="white-space:pre"></span>    void (*disconnect)(struct input_handle *handle);<br />&#13;
+<span style="white-space:pre"></span>    void (*start)(struct input_handle *handle);<br />&#13;
+    event 函数是当事件处理器接收到了来自input设备传来的事件时调用的处理函数，负责处理事件，非常重要，在事件传递过程中会详细分析。<br />&#13;
+    connect 函数是当一个input设备模块注册到内核的时候调用的，将事件处理器与输入设备联系起来的函数，也就是将input_dev和input_handler配对的函数。<br />&#13;
+    disconnect 函数实现connect相反的功能。<br />&#13;
+    start 暂时没有发现有什么作用。<br />&#13;
+  （2） 两个id<br />&#13;
+    <span style="white-space:pre"></span>const struct input_device_id *id_table; //这个是事件处理器所支持的input设备<br />&#13;
+<span style="white-space:pre"></span>    const struct input_device_id *blacklist; //这个是事件处理器应该忽略的input设备<br />&#13;
+     这两个数组都会用在connect函数中，input_device_id结构与input_id结构类似，但是input_device_id有一个flag，用来让程序选择比较哪项，如：busytype,vendor还是其他。<br />&#13;
+   （3） 两个链表<br />&#13;
+    <span style="white-space:pre"></span>struct list_head<span style="white-space:pre"></span>h_list;  //这个链表用来链接他所支持的input_handle结构,input_dev与input_handler配对之后就会生成一个input_handle结构<br />&#13;
+<span style="white-space:pre"></span>    struct list_head<span style="white-space:pre"></span>node;    //链接到input_handler_list，这个链表链接了所有注册到内核的事件处理器<br />&#13;
+   （4） 其他的成员一看代码就知道是什么意思，这里就不说明了。<br />&#13;
+  3.  input_handle 结构体代表一个成功配对的input_dev和input_handler&#13;
+<p></p>&#13;
+<p></p>&#13;
+<pre name="code" class="cpp">struct input_handle {
+	void *private;   //每个配对的事件处理器都会分配一个对应的设备结构，如evdev事件处理器的evdev结构，注意这个结构与设备驱动层的input_dev不同，初始化handle时，保存到这里。
+	int open;        //打开标志，每个input_handle 打开后才能操作，这个一般通过事件处理器的open方法间接设置
+	const char *name; 
+	struct input_dev *dev;  //关联的input_dev结构
+	struct input_handler *handler; //关联的input_handler结构
+	struct list_head	d_node;  //input_handle通过d_node连接到了input_dev上的h_list链表上
+	struct list_head	h_node;  //input_handle通过h_node连接到了input_handler的h_list链表上
+};</pre>  4. 三个数据结构之间的关系<br />&#13;
+     input_dev 是硬件驱动层，代表一个input设备<br />&#13;
+     input_handler 是事件处理层，代表一个事件处理器<br />&#13;
+     input_handle 个人认为属于核心层，代表一个配对的input设备与input事件处理器<br />&#13;
+     input_dev 通过全局的input_dev_list链接在一起。设备注册的时候实现这个操作。<br />&#13;
+     input_handler 通过全局的input_handler_list链接在一起。事件处理器注册的时候实现这个操作（事件处理器一般内核自带，一般不需要我们来写）<br />&#13;
+<p>     input_hande 没有一个全局的链表，它注册的时候将自己分别挂在了input_dev 和 input_handler 的h_list上了。通过input_dev 和input_handler就可以找到input_handle 在设备注册和事件处理器， 注册的时候都要进行配对工作，配对后就会实现链接。通过input_handle也可以找到input_dev和input_handler。</p>&#13;
+<br />&#13;
+<br />&#13;
+<p></p>&#13;
+   &#13;

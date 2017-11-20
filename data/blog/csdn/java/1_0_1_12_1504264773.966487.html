@@ -1,0 +1,174 @@
+
+        <div class="markdown_views"><p><font color="brown">介绍：</font>将具体的算法封装到独立的类中，当我们需要使用不同的策略时，只需要给执行对象提供不同的策略就行了。</p>
+
+<p><font color="green">场景：</font>VR是现在很火的产品，一套好的VR设备是十分昂贵的，在初期由于市场供不应求，可能买来设备的价格高于官方报价。过了一段时间，卖家会降价，再过段时间，VR的势头过去，堆积的商品会进行促销。</p>
+
+<p>这个时候我们就可以使用策略模式，在不同时期，对于商品使用不同的价格策略来对价格进行调控。</p>
+
+<p><font color="red">优点：</font> <br />
+- 避免过多使用if-else语句 <br />
+- 我们只需要在不同时期提供不同策略，使得代码高内聚低耦合</p>
+
+
+
+<h1 id="一角色及作用">一、角色及作用</h1>
+
+<table>
+<thead>
+<tr>
+  <th>角色</th>
+  <th>作用</th>
+</tr>
+</thead>
+<tbody><tr>
+  <td>环境(Context)</td>
+  <td>持有一个(Strategy)的引用</td>
+</tr>
+<tr>
+  <td>抽象策略(Strategy)</td>
+  <td>定义所有的具体策略类所需的实现的方法</td>
+</tr>
+<tr>
+  <td>具体策略(ConcreteStrategy)</td>
+  <td>实现具体方法，定义方法中的具体算法</td>
+</tr>
+</tbody></table>
+
+
+
+
+<h1 id="二应用场景">二、应用场景</h1>
+
+<p><strong>策略基类</strong></p>
+
+<p>提供降价接口</p>
+
+
+
+<pre class="prettyprint"><code class=" hljs cs"><span class="hljs-keyword">public</span> <span class="hljs-keyword">interface</span> Strategy {
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">double</span> <span class="hljs-title">offerPrice</span>(<span class="hljs-keyword">double</span> orgPrice);
+}</code></pre>
+
+<p><strong>小幅度降价：打8折</strong></p>
+
+
+
+<pre class="prettyprint"><code class=" hljs java"><span class="hljs-keyword">public</span> <span class="hljs-class"><span class="hljs-keyword">class</span> <span class="hljs-title">DepreciateStrategy</span> <span class="hljs-keyword">implements</span> <span class="hljs-title">Strategy</span> {</span>
+
+    <span class="hljs-annotation">@Override</span>
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">double</span> <span class="hljs-title">offerPrice</span>(<span class="hljs-keyword">double</span> orgPrice) {
+        System.out.println(<span class="hljs-string">"现在商品小降价"</span>);
+        <span class="hljs-keyword">return</span> <span class="hljs-number">.8</span> * orgPrice;
+    }
+
+}</code></pre>
+
+<p><strong>提价：供不应求.为原价的1.2倍</strong></p>
+
+
+
+<pre class="prettyprint"><code class=" hljs java"><span class="hljs-keyword">public</span> <span class="hljs-class"><span class="hljs-keyword">class</span> <span class="hljs-title">RaiseStrategy</span> <span class="hljs-keyword">implements</span> <span class="hljs-title">Strategy</span> {</span>
+
+    <span class="hljs-annotation">@Override</span>
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">double</span> <span class="hljs-title">offerPrice</span>(<span class="hljs-keyword">double</span> orgPrice) {
+        System.out.println(<span class="hljs-string">"现在商品抬价"</span>);
+        <span class="hljs-keyword">return</span> <span class="hljs-number">1.2</span> * orgPrice;
+    }
+
+}</code></pre>
+
+<p><strong>促销价：为原价的一半</strong></p>
+
+
+
+<pre class="prettyprint"><code class=" hljs java"><span class="hljs-keyword">public</span> <span class="hljs-class"><span class="hljs-keyword">class</span> <span class="hljs-title">PromotionStrategy</span> <span class="hljs-keyword">implements</span> <span class="hljs-title">Strategy</span> {</span>
+
+    <span class="hljs-annotation">@Override</span>
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">double</span> <span class="hljs-title">offerPrice</span>(<span class="hljs-keyword">double</span> orgPrice) {
+        System.out.println(<span class="hljs-string">"现在商品促销价"</span>);
+        <span class="hljs-keyword">return</span> <span class="hljs-number">.5</span> * orgPrice;
+    }
+
+}</code></pre>
+
+<p><strong>VR设备：环境类</strong></p>
+
+
+
+<pre class="prettyprint"><code class=" hljs cs"><span class="hljs-keyword">public</span> <span class="hljs-keyword">class</span> VR {
+
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">double</span> orgPrice = <span class="hljs-number">10000.0</span>; <span class="hljs-comment">// 商品官方的报价</span>
+
+    <span class="hljs-keyword">private</span> Strategy strategy;
+
+    <span class="hljs-keyword">public</span> <span class="hljs-title">VR</span>(Strategy strategy) {
+        <span class="hljs-keyword">this</span>.strategy = strategy;
+    }
+
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">double</span> <span class="hljs-title">getPrice</span>() {
+        <span class="hljs-keyword">return</span> strategy.offerPrice(orgPrice);
+    }
+
+}</code></pre>
+
+<p><strong>场景应用</strong></p>
+
+
+
+<pre class="prettyprint"><code class=" hljs cs">    <span class="hljs-keyword">public</span> <span class="hljs-keyword">static</span> <span class="hljs-keyword">void</span> <span class="hljs-title">main</span>(String[] args) {
+        Strategy sg1 = <span class="hljs-keyword">new</span> RaiseStrategy();
+        VR vr1 = <span class="hljs-keyword">new</span> VR(sg1);
+        System.<span class="hljs-keyword">out</span>.println(vr1.getPrice());
+
+        Strategy sg2 = <span class="hljs-keyword">new</span> DepreciateStrategy();
+        VR vr2 = <span class="hljs-keyword">new</span> VR(sg2);
+        System.<span class="hljs-keyword">out</span>.println(vr2.getPrice());
+
+        Strategy sg3 = <span class="hljs-keyword">new</span> PromotionStrategy();
+        VR vr3 = <span class="hljs-keyword">new</span> VR(sg3);
+        System.<span class="hljs-keyword">out</span>.println(vr3.getPrice());
+    }</code></pre>
+
+<p>输出</p>
+
+
+
+<pre class="prettyprint"><code class=" hljs ">现在商品抬价
+12000.0
+现在商品小降价
+8000.0
+现在商品促销价
+5000.0
+</code></pre>
+
+
+
+<h1 id="三状态模式和策略模式的比较">三、状态模式和策略模式的比较</h1>
+
+<p><font color="red">在网上学习其他大神博客的时候看到很多评论，这不是状态模式是策略模式，或者这不是策略模式是状态模式，不要误人子弟。但是其实博主是正确的，而那些言语粗鲁的人反而是自己无知（让我十分反感）。状态模式经常与策略模式相混淆。一个简单的方法是考察环境角色是否有明显的状态和状态的过渡。</font></p>
+
+<p><strong>状态模式：</strong> <br />
+状态模式处理的核心问题是状态的迁移，因为在对象存在很多状态情况下，各个状态之间跳转和迁移过程都是及其复杂的。在状态模式中，状态改变是由对象的内部条件决定，外界只需关心其接口，不必关心其状态对象的创建和转化。</p>
+
+<p><strong>策略模式：</strong> <br />
+策略模式的好处在于你可以动态的改变对象的策略行为。策略模式里，采取何种策略由外部条件决定，也就是说使用什么策略由我们来提供，而策略的具体实现类实现对应算法。比如一种商品，我们可以有很多降价和提价策略，我们只需要定义好各种策略的规则，然后让商品去执行就行了。</p>
+
+<hr />
+
+<p><strong><em>更多模式：</em></strong> <a href="http://blog.csdn.net/odeviloo/article/details/52382338">一天一个设计模式—分类与六大原则</a></p>
+
+<p><strong><em>更多源码：</em></strong> <a href="https://github.com/oDevilo/Java-Base">https://github.com/oDevilo/Java-Base</a></p></div>&#13;
+        <script type="text/javascript">&#13;
+            $(function () {&#13;
+                $('pre.prettyprint code').each(function () {&#13;
+                    var lines = $(this).text().split('\n').length;&#13;
+                    var $numbering = $('&lt;ul/&gt;').addClass('pre-numbering').hide();&#13;
+                    $(this).addClass('has-numbering').parent().append($numbering);&#13;
+                    for (i = 1; i &lt;= lines; i++) {&#13;
+                        $numbering.append($('&lt;li/&gt;').text(i));&#13;
+                    };&#13;
+                    $numbering.fadeIn(1700);&#13;
+                });&#13;
+            });&#13;
+        </script>&#13;
+   &#13;

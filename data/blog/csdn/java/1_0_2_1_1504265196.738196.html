@@ -1,0 +1,221 @@
+
+        <div class="markdown_views"><p><strong>摘要：</strong></p>
+
+<p>　　本文首先介绍了一个JSP的源文件执行过程，即需要经过三个阶段，两次编码，才能完成一次完整的输出。特别需要注意的是，在这个过程中，编码问题贯穿始终。我们知道在JSP/Servlet中，主要有以下四种方式可以设置编码，即 pageEncoding、contentType、request.setCharacterEncoding 和 response.setCharacterEncoding，在本文中，我们就这四种方式进行深入的介绍和总结。</p>
+
+<hr />
+
+
+
+<h2 id="一-jsp的执行过程与编码设定概述">一. JSP的执行过程与编码设定概述</h2>
+
+<p>　　在JSP/Servlet中，主要有以下四种方式可以设置编码，其中前两个只能应用于JSP中，而后两个可以用于 JSP 和 Servlet 中。</p>
+
+<ul>
+<li>pageEncoding=”UTF-8”；</li>
+<li>contentType=”text/html;charset=UTF-8”；</li>
+<li>request.setCharacterEncoding(“UTF-8”) ；</li>
+<li>response.setCharacterEncoding(“UTF-8”)。</li>
+</ul>
+
+<hr />
+
+<p>　　事实上，一个JSP的源文件需要经过三个阶段，两次编码，才能完成一次完整的输出，这三个阶段是：</p>
+
+<p>　　<font color="blue"><b>第一阶段：转译（.jsp -&gt; .java；pageEncoding -&gt; UTF-8）。</b></font>将jsp编译成Servlet（.java）文件，用到的指令是pageEncoding。在编译过程中，根据pageEncoding＝“XXX”的指示，找到编码的规则为“XXX”，然后服务器将JSP文件编译成.java文件时会根据pageEncoding的设定读取jsp，结果是由指定的编码方案翻译成统一的UTF-8编码的JAVA源码（即.java）。</p>
+
+<p>　　<font color="blue"><b>第二阶段：编译（.java -&gt; .class；UTF-8 -&gt; UTF-8）。</b></font>从Servlet文件（.java）到Java字节码文件（.class），从UTF-8到UTF-8。在这一阶段中，不论JSP编写时候用的是什么编码方案，经过这个阶段的结果全部是UTF-8的encoding的java源码。JAVAC用UTF-8的encoding读取java源码，编译成UTF-8编码的二进制码（即.class），这是JVM对常数字串在二进制码（Java encoding）内表达的规范。这一过程是由JVM的内在规范决定的，不受外界控制。</p>
+
+<p>　　<font color="blue"><b>第三阶段：编译（UTF-8 -&gt; contentType）。</b></font>从服务器到浏览器，这在一过程中用到的指令是contentType。服务器载入和执行由第二阶段生成出来JAVA二进制码，输出的结果，也就是在客户端可见到的结果，在这次输出过程中，由contentType属性中的charset来指定，将UTF8形式的二进制码以charset的编码形式来输出。如果没有人为设定，则默认的是ISO-8859-1的形式。</p>
+
+<p>　　特别需要注意的是，<font color="red"><b>pageEncoding 的默认值是 “ISO-8859-1”, contentType 的默认值是 “text/html;ISO-8859-1”。</b></font></p>
+
+<p>　　<font color="blue">Ps: 第一、三两个阶段的转码个人感觉联想到Sting转码更容易理解些，例如 ：new String(name.getBytes(“ISO-8859-1”), “utf-8”)。</font></p>
+
+<hr />
+
+<h2 id="二-pageencodingutf-8">二. pageEncoding=”UTF-8”</h2>
+
+<p>　　<font color="red"><b>pageEncoding=”UTF-8” 的作用是设置JSP编译成Servlet时使用的编码。</b></font>通常，<font color="blue">在JSP内部定义的字符串（直接在JSP中定义，而不是从浏览器提交的数据）出现乱码时，很多都是由于该参数设置错误引起的。</font>例如，你的 JSP文件中含有中文字符，而在JSP中却指定pageEncoding=”iso-8859-1”，就会导致中文字符显示异常。看下面的例子：</p>
+
+
+
+<pre class="prettyprint"><code class="language-jsp hljs xml"><span class="vbscript">&lt;%@ page language=<span class="hljs-string">"java"</span> pageEncoding=<span class="hljs-string">"iso-8859-1"</span> import=<span class="hljs-string">"java.util.*"</span> %&gt;</span>
+
+<span class="hljs-tag">&lt;<span class="hljs-title">html</span>&gt;</span>
+  <span class="hljs-tag">&lt;<span class="hljs-title">head</span>&gt;</span>
+    <span class="hljs-tag">&lt;<span class="hljs-title">title</span>&gt;</span>哈哈<span class="hljs-tag">&lt;/<span class="hljs-title">title</span>&gt;</span>
+  <span class="hljs-tag">&lt;/<span class="hljs-title">head</span>&gt;</span>
+  <span class="hljs-tag">&lt;<span class="hljs-title">body</span>&gt;</span>
+     中文 <span class="hljs-tag">&lt;<span class="hljs-title">br</span>&gt;</span>
+  <span class="hljs-tag">&lt;/<span class="hljs-title">body</span>&gt;</span>
+<span class="hljs-tag">&lt;/<span class="hljs-title">html</span>&gt;</span></code></pre>
+
+<p>在其编译为Servlet后，其源码（片段）如下所示：</p>
+
+
+
+<pre class="prettyprint"><code class="language-java hljs "><span class="hljs-keyword">public</span> <span class="hljs-keyword">void</span> <span class="hljs-title">_jspService</span>(HttpServletRequest request, HttpServletResponse response)
+        <span class="hljs-keyword">throws</span> java.io.IOException, ServletException {
+
+      <span class="hljs-comment">// ...</span>
+
+      out.write(<span class="hljs-string">"&lt;html&gt;\r\n"</span>);
+      out.write(<span class="hljs-string">"  &lt;head&gt;\r\n"</span>);
+      out.write(<span class="hljs-string">"    &lt;title&gt;å“ˆå“ˆ&lt;/title&gt;\r\n"</span>);
+      out.write(<span class="hljs-string">"  &lt;/head&gt;\r\n"</span>);
+      out.write(<span class="hljs-string">"  &lt;body&gt;\r\n"</span>);
+      out.write(<span class="hljs-string">"   \t ä¸­æ–‡ &lt;br&gt;\r\n"</span>);
+      out.write(<span class="hljs-string">"  &lt;/body&gt;\r\n"</span>);
+      out.write(<span class="hljs-string">"&lt;/html&gt;\r\n"</span>);
+
+      <span class="hljs-comment">// ...</span></code></pre>
+
+<p>访问该页面，页面显示如下：</p>
+
+<p>　　　　　　　　　　　　　　　<img src="http://static.zybuluo.com/Rico123/cjnxpe6224pp8inqo4ett6gy/pageEncoding.png" alt="pageEncoding.png-13.9kB" title="" /></p>
+
+<p>　　我们可以看到，由于pageEncoding被指定为”iso-8859-1”，导致其在由服务器将JSP文件编译成.java文件过程中，在使用 “iso-8859-1” 读取jsp并翻译成统一的UTF-8编码的JAVA源码时，所有的中文字符被转成乱码，并使得其呈现给用户的响应也包含乱码。特别地，<font color="blue">该属性还有一个功能，就是在JSP中不指定contentType参数，也不使用response.setCharacterEncoding方法时，指定对服务器响应的内容进行编码。</font></p>
+
+<hr />
+
+
+
+<h2 id="二-contenttypetexthtmlcharsetutf-8">二. contentType=”text/html;charset=UTF-8”</h2>
+
+<p>　　<font color="red"><b>contentType=”text/html;charset=UTF-8”  的作用是将上述第二阶段所生成的UTF8形式的二进制码以charset的编码形式来输出到客户端，</b></font>如果设置不当的话，会出现乱码。看下面的例子：</p>
+
+
+
+<pre class="prettyprint"><code class="language-jsp hljs xml"><span class="vbscript">&lt;%@ page language=<span class="hljs-string">"java"</span> contentType=<span class="hljs-string">"text/html;iso-8859-1"</span> import=<span class="hljs-string">"java.util.*"</span> 
+    pageEncoding=<span class="hljs-string">"utf-8"</span>%&gt;</span>
+
+<span class="hljs-tag">&lt;<span class="hljs-title">html</span>&gt;</span>
+  <span class="hljs-tag">&lt;<span class="hljs-title">head</span>&gt;</span>
+    <span class="hljs-tag">&lt;<span class="hljs-title">title</span>&gt;</span>哇哈哈<span class="hljs-tag">&lt;/<span class="hljs-title">title</span>&gt;</span>
+  <span class="hljs-tag">&lt;/<span class="hljs-title">head</span>&gt;</span>
+  <span class="hljs-tag">&lt;<span class="hljs-title">body</span>&gt;</span>
+     哇哈哈 <span class="hljs-tag">&lt;<span class="hljs-title">br</span>&gt;</span>
+  <span class="hljs-tag">&lt;/<span class="hljs-title">body</span>&gt;</span>
+<span class="hljs-tag">&lt;/<span class="hljs-title">html</span>&gt;</span></code></pre>
+
+<p>在其编译为Servlet后，其源码（片段）如下所示：</p>
+
+
+
+<pre class="prettyprint"><code class="language-java hljs "><span class="hljs-keyword">public</span> <span class="hljs-keyword">void</span> <span class="hljs-title">_jspService</span>(HttpServletRequest request, HttpServletResponse response)
+        <span class="hljs-keyword">throws</span> java.io.IOException, ServletException {
+
+      <span class="hljs-comment">// ...</span>
+
+      out.write(<span class="hljs-string">"&lt;html&gt;\r\n"</span>);
+      out.write(<span class="hljs-string">"  &lt;head&gt;\r\n"</span>);
+      out.write(<span class="hljs-string">"    &lt;title&gt;哇哈哈&lt;/title&gt;\r\n"</span>);
+      out.write(<span class="hljs-string">"  &lt;/head&gt;\r\n"</span>);
+      out.write(<span class="hljs-string">"  &lt;body&gt;\r\n"</span>);
+      out.write(<span class="hljs-string">"   \t 哇哈哈 &lt;br&gt;\r\n"</span>);
+      out.write(<span class="hljs-string">"  &lt;/body&gt;\r\n"</span>);
+      out.write(<span class="hljs-string">"&lt;/html&gt;\r\n"</span>);
+
+      <span class="hljs-comment">// ...</span></code></pre>
+
+<p>访问该页面，页面显示如下：</p>
+
+<p>　　　　　　　　　　　　　　　<img src="http://static.zybuluo.com/Rico123/4on8121uooqx9crude539yrv/contentType.png" alt="contentType.png-13.1kB" title="" /></p>
+
+<hr />
+
+
+
+<h2 id="三-requestsetcharacterencodingutf-8">三. request.setCharacterEncoding(“UTF-8”)</h2>
+
+<p>　　<font color="red"><b>request.setCharacterEncoding(“UTF-8”)用来指定对浏览器发送来的数据以特定的字符集进行重新编码，常用于对 POST 请求参数进行解码。</b></font>具体见我的博文 <a href="http://blog.csdn.net/justloveyou_/article/details/55827718">《JSP中文乱码问题终极解决方案(下)》</a>中 “POST 请求的请求参数为中文情形” 一节。</p>
+
+<hr />
+
+
+
+<h2 id="四-responsesetcharacterencodingutf-8">四. response.setCharacterEncoding(“UTF-8”)</h2>
+
+<p>　　<font color="red"><b>response.setCharacterEncoding(“UTF-8”)的作用是：在服务器将响应返回到浏览器前，对响应使用指定字符集进行重新编码。</b></font><font color="blue">一旦使用了该种方式，即使该响应页面指定了具体的 contentType，也将失效。</font>看下面的例子：</p>
+
+
+
+<pre class="prettyprint"><code class="language-jsp hljs xml"><span class="vbscript">&lt;%@ page language=<span class="hljs-string">"java"</span> contentType=<span class="hljs-string">"text/html;iso-8859-1"</span> import=<span class="hljs-string">"java.util.*"</span> 
+    pageEncoding=<span class="hljs-string">"utf-8"</span>%&gt;</span>
+
+<span class="hljs-tag">&lt;<span class="hljs-title">html</span>&gt;</span>
+  <span class="hljs-tag">&lt;<span class="hljs-title">head</span>&gt;</span>
+    <span class="hljs-tag">&lt;<span class="hljs-title">title</span>&gt;</span>哇哈哈<span class="hljs-tag">&lt;/<span class="hljs-title">title</span>&gt;</span>
+  <span class="hljs-tag">&lt;/<span class="hljs-title">head</span>&gt;</span>
+  <span class="hljs-tag">&lt;<span class="hljs-title">body</span>&gt;</span>
+     哇哈哈 <span class="hljs-tag">&lt;<span class="hljs-title">br</span>&gt;</span>
+  <span class="hljs-tag">&lt;/<span class="hljs-title">body</span>&gt;</span>
+<span class="hljs-tag">&lt;/<span class="hljs-title">html</span>&gt;</span></code></pre>
+
+<p>在其编译为Servlet后，其源码（片段）如下所示：</p>
+
+
+
+<pre class="prettyprint"><code class="language-java hljs "><span class="hljs-keyword">public</span> <span class="hljs-keyword">void</span> <span class="hljs-title">_jspService</span>(HttpServletRequest request, HttpServletResponse response)
+        <span class="hljs-keyword">throws</span> java.io.IOException, ServletException {
+
+      <span class="hljs-comment">// ...</span>
+
+      out.write(<span class="hljs-string">"&lt;html&gt;\r\n"</span>);
+      out.write(<span class="hljs-string">"  &lt;head&gt;\r\n"</span>);
+      out.write(<span class="hljs-string">"    &lt;title&gt;哇哈哈&lt;/title&gt;\r\n"</span>);
+      out.write(<span class="hljs-string">"  &lt;/head&gt;\r\n"</span>);
+      out.write(<span class="hljs-string">"  &lt;body&gt;\r\n"</span>);
+      out.write(<span class="hljs-string">"   \t 哇哈哈 &lt;br&gt;\r\n"</span>);
+      out.write(<span class="hljs-string">"  &lt;/body&gt;\r\n"</span>);
+      out.write(<span class="hljs-string">"&lt;/html&gt;\r\n"</span>);
+
+      <span class="hljs-comment">// ...</span></code></pre>
+
+<p>访问该页面，页面显示如下：</p>
+
+<p>　　　　　　　　　　　　　　　<img src="http://static.zybuluo.com/Rico123/o3y2vadtjf44rduepepj51br/setContentType.png" alt="setContentType.png-13.6kB" title="" /></p>
+
+<hr />
+
+
+
+<h2 id="五-四种编码设定方式之间的相互影响以及作用的优先级">五. 四种编码设定方式之间的相互影响以及作用的优先级</h2>
+
+<p>　　根据上文内容，我们得出以下三点：</p>
+
+<ul>
+<li><p><font color="blue"><b>在指定JSP编译成Servlet时使用的编码时，优先级为：</b></font><font color="DarkGreen"><b> pageEncoding=”UTF-8” &gt; contentType=”text/html;charset=UTF-8”</b></font></p></li>
+<li><p><font color="blue"><b>在指定服务器对响应内容的编码时，优先级为：</b></font><font color="DarkGreen"><b>response.setCharacterEncoding(“UTF-8”) &gt; contentType=”text/html;charset=UTF-8” &gt; pageEncoding=”UTF-8”</b></font> </p></li>
+<li><p><font color="DarkGreen"><b>request.setCharacterEncoding(“UTF-8”) 只用来指定对浏览器发送来的请求数据的解码方式。</b></font></p></li>
+</ul>
+
+<hr />
+
+<p>　　更多关于 JSP技术的细节见我的其他两篇博客：<a href="http://blog.csdn.net/justloveyou_/article/details/55824500"> 《Java Web基础 — Jsp 综述(上)》</a> 和 <a href="http://blog.csdn.net/justloveyou_/article/details/57154560">《Java Web基础 — Jsp 综述(下)》</a>。</p>
+
+<p>　　更多关于 JSP中文乱码问题的解决方案见我的另一篇博客：<a href="http://blog.csdn.net/justloveyou_/article/details/55827718">《 JSP中文乱码问题终极解决方案(下)》</a>。</p>
+
+<hr />
+
+<blockquote>
+  <h2 id="引用">引用</h2>
+  
+  <p><a href="http://blog.csdn.net/dragon4s/article/details/6604624">关于JSP页面中的pageEncoding和contentType两种属性的区别</a> <br />
+  <a href="http://blog.csdn.net/lutinghuan/article/details/8275958">JSP里ContentType ，charset和pageEncoding的理解与区别</a></p>
+</blockquote></div>&#13;
+        <script type="text/javascript">&#13;
+            $(function () {&#13;
+                $('pre.prettyprint code').each(function () {&#13;
+                    var lines = $(this).text().split('\n').length;&#13;
+                    var $numbering = $('&lt;ul/&gt;').addClass('pre-numbering').hide();&#13;
+                    $(this).addClass('has-numbering').parent().append($numbering);&#13;
+                    for (i = 1; i &lt;= lines; i++) {&#13;
+                        $numbering.append($('&lt;li/&gt;').text(i));&#13;
+                    };&#13;
+                    $numbering.fadeIn(1700);&#13;
+                });&#13;
+            });&#13;
+        </script>&#13;
+   &#13;

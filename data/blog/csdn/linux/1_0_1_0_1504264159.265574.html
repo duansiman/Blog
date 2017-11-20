@@ -1,0 +1,673 @@
+
+        <div class="markdown_views"><h1 id="共享内存">共享内存</h1>
+
+<hr />
+
+<p class="cye-lm-tag">共享内存是进程间通信中最简单的方式之一。</p>
+
+<p class="cye-lm-tag">共享内存是系统出于多个进程之间通讯的考虑，而预留的的一块内存区。</p>
+
+<p class="cye-lm-tag">共享内存允许两个或更多进程访问同一块内存，就如同 malloc() 函数向不同进程返回了指向同一个物理内存区域的指针。当一个进程改变了这块地址中的内容的时候，其它进程都会察觉到这个更改。</p>
+
+
+
+<h2 id="关于共享内存">关于共享内存</h2>
+
+<hr />
+
+<p class="cye-lm-tag">当一个程序加载进内存后，它就被分成叫作页的块。</p>
+
+<p class="cye-lm-tag">通信将存在内存的两个页之间或者两个独立的进程之间。</p>
+
+<p class="cye-lm-tag">总之，当一个程序想和另外一个程序通信的时候，那内存将会为这两个程序生成一块公共的内存区域。这块被两个进程分享的内存区域叫做<strong>共享内存</strong></p>
+
+<p class="cye-lm-tag">因为所有进程共享同一块内存，共享内存在各种进程间通信方式中具有最高的效率。访问共享内存区域和访问进程独有的内存区域一样快，并不需要通过系统调用或者其它需要切入内核的过程来完成。同时它也避免了对数据的各种不必要的复制。</p>
+
+<p class="cye-lm-tag">如果没有共享内存的概念，那一个进程不能存取另外一个进程的内存部分，因而导致共享数据或者通信失效。因为系统内核没有对访问共享内存进行同步，您必须提供自己的同步措施。</p>
+
+<p class="cye-lm-tag">解决这些问题的常用方法是通过使用<strong>信号量</strong>进行同步。不过，我们的程序中只有一个进程访问了共享内存，因此在集中展示了共享内存机制的同时，我们避免了让代码被同步逻辑搞得混乱不堪。</p>
+
+<p class="cye-lm-tag">为了简化共享数据的完整性和避免同时存取数据，内核提供了一种专门存取共享内存资源的机制。这称为<strong>互斥体</strong>或者<strong>mutex对象</strong></p>
+
+<blockquote>
+  <p class="cye-lm-tag">例如，在数据被写入之前不允许进程从共享内存中读取信息、不允许两个进程同时向同一个共享内存地址写入数据等。</p>
+</blockquote>
+
+<p class="cye-lm-tag">当一个进程想和另外一个进程通信的时候，它将按以下顺序运行：</p>
+
+<ul>
+<li><p class="cye-lm-tag">获取mutex对象，锁定共享区域。</p></li>
+<li><p class="cye-lm-tag">将要通信的数据写入共享区域。</p></li>
+<li><p class="cye-lm-tag">释放mutex对象。</p></li>
+</ul>
+
+<p class="cye-lm-tag">当一个进程从从这个区域读数据时候，它将重复同样的步骤，只是将第二步变成读取。</p>
+
+
+
+<h1 id="内存模型">内存模型</h1>
+
+<hr />
+
+<p class="cye-lm-tag">要使用一块<strong>共享内存</strong></p>
+
+<ul>
+<li><p class="cye-lm-tag">进程必须首先<strong>分配</strong>它</p></li>
+<li><p class="cye-lm-tag">随后需要<strong>访问这个共享内存块的每一个进程都必须将这个共享内存绑定到自己的地址空间中</strong></p></li>
+<li><p class="cye-lm-tag">当完成通信之后，所有进程都将<strong>脱离共享内存</strong>，并且由一个进程<strong>释放该共享内存块</strong></p></li>
+</ul>
+
+<p class="cye-lm-tag">在<code>/proc/sys/kernel/</code>目录下，记录着共享内存的一些限制，如一个共享内存区的最大字节数<code>shmmax</code>，系统范围内最大共享内存区标识符数<code>shmmni</code>等，可以手工对其调整，但不推荐这样做。</p>
+
+<p class="cye-lm-tag"><img src="http://img.blog.csdn.net/20160329144506913" alt="这里写图片描述" title="" /></p>
+
+<p class="cye-lm-tag">理解 Linux 系统内存模型可以有助于解释这个绑定的过程。</p>
+
+
+
+<h2 id="linux系统内存模型">linux系统内存模型</h2>
+
+<hr />
+
+<p class="cye-lm-tag">在 Linux 系统中，每个进程的虚拟内存是被分为许多页面的。这些内存页面中包含了实际的数据。每个进程都会维护一个从内存地址到虚拟内存页面之间的映射关系。尽管每个进程都有自己的内存地址，不同的进程可以同时将同一个内存页面映射到自己的地址空间中，从而达到共享内存的目的。</p>
+
+<p class="cye-lm-tag">分配一个新的共享内存块会创建新的内存页面。因为所有进程都希望共享对同一块内存的访问，只应由一个进程创建一块新的共享内存。再次分配一块已经存在的内存块不会创建新的页面，而只是会返回一个标识该内存块的标识符。</p>
+
+<p class="cye-lm-tag">一个进程如需使用这个共享内存块，则首先需要将它绑定到自己的地址空间中。</p>
+
+<p class="cye-lm-tag">这样会创建一个从进程本身虚拟地址到共享页面的映射关系。当对共享内存的使用结束之后，这个映射关系将被删除。</p>
+
+<p class="cye-lm-tag">当再也没有进程需要使用这个共享内存块的时候，必须有一个（且只能是一个）进程负责释放这个被共享的内存页面。</p>
+
+<p class="cye-lm-tag">所有共享内存块的大小都必须是系统页面大小的整数倍。系统页面大小指的是系统中单个内存页面包含的字节数。在 Linux 系统中，内存页面大小是4KB，不过您仍然应该通过调用 getpagesize 获取这个值。</p>
+
+<blockquote>
+  <p class="cye-lm-tag">共享内存的实现分为两个步骤：</p>
+  
+  <ul>
+  <li><p class="cye-lm-tag">创建共享内存，使用shmget函数。</p></li>
+  <li><p class="cye-lm-tag">映射共享内存，将这段创建的共享内存映射到具体的进程空间去，使用shmat函数。</p></li>
+  </ul>
+</blockquote>
+
+
+
+<h2 id="用于共享内存的函数">用于共享内存的函数</h2>
+
+<hr />
+
+<p class="cye-lm-tag">共享内存的使用，主要有以下几个API：<code>ftok()</code>、<code>shmget()</code>、<code>shmat()</code>、<code>shmdt()</code>及shmctl()。</p>
+
+
+
+<pre class="prettyprint"><code class="language-c hljs "><span class="hljs-preprocessor cye-lm-tag">#include &lt;sys/shm.h&gt;</span>
+<span class="hljs-keyword cye-lm-tag">void</span> *shmat(<span class="hljs-keyword cye-lm-tag">int</span> shm_id, <span class="hljs-keyword cye-lm-tag">const</span> <span class="hljs-keyword cye-lm-tag">void</span> *shm_addr, <span class="hljs-keyword cye-lm-tag">int</span> shmflg);
+<span class="hljs-keyword cye-lm-tag">int</span> shmctl(<span class="hljs-keyword cye-lm-tag">int</span> shm_id, <span class="hljs-keyword cye-lm-tag">int</span> cmd, <span class="hljs-keyword cye-lm-tag">struct</span> shmid_ds *buf);
+<span class="hljs-keyword cye-lm-tag">int</span> shmdt(<span class="hljs-keyword cye-lm-tag">const</span> <span class="hljs-keyword cye-lm-tag">void</span> *shm_addr);
+<span class="hljs-keyword cye-lm-tag">int</span> shmget(key_t key, size_t size, <span class="hljs-keyword cye-lm-tag">int</span> shmflg);</code></pre>
+
+<p class="cye-lm-tag"><img src="http://img.blog.csdn.net/20160329150948757" alt="这里写图片描述" title="" /></p>
+
+<p class="cye-lm-tag">与信号量相类似，通常需要在包含shm.h文件之前包含sys/types.h与sys/ipc.h这两个头文件。</p>
+
+
+
+<h2 id="用ftok函数获得一个id号">用ftok()函数获得一个ID号</h2>
+
+<hr />
+
+<p class="cye-lm-tag">应用说明，在IPC中，我们经常用用key_t的值来创建或者打开信号量，共享内存和消息队列。</p>
+
+
+
+<pre class="prettyprint"><code class=" hljs cs">key_t ftok(<span class="hljs-keyword cye-lm-tag">const</span> <span class="hljs-keyword cye-lm-tag">char</span> *pathname, <span class="hljs-keyword cye-lm-tag">int</span> proj_id);</code></pre>
+
+<table>
+<thead>
+<tr>
+  <th>参数</th>
+  <th align="center">描述</th>
+</tr>
+</thead>
+<tbody><tr>
+  <td>pathname</td>
+  <td align="center">一定要在系统中存在并且进程能够访问的</td>
+</tr>
+<tr>
+  <td>proj_id</td>
+  <td align="center">一个1－255之间的一个整数值，典型的值是一个ASCII值。</td>
+</tr>
+</tbody></table>
+
+
+<blockquote>
+  <p class="cye-lm-tag">当成功执行的时候，一个key_t值将会被返回，否则－1被返回。我们可以使用strerror(errno)来确定具体的错误信息。</p>
+</blockquote>
+
+<p class="cye-lm-tag">考虑到应用系统可能在不同的主机上应用，可以直接定义一个key，而不用ftok获得：</p>
+
+
+
+<pre class="prettyprint"><code class="language-c hljs "><span class="hljs-preprocessor cye-lm-tag">#define IPCKEY 0x344378</span></code></pre>
+
+
+
+<h2 id="创建共享内存">创建共享内存</h2>
+
+<hr />
+
+<p class="cye-lm-tag">进程通过调用shmget（Shared Memory GET，获取共享内存）来分配一个共享内存块。</p>
+
+
+
+<pre class="prettyprint"><code class="language-c hljs "><span class="hljs-keyword cye-lm-tag">int</span> shmget(key_t key ,<span class="hljs-keyword cye-lm-tag">int</span> size,<span class="hljs-keyword cye-lm-tag">int</span> shmflg)</code></pre>
+
+<table>
+<thead>
+<tr>
+  <th>参数</th>
+  <th align="center">描述</th>
+</tr>
+</thead>
+<tbody><tr>
+  <td>key</td>
+  <td align="center">一个用来标识共享内存块的键值</td>
+</tr>
+<tr>
+  <td>size</td>
+  <td align="center">指定了所申请的内存块的大小</td>
+</tr>
+<tr>
+  <td>shmflg</td>
+  <td align="center">操作共享内存的标识</td>
+</tr>
+</tbody></table>
+
+
+<blockquote>
+  <p class="cye-lm-tag">返回值：如果成功，返回共享内存表示符，如果失败，返回-1。</p>
+</blockquote>
+
+<ul>
+<li>该函数的第二个参数key是一个用来标识共享内存块的键值。</li>
+</ul>
+
+<p class="cye-lm-tag">彼此无关的进程可以通过指定同一个键以获取对同一个共享内存块的访问。不幸的是，其它程序也可能挑选了同样的特定值作为自己分配共享内存的键值，从而产生冲突。</p>
+
+<p class="cye-lm-tag">用特殊常量IPC_PRIVATE作为键值可以保证系统建立一个全新的共享内存块。|</p>
+
+<p class="cye-lm-tag">key标识共享内存的键值：0/IPC_PRIVATE。当key的取值为IPC_PRIVATE,则函数shmget将创建一块新的共享内存；如果key的取值为0，而参数中又设置了IPC_PRIVATE这个标志，则同样会创建一块新的共享内存。</p>
+
+<ul>
+<li>该函数的第二个参数size指定了所申请的内存块的大小。</li>
+</ul>
+
+<p class="cye-lm-tag">因为这些内存块是以页面为单位进行分配的，实际分配的内存块大小将被扩大到页面大小的整数倍。</p>
+
+<ul>
+<li>第三个参数shmflg是一组标志，通过特定常量的按位或操作来shmget。这些特定常量包括：</li>
+</ul>
+
+<p class="cye-lm-tag">IPC_CREAT：这个标志表示应创建一个新的共享内存块。通过指定这个标志，我们可以创建一个具有指定键值的新共享内存块。</p>
+
+<p class="cye-lm-tag">IPC_EXCL：这个标志只能与 IPC_CREAT 同时使用。当指定这个标志的时候，如果已有一个具有这个键值的共享内存块存在，则shmget会调用失败。也就是说，这个标志将使线程获得一个“独有”的共享内存块。如果没有指定这个标志而系统中存在一个具有相同键值的共享内存块，shmget会返回这个已经建立的共享内存块，而不是重新创建一个。</p>
+
+<p class="cye-lm-tag">模式标志：这个值由9个位组成，分别表示属主、属组和其它用户对该内存块的访问权限。</p>
+
+<p class="cye-lm-tag">其中表示执行权限的位将被忽略。指明访问权限的一个简单办法是利用</p>
+
+<h2 id="映射共享内存">映射共享内存</h2>
+
+<hr />
+
+<p class="cye-lm-tag">shmat()是用来允许本进程访问一块共享内存的函数，将这个内存区映射到本进程的虚拟地址空间。</p>
+
+
+
+<pre class="prettyprint"><code class="language-c hljs "><span class="hljs-keyword cye-lm-tag">int</span> shmat(<span class="hljs-keyword cye-lm-tag">int</span> shmid,<span class="hljs-keyword cye-lm-tag">char</span> *shmaddr，<span class="hljs-keyword cye-lm-tag">int</span> flag)</code></pre>
+
+<table>
+<thead>
+<tr>
+  <th>参数</th>
+  <th align="center">描述</th>
+</tr>
+</thead>
+<tbody><tr>
+  <td>shmid</td>
+  <td align="center">那块共享内存的ID，是shmget函数返回的共享存储标识符</td>
+</tr>
+<tr>
+  <td>shmaddr</td>
+  <td align="center">是共享内存的起始地址，如果shmaddr为0，内核会把共享内存映像到调用进程的地址空间中选定位置；如果shmaddr不为0，内核会把共享内存映像到shmaddr指定的位置。所以一般把shmaddr设为0。</td>
+</tr>
+<tr>
+  <td>shmflag</td>
+  <td align="center">是本进程对该内存的操作模式。如果是SHM_RDONLY的话，就是只读模式。其它的是读写模式</td>
+</tr>
+</tbody></table>
+
+
+<blockquote>
+  <p class="cye-lm-tag">成功时，这个函数返回共享内存的起始地址。失败时返回-1。</p>
+</blockquote>
+
+<p class="cye-lm-tag">要让一个进程获取对一块共享内存的访问，这个进程必须先调用 shmat（SHared Memory Attach，绑定到共享内存）。</p>
+
+<p class="cye-lm-tag">将 shmget 返回的共享内存标识符 SHMID 传递给这个函数作为第一个参数。</p>
+
+<p class="cye-lm-tag">该函数的第二个参数是一个指针，指向您希望用于映射该共享内存块的进程内存地址；如果您指定NULL则Linux会自动选择一个合适的地址用于映射。第三个参数是一个标志位，包含了以下选项：</p>
+
+<p class="cye-lm-tag">SHM_RND表示第二个参数指定的地址应被向下靠拢到内存页面大小的整数倍。如果您不指定这个标志，您将不得不在调用shmat的时候手工将共享内存块的大小按页面大小对齐。  <br />
+SHM_RDONLY表示这个内存块将仅允许读取操作而禁止写入。 如果这个函数调用成功则会返回绑定的共享内存块对应的地址。通过 fork 函数创建的子进程同时继承这些共享内存块；</p>
+
+<p class="cye-lm-tag">如果需要，它们可以主动脱离这些共享内存块。 当一个进程不再使用一个共享内存块的时候</p>
+
+
+
+<h2 id="共享内存解除映射">共享内存解除映射</h2>
+
+<hr />
+
+<p class="cye-lm-tag">当一个进程不再需要共享内存时，需要把它从进程地址空间中多里。</p>
+
+
+
+<pre class="prettyprint"><code class=" hljs cs"><span class="hljs-keyword cye-lm-tag">int</span> shmdt(<span class="hljs-keyword cye-lm-tag">char</span> *shmaddr)</code></pre>
+
+<table>
+<thead>
+<tr>
+  <th>参数</th>
+  <th align="center">描述</th>
+</tr>
+</thead>
+<tbody><tr>
+  <td>shmaddr</td>
+  <td align="center">那块共享内存的起始地址</td>
+</tr>
+</tbody></table>
+
+
+<blockquote>
+  <p class="cye-lm-tag">成功时返回0。失败时返回-1。</p>
+</blockquote>
+
+<p class="cye-lm-tag">应通过调用 shmdt（Shared Memory Detach，脱离共享内存块）函数与该共享内存块脱离。将由 shmat 函数返回的地址传递给这个函数。如果当释放这个内存块的进程是最后一个使用该内存块的进程，则这个内存块将被删除。对 exit 或任何exec族函数的调用都会自动使进程脱离共享内存块。</p>
+
+
+
+<h2 id="控制释放">控制释放</h2>
+
+<hr />
+
+<p class="cye-lm-tag">shmctl控制对这块共享内存的使用</p>
+
+<p class="cye-lm-tag">函数原型</p>
+
+<pre class="prettyprint"><code class=" hljs perl"><span class="hljs-keyword cye-lm-tag">int</span>  <span class="hljs-keyword cye-lm-tag">shmctl</span>( <span class="hljs-keyword cye-lm-tag">int</span> shmid , <span class="hljs-keyword cye-lm-tag">int</span> cmd , struct shmid_ds <span class="hljs-variable cye-lm-tag">*buf</span> );</code></pre>
+
+<table>
+<thead>
+<tr>
+  <th>参数</th>
+  <th align="center">描述</th>
+</tr>
+</thead>
+<tbody><tr>
+  <td>shmid</td>
+  <td align="center">是共享内存的ID。</td>
+</tr>
+<tr>
+  <td>cmd</td>
+  <td align="center">控制命令</td>
+</tr>
+<tr>
+  <td>buf</td>
+  <td align="center">一个结构体指针。IPC_STAT的时候，取得的状态放在这个结构体中。如果要改变共享内存的状态，用这个结构体指定。</td>
+</tr>
+</tbody></table>
+
+
+<p class="cye-lm-tag">其中cmd的取值如下</p>
+
+<table>
+<thead>
+<tr>
+  <th>cmd</th>
+  <th align="center">描述</th>
+</tr>
+</thead>
+<tbody><tr>
+  <td>IPC_STAT</td>
+  <td align="center">得到共享内存的状态</td>
+</tr>
+<tr>
+  <td>IPC_SET</td>
+  <td align="center">改变共享内存的状态</td>
+</tr>
+<tr>
+  <td>IPC_RMID</td>
+  <td align="center">删除共享内存</td>
+</tr>
+</tbody></table>
+
+
+<blockquote>
+  <p class="cye-lm-tag">返回值：        成功：0               失败：-1</p>
+</blockquote>
+
+<p class="cye-lm-tag">调用 shmctl（”Shared Memory Control”，控制共享内存）函数会返回一个共享内存块的相关信息。同时 shmctl 允许程序修改这些信息。</p>
+
+<p class="cye-lm-tag">该函数的第一个参数是一个共享内存块标识。 <br />
+要获取一个共享内存块的相关信息，则为该函数传递 IPC_STAT 作为第二个参数，同时传递一个指向一个 struct shmid_ds 对象的指针作为第三个参数。</p>
+
+<p class="cye-lm-tag">要删除一个共享内存块，则应将 IPC_RMID 作为第二个参数，而将 NULL 作为第三个参数。当最后一个绑定该共享内存块的进程与其脱离时，该共享内存块将被删除。</p>
+
+<p class="cye-lm-tag">您应当在结束使用每个共享内存块的时候都使用 shmctl 进行释放，以防止超过系统所允许的共享内存块的总数限制。调用 exit 和 exec 会使进程脱离共享内存块，但不会删除这个内存块。 要查看其它有关共享内存块的操作的描述，请参考shmctl函数的手册页。</p>
+
+
+
+<h1 id="示例">示例</h1>
+
+<hr />
+
+
+
+<h2 id="简单映射一块共享内存">简单映射一块共享内存</h2>
+
+
+
+<pre class="prettyprint"><code class="language-c hljs "><span class="hljs-preprocessor cye-lm-tag">#include &lt;stdio.h&gt;</span>
+<span class="hljs-preprocessor cye-lm-tag">#include &lt;stdlib.h&gt;</span>
+
+<span class="hljs-preprocessor cye-lm-tag">#include &lt;sys/ipc.h&gt;</span>
+<span class="hljs-preprocessor cye-lm-tag">#include &lt;sys/shm.h&gt;</span>
+<span class="hljs-preprocessor cye-lm-tag">#include &lt;string.h&gt;</span>
+
+
+<span class="hljs-preprocessor cye-lm-tag">#define IPCKEY 0x366378</span>
+
+
+
+<span class="hljs-keyword cye-lm-tag">typedef</span> <span class="hljs-keyword cye-lm-tag">struct</span> st_setting
+{
+    <span class="hljs-keyword cye-lm-tag">char</span> agen[<span class="hljs-number cye-lm-tag">10</span>];
+    <span class="hljs-keyword cye-lm-tag">unsigned</span> <span class="hljs-keyword cye-lm-tag">char</span> file_no;
+}st_setting;
+
+<span class="hljs-keyword cye-lm-tag">int</span> main(<span class="hljs-keyword cye-lm-tag">int</span> argc, <span class="hljs-keyword cye-lm-tag">char</span>** argv)
+{
+    <span class="hljs-keyword cye-lm-tag">int</span>         shm_id;
+    <span class="hljs-comment cye-lm-tag">//key_t       key;</span>
+    st_setting  *p_setting;
+
+    <span class="hljs-comment cye-lm-tag">//  首先检查共享内存是否存在，存在则先删除</span>
+    shm_id = shmget(IPCKEY , <span class="hljs-number cye-lm-tag">1028</span>, <span class="hljs-number cye-lm-tag">0640</span>);
+    <span class="hljs-keyword cye-lm-tag">if</span>(shm_id != -<span class="hljs-number cye-lm-tag">1</span>)
+    {
+        p_setting = (st_setting *)shmat(shm_id, NULL, <span class="hljs-number cye-lm-tag">0</span>);
+
+        <span class="hljs-keyword cye-lm-tag">if</span> (p_setting != (<span class="hljs-keyword cye-lm-tag">void</span> *)-<span class="hljs-number cye-lm-tag">1</span>)
+        {
+            shmdt(p_setting);
+
+            shmctl(shm_id,IPC_RMID,<span class="hljs-number cye-lm-tag">0</span>) ;
+        }
+    }
+
+    <span class="hljs-comment cye-lm-tag">//  创建共享内存</span>
+    shm_id = shmget(IPCKEY, <span class="hljs-number cye-lm-tag">1028</span>, <span class="hljs-number cye-lm-tag">0640</span> | IPC_CREAT | IPC_EXCL);
+    <span class="hljs-keyword cye-lm-tag">if</span>(shm_id == -<span class="hljs-number cye-lm-tag">1</span>)
+    {
+        <span class="hljs-built_in cye-lm-tag">printf</span>(<span class="hljs-string cye-lm-tag">"shmget error\n"</span>);
+        <span class="hljs-keyword cye-lm-tag">return</span> -<span class="hljs-number cye-lm-tag">1</span>;
+    }
+
+    <span class="hljs-comment cye-lm-tag">//  将这块共享内存区附加到自己的内存段</span>
+    p_setting = (st_setting *)shmat(shm_id, NULL, <span class="hljs-number cye-lm-tag">0</span>);
+
+    <span class="hljs-built_in cye-lm-tag">strncpy</span>(p_setting-&gt;agen, <span class="hljs-string cye-lm-tag">"gatieme"</span>, <span class="hljs-number cye-lm-tag">10</span>);
+    <span class="hljs-built_in cye-lm-tag">printf</span>(<span class="hljs-string cye-lm-tag">"agen : %s\n"</span>, p_setting-&gt;agen);
+
+    p_setting-&gt;file_no = <span class="hljs-number cye-lm-tag">1</span>;
+    <span class="hljs-built_in cye-lm-tag">printf</span>(<span class="hljs-string cye-lm-tag">"file_no : %d\n"</span>,p_setting-&gt;file_no);
+
+    system(<span class="hljs-string cye-lm-tag">"ipcs -m"</span>);<span class="hljs-comment cye-lm-tag">//  此时可看到有进程关联到共享内存的信息，nattch为1</span>
+
+    <span class="hljs-comment cye-lm-tag">//  将这块共享内存区从自己的内存段删除出去</span>
+    <span class="hljs-keyword cye-lm-tag">if</span>(shmdt(p_setting) == -<span class="hljs-number cye-lm-tag">1</span>)
+       perror(<span class="hljs-string cye-lm-tag">" detach error "</span>);
+
+    system(<span class="hljs-string cye-lm-tag">"ipcs -m"</span>);<span class="hljs-comment cye-lm-tag">//  此时可看到有进程关联到共享内存的信息，nattch为0</span>
+
+    <span class="hljs-comment cye-lm-tag">//  删除共享内存</span>
+    <span class="hljs-keyword cye-lm-tag">if</span> (shmctl( shm_id , IPC_RMID , NULL ) == -<span class="hljs-number cye-lm-tag">1</span>)
+    {
+        perror(<span class="hljs-string cye-lm-tag">" delete error "</span>);
+    }
+
+    system(<span class="hljs-string cye-lm-tag">"ipcs -m"</span>);<span class="hljs-comment cye-lm-tag">//  此时可看到有进程关联到共享内存的信息，nattch为0</span>
+
+
+    <span class="hljs-keyword cye-lm-tag">return</span> EXIT_SUCCESS;
+}
+
+</code></pre>
+
+<p class="cye-lm-tag"><img src="http://img.blog.csdn.net/20160329155902306" alt="这里写图片描述" title="" /></p>
+
+
+
+<h2 id="ipcrm命令删除共享内存">ipcrm命令删除共享内存</h2>
+
+<p class="cye-lm-tag">在使用共享内存，结束程序退出后。如果你没在程序中用shmctl()删除共享内存的话，一定要在命令行下用ipcrm命令删除这块共享内存。你要是不管的话，它就一直在那儿放着了。 <br />
+简单解释一下ipcs命令和ipcrm命令。</p>
+
+<p class="cye-lm-tag">取得ipc信息：</p>
+
+
+
+<pre class="prettyprint"><code class=" hljs lasso">usage : ipcs <span class="hljs-attribute cye-lm-tag">-asmq</span> <span class="hljs-attribute cye-lm-tag">-tclup</span> 
+    ipcs <span class="hljs-preprocessor cye-lm-tag">[</span><span class="hljs-attribute cye-lm-tag">-s</span> <span class="hljs-attribute cye-lm-tag">-m</span> <span class="hljs-attribute cye-lm-tag">-q</span><span class="hljs-preprocessor cye-lm-tag">]</span><span class="hljs-markup cye-lm-tag"> -i id
+    ipcs -h for help.
+m      输出有关共享内存(shared memory)的信息
+-q      输出有关信息队列(message queue)的信息
+-s      输出有关“遮断器”(semaphore)的信息</span></code></pre>
+
+<p class="cye-lm-tag">删除ipc</p>
+
+<pre class="prettyprint"><code class=" hljs r">usage: ipcrm [ [-q msqid] [-m shmid] [-s semid]
+          [-Q msgkey] [-M shmkey] [-S semkey] <span class="hljs-keyword cye-lm-tag">...</span> ]
+</code></pre>
+
+
+
+<h2 id="两端通信的程序">两端通信的程序</h2>
+
+<hr />
+
+<h3 id="读者程序">读者程序</h3>
+
+<hr />
+
+
+
+<pre class="prettyprint"><code class="language-c hljs "><span class="hljs-preprocessor cye-lm-tag">#include &lt;stdio.h&gt;</span>
+<span class="hljs-preprocessor cye-lm-tag">#include &lt;stdlib.h&gt;</span>
+<span class="hljs-preprocessor cye-lm-tag">#include &lt;unistd.h&gt;</span>
+<span class="hljs-preprocessor cye-lm-tag">#include &lt;errno.h&gt;</span>
+<span class="hljs-preprocessor cye-lm-tag">#include &lt;signal.h&gt;</span>
+<span class="hljs-preprocessor cye-lm-tag">#include &lt;string.h&gt;</span>
+<span class="hljs-preprocessor cye-lm-tag">#include &lt;sys/types.h&gt;</span>
+<span class="hljs-preprocessor cye-lm-tag">#include &lt;sys/ipc.h&gt;</span>
+<span class="hljs-preprocessor cye-lm-tag">#include &lt;sys/shm.h&gt;</span>
+
+<span class="hljs-preprocessor cye-lm-tag">#define N 64</span>
+
+<span class="hljs-keyword cye-lm-tag">typedef</span> <span class="hljs-keyword cye-lm-tag">struct</span>
+{
+    pid_t pid;
+    <span class="hljs-keyword cye-lm-tag">char</span> buf[N];
+} SHM;
+
+<span class="hljs-keyword cye-lm-tag">void</span> handler(<span class="hljs-keyword cye-lm-tag">int</span> signo)
+{
+    <span class="hljs-comment cye-lm-tag">//printf("get signal\n");</span>
+    <span class="hljs-keyword cye-lm-tag">return</span>;
+}
+
+<span class="hljs-keyword cye-lm-tag">int</span> main()
+{
+    key_t key;
+    <span class="hljs-keyword cye-lm-tag">int</span> shmid;
+    SHM *p;
+    pid_t pid;
+
+    <span class="hljs-keyword cye-lm-tag">if</span> ((key = ftok(<span class="hljs-string cye-lm-tag">"."</span>, <span class="hljs-string cye-lm-tag">'m'</span>)) &lt; <span class="hljs-number cye-lm-tag">0</span>)
+    {
+        perror(<span class="hljs-string cye-lm-tag">"fail to ftok"</span>);
+        <span class="hljs-built_in cye-lm-tag">exit</span>(-<span class="hljs-number cye-lm-tag">1</span>);
+    }
+
+    signal(SIGUSR1, handler);<span class="hljs-comment cye-lm-tag">//注册一个信号处理函数</span>
+    <span class="hljs-keyword cye-lm-tag">if</span> ((shmid = shmget(key, <span class="hljs-keyword cye-lm-tag">sizeof</span>(SHM), <span class="hljs-number cye-lm-tag">0666</span>|IPC_CREAT|IPC_EXCL)) &lt; <span class="hljs-number cye-lm-tag">0</span>)
+    {
+        <span class="hljs-keyword cye-lm-tag">if</span> (EEXIST == errno)<span class="hljs-comment cye-lm-tag">//存在则直接打开</span>
+        {
+            shmid = shmget(key, <span class="hljs-keyword cye-lm-tag">sizeof</span>(SHM), <span class="hljs-number cye-lm-tag">0666</span>);
+            p = (SHM *)shmat(shmid, NULL, <span class="hljs-number cye-lm-tag">0</span>);
+            pid = p-&gt;pid;
+            p-&gt;pid = getpid();<span class="hljs-comment cye-lm-tag">//把自己的pid写到共享内存</span>
+            kill(pid, SIGUSR1);
+        }
+        <span class="hljs-keyword cye-lm-tag">else</span><span class="hljs-comment cye-lm-tag">//出错</span>
+        {
+            perror(<span class="hljs-string cye-lm-tag">"fail to shmget"</span>);
+            <span class="hljs-built_in cye-lm-tag">exit</span>(-<span class="hljs-number cye-lm-tag">1</span>);
+        }
+    }
+    <span class="hljs-keyword cye-lm-tag">else</span><span class="hljs-comment cye-lm-tag">//成功</span>
+    {
+        p = (SHM *)shmat(shmid, NULL, <span class="hljs-number cye-lm-tag">0</span>);
+        p-&gt;pid = getpid();
+        pause();
+        pid = p-&gt;pid;<span class="hljs-comment cye-lm-tag">//得到写端进程的pid</span>
+    }
+
+    <span class="hljs-keyword cye-lm-tag">while</span> ( <span class="hljs-number cye-lm-tag">1</span> )
+    {
+        pause();<span class="hljs-comment cye-lm-tag">//阻塞，等待信号</span>
+        <span class="hljs-keyword cye-lm-tag">if</span> (<span class="hljs-built_in cye-lm-tag">strcmp</span>(p-&gt;buf, <span class="hljs-string cye-lm-tag">"quit\n"</span>) == <span class="hljs-number cye-lm-tag">0</span>) <span class="hljs-built_in cye-lm-tag">exit</span>(<span class="hljs-number cye-lm-tag">0</span>);<span class="hljs-comment cye-lm-tag">//输入"quit结束"</span>
+        <span class="hljs-built_in cye-lm-tag">printf</span>(<span class="hljs-string cye-lm-tag">"read from shm : %s"</span>, p-&gt;buf);
+        kill(pid, SIGUSR1);<span class="hljs-comment cye-lm-tag">//向写进程发SIGUSR1信号</span>
+    }
+
+    <span class="hljs-keyword cye-lm-tag">return</span> <span class="hljs-number cye-lm-tag">0</span>;
+
+
+}
+</code></pre>
+
+<h3 id="写者程序">写者程序</h3>
+
+<hr />
+
+
+
+<pre class="prettyprint"><code class="language-c hljs "><span class="hljs-preprocessor">#include &lt;stdio.h&gt;</span>
+<span class="hljs-preprocessor">#include &lt;stdlib.h&gt;</span>
+<span class="hljs-preprocessor">#include &lt;unistd.h&gt;</span>
+<span class="hljs-preprocessor">#include &lt;errno.h&gt;</span>
+<span class="hljs-preprocessor">#include &lt;signal.h&gt;</span>
+<span class="hljs-preprocessor">#include &lt;string.h&gt;</span>
+<span class="hljs-preprocessor">#include &lt;sys/types.h&gt;</span>
+<span class="hljs-preprocessor">#include &lt;sys/ipc.h&gt;</span>
+<span class="hljs-preprocessor">#include &lt;sys/shm.h&gt;</span>
+
+<span class="hljs-preprocessor">#define N 64</span>
+
+<span class="hljs-keyword">typedef</span> <span class="hljs-keyword">struct</span>
+{
+    pid_t pid;
+    <span class="hljs-keyword">char</span> buf[N];
+} SHM;
+
+<span class="hljs-keyword">void</span> handler(<span class="hljs-keyword">int</span> signo)
+{
+    <span class="hljs-comment">//printf("get signal\n");</span>
+    <span class="hljs-keyword">return</span>;
+}
+
+<span class="hljs-keyword">int</span> main()
+{
+    key_t key;
+    <span class="hljs-keyword">int</span> shmid;
+    SHM *p;
+    pid_t pid;
+
+    <span class="hljs-keyword">if</span> ((key = ftok(<span class="hljs-string">"."</span>, <span class="hljs-string">'m'</span>)) &lt; <span class="hljs-number">0</span>)
+    {
+        perror(<span class="hljs-string">"fail to ftok"</span>);
+        <span class="hljs-built_in">exit</span>(-<span class="hljs-number">1</span>);
+    }
+
+    signal(SIGUSR1, handler);               <span class="hljs-comment">//  注册一个信号处理函数</span>
+    <span class="hljs-keyword">if</span> ((shmid = shmget(key, <span class="hljs-keyword">sizeof</span>(SHM), <span class="hljs-number">0666</span> | IPC_CREAT | IPC_EXCL)) &lt; <span class="hljs-number">0</span>)
+    {
+        <span class="hljs-keyword">if</span> (EEXIST == errno)                <span class="hljs-comment">//  存在则直接打开</span>
+        {
+            shmid = shmget(key, <span class="hljs-keyword">sizeof</span>(SHM), <span class="hljs-number">0666</span>);
+
+            p = (SHM *)shmat(shmid, NULL, <span class="hljs-number">0</span>);
+
+            pid = p-&gt;pid;
+            p-&gt;pid = getpid();
+            kill(pid, SIGUSR1);
+        }
+        <span class="hljs-keyword">else</span><span class="hljs-comment">//出错</span>
+        {
+            perror(<span class="hljs-string">"fail to shmget"</span>);
+            <span class="hljs-built_in">exit</span>(-<span class="hljs-number">1</span>);
+        }
+    }
+    <span class="hljs-keyword">else</span><span class="hljs-comment">//成功</span>
+    {
+
+        p = (SHM *)shmat(shmid, NULL, <span class="hljs-number">0</span>);
+        p-&gt;pid = getpid();                  <span class="hljs-comment">//  把自己的pid写到共享内存</span>
+        pause();
+        pid = p-&gt;pid;                       <span class="hljs-comment">//  得到读端进程的pid</span>
+
+    }
+
+    <span class="hljs-keyword">while</span> ( <span class="hljs-number">1</span> )
+    {
+        <span class="hljs-built_in">printf</span>(<span class="hljs-string">"write to shm : "</span>);
+        fgets(p-&gt;buf, N, stdin);            <span class="hljs-comment">//  接收输入</span>
+        kill(pid, SIGUSR1);                 <span class="hljs-comment">//  向读进程发SIGUSR1信号</span>
+        <span class="hljs-keyword">if</span> (<span class="hljs-built_in">strcmp</span>(p-&gt;buf, <span class="hljs-string">"quit\n"</span>) == <span class="hljs-number">0</span>) <span class="hljs-keyword">break</span>;
+        pause();                            <span class="hljs-comment">//  阻塞，等待信号</span>
+    }
+    shmdt(p);
+    shmctl(shmid, IPC_RMID, NULL);          <span class="hljs-comment">//  删除共享内存</span>
+
+    <span class="hljs-keyword">return</span> <span class="hljs-number">0</span>;
+}
+</code></pre>
+
+<p><img src="http://img.blog.csdn.net/20160329163053537" alt="这里写图片描述" title="" /></p></div>&#13;
+        <script type="text/javascript">&#13;
+            $(function () {&#13;
+                $('pre.prettyprint code').each(function () {&#13;
+                    var lines = $(this).text().split('\n').length;&#13;
+                    var $numbering = $('&lt;ul/&gt;').addClass('pre-numbering').hide();&#13;
+                    $(this).addClass('has-numbering').parent().append($numbering);&#13;
+                    for (i = 1; i &lt;= lines; i++) {&#13;
+                        $numbering.append($('&lt;li/&gt;').text(i));&#13;
+                    };&#13;
+                    $numbering.fadeIn(1700);&#13;
+                });&#13;
+            });&#13;
+        </script>&#13;
+   &#13;

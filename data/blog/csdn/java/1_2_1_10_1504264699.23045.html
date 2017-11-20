@@ -1,0 +1,596 @@
+
+<p><span style="white-space:pre">	</span><span style="font-size:18px;">最近刚好有点时间，特意来整合一下项目，以后会陆续把前端框架和一些组件也给整合进去，今天就先来整合一下SSM+mysql+dubbo+zookeeper来做一个用户列表功能。关于理论性的知识，大家可以自行查阅下资料，这里重点讲解一下怎么搭建这一套开发环境。</span></p><h1><span style="color: rgb(143, 78, 11); font-family: Arial, Helvetica, FreeSans, sans-serif; font-size: 15pt;">背景</span></h1><p></p><p style="line-height: 17.33333396911621px; margin-top: 10px; margin-bottom: 10px; padding-top: 0px; padding-bottom: 0px; font-family: Arial, Helvetica, FreeSans, sans-serif;"><span style="font-size:18px;">随着互联网的发展，网站应用的规模不断扩大，常规的垂直应用架构已无法应对，分布式服务架构以及流动计算架构势在必行，亟需一个治理系统确保架构有条不紊的演进。</span></p><p style="font-size: 13px; line-height: 17.33333396911621px; margin-top: 10px; margin-bottom: 10px; padding-top: 0px; padding-bottom: 0px; font-family: Arial, Helvetica, FreeSans, sans-serif;"><span class="image-wrap"><img src="http://dubbo.io/dubbo-architecture-roadmap.jpg-version=1&amp;modificationDate=1331143666000.jpg" tppabs="http://10.20.160.198/wiki/download/attachments/6947616/dubbo-architecture-roadmap.jpg?version=1&amp;modificationDate=1331143666000" style="border: 0px solid black;" alt="" /></span></p><ul style="font-size: 13px; line-height: 17.33333396911621px; font-family: Arial, Helvetica, FreeSans, sans-serif;"><li style="font-size: 10pt; line-height: 13pt; margin: 0px; padding: 0px;"><strong>单一应用架构</strong><ul style="font-size: 10pt; line-height: 13pt; list-style-type: disc;"><li style="font-size: 10pt; line-height: 13pt; margin: 0px; padding: 0px;">当网站流量很小时，只需一个应用，将所有功能都部署在一起，以减少部署节点和成本。</li><li style="font-size: 10pt; line-height: 13pt; margin: 0px; padding: 0px;">此时，用于简化增删改查工作量的 <strong>数据访问框架(ORM)</strong> 是关键。</li><li style="font-size: 10pt; line-height: 13pt; margin: 0px; padding: 0px;">早期的JSP，ASP，PHP都是把数据操作写在前端，功能相当简单。</li></ul></li><li style="font-size: 10pt; line-height: 13pt; margin: 0px; padding: 0px;"><strong>垂直应用架构</strong><ul style="font-size: 10pt; line-height: 13pt; list-style-type: disc;"><li style="font-size: 10pt; line-height: 13pt; margin: 0px; padding: 0px;">当访问量逐渐增大，单一应用增加机器带来的加速度越来越小，将应用拆成互不相干的几个应用，以提升效率。</li><li style="font-size: 10pt; line-height: 13pt; margin: 0px; padding: 0px;">此时，用于加速前端页面开发的 <strong>Web框架(MVC)</strong> 是关键。现在很多非互联网公司仍然采用这种架构设计。</li></ul></li><li style="font-size: 10pt; line-height: 13pt; margin: 0px; padding: 0px;"><strong>分布式服务架构</strong><ul style="font-size: 10pt; line-height: 13pt; list-style-type: disc;"><li style="font-size: 10pt; line-height: 13pt; margin: 0px; padding: 0px;">当垂直应用越来越多，应用之间交互不可避免，将核心业务抽取出来，作为独立的服务，逐渐形成稳定的服务中心，使前端应用能更快速的响应多变的市场需求。</li><li style="font-size: 10pt; line-height: 13pt; margin: 0px; padding: 0px;">此时，用于提高业务复用及整合的 <strong>分布式服务框架(RPC)</strong> 是关键。</li></ul></li><li style="font-size: 10pt; line-height: 13pt; margin: 0px; padding: 0px;"><strong>流动计算架构</strong><ul style="font-size: 10pt; line-height: 13pt; list-style-type: disc;"><li style="font-size: 10pt; line-height: 13pt; margin: 0px; padding: 0px;">当服务越来越多，容量的评估，小服务资源的浪费等问题逐渐显现，此时需增加一个调度中心基于访问压力实时管理集群容量，提高集群利用率。</li><li style="font-size: 10pt; line-height: 13pt; margin: 0px; padding: 0px;">此时，用于提高机器利用率的 <strong>资源调度和治理中心(SOA)</strong> 是关键。</li></ul></li></ul><h1><span style="font-size:18px;">开发工具：</span></h1><p><span style="font-size:18px;">这里贴出自己的开发工具和版本号，因为有的时候可能会因为版本号而造成很多不必要的冲突。</span></p><p><span style="font-size:18px;">zookeeper-3.4.6+windows系统+mysql 5.6+jdk7+eclipse+tomcat7+dubbo 2.5.3</span></p><p><span style="font-size:18px;"><span style="font-size:18px;">zookeeper</span>:</span></p><p><span style="color: rgb(85, 85, 85); font-family: KaiTi_GB2312; font-size: 19px; line-height: 35px;">下载zookeeper注册中心，下载地址：</span><a target="_blank" href="http://www.apache.org/dyn/closer.cgi/zookeeper/" style="text-decoration: none; color: rgb(12, 137, 207); font-family: KaiTi_GB2312; font-size: 19px; line-height: 35px;">http://www.apache.org/dyn/closer.cgi/zookeeper/</a><span style="color: rgb(85, 85, 85); font-family: KaiTi_GB2312; font-size: 19px; line-height: 35px;"> 下载后解压即可。</span></p><p><span style="color: rgb(85, 85, 85); font-family: KaiTi_GB2312; font-size: 19px; line-height: 35px;"><img src="http://img.blog.csdn.net/20160923103100519?watermark/2/text/aHR0cDovL2Jsb2cuY3Nkbi5uZXQv/font/5a6L5L2T/fontsize/400/fill/I0JBQkFCMA==/dissolve/70/gravity/Center" alt="" /><br /></span></p><p><span style="color: rgb(85, 85, 85); font-family: KaiTi_GB2312; line-height: 35px;"><span style="font-size:18px;">然后进入conf里面，改一下我们的配置，打开zoo.cfg，有得可能不叫这个名字,把<span style="color: rgb(75, 75, 75); font-family: 宋体; line-height: 19.5px;">zoo_sample.cfg改成zoo.cfg</span>；</span></span></p><p></p><pre code_snippet_id="1896662" snippet_file_name="blog_20160923_1_1002629" name="code" class="html" style="color: rgb(85, 85, 85); font-family: KaiTi_GB2312; font-size: 19px; line-height: 35px;">clientPort=2181
+#server.1=127.0.0.1:3881:4881
+#server.2=127.0.0.1:3882:4882
+#server.3=127.0.0.1:3883:4883
+
+
+
+
+dataDir=../data
+dataLogDir=../log
+
+
+# The number of milliseconds of each tick
+tickTime=10000
+# The number of ticks that the initial 
+# synchronization phase can take
+initLimit=10
+# The number of ticks that can pass between 
+# sending a request and getting an acknowledgement
+syncLimit=5
+# the directory where the snapshot is stored.
+# do not use /tmp for storage, /tmp here is just 
+# example sakes.
+
+#dataDir=../data
+#dataLogDir=../dataLog
+
+# the port at which the clients will connect
+#clientPort=2181
+# the maximum number of client connections.
+# increase this if you need to handle more clients
+#maxClientCnxns=60
+#
+# Be sure to read the maintenance section of the 
+# administrator guide before turning on autopurge.
+#
+# http://zookeeper.apache.org/doc/current/zookeeperAdmin.html#sc_maintenance
+#
+# The number of snapshots to retain in dataDir
+#autopurge.snapRetainCount=3
+# Purge task interval in hours
+# Set to "0" to disable auto purge feature
+#autopurge.purgeInterval=1</pre><span style="font-size:18px;">tickTime：这个时间是作为 Zookeeper 服务器之间或客户端与服务器之间维持心跳的时间间隔，也就是每个 tickTime 时间就会发送一个心跳。<br />dataDir：顾名思义就是 Zookeeper 保存数据的目录，默认情况下，Zookeeper 将写数据的日志文件也保存在这个目录里clientPort：这个端口就是客户端连接 Zookeeper 服务器的端口，Zookeeper 会监听这个端口，接受客户端的访问请求。<br />当这些配置项配置好后，你现在就可以启动 Zookeeper 了，启动后要检查 Zookeeper 是否已经在服务，可以通过 netstat – ano 命令查看是否有你配置的 clientPort 端口号在监听服务。</span><br /><p></p><p><span style="font-size:18px;"></span></p><ul class="ibm-bullet-list" style="border: 0px; outline: 0px; font-size: 1.166em; vertical-align: baseline; list-style: none; margin: 0px; padding: 0px; color: rgb(51, 51, 51); line-height: 1.5em; font-family: Arial, sans-serif;"><li style="margin: 0px; padding: 5px 0px 5px 11px; border: 0px; outline: 0px;font-size:undefined; vertical-align: baseline; height: 88px; clear: left; background: url(http://1.www.s81c.com/i/v17/bullets/ibm_bullet_grey_on.png) 0px 13px no-repeat;">server.A=B：C：D：其中 A 是一个数字，表示这个是第几号服务器；B 是这个服务器的 ip 地址；C 表示的是这个服务器与集群中的 Leader 服务器交换信息的端口；D 表示的是万一集群中的 Leader 服务器挂了，需要一个端口来重新进行选举，选出一个新的 Leader，而这个端口就是用来执行选举时服务器相互通信的端口。如果是伪集群的配置方式，由于 B 都是一样，所以不同的 Zookeeper 实例通信端口号不能一样，所以要给它们分配不同的端口号。</li></ul><br /><p></p><p><span style="font-size:18px;"><br /></span></p><p><span style="font-size:18px;">最后到bin目录下面启动，客户端和服务端。</span></p><p><span style="font-size:18px;"><img src="http://img.blog.csdn.net/20160923131413657?watermark/2/text/aHR0cDovL2Jsb2cuY3Nkbi5uZXQv/font/5a6L5L2T/fontsize/400/fill/I0JBQkFCMA==/dissolve/70/gravity/Center" alt="" /><br /></span></p><h1><span style="font-size:18px;">Dubbo:</span></h1><p><span style="font-size:18px;"><span lang="zh-CN" style="color: rgb(85, 85, 85); font-family: KaiTi_GB2312; font-size: 19px; line-height: 35px;" xml:lang="zh-CN">需要下载：dubbo-admin-2.5.3的</span><span lang="en-US" style="color: rgb(85, 85, 85); font-family: KaiTi_GB2312; font-size: 19px; line-height: 35px;" xml:lang="en-US">war</span><span lang="zh-CN" style="color: rgb(85, 85, 85); font-family: KaiTi_GB2312; font-size: 19px; line-height: 35px;" xml:lang="zh-CN">包</span><br /></span></p><p><span style="font-family:KaiTi_GB2312;color:#555555;"><span style="font-size: 19px; line-height: 35px;">然后Tomcat启动一下。这里有两种启动方式，一种是找到自己的tomcat安装目录，<span style="color: rgb(85, 85, 85); font-family: KaiTi_GB2312; font-size: 19px; line-height: 35px;">替换掉tomcat/webapps下自带的ROOT文件夹内容（即替换tomcat的启动主页），将下载的war包解压到webapps/ROOT中，直接替换即可。</span></span></span></p><p><span style="font-family:KaiTi_GB2312;color:#555555;"><span style="font-size: 19px; line-height: 35px;"><span style="color: rgb(85, 85, 85); font-family: KaiTi_GB2312; font-size: 19px; line-height: 35px;">我用的是下面这种，比较简单点。打开eclipse里面的tomcat管理页面。</span></span></span></p><p><span style="font-family:KaiTi_GB2312;color:#555555;"><span style="font-size: 19px; line-height: 35px;"><span style="color: rgb(85, 85, 85); font-family: KaiTi_GB2312; font-size: 19px; line-height: 35px;"><img src="http://img.blog.csdn.net/20160923111251697?watermark/2/text/aHR0cDovL2Jsb2cuY3Nkbi5uZXQv/font/5a6L5L2T/fontsize/400/fill/I0JBQkFCMA==/dissolve/70/gravity/Center" alt="" /><br /></span></span></span></p><p><span style="font-family:KaiTi_GB2312;color:#555555;"><span style="font-size: 19px; line-height: 35px;">然后选择第二个，找到自己刚刚下载的war<strong>包，部署并且启动一下。</strong></span></span></p><p><span style="font-family:KaiTi_GB2312;color:#555555;"><span style="font-size: 19px; line-height: 35px;"><strong>这个时候在浏览器输入自己的ip和端口,我的是localhost:8080</strong></span></span></p><p><span style="font-family:KaiTi_GB2312;color:#555555;"><span style="font-size: 19px; line-height: 35px;"><strong><img src="http://img.blog.csdn.net/20160923161034929?watermark/2/text/aHR0cDovL2Jsb2cuY3Nkbi5uZXQv/font/5a6L5L2T/fontsize/400/fill/I0JBQkFCMA==/dissolve/70/gravity/Center" alt="" /><br /></strong></span></span></p><p><span style="font-family:KaiTi_GB2312;color:#555555;"><span style="font-size: 19px; line-height: 35px;"><strong>看到这个管理页面就代表成功了。可以来检测我们的消费者和生产者了。</strong></span></span></p><h1><span style="font-family:KaiTi_GB2312;color:#555555;"><span style="font-size: 19px; line-height: 35px;"><strong>SSM整合：</strong></span></span></h1><p><span style="font-family:KaiTi_GB2312;color:#555555;"><span style="font-size: 19px; line-height: 35px;"><strong>这里先编写我们的服务端，我把提供服务的统称为服务端，所以这里先创建一个服务端。</strong></span></span></p><p><span style="font-family:KaiTi_GB2312;color:#555555;"><span style="font-size: 19px; line-height: 35px;"><strong>所以这里新建一个项目叫做user-service</strong></span></span></p><p></p><h2 style="line-height: 26px; font-family: Arial; color: rgb(85, 85, 85); font-size: 19px; font-weight: bold; margin: 0px; padding: 0px;">Maven引入需要的JAR包</h2><div style="line-height: 35px; font-family: KaiTi_GB2312; color: rgb(85, 85, 85);"><pre code_snippet_id="1896662" snippet_file_name="blog_20160923_2_21111" name="code" class="html">&lt;?xml version="1.0"?&gt;
+&lt;project xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd" xmlns="http://maven.apache.org/POM/4.0.0"
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"&gt;
+  &lt;modelVersion&gt;4.0.0&lt;/modelVersion&gt;
+  &lt;parent&gt;
+    &lt;groupId&gt;user&lt;/groupId&gt;
+    &lt;artifactId&gt;user&lt;/artifactId&gt;
+    &lt;version&gt;0.0.1-SNAPSHOT&lt;/version&gt;
+  &lt;/parent&gt;
+  &lt;artifactId&gt;user-service&lt;/artifactId&gt;
+  &lt;packaging&gt;jar&lt;/packaging&gt;
+&lt;!--   &lt;name&gt;user-service Maven Webapp&lt;/name&gt;
+  &lt;url&gt;http://maven.apache.org&lt;/url&gt; --&gt;
+      &lt;properties&gt;
+    &lt;project.build.sourceEncoding&gt;UTF-8&lt;/project.build.sourceEncoding&gt;
+    &lt;!-- 设置 Spring 的版本 --&gt;
+	&lt;org.springframework.version&gt;4.1.7.RELEASE&lt;/org.springframework.version&gt;
+  &lt;/properties&gt;
+  &lt;dependencies&gt;
+   &lt;dependency&gt;
+	      &lt;groupId&gt;user-api&lt;/groupId&gt;
+	      &lt;artifactId&gt;user-api&lt;/artifactId&gt;
+	      &lt;version&gt;0.0.1-SNAPSHOT&lt;/version&gt;
+	    &lt;/dependency&gt;
+    &lt;dependency&gt;
+      &lt;groupId&gt;junit&lt;/groupId&gt;
+      &lt;artifactId&gt;junit&lt;/artifactId&gt;
+      &lt;version&gt;3.8.1&lt;/version&gt;
+      &lt;scope&gt;test&lt;/scope&gt;
+    &lt;/dependency&gt;
+ 
+    &lt;dependency&gt;
+      &lt;groupId&gt;com.alibaba&lt;/groupId&gt;
+      &lt;artifactId&gt;dubbo&lt;/artifactId&gt;
+      &lt;version&gt;2.5.3&lt;/version&gt;
+      &lt;exclusions&gt;
+      	&lt;exclusion&gt;
+      		&lt;artifactId&gt;spring&lt;/artifactId&gt;
+      		&lt;groupId&gt;org.springframework&lt;/groupId&gt;
+      	&lt;/exclusion&gt;
+      &lt;/exclusions&gt;
+    &lt;/dependency&gt;
+    &lt;dependency&gt;
+      &lt;groupId&gt;org.apache.zookeeper&lt;/groupId&gt;
+      &lt;artifactId&gt;zookeeper&lt;/artifactId&gt;
+      &lt;version&gt;3.4.6&lt;/version&gt;
+      &lt;exclusions&gt;
+        &lt;exclusion&gt;
+          &lt;artifactId&gt;log4j&lt;/artifactId&gt;
+          &lt;groupId&gt;log4j&lt;/groupId&gt;
+        &lt;/exclusion&gt;
+      &lt;/exclusions&gt;
+    &lt;/dependency&gt;
+          &lt;dependency&gt;
+            &lt;groupId&gt;org.slf4j&lt;/groupId&gt;
+            &lt;artifactId&gt;slf4j-api&lt;/artifactId&gt;
+            &lt;version&gt;1.7.12&lt;/version&gt;
+        &lt;/dependency&gt;
+        &lt;dependency&gt;
+            &lt;groupId&gt;ch.qos.logback&lt;/groupId&gt;
+            &lt;artifactId&gt;logback-core&lt;/artifactId&gt;
+            &lt;version&gt;1.1.1&lt;/version&gt;
+        &lt;/dependency&gt;
+        &lt;!-- 实现slf4j接口并整合 --&gt;
+        &lt;dependency&gt;
+            &lt;groupId&gt;ch.qos.logback&lt;/groupId&gt;
+            &lt;artifactId&gt;logback-classic&lt;/artifactId&gt;
+            &lt;version&gt;1.1.1&lt;/version&gt;
+        &lt;/dependency&gt;
+        &lt;!--2：数据库相关依赖 --&gt;
+        &lt;dependency&gt;
+            &lt;groupId&gt;mysql&lt;/groupId&gt;
+            &lt;artifactId&gt;mysql-connector-java&lt;/artifactId&gt;
+            &lt;version&gt;5.1.35&lt;/version&gt;
+            &lt;scope&gt;runtime&lt;/scope&gt;
+        &lt;/dependency&gt;
+        &lt;dependency&gt;
+            &lt;groupId&gt;c3p0&lt;/groupId&gt;
+            &lt;artifactId&gt;c3p0&lt;/artifactId&gt;
+            &lt;version&gt;0.9.1.2&lt;/version&gt;
+        &lt;/dependency&gt;
+
+        &lt;!-- DAO框架:MyBatis依赖 --&gt;
+        &lt;dependency&gt;
+            &lt;groupId&gt;org.mybatis&lt;/groupId&gt;
+            &lt;artifactId&gt;mybatis&lt;/artifactId&gt;
+            &lt;version&gt;3.3.0&lt;/version&gt;
+        &lt;/dependency&gt;
+        &lt;!-- mybats自身实现的spring整合依赖 --&gt;
+        &lt;dependency&gt;
+            &lt;groupId&gt;org.mybatis&lt;/groupId&gt;
+            &lt;artifactId&gt;mybatis-spring&lt;/artifactId&gt;
+            &lt;version&gt;1.2.3&lt;/version&gt;
+        &lt;/dependency&gt;
+
+        &lt;!-- 3:Servlet web相关依赖 --&gt;
+        &lt;dependency&gt;
+            &lt;groupId&gt;taglibs&lt;/groupId&gt;
+            &lt;artifactId&gt;standard&lt;/artifactId&gt;
+            &lt;version&gt;1.1.2&lt;/version&gt;
+        &lt;/dependency&gt;
+        &lt;dependency&gt;
+            &lt;groupId&gt;jstl&lt;/groupId&gt;
+            &lt;artifactId&gt;jstl&lt;/artifactId&gt;
+            &lt;version&gt;1.2&lt;/version&gt;
+        &lt;/dependency&gt;
+        &lt;dependency&gt;
+            &lt;groupId&gt;com.fasterxml.jackson.core&lt;/groupId&gt;
+            &lt;artifactId&gt;jackson-databind&lt;/artifactId&gt;
+            &lt;version&gt;2.5.4&lt;/version&gt;
+        &lt;/dependency&gt;
+        &lt;dependency&gt;
+            &lt;groupId&gt;javax.servlet&lt;/groupId&gt;
+            &lt;artifactId&gt;javax.servlet-api&lt;/artifactId&gt;
+            &lt;version&gt;3.1.0&lt;/version&gt;
+        &lt;/dependency&gt;
+
+        &lt;!--4:spring依赖 --&gt;
+        &lt;!--1)spring核心依赖  --&gt;
+        &lt;dependency&gt;
+            &lt;groupId&gt;org.springframework&lt;/groupId&gt;
+            &lt;artifactId&gt;spring-core&lt;/artifactId&gt;
+            &lt;version&gt;${org.springframework.version}&lt;/version&gt;
+        &lt;/dependency&gt;
+        &lt;dependency&gt;
+            &lt;groupId&gt;org.springframework&lt;/groupId&gt;
+            &lt;artifactId&gt;spring-beans&lt;/artifactId&gt;
+            &lt;version&gt;${org.springframework.version}&lt;/version&gt;
+        &lt;/dependency&gt;
+        &lt;dependency&gt;
+            &lt;groupId&gt;org.springframework&lt;/groupId&gt;
+            &lt;artifactId&gt;spring-context&lt;/artifactId&gt;
+            &lt;version&gt;${org.springframework.version}&lt;/version&gt;
+        &lt;/dependency&gt;
+        &lt;!--2)spring dao层依赖 --&gt;
+        &lt;dependency&gt;
+            &lt;groupId&gt;org.springframework&lt;/groupId&gt;
+            &lt;artifactId&gt;spring-jdbc&lt;/artifactId&gt;
+            &lt;version&gt;${org.springframework.version}&lt;/version&gt;
+        &lt;/dependency&gt;
+        &lt;dependency&gt;
+            &lt;groupId&gt;org.springframework&lt;/groupId&gt;
+            &lt;artifactId&gt;spring-tx&lt;/artifactId&gt;
+            &lt;version&gt;${org.springframework.version}&lt;/version&gt;
+        &lt;/dependency&gt;
+        &lt;!--3)spring web相关依赖 --&gt;
+        &lt;dependency&gt;
+            &lt;groupId&gt;org.springframework&lt;/groupId&gt;
+            &lt;artifactId&gt;spring-web&lt;/artifactId&gt;
+            &lt;version&gt;${org.springframework.version}&lt;/version&gt;
+        &lt;/dependency&gt;
+        &lt;dependency&gt;
+            &lt;groupId&gt;org.springframework&lt;/groupId&gt;
+            &lt;artifactId&gt;spring-webmvc&lt;/artifactId&gt;
+            &lt;version&gt;${org.springframework.version}&lt;/version&gt;
+        &lt;/dependency&gt;
+
+        &lt;!-- 4)spring test相关依赖 --&gt;
+        &lt;dependency&gt;
+            &lt;groupId&gt;org.springframework&lt;/groupId&gt;
+            &lt;artifactId&gt;spring-test&lt;/artifactId&gt;
+            &lt;version&gt;${org.springframework.version}&lt;/version&gt;
+        &lt;/dependency&gt;
+        &lt;!-- redis客户端:Jedis --&gt;
+        &lt;dependency&gt;
+            &lt;groupId&gt;redis.clients&lt;/groupId&gt;
+            &lt;artifactId&gt;jedis&lt;/artifactId&gt;
+            &lt;version&gt;2.7.3&lt;/version&gt;
+        &lt;/dependency&gt;
+        &lt;!-- protostuff序列化依赖 --&gt;
+        &lt;dependency&gt;
+            &lt;groupId&gt;com.dyuproject.protostuff&lt;/groupId&gt;
+            &lt;artifactId&gt;protostuff-core&lt;/artifactId&gt;
+            &lt;version&gt;1.0.8&lt;/version&gt;
+        &lt;/dependency&gt;
+        &lt;dependency&gt;
+            &lt;groupId&gt;com.dyuproject.protostuff&lt;/groupId&gt;
+            &lt;artifactId&gt;protostuff-runtime&lt;/artifactId&gt;
+            &lt;version&gt;1.0.8&lt;/version&gt;
+        &lt;/dependency&gt;
+        &lt;dependency&gt;
+            &lt;groupId&gt;commons-collections&lt;/groupId&gt;
+            &lt;artifactId&gt;commons-collections&lt;/artifactId&gt;
+            &lt;version&gt;3.2&lt;/version&gt;
+        &lt;/dependency&gt;
+        
+         &lt;dependency&gt;
+      &lt;groupId&gt;com.github.sgroschupf&lt;/groupId&gt;
+      &lt;artifactId&gt;zkclient&lt;/artifactId&gt;
+      &lt;version&gt;0.1&lt;/version&gt;
+    &lt;/dependency&gt;
+  &lt;/dependencies&gt;
+&lt;!--   &lt;build&gt;
+    &lt;finalName&gt;user-service&lt;/finalName&gt;
+  &lt;/build&gt; --&gt;
+&lt;/project&gt;</pre><h2><span style="font-size:18px;">Web.xml</span></h2></div><div style="line-height: 35px; font-family: KaiTi_GB2312;"><span style="font-size:18px;">这里使用contextConfigLocation来加载我们spring的配置文件。</span></div><div style="line-height: 35px; font-family: KaiTi_GB2312;"><span style="font-size:18px;"></span><pre code_snippet_id="1896662" snippet_file_name="blog_20160923_3_9322998" name="code" class="html">	&lt;servlet&gt;
+		&lt;servlet-name&gt;user-service&lt;/servlet-name&gt;
+		&lt;servlet-class&gt;org.springframework.web.servlet.DispatcherServlet&lt;/servlet-class&gt;
+		&lt;!-- 配置springMVC需要加载的配置文件 spring-dao.xml,spring-service.xml,spring-web.xml 
+			Mybatis -&gt; spring -&gt; springMVC --&gt;
+		&lt;init-param&gt;
+			&lt;param-name&gt;contextConfigLocation&lt;/param-name&gt;
+			&lt;param-value&gt;classpath:spring/spring-*.xml&lt;/param-value&gt;
+		&lt;/init-param&gt;
+	&lt;/servlet&gt;
+	&lt;servlet-mapping&gt;
+		&lt;servlet-name&gt;user-service&lt;/servlet-name&gt;
+		&lt;!-- 默认匹配所有的请求 --&gt;
+		&lt;url-pattern&gt;/&lt;/url-pattern&gt;
+	&lt;/servlet-mapping&gt;</pre><h2>配置视图解析器：</h2></div><div style="line-height: 35px;"><span style="font-size:18px;"></span><pre code_snippet_id="1896662" snippet_file_name="blog_20160923_4_2528582" name="code" class="html" style="font-family: KaiTi_GB2312;">&lt;?xml version="1.0" encoding="UTF-8"?&gt;
+&lt;beans xmlns="http://www.springframework.org/schema/beans"
+       xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:mvc="http://www.springframework.org/schema/mvc"
+       xmlns:context="http://www.springframework.org/schema/context"
+        xmlns:dubbo="http://code.alibabatech.com/schema/dubbo"
+       xsi:schemaLocation="http://www.springframework.org/schema/beans
+        http://www.springframework.org/schema/beans/spring-beans.xsd
+        http://www.springframework.org/schema/mvc
+        http://www.springframework.org/schema/mvc/spring-mvc.xsd
+        http://www.springframework.org/schema/context
+        http://www.springframework.org/schema/context/spring-context.xsd
+        http://code.alibabatech.com/schema/dubbo http://code.alibabatech.com/schema/dubbo/dubbo.xsd"&gt;
+    &lt;!-- 配置SpringMVC --&gt;
+    &lt;!-- 1:开启SpringMVC注解模式 --&gt;
+    &lt;!-- 简化配置:
+        (1)自动注册DefaultAnnotationHandlerMapping,AnnotationMethodHandlerAdapter
+        (2)提供一系列:数据绑定,数字和日期的format @NumberFormat,@DataTimeFormat,
+            xml,json默认读写支持.
+     --&gt;
+    &lt;mvc:annotation-driven/&gt;
+
+    &lt;!--
+        2:静态资源默认servlet配置
+        1:加入对静态资源的处理:js,gif,png
+        2:允许使用"/"做整体映射
+     --&gt;
+    &lt;mvc:default-servlet-handler/&gt;
+
+    &lt;!--3:配置jsp 显示ViewResolver --&gt;
+    &lt;bean class="org.springframework.web.servlet.view.InternalResourceViewResolver"&gt;
+        &lt;property name="viewClass" value="org.springframework.web.servlet.view.JstlView"/&gt;
+        &lt;property name="prefix" value="/WEB-INF/jsp/"/&gt;
+        &lt;property name="suffix" value=".jsp"/&gt;
+
+    &lt;/bean&gt;
+     &lt;!--4:扫描web相关的bean --&gt;
+    &lt;context:component-scan base-package="com.dubbo.controller"/&gt;
+&lt;/beans&gt;</pre><h2 style="font-family: Arial; margin: 0px; padding: 0px; line-height: 26px;">建立JDBC属性文件</h2><p style="font-family: Arial; margin-top: 0px; margin-bottom: 0px; padding-top: 0px; padding-bottom: 0px; font-size: 14px; line-height: 26px;"></p><p style="font-family: Arial; margin-top: 0px; margin-bottom: 0px; padding-top: 0px; padding-bottom: 0px; font-size: 14px; line-height: 26px;"><span style="background-color: rgb(255, 255, 153);">jdbc.properties</span>（文件编码修改为<span style="font-family: 'Times New Roman';">utf-8)</span></p><p style="font-family: Arial; margin-top: 0px; margin-bottom: 0px; padding-top: 0px; padding-bottom: 0px; font-size: 14px; line-height: 26px;"><span style="font-family: 'Times New Roman';"></span></p><pre code_snippet_id="1896662" snippet_file_name="blog_20160923_5_958419" name="code" class="html">jdbc.driver=com.mysql.jdbc.Driver
+jdbc.url=jdbc:mysql://localhost:3306/test?useUnicode=true&amp;characterEncoding=utf8
+jdbc.username=root
+jdbc.password=root</pre><br /><h2>Spring整合mybatis DAO层</h2><p></p><p style="font-family: Arial; margin-top: 0px; margin-bottom: 0px; padding-top: 0px; padding-bottom: 0px; font-size: 14px; line-height: 26px;"><span style="font-family: 'Times New Roman';"></span></p><pre code_snippet_id="1896662" snippet_file_name="blog_20160923_6_7752052" name="code" class="html">&lt;?xml version="1.0" encoding="UTF-8"?&gt;
+&lt;beans xmlns="http://www.springframework.org/schema/beans"
+       xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+       xmlns:context="http://www.springframework.org/schema/context"
+       xsi:schemaLocation="http://www.springframework.org/schema/beans
+        http://www.springframework.org/schema/beans/spring-beans.xsd
+        http://www.springframework.org/schema/context
+        http://www.springframework.org/schema/context/spring-context.xsd"&gt;
+    &lt;!-- 配置整合mybatis过程 --&gt;
+    &lt;!-- 1:配置数据库相关参数properties的属性：${url} --&gt;
+    &lt;context:property-placeholder location="classpath:jdbc.properties"/&gt;
+
+    &lt;!-- 2:数据库连接池 --&gt;
+    &lt;bean id="dataSource" class="com.mchange.v2.c3p0.ComboPooledDataSource"&gt;
+        &lt;!-- 配置连接池属性 --&gt;
+        &lt;property name="driverClass" value="${jdbc.driver}"/&gt;
+        &lt;property name="jdbcUrl" value="${jdbc.url}"/&gt;
+        &lt;property name="user" value="${jdbc.username}"/&gt;
+        &lt;property name="password" value="${jdbc.password}"/&gt;
+
+        &lt;!-- c3p0连接池的私有属性 --&gt;
+        &lt;property name="maxPoolSize" value="30"/&gt;
+        &lt;property name="minPoolSize" value="10"/&gt;
+        &lt;!-- 关闭连接后不自动commit --&gt;
+        &lt;property name="autoCommitOnClose" value="false"/&gt;
+        &lt;!-- 获取连接超时时间 --&gt;
+        &lt;property name="checkoutTimeout" value="1000"/&gt;
+        &lt;!-- 当获取连接失败重试次数 --&gt;
+        &lt;property name="acquireRetryAttempts" value="2"/&gt;
+    &lt;/bean&gt;
+
+    &lt;!-- 约定大于配置 --&gt;
+    &lt;!-- 3:配置SqlSessionFactory对象 --&gt;
+    &lt;bean id="sqlSessionFactory" class="org.mybatis.spring.SqlSessionFactoryBean"&gt;
+        &lt;!-- 注入数据库连接池 --&gt;
+        &lt;property name="dataSource"  ref="dataSource"/&gt;
+        &lt;!-- 配置MyBatis全局配置文件:mybatis-config.xml --&gt;
+        &lt;property name="configLocation" value="classpath:mybatis-config.xml"/&gt;
+        &lt;!-- 扫描entity包 使用别名 --&gt;
+        &lt;property name="typeAliasesPackage" value="com.dubbo.entity"/&gt;
+        &lt;!-- 扫描sql配置文件:mapper需要的xml文件 --&gt;
+        &lt;property name="mapperLocations" value="classpath:mapper/*.xml"/&gt;
+    &lt;/bean&gt;
+
+    &lt;!-- 4:配置扫描Dao接口包,动态实现Dao接口，注入到spring容器中--&gt;
+    &lt;bean class="org.mybatis.spring.mapper.MapperScannerConfigurer"&gt;
+        &lt;!-- 注入sqlSessionFactory --&gt;
+        &lt;property name="sqlSessionFactoryBeanName" value="sqlSessionFactory"/&gt;
+        &lt;!-- 给出需要扫描Dao接口包 --&gt;
+        &lt;property name="basePackage" value="com.dubbo.dao"/&gt;
+    &lt;/bean&gt;
+
+    &lt;!-- RedisDao --&gt;
+    &lt;bean id="redisDao" class="com.dubbo.dao.cache.RedisDao"&gt;
+        &lt;constructor-arg index="0" value="localhost"/&gt;
+        &lt;constructor-arg index="1" value="6379"/&gt;
+    &lt;/bean&gt;
+&lt;/beans&gt;</pre>redisDao以后会用到，现在先不管。<p></p><h2 style="font-family: Arial; margin-top: 0px; margin-bottom: 0px; padding-top: 0px; padding-bottom: 0px; font-size: 14px; line-height: 26px;"><span style="font-family: 'Times New Roman';">spring整合service层,开启事务</span></h2><p style="font-family: Arial; margin-top: 0px; margin-bottom: 0px; padding-top: 0px; padding-bottom: 0px; font-size: 14px; line-height: 26px;"><span style="font-family: 'Times New Roman';"></span></p><pre code_snippet_id="1896662" snippet_file_name="blog_20160923_7_7643368" name="code" class="html">&lt;?xml version="1.0" encoding="UTF-8"?&gt;
+&lt;beans xmlns="http://www.springframework.org/schema/beans"
+       xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+       xmlns:context="http://www.springframework.org/schema/context"
+       xmlns:tx="http://www.springframework.org/schema/tx"
+       xsi:schemaLocation="http://www.springframework.org/schema/beans
+        http://www.springframework.org/schema/beans/spring-beans.xsd
+        http://www.springframework.org/schema/context
+        http://www.springframework.org/schema/context/spring-context.xsd
+        http://www.springframework.org/schema/tx
+        http://www.springframework.org/schema/tx/spring-tx.xsd"&gt;
+    &lt;!-- 扫描service包下所有使用注解的类型 --&gt;
+    &lt;context:component-scan base-package="com.dubbo.service"/&gt;
+
+    &lt;!-- 配置事务管理器 --&gt;
+    &lt;bean id="transactionManager" class="org.springframework.jdbc.datasource.DataSourceTransactionManager"&gt;
+        &lt;!-- 注入数据库连接池 --&gt;
+        &lt;property name="dataSource" ref="dataSource"/&gt;
+    &lt;/bean&gt;
+
+    &lt;!-- 配置基于注解的声明式事务
+        默认使用注解来管理事务行为
+    --&gt;
+    &lt;tx:annotation-driven transaction-manager="transactionManager"/&gt;
+		 &lt;!-- 具体的实现bean --&gt;  
+&lt;/beans&gt;</pre><h2>mybatis配置文件</h2><p></p><p style="font-family: Arial; margin-top: 0px; margin-bottom: 0px; padding-top: 0px; padding-bottom: 0px; font-size: 14px; line-height: 26px;"><span style="font-family: 'Times New Roman';"></span></p><pre code_snippet_id="1896662" snippet_file_name="blog_20160923_8_2800799" name="code" class="html">&lt;?xml version="1.0" encoding="UTF-8" ?&gt;
+&lt;!DOCTYPE configuration
+        PUBLIC "-//mybatis.org//DTD Config 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-config.dtd"&gt;
+&lt;configuration&gt;
+    &lt;!-- 配置全局属性 --&gt;
+    &lt;settings&gt;
+        &lt;!-- 使用jdbc的getGeneratedKeys 获取数据库自增主键值 --&gt;
+        &lt;setting name="useGeneratedKeys" value="true"/&gt;
+        &lt;!-- 使用列别名替换列名 默认:true
+         select name as title from table
+         --&gt;
+        &lt;setting name="useColumnLabel" value="true"/&gt;
+        &lt;!-- 开启驼峰命名转换:Table(create_time) -&gt; Entity(createTime) --&gt;
+        &lt;setting name="mapUnderscoreToCamelCase" value="true"/&gt;
+    &lt;/settings&gt;
+&lt;/configuration&gt;</pre>基本上配置就这些，log4我感觉用处不大，懒得配置了。下面还有有一些mybatis的xml配置，这个后面再讲。<p></p><h2 style="font-family: Arial; margin-top: 0px; margin-bottom: 0px; padding-top: 0px; padding-bottom: 0px; font-size: 14px; line-height: 26px;"><span style="font-family: 'Times New Roman';">mysql:</span></h2><p style="font-family: Arial; margin-top: 0px; margin-bottom: 0px; padding-top: 0px; padding-bottom: 0px; font-size: 14px; line-height: 26px;"><span style="font-family: 'Times New Roman';">创建我们的sql</span></p><p style="font-family: Arial; margin-top: 0px; margin-bottom: 0px; padding-top: 0px; padding-bottom: 0px; font-size: 14px; line-height: 26px;"><span style="font-family: 'Times New Roman';"></span></p><pre code_snippet_id="1896662" snippet_file_name="blog_20160923_9_7642585" name="code" class="sql">CREATE TABLE `user` (
+	`userId` BIGINT (20),
+	`userName` VARCHAR (108),
+	`account` VARCHAR (108),
+	`password` VARCHAR (108),
+	`phone` VARCHAR (66),
+	`address` VARCHAR (108)
+); DEFAULT CHARSET=utf8; </pre><br />简单创建几个字段，随便加几条数据就好。<p></p><h2 style="margin-top: 0px; margin-bottom: 0px; padding-top: 0px; padding-bottom: 0px; font-size: 14px; line-height: 26px;"><span style="font-family:Times New Roman;">创建实体类：</span></h2><p style="margin-top: 0px; margin-bottom: 0px; padding-top: 0px; padding-bottom: 0px; font-size: 14px; line-height: 26px;"><span style="font-family:Times New Roman;">在创建实体类之前我先把包结构给建立好了；</span></p><p style="margin-top: 0px; margin-bottom: 0px; padding-top: 0px; padding-bottom: 0px; font-size: 14px; line-height: 26px;"><span style="font-family:Times New Roman;"><img src="http://img.blog.csdn.net/20160923135855656?watermark/2/text/aHR0cDovL2Jsb2cuY3Nkbi5uZXQv/font/5a6L5L2T/fontsize/400/fill/I0JBQkFCMA==/dissolve/70/gravity/Center" alt="" /><br /></span></p><p style="font-family: Arial; margin-top: 0px; margin-bottom: 0px; padding-top: 0px; padding-bottom: 0px; font-size: 14px; line-height: 26px;"><span style="font-family: 'Times New Roman';">在我们的entity里面创建一下User的实体类。</span></p><p style="font-family: Arial; margin-top: 0px; margin-bottom: 0px; padding-top: 0px; padding-bottom: 0px; font-size: 14px; line-height: 26px;"><span style="font-family: 'Times New Roman';"></span></p><pre code_snippet_id="1896662" snippet_file_name="blog_20160923_10_532525" name="code" class="java">public class User implements Serializable{
+		private String userId;
+		private String userName;
+		private String account;
+		private String phone;
+		private String password;
+		private String address;
+		public String getUserId() {
+			return userId;
+		}
+		public void setUserId(String userId) {
+			this.userId = userId;
+		}
+		public String getUserName() {
+			return userName;
+		}
+		public void setUserName(String userName) {
+			this.userName = userName;
+		}
+		public String getAccount() {
+			return account;
+		}
+		public void setAccount(String account) {
+			this.account = account;
+		}
+		public String getPhone() {
+			return phone;
+		}
+		public void setPhone(String phone) {
+			this.phone = phone;
+		}
+		public String getAddress() {
+			return address;
+		}
+		public void setAddress(String address) {
+			this.address = address;
+		}
+		public String getPassword() {
+			return password;
+		}
+		public void setPassword(String password) {
+			this.password = password;
+		}
+		
+}
+</pre><h2>编写dao和service</h2><p></p><p style="font-family: Arial; margin-top: 0px; margin-bottom: 0px; padding-top: 0px; padding-bottom: 0px; font-size: 14px; line-height: 26px;"><span style="font-family: 'Times New Roman';"></span></p><pre code_snippet_id="1896662" snippet_file_name="blog_20160923_11_1011702" name="code" class="java">public interface UserDao {
+			public List&lt;User&gt; getListUser();
+}
+</pre><br /><pre code_snippet_id="1896662" snippet_file_name="blog_20160923_12_3901641" name="code" class="java">public interface UserService {
+		public List&lt;User&gt; getListUser();
+}</pre><br /><pre code_snippet_id="1896662" snippet_file_name="blog_20160923_13_7140244" name="code" class="java">@Service
+public class UserServiceImpl implements UserService {
+    private final Logger logger = LoggerFactory.getLogger(this.getClass());
+
+    //注入Service依赖
+    @Autowired
+    private UserDao userDao;
+
+	/**
+	 * @return
+	 * @see com.dubbo.service.UserService#getListUser()
+	 *&lt;pre&gt;
+	 *&lt;li&gt;Author:&lt;/li&gt;
+	 *&lt;li&gt;Date: 2016年9月23日&lt;/li&gt;
+	 *&lt;/pre&gt;
+	 */
+	@Override
+	public List&lt;User&gt; getListUser() {
+		return userDao.getListUser();
+	}
+
+
+
+
+}
+</pre><br /><pre code_snippet_id="1896662" snippet_file_name="blog_20160923_14_5570081" name="code" class="html">&lt;?xml version="1.0" encoding="UTF-8" ?&gt;
+&lt;!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd"&gt;
+&lt;mapper namespace="com.dubbo.dao.UserDao"&gt;
+    &lt;!-- 目的:为DAO接口方法提供sql语句配置--&gt;
+
+    &lt;select id="getListUser" resultType="User"&gt;
+      	SELECT*FROM USER
+    &lt;/select&gt;
+&lt;/mapper&gt;</pre><br /><h2>编写Controller</h2><p></p><p style="font-family: Arial; margin-top: 0px; margin-bottom: 0px; padding-top: 0px; padding-bottom: 0px; font-size: 14px; line-height: 26px;"><span style="font-family: 'Times New Roman';"></span></p><pre code_snippet_id="1896662" snippet_file_name="blog_20160923_15_8775664" name="code" class="java">   @Autowired
+    private UserService userService;
+    @RequestMapping(value = "/list", method = RequestMethod.GET)
+    public String list(Model model) {
+        //获取列表页
+        List&lt;User&gt; list = userService.getListUser();
+        model.addAttribute("list", list);
+        //list.jsp + model = ModelAndView
+        return "list";// /WEB-INF/jsp/"list".jsp
+    }</pre><h2>启动Tomcat测试：</h2><p></p><p style="font-family: Arial; margin-top: 0px; margin-bottom: 0px; padding-top: 0px; padding-bottom: 0px; font-size: 14px; line-height: 26px;"><span style="font-family: 'Times New Roman';"><img src="http://img.blog.csdn.net/20160923161017870?watermark/2/text/aHR0cDovL2Jsb2cuY3Nkbi5uZXQv/font/5a6L5L2T/fontsize/400/fill/I0JBQkFCMA==/dissolve/70/gravity/Center" alt="" /><br /></span></p><p style="font-family: Arial; margin-top: 0px; margin-bottom: 0px; padding-top: 0px; padding-bottom: 0px; font-size: 14px; line-height: 26px;"></p><h1 style="font-family: Arial; margin-top: 0px; margin-bottom: 0px; padding-top: 0px; padding-bottom: 0px; font-size: 14px; line-height: 26px;"><span style="font-family: 'Times New Roman';">整合Dubbo和<span style="font-size:18px;">zookeeper</span></span></h1><p style="font-family: Arial; margin-top: 0px; margin-bottom: 0px; padding-top: 0px; padding-bottom: 0px; line-height: 26px;"><span style="font-family: 'Times New Roman';">在整合之前首先要明白Dubbo和zookeeper是干嘛用的。</span></p><p style="font-family: Arial; margin-top: 0px; margin-bottom: 0px; padding-top: 0px; padding-bottom: 0px; line-height: 26px;"><span style="font-family: 'Times New Roman';">SOA的框架也正是现在网站的系统架构演化史，也从侧面反映了我国网民数量的增加和对网站性能的提升。</span></p><p style="font-family: Arial; margin-top: 0px; margin-bottom: 0px; padding-top: 0px; padding-bottom: 0px; line-height: 26px;"><span style="font-family: 'Times New Roman';"></span></p><h2>大型网站系统特点</h2><p></p><p>　　（1）高并发、大流量：PV量巨大</p><p>　　（2）高可用：7*24小时不间断服务</p><p>　　（3）海量数据：文件数目分分钟xxTB</p><p>　　（4）用户分布广泛，网络情况复杂：网络运营商</p><p>　　（5）安全环境恶劣：黑客的攻击</p><p>　　（6）需求快速变更，发布频繁：快速适应市场，满足用户需求</p><p>　　（7）渐进式发展：慢慢地运营出大型网站</p><br /></div><p></p><h2 style="font-family: Arial; margin-top: 0px; margin-bottom: 0px; padding-top: 0px; padding-bottom: 0px; line-height: 26px;"><span style="font-family: 'Times New Roman';">例子：</span></h2><p style="font-family: Arial; margin-top: 0px; margin-bottom: 0px; padding-top: 0px; padding-bottom: 0px; line-height: 26px;"><span style="font-family: 'Times New Roman';">小明作为一个屌丝码农，有一天创建了一个网站，最开始只是小明一个人在运营，所有的程序都在一个Server里面跑，数据库访问和逻辑控制也都写在jsp文件里面。应用程序、数据库、文件等所有资源都集中在一台Server上。这就是典型的纯jsp网站。</span></p><p style="font-family: Arial; margin-top: 0px; margin-bottom: 0px; padding-top: 0px; padding-bottom: 0px; line-height: 26px;"><span style="font-family: 'Times New Roman';"><img src="http://img.blog.csdn.net/20160923145856700?watermark/2/text/aHR0cDovL2Jsb2cuY3Nkbi5uZXQv/font/5a6L5L2T/fontsize/400/fill/I0JBQkFCMA==/dissolve/70/gravity/Center" alt="" /><br /><br />后来他的好朋友小王来了，他觉得小明的网站做的不错，于是就提出了改造建议，小王可是受过培训的啊，什么MVC人家可是经常背，于是他们的网站就开始拆分MVC三层了。并且把文件服务器和数据库单独部署到一个<span style="font-family: 'Times New Roman';font-size:18px; line-height: 26px;">Server上。</span></span></p><p style="font-family: Arial; margin-top: 0px; margin-bottom: 0px; padding-top: 0px; padding-bottom: 0px; line-height: 26px;"><span style="font-family: 'Times New Roman';"><span style="font-family: 'Times New Roman';font-size:18px; line-height: 26px;">这个时候<strong>三台Server平天下，</strong>应用和数据服务分离。</span></span></p><p style="font-family: Arial; margin-top: 0px; margin-bottom: 0px; padding-top: 0px; padding-bottom: 0px; line-height: 26px;"><span style="font-family: 'Times New Roman';"><span style="font-family: 'Times New Roman';font-size:18px; line-height: 26px;"><img src="http://img.blog.csdn.net/20160923150212120?watermark/2/text/aHR0cDovL2Jsb2cuY3Nkbi5uZXQv/font/5a6L5L2T/fontsize/400/fill/I0JBQkFCMA==/dissolve/70/gravity/Center" alt="" /><br /></span></span></p><br />再到后来，他们的网站越来越大了，普通的架构已经满足不了他们了，怎么办，必须得做集群，必须要有缓存，什么读写分离啊，redis啊和反向代理和CDN加速等等，慢慢的开始应用起来。<div style="line-height: 35px;"><span style="font-size:18px;"></span><p>分布式服务：既然每一个应用系统都需要执行许多相通的业务操作，比如用户管理、商品管理等，那么可以将这些共用的业务提取出来，独立部署。</p><img src="http://img.blog.csdn.net/20160923150521233" alt="" /><br /></div><div style="line-height: 35px; font-family: KaiTi_GB2312; color: rgb(85, 85, 85);"><span style="font-size:18px;">好了，其实dubbo简单来说就是用来管理我们的服务的，以前我们都是自己调自己的服务，如果服务挂掉的话，那么整个系统就挂掉了，现在是我们把服务交给dubbo去统一管理,而zookeeper是管理我们的dubbo的。</span></div><div style="line-height: 35px; font-family: KaiTi_GB2312; color: rgb(85, 85, 85);"><span style="font-size:18px;"><img src="http://img.blog.csdn.net/20160923153142441" alt="" /><br /></span></div><div style="line-height: 35px; font-family: KaiTi_GB2312; color: rgb(85, 85, 85);"><span style="font-size:18px;">创建user-api；user-api的作用很简单，作为一个API，把接口暴露出来供我们的客户端调用。</span></div><div style="line-height: 35px; font-family: KaiTi_GB2312; color: rgb(85, 85, 85);"><span style="font-size:18px;"><img src="http://img.blog.csdn.net/20160923153344210" alt="" /><br /></span></div><div style="line-height: 35px; font-family: KaiTi_GB2312;"><pre code_snippet_id="1896662" snippet_file_name="blog_20160923_16_3301806" name="code" class="java" style="color: rgb(85, 85, 85); font-weight: bold; font-size: 19px;">public interface UserService {
+		public List getListUser();
+}
+</pre><span style="font-size:18px;">修改服务端代码，这里要修改一下我们的user-service。把他作为一个服务层，只和数据库进行交互。</span></div><h2 style="line-height: 35px; font-family: KaiTi_GB2312; color: rgb(85, 85, 85); font-size: 19px; font-weight: bold;">Web-xml</h2><div><pre code_snippet_id="1896662" snippet_file_name="blog_20160923_17_444104" name="code" class="html"><span style="color: rgb(85, 85, 85); font-family: KaiTi_GB2312; font-size: 19px;  line-height: 35px;"><strong>&lt;web-app xmlns="http://xmlns.jcp.org/xml/ns/javaee" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+	xsi:schemaLocation="http://xmlns.jcp.org/xml/ns/javaee
+                      http://xmlns.jcp.org/xml/ns/javaee/web-app_3_1.xsd"
+	version="3.1" metadata-complete="true"&gt;
+	&lt;!-- 修改servlet版本为3.1 --&gt;
+	&lt;!-- 配置DispatcherServlet --&gt;
+&lt;listener&gt;
+		&lt;listener-class&gt;org.springframework.web.context.ContextLoaderListener&lt;/listener-class&gt;
+	&lt;/listener&gt;
+		&lt;context-param&gt;
+		&lt;param-name&gt;contextConfigLocation&lt;/param-name&gt;
+		&lt;param-value&gt;classpath:spring/spring-*.xml&lt;/param-value&gt;
+	&lt;/context-param&gt;
+	&lt;servlet&gt;
+		&lt;servlet-name&gt;user-service&lt;/servlet-name&gt;
+		&lt;servlet-class&gt;org.springframework.web.servlet.DispatcherServlet&lt;/servlet-class&gt;
+		&lt;!-- 配置springMVC需要加载的配置文件 spring-dao.xml,spring-service.xml,spring-web.xml 
+			Mybatis -&gt; spring -&gt; springMVC --&gt;
+		&lt;init-param&gt;
+			&lt;param-name&gt;contextConfigLocation&lt;/param-name&gt;
+			&lt;param-value&gt;classpath:spring/spring-*.xml&lt;/param-value&gt;
+		&lt;/init-param&gt;
+	&lt;/servlet&gt;
+	&lt;servlet-mapping&gt;
+		&lt;servlet-name&gt;user-service&lt;/servlet-name&gt;
+		&lt;!-- 默认匹配所有的请求 --&gt;
+		&lt;url-pattern&gt;/&lt;/url-pattern&gt;
+	&lt;/servlet-mapping&gt;
+&lt;/web-app&gt;</strong></span>
+</pre><span style="font-size:18px;"><span style="font-family:KaiTi_GB2312;"><span style="line-height: 35px;">这里如果不用</span></span>&lt;listener&gt;加载的话dubbo服务注册不上去，具体原因还没有找到，还有这里加载了两遍配置文件才起作用，具体原因也还在探索中（迷茫。。）最后一个拦截器，可以不需要，因为我们不通过user-service访问页面。</span></div><div><span style="font-size:18px;">去掉service接口，这里我们通过引入user-api里面的接口，并且也基础里面的接口，所以user-service里面的接口可以去掉。</span></div><div style="line-height: 35px; font-family: KaiTi_GB2312; color: rgb(85, 85, 85); font-size: 19px; font-weight: bold;"><img src="http://img.blog.csdn.net/20160923154549539" alt="" /><br /></div><h2>创建dubbo配置文件 spring-dubbo.xml</h2><div><pre code_snippet_id="1896662" snippet_file_name="blog_20160923_18_8350552" name="code" class="html">&lt;?xml version="1.0" encoding="UTF-8"?&gt;
+&lt;beans xmlns="http://www.springframework.org/schema/beans"
+	xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:p="http://www.springframework.org/schema/p"
+	xmlns:dubbo="http://code.alibabatech.com/schema/dubbo"
+	xsi:schemaLocation="http://www.springframework.org/schema/beans http://www.springframework.org/schema/beans/spring-beans-3.1.xsd
+	http://code.alibabatech.com/schema/dubbo
+	http://code.alibabatech.com/schema/dubbo/dubbo.xsd"&gt;
+
+	
+	&lt;!-- 提供方应用信息，用于计算依赖关系 --&gt;
+	&lt;dubbo:application name="test_provider" /&gt;
+
+	&lt;!-- 使用zookeeper注册中心暴露服务地址 --&gt;
+	&lt;dubbo:registry address="zookeeper://172.16.1.37:2181" /&gt;
+
+	&lt;!-- 用dubbo协议在20880端口暴露服务 --&gt;
+	&lt;dubbo:protocol name="dubbo" port="20880" /&gt;
+	&lt;!-- 声明需要暴露的服务接口 --&gt;
+	&lt;dubbo:service interface="com.dubbo.service.UserService"  ref="userService" /&gt;
+	&lt;!-- 具体的实现bean --&gt;
+	&lt;bean id="userService" class="com.dubbo.service.impl.UserServiceImpl" /&gt;
+
+	&lt;!-- 声明需要暴露的服务接口 --&gt;
+	&lt;dubbo:service interface="com.dubbo.service.TestService"  ref="testService" /&gt;
+	&lt;!-- 具体的实现bean --&gt;
+	&lt;bean id="testService" class="com.dubbo.service.impl.TestServiceImpl" /&gt;
+	
+	&lt;!-- 声明需要暴露的服务接口 --&gt;
+	&lt;dubbo:service interface="com.dubbo.service.SeckillService"  ref="seckillService" /&gt;
+	&lt;!-- 具体的实现bean --&gt;
+	&lt;bean id="seckillService" class="com.dubbo.service.impl.SeckillServiceImpl" /&gt;
+	
+
+&lt;/beans&gt;</pre><br />最后启动Tomcat；</div><div><br /></div><h2>我们使用zk-Inspector，来监控一下zk的服务。</h2><div><img src="http://img.blog.csdn.net/20160923154858089" alt="" /><br /></div><div><br /></div><div style="line-height: 35px; font-family: KaiTi_GB2312; color: rgb(85, 85, 85); font-size: 19px; font-weight: bold;">点击绿色的箭头，然后开启监控，我们可以看到</div><div style="line-height: 35px; font-family: KaiTi_GB2312; color: rgb(85, 85, 85); font-size: 19px; font-weight: bold;"><img src="http://img.blog.csdn.net/20160923155255891?watermark/2/text/aHR0cDovL2Jsb2cuY3Nkbi5uZXQv/font/5a6L5L2T/fontsize/400/fill/I0JBQkFCMA==/dissolve/70/gravity/Center" alt="" /><br /></div><h2 style="line-height: 35px; font-family: KaiTi_GB2312; color: rgb(85, 85, 85); font-size: 19px; font-weight: bold;">dubbo服务已经注册成功，然后我们再进入dubbo管理页面看看。</h2><div style="line-height: 35px; font-family: KaiTi_GB2312; color: rgb(85, 85, 85); font-size: 19px; font-weight: bold;"><img src="http://img.blog.csdn.net/20160923155351627?watermark/2/text/aHR0cDovL2Jsb2cuY3Nkbi5uZXQv/font/5a6L5L2T/fontsize/400/fill/I0JBQkFCMA==/dissolve/70/gravity/Center" alt="" /><br />也创建了三个服务，证明我们的服务端已经开发完成。</div><h1 style="line-height: 35px; font-family: KaiTi_GB2312; color: rgb(85, 85, 85); font-size: 19px; font-weight: bold;">客户端：</h1><div style="line-height: 35px; font-family: KaiTi_GB2312; color: rgb(85, 85, 85); font-size: 19px; font-weight: bold;">这个时候要创建我们的客户端了，客户端也采用SSM架构，其实根本不用Mybatis，因为数据交互都交给了我们的客户端，这里直接把服务端的架构复制过来；</div><div style="line-height: 35px; font-family: KaiTi_GB2312; color: rgb(85, 85, 85); font-size: 19px; font-weight: bold;"><pre code_snippet_id="1896662" snippet_file_name="blog_20160923_19_9604288" name="code" class="html">&lt;?xml version="1.0" encoding="UTF-8" ?&gt;
+&lt;beans xmlns="http://www.springframework.org/schema/beans"
+	xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:dubbo="http://code.alibabatech.com/schema/dubbo"
+	xsi:schemaLocation="http://www.springframework.org/schema/beans  
+       http://www.springframework.org/schema/beans/spring-beans.xsd  
+       http://code.alibabatech.com/schema/dubbo  
+       http://code.alibabatech.com/schema/dubbo/dubbo.xsd"&gt;
+
+	&lt;!-- 提供方应用信息，用于计算依赖关系 --&gt;
+	&lt;dubbo:application name="test_consumer" /&gt;
+
+	&lt;!-- 使用zookeeper注册中心暴露服务地址 --&gt;
+	&lt;dubbo:registry address="zookeeper://172.16.1.37:2181" /&gt;
+
+	&lt;!-- 用dubbo协议在20880端口暴露服务 --&gt;
+	&lt;dubbo:protocol name="dubbo" port="20880" /&gt;
+		&lt;!-- 声明需要暴露的服务接口 --&gt;
+	&lt;dubbo:reference interface="com.dubbo.service.UserService" id="userService" check="false" /&gt;
+	&lt;!-- 声明需要暴露的服务接口 --&gt;
+	&lt;dubbo:reference interface="com.dubbo.service.TestService" id="testService" check="false" /&gt;
+	
+	&lt;!-- 声明需要暴露的服务接口 --&gt;
+	&lt;dubbo:reference interface="com.dubbo.service.SeckillService" id="seckillService" check="false" /&gt;
+
+&lt;/beans&gt;</pre><img src="http://img.blog.csdn.net/20160923160505962?watermark/2/text/aHR0cDovL2Jsb2cuY3Nkbi5uZXQv/font/5a6L5L2T/fontsize/400/fill/I0JBQkFCMA==/dissolve/70/gravity/Center" alt="" /><br /><h2>这里加载一下视图解析器和dubbo配置就好了。</h2></div><div style="line-height: 35px; font-family: KaiTi_GB2312; color: rgb(85, 85, 85); font-size: 19px; font-weight: bold;"><pre code_snippet_id="1896662" snippet_file_name="blog_20160923_20_2494228" name="code" class="java">@Controller
+public class UserController {
+	
+	@Autowired
+	private UserService userService;
+	@ResponseBody
+	 @RequestMapping(value = "/list", method = RequestMethod.GET)
+    public String list(Model model) {
+        //获取列表页
+        List list = userService.getListUser();
+        model.addAttribute("list", list);
+        //list.jsp + model = ModelAndView
+        return "list";// /WEB-INF/jsp/"list".jsp
+    }
+	
+}</pre><h2>最后另外启动一个tomcat。</h2></div><div style="line-height: 35px; font-family: KaiTi_GB2312; color: rgb(85, 85, 85); font-size: 19px; font-weight: bold;">访问我们的客户端</div><div style="line-height: 35px; font-family: KaiTi_GB2312; color: rgb(85, 85, 85); font-size: 19px; font-weight: bold;"><img src="http://img.blog.csdn.net/20160923160657862?watermark/2/text/aHR0cDovL2Jsb2cuY3Nkbi5uZXQv/font/5a6L5L2T/fontsize/400/fill/I0JBQkFCMA==/dissolve/70/gravity/Center" alt="" /><br /><br /></div><br /><p><span style="font-family:KaiTi_GB2312;color:#555555;"><span style="font-size: 19px; line-height: 35px;"><strong><br /></strong></span></span></p>   &#13;

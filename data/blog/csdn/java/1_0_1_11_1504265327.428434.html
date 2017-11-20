@@ -1,0 +1,193 @@
+
+        <div class="markdown_views"><h1 id="springmvc学习记录九requestcontextholder分析">SpringMVC学习记录(九)–RequestContextHolder分析</h1>
+
+<p>标签（空格分隔）： javaWEB</p>
+
+<hr />
+
+<p>最近遇到的问题是在service获取request和response,正常来说在service层是没有request的,然而直接从controlller传过来的话解决方法太粗暴,后来发现了SpringMVC提供的RequestContextHolder遂去分析一番,并借此对SpringMVC的结构深入了解一下,后面会再发文章详细分析源码</p>
+
+<hr />
+
+
+
+<h2 id="1requestcontextholder的使用">1.RequestContextHolder的使用</h2>
+
+<p>RequestContextHolder顾名思义,持有上下文的Request容器.使用是很简单的,具体使用如下:</p>
+
+
+
+<pre class="prettyprint"><code class=" hljs avrasm">        //两个方法在没有使用JSF的项目中是没有区别的
+        RequestAttributes requestAttributes = RequestContextHolder<span class="hljs-preprocessor">.currentRequestAttributes</span>()<span class="hljs-comment">;</span>
+//                                            RequestContextHolder<span class="hljs-preprocessor">.getRequestAttributes</span>()<span class="hljs-comment">;</span>
+        //从session里面获取对应的值
+        String str = (String) requestAttributes<span class="hljs-preprocessor">.getAttribute</span>(<span class="hljs-string">"name"</span>,RequestAttributes<span class="hljs-preprocessor">.SCOPE</span>_SESSION)<span class="hljs-comment">;</span>
+
+        HttpServletRequest request = ((ServletRequestAttributes)requestAttributes)<span class="hljs-preprocessor">.getRequest</span>()<span class="hljs-comment">;</span>
+        HttpServletResponse response = ((ServletRequestAttributes)requestAttributes)<span class="hljs-preprocessor">.getResponse</span>()<span class="hljs-comment">;</span>
+</code></pre>
+
+<p>看到这一般都会想到几个问题: <br />
+1. request和response怎么和当前请求挂钩? <br />
+2. request和response等是什么时候设置进去的?</p>
+
+
+
+<h2 id="2解决疑问">2.解决疑问</h2>
+
+
+
+<h3 id="21-request和response怎么和当前请求挂钩">2.1 request和response怎么和当前请求挂钩?</h3>
+
+<p>首先分析RequestContextHolder这个类,里面有两个ThreadLocal保存当前线程下的request,关于ThreadLocal可以参考我的另一篇博文<a href="http://blog.csdn.net/u012706811/article/details/53231598">Java学习记录–ThreadLocal使用案例</a></p>
+
+
+
+<pre class="prettyprint"><code class=" hljs java">    <span class="hljs-comment">//得到存储进去的request</span>
+    <span class="hljs-keyword">private</span> <span class="hljs-keyword">static</span> <span class="hljs-keyword">final</span> ThreadLocal&lt;RequestAttributes&gt; requestAttributesHolder =
+            <span class="hljs-keyword">new</span> NamedThreadLocal&lt;RequestAttributes&gt;(<span class="hljs-string">"Request attributes"</span>);
+    <span class="hljs-comment">//可被子线程继承的request</span>
+    <span class="hljs-keyword">private</span> <span class="hljs-keyword">static</span> <span class="hljs-keyword">final</span> ThreadLocal&lt;RequestAttributes&gt; inheritableRequestAttributesHolder =
+            <span class="hljs-keyword">new</span> NamedInheritableThreadLocal&lt;RequestAttributes&gt;(<span class="hljs-string">"Request context"</span>);</code></pre>
+
+<p>再看<code>getRequestAttributes()</code>方法,相当于直接获取ThreadLocal里面的值,这样就保证了每一次获取到的Request是该请求的request.</p>
+
+
+
+<pre class="prettyprint"><code class=" hljs cs">    <span class="hljs-keyword">public</span> <span class="hljs-keyword">static</span> RequestAttributes <span class="hljs-title">getRequestAttributes</span>() {
+        RequestAttributes attributes = requestAttributesHolder.<span class="hljs-keyword">get</span>();
+        <span class="hljs-keyword">if</span> (attributes == <span class="hljs-keyword">null</span>) {
+            attributes = inheritableRequestAttributesHolder.<span class="hljs-keyword">get</span>();
+        }
+        <span class="hljs-keyword">return</span> attributes;
+    }</code></pre>
+
+
+
+<h3 id="22request和response等是什么时候设置进去的">2.2request和response等是什么时候设置进去的?</h3>
+
+<p>找这个的话需要对springMVC结构的<code>DispatcherServlet</code>的结构有一定了解才能准确的定位该去哪里找相关代码. <br />
+在IDEA中会显示如下的继承关系.</p>
+
+<p><img src="http://img.blog.csdn.net/20161202093758482" alt="这里写图片描述" title="" /></p>
+
+<p>左边1这里是Servlet的接口和实现类. <br />
+右边2这里是使得SpringMVC具有Spring的一些环境变量和Spring容器.类似的XXXAware接口就是对该类提供Spring感知,简单来说就是如果想使用Spring的XXXX就要实现XXXAware,spring会把需要的东西传送过来.</p>
+
+<p>那么剩下要分析的的就是三个类,简单看下源码 <br />
+1. HttpServletBean 进行初始化工作 <br />
+2. FrameworkServlet 初始化 WebApplicationContext,并提供service方法预处理请求 <br />
+3. DispatcherServlet 具体分发处理.</p>
+
+<p>那么就可以在FrameworkServlet查看到该类重写了service(),doGet(),doPost()…等方法,这些实现里面都有一个预处理方法<code>processRequest(request, response);</code>,所以定位到了我们要找的位置</p>
+
+<p>查看<code>processRequest(request, response);</code>的实现,具体可以分为三步: <br />
+1. 获取上一个请求的参数 <br />
+2. 重新建立新的参数 <br />
+3. 设置到XXContextHolder <br />
+4. 父类的service()处理请求 <br />
+5. 恢复request <br />
+6. 发布事件</p>
+
+
+
+<pre class="prettyprint"><code class=" hljs d"><span class="hljs-keyword">protected</span> <span class="hljs-keyword">final</span> <span class="hljs-keyword">void</span> processRequest(HttpServletRequest request, HttpServletResponse response)
+            throws ServletException, IOException {
+
+        <span class="hljs-built_in">long</span> startTime = System.currentTimeMillis();
+        Throwable failureCause = <span class="hljs-literal">null</span>;
+        <span class="hljs-comment">//获取上一个请求保存的LocaleContext</span>
+        LocaleContext previousLocaleContext = LocaleContextHolder.getLocaleContext();
+        <span class="hljs-comment">//建立新的LocaleContext</span>
+        LocaleContext localeContext = buildLocaleContext(request);
+        <span class="hljs-comment">//获取上一个请求保存的RequestAttributes</span>
+        RequestAttributes previousAttributes = RequestContextHolder.getRequestAttributes();
+        <span class="hljs-comment">//建立新的RequestAttributes</span>
+        ServletRequestAttributes requestAttributes = buildRequestAttributes(request, response, previousAttributes);
+
+        WebAsyncManager asyncManager = WebAsyncUtils.getAsyncManager(request);
+        asyncManager.registerCallableInterceptor(FrameworkServlet.<span class="hljs-keyword">class</span>.getName(), <span class="hljs-keyword">new</span> RequestBindingInterceptor());
+        <span class="hljs-comment">//具体设置的方法</span>
+        initContextHolders(request, localeContext, requestAttributes);
+
+        <span class="hljs-keyword">try</span> {
+            doService(request, response);
+        }
+        <span class="hljs-keyword">catch</span> (ServletException ex) {
+            failureCause = ex;
+            <span class="hljs-keyword">throw</span> ex;
+        }
+        <span class="hljs-keyword">catch</span> (IOException ex) {
+            failureCause = ex;
+            <span class="hljs-keyword">throw</span> ex;
+        }
+        <span class="hljs-keyword">catch</span> (Throwable ex) {
+            failureCause = ex;
+            <span class="hljs-keyword">throw</span> <span class="hljs-keyword">new</span> NestedServletException(<span class="hljs-string">"Request processing failed"</span>, ex);
+        }
+
+        <span class="hljs-keyword">finally</span> {
+            <span class="hljs-comment">//恢复</span>
+            resetContextHolders(request, previousLocaleContext, previousAttributes);
+            <span class="hljs-keyword">if</span> (requestAttributes != <span class="hljs-literal">null</span>) {
+                requestAttributes.requestCompleted();
+            }
+
+            <span class="hljs-keyword">if</span> (logger.isDebugEnabled()) {
+                <span class="hljs-keyword">if</span> (failureCause != <span class="hljs-literal">null</span>) {
+                    <span class="hljs-keyword">this</span>.logger.<span class="hljs-keyword">debug</span>(<span class="hljs-string">"Could not complete request"</span>, failureCause);
+                }
+                <span class="hljs-keyword">else</span> {
+                    <span class="hljs-keyword">if</span> (asyncManager.isConcurrentHandlingStarted()) {
+                        logger.<span class="hljs-keyword">debug</span>(<span class="hljs-string">"Leaving response open for concurrent processing"</span>);
+                    }
+                    <span class="hljs-keyword">else</span> {
+                        <span class="hljs-keyword">this</span>.logger.<span class="hljs-keyword">debug</span>(<span class="hljs-string">"Successfully completed request"</span>);
+                    }
+                }
+            }
+            <span class="hljs-comment">//发布事件</span>
+            publishRequestHandledEvent(request, response, startTime, failureCause);
+        }
+    }</code></pre>
+
+<p>再看<code>initContextHolders(request, localeContext, requestAttributes)</code>方法,把新的RequestAttributes设置进LocalThread,实际上保存的类型为<code>ServletRequestAttributes</code>,这也是为什么在使用的时候可以把RequestAttributes强转为<code>ServletRequestAttributes</code>.</p>
+
+
+
+<pre class="prettyprint"><code class=" hljs cs">    <span class="hljs-keyword">private</span> <span class="hljs-keyword">void</span> <span class="hljs-title">initContextHolders</span>(
+            HttpServletRequest request, LocaleContext localeContext, RequestAttributes requestAttributes) {
+
+        <span class="hljs-keyword">if</span> (localeContext != <span class="hljs-keyword">null</span>) {
+            LocaleContextHolder.setLocaleContext(localeContext, <span class="hljs-keyword">this</span>.threadContextInheritable);
+        }
+        <span class="hljs-keyword">if</span> (requestAttributes != <span class="hljs-keyword">null</span>) {
+            RequestContextHolder.setRequestAttributes(requestAttributes, <span class="hljs-keyword">this</span>.threadContextInheritable);
+        }
+        <span class="hljs-keyword">if</span> (logger.isTraceEnabled()) {
+            logger.trace(<span class="hljs-string">"Bound request context to thread: "</span> + request);
+        }
+    }</code></pre>
+
+<hr />
+
+<p>因此RequestContextHolder里面最终保存的为<code>ServletRequestAttributes</code>,这个类相比<code>RequestAttributes</code>方法是多了很多.</p>
+
+<p><img src="http://img.blog.csdn.net/20161202100802401" alt="这里写图片描述" title="" /></p>
+
+<p><strong>项目示例可以参考:</strong>  <br />
+SSM框架整合: <a href="https://github.com/nl101531/JavaWEB">https://github.com/nl101531/JavaWEB</a></p></div>&#13;
+        <script type="text/javascript">&#13;
+            $(function () {&#13;
+                $('pre.prettyprint code').each(function () {&#13;
+                    var lines = $(this).text().split('\n').length;&#13;
+                    var $numbering = $('&lt;ul/&gt;').addClass('pre-numbering').hide();&#13;
+                    $(this).addClass('has-numbering').parent().append($numbering);&#13;
+                    for (i = 1; i &lt;= lines; i++) {&#13;
+                        $numbering.append($('&lt;li/&gt;').text(i));&#13;
+                    };&#13;
+                    $numbering.fadeIn(1700);&#13;
+                });&#13;
+            });&#13;
+        </script>&#13;
+   &#13;

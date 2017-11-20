@@ -1,0 +1,390 @@
+
+                <div class="markdown_views"><p>JPA：Java Persistence API，用于对象持久化的 API</p>
+
+<p>注意：JPA是规范，不是ORM框架，是ORM框架的规范，JPA没有实现ORM，具体实现由ORM厂商提供</p>
+
+<p>现在JPA具体实现框架有：Hibernate、OpenJPA、TopLink</p>
+
+
+
+<h2 id="jpa的优势">JPA的优势：</h2>
+
+<p>标准化:  提供相同的 API，这保证了基于JPA 开发的企业应用能够经过少量的修改就能够在不同的 JPA 框架下运行。 <br/>
+简单易用，集成方便:  JPA 的主要目标之一就是提供更加简单的编程模型，在 JPA 框架下创建实体和创建 Java  类一样简单，只需要使用 javax.persistence.Entity 进行注释；JPA 的框架和接口也都非常简单， <br/>
+可媲美JDBC的查询能力:  JPA的查询语言是面向对象的，JPA定义了独特的JPQL，而且能够支持批量更新和修改、JOIN、GROUP BY、HAVING 等通常只有 SQL 才能够提供的高级查询特性，甚至还能够支持子查询。 <br/>
+支持面向对象的高级特性: JPA 中能够支持面向对象的高级特性，如类之间的继承、多态和类之间的复杂关系，最大限度的使用面向对象的模型</p>
+
+<h2 id="jpa主要包括这三方面的技术">JPA主要包括这三方面的技术：</h2>
+
+<p>ORM  映射元数据：JPA 支持 XML 和  JDK 5.0 注解两种元数据的形式，元数据描述对象和表之间的映射关系，框架据此将实体对象持久化到数据库表中。 <br/>
+JPA 的 API：用来操作实体对象，执行CRUD操作，框架在后台完成所有的事情，开发者从繁琐的 JDBC和 SQL代码中解脱出来。 <br/>
+查询语言（JPQL）：这是持久化操作中很重要的一个方面，通过面向对象而非面向数据库的查询语言查询数据，避免程序和具体的  SQL 紧密耦合。</p>
+
+<h2 id="使用jpa实现持久化对象的步骤">使用JPA实现持久化对象的步骤</h2>
+
+<p>(1)创建 persistence.xml, 在这个文件中配置持久化单元 <br/>
+需要指定跟哪个数据库进行交互; <br/>
+需要指定 JPA 使用哪个持久化的框架以及配置该框架的基本属性 <br/>
+(2)创建实体类, 使用 annotation 来描述实体类跟数据库表之间的映射关系. <br/>
+(3)使用 JPA API 完成数据增加、删除、修改和查询操作 <br/>
+创建 EntityManagerFactory (对应 Hibernate 中的 SessionFactory); <br/>
+创建 EntityManager (对应 Hibernate 中的Session);</p>
+
+<p>使用Eclipse创建一个jpa项目</p>
+
+<p><img src="http://img.blog.csdn.net/20170120143706308?watermark/2/text/aHR0cDovL2Jsb2cuY3Nkbi5uZXQvdTAxNDQyNzM5MQ==/font/5a6L5L2T/fontsize/400/fill/I0JBQkFCMA==/dissolve/70/gravity/SouthEast" alt="这里写图片描述" title=""/></p>
+
+<p>加入需要的jar <br/>
+hibernate-release-4.3.6.Final\lib\required*.jar <br/>
+hibernate-release-4.3.6.Final\lib\jpa*.jar</p>
+
+<p><img src="http://img.blog.csdn.net/20170120144237840?watermark/2/text/aHR0cDovL2Jsb2cuY3Nkbi5uZXQvdTAxNDQyNzM5MQ==/font/5a6L5L2T/fontsize/400/fill/I0JBQkFCMA==/dissolve/70/gravity/SouthEast" alt="这里写图片描述" title=""/> <br/>
+echache需要的jar <br/>
+<img src="http://img.blog.csdn.net/20170120144308124?watermark/2/text/aHR0cDovL2Jsb2cuY3Nkbi5uZXQvdTAxNDQyNzM5MQ==/font/5a6L5L2T/fontsize/400/fill/I0JBQkFCMA==/dissolve/70/gravity/SouthEast" alt="这里写图片描述" title=""/></p>
+
+<p>当然还有数据库连接的jar</p>
+
+<p>配置好放在META-INF下面的persistence.xml</p>
+
+
+
+<pre class="prettyprint"><code class=" hljs xml"><span class="hljs-pi">&lt;?xml version="1.0" encoding="UTF-8"?&gt;</span>
+<span class="hljs-tag">&lt;<span class="hljs-title">persistence</span> <span class="hljs-attribute">version</span>=<span class="hljs-value">"2.1"</span> <span class="hljs-attribute">xmlns</span>=<span class="hljs-value">"http://xmlns.jcp.org/xml/ns/persistence"</span> 
+             <span class="hljs-attribute">xmlns:xsi</span>=<span class="hljs-value">"http://www.w3.org/2001/XMLSchema-instance"</span> 
+             <span class="hljs-attribute">xsi:schemaLocation</span>=<span class="hljs-value">"http://xmlns.jcp.org/xml/ns/persistence http://xmlns.jcp.org/xml/ns/persistence/persistence_2_1.xsd"</span>&gt;</span>
+    <span class="hljs-tag">&lt;<span class="hljs-title">persistence-unit</span> <span class="hljs-attribute">name</span>=<span class="hljs-value">"jpaDemo"</span> <span class="hljs-attribute">transaction-type</span>=<span class="hljs-value">"RESOURCE_LOCAL"</span>&gt;</span>
+    <span class="hljs-comment">&lt;!-- 配置Hibernate JPA作为JPA的实现ORM框架，若项目只有一个JPA实现产品，那么这个配置可以不写 --&gt;</span>
+        <span class="hljs-tag">&lt;<span class="hljs-title">provider</span>&gt;</span>org.hibernate.ejb.HibernatePersistence<span class="hljs-tag">&lt;/<span class="hljs-title">provider</span>&gt;</span>
+
+    <span class="hljs-comment">&lt;!-- 添加持久化类 --&gt;</span>
+        <span class="hljs-tag">&lt;<span class="hljs-title">class</span>&gt;</span>com.jpaDemo.entity.Customer<span class="hljs-tag">&lt;/<span class="hljs-title">class</span>&gt;</span>
+        <span class="hljs-tag">&lt;<span class="hljs-title">class</span>&gt;</span>com.jpaDemo.entity.Order<span class="hljs-tag">&lt;/<span class="hljs-title">class</span>&gt;</span>
+
+    <span class="hljs-comment">&lt;!-- 
+        配置二级缓存的策略 
+        ALL：所有的实体类都被缓存
+        NONE：所有的实体类都不被缓存. 
+        ENABLE_SELECTIVE：标识 @Cacheable(true) 注解的实体类将被缓存
+        DISABLE_SELECTIVE：缓存除标识 @Cacheable(false) 以外的所有实体类
+        UNSPECIFIED：默认值，JPA 产品默认值将被使用
+        --&gt;</span>
+        <span class="hljs-tag">&lt;<span class="hljs-title">shared-cache-mode</span>&gt;</span>ENABLE_SELECTIVE<span class="hljs-tag">&lt;/<span class="hljs-title">shared-cache-mode</span>&gt;</span>
+
+        <span class="hljs-tag">&lt;<span class="hljs-title">properties</span>&gt;</span>
+            <span class="hljs-comment">&lt;!-- 连接数据库的基本信息 --&gt;</span>
+            <span class="hljs-tag">&lt;<span class="hljs-title">property</span> <span class="hljs-attribute">name</span>=<span class="hljs-value">"javax.persistence.jdbc.driver"</span> <span class="hljs-attribute">value</span>=<span class="hljs-value">"com.mysql.jdbc.Driver"</span>/&gt;</span>
+            <span class="hljs-tag">&lt;<span class="hljs-title">property</span> <span class="hljs-attribute">name</span>=<span class="hljs-value">"javax.persistence.jdbc.url"</span> <span class="hljs-attribute">value</span>=<span class="hljs-value">"jdbc:mysql:///jpa"</span>/&gt;</span>
+            <span class="hljs-tag">&lt;<span class="hljs-title">property</span> <span class="hljs-attribute">name</span>=<span class="hljs-value">"javax.persistence.jdbc.user"</span> <span class="hljs-attribute">value</span>=<span class="hljs-value">"root"</span>/&gt;</span>
+            <span class="hljs-tag">&lt;<span class="hljs-title">property</span> <span class="hljs-attribute">name</span>=<span class="hljs-value">"javax.persistence.jdbc.password"</span> <span class="hljs-attribute">value</span>=<span class="hljs-value">"root"</span>/&gt;</span>
+            <span class="hljs-comment">&lt;!-- 配置 JPA 实现产品的基本属性. 配置 hibernate 的基本属性 --&gt;</span>
+            <span class="hljs-tag">&lt;<span class="hljs-title">property</span> <span class="hljs-attribute">name</span>=<span class="hljs-value">"hibernate.format_sql"</span> <span class="hljs-attribute">value</span>=<span class="hljs-value">"true"</span>/&gt;</span>
+            <span class="hljs-tag">&lt;<span class="hljs-title">property</span> <span class="hljs-attribute">name</span>=<span class="hljs-value">"hibernate.show_sql"</span> <span class="hljs-attribute">value</span>=<span class="hljs-value">"true"</span>/&gt;</span>
+            <span class="hljs-tag">&lt;<span class="hljs-title">property</span> <span class="hljs-attribute">name</span>=<span class="hljs-value">"hibernate.hbm2ddl.auto"</span> <span class="hljs-attribute">value</span>=<span class="hljs-value">"update"</span>/&gt;</span>
+            <span class="hljs-comment">&lt;!-- 二级缓存相关 --&gt;</span>
+            <span class="hljs-tag">&lt;<span class="hljs-title">property</span> <span class="hljs-attribute">name</span>=<span class="hljs-value">"hibernate.cache.use_second_level_cache"</span> <span class="hljs-attribute">value</span>=<span class="hljs-value">"true"</span>/&gt;</span>
+            <span class="hljs-tag">&lt;<span class="hljs-title">property</span> <span class="hljs-attribute">name</span>=<span class="hljs-value">"hibernate.cache.region.factory_class"</span> <span class="hljs-attribute">value</span>=<span class="hljs-value">"org.hibernate.cache.ehcache.EhCacheRegionFactory"</span>/&gt;</span>
+            <span class="hljs-tag">&lt;<span class="hljs-title">property</span> <span class="hljs-attribute">name</span>=<span class="hljs-value">"hibernate.cache.use_query_cache"</span> <span class="hljs-attribute">value</span>=<span class="hljs-value">"true"</span>/&gt;</span>
+        <span class="hljs-tag">&lt;/<span class="hljs-title">properties</span>&gt;</span>
+    <span class="hljs-tag">&lt;/<span class="hljs-title">persistence-unit</span>&gt;</span>
+<span class="hljs-tag">&lt;/<span class="hljs-title">persistence</span>&gt;</span>
+</code></pre>
+
+<p>echache.xml:</p>
+
+
+
+<pre class="prettyprint"><code class=" hljs applescript">&lt;ehcache&gt;
+
+    &lt;!<span class="hljs-comment">-- Sets the path to the directory where cache .data files are created.</span>
+
+         If <span class="hljs-keyword">the</span> path <span class="hljs-keyword">is</span> a Java System Property <span class="hljs-keyword">it</span> <span class="hljs-keyword">is</span> replaced <span class="hljs-keyword">by</span>
+         <span class="hljs-keyword">its</span> value <span class="hljs-keyword">in</span> <span class="hljs-keyword">the</span> <span class="hljs-property">running</span> VM.
+
+         The following properties are translated:
+         user.home - User's home directory
+         user.dir - User's current working directory
+         java.io.tmpdir - Default temp <span class="hljs-type">file</span> path <span class="hljs-comment">--&gt;</span>
+    &lt;diskStore path=<span class="hljs-string">"java.io.tmpdir"</span>/&gt;
+
+
+    &lt;!<span class="hljs-comment">--Default Cache configuration. These will applied to caches programmatically created through</span>
+        <span class="hljs-keyword">the</span> CacheManager.
+
+        The following attributes are required <span class="hljs-keyword">for</span> defaultCache:
+
+        maxInMemory       - Sets <span class="hljs-keyword">the</span> maximum <span class="hljs-type">number</span> <span class="hljs-keyword">of</span> objects <span class="hljs-keyword">that</span> will be created <span class="hljs-keyword">in</span> memory
+        eternal           - Sets whether elements are eternal. If eternal,  timeouts are ignored <span class="hljs-keyword">and</span> <span class="hljs-keyword">the</span> element
+                            <span class="hljs-keyword">is</span> never expired.
+        timeToIdleSeconds - Sets <span class="hljs-keyword">the</span> <span class="hljs-property">time</span> <span class="hljs-keyword">to</span> idle <span class="hljs-keyword">for</span> an element <span class="hljs-keyword">before</span> <span class="hljs-keyword">it</span> expires. Is only used
+                            <span class="hljs-keyword">if</span> <span class="hljs-keyword">the</span> element <span class="hljs-keyword">is</span> <span class="hljs-keyword">not</span> eternal. Idle <span class="hljs-property">time</span> <span class="hljs-keyword">is</span> now - <span class="hljs-keyword">last</span> accessed <span class="hljs-property">time</span>
+        timeToLiveSeconds - Sets <span class="hljs-keyword">the</span> <span class="hljs-property">time</span> <span class="hljs-keyword">to</span> live <span class="hljs-keyword">for</span> an element <span class="hljs-keyword">before</span> <span class="hljs-keyword">it</span> expires. Is only used
+                            <span class="hljs-keyword">if</span> <span class="hljs-keyword">the</span> element <span class="hljs-keyword">is</span> <span class="hljs-keyword">not</span> eternal. TTL <span class="hljs-keyword">is</span> now - creation <span class="hljs-property">time</span>
+        overflowToDisk    - Sets whether elements can overflow <span class="hljs-keyword">to</span> disk when <span class="hljs-keyword">the</span> <span class="hljs-keyword">in</span>-memory cache
+                            has reached <span class="hljs-keyword">the</span> maxInMemory limit.
+
+        <span class="hljs-comment">--&gt;</span>
+    &lt;defaultCache
+        maxElementsInMemory=<span class="hljs-string">"10000"</span>
+        eternal=<span class="hljs-string">"false"</span>
+        timeToIdleSeconds=<span class="hljs-string">"120"</span>
+        timeToLiveSeconds=<span class="hljs-string">"120"</span>
+        overflowToDisk=<span class="hljs-string">"true"</span>
+        /&gt;
+
+    &lt;!<span class="hljs-comment">--Predefined caches.  Add your cache configuration settings here.</span>
+        If you do <span class="hljs-keyword">not</span> have a configuration <span class="hljs-keyword">for</span> your cache a WARNING will be issued when <span class="hljs-keyword">the</span>
+        CacheManager starts
+
+        The following attributes are required <span class="hljs-keyword">for</span> defaultCache:
+
+        <span class="hljs-property">name</span>              - Sets <span class="hljs-keyword">the</span> <span class="hljs-property">name</span> <span class="hljs-keyword">of</span> <span class="hljs-keyword">the</span> cache. This <span class="hljs-keyword">is</span> used <span class="hljs-keyword">to</span> identify <span class="hljs-keyword">the</span> cache. It must be unique.
+        maxInMemory       - Sets <span class="hljs-keyword">the</span> maximum <span class="hljs-type">number</span> <span class="hljs-keyword">of</span> objects <span class="hljs-keyword">that</span> will be created <span class="hljs-keyword">in</span> memory
+        eternal           - Sets whether elements are eternal. If eternal,  timeouts are ignored <span class="hljs-keyword">and</span> <span class="hljs-keyword">the</span> element
+                            <span class="hljs-keyword">is</span> never expired.
+        timeToIdleSeconds - Sets <span class="hljs-keyword">the</span> <span class="hljs-property">time</span> <span class="hljs-keyword">to</span> idle <span class="hljs-keyword">for</span> an element <span class="hljs-keyword">before</span> <span class="hljs-keyword">it</span> expires. Is only used
+                            <span class="hljs-keyword">if</span> <span class="hljs-keyword">the</span> element <span class="hljs-keyword">is</span> <span class="hljs-keyword">not</span> eternal. Idle <span class="hljs-property">time</span> <span class="hljs-keyword">is</span> now - <span class="hljs-keyword">last</span> accessed <span class="hljs-property">time</span>
+        timeToLiveSeconds - Sets <span class="hljs-keyword">the</span> <span class="hljs-property">time</span> <span class="hljs-keyword">to</span> live <span class="hljs-keyword">for</span> an element <span class="hljs-keyword">before</span> <span class="hljs-keyword">it</span> expires. Is only used
+                            <span class="hljs-keyword">if</span> <span class="hljs-keyword">the</span> element <span class="hljs-keyword">is</span> <span class="hljs-keyword">not</span> eternal. TTL <span class="hljs-keyword">is</span> now - creation <span class="hljs-property">time</span>
+        overflowToDisk    - Sets whether elements can overflow <span class="hljs-keyword">to</span> disk when <span class="hljs-keyword">the</span> <span class="hljs-keyword">in</span>-memory cache
+                            has reached <span class="hljs-keyword">the</span> maxInMemory limit.
+
+        <span class="hljs-comment">--&gt;</span>
+
+    &lt;!<span class="hljs-comment">-- Sample cache named sampleCache1</span>
+        This cache <span class="hljs-keyword">contains</span> a maximum <span class="hljs-keyword">in</span> memory <span class="hljs-keyword">of</span> <span class="hljs-number">10000</span> elements, <span class="hljs-keyword">and</span> will expire
+        an element <span class="hljs-keyword">if</span> <span class="hljs-keyword">it</span> <span class="hljs-keyword">is</span> idle <span class="hljs-keyword">for</span> more than <span class="hljs-number">5</span> minutes <span class="hljs-keyword">and</span> lives <span class="hljs-keyword">for</span> more than
+        <span class="hljs-number">10</span> minutes.
+
+        If there are more than <span class="hljs-number">10000</span> elements <span class="hljs-keyword">it</span> will overflow <span class="hljs-keyword">to</span> <span class="hljs-keyword">the</span>
+        disk cache, which <span class="hljs-keyword">in</span> this configuration will go <span class="hljs-keyword">to</span> wherever java.io.tmp <span class="hljs-keyword">is</span>
+        defined <span class="hljs-function_start"><span class="hljs-keyword">on</span></span> your system. On a standard Linux system this will be /tmp<span class="hljs-string">"
+        --&gt;
+    &lt;cache name="</span>sampleCache1<span class="hljs-string">"
+        maxElementsInMemory="</span><span class="hljs-number">10000</span><span class="hljs-string">"
+        eternal="</span><span class="hljs-constant">false</span><span class="hljs-string">"
+        timeToIdleSeconds="</span><span class="hljs-number">300</span><span class="hljs-string">"
+        timeToLiveSeconds="</span><span class="hljs-number">600</span><span class="hljs-string">"
+        overflowToDisk="</span><span class="hljs-constant">true</span><span class="hljs-string">"
+        /&gt;
+
+    &lt;!-- Sample cache named sampleCache2
+        This cache contains 1000 elements. Elements will always be held in memory.
+        They are not expired. --&gt;
+    &lt;cache name="</span>sampleCache2<span class="hljs-string">"
+        maxElementsInMemory="</span><span class="hljs-number">1000</span><span class="hljs-string">"
+        eternal="</span><span class="hljs-constant">true</span><span class="hljs-string">"
+        timeToIdleSeconds="</span><span class="hljs-number">0</span><span class="hljs-string">"
+        timeToLiveSeconds="</span><span class="hljs-number">0</span><span class="hljs-string">"
+        overflowToDisk="</span><span class="hljs-constant">false</span><span class="hljs-string">"
+        /&gt; --&gt;
+
+    &lt;!-- Place configuration for your caches following --&gt;
+
+&lt;/ehcache&gt;
+</span></code></pre>
+
+<p>实体类：</p>
+
+
+
+<pre class="prettyprint"><code class=" hljs java"><span class="hljs-keyword">package</span> com.jpaDemo.entity;
+
+<span class="hljs-keyword">import</span> java.util.Date;
+<span class="hljs-keyword">import</span> java.util.HashSet;
+<span class="hljs-keyword">import</span> java.util.Set;
+
+<span class="hljs-keyword">import</span> javax.persistence.Cacheable;
+<span class="hljs-keyword">import</span> javax.persistence.CascadeType;
+<span class="hljs-keyword">import</span> javax.persistence.Column;
+<span class="hljs-keyword">import</span> javax.persistence.Entity;
+<span class="hljs-keyword">import</span> javax.persistence.FetchType;
+<span class="hljs-keyword">import</span> javax.persistence.GeneratedValue;
+<span class="hljs-keyword">import</span> javax.persistence.GenerationType;
+<span class="hljs-keyword">import</span> javax.persistence.Id;
+<span class="hljs-keyword">import</span> javax.persistence.NamedQuery;
+<span class="hljs-keyword">import</span> javax.persistence.OneToMany;
+<span class="hljs-keyword">import</span> javax.persistence.Table;
+<span class="hljs-keyword">import</span> javax.persistence.Temporal;
+<span class="hljs-keyword">import</span> javax.persistence.TemporalType;
+<span class="hljs-keyword">import</span> javax.persistence.Transient;
+
+<span class="hljs-annotation">@Cacheable</span>(<span class="hljs-keyword">true</span>)
+<span class="hljs-annotation">@Table</span>(name=<span class="hljs-string">"JPA_CUTOMERS"</span>)
+<span class="hljs-annotation">@Entity</span>
+<span class="hljs-keyword">public</span> <span class="hljs-class"><span class="hljs-keyword">class</span> <span class="hljs-title">Customer</span> {</span>
+
+    <span class="hljs-keyword">private</span> Integer id;
+    <span class="hljs-keyword">private</span> String lastName;
+
+    <span class="hljs-keyword">private</span> String email;
+    <span class="hljs-keyword">private</span> <span class="hljs-keyword">int</span> age;
+
+    <span class="hljs-keyword">private</span> Date createdTime;
+    <span class="hljs-keyword">private</span> Date birth;
+
+    <span class="hljs-keyword">public</span> <span class="hljs-title">Customer</span>() {
+        <span class="hljs-comment">// TODO Auto-generated constructor stub</span>
+    }
+
+    <span class="hljs-keyword">public</span> <span class="hljs-title">Customer</span>(String lastName, <span class="hljs-keyword">int</span> age) {
+        <span class="hljs-keyword">super</span>();
+        <span class="hljs-keyword">this</span>.lastName = lastName;
+        <span class="hljs-keyword">this</span>.age = age;
+    }
+
+
+
+    <span class="hljs-keyword">private</span> Set&lt;Order&gt; orders = <span class="hljs-keyword">new</span> HashSet&lt;&gt;();
+
+<span class="hljs-comment">//  @TableGenerator(name="ID_GENERATOR",</span>
+<span class="hljs-comment">//          table="jpa_id_generators",</span>
+<span class="hljs-comment">//          pkColumnName="PK_NAME",</span>
+<span class="hljs-comment">//          pkColumnValue="CUSTOMER_ID",</span>
+<span class="hljs-comment">//          valueColumnName="PK_VALUE",</span>
+<span class="hljs-comment">//          allocationSize=100)</span>
+<span class="hljs-comment">//  @GeneratedValue(strategy=GenerationType.TABLE,generator="ID_GENERATOR")</span>
+    <span class="hljs-annotation">@GeneratedValue</span>(strategy=GenerationType.AUTO)
+    <span class="hljs-annotation">@Id</span>
+    <span class="hljs-keyword">public</span> Integer <span class="hljs-title">getId</span>() {
+        <span class="hljs-keyword">return</span> id;
+    }
+
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">void</span> <span class="hljs-title">setId</span>(Integer id) {
+        <span class="hljs-keyword">this</span>.id = id;
+    }
+
+    <span class="hljs-annotation">@Column</span>(name=<span class="hljs-string">"LAST_NAME"</span>,length=<span class="hljs-number">50</span>,nullable=<span class="hljs-keyword">false</span>)
+    <span class="hljs-keyword">public</span> String <span class="hljs-title">getLastName</span>() {
+        <span class="hljs-keyword">return</span> lastName;
+    }
+
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">void</span> <span class="hljs-title">setLastName</span>(String lastName) {
+        <span class="hljs-keyword">this</span>.lastName = lastName;
+    }
+
+    <span class="hljs-keyword">public</span> String <span class="hljs-title">getEmail</span>() {
+        <span class="hljs-keyword">return</span> email;
+    }
+
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">void</span> <span class="hljs-title">setEmail</span>(String email) {
+        <span class="hljs-keyword">this</span>.email = email;
+    }
+
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">int</span> <span class="hljs-title">getAge</span>() {
+        <span class="hljs-keyword">return</span> age;
+    }
+
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">void</span> <span class="hljs-title">setAge</span>(<span class="hljs-keyword">int</span> age) {
+        <span class="hljs-keyword">this</span>.age = age;
+    }
+
+    <span class="hljs-annotation">@Temporal</span>(TemporalType.TIMESTAMP)
+    <span class="hljs-keyword">public</span> Date <span class="hljs-title">getCreatedTime</span>() {
+        <span class="hljs-keyword">return</span> createdTime;
+    }
+
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">void</span> <span class="hljs-title">setCreatedTime</span>(Date createdTime) {
+        <span class="hljs-keyword">this</span>.createdTime = createdTime;
+    }
+
+    <span class="hljs-annotation">@Temporal</span>(TemporalType.DATE)
+    <span class="hljs-keyword">public</span> Date <span class="hljs-title">getBirth</span>() {
+        <span class="hljs-keyword">return</span> birth;
+    }
+
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">void</span> <span class="hljs-title">setBirth</span>(Date birth) {
+        <span class="hljs-keyword">this</span>.birth = birth;
+    }
+
+    <span class="hljs-comment">//映射单向 1-n 的关联关系</span>
+    <span class="hljs-comment">//使用 @OneToMany 来映射 1-n 的关联关系</span>
+    <span class="hljs-comment">//使用 @JoinColumn 来映射外键列的名称</span>
+    <span class="hljs-comment">//可以使用 @OneToMany 的 fetch 属性来修改默认的加载策略</span>
+    <span class="hljs-comment">//可以通过 @OneToMany 的 cascade 属性来修改默认的删除策略. </span>
+    <span class="hljs-comment">//注意: 若在 1 的一端的 @OneToMany 中使用 mappedBy 属性, 则 @OneToMany 端就不能再使用 @JoinColumn 属性了. </span>
+<span class="hljs-comment">//  @JoinColumn(name="CUSTOMER_ID")</span>
+    <span class="hljs-annotation">@OneToMany</span>(fetch=FetchType.LAZY,cascade={CascadeType.REMOVE},mappedBy=<span class="hljs-string">"customer"</span>)
+    <span class="hljs-keyword">public</span> Set&lt;Order&gt; <span class="hljs-title">getOrders</span>() {
+        <span class="hljs-keyword">return</span> orders;
+    }
+
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">void</span> <span class="hljs-title">setOrders</span>(Set&lt;Order&gt; orders) {
+        <span class="hljs-keyword">this</span>.orders = orders;
+    }
+
+    <span class="hljs-comment">//工具方法. 不需要映射为数据表的一列. </span>
+    <span class="hljs-annotation">@Transient</span>
+    <span class="hljs-keyword">public</span> String <span class="hljs-title">getInfo</span>(){
+        <span class="hljs-keyword">return</span> <span class="hljs-string">"lastName: "</span> + lastName + <span class="hljs-string">", email: "</span> + email;
+    }
+
+    <span class="hljs-annotation">@Override</span>
+    <span class="hljs-keyword">public</span> String <span class="hljs-title">toString</span>() {
+        <span class="hljs-keyword">return</span> <span class="hljs-string">"Customer [id="</span> + id + <span class="hljs-string">", lastName="</span> + lastName + <span class="hljs-string">", email="</span>
+                + email + <span class="hljs-string">", age="</span> + age + <span class="hljs-string">", createdTime="</span> + createdTime
+                + <span class="hljs-string">", birth="</span> + birth + <span class="hljs-string">"]"</span>;
+    }
+
+}
+</code></pre>
+
+<p>测试类：</p>
+
+
+
+<pre class="prettyprint"><code class=" hljs avrasm">package <span class="hljs-keyword">com</span><span class="hljs-preprocessor">.jpaDemo</span><span class="hljs-preprocessor">.test</span><span class="hljs-comment">;</span>
+
+import java<span class="hljs-preprocessor">.util</span><span class="hljs-preprocessor">.Date</span><span class="hljs-comment">;</span>
+import java<span class="hljs-preprocessor">.util</span><span class="hljs-preprocessor">.HashMap</span><span class="hljs-comment">;</span>
+import java<span class="hljs-preprocessor">.util</span><span class="hljs-preprocessor">.Map</span><span class="hljs-comment">;</span>
+
+import javax<span class="hljs-preprocessor">.persistence</span><span class="hljs-preprocessor">.EntityManager</span><span class="hljs-comment">;</span>
+import javax<span class="hljs-preprocessor">.persistence</span><span class="hljs-preprocessor">.EntityManagerFactory</span><span class="hljs-comment">;</span>
+import javax<span class="hljs-preprocessor">.persistence</span><span class="hljs-preprocessor">.EntityTransaction</span><span class="hljs-comment">;</span>
+import javax<span class="hljs-preprocessor">.persistence</span><span class="hljs-preprocessor">.Persistence</span><span class="hljs-comment">;</span>
+
+import <span class="hljs-keyword">com</span><span class="hljs-preprocessor">.jpaDemo</span><span class="hljs-preprocessor">.entity</span><span class="hljs-preprocessor">.Customer</span><span class="hljs-comment">;</span>
+
+public class MyTest {
+public static void main(String[] args) {
+
+        //<span class="hljs-number">1.</span> 创建 EntitymanagerFactory
+        String persistenceUnitName = <span class="hljs-string">"jpaDemo"</span><span class="hljs-comment">;</span>
+
+        Map&lt;String, Object&gt; properites = new HashMap&lt;String, Object&gt;()<span class="hljs-comment">;</span>
+        properites<span class="hljs-preprocessor">.put</span>(<span class="hljs-string">"hibernate.show_sql"</span>, true)<span class="hljs-comment">;</span>
+
+        EntityManagerFactory entityManagerFactory = 
+                Persistence<span class="hljs-preprocessor">.createEntityManagerFactory</span>(persistenceUnitName, properites)<span class="hljs-comment">;</span>
+
+        //<span class="hljs-number">2.</span> 创建 EntityManager. 类似于 Hibernate 的 SessionFactory
+        EntityManager entityManager = entityManagerFactory<span class="hljs-preprocessor">.createEntityManager</span>()<span class="hljs-comment">;</span>
+
+        //<span class="hljs-number">3.</span> 开启事务
+        EntityTransaction transaction = entityManager<span class="hljs-preprocessor">.getTransaction</span>()<span class="hljs-comment">;</span>
+        transaction<span class="hljs-preprocessor">.begin</span>()<span class="hljs-comment">;</span>
+
+        //<span class="hljs-number">4.</span> 进行持久化操作
+        Customer customer = new Customer()<span class="hljs-comment">;</span>
+        customer<span class="hljs-preprocessor">.setAge</span>(<span class="hljs-number">12</span>)<span class="hljs-comment">;</span>
+        customer<span class="hljs-preprocessor">.setEmail</span>(<span class="hljs-string">"123@qq.com"</span>)<span class="hljs-comment">;</span>
+        customer<span class="hljs-preprocessor">.setLastName</span>(<span class="hljs-string">"Tom"</span>)<span class="hljs-comment">;</span>
+        customer<span class="hljs-preprocessor">.setBirth</span>(new Date())<span class="hljs-comment">;</span>
+        customer<span class="hljs-preprocessor">.setCreatedTime</span>(new Date())<span class="hljs-comment">;</span>
+
+        entityManager<span class="hljs-preprocessor">.persist</span>(customer)<span class="hljs-comment">;</span>
+
+        //<span class="hljs-number">5.</span> 提交事务
+        transaction<span class="hljs-preprocessor">.commit</span>()<span class="hljs-comment">;</span>
+
+        //<span class="hljs-number">6.</span> 关闭 EntityManager
+        entityManager<span class="hljs-preprocessor">.close</span>()<span class="hljs-comment">;</span>
+
+        //<span class="hljs-number">7.</span> 关闭 EntityManagerFactory
+        entityManagerFactory<span class="hljs-preprocessor">.close</span>()<span class="hljs-comment">;</span>
+    }
+}
+</code></pre>
+
+<p><img src="http://img.blog.csdn.net/20170120150319979?watermark/2/text/aHR0cDovL2Jsb2cuY3Nkbi5uZXQvdTAxNDQyNzM5MQ==/font/5a6L5L2T/fontsize/400/fill/I0JBQkFCMA==/dissolve/70/gravity/SouthEast" alt="这里写图片描述" title=""/></p><link rel="stylesheet" href="http://static.blog.csdn.net/public/res-min/markdown_views.css?v=1.0"/></div><link rel="stylesheet" href="http://static.blog.csdn.net/public/res-min/markdown_views.css?v=1.0"/>&#13;
+            

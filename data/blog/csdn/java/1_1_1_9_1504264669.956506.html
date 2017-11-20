@@ -1,0 +1,123 @@
+
+                
+<div style="top:0px"><span style="font-family:sans-serif; text-transform:none; letter-spacing:0pt; font-size:10.5pt; font-style:normal; font-weight:normal; background-color:rgb(255,255,255)">   </span><span style="text-transform:none; letter-spacing:0pt; font-size:10.5pt; font-style:normal; font-weight:normal; background-color:rgb(255,255,255)"><span style="font-family:Comic Sans MS; color:#000066">Reflection</span></span><span style="font-family:sans-serif; text-transform:none; letter-spacing:0pt; font-size:10.5pt; font-style:normal; font-weight:normal; background-color:rgb(255,255,255)">-</span><span style="font-family:'Comic Sans MS'; color:rgb(0,0,0); text-transform:none; letter-spacing:0pt; font-size:10.5pt; font-style:normal; font-weight:normal; background-color:rgb(255,255,255)">反射是J2SE1.1就已经提出了，但当时仅支持Introspection自省。在1.2之后开始逐渐成熟，spirng、hibernate等成熟框架都大量使用java反射技术实现。</span></div>&#13;
+<p style="margin:0pt; text-indent:21pt"><span style="color:#000000; background:rgb(255,255,255); text-transform:none; letter-spacing:0pt; font-size:10.5pt; font-style:normal; font-weight:normal"><span style="font-family:Comic Sans MS">在面向对象设计思想中，使用类这一概念表述一类具有相同属性的对象；而这些属性值具体是什么，由该类的每个实例化对象来确定，每个对象可以有不同的属性值。反之，这些是否属于同一类事务，java使用Class来描述类的访问属性、包名、字段名。学习反射，首先就要了解这个首字母大写的-Class</span></span></p>&#13;
+<p style="margin:0pt"><strong><span style="color:#b080; background:rgb(255,255,255); text-transform:none; letter-spacing:0pt; font-size:10.5pt; font-style:normal"><strong><span style="font-family:Comic Sans MS; font-size:18px"><span style="color:#000066">一、Class—字节码</span></span></strong></span></strong></p>&#13;
+<p style="margin:0pt; text-indent:21pt"><span style="background:rgb(255,255,255); color:rgb(0,0,0); text-transform:none; letter-spacing:0pt; font-size:10.5pt; font-style:normal; font-weight:normal"><span style="font-family:Comic Sans MS"><span style="background-color:rgb(255,204,153)">在源程序中，实例化某个类时，<span style="background-color:rgb(255,204,153)">先将类编译成.class形成二进制代码，然后把二进制代码加载到java内存中，用于创建对象。这个二进制代码就是Class类的字节码（Byte-code）。当使用到多个类时，内存中就会加载多个不同的字节码，占用内存空间。<span style="background-color:rgb(255,204,153)">字节码跟类是对应的，不同字节码在jvm中的内容以类的类型区分。</span></span></span></span></span></p>&#13;
+<p style="margin:0pt; text-indent:21pt"><span style="color:#000000; background:rgb(255,255,255); text-transform:none; letter-spacing:0pt; font-size:10.5pt; font-style:normal; font-weight:normal"><span style="font-family:Comic Sans MS">有了对象实例，通过obj.getClass()方法也可以获得这个对象在内存中的字节码，得到字节码方可得到这个对象所对应的类。反之，知道了这个类也可以获得实例对象。</span></span><span style="color:#000000; background:rgb(255,255,255); text-transform:none; letter-spacing:0pt; font-size:10.5pt; font-style:normal; font-weight:normal"><span style="font-family:Comic Sans MS"> </span></span></p>&#13;
+<p style="margin:0pt"><strong><span style="color:#b080; background:rgb(255,255,255); text-transform:none; letter-spacing:0pt; font-size:10.5pt; font-style:normal"><strong><span style="font-family:Comic Sans MS; font-size:18px"><span style="color:#000066">二、一个New并不能解决问题</span></span></strong></span></strong></p>&#13;
+<p style="margin:0pt; text-indent:21pt"><span style="color:#000000; background:rgb(255,255,255); text-transform:none; letter-spacing:0pt; font-size:10.5pt; font-style:normal; font-weight:normal"><span style="font-family:Comic Sans MS">那么问题来了，有些人可能会说，干嘛那么麻烦都个大圈，我直接new&#13;
+ 一个类，不就可以轻松创建这个实例吗？</span></span></p>&#13;
+<p style="margin:0pt; text-indent:21pt"><span style="color:#000000; background:rgb(255,255,255); text-transform:none; letter-spacing:0pt; font-size:10.5pt; font-style:normal; font-weight:normal"><span style="font-family:Comic Sans MS">这就涉及到<span style="background-color:rgb(255,204,153)">java对象创建的两个编译方式：静态编译和动态编译</span></span></span></p>&#13;
+<p style="margin:0pt; text-indent:21pt"><span style="color:#000000; text-transform:none; letter-spacing:0pt; font-size:10.5pt; font-style:normal; font-weight:normal"><span style="font-family:Comic Sans MS; background-color:rgb(255,204,153)">静态编译：在编译时确定对象，绑定对象即可通过编译。</span></span><span style="color:#000000; text-transform:none; letter-spacing:0pt; font-size:10.5pt; font-style:normal; font-weight:normal"><br/>&#13;
+</span><span style="font-family:Comic Sans MS"><span style="background-color:rgb(255,204,153)"><span style="color:#000000; text-transform:none; letter-spacing:0pt; font-size:10.5pt; font-style:normal; font-weight:normal"/><span style="color:#000000; text-transform:none; letter-spacing:0pt; font-size:10.5pt; font-style:normal; font-weight:normal"><span style="background-color:rgb(255,255,255)">     </span>动态编译：运行时确定</span><span style="color:#000000; text-transform:none; letter-spacing:0pt; font-size:10.5pt; font-style:normal; font-weight:normal">类型</span><span style="color:#000000; background:rgb(255,255,255); text-transform:none; letter-spacing:0pt; font-size:10.5pt; font-style:normal; font-weight:normal">，绑定对象。</span></span></span></p>&#13;
+<p style="margin:0pt; text-indent:21pt"><span style="font-family:Comic Sans MS"><span style="color:#000000; background:rgb(255,255,255); text-transform:none; letter-spacing:0pt; font-size:10.5pt; font-style:normal; font-weight:normal">静态编译使用new关键字就可以获取创建对象属性方法，但在</span><span style="color:#000000; background:rgb(255,255,255); text-transform:none; letter-spacing:0pt; font-size:10.5pt; font-style:normal; font-weight:normal">动态编译</span><span style="color:#000000; background:rgb(255,255,255); text-transform:none; letter-spacing:0pt; font-size:10.5pt; font-style:normal; font-weight:normal">时就行不通了。反射正是实现了动态创建对象和编译。通过反射，传入类名，形成字节码，加载到jvm中创建实例，然后获取实例信息，</span><span style="color:#000000; background:rgb(255,255,255); text-transform:none; letter-spacing:0pt; font-size:10.5pt; font-style:normal; font-weight:normal">最大限度发挥了java的灵活性，体现了多态的应用，有以降低类之间的藕合性。</span></span></p>&#13;
+<p style="margin:0pt; text-indent:21pt"><span style="color:#000000; background:rgb(255,255,255); text-transform:none; letter-spacing:0pt; font-size:10.5pt; font-style:normal; font-weight:normal"><span style="font-family:Comic Sans MS; background-color:rgb(255,204,153)">简言之，在程序还不知道要调用哪些类，创建哪些实例时，代码是无法将某个具体的类以new的方式实例化的。正如你还没结婚，没办法先给自己未来的小孩买各种女式婴儿用品，万一他是个男孩儿呢？使用反射的目的即在于：传入一个无论是什么类，通过反射都可一获取到这个类对应对象的属性、方法等信息。</span></span></p>&#13;
+<p style="margin:0pt; text-indent:21pt"><span style="color:#000000; background:rgb(255,255,255); text-transform:none; letter-spacing:0pt; font-size:10.5pt; font-style:normal; font-weight:normal"><span style="font-family:Comic Sans MS">联想一下Spring 等框架，框架设计者并不知道我们会创建哪些类，那为什么把bean网配置文件里一放，class属性一写，它就可以直接使用这个类的可用属性和公共方法了呢。这就是典型的反射应用。</span></span><span style="color:#000000; background:rgb(255,255,255); text-transform:none; letter-spacing:0pt; font-size:10.5pt; font-style:normal; font-weight:normal"><span style="font-family:Comic Sans MS"> </span></span></p>&#13;
+<p style="margin:0pt"><strong><span style="color:#b080; background:rgb(255,255,255); text-transform:none; letter-spacing:0pt; font-size:10.5pt; font-style:normal"><strong><span style="font-family:Comic Sans MS; font-size:18px"><span style="color:#000066">三、反射具体怎么用？</span></span></strong></span></strong></p>&#13;
+<p style="margin:0pt"><span style="color:#b080; background:rgb(255,255,255); text-transform:none; letter-spacing:0pt; font-size:10.5pt; font-style:normal"><span style="font-family:Comic Sans MS; font-size:18px"><strong>   </strong><span style="font-size:14px; color:#000000">通过反射，只要知道类名，就可以获取该类方法、属性、构造方法等信息，然后通过java&#13;
+ API对这些方法进行操作，对属性赋值等。下面介绍几种常用的利用反射机制实现获取类信息类型；</span></span></span></p>&#13;
+<ol style="list-style-type:decimal; direction:ltr">&#13;
+<li style="color:rgb(0,0,0); font-size:10.5pt; font-style:normal; font-weight:normal">&#13;
+<p style="color:rgb(0,0,0); font-size:10.5pt; font-style:normal; font-weight:normal; margin-top:0pt; margin-bottom:0pt">&#13;
+<span style="color:#000000; background:rgb(255,255,255); text-transform:none; letter-spacing:0pt; font-size:10.5pt; font-style:normal; font-weight:normal"><span style="font-family:Comic Sans MS; background-color:rgb(255,204,153)">构造方法（Constructor）</span></span></p>&#13;
+<p style="color:rgb(0,0,0); font-size:10.5pt; font-style:normal; font-weight:normal; margin-top:0pt; margin-bottom:0pt">&#13;
+<span style="font-family:Comic Sans MS"><span style="color:#000000; background:rgb(255,255,255); text-transform:none; letter-spacing:0pt; font-size:10.5pt; font-style:normal; font-weight:normal">1)、获取类的构造方法 </span></span><span style="font-family:Comic Sans MS"><span style="color:#000000; background:rgb(255,255,255); text-transform:none; letter-spacing:0pt; font-size:10.5pt; font-style:normal; font-weight:normal">Class.forName(</span><span style="color:#000000; background:rgb(255,255,255); text-transform:none; letter-spacing:0pt; font-size:10.5pt; font-style:normal; font-weight:normal">“</span><span style="color:#000000; background:rgb(255,255,255); text-transform:none; letter-spacing:0pt; font-size:10.5pt; font-style:normal; font-weight:normal">java.lang.String</span><span style="color:#000000; background:rgb(255,255,255); text-transform:none; letter-spacing:0pt; font-size:10.5pt; font-style:normal; font-weight:normal">”</span><span style="color:#000000; background:rgb(255,255,255); text-transform:none; letter-spacing:0pt; font-size:10.5pt; font-style:normal; font-weight:normal">).getConstructors();//得到String类的所有构造方法</span></span></p>&#13;
+</li><li style="color:rgb(0,0,0); font-size:10.5pt; font-style:normal; font-weight:normal">&#13;
+<p style="color:rgb(0,0,0); font-size:10.5pt; font-style:normal; font-weight:normal; margin-top:0pt; margin-bottom:0pt">&#13;
+<span style="font-family:Comic Sans MS"><span style="color:#000000; background:rgb(255,255,255); text-transform:none; letter-spacing:0pt; font-size:10.5pt; font-style:normal; font-weight:normal">                                   Class.forName(</span><span style="color:#000000; background:rgb(255,255,255); text-transform:none; letter-spacing:0pt; font-size:10.5pt; font-style:normal; font-weight:normal">“</span><span style="color:#000000; background:rgb(255,255,255); text-transform:none; letter-spacing:0pt; font-size:10.5pt; font-style:normal; font-weight:normal">java.lang.String</span><span style="color:#000000; background:rgb(255,255,255); text-transform:none; letter-spacing:0pt; font-size:10.5pt; font-style:normal; font-weight:normal">”</span><span style="color:#000000; background:rgb(255,255,255); text-transform:none; letter-spacing:0pt; font-size:10.5pt; font-style:normal; font-weight:normal">).getConstructor(</span><span style="color:#000000; background:rgb(255,255,255); text-transform:none; letter-spacing:0pt; font-size:10.5pt; font-style:normal; font-weight:normal">“</span><span style="color:#000000; background:rgb(255,255,255); text-transform:none; letter-spacing:0pt; font-size:10.5pt; font-style:normal; font-weight:normal">StringBuffer.class</span><span style="color:#000000; background:rgb(255,255,255); text-transform:none; letter-spacing:0pt; font-size:10.5pt; font-style:normal; font-weight:normal">”</span><span style="color:#000000; background:rgb(255,255,255); text-transform:none; letter-spacing:0pt; font-size:10.5pt; font-style:normal; font-weight:normal">);//得到某一个类的构造方法</span></span></p>&#13;
+<p style="color:rgb(0,0,0); font-size:10.5pt; font-style:normal; font-weight:normal; margin-top:0pt; margin-bottom:0pt">&#13;
+<span style="color:#000000; background:rgb(255,255,255); text-transform:none; letter-spacing:0pt; font-size:10.5pt; font-style:normal; font-weight:normal"><span style="font-family:Comic Sans MS">2)、使用构造方法创建对象实例：</span></span></p>&#13;
+<p style="color:rgb(0,0,0); font-size:10.5pt; font-style:normal; font-weight:normal; margin-top:0pt; margin-bottom:0pt">&#13;
+<span style="font-family:Comic Sans MS"><span style="color:#000000; background:rgb(255,255,255); text-transform:none; letter-spacing:0pt; font-size:10.5pt; font-style:normal; font-weight:normal">通常:String str=new String(new StringBuffer(</span><span style="color:#000000; background:rgb(255,255,255); text-transform:none; letter-spacing:0pt; font-size:10.5pt; font-style:normal; font-weight:normal">“</span><span style="color:#000000; background:rgb(255,255,255); text-transform:none; letter-spacing:0pt; font-size:10.5pt; font-style:normal; font-weight:normal">aaa</span><span style="color:#000000; background:rgb(255,255,255); text-transform:none; letter-spacing:0pt; font-size:10.5pt; font-style:normal; font-weight:normal">”</span><span style="color:#000000; background:rgb(255,255,255); text-transform:none; letter-spacing:0pt; font-size:10.5pt; font-style:normal; font-weight:normal">))</span></span></p>&#13;
+<p style="color:rgb(0,0,0); font-size:10.5pt; font-style:normal; font-weight:normal; margin-top:0pt; margin-bottom:0pt">&#13;
+<span style="font-family:Comic Sans MS"><span style="color:#000000; background:rgb(255,255,255); text-transform:none; letter-spacing:0pt; font-size:10.5pt; font-style:normal; font-weight:normal">反射:</span></span><span style="font-family:Comic Sans MS"><span style="color:#000000; background:rgb(255,255,255); text-transform:none; letter-spacing:0pt; font-size:10.5pt; font-style:normal; font-weight:normal"><span style="background-color:rgb(153,255,153)">Constructor&#13;
+ c=Class.forName("java.lang.String").getDeclaredConstructor(StringBuffer.class);//获取StringBuffer类的方法构造器<br/>&#13;
+</span>       <span style="background-color:rgb(153,255,153)">String s=(String)c.newInstance(new StringBuffer("adf"));//创建名为adf的StringBuffer对象实例，强转成String类型输出<br/>&#13;
+</span>       System.out.println(s.toString()); //adf</span></span></p>&#13;
+</li><li style="color:rgb(0,0,0); font-size:10.5pt; font-style:normal; font-weight:normal">&#13;
+<p style="color:rgb(0,0,0); font-size:10.5pt; font-style:normal; font-weight:normal; margin-top:0pt; margin-bottom:0pt">&#13;
+<span style="color:#000000; background:rgb(255,255,255); text-transform:none; letter-spacing:0pt; font-size:10.5pt; font-style:normal; font-weight:normal"><span style="font-family:Comic Sans MS; background-color:rgb(255,204,153)">获取变量（Field）</span></span></p>&#13;
+<p style="color:rgb(0,0,0); font-size:10.5pt; font-style:normal; font-weight:normal; margin-top:0pt; margin-bottom:0pt">&#13;
+<span style="color:#000000; background:rgb(255,255,255); text-transform:none; letter-spacing:0pt; font-size:10.5pt; font-style:normal; font-weight:normal"><span style="font-family:Comic Sans MS">例如创建一个坐标类Point，有xy两个成员变量。</span></span></p>&#13;
+<p style="color:rgb(0,0,0); font-size:10.5pt; font-style:normal; font-weight:normal; margin-top:0pt; margin-bottom:0pt">&#13;
+<span style="font-family:Comic Sans MS"><span style="color:#000000; background:rgb(255,255,255); text-transform:none; letter-spacing:0pt; font-size:10.5pt; font-style:normal; font-weight:normal">1)、使用反射</span></span><span style="color:#000000; background:rgb(255,255,255); text-transform:none; letter-spacing:0pt; font-size:10.5pt; font-style:normal; font-weight:normal"><span style="font-family:Comic Sans MS">获取类的成员变量<br/>&#13;
+     <span style="background-color:rgb(153,255,153)"> System.out.println(Class.forName("java.lang.reflect.Array").getDeclaredFields()); //获取所有声明过的成员变量<br/>&#13;
+</span>     <span style="background-color:rgb(153,255,153)"> System.out.println(Class.forName("java.lang.reflect.Array").getFields());//无法获取private 私有成员变量<br/>&#13;
+</span> 2)、通过set、get方法对该对象属性进行数据操作<br/>&#13;
+      Field day=Class.forName("it.webservice.mobile.WeekDay").getField("day");//noSuchFieldEcxeption<br/>&#13;
+      day.setAccessible(true);<br/>&#13;
+      System.out.println(day.get(day));</span></span></p>&#13;
+<p style="color:rgb(0,0,0); font-size:10.5pt; font-style:normal; font-weight:normal; margin-top:0pt; margin-bottom:0pt">&#13;
+<span style="color:#000000; background:rgb(255,255,255); text-transform:none; letter-spacing:0pt; font-size:10.5pt; font-style:normal; font-weight:normal"><span style="font-family:Comic Sans MS; background-color:rgb(255,204,153)">使用反射获取变量在框架中使用频繁，以Spring为例，在Spring配置文件中写入类的包名.类名，添加property属性，程序启动时自动扫描配置文件，把类实例化，同时反射获取property属性信息就知道这个类中声明了多少个字段，再通过javaBean自省get/set的方式为对象取值赋值。使用非常广泛。</span></span></p>&#13;
+</li><li style="color:rgb(0,0,0); font-size:10.5pt; font-style:normal; font-weight:normal">&#13;
+<p style="color:rgb(0,0,0); font-size:10.5pt; font-style:normal; font-weight:normal; margin-top:0pt; margin-bottom:0pt">&#13;
+<span style="color:#000000; background:rgb(255,255,255); text-transform:none; letter-spacing:0pt; font-size:10.5pt; font-style:normal; font-weight:normal"><span style="font-family:Comic Sans MS">获取方法（Method）</span></span></p>&#13;
+<p style="color:rgb(0,0,0); font-size:10.5pt; font-style:normal; font-weight:normal; margin-top:0pt; margin-bottom:0pt">&#13;
+<span style="color:#000000; background:rgb(255,255,255); text-transform:none; letter-spacing:0pt; font-size:10.5pt; font-style:normal; font-weight:normal"><span style="font-family:Comic Sans MS"> 1)、获取方法  <br/>&#13;
+  Class.forName("java.lang.reflect.Array").getMethods();//返回一个method[]数组  <br/>&#13;
+ 2)、可以使用invoke方法调用该方法<br/>&#13;
+  Method[] methods=Class.forName("java.lang.reflect.Array").getMethods();<br/>&#13;
+ 3)、某个类main方法的获取与调用<br/>&#13;
+  System.out.println(Class.forName("it.webservice.mobile.WeekDay").getMethod("main", String[].class));//方法名，方法传入参数类型<br/>&#13;
+  Class.forName("it.webservice.mobile.WeekDay").getMethod("main", String[].class).invoke(null, (Object)new String[]{"jdkaj"});</span></span></p>&#13;
+</li></ol>&#13;
+<p style="color:rgb(0,0,0); font-size:10.5pt; font-style:normal; font-weight:normal; margin-top:0pt; margin-bottom:0pt">&#13;
+<span style="color:#000000; background:rgb(255,255,255); text-transform:none; letter-spacing:0pt; font-size:10.5pt; font-style:normal; font-weight:normal"><span style="font-family:Comic Sans MS">      注意在获取类的main方法时，main方法的参数类型为String集合，在调用main方法时，注意第一个参数为null表示main的静态方法属性；第二个参数传入一个string数组，并强转成一个Object对象类型。因为如果传入普通数组，使用反射会把数组打散成若干个参数，所以转成一个Object对象传入invoke使得main传入正确参数。对于数组的反射应用会在下一篇博文中谈到。</span></span><span style="color:#000000; background:rgb(255,255,255); text-transform:none; letter-spacing:0pt; font-size:10.5pt; font-style:normal; font-weight:normal"><span style="font-family:Comic Sans MS"><br/>&#13;
+</span></span></p>&#13;
+<p style="color:rgb(0,0,0); font-size:10.5pt; font-style:normal; font-weight:normal; margin-top:0pt; margin-bottom:0pt">&#13;
+<span style="color:#000000; background:rgb(255,255,255); text-transform:none; letter-spacing:0pt; font-size:10.5pt; font-style:normal; font-weight:normal"><span style="font-family:Comic Sans MS; font-size:18px; color:#000066"><strong>四、反射在框架中的具体应用</strong></span></span><span style="color:#000000; background:rgb(255,255,255); text-transform:none; letter-spacing:0pt; font-size:10.5pt; font-style:normal; font-weight:normal"><span style="font-family:Comic Sans MS"><br/>&#13;
+</span></span></p>&#13;
+<p style="color:rgb(0,0,0); font-size:10.5pt; font-style:normal; font-weight:normal; margin-top:0pt; margin-bottom:0pt">&#13;
+<span style="color:#000000; background:rgb(255,255,255); text-transform:none; letter-spacing:0pt; font-size:10.5pt; font-style:normal; font-weight:normal"><span style="font-family:Comic Sans MS">在具体框架中一般都会结合配置文件的使用，把可变的传入类类型以配置文件配置的形式进行配置。简单的代码实现流程如下：</span></span></p>&#13;
+<p style="color:rgb(0,0,0); font-size:10.5pt; font-style:normal; font-weight:normal; margin-top:0pt; margin-bottom:0pt">&#13;
+<span style="color:#000000; background:rgb(255,255,255); text-transform:none; letter-spacing:0pt; font-size:10.5pt; font-style:normal; font-weight:normal"><span style="font-family:Comic Sans MS"/></span></p>&#13;
+<pre code_snippet_id="1664991" snippet_file_name="blog_20160428_1_4627621" class="html" name="code">	public static void main(String[] args) throws IOException, InstantiationException, IllegalAccessException, ClassNotFoundException {
+		InputStream input=new FileInputStream("config.properties");//加载config配置文件
+		Properties prop=new Properties();
+		prop.load(input);
+		input.close();
+		String className=prop.getProperty("className");//获取配置文件中className值：java.util.ArrayList
+		Collection cl=(Collection)Class.forName(className).newInstance();//实例化ArrayList
+		
+		System.out.println(cl.toString());
+	}</pre>&#13;
+<p/>&#13;
+<p><span style="color:#000000; background:rgb(255,255,255); text-transform:none; letter-spacing:0pt; font-size:10.5pt; font-style:normal; font-weight:normal"><span style="font-family:Comic Sans MS">     通过查看Spring mvc 框架的部分源码，很容易发现这种加载配置文件-利用反射将类实例化的影子。例如在Spring&#13;
+ MVC核心过滤器 dispatcher中，通过三级继承，父类实现ApplicationContextAware接口，而这个接口仅提供了一个方法</span></span></p>&#13;
+<span style="color:#000000; background:rgb(255,255,255); text-transform:none; letter-spacing:0pt; font-size:10.5pt; font-style:normal; font-weight:normal"><span style="font-family:Comic Sans MS"/></span>&#13;
+<p style="color:rgb(0,0,0); font-size:10.5pt; font-style:normal; font-weight:normal; margin-top:0pt; margin-bottom:0pt">&#13;
+</p>&#13;
+<pre code_snippet_id="1664991" snippet_file_name="blog_20160428_2_3275608" class="html" name="code">public interface ApplicationContextAware extends Aware {
+
+	/**
+	 * Set the ApplicationContext that this object runs in.
+	 * Normally this call will be used to initialize the object.
+	 * &lt;p&gt;Invoked after population of normal bean properties but before an init callback such
+	 * as {@link org.springframework.beans.factory.InitializingBean#afterPropertiesSet()}
+	 * or a custom init-method. Invoked after {@link ResourceLoaderAware#setResourceLoader},
+	 * {@link ApplicationEventPublisherAware#setApplicationEventPublisher} and
+	 * {@link MessageSourceAware}, if applicable.
+	 * @param applicationContext the ApplicationContext object to be used by this object
+	 * @throws ApplicationContextException in case of context initialization errors
+	 * @throws BeansException if thrown by application context methods
+	 * @see org.springframework.beans.factory.BeanInitializationException
+	 */
+	void setApplicationContext(ApplicationContext applicationContext) throws BeansException;
+
+}</pre>&#13;
+<p/>&#13;
+<p/>&#13;
+<p style="color:rgb(0,0,0); font-size:10.5pt; font-style:normal; font-weight:normal; margin-top:0pt; margin-bottom:0pt">&#13;
+       从这个方法漫长的注释不难看出，这个接口主要用于提供配置文件初始化时，调用初始化对象时使用的，也就是说，传入applicationContext参数，底层肯定跟上面代码的逻辑八九不离十，加载配置，同时利用反射初始化配置中的normal Bean 和properties。</p>&#13;
+<p style="color:rgb(0,0,0); font-size:10.5pt; font-style:normal; font-weight:normal; margin-top:0pt; margin-bottom:0pt">&#13;
+       一通百通，搞懂这些原理，可能确实在平时的编程中会相对比较少用到反射、委托等，但做平台、做框架的毋庸置疑，百分之百会使用到这些技术提高灵活扩展性。因为目前大多都是在用框架，毕竟金字塔顶端的也只是那么少部分。但如果遇到系统瓶颈了，考虑使用这些核心技术来解决问题的那一天就不远了。视野决定高度。</p>&#13;
+<p style="color:rgb(0,0,0); font-size:10.5pt; font-style:normal; font-weight:normal; margin-top:0pt; margin-bottom:0pt">&#13;
+      下一篇会介绍数组的反射应用，另外侧重介绍ArrayList 和HashSet在存储和使用上的区别与联系。</p>&#13;
+<p style="color:rgb(0,0,0); font-size:10.5pt; font-style:normal; font-weight:normal; margin-top:0pt; margin-bottom:0pt">&#13;
+<br/>&#13;
+</p>&#13;
+<p style="color:rgb(0,0,0); font-size:10.5pt; font-style:normal; font-weight:normal; margin-top:0pt; margin-bottom:0pt">&#13;
+<span style="color:#000000; background:rgb(255,255,255); text-transform:none; letter-spacing:0pt; font-size:10.5pt; font-style:normal; font-weight:normal"><span style="font-family:Comic Sans MS">  </span></span></p>&#13;
+<link rel="stylesheet" href="http://static.blog.csdn.net/public/res-min/markdown_views.css?v=1.0"/>&#13;
+            

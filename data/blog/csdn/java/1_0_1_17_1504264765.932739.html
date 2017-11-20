@@ -1,0 +1,246 @@
+
+        <div class="markdown_views"><p>请参照上篇文章—<a href="http://blog.csdn.net/odeviloo/article/details/52464359">工厂方法模式</a></p>
+
+<p><font color="brown">介绍：</font>提供一个创建一系列相关的相互依赖对象的接口，而无需指定它们具体的类。它和工厂方法模式的区别就在于所创建对象的复杂度上。抽象工厂和简单工厂、工厂方法相比是最具一般性的。</p>
+
+<p><font color="green">场景：</font>接着我们的pizza工厂，不过现在上头又增加了需求。他希望我们在中国pizza下面有番茄酱和沙拉酱两种口味，而美国pizza下面也有有番茄酱和沙拉酱两种口味。如果使用的是工厂方法模式，那么我们就需要再添加4种工厂分布制作不同的产品。</p>
+
+<p><font color="brown">概念：</font> <br />
+1. 产品树：中国番茄酱pizza和中国沙拉酱pizza处于同一等级结构（产品树），US番茄酱pizza和US沙拉酱pizza也处于同一等级结构（产品树） <br />
+2. 产品族：位于不同产品等级结构中功能相关联的产品组成的家族。中国番茄酱pizza与US番茄酱pizza属于同一产品族，中国沙拉酱pizza与US沙拉酱pizza属于同一产品族</p>
+
+<p><font color="brown">优点：工厂方法模式针对的是一个产品等级结构；而抽象工厂模式则是针对的多个产品等级结构。</font></p>
+
+
+
+<h1 id="一抽象工厂模式">一、抽象工厂模式</h1>
+
+<p><font color="green">介绍：</font>我们将所有工厂的业务抽象出来，每个工厂必须实现对所有等级类别的产品的生产。每个子工厂用于实现一个产品族的生产。</p>
+
+<p><strong>披萨定义</strong></p>
+
+<p>部分pizza代码，请参照上篇文章—<a href="http://blog.csdn.net/odeviloo/article/details/52464359">工厂方法模式</a></p>
+
+
+
+<pre class="prettyprint"><code class=" hljs java"><span class="hljs-comment">// 中国番茄酱pizza</span>
+<span class="hljs-keyword">public</span> <span class="hljs-class"><span class="hljs-keyword">class</span> <span class="hljs-title">KetchupChinesePizza</span> <span class="hljs-keyword">extends</span> <span class="hljs-title">ChinesePizza</span> {</span>
+
+    <span class="hljs-annotation">@Override</span>
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">void</span> <span class="hljs-title">addSeasoning</span>() {
+        System.out.println(<span class="hljs-string">"添加番茄酱"</span>);
+    }
+
+}
+
+<span class="hljs-comment">// 美国番茄酱pizza</span>
+<span class="hljs-keyword">public</span> <span class="hljs-class"><span class="hljs-keyword">class</span> <span class="hljs-title">KetchupUSPizza</span> <span class="hljs-keyword">extends</span> <span class="hljs-title">USPizza</span> {</span>
+
+    <span class="hljs-annotation">@Override</span>
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">void</span> <span class="hljs-title">addSeasoning</span>() {
+        System.out.println(<span class="hljs-string">"添加番茄酱"</span>);
+    }
+
+}
+
+<span class="hljs-comment">// 中国沙拉酱pizza</span>
+<span class="hljs-keyword">public</span> <span class="hljs-class"><span class="hljs-keyword">class</span> <span class="hljs-title">SaladChinesePizza</span> <span class="hljs-keyword">extends</span> <span class="hljs-title">ChinesePizza</span> {</span>
+
+    <span class="hljs-annotation">@Override</span>
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">void</span> <span class="hljs-title">addSeasoning</span>() {
+        System.out.println(<span class="hljs-string">"添加沙拉酱"</span>);
+    }
+
+}
+
+<span class="hljs-comment">// 美国沙拉酱pizza</span>
+<span class="hljs-keyword">public</span> <span class="hljs-class"><span class="hljs-keyword">class</span> <span class="hljs-title">SaladUSPizza</span> <span class="hljs-keyword">extends</span> <span class="hljs-title">USPizza</span> {</span>
+
+    <span class="hljs-annotation">@Override</span>
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">void</span> <span class="hljs-title">addSeasoning</span>() {
+        System.out.println(<span class="hljs-string">"添加沙拉酱"</span>);
+    }
+
+}</code></pre>
+
+<p><strong>抽象工厂</strong></p>
+
+<p>工厂需要能生产中国pizza和美国pizza</p>
+
+
+
+<pre class="prettyprint"><code class=" hljs cs"><span class="hljs-keyword">public</span> <span class="hljs-keyword">abstract</span> <span class="hljs-keyword">class</span> PizzaFactory {
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">abstract</span> ChinesePizza <span class="hljs-title">createChinesePizza</span>();
+
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">abstract</span> USPizza <span class="hljs-title">createUSPizza</span>();
+}</code></pre>
+
+<p><strong>番茄酱工厂</strong></p>
+
+<p>能制作所有国家的番茄酱pizza</p>
+
+
+
+<pre class="prettyprint"><code class=" hljs java"><span class="hljs-keyword">public</span> <span class="hljs-class"><span class="hljs-keyword">class</span> <span class="hljs-title">KetchupPizzaFactory</span> <span class="hljs-keyword">extends</span> <span class="hljs-title">PizzaFactory</span> {</span>
+
+    <span class="hljs-annotation">@Override</span>
+    <span class="hljs-keyword">public</span> ChinesePizza <span class="hljs-title">createChinesePizza</span>() {
+        System.out.println(<span class="hljs-string">"开始制作中国pizza"</span>);
+        KetchupChinesePizza pizza = <span class="hljs-keyword">new</span> KetchupChinesePizza();
+        pizza.addFlour();
+        pizza.addWater();
+        pizza.addSeasoning();
+        <span class="hljs-keyword">return</span> pizza;
+    }
+
+    <span class="hljs-annotation">@Override</span>
+    <span class="hljs-keyword">public</span> USPizza <span class="hljs-title">createUSPizza</span>() {
+        System.out.println(<span class="hljs-string">"开始制作美国pizza"</span>);
+        KetchupUSPizza pizza = <span class="hljs-keyword">new</span> KetchupUSPizza();
+        pizza.addFlour();
+        pizza.addWater();
+        pizza.addSeasoning();
+        <span class="hljs-keyword">return</span> pizza;
+    }
+
+}</code></pre>
+
+<p><strong>沙拉酱工厂</strong></p>
+
+<p>能制作所有国家的沙拉酱pizza</p>
+
+
+
+<pre class="prettyprint"><code class=" hljs java"><span class="hljs-keyword">public</span> <span class="hljs-class"><span class="hljs-keyword">class</span> <span class="hljs-title">SaladPizzaFactory</span> <span class="hljs-keyword">extends</span> <span class="hljs-title">PizzaFactory</span> {</span>
+
+    <span class="hljs-annotation">@Override</span>
+    <span class="hljs-keyword">public</span> ChinesePizza <span class="hljs-title">createChinesePizza</span>() {
+        System.out.println(<span class="hljs-string">"开始制作中国pizza"</span>);
+        SaladChinesePizza pizza = <span class="hljs-keyword">new</span> SaladChinesePizza();
+        pizza.addFlour();
+        pizza.addWater();
+        pizza.addSeasoning();
+        <span class="hljs-keyword">return</span> pizza;
+    }
+
+    <span class="hljs-annotation">@Override</span>
+    <span class="hljs-keyword">public</span> USPizza <span class="hljs-title">createUSPizza</span>() {
+        System.out.println(<span class="hljs-string">"开始制作美国pizza"</span>);
+        SaladUSPizza pizza = <span class="hljs-keyword">new</span> SaladUSPizza();
+        pizza.addFlour();
+        pizza.addWater();
+        pizza.addSeasoning();
+        <span class="hljs-keyword">return</span> pizza;
+    }
+
+}</code></pre>
+
+<p><strong>提供pizza业务</strong></p>
+
+
+
+<pre class="prettyprint"><code class=" hljs cs"><span class="hljs-keyword">public</span> <span class="hljs-keyword">class</span> TestMain {
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">static</span> <span class="hljs-keyword">void</span> <span class="hljs-title">main</span>(String[] args) {
+        PizzaFactory kf = <span class="hljs-keyword">new</span> KetchupPizzaFactory();
+        ChinesePizza pizza1 = kf.createChinesePizza();
+
+        PizzaFactory sf = <span class="hljs-keyword">new</span> SaladPizzaFactory();
+        USPizza pizza2 = sf.createUSPizza();
+    }
+}</code></pre>
+
+<p>输出如下：</p>
+
+
+
+<pre class="prettyprint"><code class=" hljs ">开始制作中国pizza
+加400克面粉
+加100ml水
+添加番茄酱
+开始制作美国pizza
+加300克面粉
+加100ml水
+添加沙拉酱</code></pre>
+
+<p><font color="red">不足：</font> <br />
+如果我们再增加一个产品树（等级结构），比如巴西pizza，那么，我们需要为每个子工厂添加一个巴西披萨的制作方法。</p>
+
+
+
+<h1 id="二静态抽象工厂">二、静态抽象工厂</h1>
+
+<p><font color="green">场景：</font>为了对上面的不足加以调整，我们可以通过静态工厂结合抽象工厂，并通过反射机制来对pizza进行制作。</p>
+
+<p><strong>工厂类</strong></p>
+
+
+
+<pre class="prettyprint"><code class=" hljs cs"><span class="hljs-keyword">public</span> <span class="hljs-keyword">class</span> SRFactory {
+
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">static</span> ChinesePizza <span class="hljs-title">createChinesePizza</span>(String name) throws Exception {
+        System.<span class="hljs-keyword">out</span>.println(<span class="hljs-string">"开始制作中国pizza"</span>);
+        ChinesePizza pizza = (ChinesePizza) Class.forName(name).newInstance();
+        pizza.addFlour();
+        pizza.addWater();
+        pizza.addSeasoning();
+        <span class="hljs-keyword">return</span> pizza;
+    }
+
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">static</span> USPizza <span class="hljs-title">createUSPizza</span>(String name) throws Exception {
+        System.<span class="hljs-keyword">out</span>.println(<span class="hljs-string">"开始制作美国pizza"</span>);
+        USPizza pizza = (USPizza) Class.forName(name).newInstance();
+        pizza.addFlour();
+        pizza.addWater();
+        pizza.addSeasoning();
+        <span class="hljs-keyword">return</span> pizza;
+    }
+
+}</code></pre>
+
+<p><strong>提供pizza业务</strong></p>
+
+
+
+<pre class="prettyprint"><code class=" hljs java"><span class="hljs-keyword">public</span> <span class="hljs-keyword">static</span> <span class="hljs-keyword">void</span> <span class="hljs-title">main</span>(String[] args) <span class="hljs-keyword">throws</span> Exception {
+        USPizza pizza = SRFactory.createUSPizza(<span class="hljs-string">"com.devil.designmodel.factory.model.KetchupUSPizza"</span>);
+        ChinesePizza pizza2 = SRFactory.createChinesePizza(<span class="hljs-string">"com.devil.designmodel.factory.model.SaladChinesePizza"</span>);
+    }</code></pre>
+
+<p>输出如下：</p>
+
+
+
+<pre class="prettyprint"><code class=" hljs ">开始制作美国pizza
+加300克面粉
+加100ml水
+添加番茄酱
+开始制作中国pizza
+加400克面粉
+加100ml水
+添加沙拉酱</code></pre>
+
+<p><strong><font color="red">总结：</font></strong> <br />
+工厂模式在具体实践中是使用比较频繁的，但是我们需要了解他们的长处和不足，根据特定情况来决定需要使用的模式。 <br />
+1. 对于业务不会进行太多变更的，我们可以使用简单工厂 <br />
+2. 对于只考虑产品树形式的（产品不会再细分子类），可以考虑工厂方法 <br />
+3. 对于多个产品等级结构的，我们应该选择合适的抽象工厂</p>
+
+<hr />
+
+<p><strong><em>更多模式：</em></strong> <a href="http://blog.csdn.net/odeviloo/article/details/52382338">一天一个设计模式—分类与六大原则</a></p>
+
+<p><strong><em>更多源码：</em></strong> <a href="https://github.com/oDevilo/Java-Base">https://github.com/oDevilo/Java-Base</a></p></div>&#13;
+        <script type="text/javascript">&#13;
+            $(function () {&#13;
+                $('pre.prettyprint code').each(function () {&#13;
+                    var lines = $(this).text().split('\n').length;&#13;
+                    var $numbering = $('&lt;ul/&gt;').addClass('pre-numbering').hide();&#13;
+                    $(this).addClass('has-numbering').parent().append($numbering);&#13;
+                    for (i = 1; i &lt;= lines; i++) {&#13;
+                        $numbering.append($('&lt;li/&gt;').text(i));&#13;
+                    };&#13;
+                    $numbering.fadeIn(1700);&#13;
+                });&#13;
+            });&#13;
+        </script>&#13;
+   &#13;

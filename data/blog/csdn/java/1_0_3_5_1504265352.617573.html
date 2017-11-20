@@ -1,0 +1,401 @@
+
+        <div class="markdown_views"><p>mybatis开发dao的方法通常用两种,一种是传统DAO的方法,一种是基于mapper代理的方法,下面学习这两种开发模式.</p>
+
+<hr />
+
+<p>写dao之前应该要对SqlSession有一个更加细致的了解</p>
+
+
+
+<h2 id="一mybatis的sqlsession使用范围">一.mybatis的SqlSession使用范围</h2>
+
+<ol>
+<li><p>SqlSessionFactoryBuilder用于创建SqlSessionFacoty，SqlSessionFacoty一旦创建完成就不需要SqlSessionFactoryBuilder了，因为SqlSession是通过SqlSessionFactory生产，所以可以将SqlSessionFactoryBuilder当成一个工具类使用，最佳使用范围是方法范围即方法体内局部变量。</p></li>
+<li><p>SqlSessionFactory是一个接口，接口中定义了openSession的不同重载方法，SqlSessionFactory的最佳使用范围是整个应用运行期间，一旦创建后可以重复使用，通常以单例模式管理SqlSessionFactory。</p></li>
+<li>SqlSession中封装了对数据库的操作，如：查询、插入、更新、删除等。通过<strong>SqlSessionFactory</strong>创建SqlSession，而SqlSessionFactory是通过<strong>SqlSessionFactoryBuilder</strong>进行创建。</li>
+<li>SqlSession是一个面向用户的接口，sqlSession中定义了数据库操作，默认使用DefaultSqlSession实现类。 <br />
+具体执行过程如下: <br />
+<ul><li>加载数据源等配置信息Environment environment = configuration.getEnvironment();</li>
+<li>创建数据库链接</li>
+<li>创建事务对象创建Executor，SqlSession所有操作都是通过Executor完成 <br />
+对应源码:</li></ul></li>
+</ol>
+
+
+
+<pre class="prettyprint"><code class=" hljs cs"><span class="hljs-keyword">if</span> (ExecutorType.BATCH == executorType) {
+      executor = newBatchExecutor(<span class="hljs-keyword">this</span>, transaction);
+    } elseif (ExecutorType.REUSE == executorType) {
+      executor = <span class="hljs-keyword">new</span> ReuseExecutor(<span class="hljs-keyword">this</span>, transaction);
+    } <span class="hljs-keyword">else</span> {
+      executor = <span class="hljs-keyword">new</span> SimpleExecutor(<span class="hljs-keyword">this</span>, transaction);
+    }
+<span class="hljs-keyword">if</span> (cacheEnabled) {
+      executor = <span class="hljs-keyword">new</span> CachingExecutor(executor, autoCommit);
+    }</code></pre>
+
+<p><font color="red">结论得出</font> <br />
+每个线程都应该有它自己的SqlSession实例。SqlSession的实例不能共享使用，它也是<strong>线程不安全的</strong>。因此最佳的范围是请求或方法范围。绝对不能将SqlSession实例的引用放在一个类的静态字段或实例字段中。 <br />
+    打开一个 SqlSession；使用完毕就要关闭它。通常把这个关闭操作放到 finally 块中以确保每次都能执行关闭。</p>
+
+
+
+<h2 id="二传统dao开发方法">二.传统DAO开发方法</h2>
+
+<p>传统的方法是建立dao接口定义方法,然后创建其实现类,实现dao中的方法.下面代码用的还是第一篇的例子 <br />
+<font color="red">无论是哪种开发方法,mapper.xml都要写的,mapper映射也都需要在SqlMapperConfig.xml中配置的</font></p>
+
+
+
+<h3 id="1userxml编写">1.User.xml编写</h3>
+
+<p>和上一篇中的一模一样,这里为了完整的流程才贴出来的</p>
+
+
+
+<pre class="prettyprint"><code class=" hljs xml"><span class="hljs-pi">&lt;?xml version="1.0" encoding="UTF-8" ?&gt;</span>
+<span class="hljs-doctype">&lt;!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+                "http://mybatis.org/dtd/mybatis-3-mapper.dtd"&gt;</span>
+<span class="hljs-comment">&lt;!--命名空间，用于隔离sql语句，后面会讲另一层非常重要的作用。--&gt;</span>
+<span class="hljs-tag">&lt;<span class="hljs-title">mapper</span> <span class="hljs-attribute">namespace</span>=<span class="hljs-value">"test"</span>&gt;</span>
+    <span class="hljs-comment">&lt;!--根据id查询出用户信息(查询一条数据)--&gt;</span>
+    <span class="hljs-tag">&lt;<span class="hljs-title">select</span> <span class="hljs-attribute">id</span>=<span class="hljs-value">"findUserById"</span> <span class="hljs-attribute">parameterType</span>=<span class="hljs-value">"int"</span> <span class="hljs-attribute">resultType</span>=<span class="hljs-value">"com.aust.model.User"</span>&gt;</span>
+        SELECT * FROM user WHERE id=#{id}
+    <span class="hljs-tag">&lt;/<span class="hljs-title">select</span>&gt;</span>
+    <span class="hljs-comment">&lt;!--根据名称进行模糊查询(查询出多条数据)--&gt;</span>
+    <span class="hljs-tag">&lt;<span class="hljs-title">select</span> <span class="hljs-attribute">id</span>=<span class="hljs-value">"findUserByName"</span> <span class="hljs-attribute">parameterType</span>=<span class="hljs-value">"java.lang.String"</span> <span class="hljs-attribute">resultType</span>=<span class="hljs-value">"com.aust.model.User"</span>&gt;</span>
+        SELECT * from user WHERE nickname LIKE '%${value}%'
+    <span class="hljs-tag">&lt;/<span class="hljs-title">select</span>&gt;</span>
+    <span class="hljs-comment">&lt;!--插入一个用户--&gt;</span>
+    <span class="hljs-tag">&lt;<span class="hljs-title">insert</span> <span class="hljs-attribute">id</span>=<span class="hljs-value">"insertUser"</span> <span class="hljs-attribute">parameterType</span>=<span class="hljs-value">"com.aust.model.User"</span>&gt;</span>
+      <span class="hljs-tag">&lt;<span class="hljs-title">selectKey</span> <span class="hljs-attribute">keyProperty</span>=<span class="hljs-value">"id"</span> <span class="hljs-attribute">resultType</span>=<span class="hljs-value">"java.lang.Integer"</span> <span class="hljs-attribute">order</span>=<span class="hljs-value">"AFTER"</span> &gt;</span>
+          SELECT last_insert_id()
+      <span class="hljs-tag">&lt;/<span class="hljs-title">selectKey</span>&gt;</span>
+        INSERT INTO user(username,password,nickname,status) VALUE (#{username},#{password},#{nickname},#{status})
+    <span class="hljs-tag">&lt;/<span class="hljs-title">insert</span>&gt;</span>
+    <span class="hljs-comment">&lt;!--删除一个用户--&gt;</span>
+    <span class="hljs-tag">&lt;<span class="hljs-title">delete</span> <span class="hljs-attribute">id</span>=<span class="hljs-value">"deleteUser"</span> <span class="hljs-attribute">parameterType</span>=<span class="hljs-value">"int"</span>&gt;</span>
+      DELETE FROM user WHERE id =#{id}
+    <span class="hljs-tag">&lt;/<span class="hljs-title">delete</span>&gt;</span>
+    <span class="hljs-comment">&lt;!--更新用户--&gt;</span>
+    <span class="hljs-tag">&lt;<span class="hljs-title">update</span> <span class="hljs-attribute">id</span>=<span class="hljs-value">"updateUser"</span> <span class="hljs-attribute">parameterType</span>=<span class="hljs-value">"com.aust.model.User"</span>&gt;</span>
+      UPDATE user SET username=#{username},password=#{password},nickname=#{nickname} WHERE id = #{id}
+    <span class="hljs-tag">&lt;/<span class="hljs-title">update</span>&gt;</span>
+<span class="hljs-tag">&lt;/<span class="hljs-title">mapper</span>&gt;</span></code></pre>
+
+
+
+<h3 id="2配置mapper映射">2.配置mapper映射</h3>
+
+<p>在SqlMapperConfig,xml中配置即可</p>
+
+
+
+<pre class="prettyprint"><code class=" hljs xml">  <span class="hljs-comment">&lt;!--配置mappeer映射--&gt;</span>
+    <span class="hljs-tag">&lt;<span class="hljs-title">mappers</span>&gt;</span>
+        <span class="hljs-tag">&lt;<span class="hljs-title">mapper</span> <span class="hljs-attribute">resource</span>=<span class="hljs-value">"mapper/User.xml"</span>/&gt;</span>
+    <span class="hljs-tag">&lt;/<span class="hljs-title">mappers</span>&gt;</span></code></pre>
+
+
+
+<h3 id="3实现dao接口">3.实现dao接口</h3>
+
+
+
+<pre class="prettyprint"><code class=" hljs java"><span class="hljs-keyword">public</span> <span class="hljs-class"><span class="hljs-keyword">interface</span> <span class="hljs-title">UserDao</span> {</span>
+    <span class="hljs-comment">//根据id查询用户</span>
+    <span class="hljs-keyword">public</span> User <span class="hljs-title">findUserById</span>(<span class="hljs-keyword">int</span> id);
+    <span class="hljs-comment">//根据姓名模糊查询用户</span>
+    <span class="hljs-keyword">public</span> List&lt;User&gt; <span class="hljs-title">findUserByName</span>(String name);
+    <span class="hljs-comment">//插入一个用户,返回主键</span>
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">int</span> <span class="hljs-title">insertUser</span>(User user);
+    <span class="hljs-comment">//删除一个用户</span>
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">boolean</span> <span class="hljs-title">deleteUser</span>(<span class="hljs-keyword">int</span> id);
+    <span class="hljs-comment">//更新一个用户</span>
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">boolean</span> <span class="hljs-title">updateUser</span>(User user);
+}</code></pre>
+
+
+
+<h3 id="4实现dao接口的实现类">4.实现dao接口的实现类</h3>
+
+
+
+<pre class="prettyprint"><code class=" hljs java"><span class="hljs-keyword">public</span> <span class="hljs-class"><span class="hljs-keyword">class</span> <span class="hljs-title">UserDaoImp</span> <span class="hljs-keyword">implements</span> <span class="hljs-title">UserDao</span>{</span>
+    <span class="hljs-keyword">private</span> SqlSessionFactory factory;
+
+    <span class="hljs-comment">//通过构造注入SqlSessionFactory,后期整合spring,全部交给spring管理</span>
+    <span class="hljs-keyword">public</span> <span class="hljs-title">UserDaoImp</span>(SqlSessionFactory factory) {
+        <span class="hljs-keyword">this</span>.factory = factory;
+    }
+
+    <span class="hljs-annotation">@Override</span>
+    <span class="hljs-keyword">public</span> User <span class="hljs-title">findUserById</span>(<span class="hljs-keyword">int</span> id) {
+        <span class="hljs-comment">//放在方法体内创建,保证线程安全</span>
+        SqlSession session = factory.openSession();
+        User user = session.selectOne(<span class="hljs-string">"test.findUserById"</span>,id);
+        session.close();
+        <span class="hljs-keyword">return</span> user;
+    }
+
+    <span class="hljs-annotation">@Override</span>
+    <span class="hljs-keyword">public</span> List&lt;User&gt; <span class="hljs-title">findUserByName</span>(String name) {
+        <span class="hljs-comment">//放在方法体内创建,保证线程安全</span>
+        SqlSession session = factory.openSession();
+        List&lt;User&gt; users = session.selectList(<span class="hljs-string">"test.findUserByName"</span>,name);
+        session.close();
+        <span class="hljs-keyword">return</span> users;
+    }
+
+    <span class="hljs-annotation">@Override</span>
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">int</span> <span class="hljs-title">insertUser</span>(User user) {
+        <span class="hljs-comment">//放在方法体内创建,保证线程安全</span>
+        SqlSession session = factory.openSession();
+        session.insert(<span class="hljs-string">"test.insertUser"</span>,user);
+        <span class="hljs-comment">//一定要提交,不然是失败</span>
+        session.commit();
+        session.close();
+        <span class="hljs-keyword">return</span> user.getId();
+    }
+
+    <span class="hljs-annotation">@Override</span>
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">boolean</span> <span class="hljs-title">deleteUser</span>(<span class="hljs-keyword">int</span> id) {
+        <span class="hljs-comment">//放在方法体内创建,保证线程安全</span>
+        SqlSession session = factory.openSession();
+        <span class="hljs-keyword">int</span> i = session.delete(<span class="hljs-string">"test.deleteUser"</span>,id);
+        <span class="hljs-comment">//一定要提交,不然是失败</span>
+        session.commit();
+        session.close();
+        <span class="hljs-keyword">return</span> i&gt;<span class="hljs-number">0</span>;
+    }
+
+    <span class="hljs-annotation">@Override</span>
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">boolean</span> <span class="hljs-title">updateUser</span>(User user) {
+        <span class="hljs-comment">//放在方法体内创建,保证线程安全</span>
+        SqlSession session = factory.openSession();
+        <span class="hljs-keyword">int</span> i = session.delete(<span class="hljs-string">"test.updateUser"</span>,user);
+        <span class="hljs-comment">//一定要提交,不然是失败</span>
+        session.commit();
+        session.close();
+        <span class="hljs-keyword">return</span> i&gt;<span class="hljs-number">0</span>;
+    }
+}</code></pre>
+
+
+
+<h3 id="5写junit测试">5.写junit测试</h3>
+
+
+
+<pre class="prettyprint"><code class=" hljs cs">    SqlSessionFactory factory  = <span class="hljs-keyword">null</span>;
+
+    @Before
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">void</span> <span class="hljs-title">init</span>(){
+        InputStream <span class="hljs-keyword">is</span> = <span class="hljs-keyword">null</span>;
+        <span class="hljs-keyword">try</span> {
+            <span class="hljs-keyword">is</span> = Resources.getResourceAsStream(<span class="hljs-string">"SqlMapperConfig.xml"</span>);
+        } <span class="hljs-keyword">catch</span> (IOException e) {
+            e.printStackTrace();
+        }
+        factory = <span class="hljs-keyword">new</span> SqlSessionFactoryBuilder().build(<span class="hljs-keyword">is</span>);
+    }
+
+    <span class="hljs-comment">//测试取出单个</span>
+    @Test
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">void</span> <span class="hljs-title">findUserByIdTest</span>(){
+        UserDaoImp daoImp = <span class="hljs-keyword">new</span> UserDaoImp(factory);
+        User user = daoImp.findUserById(<span class="hljs-number">2</span>);
+        System.<span class="hljs-keyword">out</span>.println(user);
+    }
+
+
+    <span class="hljs-comment">//测试取出多个</span>
+    @Test
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">void</span> <span class="hljs-title">findUserByNameTest</span>(){
+        UserDaoImp daoImp = <span class="hljs-keyword">new</span> UserDaoImp(factory);
+        List&lt;User&gt; users = daoImp.findUserByName(<span class="hljs-string">"张"</span>);
+        System.<span class="hljs-keyword">out</span>.println(users);
+    }
+
+    <span class="hljs-comment">//测试插入数据</span>
+    @Test
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">void</span> <span class="hljs-title">insertUserTest</span>(){
+        UserDaoImp daoImp = <span class="hljs-keyword">new</span> UserDaoImp(factory);
+        User u = <span class="hljs-keyword">new</span> User();
+        u.setUsername(<span class="hljs-string">"niuli1"</span>);
+        u.setPassword(<span class="hljs-string">"123456"</span>);
+        u.setNickname(<span class="hljs-string">"牛李"</span>);
+        u.setStatus(<span class="hljs-number">2</span>);
+        <span class="hljs-keyword">int</span> index = daoImp.insertUser(u);
+        System.<span class="hljs-keyword">out</span>.println(index);
+
+    }</code></pre>
+
+<p>以上五步就是传统DAO开发方法</p>
+
+
+
+<h3 id="6原始dao开发方法存在的问题">6.原始DAO开发方法存在的问题</h3>
+
+<ol>
+<li>Dao方法体存在重复代码：通过SqlSessionFactory创建SqlSession，调用SqlSession的数据库操作方法</li>
+<li>调用sqlSession的数据库操作方法需要指定statement的id，这里存在硬编码，不得于开发维护。</li>
+</ol>
+
+<hr />
+
+
+
+<h2 id="二基于mapper代理接口">二.基于Mapper代理接口</h2>
+
+
+
+<h3 id="1实现原理">1.实现原理</h3>
+
+<p>Mapper接口开发方法只需要程序员编写Mapper接口（相当于Dao接口），由Mybatis框架根据接口定义创建接口的动态代理对象，代理对象的方法体同上边Dao接口实现类方法。换句话说也就是不用程序员自己编写DAO接口的实现类了</p>
+
+
+
+<h3 id="2usermapper接口">2.UserMapper接口</h3>
+
+<p>接口定义有如下特点： <br />
+1、Mapper接口方法名和Mapper.xml中定义的statement的id相同 <br />
+2、Mapper接口方法的输入参数类型和mapper.xml中定义的statement的parameterType的类型相同 <br />
+3、Mapper接口方法的输出参数类型和mapper.xml中定义的statement的resultType的类型相同</p>
+
+
+
+<pre class="prettyprint"><code class=" hljs cs"><span class="hljs-keyword">public</span> <span class="hljs-keyword">interface</span> UserMapper {
+
+    <span class="hljs-comment">//根据id查询用户</span>
+    <span class="hljs-keyword">public</span> User <span class="hljs-title">findUserById</span>(<span class="hljs-keyword">int</span> id);
+    <span class="hljs-comment">//根据姓名模糊查询用户</span>
+    <span class="hljs-keyword">public</span> List&lt;User&gt; <span class="hljs-title">findUserByName</span>(String name);
+    <span class="hljs-comment">//插入一个用户,返回受影响的行数</span>
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">int</span> <span class="hljs-title">insertUser</span>(User user);
+    <span class="hljs-comment">//删除一个用户,返回受影响的行数</span>
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">int</span> <span class="hljs-title">deleteUser</span>(<span class="hljs-keyword">int</span> id);
+    <span class="hljs-comment">//更新一个用户,返回受影响的行数</span>
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">int</span> <span class="hljs-title">updateUser</span>(User user);
+}</code></pre>
+
+
+
+<h3 id="3usermapperxml">3.UserMapper.xml</h3>
+
+<p>Mapper接口开发需要遵循以下规范： <br />
+1、Mapper.xml文件中的namespace与mapper接口的类路径相同。</p>
+
+
+
+<pre class="prettyprint"><code class=" hljs xml"><span class="hljs-pi">&lt;?xml version="1.0" encoding="UTF-8" ?&gt;</span>
+<span class="hljs-doctype">&lt;!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+                "http://mybatis.org/dtd/mybatis-3-mapper.dtd"&gt;</span>
+<span class="hljs-comment">&lt;!--命名空间，基于Mapper代理的话要是Mapper代理类路径。--&gt;</span>
+<span class="hljs-tag">&lt;<span class="hljs-title">mapper</span> <span class="hljs-attribute">namespace</span>=<span class="hljs-value">"com.aust.dao.UserMapper"</span>&gt;</span>
+
+    <span class="hljs-comment">&lt;!--其余内容和上面的User.xml一样--&gt;</span>
+
+<span class="hljs-tag">&lt;/<span class="hljs-title">mapper</span>&gt;</span></code></pre>
+
+
+
+<h3 id="4配置mapper映射">4.配置Mapper映射</h3>
+
+<p>无论哪种方式都需要配置映射</p>
+
+
+
+<pre class="prettyprint"><code class=" hljs xml">  <span class="hljs-comment">&lt;!--配置mappeer映射--&gt;</span>
+    <span class="hljs-tag">&lt;<span class="hljs-title">mappers</span>&gt;</span>
+        <span class="hljs-tag">&lt;<span class="hljs-title">mapper</span> <span class="hljs-attribute">resource</span>=<span class="hljs-value">"mapper/UserMapper.xml"</span>/&gt;</span>
+    <span class="hljs-tag">&lt;/<span class="hljs-title">mappers</span>&gt;</span></code></pre>
+
+
+
+<h3 id="5写junit测试-1">5.写junit测试</h3>
+
+
+
+<pre class="prettyprint"><code class=" hljs cs">  @Before
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">void</span> <span class="hljs-title">init</span>(){
+        InputStream <span class="hljs-keyword">is</span> = <span class="hljs-keyword">null</span>;
+        <span class="hljs-keyword">try</span> {
+            <span class="hljs-keyword">is</span> = Resources.getResourceAsStream(<span class="hljs-string">"SqlMapperConfig.xml"</span>);
+        } <span class="hljs-keyword">catch</span> (IOException e) {
+            e.printStackTrace();
+        }
+        factory = <span class="hljs-keyword">new</span> SqlSessionFactoryBuilder().build(<span class="hljs-keyword">is</span>);
+    }
+
+    <span class="hljs-comment">//测试取出单个</span>
+    @Test
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">void</span> <span class="hljs-title">findUserByIdTest</span>(){
+        <span class="hljs-comment">//获取sqlsession</span>
+        SqlSession session = factory.openSession();
+        <span class="hljs-comment">//创建mapper代理</span>
+        UserMapper mapper = session.getMapper(UserMapper.class);
+        <span class="hljs-comment">//利用mapper代理查询</span>
+        User u = mapper.findUserById(<span class="hljs-number">2</span>);
+        session.close();
+        System.<span class="hljs-keyword">out</span>.println(u);
+    }
+
+
+    <span class="hljs-comment">//测试取出多个</span>
+    @Test
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">void</span> <span class="hljs-title">findUserByNameTest</span>(){
+        SqlSession session = factory.openSession();
+        UserMapper mapper = session.getMapper(UserMapper.class);
+        List&lt;User&gt; users = mapper.findUserByName(<span class="hljs-string">"张"</span>);
+        session.close();
+        System.<span class="hljs-keyword">out</span>.println(users);
+    }
+
+    <span class="hljs-comment">//测试插入数据</span>
+    @Test
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">void</span> <span class="hljs-title">insertUserTest</span>(){
+        SqlSession session = factory.openSession();
+        UserMapper mapper = session.getMapper(UserMapper.class);
+        User u = <span class="hljs-keyword">new</span> User();
+        u.setUsername(<span class="hljs-string">"niuli1"</span>);
+        u.setPassword(<span class="hljs-string">"123456"</span>);
+        u.setNickname(<span class="hljs-string">"牛李"</span>);
+        u.setStatus(<span class="hljs-number">2</span>);
+        <span class="hljs-keyword">int</span> index = mapper.insertUser(u);
+        System.<span class="hljs-keyword">out</span>.println(index);<span class="hljs-comment">//获取受影响的行数</span>
+        System.<span class="hljs-keyword">out</span>.println(u.getId());<span class="hljs-comment">//获取返回的自增主键</span>
+
+    }</code></pre>
+
+
+
+<h3 id="6总结">6.总结</h3>
+
+<ol>
+<li>selectOne和selectList动态代理对象调用sqlSession.selectOne()和sqlSession.selectList()是根据mapper接口方法的返回值决定，如果返回list则调用selectList方法，如果返回单个对象则调用selectOne方法。</li>
+<li>mybatis官方推荐使用mapper代理方法开发mapper接口，<strong>程序员不用编写mapper接口实现类</strong>。</li>
+<li>可以发现使用Mapper代理的方式,在Mapper接口中输入参数必须只能是一个,但是怎么才能满足多样查询呢?mybatis建议输入参数可以使用<strong>pojo包装对象或map对象</strong>，保证dao的通用性.</li>
+</ol>
+
+<hr />
+
+<p>项目示例:</p>
+
+<p>SSM框架整合: <a href="https://github.com/nl101531/JavaWEB">https://github.com/nl101531/JavaWEB</a></p>
+
+<p>自己做的一个项目: <a href="https://github.com/nl101531/AUSTOJ">https://github.com/nl101531/AUSTOJ</a></p></div>&#13;
+        <script type="text/javascript">&#13;
+            $(function () {&#13;
+                $('pre.prettyprint code').each(function () {&#13;
+                    var lines = $(this).text().split('\n').length;&#13;
+                    var $numbering = $('&lt;ul/&gt;').addClass('pre-numbering').hide();&#13;
+                    $(this).addClass('has-numbering').parent().append($numbering);&#13;
+                    for (i = 1; i &lt;= lines; i++) {&#13;
+                        $numbering.append($('&lt;li/&gt;').text(i));&#13;
+                    };&#13;
+                    $numbering.fadeIn(1700);&#13;
+                });&#13;
+            });&#13;
+        </script>&#13;
+   &#13;

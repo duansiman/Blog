@@ -1,0 +1,324 @@
+
+<p>定义继承AbstractCommandController的控制器，实现数据的自动封装</p><p><br /></p><p>Controller</p><p></p><pre code_snippet_id="2420372" snippet_file_name="blog_20170526_1_6919673" class="java" name="code">package com.hsit.controller;
+
+import java.text.SimpleDateFormat;
+import java.util.Date;
+
+import javax.servlet.http.HttpServletRequest;
+import javax.servlet.http.HttpServletResponse;
+
+import org.springframework.beans.factory.config.CustomEditorConfigurer;
+import org.springframework.beans.propertyeditors.CustomDateEditor;
+import org.springframework.validation.BindException;
+import org.springframework.web.bind.ServletRequestDataBinder;
+import org.springframework.web.servlet.ModelAndView;
+import org.springframework.web.servlet.mvc.AbstractCommandController;
+
+import com.hsit.pojo.UserInfo;
+
+public class UserInfoController extends AbstractCommandController {
+
+	@Override
+	protected ModelAndView handle(HttpServletRequest request,
+			HttpServletResponse response, Object command, BindException errors)
+			throws Exception {
+		// TODO Auto-generated method stub
+		UserInfo user = (UserInfo) command;
+		System.out.println(user);
+		return null;
+	}
+
+
+}
+</pre><p></p><p><br /></p><p>JavaBean</p><p></p><pre code_snippet_id="2420372" snippet_file_name="blog_20170526_2_6298009" class="java" name="code">package com.hsit.pojo;
+
+import java.util.Date;
+
+public class UserInfo {
+
+	private String username;
+	private String password;
+
+	public String getUsername() {
+		return username;
+	}
+
+	public void setUsername(String username) {
+		this.username = username;
+	}
+
+	public String getPassword() {
+		return password;
+	}
+
+	public void setPassword(String password) {
+		this.password = password;
+	}
+
+	@Override
+	public String toString() {
+		return "username=" + username + ",password=" + password;
+	}
+
+}
+</pre><br /><br /><p></p><p>jsp 视图</p><p></p><pre code_snippet_id="2420372" snippet_file_name="blog_20170526_3_8075915" class="plain" name="code">&lt;%@ page language="java" import="java.util.*" pageEncoding="UTF-8"%&gt;
+
+&lt;!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN"&gt;
+&lt;html&gt;
+  &lt;head&gt;
+        
+    &lt;title&gt;&lt;/title&gt;
+    
+	&lt;meta http-equiv="pragma" content="no-cache"&gt;
+	&lt;meta http-equiv="cache-control" content="no-cache"&gt;
+	&lt;meta http-equiv="expires" content="0"&gt;    
+	&lt;!--
+	&lt;script type="text/javascript" src="js/*.js"&gt;&lt;/script&gt;
+	&lt;link rel="stylesheet" type="text/css" href="styles.css"&gt;
+	--&gt;
+
+  &lt;/head&gt;
+  
+  &lt;body&gt;
+    	&lt;center&gt;
+    		&lt;form action="Login.do" method="post"&gt;
+    			用户名：&lt;input type="text" name="username" size="20"/&gt;&lt;br&gt;
+    			账  号：&lt;input type="password" name="password" size="20"&gt;&lt;br&gt;
+    			&lt;!--name名字一定要和UserInfo的属性名一样，才能正确封装--&gt;
+    			&lt;input type="submit" value="提交"&gt;
+    		&lt;/form&gt;
+    	&lt;/center&gt;
+  &lt;/body&gt;
+&lt;/html&gt;
+</pre><p></p><p>配置如下</p><p></p><pre code_snippet_id="2420372" snippet_file_name="blog_20170526_4_1249262" class="html" name="code">&lt;?xml version="1.0" encoding="UTF-8"?&gt;
+&lt;beans
+	xmlns="http://www.springframework.org/schema/beans"
+	xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+	xmlns:p="http://www.springframework.org/schema/p"
+	xsi:schemaLocation="http://www.springframework.org/schema/beans http://www.springframework.org/schema/beans/spring-beans-2.5.xsd"&gt;
+	
+	&lt;!-- 配置处理器映射采用SimpleUrlHandlerMapping --&gt;
+	&lt;bean class="org.springframework.web.servlet.handler.SimpleUrlHandlerMapping"&gt;
+		&lt;property name="mappings"&gt;
+		&lt;!-- props底下的prop标签内填写的key都是符合转发条件的url值，之后跟的是bean的ID，
+		如果输入的url值与key值中的url匹配，则执行对应beanID绑定的Controller --&gt;
+			&lt;props&gt;
+				&lt;prop key="go.do"&gt;go&lt;/prop&gt;
+				&lt;prop key="test.do"&gt;test&lt;/prop&gt;
+				&lt;prop key="goLogin.do"&gt;goLogin&lt;/prop&gt;
+				&lt;prop key="Login.do"&gt;Login&lt;/prop&gt;
+			&lt;/props&gt;
+		&lt;/property&gt;
+	&lt;/bean&gt;
+	
+	&lt;!-- 配置视图解释器 --&gt;
+	&lt;bean class="org.springframework.web.servlet.view.UrlBasedViewResolver"&gt;
+		&lt;property name="viewClass" value="org.springframework.web.servlet.view.JstlView" /&gt;
+		&lt;!-- 属性prefix和suffix指定的是你的视图文件所在的路径，以及他的后缀是什么（就是类型）
+			以下指的就是  /WEB-INF/jsp/*.jsp
+		 --&gt;
+		&lt;property name="prefix" value="/WEB-INF/jsp/" /&gt;
+		&lt;property name="suffix" value=".jsp"&gt;&lt;/property&gt;
+	&lt;/bean&gt;
+	
+	&lt;!-- 控制器配置 --&gt;
+	
+	&lt;bean id="goLogin" class="org.springframework.web.servlet.mvc.ParameterizableViewController"&gt;
+		&lt;property name="viewName" value="login" /&gt;
+	&lt;/bean&gt;
+	&lt;!-- 属性commandClass的value值设置成数据要封装成什么类型，执行到该控制器时就会自动将数据封装成UserInfo--&gt;
+	&lt;bean id="Login" class="com.hsit.controller.UserInfoController"&gt;
+		&lt;property name="commandClass" value="com.hsit.pojo.UserInfo" /&gt;
+	&lt;/bean&gt;
+	
+&lt;/beans&gt;</pre><br /><span style="font-size:18px; color:#ff6666"><strong>地址栏：http://colo-pc:8080/SpringMVC01/goLogin.do</strong></span><p></p><p><br /></p><p>输入框中输入的用户名和密码将会自动封装到UserInfo对应的属性中去</p><p><br /></p><p><span style="font-size:32px; color:#ff0000">但是</span>有一种情况我们不能成功将数据封装起来，如果.jsp界面要我们输入的信息有包括时间的话，Controller不能正确将输入框中的时间正确封装成为Date对象，因为输入框中的值带到Controller中时，都是String类型的。这时候我们就要在Controller中重写一个方法initBinder，来进行数据格式转换。</p><p><span style="font-size:24px"><strong><span style="color:#ff6666">配置文件不变</span></strong></span><br /></p><p><br /></p><p>jsp在表单中添加</p><p></p><pre code_snippet_id="2420372" snippet_file_name="blog_20170526_5_7487271" class="plain" name="code">日  期：&lt;input type="text" name="date" size="20"&gt;&lt;br&gt;&lt;br&gt;</pre><br />Controller.java<p></p><p></p><pre code_snippet_id="2420372" snippet_file_name="blog_20170526_6_9265177" class="java" name="code">package com.hsit.controller;
+
+import java.text.SimpleDateFormat;
+import java.util.Date;
+
+import javax.servlet.http.HttpServletRequest;
+import javax.servlet.http.HttpServletResponse;
+
+import org.springframework.beans.propertyeditors.CustomDateEditor;
+import org.springframework.validation.BindException;
+import org.springframework.web.bind.ServletRequestDataBinder;
+import org.springframework.web.servlet.ModelAndView;
+import org.springframework.web.servlet.mvc.AbstractCommandController;
+
+import com.hsit.pojo.UserInfo;
+
+public class UserInfoController extends AbstractCommandController {
+
+	@Override
+	protected ModelAndView handle(HttpServletRequest request,
+			HttpServletResponse response, Object command, BindException errors)
+			throws Exception {
+		// TODO Auto-generated method stub
+		UserInfo user = (UserInfo) command;
+		System.out.println(user);
+		return null;
+	}
+
+	@Override
+	protected void initBinder(HttpServletRequest request,
+			ServletRequestDataBinder binder) throws Exception {
+                /*数据转换成Date类型*/
+		binder.registerCustomEditor(Date.class, new CustomDateEditor(
+				new SimpleDateFormat("yyyy-MM-dd"), true));
+	}
+
+}
+</pre><pre code_snippet_id="2420372" snippet_file_name="blog_20170526_46_7187052" class="java" name="code"> </pre><pre code_snippet_id="2420372" snippet_file_name="blog_20170526_46_7187052" class="java" name="code"> </pre><pre code_snippet_id="2420372" snippet_file_name="blog_20170526_46_7187052" class="java" name="code"> </pre><pre code_snippet_id="2420372" snippet_file_name="blog_20170526_46_7187052" class="java" name="code"> </pre><pre code_snippet_id="2420372" snippet_file_name="blog_20170526_46_7187052" class="java" name="code"> </pre><pre code_snippet_id="2420372" snippet_file_name="blog_20170526_46_7187052" class="java" name="code"> </pre><pre code_snippet_id="2420372" snippet_file_name="blog_20170526_13_4751009" class="java" name="code"><p>（引自Spring in Action -- 命令控制器（如AbstractCommandController，BaseCommandController），通过将请求参数绑定到命令对象来简化请求的处理。请求参数可以通过URL参数或Web表单字段得到。尽管命令控制器可以处理表单输入，Spring还是提供了另一种可以为处理表单提供更好支持的控制器。下面，让我们来介绍<a target="_blank" href="mhtml:file://C:\Users\to.to\Desktop\Spring AbstractCommandController_老狼_百度空间.mht!x-usc:http://hi.baidu.com/londalonda/blog/item/f84d45fadf80c46f034f56df.html">Spring的表单控制器</a>（如AbstractFormController，SimpleFormController。）
+
+今天来介绍一下Spring的AbstractCommandController。Spring的Controller有很多选择，在你的应用中选择最合适的一个将会让你事半功倍。Spring Controller有一个自上而下的等级分类，基本上是从简单到复杂：</p><p>Controller, AbstractController
+--&gt;
+ThrowawayController
+--&gt;
+MultiActionController
+--&gt;
+BaseCommandController, AbstractCommandController
+--&gt;
+AbstractFormController, SimpleFormController
+--&gt;
+AbstractWizardFormController</p><p>        如果Controller中不需要处理逻辑事务，或者只需要少量的功能，大都可以继承AbstractController。如果需要处理请求中的输入，那么可以继承AbstractCommandController。这就是今天要介绍的内容。注意，环境参照Spring的简单例子。</p><p>        首先，我们编写一个index.jsp：</p><p>&lt;%@ page language="java" contentType="text/html; charset=ISO-8859-1"</p><p>pageEncoding="ISO-8859-1"%&gt;</p><p>&lt;!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN"&gt;</p><p>&lt;html&gt;</p><p>&lt;head&gt;</p><p>&lt;meta. http-equiv="Content-Type" content="text/html; charset=ISO-8859-1"&gt;</p><p>&lt;title&gt;Index Page&lt;/title&gt;</p><p>&lt;/head&gt;</p><p>&lt;body&gt;</p><p>&lt;center&gt;</p><p>&lt;form. action="user.do" method="post"&gt;</p><p>Username:&lt;input type="text" name="username" /&gt;&lt;br/&gt;</p><p>Password:&lt;input type="password" name="password" /&gt;&lt;br/&gt;</p><p>&lt;input type="submit" value="Submit" /&gt;</p><p>&lt;/form&gt;</p><p>&lt;/center&gt;</p><p>&lt;/body&gt;</p><p>&lt;/html&gt;</p><p>        这里我们要接收username和password两个参数。</p><p>        然后配置web.xml:</p><p>&lt;?xml version="1.0" encoding="UTF-8"?&gt;</p><p>&lt;web-app id="WebApp_ID" version="2.4" xmlns="<a target="_blank" href="mhtml:file://C:\Users\to.to\Desktop\Spring AbstractCommandController_老狼_百度空间.mht!x-usc:http://java.sun.com/xml/ns/j2ee">http://java.sun.com/xml/ns/j2ee</a>" xmlns:xsi="<a target="_blank" href="mhtml:file://C:\Users\to.to\Desktop\Spring AbstractCommandController_老狼_百度空间.mht!x-usc:http://www.w3.org/2001/XMLSchema-instance">http://www.w3.org/2001/XMLSchema-instance</a>" xsi:schemaLocation="<a target="_blank" href="mhtml:file://C:\Users\to.to\Desktop\Spring AbstractCommandController_老狼_百度空间.mht!x-usc:http://java.sun.com/xml/ns/j2ee">http://java.sun.com/xml/ns/j2ee</a><a target="_blank" href="mhtml:file://C:\Users\to.to\Desktop\Spring AbstractCommandController_老狼_百度空间.mht!x-usc:http://java.sun.com/xml/ns/j2ee/web-app_2_4.xsd">http://java.sun.com/xml/ns/j2ee/web-app_2_4.xsd</a>"&gt;</p><p>&lt;servlet&gt;</p><p>&lt;servlet-name&gt;test&lt;/servlet-name&gt;</p><p>&lt;servlet-class&gt;org.springframework.web.servlet.DispatcherServlet&lt;/servlet-class&gt;</p><p>&lt;load-on-startup&gt;1&lt;/load-on-startup&gt;</p><p>&lt;/servlet&gt;</p><p>
+&lt;servlet-mapping&gt;</p><p>&lt;servlet-name&gt;test&lt;/servlet-name&gt;</p><p>&lt;url-pattern&gt;*.do&lt;/url-pattern&gt;</p><p>&lt;/servlet-mapping&gt;</p><p>
+&lt;display-name&gt;</p><p>SpringTest&lt;/display-name&gt;</p><p>&lt;welcome-file-list&gt;</p><p>&lt;welcome-file&gt;index.html&lt;/welcome-file&gt;</p><p>&lt;welcome-file&gt;index.htm&lt;/welcome-file&gt;</p><p>&lt;welcome-file&gt;index.jsp&lt;/welcome-file&gt;</p><p>&lt;welcome-file&gt;default.html&lt;/welcome-file&gt;</p><p>&lt;welcome-file&gt;default.htm&lt;/welcome-file&gt;</p><p>&lt;welcome-file&gt;default.jsp&lt;/welcome-file&gt;</p><p>&lt;/welcome-file-list&gt;</p><p>&lt;/web-app&gt;</p><p>        test-servlet.xml:</p><p>&lt;?xml version="1.0" encoding="UTF-8"?&gt;</p><p>&lt;!DOCTYPE beans PUBLIC "-//SPRING//DTD BEAN//EN" "<a target="_blank" href="mhtml:file://C:\Users\to.to\Desktop\Spring AbstractCommandController_老狼_百度空间.mht!x-usc:http://www.springframework.org/dtd/spring-beans.dtd">http://www.springframework.org/dtd/spring-beans.dtd</a>"&gt;</p><p>&lt;beans&gt;</p><p></p><p></p><p>&lt;bean name="/user.do" class="src.UserCommandController"&gt;</p><p>&lt;property name="page"&gt;</p><p>&lt;value&gt;user&lt;/value&gt;</p><p>&lt;/property&gt;</p><p>&lt;/bean&gt;</p><p>
+&lt;bean id="viewResolver" class="org.springframework.web.servlet.view.InternalResourceViewResolver"&gt;</p><p>&lt;property name="prefix"&gt;</p><p>&lt;value&gt;/WEB-INF/jsp/&lt;/value&gt;</p><p>&lt;/property&gt;</p><p>&lt;property name="suffix"&gt;</p><p>&lt;value&gt;.jsp&lt;/value&gt;</p><p>&lt;/property&gt;</p><p>&lt;/bean&gt;</p><p>
+&lt;/beans&gt;</p><p>        我们先写一个User类，可以看成User Bean(User.java):</p><p>package src;</p><p>
+public class User {</p><p>private String username;</p><p>private String password;</p><p>
+public User(){</p><p>
+}</p><p>
+public String getPassword() {</p><p>return password;</p><p>}</p><p>public void setPassword(String password) {</p><p>this.password = password;</p><p>}</p><p>public String getUsername() {</p><p>return username;</p><p>}</p><p>public void setUsername(String username) {</p><p>this.username = username;</p><p>}</p><p>
+}</p><p>        这里也就两个属性即username和password，同时还有相应的get和set方法。</p><p>        然后就是UserCommandController.java:</p><p>package src;</p><p>
+import java.util.ArrayList;</p><p>import java.util.List;</p><p>
+import javax.servlet.http.HttpServletRequest;</p><p>import javax.servlet.http.HttpServletResponse;</p><p>
+import org.springframework.validation.BindException;</p><p>import org.springframework.web.servlet.ModelAndView;</p><p>import org.springframework.web.servlet.mvc.AbstractCommandController;</p><p>
+public class UserCommandController extends AbstractCommandController{</p><p>
+private String page;</p><p>
+public UserCommandController(){</p><p>setCommandClass(User.class);</p><p>}</p><p>
+public ModelAndView handle(HttpServletRequest request,</p><p>HttpServletResponse response,</p><p>Object command,</p><p>BindException errors) throws Exception{</p><p>
+User user = (User)command;</p><p>String username = user.getUsername();</p><p>String password = user.getPassword();</p><p>List list = new ArrayList();</p><p>list.add(0, username);</p><p>list.add(1, password);</p><p>return new ModelAndView(getPage(), "info", list);</p><p>}</p><p>
+public String getPage() {</p><p>return page;</p><p>}</p><p>
+public void setPage(String page) {</p><p>this.page = page;</p><p>}</p><p>
+}</p><p>        这个控制器要处理输入的username和password（很简单），不像在Struts中必须要继承ActionForm。该类有一个要覆盖的handle()方法。在handle()方法中，command就是输入的一个对象，这里需要先转化为User类，并调用相应的方法得到username和password两个参数。然后放到一个list里面，再调用getPage()方法传回到指定的视图去。这个视图名则在test-servlet.xml中指明了为user。这里我们可以看出Spring框架的灵活性。要修改映射或者指定视图等的话只要在配置文件里面修改就可以了，而不用修改源程序。</p><p>        那么接下来就是user.jsp:</p><p>&lt;%@ page language="java" contentType="text/html; charset=ISO-8859-1"</p><p>pageEncoding="ISO-8859-1"%&gt;</p><p>&lt;!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN"&gt;</p><p>&lt;html&gt;</p><p>&lt;head&gt;</p><p>&lt;meta. http-equiv="Content-Type" content="text/html; charset=ISO-8859-1"&gt;</p><p>&lt;title&gt;User Information Page&lt;/title&gt;</p><p>&lt;/head&gt;</p><p>&lt;body&gt;</p><p>&lt;center&gt;</p><p>&lt;h1&gt;Your username is:${info[0] }&lt;/h1&gt;&lt;br/&gt;</p><p>&lt;h1&gt;Your password is:${info[1] }&lt;/h1&gt;</p><p>&lt;/center&gt;</p><p>&lt;/body&gt;</p><p>&lt;/html&gt;</p><p>        这里就把刚刚的username和password显示了出来。</p><p>        处理简单的输入可以采用AbstractCommandController，就像这个例子一样。可以根据实际情况增加相应的代码来满足不同的需求。</p><p>        当然，处理表单还有SimpleFormController和AbstractFormController，以后会讲这类控制器的例子。</p></pre><pre code_snippet_id="2420372" snippet_file_name="blog_20170526_46_7187052" class="java" name="code"> </pre><pre code_snippet_id="2420372" snippet_file_name="blog_20170526_46_7187052" class="java" name="code"> </pre><pre code_snippet_id="2420372" snippet_file_name="blog_20170526_46_7187052" class="java" name="code"> </pre><pre code_snippet_id="2420372" snippet_file_name="blog_20170526_46_7187052" class="java" name="code"> </pre><pre code_snippet_id="2420372" snippet_file_name="blog_20170526_18_6049738" class="java" name="code"> 4.5、ServletForwardingController<p>将接收到的请求转发到一个命名的servlet，具体示例如下：</p><p> </p><div style="BORDER-BOTTOM: #aabbcc 1px solid; BORDER-LEFT: #aabbcc 1px solid; BORDER-TOP: #aabbcc 1px solid; BORDER-RIGHT: #aabbcc 1px solid"><span class="bold" style="font-family:arial black, avant garde;font-size:14px;">java代码：</span> <div class="dp-highlighter"><div class="bar"><div class="tools"><a target="_blank" href="mhtml:file://C:\Users\to.to\Desktop\第四章 Controller接口控制器详解（2）——跟着开涛学SpringMVC - zhang的笔记 - 记笔记 - 私塾在线 - 只做精品视频课程服务.mht#">查看</a><a target="_blank" href="mhtml:file://C:\Users\to.to\Desktop\第四章 Controller接口控制器详解（2）——跟着开涛学SpringMVC - zhang的笔记 - 记笔记 - 私塾在线 - 只做精品视频课程服务.mht#">复制到剪贴板</a><a target="_blank" href="mhtml:file://C:\Users\to.to\Desktop\第四章 Controller接口控制器详解（2）——跟着开涛学SpringMVC - zhang的笔记 - 记笔记 - 私塾在线 - 只做精品视频课程服务.mht#">打印</a></div></div><ol class="dp-j"><li class="alt"><span><span class="keyword">package</span><span> cn.javass.chapter4.web.servlet;   </span></span></li><li><span></span><span class="keyword">public</span><span> </span><span class="keyword">class</span><span> ForwardingServlet </span><span class="keyword">extends</span><span> HttpServlet {       </span></li><li class="alt"><span>    </span><span class="annotation"><span style="color:#646464;">@Override</span></span><span>  </span></li><li><span>    </span><span class="keyword">protected</span><span> </span><span class="keyword">void</span><span> doGet(HttpServletRequest req, HttpServletResponse resp)   </span></li><li class="alt"><span>    </span><span class="keyword">throws</span><span> ServletException, IOException {   </span></li><li><span>  </span></li><li class="alt"><span>        resp.getWriter().write(</span><span class="string">"Controller forward to Servlet"</span><span>);   </span></li><li><span>           </span></li><li class="alt"><span>    }   </span></li><li><span>}  </span></li></ol></div><pre code_snippet_id="2420372" snippet_file_name="blog_20170526_18_6049738" style="DISPLAY: none" class="java" name="code">package cn.javass.chapter4.web.servlet;
+public class ForwardingServlet extends HttpServlet {	
+	@Override
+	protected void doGet(HttpServletRequest req, HttpServletResponse resp)
+    throws ServletException, IOException {
+
+		resp.getWriter().write("Controller forward to Servlet");
+		
+	}
+}</pre><div></div><p> </p><div style="border-bottom:#aabbcc 1px solid; border-left:#aabbcc 1px solid; border-top:#aabbcc 1px solid; border-right:#aabbcc 1px solid"><span class="bold" style="font-family:arial black,avant garde; font-size:14px">java代码：</span><div class="dp-highlighter"><div class="bar"><div class="tools"><a target="_blank" href="mhtml:file://C:\Users\to.to\Desktop\第四章 Controller接口控制器详解（2）——跟着开涛学SpringMVC - zhang的笔记 - 记笔记 - 私塾在线 - 只做精品视频课程服务.mht#">查看</a><a target="_blank" href="mhtml:file://C:\Users\to.to\Desktop\第四章 Controller接口控制器详解（2）——跟着开涛学SpringMVC - zhang的笔记 - 记笔记 - 私塾在线 - 只做精品视频课程服务.mht#">复制到剪贴板</a><a target="_blank" href="mhtml:file://C:\Users\to.to\Desktop\第四章 Controller接口控制器详解（2）——跟着开涛学SpringMVC - zhang的笔记 - 记笔记 - 私塾在线 - 只做精品视频课程服务.mht#">打印</a></div></div><ol class="dp-j"><li class="alt"><span><span>&lt;servlet&gt;   </span></span></li><li><span>    &lt;servlet-name&gt;forwarding&lt;/servlet-name&gt;   </span></li><li class="alt"><span>    &lt;servlet-</span><span class="keyword">class</span><span>&gt;cn.javass.chapter4.web.servlet.ForwardingServlet&lt;/servlet-</span><span class="keyword">class</span><span>&gt;   </span></li><li><span>&lt;/servlet&gt;  </span></li></ol></div><pre code_snippet_id="2420372" snippet_file_name="blog_20170526_19_4239595" style="DISPLAY: none" class="java" name="code">    &lt;servlet&gt;
+        &lt;servlet-name&gt;forwarding&lt;/servlet-name&gt;
+        &lt;servlet-class&gt;cn.javass.chapter4.web.servlet.ForwardingServlet&lt;/servlet-class&gt;
+    &lt;/servlet&gt;</pre></div><p> </p><div style="border-bottom:#aabbcc 1px solid; border-left:#aabbcc 1px solid; border-top:#aabbcc 1px solid; border-right:#aabbcc 1px solid"><span class="bold" style="font-family:arial black,avant garde; font-size:14px">java代码：</span><div class="dp-highlighter"><div class="bar"><div class="tools"><a target="_blank" href="mhtml:file://C:\Users\to.to\Desktop\第四章 Controller接口控制器详解（2）——跟着开涛学SpringMVC - zhang的笔记 - 记笔记 - 私塾在线 - 只做精品视频课程服务.mht#">查看</a><a target="_blank" href="mhtml:file://C:\Users\to.to\Desktop\第四章 Controller接口控制器详解（2）——跟着开涛学SpringMVC - zhang的笔记 - 记笔记 - 私塾在线 - 只做精品视频课程服务.mht#">复制到剪贴板</a><a target="_blank" href="mhtml:file://C:\Users\to.to\Desktop\第四章 Controller接口控制器详解（2）——跟着开涛学SpringMVC - zhang的笔记 - 记笔记 - 私塾在线 - 只做精品视频课程服务.mht#">打印</a></div></div><ol class="dp-j"><li class="alt"><span><span>&lt;!— 在chapter4-servlet.xml配置处理器 --&gt;      </span></span></li><li><span>&lt;bean name=</span><span class="string">"/forwardToServlet"</span><span>    </span></li><li class="alt"><span></span><span class="keyword">class</span><span>=</span><span class="string">"org.springframework.web.servlet.mvc.ServletForwardingController"</span><span>&gt;   </span></li><li><span>        &lt;property name=</span><span class="string">"servletName"</span><span> value=</span><span class="string">"forwarding"</span><span>&gt;&lt;/property&gt;   </span></li><li class="alt"><span>&lt;/bean&gt;  </span></li></ol></div><pre code_snippet_id="2420372" snippet_file_name="blog_20170526_20_7969349" style="DISPLAY: none" class="java" name="code">&lt;!— 在chapter4-servlet.xml配置处理器 --&gt;   
+&lt;bean name="/forwardToServlet" 
+class="org.springframework.web.servlet.mvc.ServletForwardingController"&gt;
+        &lt;property name="servletName" value="forwarding"&gt;&lt;/property&gt;
+&lt;/bean&gt;</pre></div><p> </p><p>当我们请求/forwardToServlet时，会被转发到名字为“forwarding”的servlet处理，该sevlet的servlet-mapping标签配置是可选的。</p><p> </p><h2>4.6、BaseCommandController</h2><p>命令控制器通用基类，提供了以下功能支持：</p><p>1、数据绑定：请求参数绑定到一个command object（命令对象，非GoF里的命令设计模式），这里的命令对象是指绑定请求参数的任何POJO对象；</p><p>   commandClass：表示命令对象实现类，如UserModel；</p><p>   commandName：表示放入请求的命令对象名字（默认command），request.setAttribute(commandName, commandObject);</p><p> </p><p>2、验证功能：提供Validator注册功能，注册的验证器会验证命令对象属性数据是否合法；</p><p>   validators：通过该属性注入验证器，验证器用来验证命令对象属性是否合法；</p><p> </p><p>该抽象类没有没有提供流程功能，只是提供了一些公共的功能，实际使用时需要使用它的子类。</p><h2>4.7、AbstractCommandController</h2><p>命令控制器之一，可以实现该控制器来创建命令控制器，该控制器能把自动封装请求参数到一个命令对象，而且提供了验证功能。</p><p> </p><p>1、创建命令类（就是普通的JavaBean类/POJO）</p><p> </p><div style="border-bottom:#aabbcc 1px solid; border-left:#aabbcc 1px solid; border-top:#aabbcc 1px solid; border-right:#aabbcc 1px solid"><span class="bold" style="font-family:arial black,avant garde; font-size:14px">java代码：</span><div class="dp-highlighter"><div class="bar"><div class="tools"><a target="_blank" href="mhtml:file://C:\Users\to.to\Desktop\第四章 Controller接口控制器详解（2）——跟着开涛学SpringMVC - zhang的笔记 - 记笔记 - 私塾在线 - 只做精品视频课程服务.mht#">查看</a><a target="_blank" href="mhtml:file://C:\Users\to.to\Desktop\第四章 Controller接口控制器详解（2）——跟着开涛学SpringMVC - zhang的笔记 - 记笔记 - 私塾在线 - 只做精品视频课程服务.mht#">复制到剪贴板</a><a target="_blank" href="mhtml:file://C:\Users\to.to\Desktop\第四章 Controller接口控制器详解（2）——跟着开涛学SpringMVC - zhang的笔记 - 记笔记 - 私塾在线 - 只做精品视频课程服务.mht#">打印</a></div></div><ol class="dp-j"><li class="alt"><span><span class="keyword">package</span><span> cn.javass.chapter4.model;   </span></span></li><li><span></span><span class="keyword">public</span><span> </span><span class="keyword">class</span><span> UserModel {   </span></li><li class="alt"><span>    </span><span class="keyword">private</span><span> String username;   </span></li><li><span>    </span><span class="keyword">private</span><span> String password;   </span></li><li class="alt"><span>        </span><span class="comment">//省略setter/getter </span><span>  </span></li><li><span>}  </span></li></ol></div><pre code_snippet_id="2420372" snippet_file_name="blog_20170526_21_1109676" style="DISPLAY: none" class="java" name="code">package cn.javass.chapter4.model;
+public class UserModel {
+	private String username;
+	private String password;
+        //省略setter/getter
+}</pre></div><p> </p><p>2、实现控制器</p><p> </p><div style="border-bottom:#aabbcc 1px solid; border-left:#aabbcc 1px solid; border-top:#aabbcc 1px solid; border-right:#aabbcc 1px solid"><span class="bold" style="font-family:arial black,avant garde; font-size:14px">java代码：</span><div class="dp-highlighter"><div class="bar"><div class="tools"><a target="_blank" href="mhtml:file://C:\Users\to.to\Desktop\第四章 Controller接口控制器详解（2）——跟着开涛学SpringMVC - zhang的笔记 - 记笔记 - 私塾在线 - 只做精品视频课程服务.mht#">查看</a><a target="_blank" href="mhtml:file://C:\Users\to.to\Desktop\第四章 Controller接口控制器详解（2）——跟着开涛学SpringMVC - zhang的笔记 - 记笔记 - 私塾在线 - 只做精品视频课程服务.mht#">复制到剪贴板</a><a target="_blank" href="mhtml:file://C:\Users\to.to\Desktop\第四章 Controller接口控制器详解（2）——跟着开涛学SpringMVC - zhang的笔记 - 记笔记 - 私塾在线 - 只做精品视频课程服务.mht#">打印</a></div></div><ol class="dp-j"><li class="alt"><span><span class="keyword">package</span><span> cn.javass.chapter4.web.controller;   </span></span></li><li><span></span><span class="comment">//省略import </span><span>  </span></li><li class="alt"><span></span><span class="keyword">public</span><span> </span><span class="keyword">class</span><span> MyAbstractCommandController </span><span class="keyword">extends</span><span> AbstractCommandController {   </span></li><li><span>    </span><span class="keyword">public</span><span> MyAbstractCommandController() {   </span></li><li class="alt"><span>        </span><span class="comment">//设置命令对象实现类 </span><span>  </span></li><li><span>        setCommandClass(UserModel.</span><span class="keyword">class</span><span>);   </span></li><li class="alt"><span>    }   </span></li><li><span>    </span><span class="annotation"><span style="color:#646464">@Override</span></span><span>  </span></li><li class="alt"><span>    </span><span class="keyword">protected</span><span> ModelAndView handle(HttpServletRequest req, HttpServletResponse resp, Object command, BindException errors) </span><span class="keyword">throws</span><span> Exception {   </span></li><li><span>        </span><span class="comment">//将命令对象转换为实际类型 </span><span>  </span></li><li class="alt"><span>        UserModel user = (UserModel) command;   </span></li><li><span>        ModelAndView mv = </span><span class="keyword">new</span><span> ModelAndView();   </span></li><li class="alt"><span>        mv.setViewName(</span><span class="string">"abstractCommand"</span><span>);   </span></li><li><span>        mv.addObject(</span><span class="string">"user"</span><span>, user);   </span></li><li class="alt"><span>        </span><span class="keyword">return</span><span> mv;   </span></li><li><span>    }   </span></li><li class="alt"><span>}   </span></li></ol></div><pre code_snippet_id="2420372" snippet_file_name="blog_20170526_22_7347685" style="DISPLAY: none" class="java" name="code">package cn.javass.chapter4.web.controller;
+//省略import
+public class MyAbstractCommandController extends AbstractCommandController {
+	public MyAbstractCommandController() {
+		//设置命令对象实现类
+		setCommandClass(UserModel.class);
+	}
+	@Override
+	protected ModelAndView handle(HttpServletRequest req, HttpServletResponse resp, Object command, BindException errors) throws Exception {
+		//将命令对象转换为实际类型
+		UserModel user = (UserModel) command;
+		ModelAndView mv = new ModelAndView();
+		mv.setViewName("abstractCommand");
+		mv.addObject("user", user);
+		return mv;
+	}
+} </pre></div><p> </p><div style="border-bottom:#aabbcc 1px solid; border-left:#aabbcc 1px solid; border-top:#aabbcc 1px solid; border-right:#aabbcc 1px solid"><span class="bold" style="font-family:arial black,avant garde; font-size:14px">java代码：</span><div class="dp-highlighter"><div class="bar"><div class="tools"><a target="_blank" href="mhtml:file://C:\Users\to.to\Desktop\第四章 Controller接口控制器详解（2）——跟着开涛学SpringMVC - zhang的笔记 - 记笔记 - 私塾在线 - 只做精品视频课程服务.mht#">查看</a><a target="_blank" href="mhtml:file://C:\Users\to.to\Desktop\第四章 Controller接口控制器详解（2）——跟着开涛学SpringMVC - zhang的笔记 - 记笔记 - 私塾在线 - 只做精品视频课程服务.mht#">复制到剪贴板</a><a target="_blank" href="mhtml:file://C:\Users\to.to\Desktop\第四章 Controller接口控制器详解（2）——跟着开涛学SpringMVC - zhang的笔记 - 记笔记 - 私塾在线 - 只做精品视频课程服务.mht#">打印</a></div></div><ol class="dp-j"><li class="alt"><span><span>&lt;!— 在chapter4-servlet.xml配置处理器 --&gt;      </span></span></li><li><span>&lt;bean name=</span><span class="string">"/abstractCommand"</span><span>    </span></li><li class="alt"><span></span><span class="keyword">class</span><span>=</span><span class="string">"cn.javass.chapter4.web.controller.MyAbstractCommandController"</span><span>&gt;   </span></li><li><span>        &lt;!-- 也可以通过依赖注入 注入命令实现类 --&gt;   </span></li><li class="alt"><span>        &lt;!-- property name=</span><span class="string">"commandClass"</span><span> value=</span><span class="string">"cn.javass.chapter4.model.UserModel"</span><span>/--&gt;   </span></li><li><span>&lt;/bean&gt;  </span></li></ol></div><pre code_snippet_id="2420372" snippet_file_name="blog_20170526_23_7489388" style="DISPLAY: none" class="java" name="code">&lt;!— 在chapter4-servlet.xml配置处理器 --&gt;   
+&lt;bean name="/abstractCommand" 
+class="cn.javass.chapter4.web.controller.MyAbstractCommandController"&gt;
+        &lt;!-- 也可以通过依赖注入 注入命令实现类 --&gt;
+        &lt;!-- property name="commandClass" value="cn.javass.chapter4.model.UserModel"/--&gt;
+&lt;/bean&gt;</pre></div><p> </p><div style="border-bottom:#aabbcc 1px solid; border-left:#aabbcc 1px solid; border-top:#aabbcc 1px solid; border-right:#aabbcc 1px solid"><span class="bold" style="font-family:arial black,avant garde; font-size:14px">java代码：</span><div class="dp-highlighter"><div class="bar"><div class="tools"><a target="_blank" href="mhtml:file://C:\Users\to.to\Desktop\第四章 Controller接口控制器详解（2）——跟着开涛学SpringMVC - zhang的笔记 - 记笔记 - 私塾在线 - 只做精品视频课程服务.mht#">查看</a><a target="_blank" href="mhtml:file://C:\Users\to.to\Desktop\第四章 Controller接口控制器详解（2）——跟着开涛学SpringMVC - zhang的笔记 - 记笔记 - 私塾在线 - 只做精品视频课程服务.mht#">复制到剪贴板</a><a target="_blank" href="mhtml:file://C:\Users\to.to\Desktop\第四章 Controller接口控制器详解（2）——跟着开涛学SpringMVC - zhang的笔记 - 记笔记 - 私塾在线 - 只做精品视频课程服务.mht#">打印</a></div></div><ol class="dp-j"><li class="alt"><span><span>&lt;!— WEB-INF/jsp/abstractCommand.jsp视图下的主要内容 --&gt;      </span></span></li><li><span>  </span></li><li class="alt"><span>${user.username }-${user.password }  </span></li></ol></div><pre code_snippet_id="2420372" snippet_file_name="blog_20170526_24_4807193" style="DISPLAY: none" class="java" name="code">&lt;!— WEB-INF/jsp/abstractCommand.jsp视图下的主要内容 --&gt;   
+
+${user.username }-${user.password }</pre></div><p>当我们在浏览器中输入“<a target="_blank" href="mhtml:file://C:\Users\to.to\Desktop\第四章 Controller接口控制器详解（2）——跟着开涛学SpringMVC - zhang的笔记 - 记笔记 - 私塾在线 - 只做精品视频课程服务.mht!x-usc:http://localhost:9080/springmvc-chapter3/abstractCommand?username=123&amp;password=123">http://localhost:9080/springmvc-chapter3/abstractCommand?username=123&amp;password=123</a>”，会自动将请求参数username和password绑定到命令对象；绑定时按照JavaBean命名规范绑定；</p><p><img alt="" src="mhtml:file://C:\Users\to.to\Desktop\第四章 Controller接口控制器详解（2）——跟着开涛学SpringMVC - zhang的笔记 - 记笔记 - 私塾在线 - 只做精品视频课程服务.mht!x-usc:http://sishuok.com/forum/upload/2012/7/30/1ad122ce82159861fba02edea540381e__1.JPG" /></p><h2>4.8、AbstractFormController</h2><p>用于支持带步骤的表单提交的命令控制器基类，使用该控制器可以完成：</p><p>1、定义表单处理（表单的渲染），并从控制器获取命令对象构建表单；</p><p>2、提交表单处理，当用户提交表单内容后，AbstractFormController可以将用户请求的数据绑定到命令对象，并可以验证表单内容、对命令对象进行处理。</p><p> </p><div style="border-bottom:#aabbcc 1px solid; border-left:#aabbcc 1px solid; border-top:#aabbcc 1px solid; border-right:#aabbcc 1px solid"><span class="bold" style="font-family:arial black,avant garde; font-size:14px">java代码：</span><div class="dp-highlighter"><div class="bar"><div class="tools"><a target="_blank" href="mhtml:file://C:\Users\to.to\Desktop\第四章 Controller接口控制器详解（2）——跟着开涛学SpringMVC - zhang的笔记 - 记笔记 - 私塾在线 - 只做精品视频课程服务.mht#">查看</a><a target="_blank" href="mhtml:file://C:\Users\to.to\Desktop\第四章 Controller接口控制器详解（2）——跟着开涛学SpringMVC - zhang的笔记 - 记笔记 - 私塾在线 - 只做精品视频课程服务.mht#">复制到剪贴板</a><a target="_blank" href="mhtml:file://C:\Users\to.to\Desktop\第四章 Controller接口控制器详解（2）——跟着开涛学SpringMVC - zhang的笔记 - 记笔记 - 私塾在线 - 只做精品视频课程服务.mht#">打印</a></div></div><ol class="dp-j"><li class="alt"><span><span>      </span><span class="annotation"><span style="color:#646464">@Override</span></span><span>  </span></span></li><li><span>rotected ModelAndView handleRequestInternal(HttpServletRequest request, HttpServletResponse response)   </span></li><li class="alt"><span>    </span><span class="keyword">throws</span><span> Exception {   </span></li><li><span>     </span><span class="comment">//1、是否是表单提交？ 该方法实现为（"POST".equals(request.getMethod())），即POST表示表单提交</span><span>  </span></li><li class="alt"><span></span><span class="keyword">if</span><span> (isFormSubmission(request)) {   </span></li><li><span>    </span><span class="keyword">try</span><span> {   </span></li><li class="alt"><span>        Object command = getCommand(request);   </span></li><li><span>        ServletRequestDataBinder binder = bindAndValidate(request, command);   </span></li><li class="alt"><span>        BindException errors = </span><span class="keyword">new</span><span> BindException(binder.getBindingResult());   </span></li><li><span>              </span><span class="comment">//表单提交应该放到该方法实现 </span><span>  </span></li><li class="alt"><span>        </span><span class="keyword">return</span><span> processFormSubmission(request, response, command, errors);   </span></li><li><span>    }   </span></li><li class="alt"><span>    </span><span class="keyword">catch</span><span> (HttpSessionRequiredException ex) {   </span></li><li><span>              </span><span class="comment">//省略部分代码 </span><span>  </span></li><li class="alt"><span>        </span><span class="keyword">return</span><span> handleInvalidSubmit(request, response);   </span></li><li><span>    }   </span></li><li class="alt"><span>}   </span></li><li><span></span><span class="keyword">else</span><span> {   </span></li><li class="alt"><span>    </span><span class="comment">//2、表示是表单展示，该方法又转调showForm方法，因此我们需要覆盖showForm来完成表单展示</span><span>  </span></li><li><span>    </span><span class="keyword">return</span><span> showNewForm(request, response);   </span></li><li class="alt"><span>}   </span></li><li><span>  </span></li></ol></div><pre code_snippet_id="2420372" snippet_file_name="blog_20170526_25_8536947" style="DISPLAY: none" class="java" name="code">        @Override
+	protected ModelAndView handleRequestInternal(HttpServletRequest request, HttpServletResponse response)
+			throws Exception {
+       //1、是否是表单提交？ 该方法实现为（"POST".equals(request.getMethod())），即POST表示表单提交
+		if (isFormSubmission(request)) {
+			try {
+				Object command = getCommand(request);
+				ServletRequestDataBinder binder = bindAndValidate(request, command);
+				BindException errors = new BindException(binder.getBindingResult());
+                //表单提交应该放到该方法实现
+				return processFormSubmission(request, response, command, errors);
+			}
+			catch (HttpSessionRequiredException ex) {
+                //省略部分代码
+				return handleInvalidSubmit(request, response);
+			}
+		}
+		else {
+			//2、表示是表单展示，该方法又转调showForm方法，因此我们需要覆盖showForm来完成表单展示
+			return showNewForm(request, response);
+		}
+	}
+ </pre></div><p> </p><p>    <strong>bindOnNewForm</strong>：是否在进行表单展示时绑定请求参数到表单对象，默认false，不绑定；</p><p>    <strong>sessionForm</strong>：session表单模式，如果开启（true）则会将表单对象放置到session中，从而可以跨越多次请求保证数据不丢失（多步骤表单常使用该方式，详解AbstractWizardFormController），默认false；</p><p> </p><p>    <strong>Object formBackingObject(HttpServletRequest request) </strong>：提供给表单展示时使用的表单对象（form object表单要展示的默认数据），默认通过commandName暴露到请求给展示表单；</p><p>    <strong>Map referenceData(HttpServletRequest request, Object command, Errors errors)</strong>：展示表单时需要的一些引用数据（比如用户注册，可能需要选择工作地点，这些数据可以通过该方法提供），如：</p><p> </p><div style="border-bottom:#aabbcc 1px solid; border-left:#aabbcc 1px solid; border-top:#aabbcc 1px solid; border-right:#aabbcc 1px solid"><span class="bold" style="font-family:arial black,avant garde; font-size:14px">java代码：</span><div class="dp-highlighter"><div class="bar"><div class="tools"><a target="_blank" href="mhtml:file://C:\Users\to.to\Desktop\第四章 Controller接口控制器详解（2）——跟着开涛学SpringMVC - zhang的笔记 - 记笔记 - 私塾在线 - 只做精品视频课程服务.mht#">查看</a><a target="_blank" href="mhtml:file://C:\Users\to.to\Desktop\第四章 Controller接口控制器详解（2）——跟着开涛学SpringMVC - zhang的笔记 - 记笔记 - 私塾在线 - 只做精品视频课程服务.mht#">复制到剪贴板</a><a target="_blank" href="mhtml:file://C:\Users\to.to\Desktop\第四章 Controller接口控制器详解（2）——跟着开涛学SpringMVC - zhang的笔记 - 记笔记 - 私塾在线 - 只做精品视频课程服务.mht#">打印</a></div></div><ol class="dp-j"><li class="alt"><span><span class="keyword">protected</span><span> Map referenceData(HttpServletRequest request) </span><span class="keyword">throws</span><span> Exception {   </span></span></li><li><span>             Map model = </span><span class="keyword">new</span><span> HashMap();   </span></li><li class="alt"><span>             model.put(</span><span class="string">"cityList"</span><span>, cityList);   </span></li><li><span>             </span><span class="keyword">return</span><span> model;   </span></li><li class="alt"><span>}  </span></li></ol></div><pre code_snippet_id="2420372" snippet_file_name="blog_20170526_26_2582346" style="DISPLAY: none" class="java" name="code">protected Map referenceData(HttpServletRequest request) throws Exception {
+             Map model = new HashMap();
+             model.put("cityList", cityList);
+             return model;
+}</pre></div><p>    这样就可以在表单展示页面获取cityList数据。</p><p> </p><p>SimpleFormController继承该类，而且提供了更简单的表单流程控制。</p><h2>4.9、SimpleFormController</h2><p>提供了更好的两步表单支持：</p><p>1、准备要展示的数据，并到表单展示页面；</p><p>2、提交数据数据进行处理。</p><p> </p><p>第一步，展示：</p><p><img alt="" src="mhtml:file://C:\Users\to.to\Desktop\第四章 Controller接口控制器详解（2）——跟着开涛学SpringMVC - zhang的笔记 - 记笔记 - 私塾在线 - 只做精品视频课程服务.mht!http://sishuok.com/forum/upload/2012/7/30/7bdb33efb115de89c3e4ad9206206544__2.JPG" /> </p><p>第二步，提交表单：</p><p><img alt="" src="mhtml:file://C:\Users\to.to\Desktop\第四章 Controller接口控制器详解（2）——跟着开涛学SpringMVC - zhang的笔记 - 记笔记 - 私塾在线 - 只做精品视频课程服务.mht!http://sishuok.com/forum/upload/2012/7/30/4d915be9253c581f3292319c351688b0__3.JPG" /></p><p>接下来咱们写一个用户注册的例子学习一下：</p><p><strong>（1、控制器</strong></p><p> </p><div style="border-bottom:#aabbcc 1px solid; border-left:#aabbcc 1px solid; border-top:#aabbcc 1px solid; border-right:#aabbcc 1px solid"><span class="bold" style="font-family:arial black,avant garde; font-size:14px">java代码：</span><div class="dp-highlighter"><div class="bar"><div class="tools"><a target="_blank" href="mhtml:file://C:\Users\to.to\Desktop\第四章 Controller接口控制器详解（2）——跟着开涛学SpringMVC - zhang的笔记 - 记笔记 - 私塾在线 - 只做精品视频课程服务.mht#">查看</a><a target="_blank" href="mhtml:file://C:\Users\to.to\Desktop\第四章 Controller接口控制器详解（2）——跟着开涛学SpringMVC - zhang的笔记 - 记笔记 - 私塾在线 - 只做精品视频课程服务.mht#">复制到剪贴板</a><a target="_blank" href="mhtml:file://C:\Users\to.to\Desktop\第四章 Controller接口控制器详解（2）——跟着开涛学SpringMVC - zhang的笔记 - 记笔记 - 私塾在线 - 只做精品视频课程服务.mht#">打印</a></div></div><ol class="dp-j"><li class="alt"><span><span class="keyword">package</span><span> cn.javass.chapter4.web.controller;   </span></span></li><li><span></span><span class="comment">//省略import </span><span>  </span></li><li class="alt"><span></span><span class="keyword">public</span><span> </span><span class="keyword">class</span><span> RegisterSimpleFormController </span><span class="keyword">extends</span><span> SimpleFormController {       </span></li><li><span>    </span><span class="keyword">public</span><span> RegisterSimpleFormController() {   </span></li><li class="alt"><span>        setCommandClass(UserModel.</span><span class="keyword">class</span><span>); </span><span class="comment">//设置命令对象实现类</span><span>  </span></li><li><span>        setCommandName(</span><span class="string">"user"</span><span>);</span><span class="comment">//设置命令对象的名字</span><span>  </span></li><li class="alt"><span>    }   </span></li><li><span>    </span><span class="comment">//form object 表单对象，提供展示表单时的表单数据（使用commandName放入请求）</span><span>  </span></li><li class="alt"><span>    </span><span class="keyword">protected</span><span> Object formBackingObject(HttpServletRequest request) </span><span class="keyword">throws</span><span> Exception {   </span></li><li><span>        UserModel user = </span><span class="keyword">new</span><span> UserModel();   </span></li><li class="alt"><span>        user.setUsername(</span><span class="string">"请输入用户名"</span><span>);   </span></li><li><span>        </span><span class="keyword">return</span><span> user;   </span></li><li class="alt"><span>    }   </span></li><li><span>    </span><span class="comment">//提供展示表单时需要的一些其他数据   </span><span>  </span></li><li class="alt"><span>    </span><span class="keyword">protected</span><span> Map referenceData(HttpServletRequest request) </span><span class="keyword">throws</span><span> Exception {   </span></li><li><span>        Map map = </span><span class="keyword">new</span><span> HashMap();   </span></li><li class="alt"><span>        map.put(</span><span class="string">"cityList"</span><span>, Arrays.asList(</span><span class="string">"山东"</span><span>, </span><span class="string">"北京"</span><span>, </span><span class="string">"上海"</span><span>));   </span></li><li><span>        </span><span class="keyword">return</span><span> map;   </span></li><li class="alt"><span>    }   </span></li><li><span>    </span><span class="keyword">protected</span><span> </span><span class="keyword">void</span><span> doSubmitAction(Object command) </span><span class="keyword">throws</span><span> Exception {   </span></li><li class="alt"><span>        UserModel user = (UserModel) command;   </span></li><li><span>        </span><span class="comment">//TODO 调用业务对象处理 </span><span>  </span></li><li class="alt"><span>        System.out.println(user);   </span></li><li><span>    }   </span></li><li class="alt"><span>}  </span></li></ol></div><pre code_snippet_id="2420372" snippet_file_name="blog_20170526_27_7948302" style="DISPLAY: none" class="java" name="code">package cn.javass.chapter4.web.controller;
+//省略import
+public class RegisterSimpleFormController extends SimpleFormController {	
+	public RegisterSimpleFormController() {
+		setCommandClass(UserModel.class); //设置命令对象实现类
+		setCommandName("user");//设置命令对象的名字
+	}
+	//form object 表单对象，提供展示表单时的表单数据（使用commandName放入请求）
+	protected Object formBackingObject(HttpServletRequest request) throws Exception {
+		UserModel user = new UserModel();
+		user.setUsername("请输入用户名");
+		return user;
+	}
+	//提供展示表单时需要的一些其他数据	
+	protected Map referenceData(HttpServletRequest request) throws Exception {
+		Map map = new HashMap();
+		map.put("cityList", Arrays.asList("山东", "北京", "上海"));
+		return map;
+	}
+	protected void doSubmitAction(Object command) throws Exception {
+		UserModel user = (UserModel) command;
+		//TODO 调用业务对象处理
+		System.out.println(user);
+	}
+}</pre></div><p> </p><p><strong>setCommandClass和setCommandName：</strong>分别设置了命令对象的实现类和名字；</p><p><strong>formBackingObject和referenceData：</strong>提供了表单展示需要的视图；</p><p><strong>doSubmitAction：</strong>用于执行表单提交动作，由onSubmit方法调用，如果不需要请求/响应对象或进行数据验证，可以直接使用doSubmitAction方法进行功能处理。</p><p><strong>（2、spring配置（chapter4-servlet.xml）</strong></p><p><strong><br /></strong></p><div style="border-bottom:#aabbcc 1px solid; border-left:#aabbcc 1px solid; border-top:#aabbcc 1px solid; border-right:#aabbcc 1px solid"><span class="bold" style="font-family:arial black,avant garde; font-size:14px">java代码：</span><div class="dp-highlighter"><div class="bar"><div class="tools"><a target="_blank" href="mhtml:file://C:\Users\to.to\Desktop\第四章 Controller接口控制器详解（2）——跟着开涛学SpringMVC - zhang的笔记 - 记笔记 - 私塾在线 - 只做精品视频课程服务.mht#">查看</a><a target="_blank" href="mhtml:file://C:\Users\to.to\Desktop\第四章 Controller接口控制器详解（2）——跟着开涛学SpringMVC - zhang的笔记 - 记笔记 - 私塾在线 - 只做精品视频课程服务.mht#">复制到剪贴板</a><a target="_blank" href="mhtml:file://C:\Users\to.to\Desktop\第四章 Controller接口控制器详解（2）——跟着开涛学SpringMVC - zhang的笔记 - 记笔记 - 私塾在线 - 只做精品视频课程服务.mht#">打印</a></div></div><ol class="dp-j"><li class="alt"><span><span>&lt;bean name=</span><span class="string">"/simpleForm"</span><span>    </span></span></li><li><span></span><span class="keyword">class</span><span>=</span><span class="string">"cn.javass.chapter4.web.controller.RegisterSimpleFormController"</span><span>&gt;   </span></li><li class="alt"><span>        &lt;property name=</span><span class="string">"formView"</span><span> value=</span><span class="string">"register"</span><span>/&gt;   </span></li><li><span>        &lt;property name=</span><span class="string">"successView"</span><span> value=</span><span class="string">"redirect:/success"</span><span>/&gt;   </span></li><li class="alt"><span>&lt;/bean&gt;   </span></li><li><span>&lt;bean name=</span><span class="string">"/success"</span><span> </span><span class="keyword">class</span><span>=</span><span class="string">"cn.javass.chapter4.web.controller.SuccessController"</span><span>/&gt;  </span></li></ol></div><pre code_snippet_id="2420372" snippet_file_name="blog_20170526_28_7741342" style="DISPLAY: none" class="java" name="code">&lt;bean name="/simpleForm" 
+class="cn.javass.chapter4.web.controller.RegisterSimpleFormController"&gt;
+        &lt;property name="formView" value="register"/&gt;
+        &lt;property name="successView" value="redirect:/success"/&gt;
+&lt;/bean&gt;
+&lt;bean name="/success" class="cn.javass.chapter4.web.controller.SuccessController"/&gt;</pre></div><p><strong>formView：</strong>表示展示表单时显示的页面；</p><p><strong>successView：</strong>表示处理成功时显示的页面；“<em>redirect:/success</em>”表示成功处理后重定向到/success控制器；防止表单重复提交；</p><p>“<em>/success</em>” bean的作用是显示成功页面，此处就不列举了。</p><p> </p><p><strong>（3、视图页面</strong></p><p> </p><div style="border-bottom:#aabbcc 1px solid; border-left:#aabbcc 1px solid; border-top:#aabbcc 1px solid; border-right:#aabbcc 1px solid"><span class="bold" style="font-family:arial black,avant garde; font-size:14px">java代码：</span><div class="dp-highlighter"><div class="bar"><div class="tools"><a target="_blank" href="mhtml:file://C:\Users\to.to\Desktop\第四章 Controller接口控制器详解（2）——跟着开涛学SpringMVC - zhang的笔记 - 记笔记 - 私塾在线 - 只做精品视频课程服务.mht#">查看</a><a target="_blank" href="mhtml:file://C:\Users\to.to\Desktop\第四章 Controller接口控制器详解（2）——跟着开涛学SpringMVC - zhang的笔记 - 记笔记 - 私塾在线 - 只做精品视频课程服务.mht#">复制到剪贴板</a><a target="_blank" href="mhtml:file://C:\Users\to.to\Desktop\第四章 Controller接口控制器详解（2）——跟着开涛学SpringMVC - zhang的笔记 - 记笔记 - 私塾在线 - 只做精品视频课程服务.mht#">打印</a></div></div><ol class="dp-j"><li class="alt"><span><span>&lt;!-- register.jsp 注册展示页面--&gt;   </span></span></li><li><span>&lt;form method=</span><span class="string">"post"</span><span>&gt;   </span></li><li class="alt"><span>username:&lt;input type=</span><span class="string">"text"</span><span> name=</span><span class="string">"username"</span><span> value=</span><span class="string">"${user.username}"</span><span>&gt;&lt;br/&gt;   </span></li><li><span>password:&lt;input type=</span><span class="string">"password"</span><span> name=</span><span class="string">"username"</span><span>&gt;&lt;br/&gt;   </span></li><li class="alt"><span>city:&lt;select&gt;   </span></li><li><span>  &lt;c:forEach items=</span><span class="string">"${cityList }"</span><span> var=</span><span class="string">"city"</span><span>&gt;   </span></li><li class="alt"><span>   &lt;option&gt;${city}&lt;/option&gt;   </span></li><li><span>  &lt;/c:forEach&gt;   </span></li><li class="alt"><span>&lt;/select&gt;&lt;br/&gt;   </span></li><li><span>&lt;input type=</span><span class="string">"submit"</span><span> value=</span><span class="string">"注册"</span><span>/&gt;   </span></li><li class="alt"><span>&lt;/form&gt;  </span></li></ol></div><pre code_snippet_id="2420372" snippet_file_name="blog_20170526_29_2343149" style="DISPLAY: none" class="java" name="code">&lt;!-- register.jsp 注册展示页面--&gt;
+&lt;form method="post"&gt;
+username:&lt;input type="text" name="username" value="${user.username}"&gt;&lt;br/&gt;
+password:&lt;input type="password" name="username"&gt;&lt;br/&gt;
+city:&lt;select&gt;
+  &lt;c:forEach items="${cityList }" var="city"&gt;
+   &lt;option&gt;${city}&lt;/option&gt;
+  &lt;/c:forEach&gt;
+&lt;/select&gt;&lt;br/&gt;
+&lt;input type="submit" value="注册"/&gt;
+&lt;/form&gt;</pre></div><p>此处可以使用${user.username}获取到formBackingObject设置的表单对象、使用${cityList}获取referenceData设置的表单支持数据；</p><p> </p><p>到此一个简单的两步表单到此结束，但这个表单有重复提交表单的问题，而且表单对象到页面的绑定是通过手工绑定的，后边我们会学习spring标签库（提供自动绑定表单对象到页面）。</p><h2>4.10、CancellableFormController</h2><p>一个可取消的表单控制器，继承SimpleFormController，额外提供取消表单功能。</p><p> </p><p><strong>1、表单展示：</strong>和SimpleFormController一样；</p><p><strong>2、表单取消：</strong>和SimpleFormController一样；</p><p><strong>3、表单成功提交：</strong>取消功能处理方法为：onCancel(Object command)，而且默认返回cancelView属性指定的逻辑视图名。</p><p>   那如何判断是取消呢？如果请求中有参数名为“_cancel”的参数，则表示表单取消。也可以通过cancelParamKey来修改参数名（如“_cancel.x”等）。</p><p><img alt="" src="mhtml:file://C:\Users\to.to\Desktop\第四章 Controller接口控制器详解（2）——跟着开涛学SpringMVC - zhang的笔记 - 记笔记 - 私塾在线 - 只做精品视频课程服务.mht!http://sishuok.com/forum/upload/2012/7/30/82f5559f2ca2d2884e8830731232363f__4.JPG" /></p><p><strong>示例：</strong></p><p> </p><p><strong>（1、控制器</strong></p><p>复制RegisterSimpleFormController一份命名为CanCancelRegisterSimpleFormController，添加取消功能处理方法实现：</p><p> </p><div style="border-bottom:#aabbcc 1px solid; border-left:#aabbcc 1px solid; border-top:#aabbcc 1px solid; border-right:#aabbcc 1px solid"><span class="bold" style="font-family:arial black,avant garde; font-size:14px">java代码：</span><div class="dp-highlighter"><div class="bar"><div class="tools"><a target="_blank" href="mhtml:file://C:\Users\to.to\Desktop\第四章 Controller接口控制器详解（2）——跟着开涛学SpringMVC - zhang的笔记 - 记笔记 - 私塾在线 - 只做精品视频课程服务.mht#">查看</a><a target="_blank" href="mhtml:file://C:\Users\to.to\Desktop\第四章 Controller接口控制器详解（2）——跟着开涛学SpringMVC - zhang的笔记 - 记笔记 - 私塾在线 - 只做精品视频课程服务.mht#">复制到剪贴板</a><a target="_blank" href="mhtml:file://C:\Users\to.to\Desktop\第四章 Controller接口控制器详解（2）——跟着开涛学SpringMVC - zhang的笔记 - 记笔记 - 私塾在线 - 只做精品视频课程服务.mht#">打印</a></div></div><ol class="dp-j"><li class="alt"><span><span class="annotation"><span style="color:#646464">@Override</span></span><span>  </span></span></li><li><span></span><span class="keyword">protected</span><span> ModelAndView onCancel(Object command) </span><span class="keyword">throws</span><span> Exception {   </span></li><li class="alt"><span>    UserModel user = (UserModel) command;   </span></li><li><span>    </span><span class="comment">//TODO 调用业务对象处理 </span><span>  </span></li><li class="alt"><span>    System.out.println(user);   </span></li><li><span>    </span><span class="keyword">return</span><span> </span><span class="keyword">super</span><span>.onCancel(command);   </span></li><li class="alt"><span>}  </span></li></ol></div><pre code_snippet_id="2420372" snippet_file_name="blog_20170526_30_8548137" style="DISPLAY: none" class="java" name="code">@Override
+protected ModelAndView onCancel(Object command) throws Exception {
+	UserModel user = (UserModel) command;
+	//TODO 调用业务对象处理
+	System.out.println(user);
+	return super.onCancel(command);
+}</pre></div><p><strong>onCancel：</strong>在该功能方法内实现取消逻辑，父类的onCancel方法默认返回cancelView属性指定的逻辑视图名。</p><p> </p><p><strong>（2、spring配置（chapter4-servlet.xml）</strong></p><p> </p><div style="border-bottom:#aabbcc 1px solid; border-left:#aabbcc 1px solid; border-top:#aabbcc 1px solid; border-right:#aabbcc 1px solid"><span class="bold" style="font-family:arial black,avant garde; font-size:14px">java代码：</span><div class="dp-highlighter"><div class="bar"><div class="tools"><a target="_blank" href="mhtml:file://C:\Users\to.to\Desktop\第四章 Controller接口控制器详解（2）——跟着开涛学SpringMVC - zhang的笔记 - 记笔记 - 私塾在线 - 只做精品视频课程服务.mht#">查看</a><a target="_blank" href="mhtml:file://C:\Users\to.to\Desktop\第四章 Controller接口控制器详解（2）——跟着开涛学SpringMVC - zhang的笔记 - 记笔记 - 私塾在线 - 只做精品视频课程服务.mht#">复制到剪贴板</a><a target="_blank" href="mhtml:file://C:\Users\to.to\Desktop\第四章 Controller接口控制器详解（2）——跟着开涛学SpringMVC - zhang的笔记 - 记笔记 - 私塾在线 - 只做精品视频课程服务.mht#">打印</a></div></div><ol class="dp-j"><li class="alt"><span><span>&lt;bean name=</span><span class="string">"/canCancelForm"</span><span>    </span></span></li><li><span></span><span class="keyword">class</span><span>=</span><span class="string">"cn.javass.chapter4.web.controller.CanCancelRegisterSimpleFormController"</span><span>&gt;   </span></li><li class="alt"><span>        &lt;property name=</span><span class="string">"formView"</span><span> value=</span><span class="string">"register"</span><span>/&gt;   </span></li><li><span>        &lt;property name=</span><span class="string">"successView"</span><span> value=</span><span class="string">"redirect:/success"</span><span>/&gt;   </span></li><li class="alt"><span>        &lt;property name=</span><span class="string">"cancelView"</span><span> value=</span><span class="string">"redirect:/cancel"</span><span>/&gt;   </span></li><li><span>&lt;/bean&gt;   </span></li><li class="alt"><span>&lt;bean name=</span><span class="string">"/cancel"</span><span> </span><span class="keyword">class</span><span>=</span><span class="string">"cn.javass.chapter4.web.controller.CancelController"</span><span>/&gt;  </span></li></ol></div><pre code_snippet_id="2420372" snippet_file_name="blog_20170526_31_3324667" style="DISPLAY: none" class="java" name="code">&lt;bean name="/canCancelForm" 
+class="cn.javass.chapter4.web.controller.CanCancelRegisterSimpleFormController"&gt;
+        &lt;property name="formView" value="register"/&gt;
+        &lt;property name="successView" value="redirect:/success"/&gt;
+        &lt;property name="cancelView" value="redirect:/cancel"/&gt;
+&lt;/bean&gt;
+&lt;bean name="/cancel" class="cn.javass.chapter4.web.controller.CancelController"/&gt;</pre></div><p><strong>cancelParamKey：</strong>用于判断是否是取消的请求参数名，默认是_cancel，即如果请求参数数据中含有名字_cancel则表示是取消，将调用onCancel功能处理方法；</p><p><strong>cancelView：</strong>表示取消时时显示的页面；“<em>redirect:/cancel</em>”表示成功处理后重定向到/cancel控制器；防止表单重复提交；</p><p>“<em>/cancel</em>” bean的作用是显示取消页面，此处就不列举了（详见代码）。</p><p><strong>（3、视图页面（修改register.jsp）</strong></p><p><strong><br /></strong></p><div style="border-bottom:#aabbcc 1px solid; border-left:#aabbcc 1px solid; border-top:#aabbcc 1px solid; border-right:#aabbcc 1px solid"><span class="bold" style="font-family:arial black,avant garde; font-size:14px">java代码：</span><div class="dp-highlighter"><div class="bar"><div class="tools"><a target="_blank" href="mhtml:file://C:\Users\to.to\Desktop\第四章 Controller接口控制器详解（2）——跟着开涛学SpringMVC - zhang的笔记 - 记笔记 - 私塾在线 - 只做精品视频课程服务.mht#">查看</a><a target="_blank" href="mhtml:file://C:\Users\to.to\Desktop\第四章 Controller接口控制器详解（2）——跟着开涛学SpringMVC - zhang的笔记 - 记笔记 - 私塾在线 - 只做精品视频课程服务.mht#">复制到剪贴板</a><a target="_blank" href="mhtml:file://C:\Users\to.to\Desktop\第四章 Controller接口控制器详解（2）——跟着开涛学SpringMVC - zhang的笔记 - 记笔记 - 私塾在线 - 只做精品视频课程服务.mht#">打印</a></div></div><ol class="dp-j"><li class="alt"><span><span>&lt;input type=</span><span class="string">"submit"</span><span> name=</span><span class="string">"_cancel"</span><span> value=</span><span class="string">"取消"</span><span>/&gt;  </span></span></li></ol></div><pre code_snippet_id="2420372" snippet_file_name="blog_20170526_32_7054421" style="DISPLAY: none" class="java" name="code">&lt;input type="submit" name="_cancel" value="取消"/&gt;</pre></div><p><strong><br /></strong></p><p>该提交按钮的作用是取消，因为name=<em>"_cancel"，</em>即请求后会有一个名字为_cancel的参数，因此会执行onCancel功能处理方法。</p><p><strong>（4、测试：</strong></p><p>在浏览器输入“http://localhost:9080/springmvc-chapter4/canCancelForm”，则首先到展示视图页面，点击“取消按钮”将重定向到“http://localhost:9080/springmvc-chapter4/cancel”，说明取消成功了。</p><p> </p><p> </p><p>实际项目可能会出现比如一些网站的完善个人资料都是多个页面（即多步），那应该怎么实现呢？接下来让我们看一下spring Web MVC提供的对多步表单的支持类AbstractWizardFormController。</p><p><a target="_blank" href="http://sishuok.com/"><br /><br />私塾在线学习网</a>原创内容（<a target="_blank" href="http://sishuok.com/">http://sishuok.com/</a>）</p><p>原创内容，转载请注明私塾在线【<a target="_blank" href="http://sishuok.com/forum/blogPost/list/0/5234.html">http://sishuok.com/forum/blogPost/list/0/5234.html</a>】</p><div style="width:100%; height:20px"></div><div style="border-bottom:#00a0ef 1px dotted; border-left:#00a0ef 1px dotted; padding-bottom:8px; margin:5px; padding-left:8px; padding-right:8px; background:#fffce7; border-top:#00a0ef 1px dotted; border-right:#00a0ef 1px dotted; padding-top:8px"><div style="line-height:25px; margin-bottom:10px; color:blue; font-size:20px; font-weight:bold">相关笔记推荐</div><div style="margin:0px 20px 5px 0px; width:310px; float:left"><a target="_blank" title="第三章 DispatcherServlet详解 ——跟开涛学SpringMVC" href="http://sishuok.com/forum/blogPost/list/5188.html">第三章 DispatcherServlet详解 ——跟开涛学SpringMVC</a></div><div style="margin:0px 20px 5px 0px; width:310px; float:left"><a target="_blank" title="第二章 Spring MVC入门 —— 跟开涛学SpringMVC" href="http://sishuok.com/forum/blogPost/list/5160.html">第二章 Spring MVC入门 —— 跟开涛学SpringMVC</a></div><div style="margin:0px 20px 5px 0px; width:310px; float:left"><a target="_blank" title="第一章 Web MVC简介 —— 跟开涛学SpringMVC" href="http://sishuok.com/forum/blogPost/list/5050.html">第一章 Web MVC简介 —— 跟开涛学SpringMVC</a></div></div><div style="border-bottom:#00a0ef 1px dotted; border-left:#00a0ef 1px dotted; padding-bottom:8px; margin:5px; padding-left:8px; padding-right:8px; background:#fffce7; border-top:#00a0ef 1px dotted; border-right:#00a0ef 1px dotted; padding-top:8px"><div style="line-height:25px; margin-bottom:10px; color:blue; font-size:20px; font-weight:bold">精品视频课程推荐</div><p style="margin:0px 0px 15px"><a target="_blank" href="http://sishuok.com/product/501?ad" style="color:red; font-size:16px; font-weight:bold">研磨设计模式——跟着cc学设计系列</a><br />本视频课程是北京Java私塾原创精品书籍《研磨设计模式》一书的配套学习视频，由《研磨设计模式》的第一作者CC录制课程目标：全面、系统的掌握GoF设计模式的知识，达到可以在实际项目开发中运用的能力技术要点：如何实现可配置、如何实现缓存以及缓存的管理、如何实现用缓存来控制多实例的创建、如何实现参数化工厂、 如何实现可扩展工厂、如何实现原型管理器、如何实现Java的静态代理和动态代理、如何实现多线程处理队列请求、 如何实现命令的参数化配置、可撤销的操作、宏命令、队列请求和日志请求、如何实现翻页迭代、如何检测环状结构、 如何实现通用的增删改查、如何模拟工作流来处理流程、如何实现简单又通用的XML读取、如何实现模拟AOP的功能...... </p><p style="margin:0px 0px 15px"><a target="_blank" href="http://sishuok.com/product/363?ad" style="color:red; font-size:16px; font-weight:bold">Javascript基础</a><br />JavaScript的内置对象--Array、String、Date、Math等，可以通过DOM对象进行对象控制，创建控制菜单及复选框的控制，创建二级联动列表框及列表框选项的移动，JavaScript项目，创建基于JS的商品管理系统。</p><p style="margin:0px 0px 15px"><a target="_blank" href="http://sishuok.com/product/263?ad" style="color:red; font-size:16px; font-weight:bold">spring 注解零配置</a><br />spring项目中使用注解来代替xml配置，包括IoC、AOP、事务等相关注解 </p><p style="margin:0px 0px 15px"><a target="_blank" href="http://sishuok.com/product/441?ad" style="color:red; font-size:16px; font-weight:bold">Ajax+JSON基础实战</a><br />数据校验、Javascript模拟多线程、下拉列表联动、操作XML、AJAX结合JSON的操作、Json-lib的使用 </p><p style="margin:0px 0px 15px"><a target="_blank" href="http://sishuok.com/product/385?ad" style="color:red; font-size:16px; font-weight:bold">透彻理解JavaBean</a><br />深入浅出的讲解JavaBen的写法、JavaBean的用法、JavaBean的实现机制、JavaBean对应翻译的代码理解。 </p></div><pre></pre><pre code_snippet_id="2420372" snippet_file_name="blog_20170526_46_7187052" class="java" name="code"> </pre><pre code_snippet_id="2420372" snippet_file_name="blog_20170526_46_7187052" class="java" name="code"> </pre><pre code_snippet_id="2420372" snippet_file_name="blog_20170526_46_7187052" class="java" name="code"> </pre><pre code_snippet_id="2420372" snippet_file_name="blog_20170526_46_7187052" class="java" name="code"> </pre><pre code_snippet_id="2420372" snippet_file_name="blog_20170526_46_7187052" class="java" name="code"> </pre><pre code_snippet_id="2420372" snippet_file_name="blog_20170526_46_7187052" class="java" name="code"> </pre><pre code_snippet_id="2420372" snippet_file_name="blog_20170526_46_7187052" class="java" name="code"> </pre><pre code_snippet_id="2420372" snippet_file_name="blog_20170526_46_7187052" class="java" name="code"> </pre><pre code_snippet_id="2420372" snippet_file_name="blog_20170526_46_7187052" class="java" name="code"> </pre><pre code_snippet_id="2420372" snippet_file_name="blog_20170526_46_7187052" class="java" name="code"> </pre><pre code_snippet_id="2420372" snippet_file_name="blog_20170526_46_7187052" class="java" name="code"> </pre><pre code_snippet_id="2420372" snippet_file_name="blog_20170526_46_7187052" class="java" name="code"> </pre><pre code_snippet_id="2420372" snippet_file_name="blog_20170526_46_7187052" class="java" name="code"> </pre><pre code_snippet_id="2420372" snippet_file_name="blog_20170526_46_7187052" class="java" name="code"> </pre></div></pre>   &#13;

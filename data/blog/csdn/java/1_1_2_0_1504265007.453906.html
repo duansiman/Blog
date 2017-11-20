@@ -1,0 +1,144 @@
+
+        <div class="markdown_views"><p>跨域问题目前笔者所用到的方案大致有三种:jsonp,SpringMVC 4以上注解方式和cros三方过滤器。</p>
+
+<p><strong>Jsonp</strong></p>
+
+<p>JSONP(JSON with Padding)是一个非官方的协议，它允许在服务器端集成Script tags返回至客户端，通过javascript callback的形式实现跨域访问（这仅仅是JSONP简单的实现形式）。</p>
+
+<p>Jsonp原理：  <br />
+首先在客户端注册一个callback, 然后把callback的名字传给服务器。</p>
+
+<p>此时，服务器先生成 json 数据。 <br />
+然后以 javascript 语法的方式，生成一个function , function 名字就是传递上来的参数 jsonp.</p>
+
+<p>最后将 json 数据直接以入参的方式，放置到 function 中，这样就生成了一段 js 语法的文档，返回给客户端。</p>
+
+<p>客户端浏览器，解析script标签，并执行返回的 javascript 文档，此时数据作为参数，传入到了客户端预先定义好的 callback 函数里.（动态执行回调函数）</p>
+
+<p>使用JSON的优点在于： <br />
+比XML轻了很多，没有那么多冗余的东西。 <br />
+JSON也是具有很好的可读性的，但是通常返回的都是压缩过后的。不像XML这样的浏览器可以直接显示，浏览器对于JSON的格式化的显示就需要借助一些插件了。 <br />
+在JavaScript中处理JSON很简单。 <br />
+其他语言例如PHP对于JSON的支持也不错。</p>
+
+<p>JSON也有一些劣势： <br />
+JSON在服务端语言的支持不像XML那么广泛，不过JSON.org上提供很多语言的库。 <br />
+如果你使用eval()来解析的话，会容易出现安全问题。 <br />
+只支持GET方式的请求方式不支持POST，导致如果是非常复杂的参数传递会造成参数丢失，因为GET方式只能在URL后面拼接参数，而且限制只能是： <br />
+在IE8 下的URL地址总长度为：4076，超过该长度会自动忽略后面的内容； <br />
+在firefox 25下的URL地址总长度可以达到:7530，超过该长度会访问错误；</p>
+
+<p>在chrome 29.0.1547.62 的最大总长度达到:7675，超过该长度会访问错误；</p>
+
+<p><strong>SpringMVC 4以上注解方式</strong></p>
+
+<p>SpringMVC 4</p>
+
+<p>SpringMVC4提供了非常方便的实现跨域的方法。 <br />
+在requestMapping中使用注解。 @CrossOrigin(origins = “<a href="http://localhost:9000" target="_blank">http://localhost:9000</a>”) <br />
+全局实现 .定义类继承WebMvcConfigurerAdapter</p>
+
+<pre class="prettyprint"><code class=" hljs java"><span class="hljs-keyword">public</span> <span class="hljs-class"><span class="hljs-keyword">class</span> <span class="hljs-title">CorsConfigurerAdapter</span> <span class="hljs-keyword">extends</span> <span class="hljs-title">WebMvcConfigurerAdapter</span>{</span>
+
+    <span class="hljs-annotation">@Override</span>
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">void</span> <span class="hljs-title">addCorsMappings</span>(CorsRegistry registry) {
+
+        registry.addMapping(<span class="hljs-string">"/api/*"</span>).allowedOrigins(<span class="hljs-string">"*"</span>);
+    }
+}</code></pre>
+
+<p>将该类注入到容器中：</p>
+
+
+
+<pre class="prettyprint"><code class=" hljs xml"><span class="hljs-tag">&lt;<span class="hljs-title">bean</span> <span class="hljs-attribute">class</span>=<span class="hljs-value">"com.tmall.wireless.angel.web.config.CorsConfigurerAdapter"</span>&gt;</span><span class="hljs-tag">&lt;/<span class="hljs-title">bean</span>&gt;</span></code></pre>
+
+<p><strong>Cros三方</strong></p>
+
+<p>pom.xml添加依赖</p>
+
+<pre class="prettyprint"><code class=" hljs xml"><span class="hljs-comment">&lt;!-- 跨域支持--&gt;</span>  
+        <span class="hljs-tag">&lt;<span class="hljs-title">dependency</span>&gt;</span>  
+            <span class="hljs-tag">&lt;<span class="hljs-title">groupId</span>&gt;</span>com.thetransactioncompany<span class="hljs-tag">&lt;/<span class="hljs-title">groupId</span>&gt;</span>  
+            <span class="hljs-tag">&lt;<span class="hljs-title">artifactId</span>&gt;</span>cors-filter<span class="hljs-tag">&lt;/<span class="hljs-title">artifactId</span>&gt;</span>  
+            <span class="hljs-tag">&lt;<span class="hljs-title">version</span>&gt;</span>2.5<span class="hljs-tag">&lt;/<span class="hljs-title">version</span>&gt;</span>  
+        <span class="hljs-tag">&lt;/<span class="hljs-title">dependency</span>&gt;</span> </code></pre>
+
+<p>web.xml添加三方过滤器</p>
+
+<pre class="prettyprint"><code class=" hljs xml"><span class="hljs-comment">&lt;!--  提供跨域支持 --&gt;</span>
+    <span class="hljs-tag">&lt;<span class="hljs-title">filter</span>&gt;</span>    
+        <span class="hljs-tag">&lt;<span class="hljs-title">filter-name</span>&gt;</span>CORS<span class="hljs-tag">&lt;/<span class="hljs-title">filter-name</span>&gt;</span>    
+        <span class="hljs-tag">&lt;<span class="hljs-title">filter-class</span>&gt;</span>com.thetransactioncompany.cors.CORSFilter<span class="hljs-tag">&lt;/<span class="hljs-title">filter-class</span>&gt;</span>    
+        <span class="hljs-tag">&lt;<span class="hljs-title">init-param</span>&gt;</span>    
+            <span class="hljs-tag">&lt;<span class="hljs-title">param-name</span>&gt;</span>cors.allowOrigin<span class="hljs-tag">&lt;/<span class="hljs-title">param-name</span>&gt;</span>   
+            <span class="hljs-tag">&lt;<span class="hljs-title">param-value</span>&gt;</span>*<span class="hljs-tag">&lt;/<span class="hljs-title">param-value</span>&gt;</span>   
+        <span class="hljs-tag">&lt;/<span class="hljs-title">init-param</span>&gt;</span>    
+        <span class="hljs-tag">&lt;<span class="hljs-title">init-param</span>&gt;</span>    
+            <span class="hljs-tag">&lt;<span class="hljs-title">param-name</span>&gt;</span>cors.supportedMethods<span class="hljs-tag">&lt;/<span class="hljs-title">param-name</span>&gt;</span>   
+            <span class="hljs-tag">&lt;<span class="hljs-title">param-value</span>&gt;</span>GET, POST, HEAD, PUT, DELETE<span class="hljs-tag">&lt;/<span class="hljs-title">param-value</span>&gt;</span>   
+        <span class="hljs-tag">&lt;/<span class="hljs-title">init-param</span>&gt;</span>    
+        <span class="hljs-tag">&lt;<span class="hljs-title">init-param</span>&gt;</span>    
+            <span class="hljs-tag">&lt;<span class="hljs-title">param-name</span>&gt;</span>cors.supportedHeaders<span class="hljs-tag">&lt;/<span class="hljs-title">param-name</span>&gt;</span>   
+            <span class="hljs-tag">&lt;<span class="hljs-title">param-value</span>&gt;</span>Accept, Origin, X-Requested-With, Content-Type, Last-Modified<span class="hljs-tag">&lt;/<span class="hljs-title">param-value</span>&gt;</span>   
+        <span class="hljs-tag">&lt;/<span class="hljs-title">init-param</span>&gt;</span>    
+        <span class="hljs-tag">&lt;<span class="hljs-title">init-param</span>&gt;</span>    
+            <span class="hljs-tag">&lt;<span class="hljs-title">param-name</span>&gt;</span>cors.exposedHeaders<span class="hljs-tag">&lt;/<span class="hljs-title">param-name</span>&gt;</span>   
+            <span class="hljs-tag">&lt;<span class="hljs-title">param-value</span>&gt;</span>Set-Cookie<span class="hljs-tag">&lt;/<span class="hljs-title">param-value</span>&gt;</span>   
+        <span class="hljs-tag">&lt;/<span class="hljs-title">init-param</span>&gt;</span>    
+        <span class="hljs-tag">&lt;<span class="hljs-title">init-param</span>&gt;</span>    
+            <span class="hljs-tag">&lt;<span class="hljs-title">param-name</span>&gt;</span>cors.supportsCredentials<span class="hljs-tag">&lt;/<span class="hljs-title">param-name</span>&gt;</span>   
+            <span class="hljs-tag">&lt;<span class="hljs-title">param-value</span>&gt;</span>true<span class="hljs-tag">&lt;/<span class="hljs-title">param-value</span>&gt;</span>   
+        <span class="hljs-tag">&lt;/<span class="hljs-title">init-param</span>&gt;</span>    
+    <span class="hljs-tag">&lt;/<span class="hljs-title">filter</span>&gt;</span>    
+    <span class="hljs-tag">&lt;<span class="hljs-title">filter-mapping</span>&gt;</span>    
+        <span class="hljs-tag">&lt;<span class="hljs-title">filter-name</span>&gt;</span>CORS<span class="hljs-tag">&lt;/<span class="hljs-title">filter-name</span>&gt;</span>    
+        <span class="hljs-tag">&lt;<span class="hljs-title">url-pattern</span>&gt;</span>/*<span class="hljs-tag">&lt;/<span class="hljs-title">url-pattern</span>&gt;</span>    
+   <span class="hljs-tag">&lt;/<span class="hljs-title">filter-mapping</span>&gt;</span> </code></pre>
+
+<p>参数讲解</p>
+
+<p>cors.allowOrigin指的可以通过的ip，<em>代表所有，可以使用指定的ip，多个的话可以用逗号分隔，默认为</em> <br />
+cors.supportedMethods指的是请求方式 默认为* <br />
+cors.supportedHeaders请求支持的头信息，默认为* <br />
+cors.exposedHeaders暴露的头信息，默认的empy list <br />
+cors.supportsCredentials支持证书，默认为true <br />
+cors.maxAge 最大过期时间，默认为-1 <br />
+cors.tagRequests 默认为false <br />
+cors.allowSubdomains允许子域 默认为false</p>
+
+<p>然后启动即可解决跨域问题，如果你需要限制访问域或者其他别的需求也可以自定义过滤器：</p>
+
+<pre class="prettyprint"><code class=" hljs java"><span class="hljs-annotation">@Component</span>  
+<span class="hljs-keyword">public</span> <span class="hljs-class"><span class="hljs-keyword">class</span> <span class="hljs-title">SimpleCORSFilter</span> <span class="hljs-keyword">implements</span> <span class="hljs-title">Filter</span> {</span>  
+  <span class="hljs-keyword">public</span> <span class="hljs-keyword">void</span> <span class="hljs-title">doFilter</span>(ServletRequest req, ServletResponse res, FilterChain chain) <span class="hljs-keyword">throws</span> IOException, ServletException {  
+    HttpServletResponse response = (HttpServletResponse) res;  
+    <span class="hljs-comment">//不需要限制的域，可以配置多个</span>
+    response.setHeader(<span class="hljs-string">"Access-Control-Allow-Origin"</span>, <span class="hljs-string">"http://www.baidu.com"</span>);  
+    <span class="hljs-comment">//允许请求的方法</span>
+    response.setHeader(<span class="hljs-string">"Access-Control-Allow-Methods"</span>, <span class="hljs-string">"POST, GET, OPTIONS, DELETE"</span>);  
+    <span class="hljs-comment">//表明在3600秒内，不需要再发送预检验请求，可以缓存该结果</span>
+    response.setHeader(<span class="hljs-string">"Access-Control-Max-Age"</span>, <span class="hljs-string">"3600"</span>);  
+    <span class="hljs-comment">//表明它允许跨域请求包含x-requested-with头</span>
+    response.setHeader(<span class="hljs-string">"Access-Control-Allow-Headers"</span>, <span class="hljs-string">"x-requested-with"</span>);  
+    chain.doFilter(req, res);  
+  }  
+  <span class="hljs-keyword">public</span> <span class="hljs-keyword">void</span> <span class="hljs-title">init</span>(FilterConfig filterConfig) {}  
+  <span class="hljs-keyword">public</span> <span class="hljs-keyword">void</span> <span class="hljs-title">destroy</span>() {}  
+}  </code></pre>
+
+<p>没有具体对比两个的性能和稳定性，有兴趣可以留言交流</p></div>&#13;
+        <script type="text/javascript">&#13;
+            $(function () {&#13;
+                $('pre.prettyprint code').each(function () {&#13;
+                    var lines = $(this).text().split('\n').length;&#13;
+                    var $numbering = $('&lt;ul/&gt;').addClass('pre-numbering').hide();&#13;
+                    $(this).addClass('has-numbering').parent().append($numbering);&#13;
+                    for (i = 1; i &lt;= lines; i++) {&#13;
+                        $numbering.append($('&lt;li/&gt;').text(i));&#13;
+                    };&#13;
+                    $numbering.fadeIn(1700);&#13;
+                });&#13;
+            });&#13;
+        </script>&#13;
+   &#13;

@@ -1,0 +1,137 @@
+
+
+<div>&#13;
+<div>&#13;
+<pre style="text-align:center"><span style="font-size:18px"><strong>linux MISC 驱动模型分析&#13;
+</strong></span></pre>&#13;
+</div>&#13;
+<p>        阅读led驱动程序的代码的时候，没有发现ldd3中提到的各种字符设备注册函数，而是发现了一个misc_register函数，这说明led设备是作为杂项设备出现在内核中的，在内核中，misc杂项设备驱动接口是对一些字符设备的简单封装，他们共享一个主设备号，有不同的次设备号，共享一个open调用，其他的操作函数在打开后运用linux驱动程序的方法重载进行装载。</p>&#13;
+</div>&#13;
+<div>&#13;
+<div><strong><span style="font-size:16px">1. 主要数据结构</span></strong></div>&#13;
+<div>&#13;
+<pre>    内核维护一个misc_list链表，misc设备在misc_register注册的时候链接到这个链表，在misc_deregister中解除链接。主要的设备结构就是miscdevice。定义如下：</pre>&#13;
+<pre name="code" class="plain">struct miscdevice  {
+	int minor;
+	const char *name;
+	const struct file_operations *fops;
+	struct list_head list;
+	struct device *parent;
+	struct device *this_device;
+	const char *nodename;
+	mode_t mode;
+};</pre>&#13;
+<pre>    这个结构体是misc设备基本的结构体，在注册misc设备的时候必须要声明并初始化一个这样的结构体，但其中一般只需填充name minor fops字段就可以了。下面就是led驱动程序中初始化miscdevice的代码：</pre>&#13;
+</div>&#13;
+<div><pre name="code" class="plain">static struct miscdevice misc = {
+	.minor = MISC_DYNAMIC_MINOR,
+	.name = DEVICE_NAME,
+	.fops = &amp;dev_fops,
+};</pre></div>&#13;
+<div>&#13;
+<pre>    一般的时候在fops不用实现open方法，因为最初的方法misc_ops包含了open方法。其中minor如果填充MISC_DYNAMIC_MINOR，则是动态次设备号，次设备号由misc_register动态分配的。</pre>&#13;
+<span style="font-size:16px"><strong>2. misc_init 函数</strong></span><br />&#13;
+<pre>    misc也是作为一个模块被加载到内核的，只不过是静态模块。这个函数是misc静态模块加载时的初始化函数。</pre>&#13;
+<pre name="code" class="plain">static int __init misc_init(void)
+{
+	int err;
+
+
+#ifdef CONFIG_PROC_FS
+	proc_create("misc", 0, NULL, &amp;misc_proc_fops);
+#endif
+	misc_class = class_create(THIS_MODULE, "misc");
+        //udev创建设备节点使用
+	err = PTR_ERR(misc_class);
+	if (IS_ERR(misc_class))
+		goto fail_remove;
+
+
+	err = -EIO;
+	if (register_chrdev(MISC_MAJOR,"misc",&amp;misc_fops)) //注册一个字符设备
+		goto fail_printk;
+	misc_class-&gt;devnode = misc_devnode;
+	return 0;
+
+
+fail_printk:
+	printk("unable to get major %d for misc devices\n", MISC_MAJOR);
+	class_destroy(misc_class);
+fail_remove:
+	remove_proc_entry("misc", NULL);
+	return err;
+}</pre>&#13;
+<pre>    可以看出，这个初始化函数，最主要的功能就是注册字符设备 ，所用的注册接口是2.4内核的register_chrdev。它注册了主设备号为MISC_MAJOR，次设备号为0-255的256个设备。并且创建了一个misc类。</pre>&#13;
+</div>&#13;
+<div><span style="font-size:16px"><strong>3. misc_register（）函数</strong></span><br />&#13;
+<pre>    misc_register()函数在misc.c中，最主要的功能是基于misc_class构造一个设备，将miscdevice结构挂载到misc_list列表上，并初始化与linux设备模型相关的结构，它的参数是miscdevice结构体。</pre>&#13;
+<pre name="code" class="plain">int misc_register(struct miscdevice * misc)
+{
+	struct miscdevice *c;
+	dev_t dev;
+	int err = 0;
+
+
+	INIT_LIST_HEAD(&amp;misc-&gt;list);  //链表项使用时必须初始化
+
+
+	mutex_lock(&amp;misc_mtx);
+	list_for_each_entry(c, &amp;misc_list, list) {
+		if (c-&gt;minor == misc-&gt;minor) {
+			mutex_unlock(&amp;misc_mtx);
+			return -EBUSY;
+		}
+	} //遍历链表如果发现次设备号一样的，返回错误
+
+
+	if (misc-&gt;minor == MISC_DYNAMIC_MINOR) {  //动态次设备号
+		int i = DYNAMIC_MINORS;
+		while (--i &gt;= 0)
+			if ( (misc_minors[i&gt;&gt;3] &amp; (1 &lt;&lt; (i&amp;7))) == 0)
+				break;
+		if (i&lt;0) {
+			mutex_unlock(&amp;misc_mtx);
+			return -EBUSY;
+		}
+		misc-&gt;minor = i;
+	}
+
+
+	if (misc-&gt;minor &lt; DYNAMIC_MINORS)
+		misc_minors[misc-&gt;minor &gt;&gt; 3] |= 1 &lt;&lt; (misc-&gt;minor &amp; 7);
+	dev = MKDEV(MISC_MAJOR, misc-&gt;minor);
+
+
+	misc-&gt;this_device = device_create(misc_class, misc-&gt;parent, dev,
+					  misc, "%s", misc-&gt;name);
+        //udev创建设备节点使用，linux设备模型相关
+	if (IS_ERR(misc-&gt;this_device)) {
+		err = PTR_ERR(misc-&gt;this_device);
+		goto out;
+	}
+
+
+	/*
+	 * Add it to the front, so that later devices can "override"
+	 * earlier defaults
+	 */
+	list_add(&amp;misc-&gt;list, &amp;misc_list); //添加到misc_list之中
+ out:
+	mutex_unlock(&amp;misc_mtx);
+	return err;
+}</pre></div>&#13;
+<div>&#13;
+<pre>    可以看出，这个函数首先遍历misc_list链表，查找所用的次设备号是否已经被注册，防止冲突。如果是动态次设备号则分配一个，然后调用MKDEV生成设备号,从这里可以看出所有的misc设备共享一个主设备号MISC_MAJOR，然后调用device_create，生成设备文件。最后加入到misc_list链表中。</pre>&#13;
+<pre>    关于device_create，class_create 作用：  class_create函数在misc.c中的模块初始化中被调用，现在一起说一下。这两个函数看起来很陌生，没有在ldd3中发现过，看源代码的时候发现class_create会调用底层组件__class_regsiter()是说明它是注册一个类。而device_create是创建一个设备，他是创建设备的便捷实现调用了device_register函数。他们都提供给linux设备模型使用，从linux内核2.6的某个版本之后，devfs不复存在，udev成为devfs的替代。相比devfs，udev有很多优势。
+</pre>&#13;
+<pre name="code" class="plain">   struct class *myclass = class_create(THIS_MODULE, “my_device_driver”);
+   class_device_create(myclass, NULL, MKDEV(major_num, 0), NULL, “my_device”);</pre></div>&#13;
+<div>&#13;
+<pre>   这样就创建了一个类和设备，模块被加载时，udev daemon就会自动在/dev下创建my_device设备文件节点。这样就省去了自己创建设备文件的麻烦。这样也有助于动态设备的管理。
+</pre>&#13;
+<span style="font-size:16px"><strong>4. 总结</strong></span></div>&#13;
+<pre>    杂项设备作为字符设备的封装，为字符设备提供的简单的编程接口，如果编写新的字符驱动，可以考虑使用杂项设备接口，方便简单，只需要初始化一个miscdevice的结构，调用misc_register就可以了。系统最多有255个杂项设备，因为杂项设备模块自己占用了一个次设备号。可以发现，mini2440很多字符设备都是以杂项设备注册到内核的，如mini2440_buttons,mini2440_adc,mini2440_pwm等。</pre>&#13;
+<div></div>&#13;
+<div></div>&#13;
+</div>&#13;
+   &#13;

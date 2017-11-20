@@ -1,0 +1,353 @@
+
+
+<p><span style="font-size:14px"><span style="white-space:pre"></span>最近在做一个Struts2 + hibernate的项目，之前了解过但是没有做过，为了联系一下，写了一个简单的登录验证熟悉一下。</span></p>&#13;
+<h2><span style="font-size:14px">前期准备</span></h2>&#13;
+<div><span style="font-size:14px"><span style="white-space:pre"></span>界面没有美化，也就是简单的表单，比较丑，就这样将就着用吧。以下是整个项目的结构：</span></div>&#13;
+<div><span style="font-size:14px"><img src="http://img.blog.csdn.net/20160912085501709?watermark/2/text/aHR0cDovL2Jsb2cuY3Nkbi5uZXQv/font/5a6L5L2T/fontsize/400/fill/I0JBQkFCMA==/dissolve/70/gravity/Center" alt="" />比较简单，前期需要把相应的包给建好，然后还有jsp页面写好。<br />&#13;
+</span></div>&#13;
+<div><span style="font-size:14px">按照下图所示将所需要的包给建立好，</span></div>&#13;
+<div><span style="font-size:14px"><img src="http://img.blog.csdn.net/20160912085801948?watermark/2/text/aHR0cDovL2Jsb2cuY3Nkbi5uZXQv/font/5a6L5L2T/fontsize/400/fill/I0JBQkFCMA==/dissolve/70/gravity/Center" alt="" />在该包结构中，action代表对页面进行处理的action，dao包内的为数据库相关操作所需要的接口，dao.impl包内为数据库操作相关接口的实现，model包内为数据库中表所对应的实体类以及User.hbm.xml文件，util为所使用到的相关工具类。<br />&#13;
+</span></div>&#13;
+<div><span style="font-size:14px"><span style="white-space:pre"></span>下图是本工程所需要用到的jar包，需要准备一下，</span></div>&#13;
+<div><span style="font-size:14px"><img src="http://img.blog.csdn.net/20160912090852948?watermark/2/text/aHR0cDovL2Jsb2cuY3Nkbi5uZXQv/font/5a6L5L2T/fontsize/400/fill/I0JBQkFCMA==/dissolve/70/gravity/Center" alt="" /><img src="http://img.blog.csdn.net/20160912090915715?watermark/2/text/aHR0cDovL2Jsb2cuY3Nkbi5uZXQv/font/5a6L5L2T/fontsize/400/fill/I0JBQkFCMA==/dissolve/70/gravity/Center" alt="" />，<br />&#13;
+</span></div>&#13;
+<div><span style="font-size:14px">另外还需要新建一个数据库，我这里数据库名字为hibernate，</span></div>&#13;
+<h2><span style="font-size:14px">页面</span></h2>&#13;
+<div><span style="font-size:14px"><span style="white-space:pre"></span>页面比较简单，登录页面代码如下所示，</span></div>&#13;
+<div><span style="font-size:14px">  </span><pre code_snippet_id="1876816" snippet_file_name="blog_20160912_1_1367019" name="code" class="html">&lt;%@ page language="java" contentType="text/html; charset=utf-8"
+    pageEncoding="utf-8"%&gt;
+&lt;!DOCTYPE html PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN" "http://www.w3.org/TR/html4/loose.dtd"&gt;
+&lt;html&gt;
+&lt;head&gt;
+&lt;meta http-equiv="Content-Type" content="text/html; charset=utf-8"&gt;
+&lt;title&gt;登录&lt;/title&gt;
+&lt;/head&gt;
+&lt;body&gt;
+ &lt;form action="userlogin"&gt;
+    用户名 ： &lt;input name="username" type="text"&gt;&lt;br&gt;
+    密码 ： &lt;input name="password" type="password"&gt;&lt;br&gt;
+    &lt;input type="submit" value="提交"&gt;&lt;br&gt;
+    &lt;input type="reset" value="重置"&gt;&lt;br&gt;
+ &lt;/form&gt;
+&lt;/body&gt;
+&lt;/html&gt;</pre>登录页面成功界面代码如下所示，</div>&#13;
+<div><span style="font-size:14px"></span><pre code_snippet_id="1876816" snippet_file_name="blog_20160912_2_778375" name="code" class="html">&lt;%@ page language="java" contentType="text/html; charset=utf-8"
+    pageEncoding="utf-8"%&gt;
+&lt;!DOCTYPE html PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN" "http://www.w3.org/TR/html4/loose.dtd"&gt;
+&lt;html&gt;
+&lt;head&gt;
+&lt;meta http-equiv="Content-Type" content="text/html; charset=utf-8"&gt;
+&lt;title&gt;登录成功&lt;/title&gt;
+&lt;/head&gt;
+&lt;body&gt;
+&lt;h1&gt;欢迎你，登录成功！&lt;/h1&gt;
+&lt;/body&gt;
+&lt;/html&gt;</pre>web.xml中的内容如下，</div>&#13;
+<div><span style="font-size:14px"></span><pre code_snippet_id="1876816" snippet_file_name="blog_20160912_3_6459976" name="code" class="html">&lt;?xml version="1.0" encoding="UTF-8"?&gt;
+&lt;web-app xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns="http://xmlns.jcp.org/xml/ns/javaee" xsi:schemaLocation="http://xmlns.jcp.org/xml/ns/javaee http://xmlns.jcp.org/xml/ns/javaee/web-app_3_1.xsd" id="WebApp_ID" version="3.1"&gt;
+  &lt;display-name&gt;practice&lt;/display-name&gt;
+  &lt;filter&gt;
+        &lt;filter-name&gt;struts2&lt;/filter-name&gt;
+        &lt;filter-class&gt;org.apache.struts2.dispatcher.ng.filter.StrutsPrepareAndExecuteFilter&lt;/filter-class&gt;
+    &lt;/filter&gt;
+
+    &lt;filter-mapping&gt;
+        &lt;filter-name&gt;struts2&lt;/filter-name&gt;
+        &lt;url-pattern&gt;/*&lt;/url-pattern&gt;
+    &lt;/filter-mapping&gt;
+  &lt;welcome-file-list&gt;
+    &lt;welcome-file&gt;index.html&lt;/welcome-file&gt;
+    &lt;welcome-file&gt;index.htm&lt;/welcome-file&gt;
+    &lt;welcome-file&gt;index.jsp&lt;/welcome-file&gt;
+    &lt;welcome-file&gt;default.html&lt;/welcome-file&gt;
+    &lt;welcome-file&gt;default.htm&lt;/welcome-file&gt;
+    &lt;welcome-file&gt;default.jsp&lt;/welcome-file&gt;
+  &lt;/welcome-file-list&gt;
+&lt;/web-app&gt;</pre><br />&#13;
+<h2><span style="font-size:14px">包内的具体类，</span></h2>&#13;
+</div>&#13;
+<div><span style="font-size:14px"><span style="white-space:pre"></span>用户的实体类，</span></div>&#13;
+<div><span style="font-size:14px"></span><pre code_snippet_id="1876816" snippet_file_name="blog_20160912_4_4093425" name="code" class="java">package hpu.edu.model;
+
+public class User {
+      private String username;//用户名
+      private String password;//密码
+      private Integer id;//id
+	public String getUsername() {
+		return username;
+	}
+	public void setUsername(String username) {
+		this.username = username;
+	}
+	public String getPassword() {
+		return password;
+	}
+	public void setPassword(String password) {
+		this.password = password;
+	}
+	public Integer getId() {
+		return id;
+	}
+	public void setId(Integer id) {
+		this.id = id;
+	}
+      
+}
+</pre><br />&#13;
+实体类所对应的User.hbm.xml，</div>&#13;
+<div><span style="font-size:14px"></span><pre code_snippet_id="1876816" snippet_file_name="blog_20160912_5_9251638" name="code" class="html">&lt;?xml version="1.0"?&gt;
+&lt;!DOCTYPE hibernate-mapping PUBLIC "-//Hibernate/Hibernate Mapping DTD 3.0//EN"
+"http://hibernate.sourceforge.net/hibernate-mapping-3.0.dtd"&gt;
+&lt;!-- Generated 2014-12-14 14:51:48 by Hibernate Tools 3.4.0.CR1 --&gt;
+&lt;hibernate-mapping&gt;
+    &lt;class name="hpu.edu.model.User" table="TABLE_USER"&gt;
+        &lt;id name="id" type="java.lang.Integer"&gt;
+            &lt;column name="ID" /&gt;
+            &lt;generator class="uuid" /&gt;
+        &lt;/id&gt;
+        &lt;property name="password" type="java.lang.String"&gt;
+            &lt;column name="PASSWORD" /&gt;
+        &lt;/property&gt;
+        &lt;property name="username" type="java.lang.String"&gt;
+            &lt;column name="USERNAME" /&gt;
+        &lt;/property&gt;
+    &lt;/class&gt;
+&lt;/hibernate-mapping&gt;
+</pre><br />&#13;
+dao包内的接口，</div>&#13;
+<div><span style="font-size:14px"></span><pre code_snippet_id="1876816" snippet_file_name="blog_20160912_6_9601085" name="code" class="java">package hpu.edu.dao;
+
+import java.util.List;
+
+import org.hibernate.Session;
+
+public interface BaseDao {
+       public Session getSession();
+       public void closeSession();
+       public List search(String hql);
+}
+</pre><br />&#13;
+<pre code_snippet_id="1876816" snippet_file_name="blog_20160912_7_3472543" name="code" class="java">package hpu.edu.dao;
+
+import java.util.List;
+
+import hpu.edu.model.User;
+
+public interface UserDao{
+    public void saveUser(User user);
+    public List&lt;User&gt; getAll(Class clazz);
+    public User isValidAdmin(String username,String password);
+}
+</pre><br />&#13;
+实现接口，</div>&#13;
+<div><span style="font-size:14px"></span><pre code_snippet_id="1876816" snippet_file_name="blog_20160912_8_5250450" name="code" class="java">package hpu.edu.dao.impl;
+
+import java.util.List;
+
+import org.hibernate.Session;
+import org.hibernate.SessionFactory;
+import org.hibernate.Transaction;
+import org.hibernate.cfg.Configuration;
+import org.hibernate.service.ServiceRegistry;
+import org.hibernate.service.ServiceRegistryBuilder;
+
+import hpu.edu.dao.BaseDao;
+
+public class BaseDaoImpl implements BaseDao{
+	private SessionFactory sessionFactory;
+	private Session session;
+	private Transaction transaction;
+	
+	public void init(){
+		Configuration configuration = new Configuration().configure();
+		ServiceRegistry serviceRegistry = new ServiceRegistryBuilder().applySettings(configuration.getProperties()).buildServiceRegistry();
+		sessionFactory = configuration.buildSessionFactory(serviceRegistry);
+		
+		session = sessionFactory.openSession();
+		transaction = session.beginTransaction();
+	}
+	@Override
+	public Session getSession() {
+		init();
+		return session;
+	}
+
+	@Override
+	public void closeSession() {
+		session.close();
+	}
+
+	@Override
+	public List search(String hql) {
+		Session session = null;
+		session = getSession();
+		List alist = null;
+		alist = session.createQuery(hql).list();
+		session.close();
+		return alist;
+	}
+
+}
+</pre><br />&#13;
+<pre code_snippet_id="1876816" snippet_file_name="blog_20160912_9_724309" name="code" class="java">package hpu.edu.dao.impl;
+
+import java.util.List;
+
+import hpu.edu.dao.UserDao;
+import hpu.edu.model.User;
+
+public class UserDaoImpl extends BaseDaoImpl implements UserDao{
+
+	@Override
+	public void saveUser(User user) {
+		// TODO Auto-generated method stub
+		
+	}
+
+	@Override
+	public List&lt;User&gt; getAll(Class clazz) {
+		// TODO Auto-generated method stub
+		return null;
+	}
+
+	@Override
+	public User isValidAdmin(String username, String password) {
+		User user = null;
+		System.out.println("AAAAAAAAAAAAAAAA");
+		@SuppressWarnings("unchecked")
+		List&lt;User&gt; list = super.search("FROM User where username = '" + username + "' and password = '"+ password + "'");
+		if(list != null &amp;&amp; list.size() &gt; 0){
+			user = list.get(0);             
+			System.out.println(user.getUsername());
+			System.out.println(user.getPassword());
+		}
+		return user;
+	}
+
+}
+</pre><br />&#13;
+action中的操作，</div>&#13;
+<div><span style="font-size:14px"></span><pre code_snippet_id="1876816" snippet_file_name="blog_20160912_10_5566877" name="code" class="java">package hpu.edu.action;
+
+import java.util.Map;
+
+import org.apache.struts2.interceptor.SessionAware;
+
+import com.opensymphony.xwork2.ActionSupport;
+
+import hpu.edu.dao.UserDao;
+import hpu.edu.dao.impl.UserDaoImpl;
+import hpu.edu.model.User;
+
+public class LoginAction extends ActionSupport implements SessionAware{
+
+	private static final long serialVersionUID = 1L;
+	UserDao dao = new UserDaoImpl();
+	private String username;
+	private String password;
+	private Map&lt;String,Object&gt; session;
+	
+	public String execute(){
+		User user = dao.isValidAdmin(username, password);
+		if(user != null){
+			session.put("user", user);
+			return SUCCESS;
+		}else{
+			addActionError("你没有该权限");
+			return INPUT;
+		}
+	}
+	
+	public UserDao getDao() {
+		return dao;
+	}
+
+	public void setDao(UserDao dao) {
+		this.dao = dao;
+	}
+
+	public String getUsername() {
+		return username;
+	}
+
+	public void setUsername(String username) {
+		this.username = username;
+	}
+
+	public String getPassword() {
+		return password;
+	}
+
+	public void setPassword(String password) {
+		this.password = password;
+	}
+
+	public static long getSerialversionuid() {
+		return serialVersionUID;
+	}
+
+	public Map&lt;String, Object&gt; getSession() {
+		return session;
+	}
+
+	@Override
+	public void setSession(Map session) {
+		this.session = session;
+	}
+
+}
+</pre><br />&#13;
+<h2><span style="font-size:14px">配置文件</span></h2>&#13;
+<div><span style="font-size:14px"><span style="white-space:pre"></span>hibernate.cfg.xml中的内容，</span></div>&#13;
+<div><span style="font-size:14px"></span><pre code_snippet_id="1876816" snippet_file_name="blog_20160912_11_7137041" name="code" class="html">&lt;?xml version="1.0" encoding="UTF-8"?&gt;
+&lt;!DOCTYPE hibernate-configuration PUBLIC
+		"-//Hibernate/Hibernate Configuration DTD 3.0//EN"
+		"http://hibernate.sourceforge.net/hibernate-configuration-3.0.dtd"&gt;
+&lt;hibernate-configuration&gt;
+    &lt;session-factory&gt;
+        &lt;property name="connection.username"&gt;root&lt;/property&gt;
+        &lt;property name="connection.password"&gt;root&lt;/property&gt;
+        &lt;property name="connection.driver_class"&gt;com.mysql.jdbc.Driver&lt;/property&gt;
+    	&lt;property name="connection.url"&gt;jdbc:mysql://localhost:3306/hibernate&lt;/property&gt;
+    	
+    	&lt;property name="hibernate.dialect"&gt;org.hibernate.dialect.MySQL5InnoDBDialect&lt;/property&gt;
+        &lt;property name="show_sql"&gt;true&lt;/property&gt;
+        &lt;property name="hibernate.format_sql"&gt;true&lt;/property&gt;
+        &lt;property name="hibernate.hbm2ddl.auto"&gt;update&lt;/property&gt;
+        
+        &lt;mapping resource="hpu/edu/model/User.hbm.xml" /&gt;
+    &lt;/session-factory&gt;
+&lt;/hibernate-configuration&gt;
+</pre><br />&#13;
+Struts.xml，</div>&#13;
+<div><span style="font-size:14px"></span><pre code_snippet_id="1876816" snippet_file_name="blog_20160912_12_2818642" name="code" class="html">&lt;?xml version="1.0" encoding="UTF-8" ?&gt;
+&lt;!DOCTYPE struts PUBLIC
+	"-//Apache Software Foundation//DTD Struts Configuration 2.3//EN"
+	"http://struts.apache.org/dtds/struts-2.3.dtd"&gt;
+
+&lt;struts&gt;
+
+    &lt;package name="default" extends="struts-default"&gt;
+    	
+    	&lt;action name="index"&gt;
+    		&lt;result&gt;/index.jsp&lt;/result&gt;
+    	&lt;/action&gt;
+    	
+    	&lt;action name="userlogin" class="hpu.edu.action.LoginAction"&gt;
+    		&lt;result name="success"&gt;/success.jsp&lt;/result&gt;
+    		&lt;result name="input"&gt;/index.jsp&lt;/result&gt;
+    	&lt;/action&gt;
+    &lt;/package&gt;
+
+&lt;/struts&gt;
+</pre><br />&#13;
+到这里基本上已经完成。</div>&#13;
+<h2><span style="font-size:14px">错误</span></h2>&#13;
+</div>&#13;
+<div><span style="font-size:14px"><span style="white-space:pre"></span>在这里说一下我出错的地方，在User.hbm.xml中设置id为自增时，使用了错误的类型，正确的使用方法为， &lt;generator class="uuid" /&gt;，</span></div>&#13;
+<div><span style="white-space:pre"></span><span style="font-size:14px">在实现接口的时候，hql语句中，super.search("FROM User where username = '" + username + "' and password = '"+ password + "'");与数据库表所对应的应写实体类名，而我写的是数据库表名。</span></div>&#13;
+<div><span style="font-size:14px"><br />&#13;
+</span></div>&#13;
+<div><span style="font-size:14px"><br />&#13;
+</span></div>&#13;
+   &#13;

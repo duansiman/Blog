@@ -1,0 +1,121 @@
+
+<p style="margin: 0in; font-size: 14pt;"><span style="font-family:KaiTi_GB2312;"><span lang="zh-CN" xml:lang="zh-CN">    </span></span></p><p style="margin: 0in; font-size: 14pt;"><span style="font-family:KaiTi_GB2312;"><span lang="zh-CN" xml:lang="zh-CN">    上篇博客《</span><span lang="en-US" xml:lang="en-US">JAVA </span><span lang="zh-CN" xml:lang="zh-CN">并发编程</span><span lang="en-US" xml:lang="en-US">-</span><span lang="zh-CN" xml:lang="zh-CN">线程池（七）》中曾介绍到newScheduledThreadPool(intcorePoolSize)，创建corePoolSize大小的线程池。此线程池支持定时以及周期性执行任务的需求。</span></span></p><p style="margin: 0in; font-size: 14pt;"><span style="font-family:KaiTi_GB2312;"><span lang="zh-CN" xml:lang="zh-CN"><br /></span></span></p><p style="margin:0in;font-size:14.0pt"><span style="font-family:KaiTi_GB2312;"><span lang="zh-CN" xml:lang="zh-CN">    接下来我们一起来分析一下</span><span lang="en-US" xml:lang="en-US">Java</span><span lang="zh-CN" xml:lang="zh-CN">中几种任务调度实现与比较</span></span></p><p style="margin: 0in; font-size: 14pt;"><span style="font-family:KaiTi_GB2312;">    </span><span style="font-family: KaiTi_GB2312; font-size: 14pt;">任务调度是指基于给定时间点，给定时间间隔或者给定执行次数自动执行任务。</span></p><p style="margin: 0in; font-size: 14pt;"><span style="font-family:KaiTi_GB2312;"> </span></p><h1 style="margin: 0in; font-size: 14pt;"><span style="font-family:KaiTi_GB2312;">Timer</span></h1><p style="margin: 0in; font-size: 14pt;"><span style="font-family:KaiTi_GB2312;"><br /></span></p><p style="margin: 0in; font-size: 14pt;"><span style="font-family:KaiTi_GB2312;">相信大家都已经非常熟悉java.util.Timer 了，它是最简单的一种实现任务调度的方法，下面给出一个具体的例子：</span></p><p style="margin: 0in; font-size: 14pt;"><span style="font-family:KaiTi_GB2312;"></span></p><pre name="code" class="java">package com.tgb.hjy;
+
+import java.util.Timer;
+import java.util.TimerTask;
+
+public class TimerTest extends TimerTask { 
+
+	 private String jobName = ""; 
+
+	 public TimerTest(String jobName) { 
+		 super(); 
+		 this.jobName = jobName; 
+	 } 
+
+	 @Override 
+	 public void run() { 
+		 System.out.println("execute " + jobName); 
+	 } 
+
+	 public static void main(String[] args) { 
+		 Timer timer = new Timer(); 
+		 long delay1 = 1 * 1000; 
+		 long period1 = 1000; 
+		 // 从现在开始 1 秒钟之后，每隔 1 秒钟执行一次 job1 
+		 timer.schedule(new TimerTest("job1"), delay1, period1); 
+		 long delay2 = 2 * 1000; 
+		 long period2 = 2000; 
+		 // 从现在开始 2 秒钟之后，每隔 2 秒钟执行一次 job2 
+		 timer.schedule(new TimerTest("job2"), delay2, period2); 
+	 	} 
+	 } </pre><br /><p></p><p style="margin: 0in; font-size: 14pt;"></p><p style="margin: 0in; font-size: 14pt;"><span style="font-family:KaiTi_GB2312;">输出结果：</span></p><p style="margin: 0in; font-size: 14pt;"><span style="font-family:KaiTi_GB2312;"> </span></p><p style="margin: 0in; font-size: 14pt;"><span style="font-family:KaiTi_GB2312;">execute job1</span></p><p style="margin: 0in; font-size: 14pt;"><span style="font-family:KaiTi_GB2312;">execute job1</span></p><p style="margin: 0in; font-size: 14pt;"><span style="font-family:KaiTi_GB2312;">execute job2</span></p><p style="margin: 0in; font-size: 14pt;"><span style="font-family:KaiTi_GB2312;">execute job1</span></p><p style="margin: 0in; font-size: 14pt;"><span style="font-family:KaiTi_GB2312;">execute job1</span></p><p style="margin: 0in; font-size: 14pt;"><span style="font-family:KaiTi_GB2312;">execute job2</span></p><p style="margin: 0in; font-size: 14pt;"><span style="font-family:KaiTi_GB2312;">execute job1</span></p><p style="margin: 0in; font-size: 14pt;"><span style="font-family:KaiTi_GB2312;">execute job1</span></p><p style="margin: 0in; font-size: 14pt;"><span style="font-family:KaiTi_GB2312;">execute job2</span></p><p style="margin: 0in; font-size: 14pt;"><span style="font-family:KaiTi_GB2312;"> </span></p><p style="margin: 0in; font-size: 14pt;"><span style="font-family:KaiTi_GB2312;">    使用 Timer 实现任务调度的核心类是Timer 和 TimerTask。其中 Timer 负责设定 TimerTask 的起始与间隔执行时间。使用者只需要创建一个 TimerTask的继承类，实现自己的 run 方法，然后将其丢给 Timer 去执行即可。</span></p><p style="margin: 0in; font-size: 14pt;"><span style="font-family:KaiTi_GB2312;"> </span></p><p style="margin: 0in; font-size: 14pt;"><span style="font-family:KaiTi_GB2312;">    Timer 的设计核心是一个 TaskList和一个 TaskThread。Timer 将接收到的任务丢到自己的 TaskList 中，TaskList 按照 Task的最初执行时间进行排序。TimerThread 在创建 Timer时会启动成为一个守护线程。这个线程会轮询所有任务，找到一个最近要执行的任务，然后休眠，当到达最近要执行任务的开始时间点，TimerThread被唤醒并执行该任务。之后 TimerThread 更新最近一个要执行的任务，继续休眠。</span></p><p style="margin: 0in; font-size: 14pt;"><span style="font-family:KaiTi_GB2312;"> </span></p><p style="margin: 0in; font-size: 14pt;"><span style="font-family:KaiTi_GB2312;">    Timer的优点在于简单易用，但由于所有任务都是由同一个线程来调度，因此所有任务都是串行执行的，同一时间只能有一个任务在执行，前一个任务的延迟或异常都将会影响到之后的任务。</span></p><p style="margin: 0in; font-size: 14pt;"><span style="font-family:KaiTi_GB2312;"> </span></p><h1 style="margin: 0in; font-size: 14pt;"><span style="font-family:KaiTi_GB2312;">ScheduledExecutor</span></h1><p style="margin: 0in; font-size: 14pt;"><span style="font-family:KaiTi_GB2312;"> </span></p><p style="margin: 0in; font-size: 14pt;"><span style="font-family:KaiTi_GB2312;">    鉴于 Timer 的上述缺陷，Java 5推出了基于线程池设计的ScheduledExecutor。其设计思想是，每一个被调度的任务都会由线程池中一个线程去执行，因此任务是并发执行的，相互之间不会受到干扰。需要注意的是，只有当任务的执行时间到来时，ScheduedExecutor才会真正启动一个线程，其余时间 ScheduledExecutor 都是在轮询任务的状态。</span></p><p style="margin: 0in; font-size: 14pt;"><span style="font-family:KaiTi_GB2312;"><br /></span></p><span style="font-family:KaiTi_GB2312;"></span><pre name="code" class="java">package com.tgb.hjy;
+
+import java.util.concurrent.Executors;
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.TimeUnit;
+
+public class ScheduledExecutorTest implements Runnable {
+	private String jobName = "";
+
+	public ScheduledExecutorTest(String jobName) {
+		super();
+		this.jobName = jobName;
+	}
+
+	@Override
+	public void run() {
+		System.out.println("execute " + jobName);
+	}
+
+	public static void main(String[] args) {
+		ScheduledExecutorService service = Executors.newScheduledThreadPool(10);
+
+		long initialDelay1 = 1;
+		long period1 = 1;
+        // 从现在开始1秒钟之后，每隔1秒钟执行一次job1 scheduleAtFixedRate
+		//每次执行时间为上一次任务开始起向后推一个时间间隔
+		//已固定的频率来执行某项计划(任务).固定的频率来执行某项计划，它不受计划执行时间的影响。到时间，它就执行。
+		service.scheduleAtFixedRate(
+		        new ScheduledExecutorTest("job1"), initialDelay1,
+				period1, TimeUnit.SECONDS);
+
+		long initialDelay2 = 1;
+		long delay2 = 1;
+        // 从现在开始2秒钟之后，每隔2秒钟执行一次job2 scheduleWithFixedDelay
+		//每次执行时间为上一次任务结束起向后推一个时间间隔
+		//相对固定的延迟后，执行某项计划.即无论某个任务执行多长时间，等执行完了，我再延迟指定的时间。它受计划执行时间的影响。
+		service.scheduleWithFixedDelay(
+		        new ScheduledExecutorTest("job2"), initialDelay2,
+				delay2, TimeUnit.SECONDS);
+	}
+}</pre><br /><p style="margin: 0in; font-size: 14pt;"></p><p style="margin: 0in; font-size: 14pt;"><span style="font-family:KaiTi_GB2312;">执行结果：</span></p><p style="margin: 0in; font-size: 14pt;"><span style="font-family:KaiTi_GB2312;"> </span></p><p style="margin: 0in; font-size: 14pt;"><span style="font-family:KaiTi_GB2312;">execute job1</span></p><p style="margin: 0in; font-size: 14pt;"><span style="font-family:KaiTi_GB2312;">execute job2</span></p><p style="margin: 0in; font-size: 14pt;"><span style="font-family:KaiTi_GB2312;">execute job1</span></p><p style="margin: 0in; font-size: 14pt;"><span style="font-family:KaiTi_GB2312;">execute job2</span></p><p style="margin: 0in; font-size: 14pt;"><span style="font-family:KaiTi_GB2312;">execute job1</span></p><p style="margin: 0in; font-size: 14pt;"><span style="font-family:KaiTi_GB2312;">execute job2</span></p><p style="margin: 0in; font-size: 14pt;"><span style="font-family:KaiTi_GB2312;"> </span></p><p style="margin: 0in; font-size: 14pt;"><span style="font-family:KaiTi_GB2312;">    ScheduledExecutorService中两种最常用的调度方法 ScheduleAtFixedRate 和 ScheduleWithFixedDelay。ScheduleAtFixedRate每次执行时间为上一次任务开始起向后推一个时间间隔；ScheduleWithFixedDelay每次执行时间为上一次任务结束起向后推一个时间间隔。由此可见，ScheduleAtFixedRate是基于固定时间间隔进行任务调度，ScheduleWithFixedDelay 取决于每次任务执行的时间长短，是基于不固定时间间隔进行任务调度。</span></p><p style="margin: 0in; font-size: 14pt;"><span style="font-family:KaiTi_GB2312;"> </span></p><h1 style="margin: 0in; font-size: 14pt;"><span style="font-family:KaiTi_GB2312;">用 ScheduledExecutor 和Calendar 实现复杂任务调度</span></h1><p style="margin: 0in; font-size: 14pt;"><span style="font-family:KaiTi_GB2312;"> </span></p><p style="margin: 0in; font-size: 14pt;"><span style="font-family:KaiTi_GB2312;">    Timer 和 ScheduledExecutor都仅能提供基于开始时间与重复间隔的任务调度，不能胜任更加复杂的调度需求。比如，设置每星期二的 16:38:10 执行任务。该功能使用 Timer 和ScheduledExecutor 都不能直接实现，但我们可以借助 Calendar 间接实现该功能。</span></p><p style="margin: 0in; font-size: 14pt;"><span style="font-family:KaiTi_GB2312;"> </span></p><p style="margin: 0in; font-size: 14pt;"><span style="font-family:KaiTi_GB2312;">    注，上述方法实现该任务调度比较麻烦，这就需要一个更加完善的任务调度框架来解决这些复杂的调度问题。幸运的是，开源工具包Quartz提供了这方面强大的支持。</span></p><p style="margin: 0in; font-size: 14pt;"><span style="font-family:KaiTi_GB2312;"> </span></p><h1 style="margin: 0in; font-size: 14pt;"><span style="font-family:KaiTi_GB2312;">Quartz</span></h1><p style="margin: 0in; font-size: 14pt;"><span style="font-family:KaiTi_GB2312;"> </span></p><p style="margin: 0in; font-size: 14pt;"><span style="font-family:KaiTi_GB2312;">Quartz可以满足更多更复杂的调度需求，首先让我们看看如何用 Quartz 实现每星期二 16:38 的调度安排：</span></p><p style="margin: 0in; font-size: 14pt;"><span style="font-family:KaiTi_GB2312;"><br /></span></p><span style="font-family:KaiTi_GB2312;"></span><pre name="code" class="java">package com.tgb.hjy;
+
+import java.util.Date;
+
+import org.quartz.Job;
+import org.quartz.JobDetail;
+import org.quartz.JobExecutionContext;
+import org.quartz.JobExecutionException;
+import org.quartz.Scheduler;
+import org.quartz.SchedulerFactory;
+import org.quartz.Trigger;
+import org.quartz.helpers.TriggerUtils;
+
+public class QuartzTest implements Job {
+
+	@Override
+	//该方法实现需要执行的任务
+	public void execute(JobExecutionContext arg0) throws JobExecutionException {
+		System.out.println("Generating report - "
+				+ arg0.getJobDetail().getFullName() + ", type ="
+				+ arg0.getJobDetail().getJobDataMap().get("type"));
+		System.out.println(new Date().toString());
+	}
+	public static void main(String[] args) {
+		try {
+			// 创建一个Scheduler
+			SchedulerFactory schedFact = 
+			new org.quartz.impl.StdSchedulerFactory();
+			Scheduler sched = schedFact.getScheduler();
+			sched.start();
+			// 创建一个JobDetail，指明name，groupname，以及具体的Job类名，
+			//该Job负责定义需要执行任务
+			JobDetail jobDetail = new JobDetail("myJob", "myJobGroup",
+					QuartzTest.class);
+			jobDetail.getJobDataMap().put("type", "FULL");
+            // 创建一个每周触发的Trigger，指明星期几几点几分执行
+			Trigger trigger = TriggerUtils.makeWeeklyTrigger(3, 16, 38);
+			trigger.setGroup("myTriggerGroup");
+			// 从当前时间的下一秒开始执行
+			trigger.setStartTime(TriggerUtils.getEvenSecondDate(new Date()));
+			// 指明trigger的name
+			trigger.setName("myTrigger");
+			// 用scheduler将JobDetail与Trigger关联在一起，开始调度任务
+			sched.scheduleJob(jobDetail, trigger);
+
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+	}
+} </pre><br /><p style="margin: 0in; font-size: 14pt;"></p><p style="margin: 0in; font-size: 14pt;"><span style="font-family:KaiTi_GB2312;">    使用Quartz我们非常简洁地实现了一个上述复杂的任务调度。Quartz设计的核心类包括 Scheduler, Job 以及 Trigger。其中，Job 负责定义需要执行的任务，Trigger负责设置调度策略，Scheduler 将二者组装在一起，并触发任务开始执行。</span></p><p style="margin: 0in; font-size: 14pt;"><span style="font-family:KaiTi_GB2312;"> </span></p><h1 style="margin: 0in; font-size: 14pt;"><span style="font-family:KaiTi_GB2312;">总结：</span></h1><p style="margin: 0in; font-size: 14pt;"><span style="font-family:KaiTi_GB2312;"><br /></span></p><p style="margin: 0in; font-size: 14pt;"><span style="font-family:KaiTi_GB2312;">    </span><span style="font-family: KaiTi_GB2312; font-size: 14pt;">以上是几种任务调度的实现方式，各有优缺点，对于Quartz的学习还需要继续深入。后面会详细介绍！</span></p><br /><p style="margin: 0in; font-size: 14pt;"><br /></p>   &#13;

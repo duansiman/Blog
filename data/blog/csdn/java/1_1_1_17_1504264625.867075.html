@@ -1,0 +1,94 @@
+
+
+<p>原文&lt;方法类型化&gt;问题多多，重新组织了本文。</p>&#13;
+<p><br />&#13;
+</p>&#13;
+<p>道生一，一生二，二生三，三生万物。多次使用策略模式需要考虑两个问题：组合爆炸和无限可能。</p>&#13;
+<p>单纯地使用如Netbeans的重构-提取接口是不够的，我们需要将提取的接口由父类型(is_a)修改成使用关系。[<del>方法类型化——将某个或某些方法(准确的说，是方法头或接口) 提升为类型，是方法型模式的共同技术基础和设计思路</del>。1)方法类型化,在Netbeans的重构中对应“提取接口”,]</p>&#13;
+<p></p>&#13;
+<h2>1. 避免类型爆炸</h2>&#13;
+<p></p>&#13;
+<p>抽象类型Person有两个抽象方法，分别有m和n种实现，则Person可能需要m*n个子类型。</p>&#13;
+<p>假定Person有eat()方法——大家都用筷子；有say()方法——每个地方的人说自己的方言，可以按照“地域”设计Person的各种子类型如BeiJin、Wuhan等等；如果Person还有walk()方法——慢条斯理、风风火火等七八种实现方式。</p>&#13;
+请问，如何面对慢条斯理的武汉人、风风火火的武汉人、慢条斯理的上海人……say()与walk()的任意组合将导致Person的子类型数量急剧膨胀。<br />&#13;
+<p></p>&#13;
+<pre code_snippet_id="2366093" snippet_file_name="blog_20170501_1_5846408" name="code" class="java">package strategy.n; 
+public abstract class Person_0{
+    public final void eat(){ //不影响类型数量
+        System.out.println("用筷子");
+    }    
+abstract public void say();//每人说自己的方言
+abstract public void walk();//慢条斯理、风风火火等七八种实现方式
+}
+</pre>&#13;
+<p></p>&#13;
+<p>为了避免类型(数量)的爆炸，将对Person_0进行重构。使用<strong><span style="color:#ff0000">Netbeans的重构-提取接口</span></strong>，以SayBehavior和WalkBehavior分别封装say()和walk()。但是这种重构的结果，仍然属于策略模式中Context的类层次</p>&#13;
+<p>public abstract class Person_0 implements SayBehavior, WalkBehavior</p>&#13;
+以Person为环境类，使用2次策略模式，环境类Person的类层次(有子类型m*n个) 转化为2个策略的类层次(共有子类型m+n个)。     <br />&#13;
+<pre code_snippet_id="2366093" snippet_file_name="blog_20170501_2_7209610" name="code" class="java">package strategy.n;
+import yqj2065.util.God;
+public class Person {
+    private final WalkBehavior walkStyle =(WalkBehavior)God.create("3-2-WalkBehavior");;
+    private final SayBehavior sayStyle =(SayBehavior)God.create("3-2-SayBehavior");
+    public final void eat(){
+        System.out.println("用筷子");
+    }
+    //每人说自己的方言
+    public void say(){
+        this.sayStyle.say();
+    }
+    //慢条斯理、风风火火等七八种实现方式
+    public void walk(){
+        this.walkStyle.walk();
+    }
+}
+</pre>只要一个类有两个抽象方法，而且它们的实现方式不相互制约，就会导致该类子类型的数量爆炸。<strong><span style="color:#ff0000">模板方法模式、桥接模式均面临这一问题</span></strong>，所以将它们作为n次策略的变体。<br />&#13;
+<h2><span style="font-weight:bold">2.无限可能性和函数接口<br />&#13;
+</span></h2>&#13;
+<p></p>&#13;
+<p></p>&#13;
+<p>假定Person的say()，有无穷多或者足够多的实现方式，又该怎样设计？</p>&#13;
+<p>通常，Person放弃对SayBehavior的初始化，而让Person的客户如Main提供实现并传递给Person。(当然，也可以使用系统提供的SayBehavior实现类，如Wuhan)，提供实现时可以使用Java8的lambda表达式。此外，SayBehavior类可以添加注解@FunctionalInterface。</p>&#13;
+<p></p><pre name="code" class="java">package strategy.n;
+import yqj2065.util.God;
+public class Person {
+    private final WalkBehavior walkStyle =(WalkBehavior)God.create("3-2-WalkBehavior");
+    public void say(SayBehavior sayStyle){
+        sayStyle.say();
+    }
+}
+
+package strategy.n;
+import yqj2065.util.God;
+public class Main {
+    public static void testN(){
+        Person one = new Person(); 
+        one.say();
+        one.walk();
+    }
+    public static void testNaN(){
+        Person one = new Person(); 
+        SayBehavior sayStyle = ()-&gt;{System.out.println("格老子");};
+        one.say(sayStyle);
+        sayStyle =(SayBehavior)God.create("3-2-SayBehavior");
+        one.say(sayStyle);
+    }
+    public static void main(String[] args){
+        testN();
+        testNaN();
+    }
+}
+</pre><br />&#13;
+例程3-3的Person作为环境类，say(SayBehavior sayStyle)的参数则是策略。&#13;
+<p>-------------------------</p>&#13;
+<p>而<strong><span style="color:#ff0000">命令模式</span></strong>的典型例子java.lang.Runnable及其实现类，与本例程的结构相同。</p>&#13;
+<p><br />&#13;
+</p>&#13;
+<p>【虽然说<strong>函数接口</strong>的基本目标是实现回调，但是在非框架场合，代码由客户类提供也是函数接口的正常应用。毕竟回调只是分层结构中的术语，在非分层结构中，其代码和普通多态没有任何差异。】</p>&#13;
+<hr />&#13;
+<p><a target="_blank" href="http://blog.csdn.net/yqj2065/article/details/8592375" style="color:rgb(51,51,51); text-decoration:none; font-family:Arial; line-height:30px; white-space:nowrap"></a><a target="_blank" href="http://blog.csdn.net/yqj2065/article/details/8592375" style="text-align:center"><img src="http://img.blog.csdn.net/20140919170809965?watermark/2/text/aHR0cDovL2Jsb2cuY3Nkbi5uZXQveXFqMjA2NQ==/font/5a6L5L2T/fontsize/400/fill/I0JBQkFCMA==/dissolve/70/gravity/SouthEast" alt="" /></a><br />&#13;
+</p>&#13;
+<p><br />&#13;
+</p>&#13;
+<br />&#13;
+   &#13;

@@ -1,0 +1,281 @@
+
+        <div class="markdown_views"><h2 id="代理模式和动态代理的简单介绍">代理模式和动态代理的简单介绍</h2>
+
+<p><strong>首先看看代理模式的概念及分类:</strong></p>
+
+<p>代理模式就是为其他对象提供一种代理以控制对这个对象的访问,代理对象起到中介的作用,可以去掉功能服务或怎么额外的服务</p>
+
+<p>代理模式的分类:远程代理,智能引用代理,保护代理,虚拟代理</p>
+
+<blockquote>
+  <p>1.虚拟代理:根据需要将资源消耗很大的对象进行延迟,真正需要的时候进行创建</p>
+  
+  <p>2.保护代理:控制对一个对象的访问权限</p>
+  
+  <p>3.智能引用代理:提供对目标对象额外的一些服务</p>
+  
+  <p>4.远程代理:为不同地理的对象提供局域网代表对象,如连锁店可以通过远程代理来监控各个分店的情况</p>
+</blockquote>
+
+<p>同时按照代理的创建时期,代理类可以分为两种:</p>
+
+<blockquote>
+  <p>1.动态代理:在程序运行时,运用反射机制动态创建而成</p>
+  
+  <p>2.静态代理:由程序员创建或特定工具自动生成源代码,再对其编译,在程序运行前,代理类的.class文件就已经存在了</p>
+  
+  <p>两者对比:静态代理只能代理一种类型的被代理类,换个类型的就不行了,这需要动态代理</p>
+</blockquote>
+
+<p><strong>接下来我们以智能引用代理为例,分别采用静态代理和动态代理的方式实现:</strong></p>
+
+<p>静态代理:代理和被代理对象在代理之前是确定的,他们都实现相同的接口或者继承相同的抽象类</p>
+
+<p>假设一辆小车有一个行驶的方法,然后我们通过代理实现这个行驶的方法,同时增加记录行驶时间的方法:</p>
+
+
+
+<pre class="prettyprint"><code class=" hljs java"><span class="hljs-comment">//首先定义接口Moveable.java:</span>
+<span class="hljs-keyword">public</span> <span class="hljs-class"><span class="hljs-keyword">interface</span> <span class="hljs-title">Moveable</span>{</span>
+    <span class="hljs-keyword">void</span> move();
+}
+
+<span class="hljs-comment">//然后定义Car.java类并实现Moveable接口:</span>
+<span class="hljs-keyword">public</span> <span class="hljs-class"><span class="hljs-keyword">class</span> <span class="hljs-title">Car</span> <span class="hljs-keyword">implements</span> <span class="hljs-title">Moveable</span> <span class="hljs-title">throws</span> <span class="hljs-title">Exception</span>{</span>
+    <span class="hljs-annotation">@Override</span>
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">void</span> <span class="hljs-title">move</span>() {
+        System.out.println(<span class="hljs-string">"汽车行驶中..."</span>);
+        Thread.sleep(<span class="hljs-keyword">new</span> Random().nextInt(<span class="hljs-number">1000</span>));
+    }
+}</code></pre>
+
+<p>1.通过继承的方式定义Car2.java来实现静态代理:</p>
+
+
+
+<pre class="prettyprint"><code class=" hljs java"><span class="hljs-keyword">public</span> <span class="hljs-class"><span class="hljs-keyword">class</span> <span class="hljs-title">Car2</span> <span class="hljs-keyword">extends</span> <span class="hljs-title">Car</span> {</span>
+    <span class="hljs-annotation">@Override</span>
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">void</span> <span class="hljs-title">move</span>() {
+        <span class="hljs-keyword">long</span> startTime = System.currentTimeMillis();
+        System.out.println(<span class="hljs-string">"汽车开始行驶"</span>);
+        <span class="hljs-keyword">super</span>.move();
+        <span class="hljs-keyword">long</span> endTime = System.currentTimeMillis();
+        System.out.println(<span class="hljs-string">"汽车停止行驶,行驶时间:"</span>+(endTime-startTime)+<span class="hljs-string">"毫秒"</span>);
+    }
+}</code></pre>
+
+<p>2.通过聚合的方式定义Car3.java来实现静态代理:</p>
+
+
+
+<pre class="prettyprint"><code class=" hljs java"><span class="hljs-keyword">public</span> <span class="hljs-class"><span class="hljs-keyword">class</span> <span class="hljs-title">Car3</span> <span class="hljs-keyword">implements</span> <span class="hljs-title">Moveable</span> {</span>
+    <span class="hljs-keyword">private</span> Car car;
+    <span class="hljs-keyword">public</span> <span class="hljs-title">Car3</span>(Car car) {
+        <span class="hljs-keyword">super</span>();
+        <span class="hljs-keyword">this</span>.car = car;
+    }
+    <span class="hljs-annotation">@Override</span>
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">void</span> <span class="hljs-title">move</span>() {
+        <span class="hljs-keyword">long</span> startTime = System.currentTimeMillis();
+        System.out.println(<span class="hljs-string">"汽车开始行驶"</span>);
+        car.move();
+        <span class="hljs-keyword">long</span> endTime = System.currentTimeMillis();
+        System.out.println(<span class="hljs-string">"汽车停止行驶，行驶时间："</span> + (endTime - startTime) + <span class="hljs-string">"毫秒"</span>);
+    }
+}</code></pre>
+
+<p>我们通过继承和聚合的方式分别实现了汽车行驶过程中记录行驶时间的方法,如果需要进一步的拓展,比如:记录日志,权限等方法,通过继承的方式就需要定义Car4,Car5等,显然这种做法不值得推荐</p>
+
+<p>聚合代理优于继承代理:因为实现功能叠加的情况下,聚合代理通过相互代理可以实现功能重用,而继承代理必须写多个类来实现多功能叠加,聚合和继承两者具体区别举例介绍的参考博客:(模式的秘密—代理模式):<a href="http://blog.csdn.net/zhimingshangyan/article/details/52424243">http://blog.csdn.net/zhimingshangyan/article/details/52424243</a></p>
+
+
+
+<h2 id="jdk动态代理的介绍和学习">JDK动态代理的介绍和学习</h2>
+
+<p><img src="http://img.mukewang.com/58bc1baf000137c712800720.jpg" alt="" title="" /></p>
+
+<p><img src="http://img.mukewang.com/58bc1be7000184fa12800720.jpg" alt="" title="" /></p>
+
+<p><strong>还是上面的例子,下载我们我们使用动态代理的方式实现:</strong></p>
+
+<p>1.定义TimeHandler.java类实现InvocationHandler接口:</p>
+
+
+
+<pre class="prettyprint"><code class=" hljs java"><span class="hljs-keyword">public</span> <span class="hljs-class"><span class="hljs-keyword">class</span> <span class="hljs-title">TimeHandler</span> <span class="hljs-keyword">implements</span> <span class="hljs-title">InvocationHandler</span> {</span>
+    <span class="hljs-keyword">private</span> Object target;
+    <span class="hljs-keyword">public</span> <span class="hljs-title">TimeHandler</span>(Object target) {
+        <span class="hljs-keyword">super</span>();
+        <span class="hljs-keyword">this</span>.target = target;
+    }
+
+    <span class="hljs-annotation">@Override</span>
+    <span class="hljs-keyword">public</span> Object <span class="hljs-title">invoke</span>(Object proxy, Method method, Object[] args) <span class="hljs-keyword">throws</span> Throwable {
+        <span class="hljs-keyword">long</span> startTime=System.currentTimeMillis();
+        System.out.println(<span class="hljs-string">"汽车开始行驶"</span>);
+        method.invoke(target);
+        <span class="hljs-keyword">long</span> endTime=System.currentTimeMillis();
+        System.out.println(<span class="hljs-string">"汽车停止行驶,行驶时间:"</span>+(endTime-startTime)+<span class="hljs-string">"毫秒"</span>);
+        <span class="hljs-keyword">return</span> <span class="hljs-keyword">null</span>;
+    }
+}</code></pre>
+
+<p>2.测试类Test.java的实现:</p>
+
+
+
+<pre class="prettyprint"><code class=" hljs cs"><span class="hljs-keyword">public</span> <span class="hljs-keyword">static</span> <span class="hljs-keyword">void</span> <span class="hljs-title">main</span>(String[] args) {
+    Car car=<span class="hljs-keyword">new</span> Car();
+    InvocationHandler h=<span class="hljs-keyword">new</span> TimeHandler(car);
+    Class&lt;?&gt; cls=car.getClass();
+    Moveable m=(Moveable)Proxy.newProxyInstance(cls.getClassLoader(),cls.getInterfaces(),h);
+    <span class="hljs-comment">//获得代理对象,参数1:类加载器 参数2:实现的接口 参数3:事务处理器(InvocationHandler)</span>
+    m.move();
+}</code></pre>
+
+<p><strong>JDK动态代理的基本总结和实现步骤:</strong></p>
+
+<blockquote>
+  <p>1.被代理对象首先要实现某些接口 <br />
+  2.它在运行时生成class对象(代理类),该class需要实现一组interface <br />
+  3.产生的代理类并不能做什么事情,必须实现InvocationHandler接口来接管实际的工作 <br />
+  4.想实现的功能是在handler中去实现的</p>
+</blockquote>
+
+<p><img src="http://img.mukewang.com/58bc2018000180c712800720.jpg" alt="" title="" /></p>
+
+
+
+<h2 id="cglib动态代理的介绍和学习">CGLIB动态代理的介绍和学习</h2>
+
+<p>CGLIB(Code Generation Library)是一个开源项目,是一个强大的,高性能,高质量的Code生成类库,它可以在运行期扩展Java类与实现Java接口,Hibernate用它来实现PO(Persistent Object 持久化对象)字节码的动态生成</p>
+
+<p><strong>首先看看JDK动态代理与CGLIB动态代理之间的区别:</strong></p>
+
+<p><img src="http://img.mukewang.com/58ab931c00013f2312800720.jpg" alt="" title="" /></p>
+
+<p><strong>GLIB动态代理的举例使用(在使用前需要导入jar包):</strong></p>
+
+<pre class="prettyprint"><code class=" hljs cs"><span class="hljs-keyword">public</span> <span class="hljs-keyword">class</span> Train {
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">void</span> <span class="hljs-title">move</span>(){
+        System.<span class="hljs-keyword">out</span>.println(<span class="hljs-string">"火车行驶中...."</span>);
+    }
+}</code></pre>
+
+
+
+<pre class="prettyprint"><code class=" hljs java"><span class="hljs-keyword">public</span> <span class="hljs-class"><span class="hljs-keyword">class</span> <span class="hljs-title">CglibProxy</span> <span class="hljs-keyword">implements</span> <span class="hljs-title">MethodInterceptor</span>{</span><span class="hljs-comment">//实现MethodInterceptor接口</span>
+
+    <span class="hljs-keyword">private</span> Enhancer enhance=<span class="hljs-keyword">new</span> Enhancer();
+
+    <span class="hljs-keyword">public</span> Object <span class="hljs-title">getProxy</span>(Class clazz){
+        enhance.setSuperclass(clazz);<span class="hljs-comment">//设置需要创建子类的类  </span>
+        enhance.setCallback(<span class="hljs-keyword">this</span>);
+        <span class="hljs-keyword">return</span> enhance.create();<span class="hljs-comment">//通过字节码技术动态创建子类实例  </span>
+    }
+
+    <span class="hljs-javadoc">/**
+     * 该方法用于拦截目标类方法的调用
+     * 参数arg0:目标类的实例
+     * 参数arg1:目标方法的反射对象
+     * 参数agr2:方法的参数
+     * 参数arg3:proxy代理类的实例
+     */</span>
+    <span class="hljs-annotation">@Override</span>
+    <span class="hljs-keyword">public</span> Object <span class="hljs-title">intercept</span>(Object arg0,Method arg1,Object[] arg2,MethodProxy arg3) <span class="hljs-keyword">throws</span> Throwable {
+        System.out.println(<span class="hljs-string">"前置代理"</span>);  
+        arg3.invokeSuper(arg0,arg2);<span class="hljs-comment">//通过代理类调用父类的方法</span>
+        System.out.println(<span class="hljs-string">"后置代理"</span>);  
+        <span class="hljs-keyword">return</span> <span class="hljs-keyword">null</span>;
+    }
+}</code></pre>
+
+
+
+<pre class="prettyprint"><code class=" hljs cs"><span class="hljs-keyword">public</span> <span class="hljs-keyword">static</span> <span class="hljs-keyword">void</span> <span class="hljs-title">main</span>(String[] args) {
+    CglibProxy proxy=<span class="hljs-keyword">new</span> CglibProxy();
+    Train train=(Train)proxy.getProxy(Train.class);
+    train.move();
+}
+<span class="hljs-comment">//输出:</span>
+前置代理
+火车行驶中....
+后置代理</code></pre>
+
+
+
+<h2 id="jdk动态代理的简单例子">JDK动态代理的简单例子</h2>
+
+<p><strong>首先创建一个接口,PersonDao.java:</strong></p>
+
+
+
+<pre class="prettyprint"><code class=" hljs cs"><span class="hljs-keyword">public</span> <span class="hljs-keyword">interface</span> PersonDao{  
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">void</span> <span class="hljs-title">say</span>();  
+}  </code></pre>
+
+<p><strong>然后写一个接口实现类PersonDaoImpl.java:</strong></p>
+
+
+
+<pre class="prettyprint"><code class=" hljs java"><span class="hljs-keyword">public</span> <span class="hljs-class"><span class="hljs-keyword">class</span> <span class="hljs-title">PersonDaoImpl</span> <span class="hljs-keyword">implements</span> <span class="hljs-title">PersonDao</span>{</span>  
+    <span class="hljs-annotation">@Override</span>  
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">void</span> <span class="hljs-title">say</span>(){  
+        System.out.println(<span class="hljs-string">"time to eat"</span>);  
+    }    
+}  </code></pre>
+
+<p><strong>然后写个使用类PersonHandler.java:</strong></p>
+
+
+
+<pre class="prettyprint"><code class=" hljs java"><span class="hljs-keyword">public</span> <span class="hljs-class"><span class="hljs-keyword">class</span> <span class="hljs-title">PersonHandler</span> <span class="hljs-keyword">implements</span> <span class="hljs-title">InvocationHandler</span> {</span><span class="hljs-comment">//PersonHandler必须要实现InvocationHandler接口   </span>
+    <span class="hljs-keyword">private</span> Object obj;   
+
+    <span class="hljs-keyword">public</span> <span class="hljs-title">PersonHandler</span>(Object obj){  
+        <span class="hljs-keyword">this</span>.obj=obj;  
+    }  
+
+    <span class="hljs-annotation">@Override</span>  
+    <span class="hljs-keyword">public</span> Object <span class="hljs-title">invoke</span>(Object proxy, Method method, Object[] args) <span class="hljs-keyword">throws</span> Throwable {  
+        System.out.println(<span class="hljs-string">"before"</span>);  
+        Object result = method.invoke(obj, args);  
+        System.out.println(<span class="hljs-string">"after"</span>);  
+        <span class="hljs-keyword">return</span> result;  
+    }    
+}  </code></pre>
+
+<p><strong>最后,我们再写个测试类PersonTest.java:</strong></p>
+
+
+
+<pre class="prettyprint"><code class=" hljs cs"><span class="hljs-keyword">public</span> <span class="hljs-keyword">class</span> PersonTest {  
+    @Test  
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">void</span> <span class="hljs-title">test</span>(){  
+        PersonDao pDao = <span class="hljs-keyword">new</span> PersonDaoImpl();  
+        PersonHandler handler = <span class="hljs-keyword">new</span> PersonHandler(pDao);  
+
+        PersonDao proxy = (PersonDao)Proxy.newProxyInstance(pDao.getClass().getClassLoader(), pDao.getClass().getInterfaces(), handler);  
+        proxy.say();  
+    }  
+}  
+<span class="hljs-comment">//输出:</span>
+before
+time to eat
+after</code></pre>
+
+<p>最后推荐一篇关于Java动态代理的参考和学习博客:(java动态代理原理及解析):<a href="http://blog.csdn.net/scplove/article/details/52451899">http://blog.csdn.net/scplove/article/details/52451899</a></p></div>&#13;
+        <script type="text/javascript">&#13;
+            $(function () {&#13;
+                $('pre.prettyprint code').each(function () {&#13;
+                    var lines = $(this).text().split('\n').length;&#13;
+                    var $numbering = $('&lt;ul/&gt;').addClass('pre-numbering').hide();&#13;
+                    $(this).addClass('has-numbering').parent().append($numbering);&#13;
+                    for (i = 1; i &lt;= lines; i++) {&#13;
+                        $numbering.append($('&lt;li/&gt;').text(i));&#13;
+                    };&#13;
+                    $numbering.fadeIn(1700);&#13;
+                });&#13;
+            });&#13;
+        </script>&#13;
+   &#13;

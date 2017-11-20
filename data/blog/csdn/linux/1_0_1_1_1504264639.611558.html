@@ -1,0 +1,50 @@
+
+<p><span style="font-size:24px;"><strong>      <span style="font-family:Comic Sans MS;">Linux 内核中用到了大量的结构体，在编码规范中也给出了结构体初始化的规则，这篇文章中有对其的解释：<a target="_blank" href="http://blog.csdn.net/dlutbrucezhang/article/details/10296897">http://blog.csdn.net/dlutbrucezhang/article/details/10296897</a>，不过，这篇文章中并没有给出实例分析，下面我写了一段测试程序：</span></strong></span></p><p><span style="font-size:24px;"><strong><span style="font-family:Comic Sans MS;"></span></strong></span></p><pre name="code" class="cpp">#include&lt;stdio.h&gt;
+#include&lt;string.h&gt;
+
+struct test {
+	int test_value1;
+	float test_value2;
+	char  *test_value3;
+};
+
+int main(void)
+{
+	int i;
+	char my_name[] = "DLUTBruceZhang";
+	char my_school[] = "DLUT";
+	
+	for(i = 0; i &lt; 2; i++){
+		if (i % 2 == 0){
+			struct test my_test = {
+				.test_value1 = 10,
+				.test_value2 = 10.0,
+				.test_value3 = my_name,
+			};
+			printf("test_value1 = %d, test_value2 = %f,\
+					test_value3 = %s\n", my_test.test_value1,
+					 my_test.test_value2, my_test.test_value3);
+			
+		} else {
+			struct test my_test = {
+				.test_value1 = 100,
+				.test_value2 = 100.0,
+				.test_value3 = my_school,
+			};
+			printf("test_value1 = %d, test_value2 = %f,\
+					test_value3 = %s\n", my_test.test_value1,
+					 my_test.test_value2, my_test.test_value3);
+		}
+	}
+	struct test my_test = {
+				/*.test_value1 = 10,*/
+				/*.test_value2 = 10.0,*/
+				/*.test_value3 = my_name,*/
+			};
+	printf("test_value1 = %d, test_value2 = %f,\
+					test_value3 = %s\n", my_test.test_value1,
+					 my_test.test_value2, my_test.test_value3);
+	
+	return 0;	
+}
+</pre>      分析：<p><span style="font-size:24px;"><strong><span style="font-family:Comic Sans MS;">1.首先给出结构体的定义，它包含三个字段，一个整型，一个浮点型，一个字符指针</span></strong></span></p><p><span style="font-size:24px;"><strong><span style="font-family:Comic Sans MS;">      <span style="color:#ff0000;">struct test {<br /><span style="white-space:pre">	</span>int test_value1;<br /><span style="white-space:pre">	</span>float test_value2;<br /><span style="white-space:pre">	</span>char  *test_value3;<br />      };</span><br />2.两次赋初值，根据情况不同，对其进行赋值，赋值方法采用的是 Linux 内核编码规范中的方法（这里忽略了标识符）</span></strong></span></p><p><span style="font-size:24px;"><strong><span style="font-family:Comic Sans MS;"><span style="white-space:pre">		</span><span style="color:#ff6600;">struct test my_test = {<br /><span style="white-space:pre">				</span>.test_value1 = 10,<br /><span style="white-space:pre">				</span>.test_value2 = 10.0,<br /><span style="white-space:pre">				</span>.test_value3 = my_name,<br /><span style="white-space:pre">			</span>};<br /></span></span></strong></span></p><p><span style="font-size:24px;"><strong><span style="font-family:Comic Sans MS;"><span style="color:#ff6600;"><span style="white-space:pre">		</span>struct test my_test = {<br /><span style="white-space:pre">				</span>.test_value1 = 100,<br /><span style="white-space:pre">				</span>.test_value2 = 100.0,<br /><span style="white-space:pre">				</span>.test_value3 = my_school,<br /><span style="white-space:pre">			</span>};</span><br /></span></strong></span></p><p><span style="font-size:24px;"><strong><span style="font-family:Comic Sans MS;">3.不赋初值的情况是整型默认为 0，浮点型默认为 0.0，字符指针默认为 NULL</span></strong></span></p><p><span style="font-size:24px;"><strong><span style="font-family:Comic Sans MS;"><span style="white-space:pre">		</span><span style="color:#ff6600;">struct test my_test = {<br /><span style="white-space:pre">				</span>/*.test_value1 = 10,*/<br /><span style="white-space:pre">				</span>/*.test_value2 = 10.0,*/<br /><span style="white-space:pre">				</span>/*.test_value3 = my_name,*/<br /><span style="white-space:pre">			</span>};</span><br /></span></strong></span></p><p><span style="font-size:24px;"><strong><span style="font-family:Comic Sans MS;">      下面，运行这个测试程序，验证上述说法：</span></strong></span></p><p style="text-align: center;"><span style="font-size:24px;"><strong><span style="font-family:Comic Sans MS;"><img src="http://img.blog.csdn.net/20130825150553296?watermark/2/text/aHR0cDovL2Jsb2cuY3Nkbi5uZXQvRExVVEJydWNlWmhhbmc=/font/5a6L5L2T/fontsize/400/fill/I0JBQkFCMA==/dissolve/70/gravity/SouthEast" alt="" /><br /></span></strong></span></p><span style="font-size:24px;"><strong><span style="font-family:Comic Sans MS;"></span></strong></span>   &#13;

@@ -1,0 +1,724 @@
+
+        <div class="markdown_views"><h2 id="工厂模式"><center> 工厂模式</center></h2>
+
+<p>标签 : Java与设计模式</p>
+
+<hr />
+
+<blockquote>
+  <p>工厂模式 <br />
+  用工厂方法代替了new操作, 将<code>选择实现类</code>, <code>创建对象</code>统一管理和控制.从而将调用者(Client)与实现类进行解耦.实现了<code>创建者与调用者分离</code>;</p>
+</blockquote>
+
+<ul>
+<li>使用场景 <br />
+<ol><li>JDK中Calendar的getInstance方法;</li>
+<li>JDBC中Connection对象的获取;</li>
+<li>MyBatis中SqlSessionFactory创建SqlSession;</li>
+<li>SpringIoC容器创建并管理Bean对象;</li>
+<li>反射Class对象的newInstance;</li>
+<li>….</li></ol></li>
+</ul>
+
+<hr />
+
+
+
+<h3 id="静态工厂模式">静态工厂模式</h3>
+
+<blockquote>
+  <p>静态工厂模式是工厂模式中最简单的一种，他可以用比较简单的方式隐藏创建对象的细节，一般只需要告诉工厂类所需要的类型，工厂类就会返回需要的产品类，而客户端看到的也只是产品的抽象对象(interface)，因此<code>无需关心到底是返回了哪个子类</code></p>
+</blockquote>
+
+<ul>
+<li><p>我们以运算符类为例, 解释静态工厂模式. <br />
+<img src="http://7xrgh9.com1.z0.glb.clouddn.com/16-8-25/10726481.jpg" alt="" title="" /></p></li>
+<li><p>Operator接口</p></li>
+</ul>
+
+
+
+<pre class="prettyprint"><code class=" hljs scala"><span class="hljs-javadoc">/**
+ * 运算符接口
+ * Created by jifang on 15/12/7.
+ */</span>
+public interface Operator&lt;T&gt; {
+    T getResult(T... args);
+}</code></pre>
+
+<ul>
+<li>实现类</li>
+</ul>
+
+
+
+<pre class="prettyprint"><code class=" hljs axapta"><span class="hljs-keyword">public</span> <span class="hljs-class"><span class="hljs-keyword">class</span> <span class="hljs-title">AddOperator</span> <span class="hljs-inheritance"><span class="hljs-keyword">implements</span></span> <span class="hljs-title">Operator</span>&lt;<span class="hljs-title">Integer</span>&gt; {</span>
+
+    @Override
+    <span class="hljs-keyword">public</span> Integer getResult(Integer... args) {
+        <span class="hljs-keyword">int</span> result = <span class="hljs-number">0</span>;
+        <span class="hljs-keyword">for</span> (<span class="hljs-keyword">int</span> arg : args) {
+            result += arg;
+        }
+        <span class="hljs-keyword">return</span> result;
+    }
+}</code></pre>
+
+
+
+<pre class="prettyprint"><code class=" hljs axapta"><span class="hljs-keyword">public</span> <span class="hljs-class"><span class="hljs-keyword">class</span> <span class="hljs-title">MultiOperator</span> <span class="hljs-inheritance"><span class="hljs-keyword">implements</span></span> <span class="hljs-title">Operator</span>&lt;<span class="hljs-title">Integer</span>&gt; {</span>
+
+    @Override
+    <span class="hljs-keyword">public</span> Integer getResult(Integer... args) {
+        <span class="hljs-keyword">int</span> result = <span class="hljs-number">1</span>;
+        <span class="hljs-keyword">for</span> (<span class="hljs-keyword">int</span> arg : args) {
+            result *= arg;
+        }
+
+        <span class="hljs-keyword">return</span> result;
+    }
+}</code></pre>
+
+<ul>
+<li>工厂</li>
+</ul>
+
+
+
+<pre class="prettyprint"><code class=" hljs java"><span class="hljs-javadoc">/**
+ * 静态工厂(注: 只返回产品的抽象[即接口])
+ * 包含两种实现策略
+ * 1. 根据传入的operator名进行实例化对象
+ * 2. 直接调用相应的构造实例的方法
+ * Created by jifang on 15/12/7.
+ */</span>
+<span class="hljs-keyword">public</span> <span class="hljs-class"><span class="hljs-keyword">class</span> <span class="hljs-title">OperatorFactory</span> {</span>
+
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">static</span> Operator&lt;Integer&gt; <span class="hljs-title">createOperator</span>(String operName) {
+        Operator&lt;Integer&gt; operator;
+        <span class="hljs-keyword">switch</span> (operName) {
+            <span class="hljs-keyword">case</span> <span class="hljs-string">"+"</span>:
+                operator = <span class="hljs-keyword">new</span> AddOperator();
+                <span class="hljs-keyword">break</span>;
+            <span class="hljs-keyword">case</span> <span class="hljs-string">"*"</span>:
+                operator = <span class="hljs-keyword">new</span> MultiOperator();
+                <span class="hljs-keyword">break</span>;
+            <span class="hljs-keyword">default</span>:
+                <span class="hljs-keyword">throw</span> <span class="hljs-keyword">new</span> RuntimeException(<span class="hljs-string">"Wrong Operator Name: "</span> + operName);
+        }
+        <span class="hljs-keyword">return</span> operator;
+    }
+
+    <span class="hljs-comment">/* ** 第二种实现策略 ** */</span>
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">static</span> Operator&lt;Integer&gt; <span class="hljs-title">createAddOper</span>() {
+        <span class="hljs-keyword">return</span> <span class="hljs-keyword">new</span> AddOperator();
+    }
+
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">static</span> Operator&lt;Integer&gt; <span class="hljs-title">createMultiOper</span>() {
+        <span class="hljs-keyword">return</span> <span class="hljs-keyword">new</span> MultiOperator();
+    }
+}</code></pre>
+
+<ul>
+<li>Client</li>
+</ul>
+
+
+
+<pre class="prettyprint"><code class=" hljs cs"><span class="hljs-keyword">public</span> <span class="hljs-keyword">class</span> Client {
+
+    @Test
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">void</span> <span class="hljs-title">testAdd</span>() {
+        Operator&lt;Integer&gt; <span class="hljs-keyword">operator</span> = OperatorFactory.createOperator(<span class="hljs-string">"+"</span>);
+        System.<span class="hljs-keyword">out</span>.println(<span class="hljs-keyword">operator</span>.getResult(<span class="hljs-number">1</span>, <span class="hljs-number">2</span>, <span class="hljs-number">3</span>, <span class="hljs-number">4</span>, <span class="hljs-number">6</span>));
+    }
+
+    @Test
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">void</span> <span class="hljs-title">testMultiplication</span>() {
+        Operator&lt;Integer&gt; <span class="hljs-keyword">operator</span> = OperatorFactory.createOperator(<span class="hljs-string">"*"</span>);
+        System.<span class="hljs-keyword">out</span>.println(<span class="hljs-keyword">operator</span>.getResult(<span class="hljs-number">1</span>, <span class="hljs-number">2</span>, <span class="hljs-number">3</span>, <span class="hljs-number">4</span>, <span class="hljs-number">6</span>));
+    }
+
+    @Test
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">void</span> <span class="hljs-title">testAddName</span>(){
+        Operator&lt;Integer&gt; <span class="hljs-keyword">operator</span> = OperatorFactory.createAddOper();
+        System.<span class="hljs-keyword">out</span>.println(<span class="hljs-keyword">operator</span>.getResult(<span class="hljs-number">1</span>, <span class="hljs-number">2</span>, <span class="hljs-number">3</span>, <span class="hljs-number">4</span>, <span class="hljs-number">6</span>));
+    }
+
+    @Test
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">void</span> <span class="hljs-title">testMultiplicationName</span>() {
+        Operator&lt;Integer&gt; <span class="hljs-keyword">operator</span> = OperatorFactory.createMultiOper();
+        System.<span class="hljs-keyword">out</span>.println(<span class="hljs-keyword">operator</span>.getResult(<span class="hljs-number">1</span>, <span class="hljs-number">2</span>, <span class="hljs-number">3</span>, <span class="hljs-number">4</span>, <span class="hljs-number">6</span>));
+    }
+}</code></pre>
+
+<blockquote>
+  <ul>
+  <li><p>优点</p>
+  
+  <ol><li>隐藏了对象创建的细节，将产品的实例化过程放到了工厂中实现。</li>
+  <li>客户端基本不用关心使用的是哪个产品，只需要知道用工厂的那个方法(或传入什么参数)就行了.</li>
+  <li>方便添加新的产品子类，每次只需要修改工厂类传递的类型值就行了。</li>
+  <li>遵循了<code>依赖倒转</code>原则。</li></ol></li>
+  <li><p>缺点</p>
+  
+  <ol><li>适用于产品子类型差不多, 使用的方法名都相同的情况.</li>
+  <li>每添加一个产品子类，都必须在工厂类中添加一个判断分支(或一个方法)，这违背了<code>OCP(开放-封闭原则)</code>。</li></ol></li>
+  </ul>
+</blockquote>
+
+<hr />
+
+
+
+<h3 id="工厂方法模式">工厂方法模式</h3>
+
+<blockquote>
+  <p>由于静态工厂方法模式不满足<code>OCP</code>, 因此就出现了<code>工厂方法模式</code>; 工厂方法模式和静态工厂模式最大的不同在于: <em>静态工厂</em>模式只有一个(对于一个项目/独立模块)只有一个工厂类, 而<em>工厂方法</em>模式则有一组实现了相同接口的工厂类.</p>
+</blockquote>
+
+<p><img src="http://7xrgh9.com1.z0.glb.clouddn.com/16-8-25/95341763.jpg" alt="" title="" /></p>
+
+<ul>
+<li>工厂</li>
+</ul>
+
+
+
+<pre class="prettyprint"><code class=" hljs scala"><span class="hljs-javadoc">/**
+ * Created by jifang on 15/12/7.
+ */</span>
+public interface Factory&lt;T&gt; {
+    Operator&lt;T&gt; createOperator();
+}</code></pre>
+
+<ul>
+<li>工厂实现</li>
+</ul>
+
+
+
+<pre class="prettyprint"><code class=" hljs php"><span class="hljs-comment">/**
+ * 加法运算符工厂
+ * Created by jifang on 15/12/7.
+ */</span>
+<span class="hljs-keyword">public</span> <span class="hljs-class"><span class="hljs-keyword">class</span> <span class="hljs-title">AddFactory</span> <span class="hljs-keyword">implements</span> <span class="hljs-title">Factory</span>&lt;<span class="hljs-title">Integer</span>&gt; {</span>
+
+    @Override
+    <span class="hljs-keyword">public</span> Operator&lt;Integer&gt; createOperator() {
+        <span class="hljs-keyword">return</span> <span class="hljs-keyword">new</span> AddOperator();
+    }
+}</code></pre>
+
+
+
+<pre class="prettyprint"><code class=" hljs php"><span class="hljs-comment">/**
+ * 乘法运算符工厂
+ * Created by jifang on 15/12/7.
+ */</span>
+<span class="hljs-keyword">public</span> <span class="hljs-class"><span class="hljs-keyword">class</span> <span class="hljs-title">MultiFactory</span> <span class="hljs-keyword">implements</span> <span class="hljs-title">Factory</span>&lt;<span class="hljs-title">Integer</span>&gt; {</span>
+
+    @Override
+    <span class="hljs-keyword">public</span> Operator&lt;Integer&gt; createOperator() {
+        <span class="hljs-keyword">return</span> <span class="hljs-keyword">new</span> MultiOperator();
+    }
+}</code></pre>
+
+<p><code>Operator</code>, <code>AddOperator</code>与<code>MultiOperator</code>与上例相同. <br />
+ 此时, 如果要在<em>静态工厂</em>中新增加一个<code>开根运算类</code>, 要么需要在<code>createOperator</code>方法中增加一种<code>case</code>, 要么得增加一个<code>createSqrtOper</code>方法, 都是需要修改原来的代码的. 而在<em>工厂方法</em>中只需要再添加一个<code>SqrtFactory</code>即可: <br />
+ <img src="http://7xrgh9.com1.z0.glb.clouddn.com/16-8-25/85936072.jpg" alt="" title="" /></p>
+
+
+
+<pre class="prettyprint"><code class=" hljs php"><span class="hljs-comment">/**
+ * 开根运算符
+ * Created by jifang on 15/12/7.
+ */</span>
+<span class="hljs-keyword">public</span> <span class="hljs-class"><span class="hljs-keyword">class</span> <span class="hljs-title">SqrtOperator</span> <span class="hljs-keyword">implements</span> <span class="hljs-title">Operator</span>&lt;<span class="hljs-title">Double</span>&gt; {</span>
+
+    @Override
+    <span class="hljs-keyword">public</span> Double getResult(Double... args) {
+        <span class="hljs-keyword">if</span> (args != <span class="hljs-keyword">null</span> &amp;&amp; args.length &gt;= <span class="hljs-number">1</span>) {
+            <span class="hljs-keyword">return</span> Math.sqrt(args[<span class="hljs-number">0</span>]);
+        } <span class="hljs-keyword">else</span> {
+            <span class="hljs-keyword">throw</span> <span class="hljs-keyword">new</span> RuntimeException(<span class="hljs-string">"Params Number Error "</span> + args.length);
+        }
+    }
+}</code></pre>
+
+
+
+<pre class="prettyprint"><code class=" hljs php"><span class="hljs-comment">/**
+ * 开根工厂
+ * Created by jifang on 15/12/7.
+ */</span>
+<span class="hljs-keyword">public</span> <span class="hljs-class"><span class="hljs-keyword">class</span> <span class="hljs-title">SqrtFactory</span> <span class="hljs-keyword">implements</span> <span class="hljs-title">Factory</span>&lt;<span class="hljs-title">Double</span>&gt; {</span>
+
+    @Override
+    <span class="hljs-keyword">public</span> Operator&lt;Double&gt; createOperator() {
+        <span class="hljs-keyword">return</span> <span class="hljs-keyword">new</span> SqrtOperator();
+    }
+}</code></pre>
+
+<blockquote>
+  <p>优点 <br />
+  基本与静态工厂模式一致，多的一点优点就是遵循了开放-封闭原则，使得模式的灵活性更强。</p>
+  
+  <p>缺点 <br />
+  与静态工厂模式差不多, 但是增加了类组织的复杂性; </p>
+  
+  <p>小结 <br />
+  虽然根据理论原则, 需要使用工厂方法模式, 但实际上, 常用的还是静态工厂模式.</p>
+</blockquote>
+
+<hr />
+
+
+
+<h3 id="抽象工厂模式">抽象工厂模式</h3>
+
+<blockquote>
+  <p>抽象工厂模式: 提供一个创建一系列相关或相互依赖对象的接口, 而无需指定他们具体的类.</p>
+</blockquote>
+
+<p>抽象工厂模式与工厂方法模式的区别:</p>
+
+<ul>
+<li>抽象工厂模式是工厂方法模式的升级版本，他用来创建一组相关或者相互依赖的对象。他与工厂方法模式的区别就在于，工厂方法模式针对的是<code>一个产品等级结构</code>；而抽象工厂模式则是针对的<code>多个产品等级结构</code>. 在编程中，通常一个产品结构，表现为一个接口或者抽象类，也就是说，工厂方法模式提供的所有产品都是衍生自同一个接口或抽象类，而抽象工厂模式所提供的产品则是衍生自不同的接口或抽象类(如下面的Engine, Tyre, Seat).</li>
+</ul>
+
+<p>在抽象工厂模式中，提出了产品族的概念：所谓的产品族，是指位于不同产品等级结构中功能相关联的产品组成的家族(如Engine, Tyre, Seat)。抽象工厂模式所提供的一系列产品就组成一个产品族；而工厂方法提供的一系列产品称为一个等级结构.</p>
+
+<p>示例:</p>
+
+<ul>
+<li>现在我们要生产两款车: 高档(LuxuryCar)与低档(LowCar), 他们分别配有高端引擎(LuxuryEngine), 高端座椅(LuxurySeat), 高端轮胎(LuxuryTyre)和低端引擎(LowEngine), 低端座椅(LowSeat), 低端轮胎(LowTyre), 下面我们用抽象工厂实现它: <br />
+<img src="http://7xrgh9.com1.z0.glb.clouddn.com/16-8-25/93652175.jpg" alt="" title="" /> <br />
+<em><code>LuxuryCarFactory</code>与<code>LowCarFactory</code>分别代表一类产品族的两款产品, 类似于数据库产品族中有MySQL, Oracle, SqlServer</em></li>
+</ul>
+
+
+
+<h4 id="1-产品">1. 产品</h4>
+
+<ul>
+<li>Engine</li>
+</ul>
+
+
+
+<pre class="prettyprint"><code class=" hljs axapta"><span class="hljs-keyword">public</span> <span class="hljs-class"><span class="hljs-keyword">interface</span> <span class="hljs-title">Engine</span> {</span>
+
+    <span class="hljs-keyword">void</span> start();
+
+    <span class="hljs-keyword">void</span> run();
+}
+
+<span class="hljs-class"><span class="hljs-keyword">class</span> <span class="hljs-title">LowEngine</span> <span class="hljs-inheritance"><span class="hljs-keyword">implements</span></span> <span class="hljs-title">Engine</span> {</span>
+
+    @Override
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">void</span> start() {
+        System.out.println(<span class="hljs-string">"启动慢 ..."</span>);
+    }
+
+    @Override
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">void</span> run() {
+        System.out.println(<span class="hljs-string">"转速慢 ..."</span>);
+    }
+}
+
+<span class="hljs-class"><span class="hljs-keyword">class</span> <span class="hljs-title">LuxuryEngine</span> <span class="hljs-inheritance"><span class="hljs-keyword">implements</span></span> <span class="hljs-title">Engine</span> {</span>
+
+    @Override
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">void</span> start() {
+        System.out.println(<span class="hljs-string">"启动快 ..."</span>);
+    }
+
+    @Override
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">void</span> run() {
+        System.out.println(<span class="hljs-string">"转速快 ..."</span>);
+    }
+}</code></pre>
+
+<ul>
+<li>Seat</li>
+</ul>
+
+
+
+<pre class="prettyprint"><code class=" hljs axapta"><span class="hljs-keyword">public</span> <span class="hljs-class"><span class="hljs-keyword">interface</span> <span class="hljs-title">Seat</span> {</span>
+    <span class="hljs-keyword">void</span> massage();
+}
+
+<span class="hljs-class"><span class="hljs-keyword">class</span> <span class="hljs-title">LowSeat</span> <span class="hljs-inheritance"><span class="hljs-keyword">implements</span></span> <span class="hljs-title">Seat</span> {</span>
+
+    @Override
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">void</span> massage() {
+        System.out.println(<span class="hljs-string">"不能按摩 ..."</span>);
+    }
+}
+
+<span class="hljs-class"><span class="hljs-keyword">class</span> <span class="hljs-title">LuxurySeat</span> <span class="hljs-inheritance"><span class="hljs-keyword">implements</span></span> <span class="hljs-title">Seat</span> {</span>
+
+    @Override
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">void</span> massage() {
+        System.out.println(<span class="hljs-string">"可提供按摩 ..."</span>);
+    }
+}</code></pre>
+
+<ul>
+<li>Tyre</li>
+</ul>
+
+
+
+<pre class="prettyprint"><code class=" hljs axapta"><span class="hljs-keyword">public</span> <span class="hljs-class"><span class="hljs-keyword">interface</span> <span class="hljs-title">Tyre</span> {</span>
+    <span class="hljs-keyword">void</span> revolve();
+}
+
+<span class="hljs-class"><span class="hljs-keyword">class</span> <span class="hljs-title">LowTyre</span> <span class="hljs-inheritance"><span class="hljs-keyword">implements</span></span> <span class="hljs-title">Tyre</span> {</span>
+
+    @Override
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">void</span> revolve() {
+        System.out.println(<span class="hljs-string">"旋转 - 不耐磨 ..."</span>);
+    }
+}
+
+<span class="hljs-class"><span class="hljs-keyword">class</span> <span class="hljs-title">LuxuryTyre</span> <span class="hljs-inheritance"><span class="hljs-keyword">implements</span></span> <span class="hljs-title">Tyre</span> {</span>
+
+    @Override
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">void</span> revolve() {
+        System.out.println(<span class="hljs-string">"旋转 - 不磨损 ..."</span>);
+    }
+}</code></pre>
+
+<p><em>注意: 其中并没有车类</em></p>
+
+
+
+<h4 id="2-产品族factory">2. 产品族Factory</h4>
+
+<ul>
+<li>Factory</li>
+</ul>
+
+
+
+<pre class="prettyprint"><code class=" hljs java"><span class="hljs-javadoc">/**
+ * Created by jifang on 15/12/7.
+ */</span>
+<span class="hljs-keyword">public</span> <span class="hljs-class"><span class="hljs-keyword">interface</span> <span class="hljs-title">CarFactory</span> {</span>
+
+    Engine createEngine();
+
+    Seat createSeat();
+
+    Tyre createTyre();
+}</code></pre>
+
+<ul>
+<li>低端车</li>
+</ul>
+
+
+
+<pre class="prettyprint"><code class=" hljs java"><span class="hljs-keyword">public</span> <span class="hljs-class"><span class="hljs-keyword">class</span> <span class="hljs-title">LowCarFactory</span> <span class="hljs-keyword">implements</span> <span class="hljs-title">CarFactory</span> {</span>
+
+    <span class="hljs-annotation">@Override</span>
+    <span class="hljs-keyword">public</span> Engine <span class="hljs-title">createEngine</span>() {
+        <span class="hljs-keyword">return</span> <span class="hljs-keyword">new</span> LowEngine();
+    }
+
+    <span class="hljs-annotation">@Override</span>
+    <span class="hljs-keyword">public</span> Seat <span class="hljs-title">createSeat</span>() {
+        <span class="hljs-keyword">return</span> <span class="hljs-keyword">new</span> LowSeat();
+    }
+
+    <span class="hljs-annotation">@Override</span>
+    <span class="hljs-keyword">public</span> Tyre <span class="hljs-title">createTyre</span>() {
+        <span class="hljs-keyword">return</span> <span class="hljs-keyword">new</span> LowTyre();
+    }
+}</code></pre>
+
+<ul>
+<li>高端车</li>
+</ul>
+
+
+
+<pre class="prettyprint"><code class=" hljs java"><span class="hljs-keyword">public</span> <span class="hljs-class"><span class="hljs-keyword">class</span> <span class="hljs-title">LuxuryCarFactory</span> <span class="hljs-keyword">implements</span> <span class="hljs-title">CarFactory</span> {</span>
+
+    <span class="hljs-annotation">@Override</span>
+    <span class="hljs-keyword">public</span> Engine <span class="hljs-title">createEngine</span>() {
+        <span class="hljs-keyword">return</span> <span class="hljs-keyword">new</span> LuxuryEngine();
+    }
+
+    <span class="hljs-annotation">@Override</span>
+    <span class="hljs-keyword">public</span> Seat <span class="hljs-title">createSeat</span>() {
+        <span class="hljs-keyword">return</span> <span class="hljs-keyword">new</span> LuxurySeat();
+    }
+
+    <span class="hljs-annotation">@Override</span>
+    <span class="hljs-keyword">public</span> Tyre <span class="hljs-title">createTyre</span>() {
+        <span class="hljs-keyword">return</span> <span class="hljs-keyword">new</span> LuxuryTyre();
+    }
+}</code></pre>
+
+
+
+<h4 id="3-client">3. Client</h4>
+
+
+
+<pre class="prettyprint"><code class=" hljs java"><span class="hljs-javadoc">/**
+ * Created by jifang on 15/12/7.
+ */</span>
+<span class="hljs-keyword">public</span> <span class="hljs-class"><span class="hljs-keyword">class</span> <span class="hljs-title">Client</span> {</span>
+
+    <span class="hljs-annotation">@Test</span>
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">void</span> <span class="hljs-title">testLow</span>(){
+        CarFactory factory = <span class="hljs-keyword">new</span> LowCarFactory();
+
+        Engine engine = factory.createEngine();
+        engine.start();
+        engine.run();
+
+        Seat seat = factory.createSeat();
+        seat.massage();
+
+        Tyre tyre = factory.createTyre();
+        tyre.revolve();
+    }
+
+    <span class="hljs-annotation">@Test</span>
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">void</span> <span class="hljs-title">testLuxury</span>(){
+        CarFactory factory = <span class="hljs-keyword">new</span> LuxuryCarFactory();
+
+        Engine engine = factory.createEngine();
+        engine.start();
+        engine.run();
+
+        Seat seat = factory.createSeat();
+        seat.massage();
+
+        Tyre tyre = factory.createTyre();
+        tyre.revolve();
+    }
+}</code></pre>
+
+<blockquote>
+  <ul>
+  <li>优点 <br />
+  <ol><li>封装了产品的创建，使得不需要知道具体是哪种产品，只需要知道是哪个工厂就行了。</li>
+  <li>可以支持不同类型的产品，使得模式灵活性更强。</li>
+  <li>可以非常方便的使用一族中间的不同类型的产品。</li></ol></li>
+  <li>缺点 <br />
+  <ol><li>结构太过臃肿，如果产品类型比较多，或者产品族类比较多，就会非常难于管理。</li>
+  <li>每次如果添加一组产品，那么所有的工厂类都必须添加一个方法，这样违背了开放-封闭原则。所以一般适用于产品组合产品族变化不大的情况。</li></ol></li>
+  </ul>
+</blockquote>
+
+<hr />
+
+
+
+<h3 id="使用静态工厂优化抽象工厂">使用静态工厂优化抽象工厂</h3>
+
+<p>由于抽象工厂模式存在结构臃肿以及改动复杂的缺点(比如我们每次需要构造Car, 都需要进行<code>CarFactory factory = new XxxCarFactory();</code>, 而一般一个项目中只会生产一种Car, 如果我们需要更改生产的车的类型, 那么客户端的每一处调用都需要修改), 因此我们可以使用静态工厂对其进行改造, 我们使用<code>CarCreator</code>来统一创建一个产品族不同产品, 这样如果我们的工厂将来更改了产品路线, 改为生产高端车时, 我们仅需改变<code>CAR_TYEP</code>的值就可以了:</p>
+
+
+
+<pre class="prettyprint"><code class=" hljs java"><span class="hljs-javadoc">/**
+ * Created by jifang on 15/12/7.
+ */</span>
+<span class="hljs-keyword">public</span> <span class="hljs-class"><span class="hljs-keyword">class</span> <span class="hljs-title">CarCreator</span> {</span>
+    <span class="hljs-keyword">private</span> <span class="hljs-keyword">static</span> <span class="hljs-keyword">final</span> String CAR_TYPE = <span class="hljs-string">"low"</span>;
+    <span class="hljs-keyword">private</span> <span class="hljs-keyword">static</span> <span class="hljs-keyword">final</span> String CAR_TYPE_LOW = <span class="hljs-string">"low"</span>;
+    <span class="hljs-keyword">private</span> <span class="hljs-keyword">static</span> <span class="hljs-keyword">final</span> String CAR_TYPE_LUXURY = <span class="hljs-string">"luxury"</span>;
+
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">static</span> Engine <span class="hljs-title">createEngine</span>() {
+        Engine engine = <span class="hljs-keyword">null</span>;
+        <span class="hljs-keyword">switch</span> (CAR_TYPE) {
+            <span class="hljs-keyword">case</span> CAR_TYPE_LOW:
+                engine = <span class="hljs-keyword">new</span> LowEngine();
+                <span class="hljs-keyword">break</span>;
+            <span class="hljs-keyword">case</span> CAR_TYPE_LUXURY:
+                engine = <span class="hljs-keyword">new</span> LuxuryEngine();
+                <span class="hljs-keyword">break</span>;
+        }
+        <span class="hljs-keyword">return</span> engine;
+    }
+
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">static</span> Seat <span class="hljs-title">createSeat</span>() {
+        Seat seat = <span class="hljs-keyword">null</span>;
+        <span class="hljs-keyword">switch</span> (CAR_TYPE) {
+            <span class="hljs-keyword">case</span> CAR_TYPE_LOW:
+                seat = <span class="hljs-keyword">new</span> LowSeat();
+                <span class="hljs-keyword">break</span>;
+            <span class="hljs-keyword">case</span> CAR_TYPE_LUXURY:
+                seat = <span class="hljs-keyword">new</span> LuxurySeat();
+                <span class="hljs-keyword">break</span>;
+        }
+        <span class="hljs-keyword">return</span> seat;
+    }
+
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">static</span> Tyre <span class="hljs-title">createTyre</span>() {
+        Tyre tyre = <span class="hljs-keyword">null</span>;
+        <span class="hljs-keyword">switch</span> (CAR_TYPE) {
+            <span class="hljs-keyword">case</span> CAR_TYPE_LOW:
+                tyre = <span class="hljs-keyword">new</span> LowTyre();
+                <span class="hljs-keyword">break</span>;
+            <span class="hljs-keyword">case</span> CAR_TYPE_LUXURY:
+                tyre = <span class="hljs-keyword">new</span> LuxuryTyre();
+                <span class="hljs-keyword">break</span>;
+        }
+        <span class="hljs-keyword">return</span> tyre;
+    }
+}</code></pre>
+
+<p>其实我们还可以通过反射, 将<code>CarCreator</code>中的<code>switch-case</code>去掉, 而且在实际开发中, 字符串的值我们还可以从配置文件中读取, 这样, 如果需要更改产品路线, 我们连程序代码都懒得改了, 只需要修改配置文件就可以了.</p>
+
+
+
+<pre class="prettyprint"><code class=" hljs java"><span class="hljs-javadoc">/**
+ * Created by jifang on 15/12/7.
+ */</span>
+<span class="hljs-keyword">public</span> <span class="hljs-class"><span class="hljs-keyword">class</span> <span class="hljs-title">CarCreatorReflect</span> {</span>
+
+    <span class="hljs-javadoc">/**
+     * 在实际开发中, 下面这些常量可以从配置文件中读取
+     */</span>
+    <span class="hljs-keyword">private</span> <span class="hljs-keyword">static</span> <span class="hljs-keyword">final</span> String PACKAGE = <span class="hljs-string">"com.feiqing.abstractfactory"</span>;
+    <span class="hljs-keyword">private</span> <span class="hljs-keyword">static</span> <span class="hljs-keyword">final</span> String ENGINE = <span class="hljs-string">"LuxuryEngine"</span>;
+    <span class="hljs-keyword">private</span> <span class="hljs-keyword">static</span> <span class="hljs-keyword">final</span> String TYRE = <span class="hljs-string">"LuxuryTyre"</span>;
+    <span class="hljs-keyword">private</span> <span class="hljs-keyword">static</span> <span class="hljs-keyword">final</span> String SEAT = <span class="hljs-string">"LuxurySeat"</span>;
+
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">static</span> Engine <span class="hljs-title">createEngine</span>() {
+        String className = PACKAGE + <span class="hljs-string">"."</span> + ENGINE;
+        <span class="hljs-keyword">try</span> {
+            <span class="hljs-keyword">return</span> (Engine) Class.forName(className).newInstance();
+        } <span class="hljs-keyword">catch</span> (InstantiationException e) {
+            e.printStackTrace();
+        } <span class="hljs-keyword">catch</span> (IllegalAccessException e) {
+            e.printStackTrace();
+        } <span class="hljs-keyword">catch</span> (ClassNotFoundException e) {
+            e.printStackTrace();
+        }
+        <span class="hljs-keyword">return</span> <span class="hljs-keyword">null</span>;
+    }
+
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">static</span> Seat <span class="hljs-title">createSeat</span>() {
+        String className = PACKAGE + <span class="hljs-string">"."</span> + SEAT;
+        <span class="hljs-keyword">try</span> {
+            <span class="hljs-keyword">return</span> (Seat) Class.forName(className).newInstance();
+        } <span class="hljs-keyword">catch</span> (InstantiationException e) {
+            e.printStackTrace();
+        } <span class="hljs-keyword">catch</span> (IllegalAccessException e) {
+            e.printStackTrace();
+        } <span class="hljs-keyword">catch</span> (ClassNotFoundException e) {
+            e.printStackTrace();
+        }
+        <span class="hljs-keyword">return</span> <span class="hljs-keyword">null</span>;
+    }
+
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">static</span> Tyre <span class="hljs-title">createTyre</span>() {
+        String className = PACKAGE + <span class="hljs-string">"."</span> + TYRE;
+        <span class="hljs-keyword">try</span> {
+            <span class="hljs-keyword">return</span> (Tyre) Class.forName(className).newInstance();
+        } <span class="hljs-keyword">catch</span> (InstantiationException e) {
+            e.printStackTrace();
+        } <span class="hljs-keyword">catch</span> (IllegalAccessException e) {
+            e.printStackTrace();
+        } <span class="hljs-keyword">catch</span> (ClassNotFoundException e) {
+            e.printStackTrace();
+        }
+        <span class="hljs-keyword">return</span> <span class="hljs-keyword">null</span>;
+    }
+}</code></pre>
+
+<p>这样, 客户端调起来就清爽多了</p>
+
+
+
+<pre class="prettyprint"><code class=" hljs java"><span class="hljs-javadoc">/**
+ * Created by jifang on 15/12/7.
+ */</span>
+<span class="hljs-keyword">public</span> <span class="hljs-class"><span class="hljs-keyword">class</span> <span class="hljs-title">StaticClient</span> {</span>
+
+    <span class="hljs-annotation">@Test</span>
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">void</span> <span class="hljs-title">testLow</span>() {
+        Engine engine = CarCreator.createEngine();
+        engine.run();
+        engine.start();
+
+        Seat seat = CarCreator.createSeat();
+        seat.massage();
+
+        Tyre tyre = CarCreator.createTyre();
+        tyre.revolve();
+    }
+
+    <span class="hljs-annotation">@Test</span>
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">void</span> <span class="hljs-title">testLuxury</span>() {
+        Engine engine = CarCreatorReflect.createEngine();
+        engine.run();
+        engine.start();
+
+        Seat seat = CarCreatorReflect.createSeat();
+        seat.massage();
+
+        Tyre tyre = CarCreatorReflect.createTyre();
+        tyre.revolve();
+    }
+}</code></pre>
+
+<hr />
+
+
+
+<h3 id="小结">小结</h3>
+
+<table>
+<thead>
+<tr>
+  <th align="center">分类</th>
+  <th align="center">说明</th>
+</tr>
+</thead>
+<tbody><tr>
+  <td align="center">静态工厂模式</td>
+  <td align="center">用来生成同一等级结构中的任意产品, 对于增加新的产品, <code>需要修改已有代码</code></td>
+</tr>
+<tr>
+  <td align="center">工厂方法模式</td>
+  <td align="center">用来生成同一等级结构的固定产品, 支持增加任意产品;</td>
+</tr>
+<tr>
+  <td align="center">抽象工厂模式</td>
+  <td align="center">用来生成不同<code>产品族</code>的全部产品, 对于增加新的产品无能为力;</td>
+</tr>
+</tbody></table>
+
+
+<hr />
+
+<p>参考:  <br />
+    1. <a href="http://www.cnblogs.com/cxjchen/p/3143633.html">三种工厂模式的分析以及C++实现</a> <br />
+    2. <a href="http://book.douban.com/subject/2334288/">大话设计模式</a> <br />
+    3. <a href="http://www.bjsxt.com/2014/down_0425/34.html">高淇讲设计模式</a> <br />
+    4. <a href="http://www.cnblogs.com/dolphin0520/p/3919839.html">设计模式之六大原则</a> <br />
+    5. <a href="http://blog.csdn.net/zhengzhb/article/details/7359385">23种设计模式(3) - 抽象工厂模式</a></p></div>&#13;
+        <script type="text/javascript">&#13;
+            $(function () {&#13;
+                $('pre.prettyprint code').each(function () {&#13;
+                    var lines = $(this).text().split('\n').length;&#13;
+                    var $numbering = $('&lt;ul/&gt;').addClass('pre-numbering').hide();&#13;
+                    $(this).addClass('has-numbering').parent().append($numbering);&#13;
+                    for (i = 1; i &lt;= lines; i++) {&#13;
+                        $numbering.append($('&lt;li/&gt;').text(i));&#13;
+                    };&#13;
+                    $numbering.fadeIn(1700);&#13;
+                });&#13;
+            });&#13;
+        </script>&#13;
+   &#13;

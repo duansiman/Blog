@@ -1,0 +1,81 @@
+version: "3"
+
+services:
+    pyspider_mysql:
+      image: mysql:5.7.20
+      restart: always
+      container_name: pyspider_mysql
+      volumes:
+       - /root/blog/data/pyspider_mysql:/var/lib/mysql
+      environment:
+       MYSQL_ALLOW_EMPTY_PASSWORD: "yes"
+       
+    pyspider_rabbitmq:
+      image: rabbitmq:latest
+      container_name: pyspider_rabbitmq
+      restart: always
+        
+    pyspider_phantomjs:
+      image: binux/pyspider:latest
+      container_name: pyspider_phantomjs
+      restart: always
+      command: phantomjs
+      
+    pyspider_result:
+      image: binux/pyspider:latest
+      restart: always
+      container_name: pyspider_result
+      links:
+        - pyspider_mysql:mysql
+        - pyspider_rabbitmq:rabbitmq
+      volumes:
+        - /root/blog/data/pyspider/result_worker:/opt/pyspider/data
+      command: result_worker
+      
+    pyspider_processor:
+      image: binux/pyspider:latest
+      restart: always
+      container_name: pyspider_processor
+      links:
+        - pyspider_mysql:mysql
+        - pyspider_rabbitmq:rabbitmq
+      volumes:
+        - /root/blog/data/pyspider/processor:/opt/pyspider/data
+      command: processor
+      
+    pyspider_fetcher:
+      image: binux/pyspider:latest
+      container_name: pyspider_fetcher
+      restart: always
+      links:
+        - pyspider_rabbitmq:rabbitmq
+        - pyspider_phantomjs:phantomjs
+      volumes:
+        - /root/blog/data/pyspider/fetcher:/opt/pyspider/data
+      command : fetcher
+      
+    pyspider_scheduler:
+      image: binux/pyspider:latest
+      restart: always
+      container_name: pyspider_scheduler
+      links:
+        - pyspider_mysql:mysql
+        - pyspider_rabbitmq:rabbitmq
+      volumes:
+        - /root/blog/data/pyspider/scheduler:/opt/pyspider/data
+      command: scheduler
+      
+    pyspider_webui:
+      image: binux/pyspider:latest
+      restart: always
+      container_name: pyspider_webui
+      ports:
+        - "5000:5000"
+      links:
+        - pyspider_mysql:mysql
+        - pyspider_rabbitmq:rabbitmq
+        - pyspider_scheduler:scheduler
+        - pyspider_phantomjs:phantomjs
+      volumes:
+        - /root/blog/data/pyspider/webui:/opt/pyspider/data
+      command: webui

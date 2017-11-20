@@ -1,0 +1,104 @@
+
+        <div class="markdown_views"><p>一次性开多个线程打印10次ABC的小Demo,如何保证线程执行的有序性，以下面这个Demo来做说明：</p>
+
+<pre class="prettyprint"><code class=" hljs java"><span class="hljs-keyword">package</span> com.lyt.usermanage.test;
+
+<span class="hljs-keyword">public</span> <span class="hljs-class"><span class="hljs-keyword">class</span> <span class="hljs-title">MyThreadTest5</span> <span class="hljs-keyword">implements</span> <span class="hljs-title">Runnable</span> {</span>
+
+    <span class="hljs-keyword">private</span> String name;
+    <span class="hljs-keyword">private</span> Object lastThread;
+    <span class="hljs-keyword">private</span> Object self;
+
+    <span class="hljs-keyword">public</span> <span class="hljs-title">MyThreadTest5</span>(String name,Object lastThread,Object self){
+        <span class="hljs-keyword">this</span>.name = name;
+        <span class="hljs-keyword">this</span>.lastThread = lastThread;
+        <span class="hljs-keyword">this</span>.self = self;
+    }
+
+    <span class="hljs-annotation">@Override</span>
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">void</span> <span class="hljs-title">run</span>() {
+        <span class="hljs-keyword">int</span> count  = <span class="hljs-number">10</span>;
+        <span class="hljs-keyword">while</span>(count&gt;<span class="hljs-number">0</span>){
+            <span class="hljs-keyword">synchronized</span>(lastThread){
+                <span class="hljs-keyword">synchronized</span>(self){
+                    System.out.print(name);
+                    count --;
+                    <span class="hljs-comment">/*唤醒在等待该对象同步锁的线程(只唤醒一个,如果有多个在等待),注意的是在调用此方法的时候，
+                    并不能确切的唤醒某一个等待状态的线程，而是由JVM确定唤醒哪个线程，而且不是按优先级。
+                    调用任意对象的notify()方法则导致因调用该对象的 wait()方法而阻塞的线程中随机选择的一个解除阻塞（但要等到获得锁后才真正可执行）。*/</span>
+                    self.notify();
+                }
+
+                <span class="hljs-keyword">try</span> {
+                    <span class="hljs-comment">//调用任意对象的 wait() 方法导致该线程阻塞，该线程不可继续执行，并且该对象上的锁被释放。</span>
+                    lastThread.wait();
+                } <span class="hljs-keyword">catch</span> (InterruptedException e) {
+                    e.printStackTrace();
+                }
+            }
+        }
+
+    }
+
+}
+</code></pre>
+
+
+
+<pre class="prettyprint"><code class=" hljs vala">package com.lyt.usermanage.test;
+
+<span class="hljs-keyword">public</span> <span class="hljs-class"><span class="hljs-keyword">class</span> <span class="hljs-title">ThreadTest</span> {</span>
+
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">static</span> <span class="hljs-keyword">void</span> main(String[] args) throws InterruptedException {
+
+        System.out.println(Thread.currentThread().getName()+<span class="hljs-string">"主线程运行开始!"</span>);
+
+        <span class="hljs-built_in">Object</span> a = <span class="hljs-keyword">new</span> <span class="hljs-built_in">Object</span>();     
+        <span class="hljs-built_in">Object</span> b = <span class="hljs-keyword">new</span> <span class="hljs-built_in">Object</span>();     
+        <span class="hljs-built_in">Object</span> c = <span class="hljs-keyword">new</span> <span class="hljs-built_in">Object</span>();     
+        MyThreadTest5 pa = <span class="hljs-keyword">new</span> MyThreadTest5(<span class="hljs-string">"A"</span>, c, a);     
+        MyThreadTest5 pb = <span class="hljs-keyword">new</span> MyThreadTest5(<span class="hljs-string">"B"</span>, a, b);     
+        MyThreadTest5 pc = <span class="hljs-keyword">new</span> MyThreadTest5(<span class="hljs-string">"C"</span>, b, c);     
+
+
+        <span class="hljs-keyword">new</span> Thread(pa).start();  
+        Thread.sleep(<span class="hljs-number">100</span>);  <span class="hljs-comment">//确保按顺序A、B、C执行  </span>
+        <span class="hljs-keyword">new</span> Thread(pb).start();  
+        Thread.sleep(<span class="hljs-number">100</span>);    
+        <span class="hljs-keyword">new</span> Thread(pc).start();     
+        Thread.sleep(<span class="hljs-number">100</span>); 
+
+    }
+}
+</code></pre>
+
+<p>先来解释一下其整体思路，从大的方向上来讲，该问题为三线程间的同步唤醒操作， <br />
+         主要的目的就是ThreadA-&gt;ThreadB-&gt;ThreadC-&gt;ThreadA循环执行三个线程。为了控制线程执行的顺序， <br />
+         那么就必须要确定唤醒、等待的顺序，所以每一个线程必须同时持有两个对象锁，才能继续执行。 <br />
+         一个对象锁是prev，就是前一个线程所持有的对象锁。还有一个就是自身对象锁。 <br />
+         主要的思想就是，为了控制执行的顺序，必须要先持有prev锁，也就前一个线程要释放自身对象锁，再去申请自身对象锁， <br />
+         两者兼备时打印，之后首先调用self.notify()释放自身对象锁，唤醒下一个等待线程，再调用prev.wait()释放prev对象锁， <br />
+         终止当前线程，等待循环结束后再次被唤醒。运行上述代码，可以发现三个线程循环打印ABC，共10次。程序运行的主要过程就是A线程最先运行， <br />
+         持有C,A对象锁，后释放A,C锁，唤醒B。线程B等待A锁，再申请B锁，后打印B，再释放B，A锁，唤醒C，线程C等待B锁，再申请C锁，后打印C，再释放C,B锁，唤醒A。 <br />
+         看起来似乎没什么问题，但如果你仔细想一下，就会发现有问题，就是初始条件，三个线程按照A,B,C的顺序来启动，按照前面的思考，A唤醒B，B唤醒C，C再唤醒A。 <br />
+         但是这种假设依赖于JVM中线程调度、执行的顺序。</p>
+
+<p>具体流程：</p>
+
+<p>我们看到A B C三个线程共用三个锁对象a b c，由于在主线程加了休眠，那么三个线程的执行顺序就有了ABC的保障；A线程进来run方法后打印A，然后唤醒需要a对象同步锁的线程并释放持有的a对象锁，这个时候只有B线程在申请a锁，于是B线程被唤醒，然后A线程调用wait方法进入阻塞状态并释放c锁；B线程进行和A线程一样的步骤，进来后打印B然后释放b锁并唤醒等待b对象的线程，也就是C线程，然后调用wait方法进入阻塞状态并释放a对象；C线程重复上面的操作，唤醒了等待c锁对象的A线程，又是一个循环，因为new Thread(pa).start(); 方法里面不是公用的一个对象，所以各个线程都要跑10次，达到我们的需求10次ABC的输出。</p>
+
+<p>个人理解是这样，如果有不足请大家多留言改进，技术只有交流才能深刻。</p></div>&#13;
+        <script type="text/javascript">&#13;
+            $(function () {&#13;
+                $('pre.prettyprint code').each(function () {&#13;
+                    var lines = $(this).text().split('\n').length;&#13;
+                    var $numbering = $('&lt;ul/&gt;').addClass('pre-numbering').hide();&#13;
+                    $(this).addClass('has-numbering').parent().append($numbering);&#13;
+                    for (i = 1; i &lt;= lines; i++) {&#13;
+                        $numbering.append($('&lt;li/&gt;').text(i));&#13;
+                    };&#13;
+                    $numbering.fadeIn(1700);&#13;
+                });&#13;
+            });&#13;
+        </script>&#13;
+   &#13;

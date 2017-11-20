@@ -1,0 +1,299 @@
+
+
+<div id="art-body" style="margin-bottom:12px; line-height:1.6em; font-family:'Microsoft Yahei',Arial,Helvetica,sans-serif; font-size:14px; background-color:rgb(238,238,238)">&#13;
+<span style="color:#333333">Bridge定义：将抽象和行为划分开来，各自独立，但能动态的结合。</span>&#13;
+<h2 style="margin:15px auto; font-size:18px; line-height:18px"><span style="color:#333333">为什么使用桥模式</span></h2>&#13;
+<span style="color:#333333">通常，当一个抽象类或接口有多个具体实现(concrete subclass)，这些concrete之间关系可能有以下两种：</span>&#13;
+<ul style="margin-top:0px; margin-bottom:0px; list-style-position:initial; margin-left:0px; padding-left:20px">&#13;
+<li><span style="color:#333333">这多个具体实现之间恰好是并列的，如前面举例，打桩，有两个concrete class：方形桩和圆形桩；这两个形状上的桩是并列的，没有概念上的重复，那么我们只要使用继承就可以了。</span></li><li><span style="color:#333333">实际应用上，常常有可能在这多个concrete class之间有概念上重叠。那么需要我们把抽象共同部分和行为共同部分各自独立开来，原来是准备放在一个接口里，现在需要设计两个接口，分别放置抽象和行为。</span></li></ul>&#13;
+<span style="color:#333333"><br />&#13;
+例如，一杯咖啡为例，有中杯和大杯之分，同时还有加奶 不加奶之分。如果用单纯的继承，这四个具体实现(中杯 大杯 加奶 不加奶)之间有概念重叠,因为有中杯加奶，也有中杯不加奶，如果再在中杯这一层再实现两个继承，很显然混乱，扩展性极差。那我们使用Bridge模式来实现它。</span>&#13;
+<h2 style="margin:15px auto; font-size:18px; line-height:18px"><span style="color:#333333">如何实现桥模式</span></h2>&#13;
+<span style="color:#333333">以上面提到的咖啡 为例。我们原来打算只设计一个接口(抽象类)，使用Bridge模式后，我们需要将抽象和行为分开，加奶和不加奶属于行为，我们将它们抽象成一个专门的行为接口。<br />&#13;
+<br />&#13;
+先看看抽象部分的接口代码：<br />&#13;
+public abstract class Coffee{<br />&#13;
+　CoffeeImp coffeeImp;<br />&#13;
+　public void setCoffeeImp() {<br />&#13;
+　　this.CoffeeImp = CoffeeImpSingleton.getTheCoffeImp();<br />&#13;
+　}<br />&#13;
+　public CoffeeImp getCoffeeImp() {return this.CoffeeImp;}<br />&#13;
+　public abstract void pourCoffee();<br />&#13;
+}<br />&#13;
+其中CoffeeImp 是加不加奶的行为接口，看其代码如下：<br />&#13;
+public abstract class CoffeeImp{<br />&#13;
+　public abstract void pourCoffeeImp();<br />&#13;
+}<br />&#13;
+<br />&#13;
+现在我们有了两个抽象类，下面我们分别对其进行继承,实现concrete class：</span>&#13;
+<div class="code"><span style="color:#333333">//中杯<br />&#13;
+public class MediumCoffee extends Coffee{<br />&#13;
+　public MediumCoffee() {setCoffeeImp();}<br />&#13;
+　public void pourCoffee(){<br />&#13;
+　　CoffeeImp coffeeImp = this.getCoffeeImp();<br />&#13;
+　　//我们以重复次数来说明是冲中杯还是大杯 ,重复2次是中杯<br />&#13;
+　　for (int i = 0; i &lt; 2; i++){<br />&#13;
+　　　coffeeImp.pourCoffeeImp();<br />&#13;
+　　}<br />&#13;
+　}<br />&#13;
+}<br />&#13;
+<br />&#13;
+//大杯<br />&#13;
+public class SuperSizeCoffee extends Coffee{<br />&#13;
+　public SuperSizeCoffee() {setCoffeeImp();}<br />&#13;
+　public void pourCoffee(){<br />&#13;
+　　CoffeeImp coffeeImp = this.getCoffeeImp();<br />&#13;
+　　//我们以重复次数来说明是冲中杯还是大杯 ,重复5次是大杯<br />&#13;
+　　for (int i = 0; i &lt; 5; i++){<br />&#13;
+　　　coffeeImp.pourCoffeeImp();<br />&#13;
+　　}<br />&#13;
+　}<br />&#13;
+}</span></div>&#13;
+<span style="color:#333333">上面分别是中杯和大杯的具体实现.下面再对行为CoffeeImp进行继承：</span>&#13;
+<div class="code"><span style="color:#333333">//加奶<br />&#13;
+public class MilkCoffeeImp extends CoffeeImp{<br />&#13;
+　MilkCoffeeImp() {}<br />&#13;
+　public void pourCoffeeImp(){<br />&#13;
+　　System.out.println("加了美味的牛奶");<br />&#13;
+　}<br />&#13;
+}<br />&#13;
+<br />&#13;
+//不加奶<br />&#13;
+public class FragrantCoffeeImp extends CoffeeImp{<br />&#13;
+　FragrantCoffeeImp() {}<br />&#13;
+　public void pourCoffeeImp(){<br />&#13;
+　　System.out.println("什么也没加,清香");<br />&#13;
+　}<br />&#13;
+}</span></div>&#13;
+<span style="color:#333333">Bridge模式的基本框架我们已经搭好了，别忘记定义中还有一句：动态结合，我们现在可以喝到至少四种咖啡：</span>&#13;
+<ol style="margin-top:0px; margin-bottom:0px; list-style-position:initial; margin-left:0px; padding-left:20px">&#13;
+<li><span style="color:#333333">中杯加奶</span></li><li><span style="color:#333333">中杯不加奶</span></li><li><span style="color:#333333">大杯加奶</span></li><li><span style="color:#333333">大杯不加奶</span></li></ol>&#13;
+<span style="color:#333333"><br />&#13;
+看看是如何动态结合的，在使用之前，我们做个准备工作，设计一个单态类(Singleton)用来hold当前的CoffeeImp：</span>&#13;
+<div class="code"><span style="color:#333333">public class CoffeeImpSingleton{<br />&#13;
+　private static CoffeeImp coffeeImp;<br />&#13;
+　public CoffeeImpSingleton(CoffeeImp coffeeImpIn)<br />&#13;
+　{this.coffeeImp = coffeeImpIn;}<br />&#13;
+　public static CoffeeImp getTheCoffeeImp(){<br />&#13;
+　　return coffeeImp;<br />&#13;
+　}<br />&#13;
+}</span></div>&#13;
+<span style="color:#333333">看看中杯加奶 和大杯加奶 是怎么出来的：</span>&#13;
+<div class="code"><span style="color:#333333">//拿出牛奶<br />&#13;
+CoffeeImpSingleton coffeeImpSingleton = new CoffeeImpSingleton(new MilkCoffeeImp());<br />&#13;
+<br />&#13;
+//中杯加奶<br />&#13;
+MediumCoffee mediumCoffee = new MediumCoffee();<br />&#13;
+mediumCoffee.pourCoffee();<br />&#13;
+<br />&#13;
+//大杯加奶<br />&#13;
+SuperSizeCoffee superSizeCoffee = new SuperSizeCoffee();<br />&#13;
+superSizeCoffee.pourCoffee();</span></div>&#13;
+<span style="color:#333333">注意：Bridge模式的执行类如CoffeeImp和Coffee是一对一的关系，正确创建CoffeeImp是该模式的关键。</span>&#13;
+<h2 style="margin:15px auto; font-size:18px; line-height:18px"><span style="color:#333333">Bridge模式在EJB中的应用</span></h2>&#13;
+<span style="color:#333333">EJB中有一个Data Access Object (DAO)模式，这是将商业逻辑和具体数据资源分开的，因为不同的数据库有不同的数据库操作。将操作不同数据库的行为独立抽象成一个行为接口DAO，如下：</span>&#13;
+<ul style="margin-top:0px; margin-bottom:0px; list-style-position:initial; margin-left:0px; padding-left:20px">&#13;
+<li><span style="color:#333333">Business Object (类似Coffee)<br />&#13;
+实现一些抽象的商业操作：如寻找一个用户下所有的订单。涉及数据库操作都使用DAOImplementor。<br />&#13;
+ </span></li><li><span style="color:#333333">Data Access Object (类似CoffeeImp)<br />&#13;
+一些抽象的对数据库资源操作。<br />&#13;
+ </span></li><li><span style="color:#333333">DAOImplementor 如OrderDAOCS, OrderDAOOracle, OrderDAOSybase(类似MilkCoffeeImp FragrantCoffeeImp)<br />&#13;
+具体的数据库操作，如"INSERT INTO "等语句，OrderDAOOracle是Oracle OrderDAOSybase是Sybase数据库。<br />&#13;
+ </span></li><li><span style="color:#333333">数据库 (Cloudscape, Oracle, or Sybase database via JDBC API)</span></li></ul>&#13;
+<div><span style="color:#333333"><br />&#13;
+</span></div>&#13;
+<div><span style="color:#333333"><br />&#13;
+</span></div>&#13;
+<div>&#13;
+<div class="TITLE"><span style="color:#333333">桥接模式</span></div>&#13;
+<div class="currency_area">&#13;
+<div class="theTitle">&#13;
+<h5><span style="color:#333333"><img src="http://blog.csdn.net/qq_27073205/article/details/45766447" alt="" /> <strong>概述</strong></span></h5>&#13;
+</div>&#13;
+<div class="theContent">&#13;
+<pre><span style="color:#333333">    将抽象部分与它的实现部分分离，使它们都可以独立地变化。
+</span></pre>&#13;
+</div>&#13;
+</div>&#13;
+<div class="currency_area">&#13;
+<div class="theTitle">&#13;
+<h5><span style="color:#333333"><img src="http://blog.csdn.net/qq_27073205/article/details/45766447" alt="" /> <strong>适用性</strong></span></h5>&#13;
+</div>&#13;
+<div class="theContent">&#13;
+<pre><span style="color:#333333">    1.你不希望在抽象和它的实现部分之间有一个固定的绑定关系。
+      例如这种情况可能是因为，在程序运行时刻实现部分应可以被选择或者切换。
+
+    2.类的抽象以及它的实现都应该可以通过生成子类的方法加以扩充。
+      这时Bridge模式使你可以对不同的抽象接口和实现部分进行组合，并分别对它们进行扩充。
+
+    3.对一个抽象的实现部分的修改应对客户不产生影响，即客户的代码不必重新编译。
+
+    4.正如在意图一节的第一个类图中所示的那样，有许多类要生成。
+      这样一种类层次结构说明你必须将一个对象分解成两个部分。
+
+    5.你想在多个对象间共享实现（可能使用引用计数），但同时要求客户并不知道这一点。
+			</span></pre>&#13;
+</div>&#13;
+</div>&#13;
+<div class="currency_area">&#13;
+<div class="theTitle">&#13;
+<h5><span style="color:#333333"><img src="http://blog.csdn.net/qq_27073205/article/details/45766447" alt="" /> <strong>参与者</strong></span></h5>&#13;
+</div>&#13;
+<div class="theContent">&#13;
+<pre><span style="color:#333333">    1.Abstraction
+      定义抽象类的接口。
+      维护一个指向Implementor类型对象的指针。
+
+    2.RefinedAbstraction
+      扩充由Abstraction定义的接口。
+
+    3.Implementor
+      定义实现类的接口，该接口不一定要与Abstraction的接口完全一致。
+      事实上这两个接口可以完全不同。
+      一般来讲，Implementor接口仅提供基本操作，而Abstraction则定义了基于这些基本操作的较高层次的操作。
+
+    4.ConcreteImplementor
+      实现Implementor接口并定义它的具体实现。
+</span></pre>&#13;
+</div>&#13;
+</div>&#13;
+<div class="currency_area">&#13;
+<div class="theTitle">&#13;
+<h5><span style="color:#333333"><img src="http://blog.csdn.net/qq_27073205/article/details/45766447" alt="" /> <strong>类图</strong></span></h5>&#13;
+</div>&#13;
+<div class="theContent"><span style="color:#333333"><img src="http://blog.csdn.net/qq_27073205/article/details/45766447" alt="" /> </span></div>&#13;
+</div>&#13;
+<div class="currency_area">&#13;
+<div class="theTitle">&#13;
+<h5><span style="color:#333333"><img src="http://blog.csdn.net/qq_27073205/article/details/45766447" alt="" /> <strong>例子</strong></span></h5>&#13;
+</div>&#13;
+<div class="theContent"><span style="color:#333333"><strong>Abstraction</strong> </span>&#13;
+</div>&#13;
+<div class="theContent2">&#13;
+<pre><span style="color:#333333">public abstract class Person {
+
+    private Clothing clothing;
+    
+    private String type;
+
+    public Clothing getClothing() {
+        return clothing;
+    }
+
+    public void setClothing() {
+        this.clothing = ClothingFactory.getClothing();
+    }
+    
+    public void setType(String type) {
+        this.type = type;
+    }
+    
+    public String getType() {
+        return this.type;
+    }
+    
+    public abstract void dress();
+}
+</span></pre>&#13;
+</div>&#13;
+<div class="theContent"><strong><span style="color:#333333">RefinedAbstraction</span></strong></div>&#13;
+<div class="theContent2">&#13;
+<pre><span style="color:#333333">public class Man extends Person {
+    
+    public Man() {
+        setType("男人");
+    }
+    
+    public void dress() {
+        Clothing clothing = getClothing();
+        clothing.personDressCloth(this);
+    }
+}
+</span></pre>&#13;
+</div>&#13;
+<div class="theContent"></div>&#13;
+<div class="theContent2">&#13;
+<pre><span style="color:#333333">public class Lady extends Person {
+
+    public Lady() {
+        setType("女人");
+    }
+    
+    public void dress() {
+        Clothing clothing = getClothing();
+        clothing.personDressCloth(this);
+    }
+}
+</span></pre>&#13;
+</div>&#13;
+<div class="theContent"><span style="color:#333333"><strong>Implementor</strong> </span>&#13;
+</div>&#13;
+<div class="theContent2">&#13;
+<pre><span style="color:#333333">public abstract class Clothing {
+
+    public abstract void personDressCloth(Person person);
+}
+</span></pre>&#13;
+</div>&#13;
+<div class="theContent"><strong><span style="color:#333333">ConcreteImplementor</span></strong></div>&#13;
+<div class="theContent2">&#13;
+<pre><span style="color:#333333">public class Jacket extends Clothing {
+
+    public void personDressCloth(Person person) {
+        System.out.println(person.getType() + "穿马甲");
+    }
+}
+</span></pre>&#13;
+</div>&#13;
+<div class="theContent"></div>&#13;
+<div class="theContent2">&#13;
+<pre><span style="color:#333333">public class Trouser extends Clothing {
+
+    public void personDressCloth(Person person) {
+        System.out.println(person.getType() + "穿裤子");
+    }
+}
+</span></pre>&#13;
+</div>&#13;
+<div class="theContent"><span style="color:#333333"><strong>Test</strong> </span>&#13;
+</div>&#13;
+<div class="theContent2">&#13;
+<pre><span style="color:#333333">public class Test {
+
+    public static void main(String[] args) {
+        
+        Person man = new Man();
+        
+        Person lady = new Lady();
+        
+        Clothing jacket = new Jacket();
+        
+        Clothing trouser = new Trouser();
+        
+        jacket.personDressCloth(man);
+        trouser.personDressCloth(man);
+
+        jacket.personDressCloth(lady);
+        trouser.personDressCloth(lady);
+    }
+}
+</span></pre>&#13;
+</div>&#13;
+<div class="theContent"><span style="color:#333333"><strong>result</strong> </span>&#13;
+</div>&#13;
+<div class="theContent2">&#13;
+<pre><span style="color:#333333">男人穿马甲
+男人穿裤子
+女人穿马甲
+女人穿裤子
+</span></pre>&#13;
+</div>&#13;
+</div>&#13;
+<span style="color:#333333"><br />&#13;
+</span></div>&#13;
+<div><span style="color:#333333"><br />&#13;
+</span></div>&#13;
+</div>&#13;
+<div id="ad-arc-bottom" class="clearfix" style="padding-bottom:12px; font-family:'Microsoft Yahei',Arial,Helvetica,sans-serif; font-size:14px; background-color:rgb(238,238,238)">&#13;
+</div>&#13;
+   &#13;

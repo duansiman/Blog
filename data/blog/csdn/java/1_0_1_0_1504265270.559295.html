@@ -1,0 +1,165 @@
+
+
+<p>        优化是个无止境的工作，在AOP的路上，我们走得很远，但是还有很多的工作，我们没有做，比如，将aop的业务部分封装成容器，将aop的服务部分改造成面向接口的，这样就不受具体的形式上的限制了！这样AOP的优化，就又前进了一步，也是符合咱们的面向接口编程的思想，下面就和我一起研究下如何将接口的思想融入到aop的实现中。</p>&#13;
+<h1>回顾：</h1>&#13;
+<p>在上篇博客中，我们将aop的服务封装到了容器中：</p>&#13;
+<p><img src="http://img.blog.csdn.net/20150531154003639?watermark/2/text/aHR0cDovL2Jsb2cuY3Nkbi5uZXQveHZzaHU=/font/5a6L5L2T/fontsize/400/fill/I0JBQkFCMA==/dissolve/70/gravity/Center" alt="" /><br />&#13;
+</p>&#13;
+<p><br />&#13;
+</p>&#13;
+<p>这样的好处就是我们可以使用配置文件扩展服务类，服务类不再受限于具体的形式与方法，而我们封装的服务类和动态代理，构成了这样的一个AOP实现：</p>&#13;
+<p><img src="http://img.blog.csdn.net/20150531154348367?watermark/2/text/aHR0cDovL2Jsb2cuY3Nkbi5uZXQveHZzaHU=/font/5a6L5L2T/fontsize/400/fill/I0JBQkFCMA==/dissolve/70/gravity/Center" alt="" /><br />&#13;
+</p>&#13;
+<p><br />&#13;
+</p>&#13;
+<p>而这样的实现，我们还要依赖具体的容器，不利于我们扩展，如果我们想换容器怎么办？我们就要重构我们的代码，这不是我们程序设计中想要的，我们可以利用接口来屏蔽掉具体容器的使用，让aop可以定制容器，如何实现？其实很简单，大家看：</p>&#13;
+<p>1，类图改造</p>&#13;
+<p><img src="http://img.blog.csdn.net/20150531154659467?watermark/2/text/aHR0cDovL2Jsb2cuY3Nkbi5uZXQveHZzaHU=/font/5a6L5L2T/fontsize/400/fill/I0JBQkFCMA==/dissolve/70/gravity/Center" alt="" /><br />&#13;
+</p>&#13;
+<p>2，公共服务接口：</p>&#13;
+<p></p>&#13;
+<pre name="code" class="java">public interface IProxyMehds {
+	   
+    public void beforeBean();
+    public void afterBean();
+   
+}</pre>3，公共服务容器类：&#13;
+<p></p>&#13;
+<p></p>&#13;
+<pre name="code" class="java">public class ProxyMehds  implements IProxyMehds {
+	//盛放方法执行前的对象的容器
+	private  HashMap&lt;String,Object&gt; beforBeans;
+    private  HashMap&lt;String,Object&gt; afterBeans;
+	
+    //配制方法执行前要执行哪些方法
+	private  HashMap&lt;String,String&gt; beforMethods;
+    private  HashMap&lt;String,String&gt; afterMethods;
+    
+    
+    public void beforeBean()  {  
+    	
+    	
+    	try{
+    		
+    	
+	    	for (HashMap.Entry&lt;String, Object&gt; entry : beforBeans.entrySet()) {
+	
+	    	    String objectKey = entry.getKey();
+	    	    Object objectValure = entry.getValue();
+	    	    Method beforMehod = objectValure.getClass().getMethod(beforMethods.get(objectKey));
+	    	    beforMehod.invoke(objectValure);
+	
+	    	}
+    	
+    	}catch(Exception ex){
+    		ex.printStackTrace();
+    	}
+    	//Method sAge = c.getMethod("setAge");
+    }  
+ 
+    public void afterBean() {  
+    
+    	try{
+    		
+    	
+	    	for (HashMap.Entry&lt;String, Object&gt; entry : afterBeans.entrySet()) {
+	
+	    	    String objectKey = entry.getKey();
+	    	    Object objectValure = entry.getValue();
+	    	    Method beforMehod = objectValure.getClass().getMethod(afterMethods.get(objectKey));
+	    	    beforMehod.invoke(objectValure);
+	
+	    	}
+    	
+    	}catch(Exception ex){
+    		ex.printStackTrace();
+    	}
+    	
+    	
+    }
+
+	public HashMap&lt;String, Object&gt; getBeforBeans() {
+		return beforBeans;
+	}
+
+	public void setBeforBeans(HashMap&lt;String, Object&gt; beforBeans) {
+		this.beforBeans = beforBeans;
+	}
+
+	public HashMap&lt;String, Object&gt; getAfterBeans() {
+		return afterBeans;
+	}
+
+	public void setAfterBeans(HashMap&lt;String, Object&gt; afterBeans) {
+		this.afterBeans = afterBeans;
+	}
+
+	public HashMap&lt;String, String&gt; getBeforMethods() {
+		return beforMethods;
+	}
+
+	public void setBeforMethods(HashMap&lt;String, String&gt; beforMethods) {
+		this.beforMethods = beforMethods;
+	}
+
+	public HashMap&lt;String, String&gt; getAfterMethods() {
+		return afterMethods;
+	}
+
+	public void setAfterMethods(HashMap&lt;String, String&gt; afterMethods) {
+		this.afterMethods = afterMethods;
+	}
+}</pre><br />&#13;
+3，客户端&#13;
+<p></p>&#13;
+<p>客户端代码并没有发生任何变化：</p>&#13;
+<p></p>&#13;
+<pre name="code" class="java">public class Client {
+	public static void main(String[] args) { 
+		
+		HashMap&lt;String,Object&gt; beforBeans;
+	    HashMap&lt;String,Object&gt; afterBeans;
+		
+		HashMap&lt;String,String&gt; beforMethods;
+	    HashMap&lt;String,String&gt; afterMethods;
+	    
+	    beforMethods=new HashMap();
+    	beforBeans=new HashMap();
+    	beforBeans.put("AspectClass1", new AspectClass1());
+    	beforBeans.put("AspectClass2", new AspectClass2());   	
+    	beforMethods.put("AspectClass1", "SayHello");
+    	beforMethods.put("AspectClass2", "SayGoodBye");
+    	
+    	afterMethods=new HashMap();
+    	afterBeans=new HashMap();
+    	afterBeans.put("AspectClass3", new AspectClass3());
+    	afterBeans.put("AspectClass4", new AspectClass4());
+    	afterMethods.put("AspectClass3", "SayHi");
+    	afterMethods.put("AspectClass4", "Eat");
+    	
+    	ProxyMehds proxyMehds =new ProxyMehds();
+    	proxyMehds.setBeforBeans(beforBeans);
+    	proxyMehds.setBeforMethods(beforMethods);
+    	proxyMehds.setAfterBeans(afterBeans);
+    	proxyMehds.setAfterMethods(afterMethods);
+    	
+		//实例代理类
+        CGLibDynamicProxy cglib =CGLibDynamicProxy.getInstance();
+        
+        //接受切面
+        cglib.setProxyMehds(proxyMehds);
+        
+        //接受要代理的对象
+        Greeting greeting = cglib.getProxy(GreetingImpl.class);
+        
+        //执行对象的某个方法
+        greeting.sayHello("Jack");  
+    } 
+}</pre><br />&#13;
+总结：&#13;
+<p></p>&#13;
+<p>        大家看看这一路的变化，我们不难发现，在我们的AOP优化之路上，我们走得和其他博客不太一样，我们在这里实际就做了一件事，将耦合解开，将解开耦合的类封装到容器中，将容器抽象为一个接口，这样的道路，是不是和哪些理念靠近了呢？对？就是咱们的设计模式，在设计模式中，我们抽象了23种设计模式，其实就是为了解耦和，然后将耦合封装到运行时装配！</p>&#13;
+<p>       大道至简，在优化的道路上，比较好的指导思想就是简化，傻瓜化，就像蜂群一样，每个蜜蜂做一件简单的事情，一个蜂群就可以完成一个极其复杂的社会活动！</p>&#13;
+<p><br />&#13;
+</p>&#13;
+   &#13;

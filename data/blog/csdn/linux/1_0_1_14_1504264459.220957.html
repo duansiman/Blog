@@ -1,0 +1,113 @@
+
+
+<p>        as汇编函数设计：定义函数（发现程序注释很有意思，C语言用/××/，C++用//和/××/，python用#，汇编有很多种注释：用#  用;  还有用！）</p>&#13;
+<p>函数定义格式：</p>&#13;
+<p></p>&#13;
+<pre name="code" class="plain"> .section .data              #定义初始化数据段
+     output:
+         .asciz "The number is:%d\n"  #定义需要打印的字符串
+ .section .text              #定义代码段
+ .globl _start               #定义全局标识符 _start
+ _start:                     #程序的入口地址
+     movl $2, %ebx           #把立即数2传入ebx中 
+     call print_fun          #调用print_fun函数
+ 
+     movl $5, %ebx          
+     call print_fun          #同上面一样，把5作为参数传入print_fun函数中
+ 
+     movl $12, %ebx          
+     call print_fun          #同上
+ 
+     movl $1, %eax
+     movl $0, %ebx
+     int $0x80               #主函数exit退出
+ 
+ .type print_fun, @function  #定义函数，.type print_fun函数名，@function表示是定义的函数
+ print_fun:                  #函数入口地址
+     pushl %ebx              #参数ebx压栈
+     pushl $output           #参数字符串压栈，压的是地址
+     call printf             #调用C库中的printf
+     addl $8, %esp           #平衡堆栈
+     ret                     #函数返回</pre>      <span style="background-color:rgb(255,255,51)">  其实上面的重点是 .type print_fun, @function ，这是定义函数的方式，后面一般接着是函数入口地址标识符；</span>&#13;
+<p></p>&#13;
+<p>函数传参问题：</p>&#13;
+<p>        在<span style="background-color:rgb(255,255,51)">as汇编和C语言中函数调用时传参的标准是使用堆栈来操作</span>的，而有些其他汇编（如：ARM汇编）是通过ax，bx等，当参数超过4个参数时用堆栈进行压栈传入。来模拟下传参问题（假设有三个参数）：</p>&#13;
+<p><span style="background-color:rgb(255,255,51)">第一种方案：先把参数1到3顺序压栈，然后调用函数自动保存返回地址，此时esp指向为返回地址；</span></p>&#13;
+<p>        堆栈高地址：      参数3</p>&#13;
+<p>                                  参数2</p>&#13;
+<p>                                  参数1</p>&#13;
+<p>        堆栈低地址：  返回地址     &lt;------ esp</p>&#13;
+<p>        问题：如果函数内也要压入一些数据，那么esp会改变，那当需要使用传入的参数时，根据esp是很难获取到的（因为esp会随着各个函数中压入数据的不同，而不一样）</p>&#13;
+<p><br />&#13;
+</p>&#13;
+<p><span style="background-color:rgb(255,255,51)">第二种方案：解决上面的问题，引入一个ebp，让ebp固定的指向一个位置，那么这时候esp就是正常的了，函数中可以随意的压入数据了；此时图示为：</span></p>&#13;
+<p>        movl  %esp, %ebp         #让ebp指向esp开始位置，如果要取参数1，那么可以用4(%ebp)；有一点要注意，ebp默认是使用ss为段基地址的。</p>&#13;
+<p></p>&#13;
+<p>        堆栈高地址：      参数3                                 12(%ebp)</p>&#13;
+<p>                                  参数2                                   8(%ebp)</p>&#13;
+<p>                                  参数1                                    4(%ebp)</p>&#13;
+<p>        堆栈低地址：  返回地址     &lt;------ esp  == ebp</p>&#13;
+        问题：假如 当调用该函数前在ebp中保存了一个字节数，当退出函数后需要使用这个字节数时，就会出问题。因为各个函数传入的参数是不一样的，所以根本无法知道ebp最开始是在什么位置，是什么值。&#13;
+<p><br />&#13;
+</p>&#13;
+<p><span style="background-color:rgb(255,255,51)">第三种方案：解决上面问题，可以先把ebp的值压栈，退出函数时弹出栈来就可以了。</span></p>&#13;
+<p>        pushl %ebp</p>&#13;
+<p>        movl  %esp, %ebp</p>&#13;
+<p></p>&#13;
+<p>        堆栈高地址：      参数3                                 16(%ebp)</p>&#13;
+<p>                                  参数2                                  12(%ebp)</p>&#13;
+<p>                                  参数1                                    8(%ebp)</p>&#13;
+<p>                                 返回地址                                4(%ebp)</p>&#13;
+<p>        堆栈低地址：  旧的ebp值     &lt;------ esp  == ebp</p>&#13;
+<p><br />&#13;
+</p>&#13;
+<p>        所以可以总结下汇编中（C语言也是）函数调用参数框架为（在as汇编中函数都是这个框架）：</p>&#13;
+<p></p>&#13;
+<pre name="code" class="plain">pushl %ebp
+movl %esp, %ebp	
+...............
+movl %ebp, %esp
+popl %ebp
+ret</pre>        根据上面的框架可以看出来，用堆栈传参数，在函数内部是不会通过popl弹出参数的，而是使用ebp间接的使用堆栈中的参数。而最后返回时，那么参数还是留在了堆栈中。所以如果调用了函数，那么一定要记得在该函数返回后，清理掉堆栈中的那些参数。可以用popl弹出，也可以用addl $12, %esp（3个参数共12字节），让esp回到压入参数位置前。<br />&#13;
+<br />&#13;
+<p></p>&#13;
+<p>        根据最上面的例子，修改下使用堆栈传参，并且用popl和addl两种方法来平衡堆栈：</p>&#13;
+<p></p>&#13;
+<pre name="code" class="plain">.section .data
+     output:
+         .asciz "The number is:%d\n"
+ .section .text
+ .globl _start
+ _start:
+     pushl $2
+     call print_fun
+     addl $4, %esp
+ 
+     pushl $5
+     call print_fun
+     addl $4, %esp
+ 
+     pushl $20 
+     call print_fun
+     popl %edx
+ 
+     movl $1, %eax
+     movl $0, %ebx
+     int $0x80
+ 
+ .type print_fun, @function
+ print_fun:  
+     pushl %ebp
+     movl %esp, %ebp
+ 
+     pushl 8(%ebp)
+     pushl $output
+     call printf
+     addl $8, %esp
+ 
+     movl %ebp, %esp
+     popl %ebp
+     ret </pre>        转载请注明作者和原文出处，原文地址：<a target="_blank" href="http://blog.csdn.net/yuzhihui_no1/article/details/42706871">http://blog.csdn.net/yuzhihui_no1/article/details/42706871</a>&#13;
+<p><br />&#13;
+</p>&#13;
+   &#13;

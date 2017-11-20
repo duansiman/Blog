@@ -1,0 +1,74 @@
+
+
+<p style="text-align:center"><strong><img src="http://img.blog.csdn.net/20151025162022554?watermark/2/text/aHR0cDovL2Jsb2cuY3Nkbi5uZXQv/font/5a6L5L2T/fontsize/400/fill/I0JBQkFCMA==/dissolve/70/gravity/Center" alt="" /><br />&#13;
+</strong></p>&#13;
+<p style="text-align:center"><strong>镇楼</strong></p>&#13;
+<p><strong>在某些书中使用了二维图说明<span style="font-weight:bold">抽象工厂模式，很好，但是yqj2065不喜欢他们的产品族/产品等级，改成<span style="color:#ff0000">品牌/产品类型</span>。</span></strong></p>&#13;
+<p><strong><br />&#13;
+</strong></p>&#13;
+<p><strong>抽象工厂模式(abstract factory pattern)</strong>较工厂方法模式强大之处，是<strong>一个</strong>工厂能够创建<span style="color:#ff0000"><strong>多个配套</strong></span>的产品。</p>&#13;
+<p>日常生活中，抽象工厂模式比比皆是。例如服装厂可以生产配套的上衣/Tops、下装/Bottoms。电器公司如美的、海尔可以生产其品牌的冰箱、空调、电视机等。</p>&#13;
+<p>抽象工厂模式的特点就是工厂接口中有<span style="color:#ff0000">两个以上的工厂方法</span>。</p>&#13;
+<p></p>&#13;
+<pre name="code" class="java">例程 2-6 品牌公司
+package creational.factory.abstractFactory;
+public class NikeFactory implements IClothingFactory{
+    @Override public Tops getTops(){
+        return new NikeTops();
+    }
+    @Override public Bottoms getBottoms(){
+        return new NikeBottoms();
+    }
+}
+</pre>抽象工厂模式概念简单，但是编写演示程序是<span style="color:#ff0000">至少要编写10个类</span>（含Client）。如图所示。显然的，NikeFactory只会生产NikeTops和NikeBottoms，毕竟品牌公司不是山寨或贴牌公司。(yqj2065在后面考虑山寨问题)<br />&#13;
+<p></p>&#13;
+<div style="text-align:center"><img src="http://img.blog.csdn.net/20140917151747140?watermark/2/text/aHR0cDovL2Jsb2cuY3Nkbi5uZXQveXFqMjA2NQ==/font/5a6L5L2T/fontsize/400/fill/I0JBQkFCMA==/dissolve/70/gravity/SouthEast" alt="" /></div>&#13;
+<div style="text-align:left"><pre name="code" class="java">package creational.factory.abstractFactory;
+public class Client{
+    public static void test(){
+        IClothingFactory f =(IClothingFactory)tool.God.create("2-6-Factory");
+        Tops tops = f.getTops();
+        Bottoms bt =f.getBottoms();
+        System.out.println(tops.getName());
+        System.out.println(bt.getName() );
+    }
+}
+</pre>&#13;
+<p align="left">抽象工厂模式包含4个角色。抽象工厂角色，如IClothingFactory；具体工厂角色，前者的子类型；抽象产品角色，如Tops和Bottoms；而具体产品角色，是抽象产品角色的子类型。</p>&#13;
+从Client的角度看，抽象工厂模式下，通过配置文件指定IClothingFactory，从而获得其生产的上衣/Tops，可以再指定其他的厂家，获得其生产裤子/Bottoms；<strong><span style="color:#ff0000">Client仅仅依赖于抽象工厂角色和抽象产品角色</span></strong>；避免代码中的newNikeTops()和new AdidasBottoms。<br />&#13;
+<br />&#13;
+</div>&#13;
+<div style="text-align:left">&#13;
+<p align="left">2. 扩展性</p>&#13;
+<p align="left">IClothingFactory的子类，可以按照需要增添，符合OCP。</p>&#13;
+<p align="left">另一方面，假设现在的服装厂/IClothingFactory除了生产配套的上衣、裤子外，还生产鞋子/Shoe。IClothingFactory中<strong><span style="color:#ff0000">需要添加</span></strong></p>&#13;
+<p align="left">public Bottoms getShoe ();</p>&#13;
+<p>Java8之前，接口不能升级。如果定义了接口，将接口送给客户程序员使用，这时定义的接口就不能修改。因为在接口中添加一个方法，会导致老版本接口的所有实现类的中断。</p>&#13;
+如今，<strong><span style="color:#ff0000">在IClothingFactory广泛使用而且非常需要与时俱进地添加getShoe()</span></strong>时，Java8的默认方法(defender methods,Virtualextension methods)如同神奇的后悔药。<br />&#13;
+</div>&#13;
+<div style="text-align:left"><pre name="code" class="java">例程 2-7 默认方法
+package creational.factory.abstractFactory;
+public interface IClothingFactory{
+    public Tops getTops();
+    public Bottoms getBottoms();
+    default public Shoe getShoe(){
+        return null;
+    }
+}
+class Client{
+    public static void test(){
+        IClothingFactory f =(IClothingFactory)tool.God.create("2-6-Factory-Nike");        
+        //f =(IClothingFactory)tool.God.create("2-6-Factory-Ad");
+        Shoe shoe =f.getShoe();
+        System.out.println(shoe.getName() );
+    }
+}
+</pre>&#13;
+<p>NikeFactory改写了getShoe()，测试代码中Client可以正常获得Shoe对象；如果指定的具体工厂没有改写了getShoe()，则Shoe对象为null。</p>&#13;
+<strong><span style="color:#ff0000">接口中添加默认方法，对于没有改写该默认方法的子类，都是一种退化继承</span></strong>——如同鸵鸟是鸟，违反LSP因而违反OCP。<br />&#13;
+<p>接口中添加默认方法，保证以前的代码能够正常运行——因为以前的代码不可能知道也不存在使用getShoe()，因而<span style="color:#ff0000"><strong>保证了向前兼容</strong></span>。但是，编写新代码时就必须注意，IClothingFactory有方法getShoe()，但是<strong><span style="color:#ff0000">并非</span></strong>其实现类都给出有效的实现。你凭什么认为IClothingFactory的实例都能够生产鞋子呢？</p>&#13;
+<p><a target="_blank" href="http://blog.csdn.net/yqj2065/article/details/8592375" style="text-align:center"><img src="http://img.blog.csdn.net/20140919170809965?watermark/2/text/aHR0cDovL2Jsb2cuY3Nkbi5uZXQveXFqMjA2NQ==/font/5a6L5L2T/fontsize/400/fill/I0JBQkFCMA==/dissolve/70/gravity/SouthEast" alt="" /></a><br />&#13;
+</p>&#13;
+</div>&#13;
+<p></p>&#13;
+   &#13;

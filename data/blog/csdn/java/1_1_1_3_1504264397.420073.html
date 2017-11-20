@@ -1,0 +1,133 @@
+
+        <div class="markdown_views"><h2 id="一spring-security相关概念">一、Spring Security相关概念</h2>
+
+<p><strong>1.1.、Spring Security介绍：</strong></p>
+
+<p>Spring Security是一个能够为基于Spring的企业应用系统提供声明式的安全访问控制解决方案的安全框架（简单说是对访问权限进行控制嘛）。它提供了一组可以在Spring应用上下文中配置的Bean，充分利用了Spring IoC，DI（控制反转Inversion of Control ,DI:Dependency Injection 依赖注入）和AOP（面向切面编程）功能，为应用系统提供声明式的安全访问控制功能，减少了为企业系统安全控制编写大量重复代码的工作。</p>
+
+<p><strong>1.2、Spring Security实现原理：</strong></p>
+
+<p>Spring Security对Web安全性的支持大量地依赖于Servlet过滤器。通过这些过滤器拦截进入请求，判断是否已经登录认证且具访问对应请求的权限。</p>
+
+<p>要完成访问控制，Spring Security至少需要下面四个拦截器（调度器、认证管理器、权限资源关联器、访问决策器）进行配合完成：</p>
+
+
+
+<pre class="prettyprint"><code class=" hljs xml"><span class="hljs-comment">&lt;!-- mySecurityInterceptor这里我们把它命名为调度器吧 --&gt;</span>
+<span class="hljs-comment">&lt;!-- 必须包含 authenticationManager,securityMetadataSource,accessDecisionManager 三个属性 --&gt;</span>   
+<span class="hljs-comment">&lt;!-- 我们的所有控制将在这三个类中实现 --&gt;</span> 
+<span class="hljs-comment">&lt;!-- 它继承AbstractSecurityInterceptor类并实现了Filter接口 --&gt;</span> 
+<span class="hljs-tag">&lt;<span class="hljs-title">bean</span> <span class="hljs-attribute">id</span>=<span class="hljs-value">"mySecurityInterceptor"</span> <span class="hljs-attribute">class</span>=<span class="hljs-value">"com.luo.Filter.MySecurityInterceptor"</span>&gt;</span>  
+    <span class="hljs-tag">&lt;<span class="hljs-title">b:property</span> <span class="hljs-attribute">name</span>=<span class="hljs-value">"authenticationManager"</span> <span class="hljs-attribute">ref</span>=<span class="hljs-value">"authenticationManager"</span> /&gt;</span>  
+    <span class="hljs-tag">&lt;<span class="hljs-title">b:property</span> <span class="hljs-attribute">name</span>=<span class="hljs-value">"securityMetadataSource"</span> <span class="hljs-attribute">ref</span>=<span class="hljs-value">"securityMetadataSource"</span> /&gt;</span>  
+    <span class="hljs-tag">&lt;<span class="hljs-title">b:property</span> <span class="hljs-attribute">name</span>=<span class="hljs-value">"accessDecisionManager"</span> <span class="hljs-attribute">ref</span>=<span class="hljs-value">"accessDecisionManager"</span> /&gt;</span>  
+
+<span class="hljs-tag">&lt;/<span class="hljs-title">bean</span>&gt;</span>  
+
+<span class="hljs-comment">&lt;!-- 认证管理器，实现用户认证的入口 --&gt;</span>  
+<span class="hljs-tag">&lt;<span class="hljs-title">authentication-manager</span> <span class="hljs-attribute">alias</span>=<span class="hljs-value">"authenticationManager"</span>&gt;</span>  
+    <span class="hljs-tag">&lt;<span class="hljs-title">authentication-provider</span> <span class="hljs-attribute">user-service-ref</span>=<span class="hljs-value">"myUserDetailService"</span> /&gt;</span>   
+<span class="hljs-tag">&lt;/<span class="hljs-title">authentication-manager</span>&gt;</span>  
+
+<span class="hljs-comment">&lt;!-- 在这个类中，你就可以从数据库中读入用户的密码，角色信息等 --&gt;</span>  
+<span class="hljs-comment">&lt;!-- 主要实现UserDetailsService接口即可，然后返回用户数据 --&gt;</span>  
+<span class="hljs-tag">&lt;<span class="hljs-title">bean</span> <span class="hljs-attribute">id</span>=<span class="hljs-value">"myUserDetailService"</span> <span class="hljs-attribute">class</span>=<span class="hljs-value">"com.luo.Filter.MyUserDetailService"</span> /&gt;</span>  
+
+<span class="hljs-comment">&lt;!-- 权限资源关联器，将所有的资源和权限对应关系建立起来，即定义某一资源可以被哪些角色访问 --&gt;</span>  
+<span class="hljs-comment">&lt;!-- 它实现了FilterInvocationSecurityMetadataSource接口 --&gt;</span>  
+<span class="hljs-tag">&lt;<span class="hljs-title">bean</span> <span class="hljs-attribute">id</span>=<span class="hljs-value">"securityMetadataSource"</span> <span class="hljs-attribute">class</span>=<span class="hljs-value">"com.luo.Filter.MyFilterInvocationSecurityMetadataSource"</span> /&gt;</span> 
+
+<span class="hljs-comment">&lt;!--访问决策器，决定某个用户具有的角色，是否有足够的权限去访问某个资源 --&gt;</span> 
+<span class="hljs-comment">&lt;!-- 它实现了AccessDecisionManager接口 --&gt;</span> 
+<span class="hljs-tag">&lt;<span class="hljs-title">bean</span> <span class="hljs-attribute">id</span>=<span class="hljs-value">"accessDecisionManager"</span> <span class="hljs-attribute">class</span>=<span class="hljs-value">"com.luo.Filter.MyAccessDecisionManager"</span>&gt;</span></code></pre>
+
+<p>看完上面的配置，可能未必能够完全明白，下面我们再进一步说明。</p>
+
+<p>（1）首先我们自定义一个过滤器（调度器，这里我们命名为mySecurityInterceptor），这个过滤器继承AbstractSecurityInterceptor类（这里先说明，本文但凡不是自定义的类或接口都是Spring Security提供的，无须深究）。  它至少包含 authenticationManager,accessDecisionManager,securityMetadataSource三个属性，我们的所有控制将在这三个类中实现。</p>
+
+<p>（2）登录验证：自定义类MyUserDetailService实现UserDetailsService接口和其loadUserByUsername方法，这个方法根据用户输入的用户名，从数据库里面获取该用户的所有权限细信息（统称用户信息）。Spring Security的AuthenticationProcessingFilter拦截器调用authenticationManager，类MyUserDetailService拿到用户信息后，authenticationManager对比用户的密码（即验证用户），如果通过了，那么相当于通过了AuthenticationProcessingFilter拦截器，也就是登录验证通过。</p>
+
+<p>（3）资源访问控制：MySecurityInterceptor继承AbstractSecurityInterceptor、实现Filter是必须的。登陆后，每次访问资源都会被MySecurityInterceptor这个拦截器拦截，它首先会调用MyFilterInvocationSecurityMetadataSource类的getAttributes方法获取被拦截url所需的权限，在调用MyAccessDecisionManager类decide方法判断用户是否够权限。</p>
+
+<p>可能文字描述还是比较抽象，通过实例应该能让大家更加清楚其原理。</p>
+
+<hr />
+
+<p>补充说明一下：</p>
+
+<p>UserDetailsService在身份认证中的作用：</p>
+
+<p>Spring Security中进行身份验证的是AuthenticationManager接口，ProviderManager是它的一个默认实现，但它并不用来处理身份认证，而是委托给配置好的AuthenticationProvider，每个AuthenticationProvider会轮流检查身份认证。检查后或者返回Authentication对象或者抛出异常。</p>
+
+<p>验证身份就是加载响应的UserDetails，看看是否和用户输入的账号、密码、权限等信息匹配。此步骤由实现AuthenticationProvider的DaoAuthenticationProvider（它利用UserDetailsService验证用户名、密码和授权）处理。</p>
+
+<p>因此，登录认证其实可以不实现UserDetailsService，而是实现AuthenticationProvider，然后在AuthenticationProvider里面获取用户输入的用户名和密码进行校验也是可以的。或者两者一起使用。</p>
+
+<p>下面推荐两者一起使用的方式<a href="http://blog.sina.com.cn/s/blog_4adc4b090102uy2f.html">http://blog.sina.com.cn/s/blog_4adc4b090102uy2f.html</a></p>
+
+<p>另外，只实现AuthenticationProvider而不实现UserDetailsService的方式，这类是重写AuthenticationProvider的authenticate方法的代码：</p>
+
+<pre class="prettyprint"><code class=" hljs php">@Override
+<span class="hljs-keyword">public</span> Authentication authenticate(Authentication authentication) throws AuthenticationException {
+    String inputLoginId = authentication.getName();   <span class="hljs-comment">//获取用户输入的用户名</span>
+    String inputPasswd = authentication.getCredentials().toString(); /获取用户输入的密码
+
+    LOGGER.info(<span class="hljs-string">"用户{}登录"</span>, inputLoginId);
+    <span class="hljs-keyword">try</span>{
+        <span class="hljs-comment">// 查询此用户信息</span>
+        myUser myUser = <span class="hljs-keyword">null</span>;  <span class="hljs-comment">//根据用户名到数据库里面查询用户数据</span>
+        <span class="hljs-keyword">if</span> (myUser == <span class="hljs-keyword">null</span> ) {
+            <span class="hljs-keyword">throw</span> <span class="hljs-keyword">new</span> <span class="hljs-keyword">Exception</span>(<span class="hljs-string">"您输入的账号不存在"</span>);
+        }
+        <span class="hljs-keyword">if</span> (myUser.getUserStatus() == UserStatus.locked) {
+            <span class="hljs-keyword">throw</span> <span class="hljs-keyword">new</span> <span class="hljs-keyword">Exception</span>(<span class="hljs-string">"您的账号已被锁定"</span>);
+        }
+
+        String encodedPassword = myUser.getLoginPasswd();
+        <span class="hljs-comment">// 校验密码是否正确</span>
+        boolean authenticated = verifyPassword(inputPasswd, encodedPassword);
+        <span class="hljs-keyword">if</span> (authenticated) {
+            <span class="hljs-comment">// 认证成功处理</span>
+            updateLoginInfo(myUser.getLoginId(), <span class="hljs-number">0</span>, <span class="hljs-keyword">null</span>);
+        } <span class="hljs-keyword">else</span> {
+            <span class="hljs-comment">// 认证失败处理</span>
+            authenticateErrorProcess(portalUser);
+        }
+
+        <span class="hljs-keyword">List</span>&lt;GrantedAuthority&gt; grantedAuths = <span class="hljs-keyword">new</span> ArrayList&lt;GrantedAuthority&gt;();
+        <span class="hljs-keyword">for</span> (MyRole myRole : myUser.allRoleList()) {
+            grantedAuths.add(<span class="hljs-keyword">new</span> SimpleGrantedAuthority(myRole.getRoleCode()));
+        }
+        MyAuthUser authUser = <span class="hljs-keyword">new</span> PortalAuthUser(inputLoginId, inputPasswd, <span class="hljs-keyword">true</span>, <span class="hljs-keyword">true</span>, <span class="hljs-keyword">true</span>, <span class="hljs-keyword">true</span>, grantedAuths);
+        authUser.setPortalUser(portalUser);
+        <span class="hljs-keyword">return</span> <span class="hljs-keyword">new</span> UsernamePasswordAuthenticationToken(authUser, <span class="hljs-keyword">null</span>, authUser.getAuthorities());
+    }<span class="hljs-keyword">catch</span>(<span class="hljs-keyword">Exception</span> e){
+        LOGGER.warn(<span class="hljs-string">"用户登录失败"</span>, e);
+        <span class="hljs-keyword">throw</span> <span class="hljs-keyword">new</span> <span class="hljs-keyword">Exception</span>(<span class="hljs-string">" 请确认用户名或者密码是否正确);
+    }
+}</span></code></pre>
+
+<hr />
+
+<h2 id="二spring-security实例详细说明">二、Spring Security实例详细说明</h2>
+
+<p>本实例环境：eclipse + maven <br />
+本实例采用的主要技术：spring + springmvc + spring security</p>
+
+<p>时间有限这里只对其访问控制原理进行了阐述，例子后面再补上，不过关于实例推荐参考博文：<a href="http://blog.csdn.net/u012367513/article/details/38866465">http://blog.csdn.net/u012367513/article/details/38866465</a>，这篇文章写得非常详细！！！</p>
+
+<p>这是春节前最后一篇博客了，过年回来还有另外的学习计划，可能这个例子的TODO有点遥遥无期啊……..哈哈</p></div>&#13;
+        <script type="text/javascript">&#13;
+            $(function () {&#13;
+                $('pre.prettyprint code').each(function () {&#13;
+                    var lines = $(this).text().split('\n').length;&#13;
+                    var $numbering = $('&lt;ul/&gt;').addClass('pre-numbering').hide();&#13;
+                    $(this).addClass('has-numbering').parent().append($numbering);&#13;
+                    for (i = 1; i &lt;= lines; i++) {&#13;
+                        $numbering.append($('&lt;li/&gt;').text(i));&#13;
+                    };&#13;
+                    $numbering.fadeIn(1700);&#13;
+                });&#13;
+            });&#13;
+        </script>&#13;
+   &#13;

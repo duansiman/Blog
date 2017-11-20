@@ -1,0 +1,368 @@
+
+
+<p>Java反射机制Reflection，是在程序运行的时候能够获取和改变类的属性、方法等信息。</p>&#13;
+<p>因为反射的动态控制类的特性，所以大多被用在框架开发中等。</p>&#13;
+<p>我主要通过实例的方式来展现Java反射的常用方法。</p>&#13;
+<p>Java 反射机制主要提供了以下功能：</p>&#13;
+<p>1. 在运行时判断任意一个对象所属的类;</p>&#13;
+<p>2. 在运行时构造任意一个类的对象;</p>&#13;
+<p>3. 在运行时判断任意一个类所具有的成员变量和方法;</p>&#13;
+<p>4. 在运行时调用任意一个对象的方法;</p>&#13;
+<p>5. 生成动态代理。</p>&#13;
+<p>在 JDK 中，主要由以下类来实现Java 反射机制，这些类都位于java.lang.reflect</p>&#13;
+<p>包中。</p>&#13;
+<p>Class类：代表一个类。</p>&#13;
+<p>Field类：代表类的成员变量(成员变量也称为类的属性)。</p>&#13;
+<p>Method类：代表类的方法。</p>&#13;
+<p>Constructor 类：代表类的构造方法。</p>&#13;
+<p>Array类：提供了动态创建数组，以及访问数组元素的静态方法。</p>&#13;
+<br />&#13;
+<h3>1. 获取类的包名称</h3>&#13;
+<p>Demo类</p>&#13;
+<p></p>&#13;
+<pre code_snippet_id="1638131" snippet_file_name="blog_20160407_1_7388430" name="code" class="java">package com.xxx.test;
+
+
+/**
+ * 一个测试的Demo类
+ * @author zhuli
+ * @date 2014-6-22
+ */
+public class Demo {
+
+    private Integer age;
+
+    private String  userName;
+
+    public Integer getAge() {
+        return age;
+    }
+
+    public void setAge(Integer age) {
+        this.age = age;
+    }
+
+    public String getUserName() {
+        return userName;
+    }
+
+    public void setUserName(String userName) {
+        this.userName = userName;
+    }
+
+    @Override
+    public String toString() {
+        return "Demo [age=" + age + ", userName=" + userName + "]";
+    }
+
+}</pre><br />&#13;
+<br />&#13;
+<p></p>&#13;
+<p></p>&#13;
+Java main：&#13;
+<p></p>&#13;
+<p></p>&#13;
+<pre code_snippet_id="1638131" snippet_file_name="blog_20160407_2_2437178" name="code" class="java">package com.xxx.test;
+
+
+public class JavaTest {
+
+    public static void main(String args[]) {
+        //第一种方法
+        Class&lt;?&gt; demoClass = Demo.class; //通过 类名.class 直接获取类的Class
+        System.out.println("Demo.class的方式获取包名：" + demoClass.getName());
+
+        //第二种方法
+        Demo demo = new Demo();
+        Class&lt;?&gt; demoClass2 = demo.getClass(); //通过对象的getClass获取类的Class
+        System.out.println("demo.getClass()的方式获取包名：" + demoClass2.getName());
+
+        //第三种方法
+        Class&lt;?&gt; demoClass3 = null;
+        try {
+            demoClass3 = Class.forName("com.xxx.test.Demo");
+        } catch (Exception e) {
+
+        }
+        System.out.println("Class.forName(\"Demo\")的方式获取包名：" + demoClass3.getName());
+    }
+}</pre><br />&#13;
+<br />&#13;
+<p><br />&#13;
+</p>&#13;
+<h3>2. 获取类的方法信息</h3>&#13;
+<p>通过getDeclaredMethods()方法就可以获取到类中的方法信息。</p>&#13;
+<p>通过getDeclaredFields()方法获取类的域信息</p>&#13;
+<p></p><pre code_snippet_id="1638131" snippet_file_name="blog_20160407_3_867014" name="code" class="java">package com.xxx.test;
+
+import java.lang.reflect.Field;
+import java.lang.reflect.Method;
+
+
+public class JavaTest {
+
+    public static void main(String args[]) {
+        //获取类提供的方法
+        Class&lt;?&gt; demoClass = Demo.class; //通过 类名.class 直接获取类的Class
+        Demo demo = null;
+        //获取类的域信息
+        Field[] fields = demoClass.getDeclaredFields();
+        for (int i = 0; i &lt; fields.length; i++) {
+            System.out.println(fields[i].getName() + fields[i].getType());
+        }
+        //获取方法信息
+        Method methods[] = demoClass.getDeclaredMethods();
+        for (int i = 0; i &lt; methods.length; i++) {
+            System.out.println(methods[i]);
+        }
+    }
+}</pre><br />&#13;
+<br />&#13;
+&#13;
+<p></p>&#13;
+<p>输出：</p>&#13;
+<p></p><pre code_snippet_id="1638131" snippet_file_name="blog_20160407_4_2120750" name="code" class="java">ageclass java.lang.Integer
+userNameclass java.lang.String
+public java.lang.Integer com.xxx.test.Demo.getAge()
+public void com.xxx.test.Demo.setAge(java.lang.Integer)
+public void com.xxx.test.Demo.setUserName(java.lang.String)
+public java.lang.String com.xxx.test.Demo.toString()
+public java.lang.String com.xxx.test.Demo.getUserName()</pre><br />&#13;
+&#13;
+<p></p>&#13;
+<p><br />&#13;
+</p>&#13;
+<h3>3. 实例化一个类</h3>&#13;
+<pre code_snippet_id="1638131" snippet_file_name="blog_20160407_5_550587" name="code" class="java">package com.xxx.test;
+
+
+public class JavaTest {
+
+    public static void main(String args[]) {
+        //获取类提供的方法
+        Class&lt;?&gt; demoClass = Demo.class; //通过 类名.class 直接获取类的Class
+        Demo demo = null;
+        try {
+            demo = (Demo) demoClass.newInstance();
+        } catch (InstantiationException e) {
+            e.printStackTrace();
+        } catch (IllegalAccessException e) {
+            e.printStackTrace();
+        }
+        demo.setAge(20);
+        demo.setUserName("initphp");
+        System.out.println(demo.toString());
+        
+    }
+}</pre><br />&#13;
+输出：&#13;
+<p></p>&#13;
+<p>Demo [age=20, userName=initphp]</p>&#13;
+<p><br />&#13;
+</p>&#13;
+<h3>4. 通过反射设置私有属性值</h3>&#13;
+<pre code_snippet_id="1638131" snippet_file_name="blog_20160407_6_5392373" name="code" class="java">package com.xxx.test;
+
+import java.lang.reflect.Field;
+
+
+public class JavaTest {
+
+    public static void main(String args[]) throws Exception {
+         //获取类提供的方法
+        Class&lt;?&gt; demoClass = Demo.class; //通过 类名.class 直接获取类的Class
+        Demo demoObj = (Demo) demoClass.newInstance();
+        //设置类的属性值
+        Field field = demoClass.getDeclaredField("age");
+        field.setAccessible(true); //设置私有属性范围  
+        field.set(demoObj, 20);
+        
+        Field field2 = demoClass.getDeclaredField("userName");
+        field2.setAccessible(true);
+        field2.set(demoObj, "initphp");
+        System.out.println("获取一个值：" + field2.get(demoObj));
+        
+        System.out.println(demoObj.toString());
+    }
+}</pre><br />&#13;
+输出：&#13;
+<p></p>&#13;
+<p>获取一个值：initphp<br />&#13;
+Demo [age=20, userName=initphp]<br />&#13;
+<br />&#13;
+</p>&#13;
+<h3>5. 通过反射调用类的方法</h3>&#13;
+<p></p><pre code_snippet_id="1638131" snippet_file_name="blog_20160407_7_8597956" name="code" class="java">package com.xxx.test;
+
+import java.lang.reflect.Method;
+
+
+public class JavaTest {
+
+    public static void main(String args[]) throws Exception {
+        //获取类提供的方法
+        Class&lt;?&gt; demoClass = Demo.class; //通过 类名.class 直接获取类的Class
+        Demo demoObj = (Demo) demoClass.newInstance();
+        
+        //调用类的方法
+        Method method = demoClass.getMethod("setAge", Integer.class); //获取类方法信息
+        method.invoke(demoObj, 100); //调用方法
+        Method method2 = demoClass.getMethod("getAge");
+        System.out.println("Age:" + method2.invoke(demoObj));
+        
+        Method method3 = demoClass.getMethod("setUserName", String.class);
+        method3.invoke(demoObj, "initphp");
+        Method method4 = demoClass.getMethod("getUserName");
+        System.out.println("UserName:" + method4.invoke(demoObj));
+        
+        System.out.println(demoObj.toString());
+    }
+}</pre><br />&#13;
+&#13;
+输出：&#13;
+<p></p>&#13;
+<p>Age:100<br />&#13;
+UserName:initphp<br />&#13;
+Demo [age=100, userName=initphp]</p>&#13;
+<p><br />&#13;
+</p>&#13;
+<h3>6. 获取父类/interface/构造函数等信息</h3>&#13;
+<p>新增Demo的接口/父类</p>&#13;
+<p></p><pre code_snippet_id="1638131" snippet_file_name="blog_20160407_8_2567691" name="code" class="java">package com.xxx.test;
+
+
+public class People {
+    
+    private String sex;
+
+    public String getSex() {
+        return sex;
+    }
+
+    public void setSex(String sex) {
+        this.sex = sex;
+    }
+
+}
+package com.xxx.test;
+
+
+public interface Test {
+
+}
+package com.xxx.test;
+
+
+/**
+ * 一个测试的Demo类
+ * @author zhuli
+ * @date 2014-6-22
+ */
+public class Demo extends People implements Test {
+
+    public Demo() {
+    }
+
+    public Demo(String userName, Integer age) {
+        this.age = age;
+        this.userName = userName;
+    }
+
+    private Integer age;
+
+    private String  userName;
+
+    public Integer getAge() {
+        return age;
+    }
+
+    public void setAge(Integer age) {
+        this.age = age;
+    }
+
+    public String getUserName() {
+        return userName;
+    }
+
+    public void setUserName(String userName) {
+        this.userName = userName;
+    }
+
+    @Override
+    public String toString() {
+        return "Demo [age=" + age + ", userName=" + userName + "]";
+    }
+
+}</pre><br />&#13;
+&#13;
+<br />&#13;
+例子：&#13;
+<p></p><pre code_snippet_id="1638131" snippet_file_name="blog_20160407_9_3821427" name="code" class="java">package com.xxx.test;
+
+
+import java.lang.reflect.Constructor;
+
+public class JavaTest {
+
+    public static void main(String args[]) throws Exception {
+        //获取类提供的方法
+        Class&lt;?&gt; demoClass = Demo.class; //通过 类名.class 直接获取类的Class
+
+        //获取构造函数信息
+        Constructor&lt;?&gt; ctorlist[] = demoClass.getDeclaredConstructors();
+        for (int i = 0; i &lt; ctorlist.length; i++) {
+            Constructor&lt;?&gt; ct = ctorlist[i];
+            System.out.print("构造函数 = " + ct.getName());
+            Class&lt;?&gt; pvec[] = ct.getParameterTypes(); //获取参数类型。数组形式
+            for (int j = 0; j &lt; pvec.length; j++) {
+                System.out.print(" 参数： " + pvec[j]);
+            }
+            System.out.println("");
+
+            //通过构造函数实例化对象
+            if (pvec.length &gt; 0) {
+                Demo demo = (Demo) ct.newInstance("zhul", 10);
+                System.out.println("通过构造函数(Demo) ct.newInstance(\"zhul\", 10)实例化：" + demo.toString());
+            }
+        }
+
+        //获取父类信息
+        Class&lt;?&gt; temp = demoClass.getSuperclass(); //Java只能单继承，所以只有一个父类
+        System.out.println("父类名称：" + temp.getName());
+
+        //获取interface信息
+        Class&lt;?&gt; interfaces[] = demoClass.getInterfaces(); //Java可以支持多个接口，所以是数组
+        for (int i = 0; i &lt; interfaces.length; i++) {
+            System.out.println("实现的接口   " + interfaces[i].getName());
+        }
+
+    }
+}</pre><br />&#13;
+&#13;
+<p></p>&#13;
+输出：&#13;
+<p></p>&#13;
+<p>构造函数 = com.xxx.test.Demo<br />&#13;
+构造函数 = com.xxx.test.Demo 参数： class java.lang.String 参数： class java.lang.Integer<br />&#13;
+通过构造函数(Demo) ct.newInstance("zhul", 10)实例化：Demo [age=10, userName=zhul]<br />&#13;
+父类名称：com.xxx.test.People<br />&#13;
+实现的接口   com.xxx.test.Test<br />&#13;
+<br />&#13;
+<br />&#13;
+</p>&#13;
+<p><br />&#13;
+</p>&#13;
+<p><br />&#13;
+<br />&#13;
+</p>&#13;
+<p><br />&#13;
+</p>&#13;
+<p><br />&#13;
+</p>&#13;
+<p><br />&#13;
+</p>&#13;
+<p></p>&#13;
+<p></p>&#13;
+<p><br />&#13;
+</p>&#13;
+   &#13;

@@ -1,0 +1,116 @@
+
+
+<p><strong>外观模式(façade pattern)</strong>是门面型委派方式，它将减少客户对服务细节的了解。</p>&#13;
+<p>应用程序中有大量的类，它们分工合作。从更大的颗粒度看，类组成包，包组成子系统(subsystem)。对外界的客户类而言，整个子系统可以被视为一个服务机构，客户不一定希望和所有的类打交道，而仅仅希望与服务机构交互。表示<strong><span style="color:#ff0000">整个子系统这个服务机构，称为外观类(Facade)</span></strong>。外观类为客户类与整个子系统的交互定义了（高层）接口。</p>&#13;
+<p>一个大家熟知的例子，是JDBC。有人希望使用JDBC提供的所有类的所有方法；但是，做简单系统的人，常常不希望自己的DAL层代码使用太多的JDBC类，更<strong>不喜欢</strong>处理没完没了的异常。于是，有人<strong><span style="color:#ff0000">将自己常用的类和方法加以封装，形成自己的JDBC门面</span></strong>。</p>&#13;
+<p>门面类常常作为程序员的私房菜——工具类。一个框架如JDBC的设计者，千万不要设计门面，你要知道众口难调。使用者需要了解你的门面包含了那些，重要的是不包含那些东西，这不是自己找喷吗。<img alt="大笑" src="http://static.blog.csdn.net/xheditor/xheditor_emot/default/laugh.gif" /><br />&#13;
+</p>&#13;
+<p><br />&#13;
+</p>&#13;
+<p>你可以参考的例子。yqj2065的JDBC门面。包含两个类DBTable和HsqldbConn。</p>&#13;
+<p></p>&#13;
+<pre name="code" class="java">package DAL;
+
+import java.sql.ResultSet;
+import java.sql.ResultSetMetaData;
+import java.sql.SQLException;
+import java.util.logging.Level;
+import java.util.logging.Logger;
+
+/**
+ * 封装ResultSet、ResultSetMetaData接口的门面。取名DBTable——数据库表
+ * 
+ * @author yqj2065
+ */
+class DBTable {
+    ResultSet rs;
+    ResultSetMetaData rsmd;
+    int colCount;//列数
+
+    public DBTable(ResultSet rs) {
+        this.rs = rs;
+        try {
+            rsmd = rs.getMetaData();
+            colCount = rsmd.getColumnCount();
+        } catch (SQLException e) { }
+    }
+
+    /**
+     * 获得字段名数组
+     * @return 
+     */
+    public String[] getColNames() {        
+        String[] names = new String[colCount];
+        try {
+            for (int i = 0; i &lt;= colCount; i++) {
+                names[i] = rsmd.getColumnName(i+1);
+            }
+        } catch (SQLException e) {
+        }
+        return names;
+    }
+
+    /**
+     * 
+     * @return 
+     */
+    public boolean hasNext() {
+        try {
+            return rs.next();
+        } catch (SQLException e) {
+            return false;
+        }
+    }
+
+    /**
+     * 学习java.lang.Iterable而非ResultSet的命名。
+     * @return 字符串数组形式的一条记录。
+     */
+    public String[] next() {
+        String[] row = new String[colCount];
+        try {
+            for (int i = 0; i &lt;= colCount; i++) {
+                row[i] = rs.getString(i+1);//为什么基于1
+            }
+        } catch (SQLException e) {
+        }
+        return row;
+    }
+
+    public String getFieldValue(String columnName) {
+        String value = "";
+        try {
+            value = rs.getString(columnName);
+        } catch (SQLException e) {
+        }
+        return value;
+    }
+
+    public String getFieldValue(int i) {
+        String value = "";
+        try {
+            value = rs.getString(i);
+        } catch (SQLException e) {
+        }
+        return value;
+    }
+
+    //----------------------------------------------
+    @Override public void finalize() {
+        try {
+            rs.close();
+        } catch (SQLException e) {
+        } finally {
+            try {
+                super.finalize();
+            } catch (Throwable ex) {
+                Logger.getLogger(DBTable.class.getName()).log(Level.SEVERE, null, ex);
+            }
+        }
+    }
+}</pre><br />&#13;
+<br />&#13;
+<p><a target="_blank" href="http://blog.csdn.net/yqj2065/article/details/8592375" style="text-align:center"><img src="http://img.blog.csdn.net/20140919170809965?watermark/2/text/aHR0cDovL2Jsb2cuY3Nkbi5uZXQveXFqMjA2NQ==/font/5a6L5L2T/fontsize/400/fill/I0JBQkFCMA==/dissolve/70/gravity/SouthEast" alt="" /></a></p>&#13;
+<p><br />&#13;
+</p>&#13;
+   &#13;

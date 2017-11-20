@@ -1,0 +1,187 @@
+
+        <div class="markdown_views"><p>AJAX的作用局部刷新,作为提升页面体验还是很重要的,不过大家都说对SEO不是很友好,一直使用jQuery封装的AJAX,没有了解过原生的是什么样子的,特此学习下,补充知识</p>
+
+<h2 id="1原生ajax的get方式">1.原生AJAX的Get方式</h2>
+
+<p>页面中定义一个a标签.想要实现的效果点击a标签,能够请求服务器,弹出服务器返回的字段</p>
+
+
+
+<pre class="prettyprint"><code class=" hljs xml"><span class="hljs-tag">&lt;<span class="hljs-title">body</span>&gt;</span>
+    <span class="hljs-tag">&lt;<span class="hljs-title">a</span> <span class="hljs-attribute">href</span>=<span class="hljs-value">"/ajaxTest"</span>&gt;</span>点击我！<span class="hljs-tag">&lt;/<span class="hljs-title">a</span>&gt;</span>
+<span class="hljs-tag">&lt;/<span class="hljs-title">body</span>&gt;</span></code></pre>
+
+<p>对应的AJAX请求如下,注释步骤很详细的</p>
+
+
+
+<pre class="prettyprint"><code class=" hljs xml">//具体的函数可以参考最后的附录,对信号码都有详细解释
+<span class="hljs-tag">&lt;<span class="hljs-title">script</span>&gt;</span><span class="javascript">
+    window.onload = <span class="hljs-function"><span class="hljs-keyword">function</span> <span class="hljs-params">()</span> {</span>
+
+        document.getElementsByTagName(<span class="hljs-string">'a'</span>)[<span class="hljs-number">0</span>].onclick = <span class="hljs-function"><span class="hljs-keyword">function</span> <span class="hljs-params">()</span> {</span>
+            <span class="hljs-comment">//1.创建请求XMLHttpRequest对象</span>
+            <span class="hljs-keyword">var</span> request = <span class="hljs-keyword">new</span> XMLHttpRequest();
+            <span class="hljs-comment">//2.要请求的链接和请求方式</span>
+            <span class="hljs-keyword">var</span> url = <span class="hljs-string">'/ajaxTest'</span>;<span class="hljs-comment">//要请求的链接</span>
+            <span class="hljs-keyword">var</span> method = <span class="hljs-string">'GET'</span>;
+            <span class="hljs-comment">//3.使用open方法准备请求</span>
+            request.open(method,url,<span class="hljs-literal">true</span>);
+            <span class="hljs-comment">//4.使用send发送请求,GET方式传送null,如果传送内容不为null,则保证请求为post方式</span>
+            request.send(<span class="hljs-literal">null</span>);
+            <span class="hljs-comment">//5.调用read来监听请求状态</span>
+            request.onreadystatechange = <span class="hljs-function"><span class="hljs-keyword">function</span> <span class="hljs-params">()</span> {</span>
+                <span class="hljs-comment">//6.表示请求完成</span>
+              <span class="hljs-keyword">if</span> (request.readyState == <span class="hljs-number">4</span>){
+                  <span class="hljs-comment">//表示请求的结果正确</span>
+                  <span class="hljs-keyword">if</span> (request.status == <span class="hljs-number">200</span> || request.status == <span class="hljs-number">304</span>){
+                      alert(request.responseText);
+                  }
+              }
+            };
+            <span class="hljs-comment">//阻止a链接跳转</span>
+            <span class="hljs-keyword">return</span> <span class="hljs-literal">false</span>;
+        }
+    };
+</span><span class="hljs-tag">&lt;/<span class="hljs-title">script</span>&gt;</span></code></pre>
+
+<p>服务器端对应输出hello world</p>
+
+
+
+<pre class="prettyprint"><code class=" hljs java">   <span class="hljs-annotation">@RequestMapping</span>(value = <span class="hljs-string">"ajaxTest"</span>,method = {RequestMethod.GET,RequestMethod.POST})
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">void</span> <span class="hljs-title">gzipTest</span>(HttpServletRequest request, HttpServletResponse response) <span class="hljs-keyword">throws</span> IOException {
+        String str = <span class="hljs-string">"Hello World"</span>;
+        ServletOutputStream sos = response.getOutputStream();
+        sos.write(str.getBytes());
+    }</code></pre>
+
+<p><img src="http://img.blog.csdn.net/20160715225306271" alt="这里写图片描述" title="" /></p>
+
+<p>同时浏览器会产生请求</p>
+
+<p><img src="http://img.blog.csdn.net/20160715225407616" alt="这里写图片描述" title="" /></p>
+
+<hr />
+
+
+
+<h2 id="2原生ajax的post方式">2.原生AJAX的post方式</h2>
+
+<p>POST方式很简单 <br />
+1. 把,method改为post方式 <br />
+2. 在open()函数之后调用</p>
+
+
+
+<pre class="prettyprint"><code class=" hljs cs"><span class="hljs-comment">//3.1表明这是一个post请求</span>
+request.setRequestHeader(<span class="hljs-string">"Content-type"</span>,<span class="hljs-string">"application/x-www-form-urlencoded"</span>);</code></pre>
+
+<p><img src="http://img.blog.csdn.net/20160715225959722" alt="这里写图片描述" title="" /></p>
+
+<hr />
+
+
+
+<h2 id="3开发中应用">3.开发中应用</h2>
+
+<p>开发中绝大多数不使用原生方式,因为要写太多代码,可以自己封装成一个函数,然后调用也是不错的一种方法,不过绝大多数都是使用别人封装好的,例如jQuery,作为了解,原生的方式还是要懂得</p>
+
+
+
+<h2 id="4属性表">4.属性表</h2>
+
+<p>概念就不写了,直接写方法</p>
+
+<p>请求是利用XMLHttpRequest 这个实例,下面实战这个实例拥有的方法 <br />
+<img src="http://img.blog.csdn.net/20160715222016003" alt="这里写图片描述" title="" /> <br />
+<img src="http://img.blog.csdn.net/20160715222028878" alt="这里写图片描述" title="" /></p>
+
+
+
+<h3 id="1onreadystatechange">1.onreadystatechange:</h3>
+
+<p>该事件处理函数由<strong>服务器触发</strong>，而不是用户 <br />
+在 Ajax 执行过程中，服务器会通知客户端当前的通信状态。这依靠更新 XMLHttpRequest 对象的 readyState 来实现。<strong>改变 readyState 属性是服务器对客户端连接操作的一种方式。每次 readyState 属性的改变都会触发 readystatechange 事件</strong></p>
+
+
+
+<h3 id="2openmethod-url-asynch">2.open(method, url, asynch)</h3>
+
+<p>XMLHttpRequest 对象的 open 方法允许程序员用一个Ajax调用向服务器发送请求。 <br />
+<strong>method</strong>：请求类型，类似“GET”或”POST”的字符串。若只想从服务器检索一个文件，而不需要发送任何数据，使用GET(可以在GET请求里通过附加在URL上的查询字符串来发送数据，不过数据大小限制为2000个字符)。若需要向服务器发送数据，用POST。在某些情况下，有些浏览器会把多个XMLHttpRequest请求的结果缓存在同一个URL。如果对每个请求的响应不同，就会带来不好的结果。在此将时间戳追加到URL的最后,就能确保URL的唯一性，从而避免浏览器缓存结果。 <br />
+<strong>url</strong>：路径字符串，指向你所请求的服务器上的那个文件。可以是绝对路径或相对路径。 <br />
+<strong>asynch</strong>：表示请求是否要异步传输，默认值为true。指定true，在读取后面的脚本之前，不需要等待服务器的相应。指定false，当脚本处理过程经过这点时，会停下来，一直等到Ajax请求执行完毕再继续执行。</p>
+
+
+
+<h3 id="3senddata">3.send(data)：</h3>
+
+<p>open 方法定义了 Ajax 请求的一些细节。send 方法可为已经待命的请求发送指令 <br />
+<strong>data</strong>：将要传递给服务器的字符串。 <br />
+若选用的是 GET 请求，则不会发送任何数据， 给 send 方法传递 null 即可：request.send(null); <br />
+当向send()方法<strong>提供参数</strong>时，要确保open()中指定的方法是<strong>POST</strong>，如果没有数据作为请求体的一部分发送，则使用null.</p>
+
+
+
+<h3 id="4setrequestheaderheadervalue">4.setRequestHeader(header,value)</h3>
+
+<p>当浏览器向服务器请求页面时，它会伴随这个请求发送一组首部信息。这些首部信息是一系列描述请求的元数据(metadata)。首部信息用来声明一个请求是 GET 还是 POST。 <br />
+Ajax 请求中，发送首部信息的工作可以由 setRequestHeader该完成 <br />
+<strong>参数header</strong>： 首部的名字;  参数value：首部的值。 <br />
+如果用 POST 请求向服务器发送数据，需要将 “Content-type” 的首部设置为 “application/x-www-form-urlencoded”.它会告知服务器正在发送数据，并且数据已经符合URL编码了。 <br />
+该方法必须在open()之后才能调用</p>
+
+
+
+<h3 id="5readystate">5.readyState</h3>
+
+<p>readyState 属性表示Ajax请求的当前状态。它的值用数字代表。 <br />
+0 代表未初始化。 还没有调用 open 方法 <br />
+1 代表正在加载。 open 方法已被调用，但 send 方法还没有被调用 <br />
+2 代表已加载完毕。send 已被调用。请求已经开始 <br />
+3 代表交互中。服务器正在发送响应 <br />
+4 代表完成。响应发送完毕 <br />
+每次 readyState 值的改变，都会触发 readystatechange 事件。如果把 onreadystatechange 事件处理函数赋给一个函数，那么每次 readyState 值的改变都会引发该函数的执行。 <br />
+readyState 值的变化会因浏览器的不同而有所差异。但是，当请求结束的时候，每个浏览器都会把 readyState 的值统一设为 4</p>
+
+
+
+<h3 id="6status">6.status</h3>
+
+<p>服务器发送的每一个响应也都带有首部信息。三位数的状态码是服务器发送的响应中最重要的首部信息，并且属于超文本传输协议中的一部分。 <br />
+常用状态码及其含义： <br />
+404 没找到页面(not found) <br />
+403 禁止访问(forbidden) <br />
+500 内部服务器出错(internal service error) <br />
+200 一切正常(ok) <br />
+304 没有被修改(not modified) <br />
+在 XMLHttpRequest 对象中，服务器发送的状态码都保存在 status 属性里。通过把这个值和 200 或 304 比较，可以确保服务器是否已发送了一个成功的响应</p>
+
+
+
+<h3 id="7responsetext">7.responseText</h3>
+
+<p>XMLHttpRequest 的 responseText 属性包含了从服务器发送的数据。它是一个HTML,XML或普通文本，这取决于服务器发送的内容。 <br />
+当 readyState 属性值变成 4 时, responseText 属性才可用，表明 Ajax 请求已经结束。</p>
+
+
+
+<h3 id="8responsexml">8.responseXML</h3>
+
+<p>如果服务器返回的是 XML， 那么数据将储存在 responseXML 属性中。 <br />
+只用服务器发送了带有正确首部信息的数据时， responseXML 属性才是可用的。 MIME 类型必须为 text/xml</p></div>&#13;
+        <script type="text/javascript">&#13;
+            $(function () {&#13;
+                $('pre.prettyprint code').each(function () {&#13;
+                    var lines = $(this).text().split('\n').length;&#13;
+                    var $numbering = $('&lt;ul/&gt;').addClass('pre-numbering').hide();&#13;
+                    $(this).addClass('has-numbering').parent().append($numbering);&#13;
+                    for (i = 1; i &lt;= lines; i++) {&#13;
+                        $numbering.append($('&lt;li/&gt;').text(i));&#13;
+                    };&#13;
+                    $numbering.fadeIn(1700);&#13;
+                });&#13;
+            });&#13;
+        </script>&#13;
+   &#13;

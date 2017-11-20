@@ -1,0 +1,447 @@
+
+                <div class="markdown_views"><h2 id="passwd文件">passwd文件</h2>
+
+<p>passwd 是一个文本文件，用于定义系统的用户账号，该文件位于“/etc”目录下</p>
+
+<p>包含一个系统账户列表，给出每个账户一些有用的信息，例如，用户 ID、组 ID、主目录、shell等</p>
+
+<p>由于所有用户都对passwd有读权限，所以该文件中只定义用户账号，而不保存口令</p>
+
+<p>passwd文件中每行定义一个用户账号，一行中又划分为多个字段定义用户的账号的不同属性，各字段用“：”隔开</p>
+
+<h2 id="passwd文件字段说明">passwd文件字段说明</h2>
+
+<p>account <br/>
+使用者在系统中的名字，它不能包含大写字母 <br/>
+password <br/>
+用户口令，出于安全考虑，不使用该字段保存口令，而用字母“x”来填充该字段，真正的密码保存在shadow文件 <br/>
+UID <br/>
+用户 ID 号，惟一表示某用户的数字 <br/>
+GID <br/>
+用户所属的私有组号，该数字对应group文件中的GID <br/>
+GECOS <br/>
+这字段是可选的，通常用于保存用户命名的信息 <br/>
+Directory <br/>
+用户的主目录，用户成功登录后的默认目录 <br/>
+shell  <br/>
+用户所使用的shell，如该字段为空则使用“/bin/sh”</p>
+
+<h2 id="shadow文件">shadow文件</h2>
+
+<p>每行定义一个用户信息，行中各字段各字段用“：”隔开 <br/>
+为进一步提高安全性，shadow文件中保存的是已加密的口令 <br/>
+登录名 <br/>
+加密口令 <br/>
+口令上次更改时距1970年1月1日的天数 <br/>
+口令更改后不可以更改的天数 <br/>
+口令更改后必须再更改的天数(有效期) <br/>
+口令失效前警告用户的天数 <br/>
+口令失效后距账号被查封的天数 <br/>
+账号被封时距1970年1月1日的天数 <br/>
+保留未用</p>
+
+<h2 id="存取passwd文件信息的函数">存取passwd文件信息的函数</h2>
+
+<pre class="prettyprint"><code class=" hljs vala">根据uid或登录名查看相关记录
+头文件
+<span class="hljs-preprocessor">#include &lt;sys/types.h&gt;</span>
+<span class="hljs-preprocessor">#include &lt;pwd.h&gt;</span>
+函数
+<span class="hljs-keyword">struct</span> passwd *getpwuid(uid_t uid);
+<span class="hljs-keyword">struct</span> passwd *getpwnam(<span class="hljs-keyword">const</span> <span class="hljs-keyword">char</span> *name);
+返回值
+成功返回指针
+出错返回NULL
+</code></pre>
+
+
+
+<pre class="prettyprint"><code class=" hljs vala">查看整个口令文件
+头文件
+<span class="hljs-preprocessor">#include &lt;sys/types.h&gt;</span>
+<span class="hljs-preprocessor">#include &lt;pwd.h&gt;</span>
+函数
+<span class="hljs-keyword">struct</span> passwd *getpwent(<span class="hljs-keyword">void</span>);
+从密码文件（/etc/passwd）中读取一项用户数据
+第一次调用时会取得第一位用户数据，之后每调用一次就会返回下一项数据
+直到已无任何数据时返回NULL
+<span class="hljs-keyword">void</span> setpwent(<span class="hljs-keyword">void</span>);
+<span class="hljs-keyword">void</span> endpwent(<span class="hljs-keyword">void</span>);
+</code></pre>
+
+<h2 id="group文件">group文件</h2>
+
+<p>逻辑地组织用户账号集合的途径，允许用户在组内共享文件 <br/>
+系统上的每一个文件都有一个用户和一个组的属主，使用“ls –l”命令可以看到每一个文件的属主和组 <br/>
+每个组在/etc/group文件中有一行记录，格式如下 <br/>
+groupname : passwd : GID : userlist <br/>
+group字段说明 <br/>
+groupname：是组的名字 <br/>
+passwd：组的加密口令 <br/>
+GID：系统区分不同组的ID，在/etc/passwd域中的GID域是用这个数来指定用户的缺省组 <br/>
+userlist：用“，”分开的用户名，列出的是这个组 的成员</p>
+
+<h2 id="用户组口令文件gshadow">用户组口令文件（gshadow）</h2>
+
+<pre class="prettyprint"><code class=" hljs cs">用于定义用户组口令、组管理员等信息
+该文件只有root用户可以读取
+gshadow文件中每行定义一个用户组信息，行中各字段间用“：”分隔，每行记录的格式为
+groupname : encrypted password: <span class="hljs-keyword">group</span> administrators: <span class="hljs-keyword">group</span> members
+各字段含义
+groupname：用户组名称，该字段与<span class="hljs-keyword">group</span>文件中的组名称    对应
+encrypted password：用户组口令，该字段用于保存已加密的口令
+<span class="hljs-keyword">group</span> administrators：组的管理员账号，管理员有权对该组添加删除账号
+<span class="hljs-keyword">group</span> members：属于该组的用户成员列表，列表中多个用户间用“，”分隔
+</code></pre>
+
+<h2 id="存取group文件信息的函数">存取group文件信息的函数</h2>
+
+<pre class="prettyprint"><code class=" hljs cs">根据gid或组名查看相关记录
+头文件
+<span class="hljs-preprocessor">#include &lt;sys/types.h&gt;</span>
+<span class="hljs-preprocessor">#include &lt;grp.h&gt;</span>
+函数
+<span class="hljs-keyword">struct</span> <span class="hljs-keyword">group</span> *getgruid(gid_t gid);
+<span class="hljs-keyword">struct</span> <span class="hljs-keyword">group</span> *getgrnam(<span class="hljs-keyword">const</span> <span class="hljs-keyword">char</span> *name);
+返回值
+若成功为指针
+若出错为NULL
+</code></pre>
+
+
+
+<pre class="prettyprint"><code class=" hljs vala">查看整个组文件
+头文件
+<span class="hljs-preprocessor">#include &lt;sys/types.h&gt;</span>
+<span class="hljs-preprocessor">#include &lt;grp.h&gt;</span>
+函数
+<span class="hljs-keyword">struct</span> group *getgrent(<span class="hljs-keyword">void</span>);
+返回值
+若成功为指针
+若出错或到达文件尾端为NULL
+<span class="hljs-keyword">void</span> setgrent(<span class="hljs-keyword">void</span>);
+<span class="hljs-keyword">void</span> endgrent(<span class="hljs-keyword">void</span>);
+</code></pre>
+
+<h2 id="命令行参数">命令行参数</h2>
+
+
+
+<pre class="prettyprint"><code class=" hljs cs">main()函数
+<span class="hljs-keyword">int</span> main(<span class="hljs-keyword">int</span> argc, <span class="hljs-keyword">char</span> *argv[]);
+参数说明
+argc：命令行中的字符串个数
+argv[ ]：指向命令行中的各个字符串
+场景举例
+命令行
+test how are you
+参数值
+argc=<span class="hljs-number">4</span>
+argv[<span class="hljs-number">0</span>] 保存字符串<span class="hljs-string">"test"</span>的首地址argv[<span class="hljs-number">1</span>]保存字符串<span class="hljs-string">"how"</span>的首地址argv[<span class="hljs-number">2</span>]保存字符串<span class="hljs-string">"are"</span>的首地址argv[<span class="hljs-number">3</span>]保存字符串<span class="hljs-string">"you"</span>的首地址
+</code></pre>
+
+<h2 id="getopt函数">getopt()函数</h2>
+
+<pre class="prettyprint"><code class=" hljs cs">功能
+分析命令行参数，返回argv中下一个选项字符，此参数会对应参数optstring 中的字母.
+
+函数原型
+<span class="hljs-keyword">int</span> getopt(<span class="hljs-keyword">int</span> argc, <span class="hljs-keyword">char</span> * <span class="hljs-keyword">const</span> argv[ ], <span class="hljs-keyword">const</span> <span class="hljs-keyword">char</span> * optstring);
+
+参数说明
+argc由main()传递的参数个数。
+argv传递的参数内容。
+optstring 代表欲处理的选项字符串。
+
+返回值
+找到符合的参数，返回此参数字母。
+参数不包含在参数optstring 的选项字母，返回“?”字符。
+分析结束，返回-<span class="hljs-number">1</span></code></pre>
+
+
+
+<pre class="prettyprint"><code class=" hljs scss">参数说明
+参数argc和argv来源与<span class="hljs-function">main()</span>函数
+opstring：欲处理的选项字符串
+如果opstring里的字母后接单个冒号“<span class="hljs-value">:”，则表示还有相关的参数，参数紧跟在选项后或者以空格隔开，全域变量optarg 将指向此额外参数 
+如果opstring后跟两个冒号，表示该选项后必须跟一个参数，参数必须紧跟在选项后不能以空格隔开
+如果getopt()找不到符合的参数则会印出错信息，并将全域变量optopt设为“?”字符
+若不希望getopt()印出错信息，只要将全域变量opterr设为<span class="hljs-number">0</span>即可
+</span></code></pre>
+
+
+
+<h2 id="getopt函数依赖的全局变量">getopt()函数依赖的全局变量</h2>
+
+<pre class="prettyprint"><code class=" hljs fsharp"><span class="hljs-keyword">extern</span> char *optarg
+选项的参数指针
+<span class="hljs-keyword">extern</span> int optind
+下一次调用getopt时，从optind存储位置处重新开始检查选项
+<span class="hljs-keyword">extern</span> int opterr
+当opterr=<span class="hljs-number">0</span>时，getopt不向stderr输出错误信息
+<span class="hljs-keyword">extern</span> int optopt
+当命令行选项字符不包括在optstring中或选项缺少必要的参数时，该选项存储在optopt中，getopt返回'？’
+</code></pre>
+
+<h2 id="getopt函数调用形式分析">getopt()函数调用形式分析</h2>
+
+<pre class="prettyprint"><code class=" hljs lasso">getopt处理以‘<span class="hljs-subst">-</span>’开头的命令行参数
+optstring<span class="hljs-subst">=</span><span class="hljs-string">"ab:c::d::"</span>
+命令行为getopt<span class="hljs-built_in">.</span>exe <span class="hljs-attribute">-a</span> <span class="hljs-attribute">-b</span> host –ckeke <span class="hljs-attribute">-d</span> haha 
+<span class="hljs-attribute">-a</span>就是选项元素，去掉‘<span class="hljs-subst">-</span>’，a就是选项
+host是b的参数，keke是c的参数
+haha并不是d的参数，因为它们中间有空格隔开
+</code></pre>
+
+<h2 id="环境变量">环境变量</h2>
+
+<pre class="prettyprint"><code class=" hljs cs">基本函数
+头文件
+<span class="hljs-preprocessor">#include &lt;stdlib.h&gt;</span>
+函数原型
+<span class="hljs-keyword">char</span> *getenv(<span class="hljs-keyword">const</span> <span class="hljs-keyword">char</span> *name);
+<span class="hljs-keyword">int</span> putenv(<span class="hljs-keyword">char</span> *<span class="hljs-keyword">string</span>);
+<span class="hljs-keyword">int</span> setenv(<span class="hljs-keyword">const</span> <span class="hljs-keyword">char</span> *name, <span class="hljs-keyword">const</span> <span class="hljs-keyword">char</span> *<span class="hljs-keyword">value</span>, <span class="hljs-keyword">int</span> overwirte);
+<span class="hljs-keyword">void</span> unsetenv(<span class="hljs-keyword">const</span> <span class="hljs-keyword">char</span> *name);
+</code></pre>
+
+
+
+<h2 id="getenv函数">getenv()函数</h2>
+
+<pre class="prettyprint"><code class=" hljs objectivec">功能
+访问指定的一个环境变量
+
+函数原型
+<span class="hljs-keyword">char</span>* getenv(<span class="hljs-keyword">const</span> <span class="hljs-keyword">char</span> *name)
+
+参数说明
+name：需要访问的变量名字
+
+返回值
+访问的环境变量存在：返回一个字符串。
+否则，返回<span class="hljs-literal">NULL</span>。
+</code></pre>
+
+
+
+<h2 id="putenv函数">putenv()函数</h2>
+
+<pre class="prettyprint"><code class=" hljs cs">功能
+把字符串加到当前环境中 
+用来改变或增加环境变量的内容
+函数原型
+<span class="hljs-keyword">int</span> putenv(<span class="hljs-keyword">char</span> *<span class="hljs-keyword">string</span>)
+参数说明
+<span class="hljs-keyword">string</span> ：环境变量的内容
+返回值
+执行成功，返回<span class="hljs-number">0</span>
+否则，返回-<span class="hljs-number">1</span>。
+错误代码
+ENOMEM, 内存不足
+</code></pre>
+
+
+
+<h2 id="setenv函数">setenv()函数</h2>
+
+<pre class="prettyprint"><code class=" hljs cs">功能
+用来改变或增加环境变量的内容
+函数原型
+<span class="hljs-keyword">int</span> setenv(<span class="hljs-keyword">const</span> <span class="hljs-keyword">char</span> *name, <span class="hljs-keyword">const</span> <span class="hljs-keyword">char</span> *<span class="hljs-keyword">value</span>, <span class="hljs-keyword">int</span> overwirte)
+参数说明
+name: 环境变量名称字符串
+<span class="hljs-keyword">value</span>: 环境变量内容
+overwirte:决定是否要改变已存在的环境变量
+如果overwrite不为<span class="hljs-number">0</span>，而该环境变量原已有内容，则原内容会被改为参数<span class="hljs-keyword">value</span>所指的变量内容。
+如果overwrite为<span class="hljs-number">0</span>，且该环境变量已有内容，则参数<span class="hljs-keyword">value</span>会被忽略
+返回值
+执行成功，返回<span class="hljs-number">0</span>
+否则，返回-<span class="hljs-number">1</span>。
+错误代码
+ENOMEM, 内存不足
+</code></pre>
+
+
+
+<h2 id="unsetenv函数">unsetenv()函数</h2>
+
+<pre class="prettyprint"><code class=" hljs cs">功能
+清除某个特定的环境变量
+函数原型
+<span class="hljs-keyword">int</span> unsetenv(<span class="hljs-keyword">const</span> <span class="hljs-keyword">char</span> *name)
+参数说明
+name: 环境变量名称字符串
+返回值
+执行成功，返回<span class="hljs-number">0</span>
+否则，返回-<span class="hljs-number">1</span>
+</code></pre>
+
+
+
+<h2 id="时间相关函数">时间相关函数</h2>
+
+
+
+<pre class="prettyprint"><code class=" hljs perl">头文件
+<span class="hljs-comment">#include &lt;time.h&gt;</span>
+函数原型
+time_t <span class="hljs-keyword">time</span>(time_t <span class="hljs-variable">*tloc</span>); 
+返回从<span class="hljs-number">1970</span>年<span class="hljs-number">1</span>月<span class="hljs-number">1</span>日<span class="hljs-number">0</span>点以来的秒数
+char <span class="hljs-variable">*ctime</span>(const time_t <span class="hljs-variable">*clock</span>);  
+将秒数转化为字符串 
+struct tm <span class="hljs-variable">*gmtime</span>(const time_t <span class="hljs-variable">*timer</span>); 
+将日历时间转化为世界标准时间（即格林尼治时间），并返回一个tm结构体来保存这个时间
+struct tm <span class="hljs-variable">*localtime</span>(const time_t <span class="hljs-variable">*timer</span>);
+将日历时间转化为本地时间 </code></pre>
+
+
+
+<h2 id="tm结构定义">tm结构定义</h2>
+
+<pre class="prettyprint"><code class=" hljs cs"><span class="hljs-keyword">struct</span> tm {
+        <span class="hljs-keyword">int</span> tm_sec;     <span class="hljs-comment">/* 秒 – 取值区间为[0,59] */</span>
+        <span class="hljs-keyword">int</span> tm_min;     <span class="hljs-comment">/* 分 - 取值区间为[0,59] */</span>
+        <span class="hljs-keyword">int</span> tm_hour;    <span class="hljs-comment">/* 时 - 取值区间为[0,23] */</span>
+        <span class="hljs-keyword">int</span> tm_mday;    <span class="hljs-comment">/* 一个月中的日期 - 取值区间为[1,31] */</span>
+        <span class="hljs-keyword">int</span> tm_mon;     <span class="hljs-comment">/* 月份, 取值区间为[0,11] */</span>
+        <span class="hljs-keyword">int</span> tm_year;    <span class="hljs-comment">/* 年份，其值等于实际年份减去1900 */</span>
+        <span class="hljs-keyword">int</span> tm_wday;    <span class="hljs-comment">/* 星期 – 取值区间为[0,6] */</span>
+        <span class="hljs-keyword">int</span> tm_yday;    <span class="hljs-comment">/* 从每年的1月1日开始的天数 – 取值区间为[0,365]*/</span>
+        <span class="hljs-keyword">int</span> tm_isdst;   <span class="hljs-comment">/* 夏令时标识符，实行夏令时，tm_isdst为正*/</span>
+        };
+
+</code></pre>
+
+
+
+<pre class="prettyprint"><code class=" hljs scss">功能
+计算两个时间之间的差值
+函数原型
+<span class="hljs-value">double</span> <span class="hljs-function">difftime(time_t time1, time_t time2)</span>;
+说明
+返回值等于time1−time2
+单位是秒
+</code></pre>
+
+
+
+<h2 id="自定义时间格式">自定义时间格式</h2>
+
+
+
+<pre class="prettyprint"><code class=" hljs perl">功能
+将时间格式化成所需形式
+函数原型
+size_t strftime( char <span class="hljs-variable">*strDest</span>, size_t maxsize, const char <span class="hljs-variable">*format</span>, const struct tm <span class="hljs-variable">*timeptr</span>);
+说明
+可根据<span class="hljs-keyword">format</span>指向字符串中格式命令把timeptr中保存的时间信息放在strDest指向的字符串中
+最多向strDest中存放maxsize个字符
+函数返回向strDest指向的字符串中放置的字符数
+举例
+date所指定的日期对应于以下格式
+“<span class="hljs-variable">%a</span> <span class="hljs-variable">%b</span> <span class="hljs-variable">%d</span> <span class="hljs-variable">%Y</span> <span class="hljs-variable">%H</span>:<span class="hljs-variable">%M</span>:<span class="hljs-variable">%S</span>”
+</code></pre>
+
+
+
+<h2 id="格式化串定义">格式化串定义</h2>
+
+<pre class="prettyprint"><code class=" hljs haml"><span class="hljs-tag">%<span class="hljs-title">a</span></span>：星期几的简写
+<span class="hljs-tag">%<span class="hljs-title">A</span></span>：星期几的全称
+<span class="hljs-tag">%<span class="hljs-title">b</span></span>：月分的简写
+<span class="hljs-tag">%<span class="hljs-title">B</span></span>：月份的全称
+<span class="hljs-tag">%<span class="hljs-title">c</span></span>：标准的日期的时间串
+<span class="hljs-tag">%<span class="hljs-title">C</span></span>：年份的后两位数字
+<span class="hljs-tag">%<span class="hljs-title">d</span></span>：十进制表示的每月的第几天
+<span class="hljs-tag">%<span class="hljs-title">D</span></span>：月/日/年
+<span class="hljs-tag">%<span class="hljs-title">e</span></span>：在两字符域中，十进制表示的每月的第几天
+<span class="hljs-tag">%<span class="hljs-title">F</span></span>：年-月-日
+<span class="hljs-tag">%<span class="hljs-title">g</span></span>：年份的后两位数字，使用基于周的年
+<span class="hljs-tag">%<span class="hljs-title">G</span></span>：年分，使用基于周的年
+<span class="hljs-tag">%<span class="hljs-title">h</span></span>：简写的月份名
+<span class="hljs-tag">%<span class="hljs-title">H</span></span>： 24小时制的小时
+<span class="hljs-tag">%<span class="hljs-title">I</span></span>： 12小时制的小时
+<span class="hljs-tag">%<span class="hljs-title">j</span></span>：十进制表示的每年的第几天
+</code></pre>
+
+
+
+<pre class="prettyprint"><code class=" hljs haml"><span class="hljs-tag">%<span class="hljs-title">m</span></span>：十进制表示的月份
+<span class="hljs-tag">%<span class="hljs-title">M</span></span>：十时制表示的分钟数
+<span class="hljs-tag">%<span class="hljs-title">n</span></span>：新行符
+<span class="hljs-tag">%<span class="hljs-title">p</span></span>：本地的AM或PM的等价显示
+<span class="hljs-tag">%<span class="hljs-title">r</span></span>：12小时的时间
+<span class="hljs-tag">%<span class="hljs-title">R</span></span>：显示小时和分钟：hh:mm
+<span class="hljs-tag">%<span class="hljs-title">S</span></span>：十进制的秒数
+<span class="hljs-tag">%<span class="hljs-title">t</span></span>：水平制表符
+<span class="hljs-tag">%<span class="hljs-title">T</span></span>：显示时分秒：hh:mm:ss
+<span class="hljs-tag">%<span class="hljs-title">u</span></span>：每周的第几天，星期一为第一天 （值从0到6，星期一为0）
+<span class="hljs-tag">%<span class="hljs-title">U</span></span>：第年的第几周，把星期日做为第一天（值从0到53）
+<span class="hljs-tag">%<span class="hljs-title">V</span></span>：每年的第几周，使用基于周的年
+<span class="hljs-tag">%<span class="hljs-title">w</span></span>：十进制表示的星期几（值从0到6，星期天为0）
+<span class="hljs-tag">%<span class="hljs-title">W</span></span>：每年的第几周，把星期一做为第一天（值从0到53）
+<span class="hljs-tag">%<span class="hljs-title">x</span></span>：标准的日期串
+<span class="hljs-tag">%<span class="hljs-title">X</span></span>：标准的时间串
+<span class="hljs-tag">%<span class="hljs-title">y</span></span>：不带世纪的十进制年份（值从0到99）
+<span class="hljs-tag">%<span class="hljs-title">Y</span></span>：带世纪部分的十进制年份
+<span class="hljs-tag">%<span class="hljs-title">z</span></span>，%Z：时区名称，如果不能得到时区名称则返回空字符
+</code></pre>
+
+
+
+<h2 id="strptime函数">strptime()函数</h2>
+
+<pre class="prettyprint"><code class=" hljs cpp">功能
+以表示日期与时间的字符串作为参数，创建一个tm结构 
+函数原型
+<span class="hljs-keyword">char</span> *strptime(<span class="hljs-keyword">const</span> <span class="hljs-keyword">char</span> *buf, <span class="hljs-keyword">const</span> <span class="hljs-keyword">char</span> *format, <span class="hljs-keyword">struct</span> tm *timeptr);
+说明
+format的组成与strftime的格式化字符串完全相同
+strptime的动作与<span class="hljs-built_in">sscanf</span>相似，搜索字符串，查找标识的域，然后将他们写入变量
+返回值说明
+返回一个指向转换操作中最后一个处理字符之后的字符的指针
+如遇到不可转换的字符，转换操作停止在该处
+调用程序需要检测以确保所传递的字符都是可以写入tm结构的有意义的字符
+</code></pre>
+
+
+
+<h2 id="定时器函数setitimer">定时器函数setitimer()</h2>
+
+<pre class="prettyprint"><code class=" hljs cs">功能
+设置定时器，支持多种定时器
+函数原型
+<span class="hljs-keyword">int</span> setitimer(<span class="hljs-keyword">int</span> which, <span class="hljs-keyword">const</span> <span class="hljs-keyword">struct</span> itimerval *<span class="hljs-keyword">value</span>, <span class="hljs-keyword">struct</span> itimerval *ovalue); 
+<span class="hljs-keyword">struct</span> itimerval结构定义
+<span class="hljs-keyword">struct</span> itimerval { 
+    <span class="hljs-keyword">struct</span> timeval it_interval;     <span class="hljs-comment">/*定时器周期*/</span>
+    <span class="hljs-keyword">struct</span> timeval it_value;    <span class="hljs-comment">/*定时器剩的时间，为0时发信号*/</span>
+}; 
+<span class="hljs-keyword">struct</span> timeval结构定义
+<span class="hljs-keyword">struct</span> timeval {
+    <span class="hljs-keyword">long</span> tv_sec;   <span class="hljs-comment">/*秒*/</span>
+    <span class="hljs-keyword">long</span> tv_usec; <span class="hljs-comment">/*微秒，1秒=1000000微秒*/</span>
+}; 
+</code></pre>
+
+<pre class="prettyprint"><code class=" hljs cs">参数说明
+which：逻辑定时器类型
+ITIMER_REAL：按实际时间计时，计时到达时向进程发送SIGALRM信号
+ITIMER_VIRTUAL：计算进程在用户态执行的时间，计时到达将发送SIGVTALRM信号给进程
+ITIMER_PROF：进程执行时及系统执行该进程时都计时
+计时到达将发送SIGPROF信号给进程
+与ITIMER_VIRTUAL是一对，该定时器经常用来统计进程在用户态和核心态花费的时间
+<span class="hljs-keyword">value</span>：指明定时器的时间 
+ovalue：如果不为空，则保存上次调用设定的值
+返回值
+成功时，返回<span class="hljs-number">0</span>
+错误时，返回-<span class="hljs-number">1</span>
+</code></pre>
+
+<h2 id="setitimer示例">setitimer()示例</h2>
+
+<pre class="prettyprint"><code class=" hljs vhdl">运行结果
+localhost:~$ ./settimertest <span class="hljs-keyword">process</span> id <span class="hljs-keyword">is</span> <span class="hljs-number">579</span> Catch a <span class="hljs-keyword">signal</span> – SIGVTALRM (<span class="hljs-number">0.5</span>秒) Catch a <span class="hljs-keyword">signal</span> – SIGALRM (<span class="hljs-number">1</span>秒) Catch a <span class="hljs-keyword">signal</span> – SIGVTALRM (<span class="hljs-number">1</span>秒) Catch a <span class="hljs-keyword">signal</span> – SIGVTALRM (<span class="hljs-number">1.5</span>秒) Catch a <span class="hljs-keyword">signal</span> – SIGALRM (<span class="hljs-number">2</span>秒) Catch a <span class="hljs-keyword">signal</span> –SIGVTALRM (<span class="hljs-number">2</span>秒)
+</code></pre><link rel="stylesheet" href="http://static.blog.csdn.net/public/res-min/markdown_views.css?v=1.0"/></div><link rel="stylesheet" href="http://static.blog.csdn.net/public/res-min/markdown_views.css?v=1.0"/>&#13;
+            

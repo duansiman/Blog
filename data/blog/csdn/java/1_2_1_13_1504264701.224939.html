@@ -1,0 +1,365 @@
+
+
+<p><span style="font-size:18px">在正式分析源码之前，先来了解一下SpringBeans里面最核心的两个类</span></p>&#13;
+<p><span style="font-size:18px; color:#ff0000"><strong> DefaultListableBeanFactory</strong></span></p>&#13;
+<p><span style="font-size:18px">XMLBean继承自 DefaultListableBeanFactory,而 DefaultListableBeanFactory是整个Bean加载的核心部分，是Sprin注册及加载Bean的默认实现，而对于XmlBeanFactory与 DefaultListableBeanFactory不同的地方其实就是在XmlBeanFactory中使用了自定义的XML读取器XmlDefinitionReader，实现了个性化的读取。</span></p>&#13;
+<p></p>&#13;
+<pre code_snippet_id="1814927" snippet_file_name="blog_20160807_1_8490439" name="code" class="html">public XmlBeanFactory(Resource resource, BeanFactory parentBeanFactory) throws BeansException {
+		super(parentBeanFactory);
+		this.reader.loadBeanDefinitions(resource);
+	}</pre>他先是直接调用了父类的XMLBeanFactory方法得到我们的XMLBeanFactory,然后再去调用load方法去加载XMl文件&#13;
+<p></p>&#13;
+<p></p>&#13;
+<pre code_snippet_id="1814927" snippet_file_name="blog_20160807_2_2394918" name="code" class="java">public int loadBeanDefinitions(EncodedResource encodedResource) throws BeanDefinitionStoreException {
+		Assert.notNull(encodedResource, "EncodedResource must not be null");
+		if (logger.isInfoEnabled()) {
+			logger.info("Loading XML bean definitions from " + encodedResource.getResource());
+		}
+
+		Set&lt;EncodedResource&gt; currentResources = this.resourcesCurrentlyBeingLoaded.get();
+		if (currentResources == null) {
+			currentResources = new HashSet&lt;&gt;(4);
+			this.resourcesCurrentlyBeingLoaded.set(currentResources);
+		}
+		if (!currentResources.add(encodedResource)) {
+			throw new BeanDefinitionStoreException(
+					"Detected cyclic loading of " + encodedResource + " - check your import definitions!");
+		}
+		try {
+			InputStream inputStream = encodedResource.getResource().getInputStream();
+			try {
+				InputSource inputSource = new InputSource(inputStream);
+				if (encodedResource.getEncoding() != null) {
+					inputSource.setEncoding(encodedResource.getEncoding());
+				}
+				return doLoadBeanDefinitions(inputSource, encodedResource.getResource());
+			}
+			finally {
+				inputStream.close();
+			}
+		}
+		catch (IOException ex) {
+			throw new BeanDefinitionStoreException(
+					"IOException parsing XML document from " + encodedResource.getResource(), ex);
+		}
+		finally {
+			currentResources.remove(encodedResource);
+			if (currentResources.isEmpty()) {
+				this.resourcesCurrentlyBeingLoaded.remove();
+			}
+		}
+	}
+</pre><span style="font-size:18px">DefaultListableBeanFactory其实是继承了AbstractAutowireCapableBeanFactory和实现了ConfigurableListableBeanFactory, BeanDefinitionRegistry两个接口</span>&#13;
+<p></p>&#13;
+<p><span style="font-size:18px"></span></p>&#13;
+<pre code_snippet_id="1814927" snippet_file_name="blog_20160807_3_3965081" name="code" class="java">@SuppressWarnings("serial")
+public class DefaultListableBeanFactory extends AbstractAutowireCapableBeanFactory
+		implements ConfigurableListableBeanFactory, BeanDefinitionRegistry, Serializable </pre><br />&#13;
+<p></p>&#13;
+<p><span style="font-size:18px">下面说明一下这几个类的主要作用</span></p>&#13;
+<p><span style="font-size:18px">ConfigurableBeanFactory:定义了配置Factory各种方法的接口</span></p>&#13;
+<p><span style="font-size:18px">ListableBeanFactory:根据各种条件获取Bean的配置清单的接口它继承自BeanFactory,BeanFactory是所有加载Bean的最基础接口，里面定义了Bean最基本的方法，包括<br />&#13;
+</span></p>&#13;
+<p><span style="font-size:18px"></span></p>&#13;
+<pre code_snippet_id="1814927" snippet_file_name="blog_20160807_4_7171447" name="code" class="java">Object getBean(String name) throws BeansException;</pre><br />&#13;
+AbstractBeanFactory:这个类是综合了FactoryBeanRegistrySupport和ConfigurableBeanFactory的功能<br />&#13;
+<p></p>&#13;
+<p><span style="font-size:18px"></span></p>&#13;
+<pre code_snippet_id="1814927" snippet_file_name="blog_20160807_5_5917711" name="code" class="java">public abstract class AbstractBeanFactory extends FactoryBeanRegistrySupport implements ConfigurableBeanFactory </pre>AutowireCapableBeanFactory：AutowireCapableBeanFactory继承自BeanFactory,提供创建Bean,自动注入，初始化以及应用Bean的处理器。&#13;
+<p></p>&#13;
+<p><span style="font-size:18px">AbstractAutowireCapableBeanFactory:综合了AbstractBeanFactory并对AutowireCapableBeanFactory接口进行了实现</span></p>&#13;
+<p><span style="font-size:18px">ConfigurableBeanFactory：BeanFactory的配置清单，指定忽略类型及接口等。</span></p>&#13;
+<p><span style="font-size:18px">DefaultListableBeanFactory:综合了上面的所有功能，主要是对Bean注册后的处理<br />&#13;
+</span></p>&#13;
+<h1><span style="font-size:18px; color:#ff0000">XmlBeanDefinitionReader</span></h1>&#13;
+<p><span style="font-size:18px">XML配置文件的读取是Spring中重要的功能，因为Spring的大部分功能都是以配置作为切入点的，那么我们可以从XmlBeanDefinitionReader中梳理一下资源文件读取，解析以及注册的大致脉络。先说一说其它相关类的功能</span></p>&#13;
+<p><span style="font-size:18px">ResourceLoader：定义资源加载器，主要应用于根据给定的资源文件地址返回对应的Resource。<br />&#13;
+</span></p>&#13;
+<p><span style="font-size:18px">BeanDefinitionReader:主要定义资源文件读取并转换为BeanDefinition的各个功能。</span></p>&#13;
+<p><span style="font-size:18px">EnvironmentCapable:这个接口只有一个方法，那就是获取Environment。</span></p>&#13;
+<p><span style="font-size:18px">DocumentLoader:定义从资源文件加载到转换为Document的功能。<br />&#13;
+</span></p>&#13;
+<p><span style="font-size:18px">AbstractBeanDefinitionReader：对EnvironmentCapable, BeanDefinitionReader这两个接口的实现。</span><br />&#13;
+</p>&#13;
+<p><span style="font-size:18px">BeanDefinitionDocumentReader:定义读取Document并注册BeanDefinition的功能。<br />&#13;
+</span></p>&#13;
+<p><span style="font-size:18px">BeanDefinitionParserDelegate:定义并解析Element的各种方法。</span></p>&#13;
+<p><span style="font-size:18px">经过以上分析，我们可以梳理出整个XML配置文件读取的大致流程</span></p>&#13;
+<p><span style="font-size:18px">1.通过继承自<span style="font-size:18px">AbstractBeanDefinitionReader中的方法，来使用<span style="font-size:18px">ResourceLoader将资源文件路径转换为对应的Resource文件。</span></span></span></p>&#13;
+<p><span style="font-size:18px"><span style="font-size:18px"><span style="font-size:18px">2.通过<span style="font-size:18px">DocumentLoader对Resource文件进行转换，将Resource文件转换为<span style="font-size:18px">Document文件。</span></span></span></span></span></p>&#13;
+<p><span style="font-size:18px"><span style="font-size:18px"><span style="font-size:18px"><span style="font-size:18px"><span style="font-size:18px">3.通过实现接口<span style="font-size:18px">BeanDefinitionDocumentReader对document进行解析，并使用<span style="font-size:18px">BeanDefinitionParserDelegate进行解析；</span></span></span></span></span></span></span></p>&#13;
+<p><span style="font-size:18px"><span style="font-size:18px"><span style="font-size:18px"><span style="font-size:18px"><span style="font-size:18px"><span style="font-size:18px"><span style="font-size:18px">上面已经了解了Spring容器的大致类，和实现流程，接下来要详细探索每个步奏的实现。</span></span></span></span></span></span></span></p>&#13;
+<p><span style="font-size:18px"><span style="font-size:18px"><span style="font-size:18px"><span style="font-size:18px"><span style="font-size:18px"><span style="font-size:18px"><span style="font-size:18px"></span></span></span></span></span></span></span></p>&#13;
+<pre code_snippet_id="1814927" snippet_file_name="blog_20160807_6_2471365" name="code" class="java">BeanFactory beanFactory=new XmlBeanFactory(new ClassPathResource("context-dispatcher.xml"));</pre>这里会先执行ClassPathResource里面的&#13;
+<p></p>&#13;
+<p><span style="font-size:18px"><span style="font-size:18px"><span style="font-size:18px"><span style="font-size:18px"><span style="font-size:18px"><span style="font-size:18px"><span style="font-size:18px"></span></span></span></span></span></span></span></p>&#13;
+<pre code_snippet_id="1814927" snippet_file_name="blog_20160807_7_3377219" name="code" class="java">public ClassPathResource(String path) {
+		this(path, (ClassLoader) null);
+	}</pre>然后再调用&#13;
+<p></p>&#13;
+<p><span style="font-size:18px"><span style="font-size:18px"><span style="font-size:18px"><span style="font-size:18px"><span style="font-size:18px"><span style="font-size:18px"><span style="font-size:18px"></span></span></span></span></span></span></span></p>&#13;
+<pre code_snippet_id="1814927" snippet_file_name="blog_20160807_8_8535433" name="code" class="java">public ClassPathResource(String path, ClassLoader classLoader) {
+		Assert.notNull(path, "Path must not be null");
+		String pathToUse = StringUtils.cleanPath(path);
+		if (pathToUse.startsWith("/")) {
+			pathToUse = pathToUse.substring(1);
+		}
+		this.path = pathToUse;
+		this.classLoader = (classLoader != null ? classLoader : ClassUtils.getDefaultClassLoader());
+	}</pre>这里传入了两个参数一个是我们传进去的path,一个是classLoader,classLoader这里没传所以默认为空。<br />&#13;
+<br />&#13;
+<img src="http://img.blog.csdn.net/20160807210838093?watermark/2/text/aHR0cDovL2Jsb2cuY3Nkbi5uZXQv/font/5a6L5L2T/fontsize/400/fill/I0JBQkFCMA==/dissolve/70/gravity/Center" alt="" /><br />&#13;
+<br />&#13;
+<p></p>&#13;
+<p><span style="font-size:18px">上面这段代码主要是校验了path的正确性，并创建了一个新的path,最后去创建了一个classLoader。在我们的new XmlBeanFactory传入了一个Resource;这样后续的资源处理就可以用Resource提供的各种服务来操作了。</span></p>&#13;
+<p><span style="font-size:18px">上面就是我们执行的方法，那么Resource内部具体是怎么封装的啦，这样做的好处是什么啦</span></p>&#13;
+<p><span style="font-size:18px">Spring获取配置文件的实现</span></p>&#13;
+<p><span style="font-size:18px">在Java中，将不同来源的资源抽象成URL，通过注册不同的handler(URLStreamHandler)来处理不同来源的逻辑 。一般handler使用不同的前缀（协议，Protocol)来识别，如file,jar,http:等。然而URL没有默认定义相对的Classpath或ServletContext等资源的handler。虽然可以注册自己的URLStreamHandler来解析特定的URL前缀，比如classpath.然而这个很麻烦，因而spring实现了自己的抽象结构:Resource接口来封装底层资源。</span></p>&#13;
+<p><span style="font-size:18px"></span></p>&#13;
+<pre code_snippet_id="1814927" snippet_file_name="blog_20160807_9_2057444" name="code" class="java">public interface Resource extends InputStreamSource {
+
+	/**
+	 * Determine whether this resource actually exists in physical form.
+	 * &lt;p&gt;This method performs a definitive existence check, whereas the
+	 * existence of a {@code Resource} handle only guarantees a valid
+	 * descriptor handle.
+	 */
+	boolean exists();
+
+	/**
+	 * Indicate whether the contents of this resource can be read via
+	 * {@link #getInputStream()}.
+	 * &lt;p&gt;Will be {@code true} for typical resource descriptors;
+	 * note that actual content reading may still fail when attempted.
+	 * However, a value of {@code false} is a definitive indication
+	 * that the resource content cannot be read.
+	 * @see #getInputStream()
+	 */
+	default boolean isReadable() {
+		return true;
+	}
+
+	/**
+	 * Indicate whether this resource represents a handle with an open stream.
+	 * If {@code true}, the InputStream cannot be read multiple times,
+	 * and must be read and closed to avoid resource leaks.
+	 * &lt;p&gt;Will be {@code false} for typical resource descriptors.
+	 */
+	default boolean isOpen() {
+		return false;
+	}
+
+	/**
+	 * Determine whether this resource represents a file in a file system.
+	 * A value of {@code true} strongly suggests (but does not guarantee)
+	 * that a {@link #getFile()} call will succeed.
+	 * &lt;p&gt;This is conservatively {@code false} by default.
+	 * @since 5.0
+	 * @see #getFile()
+	 */
+	default boolean isFile() {
+		return false;
+	}
+
+	/**
+	 * Return a URL handle for this resource.
+	 * @throws IOException if the resource cannot be resolved as URL,
+	 * i.e. if the resource is not available as descriptor
+	 */
+	URL getURL() throws IOException;
+
+	/**
+	 * Return a URI handle for this resource.
+	 * @throws IOException if the resource cannot be resolved as URI,
+	 * i.e. if the resource is not available as descriptor
+	 * @since 2.5
+	 */
+	URI getURI() throws IOException;
+
+	/**
+	 * Return a File handle for this resource.
+	 * @throws IOException if the resource cannot be resolved as absolute
+	 * file path, i.e. if the resource is not available in a file system
+	 */
+	File getFile() throws IOException;
+
+	/**
+	 * Determine the content length for this resource.
+	 * @throws IOException if the resource cannot be resolved
+	 * (in the file system or as some other known physical resource type)
+	 */
+	long contentLength() throws IOException;
+
+	/**
+	 * Determine the last-modified timestamp for this resource.
+	 * @throws IOException if the resource cannot be resolved
+	 * (in the file system or as some other known physical resource type)
+	 */
+	long lastModified() throws IOException;
+
+	/**
+	 * Create a resource relative to this resource.
+	 * @param relativePath the relative path (relative to this resource)
+	 * @return the resource handle for the relative resource
+	 * @throws IOException if the relative resource cannot be determined
+	 */
+	Resource createRelative(String relativePath) throws IOException;
+
+	/**
+	 * Determine a filename for this resource, i.e. typically the last
+	 * part of the path: for example, "myfile.txt".
+	 * &lt;p&gt;Returns {@code null} if this type of resource does not
+	 * have a filename.
+	 */
+	String getFilename();
+
+	/**
+	 * Return a description for this resource,
+	 * to be used for error output when working with the resource.
+	 * &lt;p&gt;Implementations are also encouraged to return this value
+	 * from their {@code toString} method.
+	 * @see Object#toString()
+	 */
+	String getDescription();
+
+}</pre>Resource接口抽象了所有Spring内部使用到了底层资源，首先它定义了三个判断当前资源状态的方法：存在性(exists),可读性(isReadable),是否处于打开状态(isOpen)。另外这个接口还提供了不同资源到其他类型的转换，以及获取lastModified属性，文件名。 &#13;
+<p></p>&#13;
+<p><span style="font-size:18px">对不同来源的资源文件都有对应的Resource实现，文件，ClassPath资源，URL资源，inputStream资源,Byte数组等。</span></p>&#13;
+<h1><span style="font-size:18px">使用案例</span></h1>&#13;
+<p><span style="font-size:18px"></span></p>&#13;
+<h2 style="margin-top:0px; margin-bottom:0px; padding-top:0px; padding-bottom:0px; color:rgb(51,51,51); font-family:verdana,Arial,Helvetica,sans-serif; line-height:24px">&#13;
+一、文件系统资源 FileSystemResource</h2>&#13;
+<p></p>&#13;
+<p style="margin-top:0px; margin-bottom:0px; padding-top:0px; padding-bottom:0px; color:rgb(51,51,51); font-family:verdana,Arial,Helvetica,sans-serif; line-height:24px">&#13;
+　　文件系统资源 FileSystemResource，资源以文件系统路径的方式表示。这个类继承自AbstractResource，并实现了写的接口WritableResource。类全称为public class FileSystemResource extends AbstractResource implements WritableResource 。这个资源类是所有Resource实现类中，唯一一个实现了WritableResource接口的类。就是说，其他的类都不可写入操作，都只能读取。</p>&#13;
+<p>1、这个类由2个不可变的属性 file 和 path ，<strong>本质上就是一个java.io.File 的包装</strong>。</p>&#13;
+<p>2、值得一提的是，与父类AbstractResource不同的是，这个类的 equals() 和 hashcode() 都通过属性 path 来操作。</p>&#13;
+<p></p>&#13;
+<pre code_snippet_id="1814927" snippet_file_name="blog_20160807_10_8851860" name="code" class="java">public static void main(String[] args) throws IOException {
+	        String path = "E:/java.txt";
+	        Resource resource = new FileSystemResource(path);
+	        System.out.println("resource1 : "+resource.getFilename());
+	        InputStream inputStream=resource.getInputStream();
+	        String str=IOUtils.toString(inputStream);
+	        System.out.println(str);
+	    }</pre>&#13;
+<p></p>&#13;
+<h2>二、字节数组资源——ByteArrayResource</h2>&#13;
+<p></p>&#13;
+<p>字节数组资源ByteArrayResource,资源即，字节数组。</p>&#13;
+<p>这个类很简单，也没必要翻译，仅仅是一个不可变的字节数组加一个不可变的描述字符串的包装<span style="white-space:pre"> </span>&#13;
+</p>&#13;
+<p><span style="white-space:pre"></span></p>&#13;
+<p>若需要操作描述一个字节数组，可以用这个资源类。ByteArrayResource可多次读取数组资源。</p>&#13;
+<p></p>&#13;
+<h2>三、描述性资源——DescriptiveResource</h2>&#13;
+　　描述性资源DescriptiveResource，这个类更简单，仅仅一个不可变的描述字符串的包装<br />&#13;
+<p></p>&#13;
+<p>若一个资源，仅仅有一个描述，非常抽象的这种情况，可以用这个资源类，它并没有指向一个实际的可读的资源。一般用的非常稀少。个人觉得用处不大。 <br />&#13;
+</p>&#13;
+<h2>四、输入流资源——InputStreamResource</h2>&#13;
+　　输入流资源InputStreamResource，是一个不可变InputStream的包装和一个不可变的描述字符串。此外还有一个私有成员变量Boolean read用于限制本资源的InputStream不可被重复获取。&#13;
+<p></p>&#13;
+<p>简单而言，这是一个InputStream的包装类，这个包装类指向的是一个已经打开的资源，所以它的 isOpen()总是返回true。而且它不能重复获取资源，只能读取一次。关闭资源也只能通过其中的InputStream来关闭。个人认为，用处有限。</p>&#13;
+<p></p>&#13;
+<h2>五、VFS资源——VfsResource</h2>&#13;
+　　vfs是Virtual File System虚拟文件系统，也称为虚拟文件系统开关（Virtual Filesystem Switch）.是Linux档案系统对外的接口。任何要使用档案系统的程序都必须经由这层接口来使用它。（摘自百度百科...）它能一致的访问物理文件系统、jar资源、zip资源、war资源等，VFS能把这些资源一致的映射到一个目录上，访问它们就像访问物理文件资源一样，而其实这些资源不存在于物理文件系统。<br />&#13;
+这个资源类包装类一个Object对象，所有的操作都是通过这个包装的对象的反射来实现的。&#13;
+<p></p>&#13;
+<p></p>&#13;
+<pre code_snippet_id="1814927" snippet_file_name="blog_20160807_11_7565104" name="code" class="java">@Test  
+public void testVfsResourceForRealFileSystem() throws IOException {  
+//1.创建一个虚拟的文件目录  
+VirtualFile home = VFS.getChild("/home");  
+//2.将虚拟目录映射到物理的目录  
+VFS.mount(home, new RealFileSystem(new File("d:")));  
+//3.通过虚拟目录获取文件资源  
+VirtualFile testFile = home.getChild("test.txt");  
+//4.通过一致的接口访问  
+Resource resource = new VfsResource(testFile);  
+if(resource.exists()) {  
+        dumpStream(resource);  
+}  
+System.out.println("path:" + resource.getFile().getAbsolutePath());  
+Assert.assertEquals(false, resource.isOpen());         
+}  
+@Test  
+public void testVfsResourceForJar() throws IOException {  
+//1.首先获取jar包路径  
+    File realFile = new File("lib/org.springframework.beans-3.0.5.RELEASE.jar");  
+    //2.创建一个虚拟的文件目录  
+    VirtualFile home = VFS.getChild("/home2");  
+    //3.将虚拟目录映射到物理的目录  
+VFS.mountZipExpanded(realFile, home,  
+TempFileProvider.create("tmp", Executors.newScheduledThreadPool(1)));  
+//4.通过虚拟目录获取文件资源  
+    VirtualFile testFile = home.getChild("META-INF/spring.handlers");  
+    Resource resource = new VfsResource(testFile);  
+    if(resource.exists()) {  
+            dumpStream(resource);  
+    }  
+    System.out.println("path:" + resource.getFile().getAbsolutePath());  
+    Assert.assertEquals(false, resource.isOpen());  
+}  </pre><br />&#13;
+<p></p>&#13;
+<h2>六、Portlet上下文资源——PortletContextResource</h2>&#13;
+<p></p>&#13;
+<p>　　Portlet是基于java的web组件，由portlet容器管理，并由容器处理请求，生产动态内容。这个资源类封装了一个不可变的javax.portlet.PortletContext对象和一个不可变的String对象代表路径。类中所有操作都基于这两个属性。PortletContextResource对象实现了ContextResource接口，实现了方法String getPathWithinContext()，即返回自身的path属性。</p>&#13;
+<h2>七、Servlet上下文资源——ServletContextResource</h2>&#13;
+<p>　　Servlet这个大家都知道。这个资源类是为了访问Web容器上下文的资源而封装的类，可以以相对于Web应用根目录的路径加载资源。这个资源类封装了一个不可变的javax.servlet.ServletContext对象和一个不可变的String对象代表路径。类中所有操作都基于这两个属性。PortletContextResource对象实现了ContextResource接口，实现了方法String getPathWithinContext()，即返回自身的path属性。</p>&#13;
+<p>　　这个类的实现基本就是基于 this.servletContext.getResource(this.path) 或 this.servletContext.getResourceAsStream(this.path) 这两个方法。</p>&#13;
+<p>典型的，例如这个方法：</p>&#13;
+<pre code_snippet_id="1814927" snippet_file_name="blog_20160807_12_9658655" name="code" class="java">public InputStream getInputStream() throws IOException {
+        InputStream is = this.servletContext.getResourceAsStream(this.path);
+        if (is == null) {
+            throw new FileNotFoundException("Could not open " + getDescription());
+        }
+        return is;
+    }</pre><br />&#13;
+<pre code_snippet_id="1814927" snippet_file_name="blog_20160807_13_6453072" name="code" class="java">public URL getURL() throws IOException {
+        URL url = this.servletContext.getResource(this.path);
+        if (url == null) {
+            throw new FileNotFoundException(
+                    getDescription() + " cannot be resolved to URL because it does not exist");
+        }
+        return url;
+    }</pre><br />&#13;
+<h2>八、类路径资源——ClassPathResource</h2>&#13;
+<p>　　ClassPathResource这个资源类表示的是类路径下的资源，资源以相对于类路径的方式表示。这个资源类有3个成员变量，分别是一个不可变的相对路径、一个类加载器、一个类对象。这个资源类可以相对于应用程序下的某个类或者相对于整个应用程序，但只能是其中之一，取决于构造方法有没有传入Class参数。</p>&#13;
+<p>　　这个类的实现基本也都是基于class的 getResourceAsStream(this.path) 或者 this.classLoader.getResourceAsStream(this.path) ,</p>&#13;
+<p>我们来看一下它典型的getInputStream()方法：</p>&#13;
+<pre code_snippet_id="1814927" snippet_file_name="blog_20160807_14_4435186" name="code" class="java">public InputStream getInputStream() throws IOException {
+        InputStream is;
+        if (this.clazz != null) {
+            is = this.clazz.getResourceAsStream(this.path);
+        }
+        else {
+            is = this.classLoader.getResourceAsStream(this.path);
+        }
+        if (is == null) {
+            throw new FileNotFoundException(getDescription() + " cannot be opened because it does not exist";
+        }
+        return is;
+    }</pre>&#13;
+<p>可以看到，本资源类的clazz属性存在，那么资源相对于这个clazz类相对路径的。如果不存在，那么资源类就是相对于整个应用程序的。</p>&#13;
+<h2>九、Url资源——UrlResource</h2>&#13;
+<p>　　UrlResource这个资源类封装了可以以URL表示的各种资源。这个资源类有3个属性，一个URI、一个URL，以及一个规范化后的URL，用于资源间的比较以及计算HashCode。</p>&#13;
+<p>通过构造方法可以看到，这个资源类基本可以看作java.net.URL的封装。这个资源类的很多方法也都是通过URL或URI操作的。</p>&#13;
+<p>　　若是操作URL资源，很明显，这个类比单纯的java.net.URL要好很多。这个类总体很简单，重写父类的方法不是很多</p>&#13;
+<h2>十、对资源编码——EncodedResource</h2>&#13;
+<p>　　EncodedResource并不是Resource的实现类，实际上它相当于一个工具类，用于给资源进行编码。</p>&#13;
+<p>　　由于资源加载时默认采用系统编码读取资源内容，需要给Resource编码时可以使用这个包装工具类。它的核心为一个 java.io.Reader getReader()方法。</p>&#13;
+<p>　　这个类有一个不可变的Resource属性、一个Charset属性和一个表示字符的string属性。后两者存在一个即可</p>&#13;
+<br />&#13;
+<br />&#13;
+<br />&#13;
+<br />&#13;
+<br />&#13;
+<br />&#13;
+<br />&#13;
+<br />&#13;
+<p><span style="font-size:18px"><br />&#13;
+</span></p>&#13;
+<p><br />&#13;
+</p>&#13;
+   &#13;

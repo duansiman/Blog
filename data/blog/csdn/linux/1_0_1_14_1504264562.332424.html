@@ -1,0 +1,228 @@
+
+
+<p><strong>字符设备结构struct cdev</strong></p>&#13;
+<p>内核使用该结构来表示一个字符设备，在&lt;linux/cdev.h&gt;中定义。<br />&#13;
+重要成员：<br />&#13;
+</p>&#13;
+<pre code_snippet_id="131005" snippet_file_name="blog_20131227_1_3599521" name="code" class="objc">struct kobject kobj;//设备对象
+struct module *owner;//该设备的拥有者驱动模块
+struct file_operations *ops;//设备操作集合
+struct list_head list;//内核维护的字符设备链表成员
+dev_t dev;//字符设备号
+unsigned int count;//设备个数</pre><br />&#13;
+<strong><u>文件结构 struct file</u></strong><br />&#13;
+代表打开的设备文件，在&lt;linux/fs.h&gt;中定义。<br />&#13;
+重要成员：<br />&#13;
+<pre code_snippet_id="131005" snippet_file_name="blog_20131227_2_328681" name="code" class="objc">const struct file_operatios *f_ops;//可以在该文件上执行的所有操作的结合
+unsigned int flags;//文件被打开时传递的标志
+loff_t f_ops;//文件读写位置
+void *private_data;//文件私有数据</pre><strong><u>inode结构 struct inode</u></strong><br />&#13;
+用于记录文件物理信息，不同于struct file<br />&#13;
+一个文件可以对应多个file结构，但是只有一个inode结构。<br />&#13;
+在&lt;linux/fs.h&gt;中定义<br />&#13;
+重要成员：<br />&#13;
+<pre code_snippet_id="131005" snippet_file_name="blog_20131228_3_1068442" name="code" class="objc">dev_t i_rdev;//设备对应的设备号
+struct cdev *i_cdev;//字符设备结构体</pre><br />&#13;
+<strong><u>文件操作结构struct file_operations</u></strong><br />&#13;
+实际是一个函数指针的集合，这些函数定义了能够对设备进行的操作<br />&#13;
+这些指针指向驱动中的函数，每个函数完成一个特别的操作，不支持的操作指针留空<br />&#13;
+在&lt;linux/fs.h&gt;中定义<br />&#13;
+<br />&#13;
+<p></p>&#13;
+<p>初始化cdev<br />&#13;
+<strong><span style="font-size:18px">void cdev_init(struct cdev *cdev, const struct file_operations *fops);</span></strong><br />&#13;
+<span style="white-space:pre"></span>cdev:待初始化的cdev对象<br />&#13;
+<span style="white-space:pre"></span>fops:可以在设备上执行的操作函数集合<br />&#13;
+添加cdev<br />&#13;
+<span style="font-size:24px">int cdev_add(struct cdev *cdev, dev_t dev, unsigned count);</span><br />&#13;
+<span style="white-space:pre"></span>cdev:待 添加到内核的cdev对象<br />&#13;
+<span style="white-space:pre"></span>dev:设备号<br />&#13;
+<span style="white-space:pre"></span>count:待添加的设备个数<br />&#13;
+<span style="white-space:pre"></span>返回：成功返回0，失败返回负值<br />&#13;
+删除cdev<br />&#13;
+<span style="font-size:24px">void cdev_del(struct cdev *cdev);</span><br />&#13;
+<span style="white-space:pre"></span>cdev:待从内核删除的cdev对象<br />&#13;
+<br />&#13;
+<br />&#13;
+</p>&#13;
+<p></p>&#13;
+<pre code_snippet_id="131005" snippet_file_name="blog_20131227_3_3502027" name="code" class="objc">/**
+*Copyright (c) 2013.TianYuan
+*All rights reserved.
+*
+*文件名称: char_device_driver04.c
+*文件标识: 字符设备驱动 ：简单的file_operations示例；完善file_operations结构体中的函数指针
+*
+*当前版本：1.0
+*作者：wuyq 
+*
+*取代版本：xxx
+*原作者：xxx
+*完成日期：2013-11-27
+*/
+#include &lt;linux/init.h&gt;
+#include &lt;linux/module.h&gt;
+#include &lt;linux/fs.h&gt;
+#include &lt;linux/cdev.h&gt;
+
+MODULE_LICENSE("GPL");
+#define CDD_MAJOR	200//cat /proc/devices找一个尚未使用的
+#define CDD_MINOR	0
+#define CDD_COUNT	1
+dev_t dev = 0;
+u32 cdd_major = 0;
+u32 cdd_minor = 0;
+/*定义cdev类型的变量*/
+struct cdev cdd_cdev;
+
+int cdd_open(struct inode* inode, struct file *filp)
+{
+	printk("enter cdd_open!\n");
+	return 0;
+}
+
+int cdd_read(struct file *filp, char __user *buf, size_t count, loff_t *offset)
+{
+	printk("enter cdd_read!\n");
+	return 0;
+}
+
+int cdd_write(struct file *filp, const char __user *buf, size_t count, loff_t *offset)
+{
+	printk("enter cdd_write!\n");
+	return 0;
+}
+
+int cdd_ioctl(struct inode *inode, struct file *filp, unsigned int cmd, unsigned long data)
+{
+	printk("enter cdd_ioctl!\n");
+	return 0;
+}
+
+int cdd_release(struct inode *inode, struct file *filp)
+{
+	printk("enter cdd_release!\n");
+	return 0;
+}
+
+struct file_operations cdd_fops = {
+	.owner = THIS_MODULE,
+	.open = cdd_open,
+	.read = cdd_read,
+	.write = cdd_write,
+	.ioctl = cdd_ioctl,
+	.release = cdd_release,
+	};
+
+int __init cdd_init(void)
+{
+	int ret = 0;
+	if(cdd_major){
+		dev = MKDEV(CDD_MAJOR, CDD_MINOR);//生成设备号
+		//注册设备号;1、要注册的起始设备号2、连续注册的设备号个数3、名字
+		ret = register_chrdev_region(dev, CDD_COUNT, "cdd_demo");
+	}else{
+		// 动态分配设备号
+		ret = alloc_chrdev_region(&amp;dev, cdd_minor, CDD_COUNT, "cdd_demo02");
+	}
+	
+	if(ret &lt; 0){
+		printk("register_chrdev_region failed!\n");
+		goto failure_register_chrdev;
+	}
+	//获取主设备号
+	cdd_major = MAJOR(dev);
+	printk("cdd_major = %d\n", cdd_major);
+
+	/*初始化cdev*/
+	cdev_init(&amp;cdd_cdev, &amp;cdd_fops);
+	/*添加cdev到内核*/
+	ret = cdev_add(&amp;cdd_cdev, dev, CDD_COUNT);
+	if(ret &lt; 0){
+		printk("cdev_add failed!\n");
+		goto failure_cdev_add;
+	}
+	
+	return 0;
+failure_cdev_add:
+	unregister_chrdev_region(dev, CDD_COUNT);
+failure_register_chrdev:
+	return ret;
+}
+
+void __exit cdd_exit(void)
+{
+/*逆序消除*/
+	//从内核中删除cdev
+	cdev_del(&amp;cdd_cdev);
+	
+	//注销设备号
+	unregister_chrdev_region(dev, CDD_COUNT);
+}	
+
+module_init(cdd_init);
+module_exit(cdd_exit);
+</pre><br />&#13;
+<pre code_snippet_id="131005" snippet_file_name="blog_20131227_4_6675374" name="code" class="objc">/**
+*Copyright (c) 2013.TianYuan
+*All rights reserved.
+*
+*文件名称: char_device_driver04_test.c
+*文件标识: 测试程序
+*
+*当前版本：1.0
+*作者：wuyq 
+*
+*取代版本：xxx
+*原作者：xxx
+*完成日期：2013-11-27
+*/
+#include &lt;stdio.h&gt;
+#include &lt;fcntl.h&gt;
+#include &lt;stdlib.h&gt;
+/*手工创建设备节点文件
+mknod /dev/cdd c 248 0
+*/
+int fd = 0;
+char buf[10];
+
+int main()
+{
+	char ch;
+	
+	fd = open("/dev/cdd", O_RDWR);
+	if(fd &lt; 0){
+		printf("open failed!\n");
+		return -1;
+	}
+	printf("open successed fd = %d\n", fd);
+	while(1)
+	{
+		printf("starting to test /dev/cdd...\n");
+		ch = getchar();
+		getchar();//取走回车
+		if(ch == 'q'){
+			break;
+		}
+		switch(ch){
+			case 'r':
+				read(fd, buf, 0);
+				break;
+			case 'w':
+				write(fd, buf, 0);
+				break;
+			case 'o':
+				ioctl(fd, 0, 0);
+				break;
+			default:
+				break;
+		}
+		sleep(1);
+	}
+	
+	close(fd);
+	return 0;
+}</pre><br />&#13;
+<br />&#13;
+<p></p>&#13;
+   &#13;

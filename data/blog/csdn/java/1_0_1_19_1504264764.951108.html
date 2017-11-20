@@ -1,0 +1,278 @@
+
+        <div class="markdown_views"><p><font color="brown"><strong>介绍：</strong></font>在一些情况下，我们需要在一个业务的前后来实现一些逻辑，这时候我们就可以考虑代理模式。代理模式给某一个对象提供一个代理对象，并由代理对象控制对原对象的引用，并通过代理来对业务进行扩展。</p>
+
+<p><font color="brown"><strong>例子：</strong></font>演艺圈中的艺人。但是，他们都会有一个经纪人。经纪人负责去接业务，分析业务价格，从中获取利益，再让演员去拍戏。可以看到，经纪人不演戏（根本不会^_^），但是我们可以通过他们让演员演戏。这里的经纪人就相当于代理模式中的代理类，在客户端和目标对象之间起到中介的作用。</p>
+
+<p><font color="brown"><strong>优点：</strong></font> <br />
+1. 减少耦合 <br />
+2. 实现业务的扩展 <br />
+3. 保证原来代码的稳定</p>
+
+
+
+<h1 id="一角色及作用划分">一、角色及作用划分</h1>
+
+<table>
+<thead>
+<tr>
+  <th>角色</th>
+  <th>作用</th>
+</tr>
+</thead>
+<tbody><tr>
+  <td>主题接口</td>
+  <td>定义代理类和主题的公共对外方法</td>
+</tr>
+<tr>
+  <td>主题(被代理类–演员)</td>
+  <td>实现业务逻辑的类</td>
+</tr>
+<tr>
+  <td>代理类(经纪人)</td>
+  <td>用来代理和封装主题</td>
+</tr>
+<tr>
+  <td>客户端</td>
+  <td>使用代理类和主题接口完成一些工作</td>
+</tr>
+</tbody></table>
+
+
+
+
+<h1 id="二静态代理">二、静态代理</h1>
+
+<p><font color="brown">简述：</font>由程序员创建代理类,在程序运行前代理类的.class文件就已经存在,代理类和委托类的关系在编写代码的时候就已经决定。</p>
+
+<p><font color="green">场景：</font>我们的成龙大哥和路人甲原来在演艺圈中又需要管钱又需要演戏</p>
+
+
+
+<pre class="prettyprint"><code class=" hljs java"><span class="hljs-comment">// 主题接口</span>
+<span class="hljs-keyword">public</span> <span class="hljs-class"><span class="hljs-keyword">interface</span> <span class="hljs-title">Actor</span> {</span>
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">void</span> <span class="hljs-title">doAction</span>(<span class="hljs-keyword">int</span> money);
+}
+
+<span class="hljs-comment">// 主题:成龙大哥</span>
+<span class="hljs-keyword">public</span> <span class="hljs-class"><span class="hljs-keyword">class</span> <span class="hljs-title">BusinessImpl</span> <span class="hljs-keyword">implements</span> <span class="hljs-title">Business</span> {</span>
+
+    <span class="hljs-annotation">@Override</span>
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">void</span> <span class="hljs-title">doAction</span>(<span class="hljs-keyword">int</span> money) {
+        System.out.println(<span class="hljs-string">"收了"</span> + money + <span class="hljs-string">"，开始工作"</span>);
+    }
+}
+
+<span class="hljs-comment">// 主题：路人甲</span>
+<span class="hljs-keyword">public</span> <span class="hljs-class"><span class="hljs-keyword">class</span> <span class="hljs-title">PasserbyJIA</span> <span class="hljs-keyword">implements</span> <span class="hljs-title">Actor</span> {</span>
+
+    <span class="hljs-annotation">@Override</span>
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">void</span> <span class="hljs-title">doAction</span>(<span class="hljs-keyword">int</span> money) {
+        System.out.println(<span class="hljs-string">"收了"</span> + money + <span class="hljs-string">"，开始工作"</span>);
+    }
+
+}</code></pre>
+
+<p>有一天，成龙大哥出名了，他希望只接重头戏了，小戏份不能入眼。</p>
+
+<p>好的，可能大家会说很简单，代码如下：</p>
+
+
+
+<pre class="prettyprint"><code class=" hljs cs"><span class="hljs-keyword">public</span> <span class="hljs-keyword">void</span> <span class="hljs-title">doAction</span>() {
+     <span class="hljs-keyword">if</span> (money &lt; <span class="hljs-number">50</span>) {
+         System.<span class="hljs-keyword">out</span>.println(<span class="hljs-string">"钱不够，干个毛？"</span>);
+     } <span class="hljs-keyword">else</span> {
+         System.<span class="hljs-keyword">out</span>.println(<span class="hljs-string">"收了"</span> + money + <span class="hljs-string">"，开始工作"</span>);
+    }
+}</code></pre>
+
+<p>可是，这样路人甲就不满了，我接不到重头戏啊，我还要靠演路人工作啊。<font color="red">可见，这种修改会对原来的所有演员的业务产生影响。</font></p>
+
+<p>这样，我们可以为成龙大哥找个经纪人，让其来接业务，成龙大哥只管收钱演戏就行了:</p>
+
+
+
+<pre class="prettyprint"><code class=" hljs java"><span class="hljs-keyword">public</span> <span class="hljs-class"><span class="hljs-keyword">class</span> <span class="hljs-title">ChenLongProxy</span> <span class="hljs-keyword">implements</span> <span class="hljs-title">Actor</span> {</span>
+    <span class="hljs-keyword">private</span> Actor bi;
+    <span class="hljs-comment">// 这里可以定义多个代理的角色：如JummpImpl等</span>
+
+    <span class="hljs-keyword">public</span> <span class="hljs-title">ChenLongProxy</span>(Actor bi) {
+        <span class="hljs-keyword">this</span>.bi = bi;
+    }
+
+    <span class="hljs-annotation">@Override</span>
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">void</span> <span class="hljs-title">doAction</span>(<span class="hljs-keyword">int</span> money) {
+        <span class="hljs-keyword">if</span> (money &lt; <span class="hljs-number">50</span>) {
+            System.out.println(<span class="hljs-string">"钱不够，干个毛？"</span>);
+        } <span class="hljs-keyword">else</span> {
+            System.out.println(<span class="hljs-string">"经纪人收了20"</span>);
+            bi.doAction(money - <span class="hljs-number">20</span>);
+        }
+    }
+
+}</code></pre>
+
+<p>之后，我们在B公司的代码中使用代理类</p>
+
+
+
+<pre class="prettyprint"><code class=" hljs cs">    <span class="hljs-keyword">public</span> <span class="hljs-keyword">static</span> <span class="hljs-keyword">void</span> <span class="hljs-title">main</span>(String[] args) {
+        ChenLong impl = <span class="hljs-keyword">new</span> ChenLong();
+        <span class="hljs-comment">// 引用变量定义为抽象角色类型</span>
+        Actor bi = <span class="hljs-keyword">new</span> ChenLongProxy(impl);
+        bi.doAction(<span class="hljs-number">30</span>);
+        System.<span class="hljs-keyword">out</span>.println(<span class="hljs-string">"======"</span>);
+        bi.doAction(<span class="hljs-number">50</span>);
+    }</code></pre>
+
+<p>输出如下：</p>
+
+
+
+<pre class="prettyprint"><code class=" hljs asciidoc"><span class="hljs-header">钱不够，干个毛？
+======</span>
+经纪人收了20
+收了30，开始工作</code></pre>
+
+
+
+<h1 id="三动态代理">三、动态代理</h1>
+
+<p><font color="brown">简述：</font>代理类在程序运行时更具所提供的被代理类运用反射机制动态创建而成。下面分别说明两种动态代理方法—jdk动态代理和cglib动态代理（还有javassist动态代理，但网上说性能不佳，而且实现方式和cglib类似，这里就不详细说明）。</p>
+
+<p><font color="red">ps：</font>JDK动态代理与CGLib动态代理均是实现Spring AOP的基础。</p>
+
+
+
+<h2 id="1-jdk动态代理">(1) jdk动态代理</h2>
+
+<p>基于JDK自带的动态代理方式需要实现InvocationHandler接口。</p>
+
+<p><font color="red">优点：</font>JDK自带，底层实现使得动态类创建过程快。无需第三方jar包。</p>
+
+
+
+<pre class="prettyprint"><code class=" hljs java"><span class="hljs-keyword">public</span> <span class="hljs-class"><span class="hljs-keyword">class</span> <span class="hljs-title">JDKProxy</span> <span class="hljs-keyword">implements</span> <span class="hljs-title">InvocationHandler</span> {</span>
+    <span class="hljs-keyword">private</span> Object obj;
+
+    JDKProxy(Object obj) {
+        <span class="hljs-keyword">this</span>.obj = obj;
+    }
+
+    <span class="hljs-annotation">@Override</span>
+    <span class="hljs-keyword">public</span> Object <span class="hljs-title">invoke</span>(Object proxy, Method method, Object[] args) <span class="hljs-keyword">throws</span> Throwable {
+        Object result = <span class="hljs-keyword">null</span>;
+        doBefore();
+        result = method.invoke(obj, args);
+        doAfter();
+        <span class="hljs-keyword">return</span> result;
+    }
+
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">void</span> <span class="hljs-title">doBefore</span>() {
+        System.out.println(<span class="hljs-string">"do something before"</span> + obj.getClass());
+    }
+
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">void</span> <span class="hljs-title">doAfter</span>() {
+        System.out.println(<span class="hljs-string">"do something after"</span> + obj.getClass());
+    }
+
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">static</span> Object <span class="hljs-title">factory</span>(Object obj) {
+        Class&lt;?&gt; cls = obj.getClass();
+        <span class="hljs-keyword">return</span> Proxy.newProxyInstance(cls.getClassLoader(), cls.getInterfaces(),
+                <span class="hljs-keyword">new</span> JDKProxy(obj));
+    }
+}</code></pre>
+
+<p>而我们使用的时候如下：</p>
+
+
+
+<pre class="prettyprint"><code class=" hljs avrasm">BusinessImpl b = new BusinessImpl()<span class="hljs-comment">;</span>
+Business bf = (Business) JDKProxy<span class="hljs-preprocessor">.factory</span>(b)<span class="hljs-comment">;</span>
+bf<span class="hljs-preprocessor">.doAction</span>()<span class="hljs-comment">;</span></code></pre>
+
+<p>jdk动态代理的时候，在我们Proxy.newProxyInstance需要传入的参数有类加载器，类所实现的所有接口，动态代理类。<font color="red">可是，如果我们的类没有实现任何接口又该怎么办？</font></p>
+
+
+
+<h2 id="2-cglib动态代理">(2) cglib动态代理</h2>
+
+<p>基于cglib的jar包的代理模式使用方法，使用之前需要导入cglib的jar包。</p>
+
+<p><font color="red">优点：</font>JDK实现动态代理需要实现类通过接口定义业务方法，对于没有接口的类，如何实现动态代理呢，这就需要CGLib了。CGLib采用了非常底层的字节码技术，其原理是通过字节码技术为一个类创建子类，并在子类中采用方法拦截的技术拦截所有父类方法的调用，顺势织入横切逻辑。<font color="red">但因为采用的是继承，所以不能对final修饰的类进行代理。</font></p>
+
+
+
+<pre class="prettyprint"><code class=" hljs java"><span class="hljs-keyword">public</span> <span class="hljs-class"><span class="hljs-keyword">class</span> <span class="hljs-title">BusniessCGLIB</span> {</span>
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">void</span> <span class="hljs-title">doAction</span>() {
+        System.out.println(<span class="hljs-string">"工作"</span>);
+    }
+}
+
+<span class="hljs-comment">// cglib动态代理类需实现MethodInterceptor接口</span>
+<span class="hljs-keyword">public</span> <span class="hljs-class"><span class="hljs-keyword">class</span> <span class="hljs-title">CGLIBProxy</span> <span class="hljs-keyword">implements</span> <span class="hljs-title">MethodInterceptor</span> {</span>
+    <span class="hljs-keyword">private</span> Object obj;
+
+    <span class="hljs-keyword">public</span> <span class="hljs-title">CGLIBProxy</span>(Object obj) {
+        <span class="hljs-keyword">this</span>.obj = obj;
+    }
+
+    <span class="hljs-keyword">public</span> Object <span class="hljs-title">factory</span>() {
+        Enhancer enhancer = <span class="hljs-keyword">new</span> Enhancer();
+        <span class="hljs-comment">// 通过字节码技术动态创建子类实例</span>
+        enhancer.setSuperclass(obj.getClass());
+        <span class="hljs-comment">// 回调方法</span>
+        enhancer.setCallback(<span class="hljs-keyword">this</span>);
+        <span class="hljs-comment">// 创建代理对象</span>
+        <span class="hljs-keyword">return</span> enhancer.create();
+    }
+
+    <span class="hljs-annotation">@Override</span>
+    <span class="hljs-keyword">public</span> Object <span class="hljs-title">intercept</span>(Object obj, Method method, Object[] args, MethodProxy proxy) <span class="hljs-keyword">throws</span> Throwable {
+        System.out.println(<span class="hljs-string">"do before"</span>);
+        <span class="hljs-comment">// 通过代理类调用父类中的方法</span>
+        Object result = proxy.invokeSuper(obj, args);
+        System.out.println(<span class="hljs-string">"do after"</span>);
+        <span class="hljs-keyword">return</span> result;
+    }
+
+}</code></pre>
+
+<p>调用方式类似</p>
+
+
+
+<pre class="prettyprint"><code class=" hljs vhdl">// CGLIB
+BusniessCGLIB buso = <span class="hljs-keyword">new</span> BusniessCGLIB();
+buso.doAction();
+CGLIBProxy cglib = <span class="hljs-keyword">new</span> CGLIBProxy(buso);
+BusniessCGLIB <span class="hljs-keyword">bus</span> = (BusniessCGLIB) cglib.factory();
+<span class="hljs-keyword">bus</span>.doAction();</code></pre>
+
+<p>jdk动态代理创建代理类的性能优于cglib，但是在调用代理方法的时候，cglib性能远高于jdk。但是，一般来说创建对象的次数应该远小于方法调用，所以性能方面考虑重点应该为方法调用。或者我们在对象为单利的时候应该使用cglib比较合适。</p>
+
+
+
+<h1 id="四代理模式和装饰者模式的区别">四、代理模式和装饰者模式的区别</h1>
+
+<p>请参考装饰者模式中的最后一节——&gt;<a href="http://blog.csdn.net/oDeviloo/article/details/52488283">http://blog.csdn.net/oDeviloo/article/details/52488283</a></p>
+
+<hr />
+
+<p><strong><em>更多模式：</em></strong> <a href="http://blog.csdn.net/odeviloo/article/details/52382338">一天一个设计模式—分类与六大原则</a></p>
+
+<p><strong><em>更多源码：</em></strong> <a href="https://github.com/oDevilo/Java-Base">https://github.com/oDevilo/Java-Base</a></p></div>&#13;
+        <script type="text/javascript">&#13;
+            $(function () {&#13;
+                $('pre.prettyprint code').each(function () {&#13;
+                    var lines = $(this).text().split('\n').length;&#13;
+                    var $numbering = $('&lt;ul/&gt;').addClass('pre-numbering').hide();&#13;
+                    $(this).addClass('has-numbering').parent().append($numbering);&#13;
+                    for (i = 1; i &lt;= lines; i++) {&#13;
+                        $numbering.append($('&lt;li/&gt;').text(i));&#13;
+                    };&#13;
+                    $numbering.fadeIn(1700);&#13;
+                });&#13;
+            });&#13;
+        </script>&#13;
+   &#13;

@@ -1,0 +1,152 @@
+
+
+<p>今天学习了代理模式。</p>&#13;
+<p>相对于适配器模式，或者说装饰器模式，代理模式理解起来更加简单。</p>&#13;
+<p>代理这个词应该比较好理解，代替去做就是代理。</p>&#13;
+<p>比如，我们买卖房子，那么我们会找中介，我要卖房子，但是我们没有时间去卖，我主动交给中介，中介会帮我发布，会帮我找买家，带买家看房，最后我只要收到钱就行了。</p>&#13;
+<p>买家的目的：卖房拿钱。。卖加最终的目的就是把房子换成钱。</p>&#13;
+<p>中介的工作：收集房产信息，发布房产信息，等买家打电话来，带买家看房，买家看中了，付钱给中介，中介办理过户手续，过户成功，抽掉自己的佣金，付钱给卖家。</p>&#13;
+<p>卖家的目的，给钱，拿房子</p>&#13;
+<p><br />&#13;
+</p>&#13;
+<p>卖家或许很忙，根本没有时间去办这么多的事情。</p>&#13;
+<p>我们换成工作中的例子。。。。</p>&#13;
+<p>数据库层，他只负责接收请求的参数，返回数据。它并不真正的去关心数据如何如何去处理，返回到展示层是一种什么样的格式，但是展示层又不关心。</p>&#13;
+<p>正如卖家根本不关心谁来看房子，谁来给我传入钱这个参数，我给谁return 一个房子。</p>&#13;
+<p><br />&#13;
+</p>&#13;
+<p>而前台展示层是负责传递参数，他不关心卖家到底是谁，给钱就要拿到房子。</p>&#13;
+<p><br />&#13;
+</p>&#13;
+<p>那么中间那些办证看房的过程到底谁来做，当然是由房产中介来做。</p>&#13;
+<p>那现在，我们来实现整个买房的过程。</p>&#13;
+<p>为了不像之前那么抽象的去理解适配器模式和装饰器模式，这次我们引入参数和返回值。</p>&#13;
+<p><br />&#13;
+</p>&#13;
+<p>先定一个卖房子的接口。</p>&#13;
+<p></p>&#13;
+<pre code_snippet_id="476931" snippet_file_name="blog_20140928_1_895393" name="code" class="java">public interface Sell {
+	public String sellHoues(int money);
+}</pre>&#13;
+<p></p>&#13;
+<p>再来座房子把。</p>&#13;
+<p></p>&#13;
+<pre code_snippet_id="476931" snippet_file_name="blog_20140928_2_7940196" name="code" class="java">public class House {
+	private String houseHost;
+
+	public House(String houseHost){
+		this.houseHost = houseHost;//构造方法传入户主的名字
+	}
+	public String getHouseHost() {
+		return houseHost;
+	}
+
+	public void setHouseHost(String houseHost) {
+		this.houseHost = houseHost;
+	}
+	
+}</pre><br />&#13;
+<p></p>&#13;
+<p><br />&#13;
+</p>&#13;
+<p>然后，我们定义一个卖家,这个卖家是没有钱的，他只有房子。。。他现在需要卖房子，所以实现卖房子的接口。对于卖家来说，他所谓的卖房子就是谁给我钱，我就给谁房子，我不去关心房产证过户啊这些东西。</p>&#13;
+<p></p><pre code_snippet_id="476931" snippet_file_name="blog_20140928_3_873318" name="code" class="java">public class Seller implements Sell {
+	private String name;//卖家的名字
+	private House house;//卖家的房子
+	private int money;//卖家的钱
+	
+	Seller(String name){
+		this.name = name;
+		house = new House(name);//实例化一座房子，并传入户主名字
+	}
+	
+	//卖房子的方法，给我钱，房子就是你的
+	public House sellHoues(int money){
+		this.money = this.money+money;
+		System.out.println("卖家收到钱");
+		return this.house;
+	}
+}</pre><br />&#13;
+<br />&#13;
+&#13;
+接着是买家，买家有钱，没房子，所以他有2个方法，付钱，拿房子。&#13;
+<p></p>&#13;
+<p></p><pre code_snippet_id="476931" snippet_file_name="blog_20140928_4_660647" name="code" class="java">public class Buyer {
+	private int money;
+	private House house;
+	
+	public Buyer(){
+		//买家只有钱没有房子
+		this.money= 9999;//9999元钱，估计能买1平方
+		String house="";//没房子
+	}
+	
+	public void giveMoney(int toPay){
+		this.money=this.money-toPay;//买家的钱减去价格
+		System.out.println("买家付钱");
+	}
+	
+	public void getHouse(House house){
+		this.house = house;
+		System.out.println("买家得到房子");
+	}
+
+	public int getMoney() {
+		return money;
+	}
+
+	public House getHouse() {
+		return house;
+	}
+	
+}
+</pre><br />&#13;
+<br />&#13;
+&#13;
+<br />&#13;
+如果不用代理模式，我们要让让买家直接和卖家，卖家的卖房子肯定需要重写，这肯定是卖家不愿意的，这为浪费卖家极大的时间。就如同我们的项目里，假如一个DAO类是用于对数据库操作的，有些用户或许我们只能提供给他查询的权限，并不提供修改的权限，这时候用代理模式，用一个代理类Proxy来操作这个这个DAO的对象，对于不同的用户提供不同的代理类，这样既不需要修改原先的代码，又可以满足业务的要求。&#13;
+<p></p>&#13;
+<p><br />&#13;
+</p>&#13;
+<p>下面我们用一个中介人来直接和卖家对接</p>&#13;
+<p></p>&#13;
+<pre code_snippet_id="476931" snippet_file_name="blog_20140928_5_6937631" name="code" class="java">public class Proxy implements Sell  {
+	Seller seller;
+	public Proxy(){
+		this.seller = new Seller("卖家");//中介在出现的时候就应该手里有一个客户，并且这个客户有套房子，否则他的出现没有任何意义
+	}
+	//卖房子的方法，这个方法主要服务于卖家，给卖家钱，卖家给你房子,但是相对于卖家
+	@Override
+	public House sellHoues(int money) {
+		// TODO Auto-generated method stub
+		House house = seller.sellHoues(money);//中介从买家那得到房子。。开始进行过户手续
+		System.out.println("已付钱给卖家，中介拿到房子");
+		house.setHouseHost("买家");//过户，将房子的名字改为买家的
+		System.out.println("已经过户成功");
+		return house;
+	}
+}</pre><br />&#13;
+最后来测试一下，看看整个买房流程是否成功&#13;
+<p></p>&#13;
+<p></p>&#13;
+<pre code_snippet_id="476931" snippet_file_name="blog_20140928_6_252682" name="code" class="java">public class test {
+	public static void main(String[] args) {
+		Sell proxy =new Proxy();
+		Buyer buyer = new Buyer();
+		buyer.giveMoney(8888);
+		House house = proxy.sellHoues(8888);
+		buyer.getHouse(house);
+		System.out.println("买家剩余钱："+buyer.getMoney());
+		System.out.println("房主姓名："+buyer.getHouse().getHouseHost());
+	}
+}</pre>输出结果：&#13;
+<p></p>&#13;
+<p><img src="http://img.blog.csdn.net/20140928151818996?watermark/2/text/aHR0cDovL2Jsb2cuY3Nkbi5uZXQvbHVsZWk5ODc2/font/5a6L5L2T/fontsize/400/fill/I0JBQkFCMA==/dissolve/70/gravity/Center" alt="" /><br />&#13;
+</p>&#13;
+<p><br />&#13;
+</p>&#13;
+<p>好了，又到了大家最讨厌的装B总结时刻：代理模式最显著的特点就是在代理类里已经持有了目标类的对象，所以在外部看来，你根本无需去关心目标类，目标类根本就不曾出现过，最大的好处就是，让别人看到你想让他看到的，就这么简单。代理模式还是秉承了设计的原则，对内关闭修改，对外开放扩展的思路。</p>&#13;
+<p><br />&#13;
+</p>&#13;
+<p>其实写完这些的时候，我突然对代理模式，装饰器模式，适配器模式又再一次混淆了。所以，我准备再写一篇文章分析这3种模式的异同点，让自己好好理解一下这几个模式。</p>&#13;
+   &#13;

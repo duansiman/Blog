@@ -1,0 +1,1763 @@
+
+        <div class="markdown_views"><h1 id="信号及信号来源">信号及信号来源</h1>
+
+<hr />
+
+
+
+<h2 id="什么是信号">什么是信号</h2>
+
+<hr />
+
+<p class="cye-lm-tag">信号是UNIX和Linux系统响应某些条件而产生的一个事件，接收到该信号的进程会相应地采取一些行动。通常信号是由一个错误产生的。但它们还可以作为进程间通信或修改行为的一种方式，明确地由一个进程发送给另一个进程。一个信号的产生叫生成，接收到一个信号叫捕获。</p>
+
+
+
+<h2 id="信号本质">信号本质</h2>
+
+<hr />
+
+<p class="cye-lm-tag">信号是在软件层次上对中断机制的一种模拟，在原理上，一个进程收到一个信号与处理器收到一个中断请求可以说是一样的。</p>
+
+<p class="cye-lm-tag">信号是异步的，一个进程不必通过任何操作来等待信号的到达，事实上，进程也不知道信号到底什么时候到达。</p>
+
+<p class="cye-lm-tag"><strong>信号是进程间通信机制中唯一的异步通信机制</strong>，可以看作是异步通知，通知接收信号的进程有哪些事情发生了。信号机制经过POSIX实时扩展后，功能更加强大，除了基本通知功能外，还可以传递附加信息。</p>
+
+
+
+<h2 id="信号来源">信号来源</h2>
+
+<hr />
+
+<p class="cye-lm-tag">信号事件的发生有两个来源</p>
+
+<ul>
+<li><p class="cye-lm-tag">硬件来源(比如我们按下了键盘或者其它硬件故障)；</p></li>
+<li><p class="cye-lm-tag">软件来源，最常用发送信号的系统函数是kill, raise, alarm和setitimer以及sigqueue函数，软件来源还包括一些非法运算等操作。</p></li>
+</ul>
+
+<p class="cye-lm-tag">信号可以直接进行用户空间进程和内核进程之间的交互，内核进程也可以利用它来通知用户空间进程发生了那些系统事件。</p>
+
+<p class="cye-lm-tag">如果该进程当前并未处于执行态，则该信号就由内核保存起来，直到该进程恢复执行再传递个它；如果一个信号被进程设置为阻塞，则该信号的传递被延迟，直到其阻塞取消时才被传递给进程。</p>
+
+
+
+<h2 id="linux产生信号的条件">linux产生信号的条件</h2>
+
+<hr />
+
+<ol>
+<li><p class="cye-lm-tag">当用户按某些终端键时，将产生信号。 <br />
+终端上按“Ctrl+c”组合键通常产生中断信号 SIGINT，终端上按“Ctrl+\”键通常产生中断信号 SIGQUIT，终端上按“Ctrl+z”键通常产生中断信号 SIGSTOP 等。</p></li>
+<li><p class="cye-lm-tag">硬件异常将产生信号。 <br />
+比如数据运算时，除数为0；或者无效的存放访问等.这些条件通常由硬件检测到，并通知内核，然后内核为该条件发生时正在运行的进程产生适当的信号.。</p></li>
+<li><p class="cye-lm-tag">软件异常将产生信号。 <br />
+当检测到某种软件条件已发生，并将其通知有关进程时，产生信号。</p></li>
+<li><p class="cye-lm-tag">调用 kill() 函数将发送信号。 <br />
+注意：接收信号进程和发送信号进程的所有者必须相同，或发送信号进程的所有者必须是超级用户。</p></li>
+<li><p class="cye-lm-tag">运行 kill 命令将发送信号。 <br />
+此程序实际上是使用 kill 函数来发送信号。也常用此命令终止一个失控的后台进程。</p></li>
+</ol>
+
+
+
+<h2 id="信号的捕获和处理">信号的捕获和处理</h2>
+
+<hr />
+
+<p class="cye-lm-tag">若内核(空间)向用户空间(进程)发出某个信号时，用户空间(进程)可按照下列3中方式来面对:</p>
+
+<ol>
+<li><p class="cye-lm-tag"><strong>忽略信号</strong>，即对信号不做任何处理 <br />
+大多数信号都可以使用这种方式处理，但信号SIGKILL和SIGSTOP绝不能被忽略.因为它们向超级用户提供了一种使进程终止的可靠方法.</p></li>
+<li><p class="cye-lm-tag"><strong>缺省动作</strong>，执行信号的默认动作.大多数信号的系统默认动作是终止在进程.</p></li>
+<li><p class="cye-lm-tag"><strong>捕捉信号</strong>，定义信号处理函数，当信号发生时，执行相应的处理函数；</p></li>
+</ol>
+
+<blockquote>
+  <p class="cye-lm-tag">注意，进程对实时信号的缺省反应是进程终止。</p>
+</blockquote>
+
+<p class="cye-lm-tag">Linux究竟采用上述三种方式的哪一个来响应信号，取决于传递给相应API函数的参数。</p>
+
+<p class="cye-lm-tag">信号是一种软件中断机制，即当信号发生时，必须用中断的方法告诉内核”请执行下列操作”.</p>
+
+<p class="cye-lm-tag">在linux终端内输入<code>kill -l</code>可以查看系统所支持的信号.可以看出，每个信号的名字都是以SIG开头.</p>
+
+<p class="cye-lm-tag"><img src="http://img.blog.csdn.net/20160327104626226" alt="这里写图片描述" title="" /></p>
+
+<p class="cye-lm-tag">在头文件signal.h(/usr/include/bits/signum.h)中，这些信号都被定义为正整数，即每个信号和一个数字编码相对应.</p>
+
+<p class="cye-lm-tag">不同的架构，文件存储路径可能不同可以使用<code>sudo find /usr/include  -name signum.h</code>查找</p>
+
+<p class="cye-lm-tag">我的位于<code>/usr/include/x86_64-linux-gnu/bits/signum.h</code></p>
+
+<p class="cye-lm-tag"><img src="http://img.blog.csdn.net/20160327104949026" alt="这里写图片描述" title="" /></p>
+
+<p class="cye-lm-tag">其中SIGRTMIN，SIGRTMAX定义如下</p>
+
+
+
+<pre class="prettyprint"><code class="language-c hljs "><span class="hljs-preprocessor cye-lm-tag">#define SIGRTMIN        (__libc_current_sigrtmin ())</span>
+<span class="hljs-preprocessor cye-lm-tag">#define SIGRTMAX        (__libc_current_sigrtmax ())</span>
+
+<span class="hljs-comment cye-lm-tag">/* These are the hard limits of the kernel.  These values should not be
+   used directly at user level.  */</span>
+<span class="hljs-preprocessor cye-lm-tag">#define __SIGRTMIN  32</span>
+<span class="hljs-preprocessor cye-lm-tag">#define __SIGRTMAX  (_NSIG - 1)</span></code></pre>
+
+<p class="cye-lm-tag"><img src="http://img.blog.csdn.net/20160327212029845" alt="这里写图片描述" title="" /></p>
+
+
+
+<h1 id="linux信号的发展及种类">linux信号的发展及种类</h1>
+
+<hr />
+
+<p class="cye-lm-tag">可以从两个不同的分类角度对信号进行分类：</p>
+
+<ol>
+<li><p class="cye-lm-tag">可靠性方面：可靠信号与不可靠信号；</p></li>
+<li><p class="cye-lm-tag">与时间的关系上：实时信号与非实时信号。</p></li>
+</ol>
+
+
+
+<h2 id="可靠信号与不可靠信号">可靠信号与不可靠信号</h2>
+
+<hr />
+
+
+
+<h3 id="不可靠信号">“不可靠信号”</h3>
+
+<hr />
+
+<p class="cye-lm-tag">Linux信号机制基本上是从Unix系统中继承过来的。早期Unix系统中的信号机制比较简单和原始，后来在实践中暴露出一些问题，因此，把那些建立在早期机制上的信号叫做”不可靠信号”，信号值小于SIGRTMIN(Red hat 7.2中，SIGRTMIN=32，SIGRTMAX=63)的信号都是不可靠信号。这就是”不可靠信号”的来源。</p>
+
+<p class="cye-lm-tag">它的主要问题是： <br />
+进程每次处理信号后，就将对信号的响应设置为默认动作。在某些情况下，将导致对信号的错误处理；</p>
+
+<p class="cye-lm-tag">因此，用户如果不希望这样的操作，那么就要在信号处理函数结尾再一次调用signal()，重新安装该信号。</p>
+
+<p class="cye-lm-tag">信号可能丢失，后面将对此详细阐述。 </p>
+
+<p class="cye-lm-tag">因此，早期unix下的不可靠信号主要指的是进程可能对信号做出错误的反应以及信号可能丢失。</p>
+
+<p class="cye-lm-tag">Linux支持不可靠信号，但是对不可靠信号机制做了改进：在调用完信号处理函数后，不必重新调用该信号的安装函数（信号安装函数是在可靠机制上的实现）。因此，Linux下的不可靠信号问题主要指的是信号可能丢失。</p>
+
+
+
+<h3 id="可靠信号">可靠信号</h3>
+
+<hr />
+
+<p class="cye-lm-tag">随着时间的发展，实践证明了有必要对信号的原始机制加以改进和扩充。所以，后来出现的各种Unix版本分别在这方面进行了研究，力图实现”可靠信号”。由于原来定义的信号已有许多应用，不好再做改动，最终只好又新增加了一些信号，并在一开始就把它们定义为可靠信号，这些信号支持排队，不会丢失。</p>
+
+<p class="cye-lm-tag">同时，信号的发送和安装也出现了新版本：信号发送函数sigqueue()及信号安装函数sigaction()。</p>
+
+<p class="cye-lm-tag">POSIX.4对可靠信号机制做了标准化。但是，POSIX只对可靠信号机制应具有的功能以及信号机制的对外接口做了标准化，对信号机制的实现没有作具体的规定。</p>
+
+<p class="cye-lm-tag">信号值位于SIGRTMIN和SIGRTMAX之间的信号都是可靠信号，可靠信号克服了信号可能丢失的问题。</p>
+
+<p class="cye-lm-tag">Linux在支持新版本的信号安装函数sigation（）以及信号发送函数sigqueue()的同时，仍然支持早期的signal（）信号安装函数，支持信号发送函数kill()。</p>
+
+<blockquote>
+  <p class="cye-lm-tag"><strong>注</strong>：</p>
+  
+  <p class="cye-lm-tag">不要有这样的误解：由sigqueue()发送、sigaction安装的信号就是可靠的。</p>
+</blockquote>
+
+<p class="cye-lm-tag">事实上，可靠信号是指后来添加的新信号（信号值位于SIGRTMIN及SIGRTMAX之间）；不可靠信号是信号值小于SIGRTMIN的信号。</p>
+
+<p class="cye-lm-tag">信号的可靠与不可靠只与信号值有关，与信号的发送及安装函数无关。目前linux中的signal()是通过sigation()函数实现的，因此，即使通过signal（）安装的信号，在信号处理函数的结尾也不必再调用一次信号安装函数。同时，由signal()安装的实时信号支持排队，同样不会丢失。</p>
+
+<p class="cye-lm-tag">对于目前linux的两个信号安装函数:signal()及sigaction()来说，它们都不能把SIGRTMIN以前的信号变成可靠信号（都不支持排队，仍有可能丢失，仍然是不可靠信号），而且对SIGRTMIN以后的信号都支持排队。这两个函数的最大区别在于，经过sigaction安装的信号都能传递信息给信号处理函数（对所有信号这一点都成立），而经过signal安装的信号却不能向信号处理函数传递信息。对于信号发送函数来说也是一样的。</p>
+
+
+
+<h2 id="实时信号与非实时信号">实时信号与非实时信号</h2>
+
+<hr />
+
+<p class="cye-lm-tag">早期Unix系统只定义了32种信号，Ret hat7.2支持64种信号，编号0-63(SIGRTMIN=31，SIGRTMAX=63)，将来可能进一步增加，这需要得到内核的支持。</p>
+
+<p class="cye-lm-tag">前32种信号已经有了预定义值，每个信号有了确定的用途及含义，并且每种信号都有各自的缺省动作。如按键盘的CTRL ^C时，会产生SIGINT信号，对该信号的默认反应就是进程终止。后32个信号表示实时信号，等同于前面阐述的可靠信号。这保证了发送的多个实时信号都被接收。实时信号是POSIX标准的一部分，可用于应用进程。</p>
+
+<p class="cye-lm-tag"><strong>非实时信号都不支持排队，都是不可靠信号；实时信号都支持排队，都是可靠信号。</strong></p>
+
+
+
+<h1 id="信号的发送">信号的发送</h1>
+
+<hr />
+
+<p class="cye-lm-tag">发送信号的主要函数有：<code>kill()</code>、<code>raise()</code>、<code>sigqueue()</code>、<code>alarm()</code>、<code>setitimer()</code>以及<code>abort()</code>。</p>
+
+
+
+<h2 id="kill传送信号给指定进程">kill–传送信号给指定进程</h2>
+
+<hr />
+
+<p class="cye-lm-tag">使用man 2 kill查看帮助信息</p>
+
+<p class="cye-lm-tag"><img src="http://img.blog.csdn.net/20160327105401282" alt="这里写图片描述" title="" /></p>
+
+<p class="cye-lm-tag"><strong>函数原型</strong></p>
+
+
+
+<pre class="prettyprint"><code class="language-c hljs "><span class="hljs-preprocessor cye-lm-tag">#include &lt;sys/types.h&gt; </span>
+<span class="hljs-preprocessor cye-lm-tag">#include &lt;signal.h&gt; </span>
+<span class="hljs-keyword cye-lm-tag">int</span> kill(pid_t pid,<span class="hljs-keyword cye-lm-tag">int</span> signo)</code></pre>
+
+<p class="cye-lm-tag"><strong>参数说明</strong></p>
+
+<ul>
+<li><p class="cye-lm-tag">第一个参数pid：指定发送信号的接收线程</p></li>
+<li><p class="cye-lm-tag">第二个参数signo：信号的signum</p></li>
+</ul>
+
+<p class="cye-lm-tag"><strong>参数pid</strong></p>
+
+<table>
+<thead>
+<tr>
+  <th>参数pid的值</th>
+  <th align="center">信号的接收进程</th>
+</tr>
+</thead>
+<tbody><tr>
+  <td>pid&gt;0</td>
+  <td align="center">进程ID为pid的进程</td>
+</tr>
+<tr>
+  <td>pid=0</td>
+  <td align="center">同一个进程组的进程</td>
+</tr>
+<tr>
+  <td>pid&lt;0 pid!=-1</td>
+  <td align="center">进程组ID为 -pid的所有进程</td>
+</tr>
+<tr>
+  <td>pid=-1</td>
+  <td align="center">除发送进程自身外，所有进程ID大于1的进程</td>
+</tr>
+</tbody></table>
+
+
+<p class="cye-lm-tag"><strong>参数signo</strong></p>
+
+<p class="cye-lm-tag">Signo是信号值，当为0时（即空信号），实际不发送任何信号，但照常进行错误检查，因此，可用于检查目标进程是否存在，以及当前进程是否具有向目标发送信号的权限（root权限的进程可以向任何进程发送信号，非root权限的进程只能向属于同一个session或者同一个用户的进程发送信号）。</p>
+
+<p class="cye-lm-tag">Kill()最常用于pid&gt;0时的信号发送，调用成功返回 0； 否则，返回 -1。</p>
+
+<blockquote>
+  <p class="cye-lm-tag"><strong>注</strong></p>
+  
+  <p class="cye-lm-tag">对于pid&lt;0时的情况，对于哪些进程将接受信号，各种版本说法不一，其实很简单，参阅内核源码kernal/signal.c即可</p>
+</blockquote>
+
+
+
+<pre class="prettyprint"><code class="language-c hljs "><span class="hljs-comment cye-lm-tag">/*************************************************************************
+    &gt; File Name: kill.c
+    &gt; Author: GatieMe
+    &gt; Mail: gatieme@163.com
+    &gt; Created Time: 2016年03月27日 星期日 11时07分40秒
+ ************************************************************************/</span>
+
+<span class="hljs-preprocessor cye-lm-tag">#include &lt;stdio.h&gt;</span>
+<span class="hljs-preprocessor cye-lm-tag">#include &lt;stdlib.h&gt;</span>
+
+<span class="hljs-preprocessor cye-lm-tag">#include &lt;unistd.h&gt;</span>
+<span class="hljs-preprocessor cye-lm-tag">#include &lt;sys/types.h&gt;</span>
+<span class="hljs-preprocessor cye-lm-tag">#include &lt;signal.h&gt;</span>
+
+
+<span class="hljs-keyword cye-lm-tag">int</span> main()
+{
+    <span class="hljs-keyword cye-lm-tag">int</span> pid;
+
+    <span class="hljs-keyword cye-lm-tag">if</span>((pid = fork()) &lt; <span class="hljs-number cye-lm-tag">0</span>)              <span class="hljs-comment cye-lm-tag">//  创建新的进程</span>
+    {
+
+        perror(<span class="hljs-string cye-lm-tag">"Fail to fork"</span>);
+        <span class="hljs-built_in cye-lm-tag">exit</span>(EXIT_FAILURE);
+
+    }
+    <span class="hljs-keyword cye-lm-tag">else</span> <span class="hljs-keyword cye-lm-tag">if</span>(pid == <span class="hljs-number cye-lm-tag">0</span>)                   <span class="hljs-comment cye-lm-tag">//  子进程中返回0</span>
+    {
+
+        <span class="hljs-keyword cye-lm-tag">while</span>(<span class="hljs-number cye-lm-tag">1</span>);
+
+    }
+    <span class="hljs-keyword cye-lm-tag">else</span>                                <span class="hljs-comment cye-lm-tag">//  父进程中返回子进程的pid</span>
+    {
+
+        <span class="hljs-keyword cye-lm-tag">int</span> signum;
+
+        <span class="hljs-keyword cye-lm-tag">while</span>(<span class="hljs-built_in cye-lm-tag">scanf</span>(<span class="hljs-string cye-lm-tag">"%d"</span>,&amp;signum) == <span class="hljs-number cye-lm-tag">1</span>) <span class="hljs-comment cye-lm-tag">//  用户输入带发送的信号</span>
+        {
+            kill(pid, signum);          <span class="hljs-comment cye-lm-tag">//  父进程向子进程发送信号</span>
+            system(<span class="hljs-string cye-lm-tag">"ps -aux | grep ./test"</span>);
+        }
+    }
+
+    <span class="hljs-keyword cye-lm-tag">return</span> <span class="hljs-number cye-lm-tag">0</span>;
+}
+</code></pre>
+
+<p class="cye-lm-tag"><img src="http://img.blog.csdn.net/20160327132903436" alt="这里写图片描述" title="" /></p>
+
+<p class="cye-lm-tag">在下面程序中，来父子进程各自每隔一秒打印一句话，3 秒后，父进程通过 kill() 函数给子进程发送一个中断信号 SIGINT（ 2 号信号），最终，子进程结束，剩下父进程在打印信息</p>
+
+
+
+<pre class="prettyprint"><code class="language-c hljs "><span class="hljs-comment cye-lm-tag">/*************************************************************************
+    &gt; File Name: test_kill2.c
+    &gt; Author: GatieMe
+    &gt; Mail: gatieme@163.com
+    &gt; Created Time: 2016年03月27日 星期日 11时23分06秒
+ ************************************************************************/</span>
+
+<span class="hljs-preprocessor cye-lm-tag">#include &lt;stdio.h&gt;</span>
+<span class="hljs-preprocessor cye-lm-tag">#include &lt;stdlib.h&gt;</span>
+<span class="hljs-preprocessor cye-lm-tag">#include &lt;unistd.h&gt;</span>
+<span class="hljs-preprocessor cye-lm-tag">#include &lt;sys/types.h&gt;</span>
+<span class="hljs-preprocessor cye-lm-tag">#include &lt;signal.h&gt;</span>
+
+<span class="hljs-keyword cye-lm-tag">int</span> main(<span class="hljs-keyword cye-lm-tag">int</span> argc, <span class="hljs-keyword cye-lm-tag">char</span> *argv[])
+{
+    pid_t pid;
+    <span class="hljs-keyword cye-lm-tag">int</span> i = <span class="hljs-number cye-lm-tag">0</span>;
+
+    pid = fork(); <span class="hljs-comment cye-lm-tag">// 创建进程</span>
+    <span class="hljs-keyword cye-lm-tag">if</span>( pid &lt; <span class="hljs-number cye-lm-tag">0</span> )
+    {   <span class="hljs-comment cye-lm-tag">// 出错</span>
+        perror(<span class="hljs-string cye-lm-tag">"fork"</span>);
+    }
+
+    <span class="hljs-keyword cye-lm-tag">if</span>(pid == <span class="hljs-number cye-lm-tag">0</span>)
+    {   <span class="hljs-comment cye-lm-tag">// 子进程</span>
+        <span class="hljs-keyword cye-lm-tag">while</span>(<span class="hljs-number cye-lm-tag">1</span>)
+        {
+            <span class="hljs-built_in cye-lm-tag">printf</span>(<span class="hljs-string cye-lm-tag">"I am son\n"</span>);
+            sleep(<span class="hljs-number cye-lm-tag">1</span>);
+        }
+    }
+    <span class="hljs-keyword cye-lm-tag">else</span> <span class="hljs-keyword cye-lm-tag">if</span>(pid &gt; <span class="hljs-number cye-lm-tag">0</span>)
+    {   <span class="hljs-comment cye-lm-tag">// 父进程</span>
+        <span class="hljs-keyword cye-lm-tag">while</span>(<span class="hljs-number cye-lm-tag">1</span>)
+        {
+            <span class="hljs-built_in cye-lm-tag">printf</span>(<span class="hljs-string cye-lm-tag">"I am father\n"</span>);
+            sleep(<span class="hljs-number cye-lm-tag">1</span>);
+
+            i++;
+            <span class="hljs-keyword cye-lm-tag">if</span>(<span class="hljs-number cye-lm-tag">3</span> == i)
+            {   <span class="hljs-comment cye-lm-tag">// 3秒后</span>
+                kill(pid, SIGINT);      <span class="hljs-comment cye-lm-tag">// 给子进程 pid ，发送中断信号 SIGINT</span>
+                <span class="hljs-comment cye-lm-tag">// kill(pid, 2);        // 等级于kill(pid, SIGINT);</span>
+            }
+        }
+    }
+
+    <span class="hljs-keyword cye-lm-tag">return</span> <span class="hljs-number cye-lm-tag">0</span>;
+}</code></pre>
+
+<p class="cye-lm-tag"><img src="http://img.blog.csdn.net/20160327121432466" alt="这里写图片描述" title="" /></p>
+
+
+
+<h2 id="raise向自己发送一信号">raise–向自己发送一信号</h2>
+
+<hr />
+
+<p class="cye-lm-tag">向进程本身发送信号，参数为即将发送的信号值。</p>
+
+<p class="cye-lm-tag">调用成功返回 0；否则，返回 -1。</p>
+
+
+
+<pre class="prettyprint"><code class="language-c hljs "><span class="hljs-preprocessor cye-lm-tag">#include &lt;signal.h&gt; </span>
+<span class="hljs-keyword cye-lm-tag">int</span> raise(<span class="hljs-keyword cye-lm-tag">int</span> signo) </code></pre>
+
+<p class="cye-lm-tag">kill和raise有如下等价关系： <br />
+<code>kill(getpid(), xxx)</code>等价于<code>raise(xxx)</code>，  意思是， raise函数就是向当前进程发信号的。</p>
+
+<p class="cye-lm-tag"><img src="http://img.blog.csdn.net/20160327122206520" alt="这里写图片描述" title="" /></p>
+
+<p class="cye-lm-tag">我们下面的程序,进程通过raise向自身发送了一个SIGINT信号。</p>
+
+<p class="cye-lm-tag">在linux的64个信号中，大多数在默认情况下都是终止当前信号.包括SIGINT，当到了定时时间后，内核发出SIGINT信号，该信号会终止当前进程.</p>
+
+
+
+<pre class="prettyprint"><code class="language-c hljs ">
+
+<span class="hljs-preprocessor cye-lm-tag">#include &lt;stdio.h&gt;</span>
+<span class="hljs-preprocessor cye-lm-tag">#include &lt;stdlib.h&gt;</span>
+
+<span class="hljs-preprocessor cye-lm-tag">#include &lt;unistd.h&gt;</span>
+<span class="hljs-preprocessor cye-lm-tag">#include &lt;signal.h&gt;</span>
+
+
+ <span class="hljs-keyword cye-lm-tag">int</span> main(<span class="hljs-keyword cye-lm-tag">void</span>)
+{
+    <span class="hljs-keyword cye-lm-tag">int</span> i = <span class="hljs-number cye-lm-tag">0</span>;
+
+    <span class="hljs-keyword cye-lm-tag">while</span>(<span class="hljs-number cye-lm-tag">1</span>)
+    {
+        i++;
+        <span class="hljs-keyword cye-lm-tag">if</span>(i == <span class="hljs-number cye-lm-tag">3</span>)
+        {
+            <span class="hljs-built_in cye-lm-tag">printf</span>(<span class="hljs-string cye-lm-tag">"I will raise SIGINT to myself...\n"</span>);
+            raise(SIGINT);
+        }
+        <span class="hljs-built_in cye-lm-tag">printf</span>(<span class="hljs-string cye-lm-tag">"I am running now...\n"</span>);
+
+        sleep(<span class="hljs-number cye-lm-tag">1</span>);
+
+    }
+
+    <span class="hljs-keyword cye-lm-tag">return</span> <span class="hljs-number cye-lm-tag">0</span>;
+
+}
+</code></pre>
+
+<p class="cye-lm-tag"><img src="http://img.blog.csdn.net/20160327122459271" alt="这里写图片描述" title="" /></p>
+
+
+
+<h2 id="alarm设置信号传送闹铃">alarm–设置信号传送闹铃</h2>
+
+<hr />
+
+
+
+<pre class="prettyprint"><code class="language-c hljs "><span class="hljs-preprocessor cye-lm-tag">#include &lt;unistd.h&gt; </span>
+<span class="hljs-keyword cye-lm-tag">unsigned</span> <span class="hljs-keyword cye-lm-tag">int</span> alarm(<span class="hljs-keyword cye-lm-tag">unsigned</span> <span class="hljs-keyword cye-lm-tag">int</span> seconds) </code></pre>
+
+<p class="cye-lm-tag">专门为SIGALRM信号而设，在指定的时间seconds秒后，将向进程本身发送SIGALRM信号，又称为闹钟时间。</p>
+
+<p class="cye-lm-tag">进程调用alarm后，任何以前的alarm()调用都将无效。如果参数seconds为零，那么进程内将不再包含任何闹钟时间。 </p>
+
+<p class="cye-lm-tag">返回值，如果调用alarm（）前，进程中已经设置了闹钟时间，则返回上一个闹钟时间的剩余时间，否则返回0。</p>
+
+
+
+<h2 id="setitimer设置更精确的定时信号">setitimer–设置更精确的定时信号</h2>
+
+<hr />
+
+<p class="cye-lm-tag">在linux下如果对定时要求不太精确的话，使用alarm()和signal()就行了，但是如果想要实现精度较高的定时功能的话，就要使用setitimer函数。</p>
+
+<p class="cye-lm-tag"><img src="http://img.blog.csdn.net/20160327124614600" alt="这里写图片描述" title="" /></p>
+
+
+
+<pre class="prettyprint"><code class="language-c hljs "><span class="hljs-preprocessor cye-lm-tag">#include &lt;sys/time.h&gt; </span>
+<span class="hljs-keyword cye-lm-tag">int</span> setitimer(<span class="hljs-keyword cye-lm-tag">int</span> which, <span class="hljs-keyword cye-lm-tag">const</span> <span class="hljs-keyword cye-lm-tag">struct</span> itimerval *value, <span class="hljs-keyword cye-lm-tag">struct</span> itimerval *ovalue)); </code></pre>
+
+<p class="cye-lm-tag"><code>setitimer()</code>比<code>alarm</code>功能强大，支持3种类型的定时器：</p>
+
+<table>
+<thead>
+<tr>
+  <th>定时器</th>
+  <th align="center">描述</th>
+</tr>
+</thead>
+<tbody><tr>
+  <td>ITIMER_REAL</td>
+  <td align="center">设定绝对时间；经过指定的时间后，内核将发送SIGALRM信号给本进程；</td>
+</tr>
+<tr>
+  <td>ITIMER_VIRTUAL</td>
+  <td align="center">设定程序执行时间；经过指定的时间后，内核将发送SIGVTALRM信号给本进程；</td>
+</tr>
+<tr>
+  <td>ITIMER_PROF</td>
+  <td align="center">设定进程执行以及内核因本进程而消耗的时间和，经过指定的时间后，内核将发送ITIMER_VIRTUAL信号给本进程；</td>
+</tr>
+</tbody></table>
+
+
+<p class="cye-lm-tag">*   第一个参数which指定定时器类型（上面三种之一）；</p>
+
+<ul>
+<li><p class="cye-lm-tag">第二个参数是结构itimerval的一个实例，结构itimerval形式见附录1。</p></li>
+<li><p class="cye-lm-tag">第三个参数可不做处理。 <br />
+Setitimer()调用成功返回0，否则返回-1。</p></li>
+</ul>
+
+
+
+<pre class="prettyprint"><code class="language-c hljs "><span class="hljs-preprocessor cye-lm-tag">#include &lt;stdio.h&gt;</span>
+<span class="hljs-preprocessor cye-lm-tag">#include &lt;stdlib.h&gt;</span>
+<span class="hljs-preprocessor cye-lm-tag">#include &lt;unistd.h&gt;</span>
+<span class="hljs-preprocessor cye-lm-tag">#include &lt;signal.h&gt;</span>
+<span class="hljs-preprocessor cye-lm-tag">#include &lt;time.h&gt;</span>
+<span class="hljs-preprocessor cye-lm-tag">#include &lt;sys/time.h&gt;</span>
+
+<span class="hljs-keyword cye-lm-tag">int</span> main()
+{
+    <span class="hljs-keyword cye-lm-tag">struct</span> itimerval value, ovalue, value2; <span class="hljs-comment cye-lm-tag">//(1)</span>
+    sec = <span class="hljs-number cye-lm-tag">5</span>;
+
+    <span class="hljs-built_in cye-lm-tag">printf</span>(<span class="hljs-string cye-lm-tag">"process id is %d\n"</span>, getpid());
+
+    signal(SIGALRM, sigroutine);
+
+    <span class="hljs-comment cye-lm-tag">//signal(SIGVTALRM, sigroutine);</span>
+
+    value.it_value.tv_sec = <span class="hljs-number cye-lm-tag">1</span>;
+    value.it_value.tv_usec = <span class="hljs-number cye-lm-tag">0</span>;
+    value.it_interval.tv_sec = <span class="hljs-number cye-lm-tag">1</span>;
+    value.it_interval.tv_usec = <span class="hljs-number cye-lm-tag">0</span>;
+
+    <span class="hljs-comment cye-lm-tag">///  设置绝对时间</span>
+    setitimer(ITIMER_REAL, &amp;value, &amp;ovalue); <span class="hljs-comment cye-lm-tag">//(2)</span>
+
+    value2.it_value.tv_sec = <span class="hljs-number cye-lm-tag">0</span>;
+    value2.it_value.tv_usec = <span class="hljs-number cye-lm-tag">500000</span>;
+    value2.it_interval.tv_sec = <span class="hljs-number cye-lm-tag">0</span>;
+    value2.it_interval.tv_usec = <span class="hljs-number cye-lm-tag">500000</span>;
+
+    <span class="hljs-comment cye-lm-tag">///  设置相对时间</span>
+    setitimer(ITIMER_VIRTUAL, &amp;value2, &amp;ovalue);
+
+    <span class="hljs-keyword cye-lm-tag">while</span>( <span class="hljs-number cye-lm-tag">1</span> )
+    {
+        <span class="hljs-comment cye-lm-tag">/// NOP;</span>
+    }
+}
+</code></pre>
+
+<p class="cye-lm-tag"><img src="http://img.blog.csdn.net/20160327125109607" alt="这里写图片描述" title="" /></p>
+
+
+
+<h2 id="pause让进程暂停直到信号出现">pause–让进程暂停直到信号出现</h2>
+
+<p class="cye-lm-tag"><img src="http://img.blog.csdn.net/20160327125810756" alt="这里写图片描述" title="" /></p>
+
+
+
+<pre class="prettyprint"><code class="language-c hljs ">     <span class="hljs-preprocessor cye-lm-tag">#include &lt;unistd.h&gt;</span>
+     <span class="hljs-keyword cye-lm-tag">int</span> pause(<span class="hljs-keyword cye-lm-tag">void</span>);</code></pre>
+
+<p class="cye-lm-tag">通过pause可以十当前进程挂起，直至信号出现。</p>
+
+<p class="cye-lm-tag">在我们下面的例子中，系统在延迟3s后打印输出”i am a father process,i will send signal now”，然后结束当前进程. <br />
+   注意，程序并不会打印输出”hello i am child process”.</p>
+
+
+
+<pre class="prettyprint"><code class="language-c hljs "><span class="hljs-preprocessor cye-lm-tag">#include &lt;stdio.h&gt;</span>
+<span class="hljs-preprocessor cye-lm-tag">#include &lt;stdlib.h&gt;</span>
+
+<span class="hljs-preprocessor cye-lm-tag">#include &lt;unistd.h&gt;</span>
+<span class="hljs-preprocessor cye-lm-tag">#include &lt;sys/types.h&gt;</span>
+<span class="hljs-preprocessor cye-lm-tag">#include &lt;signal.h&gt;</span>
+
+<span class="hljs-keyword cye-lm-tag">int</span> main(<span class="hljs-keyword cye-lm-tag">void</span>)
+{
+
+    pid_t   pid;
+
+    pid = fork();
+
+    <span class="hljs-keyword cye-lm-tag">if</span>(pid &lt; <span class="hljs-number cye-lm-tag">0</span>)
+    {
+        perror(<span class="hljs-string cye-lm-tag">"fork"</span>);
+    }
+    <span class="hljs-keyword cye-lm-tag">else</span> <span class="hljs-keyword cye-lm-tag">if</span>(pid == <span class="hljs-number cye-lm-tag">0</span>)
+    {
+
+        <span class="hljs-built_in cye-lm-tag">printf</span>(<span class="hljs-string cye-lm-tag">"I am child processm, I will PAUSE now\n"</span>);
+
+        <span class="hljs-keyword cye-lm-tag">if</span>(pause( ) &lt; <span class="hljs-number cye-lm-tag">0</span>)
+        {
+            perror(<span class="hljs-string cye-lm-tag">"pause"</span>);
+        }
+
+        <span class="hljs-keyword cye-lm-tag">while</span>(<span class="hljs-number cye-lm-tag">1</span>)
+        {
+            <span class="hljs-built_in cye-lm-tag">printf</span>(<span class="hljs-string cye-lm-tag">"hello i am child process\n"</span>);
+
+            sleep(<span class="hljs-number cye-lm-tag">1</span>);
+        }
+    }
+    <span class="hljs-keyword cye-lm-tag">else</span>
+    {
+        sleep(<span class="hljs-number cye-lm-tag">3</span>);
+
+        <span class="hljs-built_in cye-lm-tag">printf</span>(<span class="hljs-string cye-lm-tag">"i am a father process,i will send signal now\n"</span>);
+
+        kill(pid, SIGINT);
+
+    }
+
+    <span class="hljs-keyword cye-lm-tag">return</span> <span class="hljs-number cye-lm-tag">0</span>;
+}
+</code></pre>
+
+
+
+<h2 id="abort终止进程">abort–终止进程</h2>
+
+<hr />
+
+<p class="cye-lm-tag"><img src="http://img.blog.csdn.net/20160327130048410" alt="这里写图片描述" title="" /></p>
+
+
+
+<pre class="prettyprint"><code class="language-c hljs "><span class="hljs-preprocessor cye-lm-tag">#include &lt;stdlib.h&gt; </span>
+<span class="hljs-keyword cye-lm-tag">void</span> <span class="hljs-built_in cye-lm-tag">abort</span>(<span class="hljs-keyword cye-lm-tag">void</span>);</code></pre>
+
+<p class="cye-lm-tag">向进程发送SIGABORT信号，默认情况下进程会异常退出，当然可定义自己的信号处理函数。即使SIGABORT被进程设置为阻塞信号，调用abort()后，SIGABORT仍然能被进程接收。该函数无返回值。</p>
+
+
+
+<pre class="prettyprint"><code class="language-c hljs "><span class="hljs-preprocessor cye-lm-tag">#include &lt;stdio.h&gt;</span>
+<span class="hljs-preprocessor cye-lm-tag">#include &lt;stdlib.h&gt;</span>
+
+
+<span class="hljs-keyword cye-lm-tag">int</span> main(<span class="hljs-keyword cye-lm-tag">void</span>)
+{
+    <span class="hljs-built_in cye-lm-tag">printf</span>(<span class="hljs-string cye-lm-tag">"Calling abort()\n"</span>);
+    <span class="hljs-built_in cye-lm-tag">abort</span>();
+
+    <span class="hljs-comment cye-lm-tag">/* The next code will never reach... */</span>
+    <span class="hljs-built_in cye-lm-tag">printf</span>(<span class="hljs-string cye-lm-tag">"after abort...\n"</span>);
+
+    <span class="hljs-keyword cye-lm-tag">return</span> <span class="hljs-number cye-lm-tag">0</span>;
+}</code></pre>
+
+
+
+<h2 id="sigqueue信号发送函数发送数据">sigqueue–信号发送函数发送数据</h2>
+
+<hr />
+
+<p class="cye-lm-tag">参见 <a href="http://blog.csdn.net/wangpengqi/article/details/11632567">信号发送函数sigqueue和信号安装函数sigaction</a></p>
+
+<p class="cye-lm-tag">在队列中向指定进程发送一个信号和数据。</p>
+
+<p class="cye-lm-tag">之前学过kill,raise,alarm,abort等功能稍简单的信号发送函数，现在我们学习一种新的功能比较强大的信号发送函数sigqueue.</p>
+
+<p class="cye-lm-tag"><img src="http://img.blog.csdn.net/20160327131113679" alt="这里写图片描述" title="" /></p>
+
+
+
+<pre class="prettyprint"><code class="language-c hljs "><span class="hljs-preprocessor cye-lm-tag">#include &lt;sys/types.h&gt; </span>
+<span class="hljs-preprocessor cye-lm-tag">#include &lt;signal.h&gt; </span>
+<span class="hljs-keyword cye-lm-tag">int</span> sigqueue(pid_t pid, <span class="hljs-keyword cye-lm-tag">int</span> sig, <span class="hljs-keyword cye-lm-tag">const</span> <span class="hljs-keyword cye-lm-tag">union</span> sigval val) </code></pre>
+
+<p class="cye-lm-tag">调用成功返回 0；否则，返回 -1。</p>
+
+<p class="cye-lm-tag">sigqueue()是比较新的发送信号系统调用，主要是针对实时信号提出的（当然也支持前32种），支持信号带有参数，与函数sigaction()配合使用。</p>
+
+<ul>
+<li><p class="cye-lm-tag">第一个参数是指定接收信号的进程ID，</p></li>
+<li><p class="cye-lm-tag">第二个参数确定即将发送的信号，</p></li>
+<li><p class="cye-lm-tag">第三个参数是一个联合数据结构union sigval，指定了信号传递的参数，即通常所说的4字节值。</p></li>
+</ul>
+
+
+
+<pre class="prettyprint"><code class="language-c hljs ">    <span class="hljs-keyword cye-lm-tag">typedef</span> <span class="hljs-keyword cye-lm-tag">union</span> sigval {
+        <span class="hljs-keyword cye-lm-tag">int</span>  sival_int;
+        <span class="hljs-keyword cye-lm-tag">void</span> *sival_ptr;
+    }sigval_t;</code></pre>
+
+<p class="cye-lm-tag">sigqueue()比kill()传递了更多的附加信息，但sigqueue()只能向一个进程发送信号，而不能发送信号给一个进程组。</p>
+
+<p class="cye-lm-tag">如果signo=0，将会执行错误检查，但实际上不发送任何信号，0值信号可用于检查pid的有效性以及当前进程是否有权限向目标进程发送信号。</p>
+
+<p class="cye-lm-tag">在调用sigqueue时，sigval_t指定的信息会拷贝到参数信号处理函数(参数信号处理函数指的是信号处理函数由sigaction安装，并设定了sa_sigaction指针）的siginfo_t结构中，这样信号处理函数就可以处理这些信息了。</p>
+
+<p class="cye-lm-tag">由于sigqueue系统调用支持发送带参数信号，所以比kill()系统调用的功能要灵活和强大得多。</p>
+
+<blockquote>
+  <p class="cye-lm-tag"><strong>注</strong></p>
+  
+  <p class="cye-lm-tag">sigqueue（）发送非实时信号时，第三个参数包含的信息仍然能够传递给信号处理函数； </p>
+  
+  <p class="cye-lm-tag">sigqueue（）发送非实时信号时，仍然不支持排队，即在信号处理函数执行过程中到来的所有相同信号，都被合并为一个信号。</p>
+</blockquote>
+
+
+
+<h1 id="信号的安装设置信号关联动作">信号的安装（设置信号关联动作）</h1>
+
+<hr />
+
+<p class="cye-lm-tag">如果进程要处理某一信号，那么就要在进程中安装该信号。</p>
+
+<p class="cye-lm-tag">安装信号主要用来确定信号值及进程针对该信号值的动作之间的映射关系，</p>
+
+<p class="cye-lm-tag">即进程将要处理哪个信号；该信号被传递给进程时，将执行何种操作。</p>
+
+<p class="cye-lm-tag">linux主要有两个函数实现信号的安装：<code>signal()</code>、<code>sigaction()</code>。</p>
+
+<p class="cye-lm-tag">其中signal()在可靠信号系统调用的基础上实现, 是库函数。它只有两个参数，不支持信号传递信息，主要是用于前32种非实时信号的安装；</p>
+
+<p class="cye-lm-tag">而sigaction()是较新的函数（由两个系统调用实现：<code>sys_signal</code>以及<code>sys_rt_sigaction</code>），有三个参数，支持信号传递信息，主要用来与 <code>sigqueue()</code> 系统调用配合使用，当然，<code>sigaction()</code>同样支持非实时信号的安装。sigaction()优于signal()主要体现在支持信号带有参数。</p>
+
+
+
+<h2 id="signal">signal</h2>
+
+<hr />
+
+
+
+<pre class="prettyprint"><code class="language-c hljs "><span class="hljs-preprocessor cye-lm-tag">#include &lt;signal.h&gt; </span>
+<span class="hljs-keyword cye-lm-tag">void</span> (*signal(<span class="hljs-keyword cye-lm-tag">int</span> signum, <span class="hljs-keyword cye-lm-tag">void</span> (*handler))(<span class="hljs-keyword cye-lm-tag">int</span>)))(<span class="hljs-keyword cye-lm-tag">int</span>); </code></pre>
+
+<p class="cye-lm-tag">如果该函数原型不容易理解的话，可以参考下面的分解方式来理解： </p>
+
+
+
+<pre class="prettyprint"><code class="language-c hljs "><span class="hljs-keyword cye-lm-tag">typedef</span> <span class="hljs-keyword cye-lm-tag">void</span> (*sighandler_t)(<span class="hljs-keyword cye-lm-tag">int</span>)； 
+sighandler_t signal(<span class="hljs-keyword cye-lm-tag">int</span> signum, sighandler_t handler)); </code></pre>
+
+<p class="cye-lm-tag">第一个参数指定信号的值，第二个参数指定针对前面信号值的处理，可以忽略该信号（参数设为SIG_IGN）；可以采用系统默认方式处理信号(参数设为SIG_DFL)；也可以自己实现处理方式(参数指定一个函数地址)。  <br />
+如果signal()调用成功，返回最后一次为安装信号signum而调用signal()时的handler值；失败则返回SIG_ERR。</p>
+
+<p class="cye-lm-tag">例如之前的setitimer精确定时器信号，操作系统的默认处理是终止进程，那么现在我们就可以自己编写信号处理函数，然后通过signal来安装。</p>
+
+
+
+<pre class="prettyprint"><code class="language-c hljs "><span class="hljs-preprocessor cye-lm-tag">#include &lt;stdio.h&gt;</span>
+<span class="hljs-preprocessor cye-lm-tag">#include &lt;stdlib.h&gt;</span>
+<span class="hljs-preprocessor cye-lm-tag">#include &lt;unistd.h&gt;</span>
+<span class="hljs-preprocessor cye-lm-tag">#include &lt;signal.h&gt;</span>
+<span class="hljs-preprocessor cye-lm-tag">#include &lt;time.h&gt;</span>
+<span class="hljs-preprocessor cye-lm-tag">#include &lt;sys/time.h&gt;</span>
+
+<span class="hljs-keyword cye-lm-tag">int</span> sec;
+<span class="hljs-keyword cye-lm-tag">void</span> sigroutine(<span class="hljs-keyword cye-lm-tag">int</span> signo)
+{
+    <span class="hljs-keyword cye-lm-tag">switch</span> (signo)
+    {
+        <span class="hljs-keyword cye-lm-tag">case</span> SIGALRM :
+        {
+            <span class="hljs-built_in cye-lm-tag">printf</span>(<span class="hljs-string cye-lm-tag">"Catch a signal -- SIGALRM \n"</span>);
+            signal(SIGALRM, sigroutine);
+            <span class="hljs-keyword cye-lm-tag">break</span>;
+        }
+        <span class="hljs-keyword cye-lm-tag">case</span> SIGVTALRM:
+        {
+            <span class="hljs-built_in cye-lm-tag">printf</span>(<span class="hljs-string cye-lm-tag">"Catch a signal -- SIGVTALRM \n"</span>);
+            signal(SIGVTALRM, sigroutine);
+            <span class="hljs-keyword cye-lm-tag">break</span>;
+        }
+    }
+    fflush(stdout);
+    <span class="hljs-keyword cye-lm-tag">return</span>;
+}
+
+<span class="hljs-keyword cye-lm-tag">int</span> main()
+{
+    <span class="hljs-keyword cye-lm-tag">struct</span> itimerval value, ovalue, value2; <span class="hljs-comment cye-lm-tag">//(1)</span>
+    sec = <span class="hljs-number cye-lm-tag">5</span>;
+
+    <span class="hljs-built_in cye-lm-tag">printf</span>(<span class="hljs-string cye-lm-tag">"process id is %d\n"</span>, getpid());
+
+    signal(SIGALRM, sigroutine);
+
+    signal(SIGVTALRM, sigroutine);
+
+    value.it_value.tv_sec = <span class="hljs-number cye-lm-tag">1</span>;
+    value.it_value.tv_usec = <span class="hljs-number cye-lm-tag">0</span>;
+    value.it_interval.tv_sec = <span class="hljs-number cye-lm-tag">1</span>;
+    value.it_interval.tv_usec = <span class="hljs-number cye-lm-tag">0</span>;
+
+    <span class="hljs-comment cye-lm-tag">///  设置绝对时间</span>
+    setitimer(ITIMER_REAL, &amp;value, &amp;ovalue); <span class="hljs-comment cye-lm-tag">//(2)</span>
+
+    value2.it_value.tv_sec = <span class="hljs-number cye-lm-tag">0</span>;
+    value2.it_value.tv_usec = <span class="hljs-number cye-lm-tag">500000</span>;
+    value2.it_interval.tv_sec = <span class="hljs-number cye-lm-tag">0</span>;
+    value2.it_interval.tv_usec = <span class="hljs-number cye-lm-tag">500000</span>;
+
+    <span class="hljs-comment cye-lm-tag">///  设置相对时间</span>
+    setitimer(ITIMER_VIRTUAL, &amp;value2, &amp;ovalue);
+
+    <span class="hljs-keyword cye-lm-tag">while</span>( <span class="hljs-number cye-lm-tag">1</span> )
+    {
+        <span class="hljs-comment cye-lm-tag">/// NOP;</span>
+    }
+}
+</code></pre>
+
+
+
+<h2 id="sigaction改变进程的行为">sigaction–改变进程的行为</h2>
+
+<hr />
+
+
+
+<pre class="prettyprint"><code class="language-c hljs "><span class="hljs-preprocessor cye-lm-tag">#include &lt;signal.h&gt; </span>
+<span class="hljs-keyword cye-lm-tag">int</span> sigaction(<span class="hljs-keyword cye-lm-tag">int</span> signum,<span class="hljs-keyword cye-lm-tag">const</span> <span class="hljs-keyword cye-lm-tag">struct</span> sigaction *act,<span class="hljs-keyword cye-lm-tag">struct</span> sigaction *oldact));</code></pre>
+
+<p class="cye-lm-tag">sigaction函数用于改变进程接收到特定信号后的行为。</p>
+
+<ul>
+<li><p class="cye-lm-tag">该函数的第一个参数为信号的值，可以为除SIGKILL及SIGSTOP外的任何一个特定有效的信号（为这两个信号定义自己的处理函数，将导致信号安装错误）。</p></li>
+<li><p class="cye-lm-tag">第二个参数是指向结构sigaction的一个实例的指针，在结构sigaction的实例中，指定了对特定信号的处理，可以为空，进程会以缺省方式对信号处理；</p></li>
+<li><p class="cye-lm-tag">第三个参数oldact指向的对象用来保存原来对相应信号的处理，可指定oldact为NULL。</p></li>
+</ul>
+
+<p class="cye-lm-tag">如果把第二、第三个参数都设为NULL，那么该函数可用于检查信号的有效性。 <br />
+第二个参数最为重要，其中包含了对指定信号的处理、信号所传递的信息、信号处理函数执行过程中应屏蔽掉哪些函数等等。 <br />
+sigaction结构定义如下：</p>
+
+
+
+<pre class="prettyprint"><code class="language-c hljs "><span class="hljs-keyword cye-lm-tag">struct</span> sigaction
+{
+          <span class="hljs-keyword cye-lm-tag">union</span>
+          {
+            __sighandler_t _sa_handler;
+            <span class="hljs-keyword cye-lm-tag">void</span> (*_sa_sigaction)(<span class="hljs-keyword cye-lm-tag">int</span>,<span class="hljs-keyword cye-lm-tag">struct</span> siginfo *, <span class="hljs-keyword cye-lm-tag">void</span> *)；
+          }_u
+
+          sigset_t sa_mask；
+          <span class="hljs-keyword cye-lm-tag">unsigned</span> <span class="hljs-keyword cye-lm-tag">long</span> sa_flags； 
+          <span class="hljs-keyword cye-lm-tag">void</span> (*sa_restorer)(<span class="hljs-keyword cye-lm-tag">void</span>)；
+} </code></pre>
+
+<p class="cye-lm-tag">其中，sa_restorer，已过时，POSIX不支持它，不应再被使用。</p>
+
+<ul>
+<li><p class="cye-lm-tag">联合数据结构中的两个元素_sa_handler以及*_sa_sigaction指定信号关联函数，即用户指定的信号处理函数。除了可以是用户自定义的处理函数外，还可以为SIG_DFL(采用缺省的处理方式)，也可以为SIG_IGN（忽略信号）。</p></li>
+<li><p class="cye-lm-tag">由_sa_handler指定的处理函数只有一个参数，即信号值，所以信号不能传递除信号值之外的任何信息；由_sa_sigaction是指定的信号处理函数带有三个参数，是为实时信号而设的（当然同样支持非实时信号），它指定一个3参数信号处理函数。第一个参数为信号值，第三个参数没有使用（posix没有规范使用该参数的标准），第二个参数是指向siginfo_t结构的指针，结构中包含信号携带的数据值，参数所指向的结构如下：</p></li>
+</ul>
+
+
+
+<pre class="prettyprint"><code class="language-c hljs "><span class="hljs-keyword cye-lm-tag">typedef</span> <span class="hljs-keyword cye-lm-tag">struct</span> siginfo_t{ 
+<span class="hljs-keyword cye-lm-tag">int</span> si_signo;<span class="hljs-comment cye-lm-tag">//信号编号 </span>
+<span class="hljs-keyword cye-lm-tag">int</span> si_errno;<span class="hljs-comment cye-lm-tag">//如果为非零值则错误代码与之关联 </span>
+<span class="hljs-keyword cye-lm-tag">int</span> si_code;<span class="hljs-comment cye-lm-tag">//说明进程如何接收信号以及从何处收到 </span>
+pid_t si_pid;<span class="hljs-comment cye-lm-tag">//适用于SIGCHLD，代表被终止进程的PID </span>
+pid_t si_uid;<span class="hljs-comment cye-lm-tag">//适用于SIGCHLD,代表被终止进程所拥有进程的UID </span>
+<span class="hljs-keyword cye-lm-tag">int</span> si_status;<span class="hljs-comment cye-lm-tag">//适用于SIGCHLD，代表被终止进程的状态 </span>
+clock_t si_utime;<span class="hljs-comment cye-lm-tag">//适用于SIGCHLD，代表被终止进程所消耗的用户时间 </span>
+clock_t si_stime;<span class="hljs-comment cye-lm-tag">//适用于SIGCHLD，代表被终止进程所消耗系统的时间 </span>
+sigval_t si_value; 
+<span class="hljs-keyword cye-lm-tag">int</span> si_int; 
+<span class="hljs-keyword cye-lm-tag">void</span> * si_ptr; 
+<span class="hljs-keyword cye-lm-tag">void</span>* si_addr; 
+<span class="hljs-keyword cye-lm-tag">int</span> si_band; 
+<span class="hljs-keyword cye-lm-tag">int</span> si_fd; 
+};</code></pre>
+
+<p class="cye-lm-tag">siginfo_t结构中的联合数据成员确保该结构适应所有的信号，比如对于实时信号来说，则实际采用下面的结构形式：</p>
+
+
+
+<pre class="prettyprint"><code class="language-c hljs ">    <span class="hljs-keyword cye-lm-tag">typedef</span> <span class="hljs-keyword cye-lm-tag">struct</span> {
+        <span class="hljs-keyword cye-lm-tag">int</span> si_signo;
+        <span class="hljs-keyword cye-lm-tag">int</span> si_errno;           
+        <span class="hljs-keyword cye-lm-tag">int</span> si_code;            
+        <span class="hljs-keyword cye-lm-tag">union</span> sigval si_value;  
+        } siginfo_t;</code></pre>
+
+<p class="cye-lm-tag">结构的第四个域同样为一个联合数据结构：</p>
+
+
+
+<pre class="prettyprint"><code class="language-c hljs ">    <span class="hljs-keyword cye-lm-tag">union</span> sigval {
+        <span class="hljs-keyword cye-lm-tag">int</span> sival_int;      
+        <span class="hljs-keyword cye-lm-tag">void</span> *sival_ptr;    
+        }</code></pre>
+
+<p class="cye-lm-tag">采用联合数据结构，说明siginfo_t结构中的si_value要么持有一个4字节的整数值，要么持有一个指针，这就构成了与信号相关的数据。在信号的处理函数中，包含这样的信号相关数据指针，但没有规定具体如何对这些数据进行操作，操作方法应该由程序开发人员根据具体任务事先约定。</p>
+
+<p class="cye-lm-tag">前面在讨论系统调用sigqueue发送信号时，sigqueue的第三个参数就是sigval联合数据结构，当调用sigqueue时，该数据结构中的数据就将拷贝到信号处理函数的第二个参数中。这样，在发送信号同时，就可以让信号传递一些附加信息。信号可以传递信息对程序开发是非常有意义的。</p>
+
+<ul>
+<li><p class="cye-lm-tag">sa_mask指定在信号处理程序执行过程中，哪些信号应当被阻塞。缺省情况下当前信号本身被阻塞，防止信号的嵌套发送，除非指定SA_NODEFER或者SA_NOMASK标志位。 <br />
+注：请注意sa_mask指定的信号阻塞的前提条件，是在由sigaction（）安装信号的处理函数执行过程中由sa_mask指定的信号才被阻塞。</p></li>
+<li><p class="cye-lm-tag">sa_flags中包含了许多标志位，包括刚刚提到的SA_NODEFER及SA_NOMASK标志位。另一个比较重要的标志位是SA_SIGINFO，当设定了该标志位时，表示信号附带的参数可以被传递到信号处理函数中，因此，应该为sigaction结构中的sa_sigaction指定处理函数，而不应该为sa_handler指定信号处理函数，否则，设置该标志变得毫无意义。即使为sa_sigaction指定了信号处理函数，如果不设置SA_SIGINFO，信号处理函数同样不能得到信号传递过来的数据，在信号处理函数中对这些信息的访问都将导致段错误（Segmentation fault）。</p></li>
+</ul>
+
+
+
+<h2 id="实例一利用sigaction安装sigint信号">实例一：利用sigaction安装SIGINT信号</h2>
+
+<hr />
+
+
+
+<pre class="prettyprint"><code class="language-c hljs "><span class="hljs-preprocessor cye-lm-tag">#include &lt;unistd.h&gt;</span>
+<span class="hljs-preprocessor cye-lm-tag">#include &lt;sys/stat.h&gt;</span>
+<span class="hljs-preprocessor cye-lm-tag">#include &lt;sys/wait.h&gt;</span>
+<span class="hljs-preprocessor cye-lm-tag">#include &lt;sys/types.h&gt;</span>
+<span class="hljs-preprocessor cye-lm-tag">#include &lt;fcntl.h&gt;</span>
+<span class="hljs-preprocessor cye-lm-tag">#include &lt;stdlib.h&gt;</span>
+<span class="hljs-preprocessor cye-lm-tag">#include &lt;stdio.h&gt;</span>
+
+<span class="hljs-preprocessor cye-lm-tag">#include &lt;errno.h&gt;</span>
+<span class="hljs-preprocessor cye-lm-tag">#include &lt;string.h&gt;</span>
+<span class="hljs-preprocessor cye-lm-tag">#include &lt;signal.h&gt;</span>
+
+
+<span class="hljs-keyword cye-lm-tag">void</span> handler(<span class="hljs-keyword cye-lm-tag">int</span> sig);
+<span class="hljs-comment cye-lm-tag">/*
+struct sigaction
+{
+
+    void     (*sa_handler)(int);
+    //void     (*sa_sigaction)(int, siginfo_t *, void *);
+    sigset_t  sa_mask;
+    int       sa_flags;
+    void     (*sa_restorer)(void);
+
+};
+*/</span>
+
+<span class="hljs-keyword cye-lm-tag">int</span> main(<span class="hljs-keyword cye-lm-tag">int</span> argc, <span class="hljs-keyword cye-lm-tag">char</span> *argv[])
+{
+    <span class="hljs-keyword cye-lm-tag">struct</span> sigaction    act;
+
+    act.sa_handler = handler;
+    sigemptyset(&amp;act.sa_mask);
+    act.sa_flags = <span class="hljs-number cye-lm-tag">0</span>;
+
+    <span class="hljs-comment cye-lm-tag">//因为不关心SIGINT上一次的struct sigaction所以，oact为NULL</span>
+    <span class="hljs-comment cye-lm-tag">//与signal(handler,SIGINT)相同</span>
+    <span class="hljs-keyword cye-lm-tag">if</span> (sigaction(SIGINT, &amp;act, NULL) &lt; <span class="hljs-number cye-lm-tag">0</span>)
+    {
+        perror(<span class="hljs-string cye-lm-tag">"sigaction error\n"</span>);
+    }
+
+    <span class="hljs-keyword cye-lm-tag">for</span> (;;)
+    {
+        pause( );
+    }
+
+    <span class="hljs-keyword cye-lm-tag">return</span> <span class="hljs-number cye-lm-tag">0</span>;
+}
+
+<span class="hljs-keyword cye-lm-tag">void</span> handler(<span class="hljs-keyword cye-lm-tag">int</span> sig)
+{
+    <span class="hljs-built_in cye-lm-tag">printf</span>(<span class="hljs-string cye-lm-tag">"recv a sig = %d\n"</span>, sig);
+}
+
+</code></pre>
+
+<p class="cye-lm-tag"><img src="http://img.blog.csdn.net/20160327163428884" alt="这里写图片描述" title="" /></p>
+
+
+
+<h2 id="实例二利用sigaction实现signal">实例二：利用sigaction实现signal</h2>
+
+<hr />
+
+<p class="cye-lm-tag">实际上signal底层实现就是利用sigaction</p>
+
+
+
+<pre class="prettyprint"><code class="language-c hljs "><span class="hljs-preprocessor cye-lm-tag">#include &lt;unistd.h&gt;</span>
+<span class="hljs-preprocessor cye-lm-tag">#include &lt;sys/stat.h&gt;</span>
+<span class="hljs-preprocessor cye-lm-tag">#include &lt;sys/wait.h&gt;</span>
+<span class="hljs-preprocessor cye-lm-tag">#include &lt;sys/types.h&gt;</span>
+<span class="hljs-preprocessor cye-lm-tag">#include &lt;fcntl.h&gt;</span>
+
+<span class="hljs-preprocessor cye-lm-tag">#include &lt;stdlib.h&gt;</span>
+<span class="hljs-preprocessor cye-lm-tag">#include &lt;stdio.h&gt;</span>
+<span class="hljs-preprocessor cye-lm-tag">#include &lt;errno.h&gt;</span>
+<span class="hljs-preprocessor cye-lm-tag">#include &lt;string.h&gt;</span>
+<span class="hljs-preprocessor cye-lm-tag">#include &lt;signal.h&gt;</span>
+
+
+
+<span class="hljs-keyword cye-lm-tag">void</span> handler(<span class="hljs-keyword cye-lm-tag">int</span> sig);
+__sighandler_t my_signal(<span class="hljs-keyword cye-lm-tag">int</span> sig, __sighandler_t handler);
+
+<span class="hljs-keyword cye-lm-tag">int</span> main(<span class="hljs-keyword cye-lm-tag">int</span> argc, <span class="hljs-keyword cye-lm-tag">char</span> *argv[])
+{
+    my_signal(SIGINT, handler);
+    <span class="hljs-keyword cye-lm-tag">for</span> (;;)
+        pause();
+    <span class="hljs-keyword cye-lm-tag">return</span> <span class="hljs-number cye-lm-tag">0</span>;
+}
+
+__sighandler_t my_signal(<span class="hljs-keyword cye-lm-tag">int</span> sig, __sighandler_t handler)
+{
+    <span class="hljs-keyword cye-lm-tag">struct</span> sigaction act;
+    <span class="hljs-keyword cye-lm-tag">struct</span> sigaction oldact;
+    act.sa_handler = handler;
+    sigemptyset(&amp;act.sa_mask);
+    act.sa_flags = <span class="hljs-number cye-lm-tag">0</span>;
+
+    <span class="hljs-keyword cye-lm-tag">if</span> (sigaction(sig, &amp;act, &amp;oldact) &lt; <span class="hljs-number cye-lm-tag">0</span>)
+        <span class="hljs-keyword cye-lm-tag">return</span> SIG_ERR;
+
+    <span class="hljs-keyword cye-lm-tag">return</span> oldact.sa_handler;
+}
+
+<span class="hljs-keyword cye-lm-tag">void</span> handler(<span class="hljs-keyword cye-lm-tag">int</span> sig)
+{
+    <span class="hljs-built_in cye-lm-tag">printf</span>(<span class="hljs-string cye-lm-tag">"recv a sig=%d\n"</span>, sig);
+}
+</code></pre>
+
+<p class="cye-lm-tag"><img src="http://img.blog.csdn.net/20160327164112465" alt="这里写图片描述" title="" /></p>
+
+
+
+<h2 id="实例三验证sigactionsamask效果">实例三：验证sigaction.sa_mask效果</h2>
+
+<hr />
+
+
+
+<pre class="prettyprint"><code class="language-c hljs "><span class="hljs-preprocessor cye-lm-tag">#include &lt;unistd.h&gt;</span>
+<span class="hljs-preprocessor cye-lm-tag">#include &lt;sys/stat.h&gt;</span>
+<span class="hljs-preprocessor cye-lm-tag">#include &lt;sys/wait.h&gt;</span>
+<span class="hljs-preprocessor cye-lm-tag">#include &lt;sys/types.h&gt;</span>
+<span class="hljs-preprocessor cye-lm-tag">#include &lt;fcntl.h&gt;</span>
+
+<span class="hljs-preprocessor cye-lm-tag">#include &lt;stdlib.h&gt;</span>
+<span class="hljs-preprocessor cye-lm-tag">#include &lt;stdio.h&gt;</span>
+<span class="hljs-preprocessor cye-lm-tag">#include &lt;errno.h&gt;</span>
+<span class="hljs-preprocessor cye-lm-tag">#include &lt;string.h&gt;</span>
+<span class="hljs-preprocessor cye-lm-tag">#include &lt;signal.h&gt;</span>
+
+
+<span class="hljs-keyword cye-lm-tag">void</span> handler(<span class="hljs-keyword cye-lm-tag">int</span> sig);
+
+<span class="hljs-keyword cye-lm-tag">int</span> main(<span class="hljs-keyword cye-lm-tag">int</span> argc, <span class="hljs-keyword cye-lm-tag">char</span> *argv[])
+{
+    <span class="hljs-keyword cye-lm-tag">struct</span> sigaction act;
+    act.sa_handler = handler;
+    sigemptyset(&amp;act.sa_mask);
+    sigaddset(&amp;act.sa_mask, SIGQUIT);
+    act.sa_flags = <span class="hljs-number cye-lm-tag">0</span>;
+
+    <span class="hljs-keyword cye-lm-tag">if</span> (sigaction(SIGINT, &amp;act, NULL) &lt; <span class="hljs-number cye-lm-tag">0</span>)
+    {
+        perror(<span class="hljs-string cye-lm-tag">"sigaction error"</span>);
+    }
+
+    <span class="hljs-keyword cye-lm-tag">struct</span> sigaction act2;
+    act2.sa_handler = handler;
+    sigemptyset(&amp;act2.sa_mask);
+    act2.sa_flags = <span class="hljs-number cye-lm-tag">0</span>;
+
+    <span class="hljs-keyword cye-lm-tag">if</span> (sigaction(SIGQUIT, &amp;act2, NULL) &lt; <span class="hljs-number cye-lm-tag">0</span>)
+    {
+        perror(<span class="hljs-string cye-lm-tag">"sigaction error"</span>);
+    }
+
+    <span class="hljs-keyword cye-lm-tag">for</span> (;;)
+    {
+        pause();
+    }
+
+    <span class="hljs-keyword cye-lm-tag">return</span> <span class="hljs-number cye-lm-tag">0</span>;
+}
+
+<span class="hljs-keyword cye-lm-tag">void</span> handler(<span class="hljs-keyword cye-lm-tag">int</span> sig)
+{
+    <span class="hljs-keyword cye-lm-tag">if</span>(sig == SIGINT){
+
+        <span class="hljs-built_in cye-lm-tag">printf</span>(<span class="hljs-string cye-lm-tag">"recv a SIGINT signal\n"</span>);
+        sleep(<span class="hljs-number cye-lm-tag">5</span>);
+    }
+    <span class="hljs-keyword cye-lm-tag">if</span> (sig == SIGQUIT)
+    {
+        <span class="hljs-built_in cye-lm-tag">printf</span>(<span class="hljs-string cye-lm-tag">"recv a SIGQUIT signal\n"</span>);
+    }
+}
+</code></pre>
+
+<p class="cye-lm-tag">可知，安装信号SIGINT时，将SIGQUIT加入到sa_mask阻塞集中，则当SIGINT信号正在执行处理函数时，SIGQUIT信号将被阻塞，只有当SIGINT信号处理函数执行完后才解除对SIGQUIT信号的阻塞，由于SIGQUIT是不可靠信号，不支持排队，所以只递达一次</p>
+
+<p class="cye-lm-tag"><img src="http://img.blog.csdn.net/20160327164651983" alt="这里写图片描述" title="" /></p>
+
+
+
+<h2 id="示例四给自身发送int型数据">示例四：给自身发送int型数据</h2>
+
+<hr />
+
+
+
+<pre class="prettyprint"><code class="language-c hljs "><span class="hljs-preprocessor cye-lm-tag">#include &lt;stdio.h&gt;</span>
+<span class="hljs-preprocessor cye-lm-tag">#include &lt;unistd.h&gt;</span>
+<span class="hljs-preprocessor cye-lm-tag">#include &lt;signal.h&gt;</span>
+<span class="hljs-preprocessor cye-lm-tag">#include &lt;stdlib.h&gt;</span>
+
+<span class="hljs-keyword cye-lm-tag">void</span> sighandler(<span class="hljs-keyword cye-lm-tag">int</span> signo, siginfo_t *info,<span class="hljs-keyword cye-lm-tag">void</span> *ctx);
+
+
+<span class="hljs-comment cye-lm-tag">//给自身传递信息</span>
+<span class="hljs-keyword cye-lm-tag">int</span> main(<span class="hljs-keyword cye-lm-tag">void</span>)
+{
+
+    <span class="hljs-keyword cye-lm-tag">struct</span> sigaction act;
+    act.sa_sigaction = sighandler;
+    sigemptyset(&amp;act.sa_mask);
+    act.sa_flags = SA_SIGINFO;<span class="hljs-comment cye-lm-tag">//信息传递开关</span>
+    <span class="hljs-keyword cye-lm-tag">if</span>(sigaction(SIGINT,&amp;act,NULL) == -<span class="hljs-number cye-lm-tag">1</span>)
+    {
+        perror(<span class="hljs-string cye-lm-tag">"sigaction error"</span>);
+        <span class="hljs-built_in cye-lm-tag">exit</span>(EXIT_FAILURE);
+    }
+
+    sleep(<span class="hljs-number cye-lm-tag">2</span>);
+    <span class="hljs-keyword cye-lm-tag">union</span> sigval mysigval;
+    mysigval.sival_int = <span class="hljs-number cye-lm-tag">100</span>;
+    <span class="hljs-keyword cye-lm-tag">if</span>(sigqueue(getpid(),SIGINT,mysigval) == -<span class="hljs-number cye-lm-tag">1</span>)
+    {
+        perror(<span class="hljs-string cye-lm-tag">"sigqueue error"</span>);
+        <span class="hljs-built_in cye-lm-tag">exit</span>(EXIT_FAILURE);
+    }
+    <span class="hljs-keyword cye-lm-tag">return</span> <span class="hljs-number cye-lm-tag">0</span>;
+}
+
+<span class="hljs-keyword cye-lm-tag">void</span> sighandler(<span class="hljs-keyword cye-lm-tag">int</span> signo, siginfo_t *info,<span class="hljs-keyword cye-lm-tag">void</span> *ctx)
+{
+    <span class="hljs-comment cye-lm-tag">//以下两种方式都能获得sigqueue发来的数据</span>
+    <span class="hljs-built_in cye-lm-tag">printf</span>(<span class="hljs-string cye-lm-tag">"receive the data from siqueue by info-&gt;si_int is %d\n"</span>,info-&gt;si_int);
+    <span class="hljs-built_in cye-lm-tag">printf</span>(<span class="hljs-string cye-lm-tag">"receive the data from siqueue by info-&gt;si_value.sival_int is %d\n"</span>,info-&gt;si_value.sival_int);
+
+}
+</code></pre>
+
+<p class="cye-lm-tag"><img src="http://img.blog.csdn.net/20160327170145209" alt="这里写图片描述" title="" /></p>
+
+
+
+<h2 id="示例五进程间传递数据">示例五：进程间传递数据</h2>
+
+<hr />
+
+<p class="cye-lm-tag">发送端</p>
+
+
+
+<pre class="prettyprint"><code class="language-c hljs "><span class="hljs-preprocessor cye-lm-tag">#include &lt;stdio.h&gt;</span>
+<span class="hljs-preprocessor cye-lm-tag">#include &lt;unistd.h&gt;</span>
+<span class="hljs-preprocessor cye-lm-tag">#include &lt;signal.h&gt;</span>
+<span class="hljs-preprocessor cye-lm-tag">#include &lt;stdlib.h&gt;</span>
+
+<span class="hljs-keyword cye-lm-tag">int</span> main(<span class="hljs-keyword cye-lm-tag">int</span> argc, <span class="hljs-keyword cye-lm-tag">char</span> **argv)
+{
+    <span class="hljs-keyword cye-lm-tag">if</span>(argc != <span class="hljs-number cye-lm-tag">2</span>)
+    {
+        <span class="hljs-built_in cye-lm-tag">fprintf</span>(stderr,<span class="hljs-string cye-lm-tag">"usage:%s pid\n"</span>,argv[<span class="hljs-number cye-lm-tag">0</span>]);
+        <span class="hljs-built_in cye-lm-tag">exit</span>(EXIT_FAILURE);
+    }
+
+    pid_t pid = atoi(argv[<span class="hljs-number cye-lm-tag">1</span>]);
+
+    sleep(<span class="hljs-number cye-lm-tag">2</span>);
+
+    <span class="hljs-keyword cye-lm-tag">union</span> sigval mysigval;
+    mysigval.sival_int = <span class="hljs-number cye-lm-tag">100</span>;
+    <span class="hljs-built_in cye-lm-tag">printf</span>(<span class="hljs-string cye-lm-tag">"sending SIGINT signal to %d......\n"</span>,pid);
+
+    <span class="hljs-keyword cye-lm-tag">if</span>(sigqueue(pid,SIGINT, mysigval) == -<span class="hljs-number cye-lm-tag">1</span>)
+    {
+        perror(<span class="hljs-string cye-lm-tag">"sigqueue error"</span>);
+        <span class="hljs-built_in cye-lm-tag">exit</span>(EXIT_FAILURE);
+    }
+
+
+    <span class="hljs-keyword cye-lm-tag">return</span> <span class="hljs-number cye-lm-tag">0</span>;
+}
+</code></pre>
+
+<p class="cye-lm-tag">接收端</p>
+
+
+
+<pre class="prettyprint"><code class="language-c hljs "><span class="hljs-preprocessor cye-lm-tag">#include &lt;stdio.h&gt;</span>
+<span class="hljs-preprocessor cye-lm-tag">#include &lt;unistd.h&gt;</span>
+<span class="hljs-preprocessor cye-lm-tag">#include &lt;signal.h&gt;</span>
+<span class="hljs-preprocessor cye-lm-tag">#include &lt;stdlib.h&gt;</span>
+
+<span class="hljs-keyword cye-lm-tag">void</span> sighandler(<span class="hljs-keyword cye-lm-tag">int</span> signo, siginfo_t *info,<span class="hljs-keyword cye-lm-tag">void</span> *ctx);
+<span class="hljs-comment cye-lm-tag">//给自身传递信息</span>
+<span class="hljs-keyword cye-lm-tag">int</span> main(<span class="hljs-keyword cye-lm-tag">void</span>)
+{
+
+    <span class="hljs-keyword cye-lm-tag">struct</span> sigaction act;
+    act.sa_sigaction = sighandler;
+    sigemptyset(&amp;act.sa_mask);
+    act.sa_flags = SA_SIGINFO;<span class="hljs-comment cye-lm-tag">//信息传递开关</span>
+
+    <span class="hljs-keyword cye-lm-tag">if</span>(sigaction(SIGINT, &amp;act, NULL) == -<span class="hljs-number cye-lm-tag">1</span>)
+    {
+        perror(<span class="hljs-string cye-lm-tag">"sigaction error"</span>);
+        <span class="hljs-built_in cye-lm-tag">exit</span>(EXIT_FAILURE);
+    }
+
+    <span class="hljs-keyword cye-lm-tag">for</span>(; ;)
+    {
+        <span class="hljs-built_in cye-lm-tag">printf</span>(<span class="hljs-string cye-lm-tag">"waiting a SIGINT signal....\n"</span>);
+        pause();
+    }
+
+    <span class="hljs-keyword cye-lm-tag">return</span> <span class="hljs-number cye-lm-tag">0</span>;
+}
+
+<span class="hljs-keyword cye-lm-tag">void</span> sighandler(<span class="hljs-keyword cye-lm-tag">int</span> signo, siginfo_t *info,<span class="hljs-keyword cye-lm-tag">void</span> *ctx)
+{
+    <span class="hljs-comment cye-lm-tag">//以下两种方式都能获得sigqueue发来的数据</span>
+    <span class="hljs-built_in cye-lm-tag">printf</span>(<span class="hljs-string cye-lm-tag">"receive the data from siqueue by info-&gt;si_int is %d\n"</span>,info-&gt;si_int);
+    <span class="hljs-built_in cye-lm-tag">printf</span>(<span class="hljs-string cye-lm-tag">"receive the data from siqueue by info-&gt;si_value.sival_int is %d\n"</span>,info-&gt;si_value.sival_int);
+
+}
+</code></pre>
+
+<p class="cye-lm-tag"><img src="http://img.blog.csdn.net/20160327165858973" alt="这里写图片描述" title="" /></p>
+
+
+
+<h1 id="信号进阶-信号集">信号进阶-信号集</h1>
+
+<hr />
+
+
+
+<h2 id="信号生命周期">信号生命周期</h2>
+
+<hr />
+
+<p class="cye-lm-tag">从信号发送到信号处理函数的执行完毕 <br />
+对于一个完整的信号生命周期(从信号发送到相应的处理函数执行完毕)来说，可以分为三个重要的阶段，这三个阶段由四个重要事件来刻画：</p>
+
+<ul>
+<li><p class="cye-lm-tag">信号诞生；</p></li>
+<li><p class="cye-lm-tag">信号在进程中注册完毕；</p></li>
+<li><p class="cye-lm-tag">信号在进程中的注销完毕；</p></li>
+<li><p class="cye-lm-tag">信号处理函数执行完毕。</p></li>
+</ul>
+
+<p class="cye-lm-tag">相邻两个事件的时间间隔构成信号生命周期的一个阶段。</p>
+
+<p class="cye-lm-tag"><img src="http://img.blog.csdn.net/20160327212348678" alt="这里写图片描述" title="" /></p>
+
+<p class="cye-lm-tag">下面阐述四个事件的实际意义：</p>
+
+
+
+<h3 id="信号诞生">信号”诞生”</h3>
+
+<hr />
+
+<p class="cye-lm-tag">信号的诞生指的是触发信号的事件发生（如检测到硬件异常、定时器超时以及调用信号发送函数kill()或sigqueue()等）。 <br />
+信号在目标进程中”注册”；进程的task_struct结构中有关于本进程中未决信号的数据成员struct sigpending pending</p>
+
+
+
+<pre class="prettyprint"><code class=" hljs vala"><span class="hljs-keyword cye-lm-tag">struct</span> sigpending{
+    <span class="hljs-keyword cye-lm-tag">struct</span> sigqueue *head, **tail;
+    sigset_t <span class="hljs-keyword cye-lm-tag">signal</span>;
+};</code></pre>
+
+<p class="cye-lm-tag">第三个成员是进程中所有未决信号集，第一、第二个成员分别指向一个sigqueue类型的结构链（称之为”未决信号信息链”）的首尾，信息链中的每个sigqueue结构刻画一个特定信号所携带的信息，并指向下一个sigqueue结构:</p>
+
+
+
+<pre class="prettyprint"><code class=" hljs cs"><span class="hljs-keyword cye-lm-tag">struct</span> sigqueue{
+    <span class="hljs-keyword cye-lm-tag">struct</span> sigqueue *next;
+    siginfo_t info;
+}</code></pre>
+
+
+
+<h3 id="信号在进程中注册">信号在进程中注册</h3>
+
+<hr />
+
+<p class="cye-lm-tag">信号在进程中注册指的就是信号值加入到进程的未决信号集中（sigpending结构的第二个成员sigset_t signal），并且信号所携带的信息被保留到未决信号信息链的某个sigqueue结构中。 只要信号在进程的未决信号集中，表明进程已经知道这些信号的存在，但还没来得及处理，或者该信号被进程阻塞。</p>
+
+<blockquote>
+  <p class="cye-lm-tag">注</p>
+  
+  <p class="cye-lm-tag">当一个实时信号发送给一个进程时，不管该信号是否已经在进程中注册，都会被再注册一次，因此，信号不会丢失，因此，实时信号又叫做”可靠信号”。这意味着同一个实时信号可以在同一个进程的未决信号信息链中占有多个sigqueue结构（进程每收到一个实时信号，都会为它分配一个结构来登记该信号信息，并把该结构添加在未决信号链尾，即所有诞生的实时信号都会在目标进程中注册）；</p>
+</blockquote>
+
+<p class="cye-lm-tag">当一个非实时信号发送给一个进程时，如果该信号已经在进程中注册，则该信号将被丢弃，造成信号丢失。</p>
+
+<p class="cye-lm-tag">因此，非实时信号又叫做”不可靠信号”。</p>
+
+<p class="cye-lm-tag">这意味着同一个非实时信号在进程的未决信号信息链中，至多占有一个sigqueue结构</p>
+
+<p class="cye-lm-tag">一个非实时信号诞生后，</p>
+
+<ol>
+<li><p class="cye-lm-tag">如果发现相同的信号已经在目标结构中注册，则不再注册，对于进程来说，相当于不知道本次信号发生，信号丢失；</p></li>
+<li><p class="cye-lm-tag">如果进程的未决信号中没有相同信号，则在进程中注册自己）。</p></li>
+</ol>
+
+
+
+<h3 id="信号在进程中的注销">信号在进程中的注销</h3>
+
+<hr />
+
+<p class="cye-lm-tag">在目标进程执行过程中，会检测是否有信号等待处理（每次从系统空间返回到用户空间时都做这样的检查）。</p>
+
+<p class="cye-lm-tag">如果存在未决信号等待处理且该信号没有被进程阻塞，则在运行相应的信号处理函数前，进程会把信号在未决信号链中占有的结构卸掉。是否将信号从进程未决信号集中删除对于实时与非实时信号是不同的。</p>
+
+<p class="cye-lm-tag">对于非实时信号来说，由于在未决信号信息链中最多只占用一个sigqueue结构，因此该结构被释放后，应该把信号在进程未决信号集中删除（信号注销完毕）；</p>
+
+<p class="cye-lm-tag">而对于实时信号来说，可能在未决信号信息链中占用多个sigqueue结构，因此应该针对占用sigqueue结构的数目区别对待：</p>
+
+<p class="cye-lm-tag">如果只占用一个sigqueue结构（进程只收到该信号一次），则应该把信号在进程的未决信号集中删除（信号注销完毕）。</p>
+
+<p class="cye-lm-tag">否则，不应该在进程的未决信号集中删除该信号（信号注销完毕）。 </p>
+
+<p class="cye-lm-tag">进程在执行信号相应处理函数之前，首先要把信号在进程中注销。</p>
+
+
+
+<h3 id="信号生命终止">信号生命终止</h3>
+
+<hr />
+
+<p class="cye-lm-tag">进程注销信号后，立即执行相应的信号处理函数，执行完毕后，信号的本次发送对进程的影响彻底结束。</p>
+
+<blockquote>
+  <p class="cye-lm-tag">注：</p>
+  
+  <ol>
+  <li><p class="cye-lm-tag">信号注册与否，与发送信号的函数（如kill()或sigqueue()等）以及信号安装函数（signal()及sigaction()）无关，只与信号值有关（信号值小于SIGRTMIN的信号最多只注册一次，信号值在SIGRTMIN及SIGRTMAX之间的信号，只要被进程接收到就被注册）。 </p></li>
+  <li><p class="cye-lm-tag">在信号被注销到相应的信号处理函数执行完毕这段时间内，如果进程又收到同一信号多次，则对实时信号来说，每一次都会在进程中注册；而对于非实时信号来说，无论收到多少次信号，都会视为只收到一个信号，只在进程中注册一次。</p></li>
+  </ol>
+</blockquote>
+
+
+
+<h2 id="信号传递过程">信号传递过程</h2>
+
+<hr />
+
+<p class="cye-lm-tag">信号源为目标进程产生了一个信号,然后由内核来决定是否要将该信号传递给目标进程。从信号产生到传递给目标进程的流程图如</p>
+
+<p class="cye-lm-tag"><img src="http://img.blog.csdn.net/20160327212920890" alt="信号产生、传递到处理的流程图" title="" /></p>
+
+<p class="cye-lm-tag">进程可以阻塞信号的传递。当信号源为目标进程产生了一个信号之后,内核会执行依次执行下面操作,</p>
+
+<ol>
+<li><p class="cye-lm-tag">如果目标进程设置了忽略该信号,则内核直接将该信号丢弃。</p></li>
+<li><p class="cye-lm-tag">如果目标进程没有阻塞该信号,则内核将该信号传递给目标进程,由目标进程执行相对应操作。</p></li>
+<li><p class="cye-lm-tag">如果目标进程设置阻塞该信号,则内核将该信号放到目标进程的阻塞信号列表中,等待目标进程对该类型信号的下一步设置。</p></li>
+</ol>
+
+<p class="cye-lm-tag">若目标进程后续设置忽略该信号,则内核将该信号从目标进程的阻塞信号列表中移除并丢弃。若目标进程对该信号解除了阻塞,内核将该信号传递给目标进程进行相对应的操作。</p>
+
+<p class="cye-lm-tag">在信号产生到信号传递给目标进程之间的时间间隔内,我们称该信号为未决的(pending)。</p>
+
+<p class="cye-lm-tag">每个进程都有一个信号屏蔽字(signal mask),它规定了当前要阻塞传递给该进程的信号集。对于每种可能的信号,信号屏蔽字中都有一位与之对应。</p>
+
+
+
+<h2 id="信号集和进程信号屏蔽字">信号集和进程信号屏蔽字</h2>
+
+<hr />
+
+<p class="cye-lm-tag">我们已经知道，通过信号实现程序之间的相互通信，我们可以实现如下功能</p>
+
+<ul>
+<li><p class="cye-lm-tag">可以通过信号来终止进程</p></li>
+<li><p class="cye-lm-tag">可以通过信号来在进程间进行通信</p></li>
+<li><p class="cye-lm-tag">程序通过指定信号的关联处理函数来改变信号的默认处理方式</p></li>
+<li><p class="cye-lm-tag">可以通过屏蔽某些信号，使其不能传递给进程。</p></li>
+</ul>
+
+<p class="cye-lm-tag">那么我们应该如何设定我们需要处理的信号，我们不需要处理哪些信号等问题呢？</p>
+
+<p class="cye-lm-tag"><strong>信号集函数</strong>就是帮助我们解决这些问题的。</p>
+
+<h3 id="信号集及信号集操作函数">信号集及信号集操作函数</h3>
+
+<hr />
+
+<p class="cye-lm-tag"><strong>信号集</strong>被定义为一种数据类型</p>
+
+<pre class="prettyprint"><code class="language-c hljs "><span class="hljs-keyword cye-lm-tag">typedef</span> <span class="hljs-keyword cye-lm-tag">struct</span>
+{
+    <span class="hljs-keyword cye-lm-tag">unsigned</span> <span class="hljs-keyword cye-lm-tag">long</span> sig[_NSIG_WORDS]；
+}sigset_t;</code></pre>
+
+<p class="cye-lm-tag">信号集用来描述信号的集合，linux所支持的所有信号可以全部或部分的出现在信号集中，主要与信号阻塞相关函数配合使用。</p>
+
+<p class="cye-lm-tag">POSIX.1 定义了一个数据类型sigset_t,用于表示信号集。</p>
+
+<p class="cye-lm-tag">另外,头文件 signal.h 提供了下列五个处理信号集的函数。</p>
+
+<table>
+<thead>
+<tr>
+  <th>函数</th>
+  <th align="center">功能</th>
+</tr>
+</thead>
+<tbody><tr>
+  <td>sigemptyset(sigset_t *set)</td>
+  <td align="center">初始化由set指定的信号集，信号集里面的所有信号被清空；</td>
+</tr>
+<tr>
+  <td>sigfillset(sigset_t *set)</td>
+  <td align="center">调用该函数后，set指向的信号集中将包含linux支持的64种信号；</td>
+</tr>
+<tr>
+  <td>sigaddset(sigset_t *set, int signum)</td>
+  <td align="center">在set指向的信号集中加入signum信号；</td>
+</tr>
+<tr>
+  <td>sigdelset(sigset_t *set, int signum)</td>
+  <td align="center">在set指向的信号集中删除signum信号；</td>
+</tr>
+<tr>
+  <td>sigismember(const sigset_t *set, int signum)</td>
+  <td align="center">判定信号signum是否在set指向的信号集中。</td>
+</tr>
+</tbody></table>
+
+
+<ul>
+<li>函数 sigemptyset 初始化由 set 指向的信号集,清除其中所有信号。</li>
+</ul>
+
+
+
+<pre class="prettyprint"><code class="language-c hljs "><span class="hljs-keyword cye-lm-tag">int</span> sigemptyset(sigset_t *<span class="hljs-built_in cye-lm-tag">set</span>);</code></pre>
+
+<p class="cye-lm-tag">返回值:若成功则返回0,若出错则返回-1</p>
+
+<ul>
+<li>函数 sigfillset 初始化由 set 指向的信号集,使其包含所有信号。</li>
+</ul>
+
+
+
+<pre class="prettyprint"><code class="language-c hljs "><span class="hljs-keyword cye-lm-tag">int</span> sigfillset(sigset_t *<span class="hljs-built_in cye-lm-tag">set</span>);</code></pre>
+
+<p class="cye-lm-tag">返回值:若成功则返回0,若出错则返回-1</p>
+
+<ul>
+<li>函数 sigaddset 将一个信号 signo 添加到现有信号集 set 中。</li>
+</ul>
+
+
+
+<pre class="prettyprint"><code class="language-c hljs "><span class="hljs-keyword cye-lm-tag">int</span> sigaddset(sigset_t *<span class="hljs-built_in cye-lm-tag">set</span>, <span class="hljs-keyword cye-lm-tag">int</span> signo);</code></pre>
+
+<p class="cye-lm-tag">返回值:若成功则返回0,若出错则返回-1</p>
+
+<ul>
+<li>函数 sigdelset 将一个信号 signo 从信号集 set 中删除。</li>
+</ul>
+
+
+
+<pre class="prettyprint"><code class="language-c hljs "><span class="hljs-keyword cye-lm-tag">int</span> sigdelset(sigset_t *<span class="hljs-built_in cye-lm-tag">set</span>, <span class="hljs-keyword cye-lm-tag">int</span> signo);</code></pre>
+
+<p class="cye-lm-tag">返回值:若成功则返回0,若出错则返回-1</p>
+
+<ul>
+<li>函数 sigismember 判断指定信号 signo 是否在信号集 set 中。</li>
+</ul>
+
+
+
+<pre class="prettyprint"><code class="language-c hljs "><span class="hljs-keyword cye-lm-tag">int</span> sigismember(<span class="hljs-keyword cye-lm-tag">const</span> sigset_t *<span class="hljs-built_in cye-lm-tag">set</span>, <span class="hljs-keyword cye-lm-tag">int</span> signo);</code></pre>
+
+<p class="cye-lm-tag">返回值:若真则返回1,若假则返回0,若出错则返回-1</p>
+
+
+
+<h3 id="信号阻塞与信号未决">信号阻塞与信号未决</h3>
+
+<hr />
+
+<p class="cye-lm-tag">每个进程都有一个用来描述哪些信号递送到进程时将被阻塞的信号集，该信号集中的所有信号在递送到进程后都将被阻塞。</p>
+
+<p class="cye-lm-tag">下面是与信号阻塞相关的几个函数：</p>
+
+<pre class="prettyprint"><code class="language-c hljs "><span class="hljs-preprocessor">#include &lt;signal.h&gt;</span>
+<span class="hljs-keyword">int</span>  sigprocmask(<span class="hljs-keyword">int</span>  how,  <span class="hljs-keyword">const</span>  sigset_t *<span class="hljs-built_in">set</span>, sigset_t *oldset))；
+<span class="hljs-keyword">int</span> sigpending(sigset_t *<span class="hljs-built_in">set</span>));
+<span class="hljs-keyword">int</span> sigsuspend(<span class="hljs-keyword">const</span> sigset_t *mask))；</code></pre>
+
+<h3 id="sigprocmask检测或设置进程的信号屏蔽字">sigprocmask检测或设置进程的信号屏蔽字</h3>
+
+<hr />
+
+<ul>
+<li>sigprocmask()函数能够根据参数how来实现对信号集的操作，操作主要有三种：</li>
+</ul>
+
+<table>
+<thead>
+<tr>
+  <th>参数how</th>
+  <th align="center">进程当前信号集</th>
+</tr>
+</thead>
+<tbody><tr>
+  <td>SIG_BLOCK</td>
+  <td align="center">在进程当前阻塞信号集中添加set指向信号集中的信号</td>
+</tr>
+<tr>
+  <td>SIG_UNBLOCK</td>
+  <td align="center">如果进程阻塞信号集中包含set指向信号集中的信号，则解除对该信号的阻塞</td>
+</tr>
+<tr>
+  <td>SIG_SETMASK</td>
+  <td align="center">更新进程阻塞信号集为set指向的信号集</td>
+</tr>
+</tbody></table>
+
+
+<p class="cye-lm-tag">在下面的程序文件中先调用 sigprocmask 设置阻塞信号 SIGALRM,然后调用 alarm(2) 设置一个两秒钟的闹钟(两秒钟之后将向当前进程产生一个 SIGALRM 信号)。在睡眠 4 秒钟之后(此时应该已经产生了 SIGALRM 信号),调用 sigprocmask 函数解除对信号SIGALRM 的阻塞。</p>
+
+
+
+<pre class="prettyprint"><code class="language-c hljs "><span class="hljs-preprocessor cye-lm-tag">#include &lt;stdlib.h&gt;</span>
+<span class="hljs-preprocessor cye-lm-tag">#include &lt;stdio.h&gt;</span>
+<span class="hljs-preprocessor cye-lm-tag">#include &lt;unistd.h&gt;</span>
+<span class="hljs-preprocessor cye-lm-tag">#include &lt;string.h&gt;</span>
+<span class="hljs-preprocessor cye-lm-tag">#include &lt;errno.h&gt;</span>
+<span class="hljs-preprocessor cye-lm-tag">#include &lt;signal.h&gt;</span>
+
+<span class="hljs-keyword cye-lm-tag">static</span> <span class="hljs-keyword cye-lm-tag">void</span> sig_alrm(<span class="hljs-keyword cye-lm-tag">int</span> signo)
+{
+      <span class="hljs-built_in cye-lm-tag">printf</span>(<span class="hljs-string cye-lm-tag">"received SIGALRM\n"</span>);
+}
+
+<span class="hljs-keyword cye-lm-tag">int</span> main(<span class="hljs-keyword cye-lm-tag">void</span>)
+{
+    sigset_t    sigset;
+
+    <span class="hljs-comment cye-lm-tag">//  初始化信号集</span>
+    sigemptyset(&amp;sigset);
+
+    <span class="hljs-comment cye-lm-tag">//  添加一个闹钟信号</span>
+    sigaddset(&amp;sigset, SIGALRM);
+    <span class="hljs-keyword cye-lm-tag">if</span> (sigprocmask(SIG_BLOCK, &amp;sigset, NULL) &lt; <span class="hljs-number cye-lm-tag">0</span>)
+    {
+        <span class="hljs-built_in cye-lm-tag">printf</span>(<span class="hljs-string cye-lm-tag">"sigprocmask error: %s\n"</span>, strerror(errno));
+        <span class="hljs-built_in cye-lm-tag">exit</span>(-<span class="hljs-number cye-lm-tag">1</span>);
+    }
+    <span class="hljs-keyword cye-lm-tag">else</span>
+    {
+        <span class="hljs-built_in cye-lm-tag">printf</span>(<span class="hljs-string cye-lm-tag">"signal SIGALARM is in in sigset now...\n"</span>);
+    }
+
+    <span class="hljs-keyword cye-lm-tag">if</span> (signal(SIGALRM, sig_alrm) &lt; <span class="hljs-number cye-lm-tag">0</span>)          <span class="hljs-comment cye-lm-tag">//  添加信号处理函数</span>
+    {
+        <span class="hljs-built_in cye-lm-tag">printf</span>(<span class="hljs-string cye-lm-tag">"signal error: %s\n"</span>, strerror(errno));
+        <span class="hljs-built_in cye-lm-tag">exit</span>(-<span class="hljs-number cye-lm-tag">1</span>);
+    }
+
+    alarm(<span class="hljs-number cye-lm-tag">2</span>);
+    sleep(<span class="hljs-number cye-lm-tag">4</span>);
+
+    <span class="hljs-built_in cye-lm-tag">printf</span>(<span class="hljs-string cye-lm-tag">"before unblock sigprocmask\n"</span>);
+    <span class="hljs-keyword cye-lm-tag">if</span> (sigprocmask(SIG_UNBLOCK, &amp;sigset, NULL) &lt; <span class="hljs-number cye-lm-tag">0</span>)
+    {
+        <span class="hljs-built_in cye-lm-tag">printf</span>(<span class="hljs-string cye-lm-tag">"sigprocmask SIG_UNBLOCK error: %s\n"</span>, strerror(errno));
+        <span class="hljs-built_in cye-lm-tag">exit</span>(-<span class="hljs-number cye-lm-tag">1</span>);
+    }
+    <span class="hljs-keyword cye-lm-tag">else</span>
+    {
+        <span class="hljs-built_in cye-lm-tag">printf</span>(<span class="hljs-string cye-lm-tag">"signal SIGALARM isn't in sigset now...\n"</span>);
+    }
+
+    <span class="hljs-keyword cye-lm-tag">return</span> <span class="hljs-number cye-lm-tag">0</span>;
+}
+</code></pre>
+
+<p class="cye-lm-tag"><img src="http://img.blog.csdn.net/20160327214128076" alt="这里写图片描述" title="" /></p>
+
+<p class="cye-lm-tag">从上面的执行输出,我们看到信号 SIGALRM 是在调用 sigprocmask函数执行 unblock之后才被传递给当前进程进行处理的。  <br />
+<img src="http://img.blog.csdn.net/20160327214752287" alt="这里写图片描述" title="" /></p>
+
+<p class="cye-lm-tag">如果我们将代码中的<code>sigprocemask(SIG_BLOCK, &amp;sigset, NULL)</code> 注释掉,编译执行,生成如下结果</p>
+
+<p class="cye-lm-tag"><img src="http://img.blog.csdn.net/20160327214925944" alt="这里写图片描述" title="" /></p>
+
+<p class="cye-lm-tag">我们看到由于没有屏蔽信号 SIGALRM ，程序在2秒后捕获了SIGALRM直接调用sig_alrm进行了处理。</p>
+
+
+
+<h3 id="sigpending-获取进程未决的信号集">sigpending 获取进程未决的信号集</h3>
+
+<hr />
+
+<p class="cye-lm-tag">函数 sigpending 获得当前已递送到进程，却被阻塞的所有信号，在set指向的信号集中返回结果。</p>
+
+
+
+<pre class="prettyprint"><code class="language-c hljs "><span class="hljs-preprocessor cye-lm-tag">#include &lt;signal.h&gt;</span>
+<span class="hljs-keyword cye-lm-tag">int</span> sigpending(sigset_t *<span class="hljs-built_in cye-lm-tag">set</span>);</code></pre>
+
+<p class="cye-lm-tag">返回值:若成功则返回0,若出错则返回-1</p>
+
+
+
+<pre class="prettyprint"><code class="language-c hljs "><span class="hljs-preprocessor cye-lm-tag">#include &lt;stdlib.h&gt;</span>
+<span class="hljs-preprocessor cye-lm-tag">#include &lt;stdio.h&gt;</span>
+<span class="hljs-preprocessor cye-lm-tag">#include &lt;unistd.h&gt;</span>
+<span class="hljs-preprocessor cye-lm-tag">#include &lt;string.h&gt;</span>
+<span class="hljs-preprocessor cye-lm-tag">#include &lt;errno.h&gt;</span>
+<span class="hljs-preprocessor cye-lm-tag">#include &lt;signal.h&gt;</span>
+
+<span class="hljs-keyword cye-lm-tag">void</span> alrm_is_pending(<span class="hljs-keyword cye-lm-tag">const</span> <span class="hljs-keyword cye-lm-tag">char</span> *str)
+{
+    sigset_t pendingsigset;
+
+    <span class="hljs-built_in cye-lm-tag">printf</span>(<span class="hljs-string cye-lm-tag">"%s: "</span>, str);
+
+    <span class="hljs-keyword cye-lm-tag">if</span> (sigpending(&amp;pendingsigset) &lt; <span class="hljs-number cye-lm-tag">0</span>)
+    {
+        <span class="hljs-built_in cye-lm-tag">printf</span>(<span class="hljs-string cye-lm-tag">"sigpending error: %s\n"</span>, strerror(errno));
+        <span class="hljs-built_in cye-lm-tag">exit</span>(-<span class="hljs-number cye-lm-tag">1</span>);
+    }
+
+    <span class="hljs-keyword cye-lm-tag">if</span> (sigismember(&amp;pendingsigset, SIGALRM))
+    {
+        <span class="hljs-built_in cye-lm-tag">printf</span>(<span class="hljs-string cye-lm-tag">"SIGALRM is pending\n"</span>);
+    }
+    <span class="hljs-keyword cye-lm-tag">else</span>
+    {
+        <span class="hljs-built_in cye-lm-tag">printf</span>(<span class="hljs-string cye-lm-tag">"SIGALRM is not pending\n"</span>);
+    }
+}
+
+<span class="hljs-keyword cye-lm-tag">int</span> main(<span class="hljs-keyword cye-lm-tag">void</span>)
+{
+    sigset_t sigset;
+
+    sigemptyset(&amp;sigset);
+    sigaddset(&amp;sigset, SIGALRM);
+
+    <span class="hljs-keyword cye-lm-tag">if</span> (sigprocmask(SIG_BLOCK, &amp;sigset, NULL) &lt; <span class="hljs-number cye-lm-tag">0</span>)
+    {
+        <span class="hljs-built_in cye-lm-tag">printf</span>(<span class="hljs-string cye-lm-tag">"sigprocmask error: %s\n"</span>, strerror(errno));
+        <span class="hljs-built_in cye-lm-tag">exit</span>(-<span class="hljs-number cye-lm-tag">1</span>);
+    }
+
+    alrm_is_pending(<span class="hljs-string cye-lm-tag">"before alarm"</span>);
+
+    alarm(<span class="hljs-number cye-lm-tag">2</span>);
+    sleep(<span class="hljs-number cye-lm-tag">4</span>);
+
+    alrm_is_pending(<span class="hljs-string cye-lm-tag">"after alarm"</span>);
+
+    <span class="hljs-keyword cye-lm-tag">return</span> <span class="hljs-number cye-lm-tag">0</span>;
+
+}
+</code></pre>
+
+<p class="cye-lm-tag"><img src="http://img.blog.csdn.net/20160327220131105" alt="这里写图片描述" title="" /></p>
+
+<p class="cye-lm-tag">从运行结果,我们看到调用 alarm 函数产生信号 SIGALRM 之后,该信号在 sigpending 函数的 set 参数指向的信号集中。</p>
+
+<ul>
+<li>sigsuspend(const sigset_t *mask))用于在接收到某个信号之前, 临时用mask替换进程的信号掩码, 并暂停进程执行，直到收到信号为止。sigsuspend 返回后将恢复调用之前的信号掩码。信号处理函数完成后，进程将继续执行。该系统调用始终返回-1，并将errno设置为EINTR。</li>
+</ul>
+
+<blockquote>
+  <p class="cye-lm-tag">如果一个信号被进程阻塞，它就不会传递给进程，但会停留在待处理状态，当进程解除对待处理信号的阻塞时，待处理信号就会立刻被处理。</p>
+</blockquote>
+
+<p class="cye-lm-tag">下面以一个例子来说明上述函数的用法，源文件为sigset.c，代码如下：</p>
+
+
+
+<pre class="prettyprint"><code class=" hljs cpp"><span class="hljs-preprocessor cye-lm-tag">#include &lt;unistd.h&gt;</span>
+<span class="hljs-preprocessor cye-lm-tag">#include &lt;signal.h&gt;</span>
+<span class="hljs-preprocessor cye-lm-tag">#include &lt;sys/types.h&gt;</span>
+<span class="hljs-preprocessor cye-lm-tag">#include &lt;stdlib.h&gt;</span>
+<span class="hljs-preprocessor cye-lm-tag">#include &lt;stdio.h&gt;</span>
+
+<span class="hljs-keyword cye-lm-tag">void</span> handler(<span class="hljs-keyword cye-lm-tag">int</span> sig)
+{
+    <span class="hljs-built_in cye-lm-tag">printf</span>(<span class="hljs-string cye-lm-tag">"Handle the signal %d\n"</span>, sig);
+}
+
+<span class="hljs-keyword cye-lm-tag">int</span> main()
+{
+    sigset_t            sigset;         <span class="hljs-comment cye-lm-tag">//  用于记录屏蔽字</span>
+    sigset_t            ign;            <span class="hljs-comment cye-lm-tag">//  用于记录被阻塞的信号集</span>
+    <span class="hljs-keyword cye-lm-tag">struct</span> sigaction    act;
+
+    <span class="hljs-comment cye-lm-tag">//清空信号集</span>
+    sigemptyset(&amp;sigset);
+    sigemptyset(&amp;ign);
+
+    <span class="hljs-comment cye-lm-tag">//  向信号集中添加信号SIGINT</span>
+    sigaddset(&amp;sigset, SIGINT);
+
+    <span class="hljs-comment cye-lm-tag">//  设置处理函数和信号集</span>
+    act.sa_handler = handler;
+    sigemptyset(&amp;act.sa_mask);
+    act.sa_flags = <span class="hljs-number cye-lm-tag">0</span>;
+    sigaction(SIGINT, &amp;act, <span class="hljs-number cye-lm-tag">0</span>);
+
+    <span class="hljs-built_in cye-lm-tag">printf</span>(<span class="hljs-string cye-lm-tag">"Wait the signal SIGINT...\n"</span>);
+    pause();                            <span class="hljs-comment cye-lm-tag">//挂起进程，等待信号</span>
+
+    <span class="hljs-comment cye-lm-tag">//  设置进程屏蔽字，在本例中为屏蔽SIGINT</span>
+    sigprocmask(SIG_SETMASK, &amp;sigset, <span class="hljs-number cye-lm-tag">0</span>);
+
+    <span class="hljs-built_in cye-lm-tag">printf</span>(<span class="hljs-string cye-lm-tag">"Please press Ctrl+c in 10 seconds...\n"</span>);
+
+    sleep(<span class="hljs-number cye-lm-tag">10</span>);
+
+    <span class="hljs-comment cye-lm-tag">//  测试SIGINT是否被屏蔽</span>
+    sigpending(&amp;ign);
+    <span class="hljs-keyword cye-lm-tag">if</span>(sigismember(&amp;ign, SIGINT))
+    {
+        <span class="hljs-built_in cye-lm-tag">printf</span>(<span class="hljs-string cye-lm-tag">"The SIGINT signal has ignored\n"</span>);
+    }
+
+    <span class="hljs-comment cye-lm-tag">//  在信号集中删除信号SIGINT</span>
+    sigdelset(&amp;sigset, SIGINT);
+    <span class="hljs-built_in cye-lm-tag">printf</span>(<span class="hljs-string cye-lm-tag">"Wait the signal SIGINT...\n"</span>);
+
+    <span class="hljs-comment cye-lm-tag">//  将进程的屏蔽字重新设置，即取消对SIGINT的屏蔽</span>
+    <span class="hljs-comment cye-lm-tag">//  并挂起进程</span>
+    sigsuspend(&amp;sigset);
+
+    <span class="hljs-built_in cye-lm-tag">printf</span>(<span class="hljs-string cye-lm-tag">"The app will exit in 5 seconds!\n"</span>);
+
+    sleep(<span class="hljs-number cye-lm-tag">5</span>);
+
+    <span class="hljs-keyword cye-lm-tag">return</span> EXIT_SUCCESS;
+}
+</code></pre>
+
+<p class="cye-lm-tag"><img src="http://img.blog.csdn.net/20160327220405135" alt="这里写图片描述" title="" /></p></div>&#13;
+        <script type="text/javascript">&#13;
+            $(function () {&#13;
+                $('pre.prettyprint code').each(function () {&#13;
+                    var lines = $(this).text().split('\n').length;&#13;
+                    var $numbering = $('&lt;ul/&gt;').addClass('pre-numbering').hide();&#13;
+                    $(this).addClass('has-numbering').parent().append($numbering);&#13;
+                    for (i = 1; i &lt;= lines; i++) {&#13;
+                        $numbering.append($('&lt;li/&gt;').text(i));&#13;
+                    };&#13;
+                    $numbering.fadeIn(1700);&#13;
+                });&#13;
+            });&#13;
+        </script>&#13;
+   &#13;

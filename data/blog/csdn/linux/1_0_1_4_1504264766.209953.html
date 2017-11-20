@@ -1,0 +1,311 @@
+
+                <div class="markdown_views"><h2 id="线程互斥机制">线程互斥机制</h2>
+
+<p>Mutex变量就像一把“锁”，是线程同步和保护共享数据的主要方式 <br/>
+Mutex可以用来阻止竞争 <br/>
+Pthreads中Mutex的基本概念 <br/>
+在任何时候，只有一个线程能够获得Mutex <br/>
+尽管几个线程想获取一个Mutex，但是只有一个线程能够成功 <br/>
+其他线程需要等待，直到获取Mutex的线程放弃Mutex <br/>
+线程必须轮流访问需要保护的数据 <br/>
+线程经常利用mutex来加锁需要更新的全局变量，这也是几个线程需要同时更新全局变量时使用的安全方法  <br/>
+这样能保证在多线程环境下的全局变量的更新就如在单线程环境中一样 <br/>
+此全局变量的更新属于“临界区” </p>
+
+<p>创建和初始化mutex <br/>
+使用mutex <br/>
+各线程尝试获取mutex <br/>
+但仅有一个线程能够获取mutex并拥有它  <br/>
+拥有mutex的线程执行需访问临界资源的特定处理例程 <br/>
+拥有线程释放mutex <br/>
+其他线程阐述获取mutex <br/>
+重复上述步骤  <br/>
+销毁 mutex</p>
+
+
+
+<h2 id="mutex变量创建销毁函数">mutex变量创建/销毁函数</h2>
+
+<pre class="prettyprint"><code class=" hljs erlang"><span class="hljs-function"><span class="hljs-title">pthread_mutex_init</span><span class="hljs-params">(mutex,attr)</span> 
+<span class="hljs-title">pthread_mutex_destroy</span><span class="hljs-params">(mutex)</span> 
+<span class="hljs-title">pthread_mutexattr_init</span><span class="hljs-params">(attr)</span> 
+<span class="hljs-title">pthread_mutexattr_destroy</span><span class="hljs-params">(attr)</span> 
+</span></code></pre>
+
+<h2 id="互斥锁创建">互斥锁创建</h2>
+
+<pre class="prettyprint"><code class=" hljs perl">声明mutex变量：pthread_mutex_t类型
+在使用前必须已经初始化（两种方式）
+静态方式
+pthread_mutex_t  mutex=PTHREAD_MUTEX_INITIALIZER
+动态方式
+<span class="hljs-keyword">int</span> pthread_mutex_init(pthread_mutex_t <span class="hljs-variable">*mutex</span>, const pthread_mutexattr_t <span class="hljs-variable">*mutexattr</span>)
+返回值
+成功返回<span class="hljs-number">0</span>
+失败返回错误编号
+说明
+mutex初始时是unlocked（未加锁的）的
+</code></pre>
+
+<p>普通锁（PTHREAD_MUTEX_TIMED_NP） <br/>
+默认值，当一个线程加锁后，其余请求锁的线程形成一个等待队列，并在解锁后按优先级获得锁 <br/>
+嵌套锁（PTHREAD_MUTEX_RECURSIVE_NP） <br/>
+允许同一个线程对同一个锁成功获得多次，并通过多次unlock解锁 <br/>
+如果是不同线程请求，则在加锁线程解锁时重新竞争 <br/>
+检错锁（PTHREAD_MUTEX_ERRORCHECK_NP） <br/>
+如果同一个线程请求同一个锁，则返回EDEADLK，否则与普通锁动作相同 <br/>
+适应锁（PTHREAD_MUTEX_ADAPTIVE_NP） <br/>
+动作最简单的锁类型，仅仅等待锁解锁后重新竞争</p>
+
+<h2 id="互斥锁的属性">互斥锁的属性</h2>
+
+<pre class="prettyprint"><code class=" hljs vhdl">用于设置mutex对象属性
+如果使用它，那么它一定是 pthread_mutexattr_t 类型 (可以设置<span class="hljs-keyword">NULL</span>作为缺省的)。
+pthreads标准定义三种可选的mutex属性 
+protocol: 利用特定的协议来防止mutex优先级倒置 
+prioceiling: 特定的mutex优先级限制 
+<span class="hljs-keyword">process</span>-<span class="hljs-keyword">shared</span>: 特定进程共享mutex 
+说明
+并不是所有的应用提供所有这三种mutex属性 
+属性操作函数
+pthread_mutexattr_init()：创建mutex属性对象
+pthread_mutexattr_destroy()：销毁mutex属性对象
+</code></pre>
+
+<pre class="prettyprint"><code class=" hljs perl">函数原型
+<span class="hljs-keyword">int</span>  pthread_mutex_destroy(pthread_mutex_t <span class="hljs-variable">*mutex</span>)
+销毁一个互斥锁
+释放它锁占用的资源，且要求锁当前处于开放状态
+</code></pre>
+
+<h2 id="互斥锁操作">互斥锁操作</h2>
+
+<pre class="prettyprint"><code class=" hljs perl">加锁
+<span class="hljs-keyword">int</span> pthread_mutex_lock(pthread_mutex_t <span class="hljs-variable">*mutex</span>);
+若mutex已被其他线程加锁，该调用会阻塞线程直到mutex被解锁 
+尝试加锁
+<span class="hljs-keyword">int</span> pthread_mutex_trylock(pthread_mutex_t <span class="hljs-variable">*mutex</span>);
+若mutex已经被加锁，该调用会立即返回一个“busy”错误码
+利用此调用可以防止在优先级倒置所出现的死锁 
+解锁
+<span class="hljs-keyword">int</span> pthread_mutex_unlock(pthread_mutex_t <span class="hljs-variable">*mutex</span>);
+当拥有mutex的线程使用完保护资源后，应该调用该解锁mutex。在下面的情况中，将返回一个错误 
+mutex已解锁
+mutex被其他线程加锁
+</code></pre>
+
+<h2 id="条件变量">条件变量</h2>
+
+<p>互斥锁的缺点 <br/>
+通过控制存取数据来实现线程同步 <br/>
+线程需不断轮询条件是否满足（忙等），消耗很多资源 <br/>
+条件变量 <br/>
+利用线程间共享的全局变量实现同步 <br/>
+条件变量使线程睡眠等待特定条件出现（无需轮询） <br/>
+使用方法 <br/>
+通常条件变量和互斥锁同时使用 <br/>
+一个线程因等待“条件变量的条件成立”而挂起 <br/>
+另一个线程使”条件成立”（给出条件成立信号）</p>
+
+
+
+<h2 id="条件变量典型使用步骤">条件变量典型使用步骤</h2>
+
+<p>申明和初始化需要同步的全局数据/变量（如count）  <br/>
+申明和初始化一个条件变量对象  <br/>
+申明和初始化对应的mutex  <br/>
+创建若干进程并运行之 </p>
+
+<h2 id="条件变量检测">条件变量检测</h2>
+
+<p>条件的检测是在互斥锁的保护下进行的 <br/>
+如果条件为假，一个线程自动阻塞 <br/>
+如果另一个线程改变了条件，它发信号给关联的条件变量，唤醒一个或多个等待它的线程，重新获得互斥锁，重新评价条件</p>
+
+
+
+<pre class="prettyprint"><code class=" hljs erlang"><span class="hljs-function"><span class="hljs-title">pthread_cond_init</span> <span class="hljs-params">(condition,attr)</span> 
+<span class="hljs-title">pthread_cond_destroy</span><span class="hljs-params">(condition)</span> 
+<span class="hljs-title">pthread_condattr_init</span><span class="hljs-params">(attr)</span> 
+<span class="hljs-title">pthread_condattr_destroy</span><span class="hljs-params">(attr)</span> 
+</span></code></pre>
+
+
+
+<h2 id="条件变量的初始化">条件变量的初始化</h2>
+
+<pre class="prettyprint"><code class=" hljs perl">声明条件变量：pthread_cond_t 类型
+使用前必须初始化，有两种方法初始化方法
+静态方式
+pthread_cond_t condition=PTHREAD_COND_INITIALIZER
+动态方式
+<span class="hljs-keyword">int</span> pthread_cond_init(pthread_cond_t <span class="hljs-variable">*cond</span>, const pthread_condattr_t <span class="hljs-variable">*attr</span>)
+被创建的条件变量ID通过 参数返回给调用线程
+该方法允许设置条件变量属性
+</code></pre>
+
+<h2 id="条件变量属性">条件变量属性</h2>
+
+<pre class="prettyprint"><code class=" hljs vhdl">条件属性仅仅定义一个属性：<span class="hljs-keyword">process</span>-<span class="hljs-keyword">shared</span> 
+允条件变量可以被其他进程中的线程访问
+如果使用此条件变量属性，必须把它定义为pthread_condattr_t 类型（缺省定义为<span class="hljs-keyword">NULL</span>）
+说明
+并不是所有的实现都提供<span class="hljs-keyword">process</span>-<span class="hljs-keyword">shared</span>属性
+属性操作函数
+pthread_condattr_init()：创建条件变量属性对象 
+pthread_condattr_destroy()：销毁条件变量属性对象
+</code></pre>
+
+<p>函数原型 <br/>
+int pthread_cond_destroy(pthread_cond_t *cond); <br/>
+销毁所指定的条件变量，同时将会释放所给它分配的资源 <br/>
+调用该函数的线程并不要求等待在参数所指定的条件变量上 </p>
+
+<h2 id="条件变量的等待">条件变量的等待</h2>
+
+<pre class="prettyprint"><code class=" hljs perl">函数原型
+<span class="hljs-keyword">int</span> pthread_cond_wait(pthread_cond_t <span class="hljs-variable">*cond</span>, pthread_mutex_t <span class="hljs-variable">*mutex</span>); 
+<span class="hljs-keyword">int</span> pthread_cond_timedwait(pthread_cond_t <span class="hljs-variable">*cond</span>, pthread_mutex_t mytex, const struct timespec <span class="hljs-variable">*abstime</span>);
+说明
+阻塞调用线程，直到满足特定的条件
+当该线程运行时，会被加锁，阻塞时会自动解锁
+当收到信号唤醒线程时，会被线程自动上锁当线程完成更新共享数据后，开发者有责任解锁 
+这里的互斥锁必须是普通锁或者适应锁
+调用前必须由本线程加锁，激活前要保持锁是锁定状态
+</code></pre>
+
+<h2 id="条件变量的激活">条件变量的激活</h2>
+
+<pre class="prettyprint"><code class=" hljs scss">函数原型
+int <span class="hljs-function">pthread_cond_signal(pthread_cond_t *cond)</span>; 
+int <span class="hljs-function">pthread_cond_broadcast(pthread_cond_t *cond)</span>;
+说明
+用于通知（唤醒）等待在条件变量上的另一线程
+在被加锁后被调用，在完成<span class="hljs-function">pthread_cond_wait()</span>运行后必须解锁 
+二者区别
+<span class="hljs-function">pthread_cond_signal()</span>激活一个等待该条件的线程
+<span class="hljs-function">pthread_cond_broadcast()</span>激活所有等待的线程
+如果多于一个线程处于阻塞状态，应该用<span class="hljs-function">pthread_cond_broadcast()</span>代替<span class="hljs-function">pthread_cond_signal()</span>
+</code></pre>
+
+<h2 id="条件变量等待与激活使用说明">条件变量等待与激活使用说明</h2>
+
+<pre class="prettyprint"><code class=" hljs scss">如果在调用<span class="hljs-function">pthread_cond_wait()</span>前先调用<span class="hljs-function">pthread_cond_signal()</span>，将出现逻辑错误 
+当使用上述函数时，必须正确的加锁和解锁
+在调用<span class="hljs-function">pthread_cond_wait()</span>之前没有成功加锁mutex会导致线程不会阻塞 
+在调用 <span class="hljs-function">pthread_cond_signal()</span>后没有成功解锁mutex，会导致<span class="hljs-function">pthread_cond_wait()</span>一直运行 (保持线程阻塞)
+</code></pre>
+
+<h2 id="条件变量示例">条件变量示例</h2>
+
+<pre class="prettyprint"><code class=" hljs lasso">inc_count(): <span class="hljs-keyword">thread</span> <span class="hljs-number">0</span>, count <span class="hljs-subst">=</span> <span class="hljs-number">1</span>, unlocking mutex
+Starting watch_count(): <span class="hljs-keyword">thread</span> <span class="hljs-number">2</span>
+inc_count(): <span class="hljs-keyword">thread</span> <span class="hljs-number">1</span>, count <span class="hljs-subst">=</span> <span class="hljs-number">2</span>, unlocking mutex
+inc_count(): <span class="hljs-keyword">thread</span> <span class="hljs-number">0</span>, count <span class="hljs-subst">=</span> <span class="hljs-number">3</span>, unlocking mutex
+inc_count(): <span class="hljs-keyword">thread</span> <span class="hljs-number">1</span>, count <span class="hljs-subst">=</span> <span class="hljs-number">4</span>, unlocking mutex
+inc_count(): <span class="hljs-keyword">thread</span> <span class="hljs-number">0</span>, count <span class="hljs-subst">=</span> <span class="hljs-number">5</span>, unlocking mutex
+inc_count(): <span class="hljs-keyword">thread</span> <span class="hljs-number">0</span>, count <span class="hljs-subst">=</span> <span class="hljs-number">6</span>, unlocking mutex
+inc_count(): <span class="hljs-keyword">thread</span> <span class="hljs-number">1</span>, count <span class="hljs-subst">=</span> <span class="hljs-number">7</span>, unlocking mutex
+inc_count(): <span class="hljs-keyword">thread</span> <span class="hljs-number">0</span>, count <span class="hljs-subst">=</span> <span class="hljs-number">8</span>, unlocking mutex
+inc_count(): <span class="hljs-keyword">thread</span> <span class="hljs-number">1</span>, count <span class="hljs-subst">=</span> <span class="hljs-number">9</span>, unlocking mutex
+inc_count(): <span class="hljs-keyword">thread</span> <span class="hljs-number">0</span>, count <span class="hljs-subst">=</span> <span class="hljs-number">10</span>, unlocking mutex
+inc_count(): <span class="hljs-keyword">thread</span> <span class="hljs-number">1</span>, count <span class="hljs-subst">=</span> <span class="hljs-number">11</span>, unlocking mutex
+inc_count(): <span class="hljs-keyword">thread</span> <span class="hljs-number">0</span>, count <span class="hljs-subst">=</span> <span class="hljs-number">12</span>  Threshold reached<span class="hljs-built_in">.</span>
+inc_count(): <span class="hljs-keyword">thread</span> <span class="hljs-number">0</span>, count <span class="hljs-subst">=</span> <span class="hljs-number">12</span>, unlocking mutex
+watch_count(): <span class="hljs-keyword">thread</span> <span class="hljs-number">2</span> Condition signal received<span class="hljs-built_in">.</span>
+inc_count(): <span class="hljs-keyword">thread</span> <span class="hljs-number">1</span>, count <span class="hljs-subst">=</span> <span class="hljs-number">13</span>, unlocking mutex
+inc_count(): <span class="hljs-keyword">thread</span> <span class="hljs-number">0</span>, count <span class="hljs-subst">=</span> <span class="hljs-number">14</span>, unlocking mutex
+inc_count(): <span class="hljs-keyword">thread</span> <span class="hljs-number">1</span>, count <span class="hljs-subst">=</span> <span class="hljs-number">15</span>, unlocking mutex
+inc_count(): <span class="hljs-keyword">thread</span> <span class="hljs-number">0</span>, count <span class="hljs-subst">=</span> <span class="hljs-number">16</span>, unlocking mutex
+inc_count(): <span class="hljs-keyword">thread</span> <span class="hljs-number">1</span>, count <span class="hljs-subst">=</span> <span class="hljs-number">17</span>, unlocking mutex
+inc_count(): <span class="hljs-keyword">thread</span> <span class="hljs-number">0</span>, count <span class="hljs-subst">=</span> <span class="hljs-number">18</span>, unlocking mutex
+inc_count(): <span class="hljs-keyword">thread</span> <span class="hljs-number">1</span>, count <span class="hljs-subst">=</span> <span class="hljs-number">19</span>, unlocking mutex
+inc_count(): <span class="hljs-keyword">thread</span> <span class="hljs-number">1</span>, count <span class="hljs-subst">=</span> <span class="hljs-number">20</span>, unlocking mutex
+Main(): Waited <span class="hljs-keyword">on</span> <span class="hljs-number">3</span>  threads<span class="hljs-built_in">.</span> Done<span class="hljs-built_in">.</span>
+</code></pre>
+
+<h2 id="生产者消费者问题">生产者/消费者问题</h2>
+
+<p>采用多线程技术解决生产者/消费者问题 <br/>
+也称有界缓冲区问题 <br/>
+多个生产者线程向缓冲区中写数据 <br/>
+多个消费者线程从缓冲区中读取数据 <br/>
+生产者线程和消费者线程必须满足 <br/>
+生产者写入缓冲区的数目不能超过缓冲区容量 <br/>
+消费者读取的数目不能超过生产者写入的数目</p>
+
+
+
+<pre class="prettyprint"><code class=" hljs cs">缓冲区须被生产者/消费者进程互斥访问
+生产者进程
+多个并发写进程互斥改变写指针
+写入条件：缓冲区非满
+消费者进程
+多个并发读进程互斥改变读指针
+读取条件：缓冲区非空
+读/写指针设计
+初始化时，读指针和写指针均为<span class="hljs-number">0</span>
+如果读指针等于写指针，则缓冲区为空
+如果(写指针+ <span class="hljs-number">1</span>) % BUFFER_SIZE等于读指针，则缓冲区为满
+
+缓冲区结构定义
+一个mutex变量：pthread_mutex_t
+<span class="hljs-keyword">lock</span>
+两个条件变量： pthread_cond_t 
+分别控制缓存空/满状态指示
+notempty
+notfull
+</code></pre>
+
+
+
+<h2 id="生产者消费者进程">生产者/消费者进程</h2>
+
+<pre class="prettyprint"><code class=" hljs sql">1、调用pthread_mutex_lock()对<span class="hljs-operator"><span class="hljs-keyword">lock</span>上锁，并根据以下条件判断缓冲区是否已满；
+(writepos + <span class="hljs-number">1</span>) % BUFSIZE == readpos
+<span class="hljs-number">2</span>、若满，调用phtread_cond_wait()进入阻塞，等待notfull条件变量；
+<span class="hljs-number">3</span>、写入数据并移动写指针writepos；
+<span class="hljs-number">4</span>、调用pthread_cond_signal()向消费者信号通过notempty条件变量;</span>
+5、调用pthread_mutex_unlock()对mutex解锁。
+</code></pre>
+
+
+
+<pre class="prettyprint"><code class=" hljs sql">1、调用pthread_mutex_lock()对<span class="hljs-operator"><span class="hljs-keyword">lock</span>上锁，并根据以下条件判断缓冲区是否为空；
+writepos == readpos
+<span class="hljs-number">2</span>、若空，调用ptread_cond_wait()进入阻塞，等待notempty条件变量；
+<span class="hljs-number">3</span>、读取数据并移动读指针readpos；
+<span class="hljs-number">4</span>、调用pthread_cond_signal()向消费者信号通过notfull条件变量;</span>
+5、调用pthread_mutex_unlock()对mutex解锁。
+</code></pre>
+
+<h2 id="生产者消费者问题关键函数">生产者/消费者问题—关键函数</h2>
+
+
+
+<pre class="prettyprint"><code class=" hljs cs">线程管理相关函数
+<span class="hljs-keyword">int</span> pthread_create( );
+<span class="hljs-keyword">int</span> pthread_join();
+线程互斥控制相关函数
+<span class="hljs-keyword">int</span> pthread_mutex_init();
+<span class="hljs-keyword">int</span> pthread_mutex_lock();
+<span class="hljs-keyword">int</span> pthread_mutex_unlock();
+线程条件变量控制相关函数
+<span class="hljs-keyword">int</span> pthread_cond_init();
+<span class="hljs-keyword">int</span> pthread_cond_wait();
+<span class="hljs-keyword">int</span> pthread_cond_signal();
+</code></pre>
+
+<h2 id="理发师问题">理发师问题</h2>
+
+<p>问题描述 <br/>
+一个理发店，只有一个理发师，只有n张可供顾客等待理发的椅子 <br/>
+理发师 <br/>
+如果没有顾客，则理发师睡觉 <br/>
+否则开始理发 <br/>
+如果椅子为空，则继续睡觉 <br/>
+顾客 <br/>
+如果进入理发店发现理发师在睡觉，则把他叫醒 <br/>
+如果发现理发师在理发，且有椅子为空，则坐下来等待 <br/>
+如果顾客发现椅子满，则离开</p><link rel="stylesheet" href="http://static.blog.csdn.net/public/res-min/markdown_views.css?v=1.0"/></div><link rel="stylesheet" href="http://static.blog.csdn.net/public/res-min/markdown_views.css?v=1.0"/>&#13;
+            

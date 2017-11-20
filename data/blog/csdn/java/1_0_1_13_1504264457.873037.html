@@ -1,0 +1,1498 @@
+
+        <div class="markdown_views"><p>hibernate框架的综合使用——通过使用hibernate框架多数据库的单表和多表进行增删改查，下面是详细代码</p>
+
+<p>1.先通过蚂蚁搬家Ant建立数据库 <br />
+ createTables.sql</p>
+
+<pre class="prettyprint"><code class=" hljs sql"><span class="hljs-operator"><span class="hljs-keyword">CREATE</span> <span class="hljs-keyword">DATABASE</span> mydb <span class="hljs-keyword">character</span> <span class="hljs-keyword">set</span>  utf8;</span>
+use mydb;
+<span class="hljs-operator"><span class="hljs-keyword">create</span> <span class="hljs-keyword">table</span> student(
+    id <span class="hljs-keyword">varchar</span>(<span class="hljs-number">32</span>) <span class="hljs-keyword">primary</span> <span class="hljs-keyword">key</span>,
+    name <span class="hljs-keyword">varchar</span>(<span class="hljs-number">20</span>),
+    age <span class="hljs-keyword">int</span> ,
+    deptId <span class="hljs-keyword">varchar</span>(<span class="hljs-number">32</span>)
+);</span>
+<span class="hljs-operator"><span class="hljs-keyword">insert</span> <span class="hljs-keyword">into</span> student <span class="hljs-keyword">values</span>(<span class="hljs-string">'S001'</span>,<span class="hljs-string">'Jack'</span>,<span class="hljs-number">20</span>,<span class="hljs-string">'D001'</span>);</span>
+<span class="hljs-operator"><span class="hljs-keyword">insert</span> <span class="hljs-keyword">into</span> student <span class="hljs-keyword">values</span>(<span class="hljs-string">'S002'</span>,<span class="hljs-string">'TOM'</span>,<span class="hljs-number">21</span>,<span class="hljs-string">'D001'</span>);</span>
+<span class="hljs-operator"><span class="hljs-keyword">insert</span> <span class="hljs-keyword">into</span> student <span class="hljs-keyword">values</span>(<span class="hljs-string">'S003'</span>,<span class="hljs-string">'张三'</span>,<span class="hljs-number">22</span>,<span class="hljs-string">'D001'</span>);</span>
+<span class="hljs-operator"><span class="hljs-keyword">insert</span> <span class="hljs-keyword">into</span> student <span class="hljs-keyword">values</span>(<span class="hljs-string">'S004'</span>,<span class="hljs-string">'李四'</span>,<span class="hljs-number">23</span>,<span class="hljs-string">'D001'</span>);</span></code></pre>
+
+<p>multi.sql</p>
+
+
+
+<pre class="prettyprint"><code class=" hljs sql">use mydb;
+<span class="hljs-operator"><span class="hljs-keyword">create</span> <span class="hljs-keyword">table</span> stud(
+    id <span class="hljs-keyword">varchar</span>(<span class="hljs-number">32</span>) <span class="hljs-keyword">primary</span> <span class="hljs-keyword">key</span>,
+    name <span class="hljs-keyword">varchar</span>(<span class="hljs-number">20</span>),
+    age <span class="hljs-keyword">int</span> ,
+    deptId <span class="hljs-keyword">varchar</span>(<span class="hljs-number">32</span>)
+);</span>
+
+<span class="hljs-operator"><span class="hljs-keyword">create</span> <span class="hljs-keyword">table</span> dept(
+    id <span class="hljs-keyword">varchar</span>(<span class="hljs-number">32</span>) <span class="hljs-keyword">primary</span> <span class="hljs-keyword">key</span>,
+    name <span class="hljs-keyword">varchar</span>(<span class="hljs-number">20</span>)
+);</span>
+<span class="hljs-operator"><span class="hljs-keyword">ALTER</span> <span class="hljs-keyword">TABLE</span> stud <span class="hljs-keyword">ADD</span> <span class="hljs-keyword">CONSTRAINT</span> fk_dept <span class="hljs-keyword">FOREIGN</span> <span class="hljs-keyword">KEY</span>(deptId) <span class="hljs-keyword">REFERENCES</span> dept(id);</span>
+
+<span class="hljs-operator"><span class="hljs-keyword">insert</span> <span class="hljs-keyword">into</span> dept <span class="hljs-keyword">values</span>(<span class="hljs-string">'D001'</span>,<span class="hljs-string">'信息科学与工程学院'</span>);</span>
+<span class="hljs-operator"><span class="hljs-keyword">insert</span> <span class="hljs-keyword">into</span> dept <span class="hljs-keyword">values</span>(<span class="hljs-string">'D002'</span>,<span class="hljs-string">'土木学院'</span>);</span>
+
+<span class="hljs-operator"><span class="hljs-keyword">insert</span> <span class="hljs-keyword">into</span> stud <span class="hljs-keyword">values</span>(<span class="hljs-string">'S001'</span>,<span class="hljs-string">'Jack'</span>,<span class="hljs-number">20</span>,<span class="hljs-string">'D001'</span>);</span>
+<span class="hljs-operator"><span class="hljs-keyword">insert</span> <span class="hljs-keyword">into</span> stud <span class="hljs-keyword">values</span>(<span class="hljs-string">'S002'</span>,<span class="hljs-string">'TOM'</span>,<span class="hljs-number">21</span>,<span class="hljs-string">'D001'</span>);</span>
+<span class="hljs-operator"><span class="hljs-keyword">insert</span> <span class="hljs-keyword">into</span> stud <span class="hljs-keyword">values</span>(<span class="hljs-string">'S003'</span>,<span class="hljs-string">'张三'</span>,<span class="hljs-number">22</span>,<span class="hljs-string">'D001'</span>);</span>
+<span class="hljs-operator"><span class="hljs-keyword">insert</span> <span class="hljs-keyword">into</span> stud <span class="hljs-keyword">values</span>(<span class="hljs-string">'S004'</span>,<span class="hljs-string">'李四'</span>,<span class="hljs-number">23</span>,<span class="hljs-string">'D001'</span>);</span></code></pre>
+
+<p>把build.xml放在项目目录下 <br />
+build.xml</p>
+
+<pre class="prettyprint"><code class=" hljs xml"><span class="hljs-pi">&lt;?xml version="1.0" encoding="UTF-8"?&gt;</span>
+<span class="hljs-tag">&lt;<span class="hljs-title">project</span> <span class="hljs-attribute">basedir</span>=<span class="hljs-value">"."</span> <span class="hljs-attribute">default</span>=<span class="hljs-value">"dft"</span>&gt;</span>
+    <span class="hljs-tag">&lt;<span class="hljs-title">property</span> <span class="hljs-attribute">name</span>=<span class="hljs-value">"url"</span> <span class="hljs-attribute">value</span>=<span class="hljs-value">"jdbc:mysql://127.0.0.1:3306/sstud?useUnicode=true&amp;amp;characterEncoding=UTF-8"</span>&gt;</span><span class="hljs-tag">&lt;/<span class="hljs-title">property</span>&gt;</span>
+    <span class="hljs-tag">&lt;<span class="hljs-title">property</span> <span class="hljs-attribute">name</span>=<span class="hljs-value">"driver"</span> <span class="hljs-attribute">value</span>=<span class="hljs-value">"com.mysql.jdbc.Driver"</span>&gt;</span><span class="hljs-tag">&lt;/<span class="hljs-title">property</span>&gt;</span>
+    <span class="hljs-tag">&lt;<span class="hljs-title">property</span> <span class="hljs-attribute">name</span>=<span class="hljs-value">"user"</span> <span class="hljs-attribute">value</span>=<span class="hljs-value">"root"</span>&gt;</span><span class="hljs-tag">&lt;/<span class="hljs-title">property</span>&gt;</span>
+    <span class="hljs-tag">&lt;<span class="hljs-title">property</span> <span class="hljs-attribute">name</span>=<span class="hljs-value">"pwd"</span> <span class="hljs-attribute">value</span>=<span class="hljs-value">"1234"</span>&gt;</span><span class="hljs-tag">&lt;/<span class="hljs-title">property</span>&gt;</span>
+
+    <span class="hljs-tag">&lt;<span class="hljs-title">target</span> <span class="hljs-attribute">name</span>=<span class="hljs-value">"dft"</span> <span class="hljs-attribute">depends</span>=<span class="hljs-value">"createStudentTable"</span> &gt;</span>
+        <span class="hljs-tag">&lt;<span class="hljs-title">echo</span>&gt;</span>Hello<span class="hljs-tag">&lt;/<span class="hljs-title">echo</span>&gt;</span>
+    <span class="hljs-tag">&lt;/<span class="hljs-title">target</span>&gt;</span>
+        <span class="hljs-tag">&lt;<span class="hljs-title">target</span> <span class="hljs-attribute">name</span>=<span class="hljs-value">"createStudentTable"</span>&gt;</span>
+        <span class="hljs-tag">&lt;<span class="hljs-title">sql</span> <span class="hljs-attribute">userid</span>=<span class="hljs-value">"${user}"</span> <span class="hljs-attribute">password</span>=<span class="hljs-value">"${pwd}"</span> <span class="hljs-attribute">url</span>=<span class="hljs-value">"${url}"</span> <span class="hljs-attribute">driver</span>=<span class="hljs-value">"${driver}"</span> <span class="hljs-attribute">delimiter</span>=<span class="hljs-value">";"</span>&gt;</span>
+            <span class="hljs-tag">&lt;<span class="hljs-title">fileset</span> <span class="hljs-attribute">dir</span>=<span class="hljs-value">"${basedir}/WebRoot/sql"</span>&gt;</span>
+                <span class="hljs-tag">&lt;<span class="hljs-title">include</span> <span class="hljs-attribute">name</span>=<span class="hljs-value">"*.sql"</span>/&gt;</span>
+            <span class="hljs-tag">&lt;/<span class="hljs-title">fileset</span>&gt;</span>
+            <span class="hljs-tag">&lt;<span class="hljs-title">classpath</span>&gt;</span>
+                <span class="hljs-tag">&lt;<span class="hljs-title">fileset</span> <span class="hljs-attribute">dir</span>=<span class="hljs-value">"${basedir}/WebRoot/WEB-INF/lib"</span>&gt;</span>
+                    <span class="hljs-tag">&lt;<span class="hljs-title">include</span> <span class="hljs-attribute">name</span>=<span class="hljs-value">"*.jar"</span>/&gt;</span>
+                <span class="hljs-tag">&lt;/<span class="hljs-title">fileset</span>&gt;</span>
+            <span class="hljs-tag">&lt;/<span class="hljs-title">classpath</span>&gt;</span>
+    <span class="hljs-tag">&lt;/<span class="hljs-title">sql</span>&gt;</span>
+    <span class="hljs-tag">&lt;/<span class="hljs-title">target</span>&gt;</span>
+            <span class="hljs-tag">&lt;<span class="hljs-title">target</span> <span class="hljs-attribute">name</span>=<span class="hljs-value">"createMutiTable"</span>&gt;</span>
+            <span class="hljs-tag">&lt;<span class="hljs-title">sql</span> <span class="hljs-attribute">userid</span>=<span class="hljs-value">"${user}"</span> <span class="hljs-attribute">password</span>=<span class="hljs-value">"${pwd}"</span> <span class="hljs-attribute">url</span>=<span class="hljs-value">"${url}"</span> <span class="hljs-attribute">driver</span>=<span class="hljs-value">"${driver}"</span> <span class="hljs-attribute">delimiter</span>=<span class="hljs-value">";"</span>&gt;</span>
+                <span class="hljs-tag">&lt;<span class="hljs-title">fileset</span> <span class="hljs-attribute">dir</span>=<span class="hljs-value">"${basedir}/WebRoot/sql"</span>&gt;</span>
+                    <span class="hljs-tag">&lt;<span class="hljs-title">include</span> <span class="hljs-attribute">name</span>=<span class="hljs-value">"mutiSql.sql"</span>/&gt;</span>
+                <span class="hljs-tag">&lt;/<span class="hljs-title">fileset</span>&gt;</span>
+                <span class="hljs-tag">&lt;<span class="hljs-title">classpath</span>&gt;</span>
+                    <span class="hljs-tag">&lt;<span class="hljs-title">fileset</span> <span class="hljs-attribute">dir</span>=<span class="hljs-value">"${basedir}/WebRoot/WEB-INF/lib"</span>&gt;</span>
+                        <span class="hljs-tag">&lt;<span class="hljs-title">include</span> <span class="hljs-attribute">name</span>=<span class="hljs-value">"*.jar"</span>/&gt;</span>
+                    <span class="hljs-tag">&lt;/<span class="hljs-title">fileset</span>&gt;</span>
+                <span class="hljs-tag">&lt;/<span class="hljs-title">classpath</span>&gt;</span>
+        <span class="hljs-tag">&lt;/<span class="hljs-title">sql</span>&gt;</span>
+        <span class="hljs-tag">&lt;/<span class="hljs-title">target</span>&gt;</span>
+<span class="hljs-tag">&lt;/<span class="hljs-title">project</span>&gt;</span>
+</code></pre>
+
+
+
+<h3 id="2写hibernate配置文件和值对象">2.写hibernate配置文件和值对象</h3>
+
+<p>在项目的src目录下加上配置文件 <br />
+<font color="red">hibernate.cfg.xml</font></p>
+
+<pre class="prettyprint"><code class=" hljs xml"><span class="hljs-pi">&lt;?xml version='1.0' encoding='UTF-8'?&gt;</span>
+<span class="hljs-doctype">&lt;!DOCTYPE hibernate-configuration PUBLIC
+          "-//Hibernate/Hibernate Configuration DTD 3.0//EN"
+          "http://hibernate.sourceforge.net/hibernate-configuration-3.0.dtd"&gt;</span>
+<span class="hljs-tag">&lt;<span class="hljs-title">hibernate-configuration</span>&gt;</span>
+
+<span class="hljs-tag">&lt;<span class="hljs-title">session-factory</span>&gt;</span>
+    <span class="hljs-tag">&lt;<span class="hljs-title">property</span> <span class="hljs-attribute">name</span>=<span class="hljs-value">"connection.driver_class"</span>&gt;</span>
+        com.mysql.jdbc.Driver
+    <span class="hljs-tag">&lt;/<span class="hljs-title">property</span>&gt;</span>
+    <span class="hljs-tag">&lt;<span class="hljs-title">property</span> <span class="hljs-attribute">name</span>=<span class="hljs-value">"connection.url"</span>&gt;</span>
+        jdbc:mysql://127.0.0.1:3306/mydb
+    <span class="hljs-tag">&lt;/<span class="hljs-title">property</span>&gt;</span>
+    <span class="hljs-tag">&lt;<span class="hljs-title">property</span> <span class="hljs-attribute">name</span>=<span class="hljs-value">"connection.username"</span>&gt;</span>root<span class="hljs-tag">&lt;/<span class="hljs-title">property</span>&gt;</span>
+    <span class="hljs-tag">&lt;<span class="hljs-title">property</span> <span class="hljs-attribute">name</span>=<span class="hljs-value">"connection.password"</span>&gt;</span>1234<span class="hljs-tag">&lt;/<span class="hljs-title">property</span>&gt;</span>
+
+    <span class="hljs-tag">&lt;<span class="hljs-title">property</span> <span class="hljs-attribute">name</span>=<span class="hljs-value">"dialect"</span>&gt;</span>
+        org.hibernate.dialect.MySQLDialect
+    <span class="hljs-tag">&lt;/<span class="hljs-title">property</span>&gt;</span>
+
+    <span class="hljs-tag">&lt;<span class="hljs-title">mapping</span> <span class="hljs-attribute">resource</span>=<span class="hljs-value">"cn/hncu/domain/Student.hbm.xml"</span>/&gt;</span>
+    <span class="hljs-tag">&lt;/<span class="hljs-title">session-factory</span>&gt;</span>
+
+<span class="hljs-tag">&lt;/<span class="hljs-title">hibernate-configuration</span>&gt;</span></code></pre>
+
+<p>在值对象的目录下写入Student.hbm.xml映射文件 <br />
+<font color="red">Student.hbm.xml</font></p>
+
+
+
+<pre class="prettyprint"><code class=" hljs xml"><span class="hljs-pi">&lt;?xml version="1.0" encoding="utf-8"?&gt;</span>
+<span class="hljs-doctype">&lt;!DOCTYPE hibernate-mapping PUBLIC "-//Hibernate/Hibernate Mapping DTD 3.0//EN"
+"http://hibernate.sourceforge.net/hibernate-mapping-3.0.dtd"&gt;</span>
+<span class="hljs-tag">&lt;<span class="hljs-title">hibernate-mapping</span> <span class="hljs-attribute">package</span>=<span class="hljs-value">"cn.hncu.domain"</span>&gt;</span>
+    <span class="hljs-tag">&lt;<span class="hljs-title">class</span> <span class="hljs-attribute">name</span>=<span class="hljs-value">"Student"</span> <span class="hljs-attribute">table</span>=<span class="hljs-value">"student"</span> <span class="hljs-attribute">catalog</span>=<span class="hljs-value">"mydb"</span>&gt;</span>
+        <span class="hljs-tag">&lt;<span class="hljs-title">id</span> <span class="hljs-attribute">name</span>=<span class="hljs-value">"studId"</span> <span class="hljs-attribute">type</span>=<span class="hljs-value">"java.lang.String"</span>&gt;</span>
+            <span class="hljs-tag">&lt;<span class="hljs-title">column</span> <span class="hljs-attribute">name</span>=<span class="hljs-value">"id"</span> <span class="hljs-attribute">length</span>=<span class="hljs-value">"32"</span>&gt;</span><span class="hljs-tag">&lt;/<span class="hljs-title">column</span>&gt;</span>
+        <span class="hljs-tag">&lt;/<span class="hljs-title">id</span>&gt;</span>
+        <span class="hljs-tag">&lt;<span class="hljs-title">property</span> <span class="hljs-attribute">name</span>=<span class="hljs-value">"studName"</span> <span class="hljs-attribute">type</span>=<span class="hljs-value">"java.lang.String"</span>&gt;</span>
+            <span class="hljs-tag">&lt;<span class="hljs-title">column</span> <span class="hljs-attribute">name</span>=<span class="hljs-value">"name"</span> <span class="hljs-attribute">length</span>=<span class="hljs-value">"20"</span>&gt;</span><span class="hljs-tag">&lt;/<span class="hljs-title">column</span>&gt;</span>
+        <span class="hljs-tag">&lt;/<span class="hljs-title">property</span>&gt;</span>
+        <span class="hljs-tag">&lt;<span class="hljs-title">property</span> <span class="hljs-attribute">name</span>=<span class="hljs-value">"studAge"</span> <span class="hljs-attribute">type</span>=<span class="hljs-value">"java.lang.Integer"</span>&gt;</span>
+            <span class="hljs-tag">&lt;<span class="hljs-title">column</span> <span class="hljs-attribute">name</span>=<span class="hljs-value">"age"</span>&gt;</span><span class="hljs-tag">&lt;/<span class="hljs-title">column</span>&gt;</span>
+        <span class="hljs-tag">&lt;/<span class="hljs-title">property</span>&gt;</span>
+        <span class="hljs-tag">&lt;<span class="hljs-title">property</span> <span class="hljs-attribute">name</span>=<span class="hljs-value">"deptId"</span> <span class="hljs-attribute">type</span>=<span class="hljs-value">"java.lang.String"</span>&gt;</span>
+            <span class="hljs-tag">&lt;<span class="hljs-title">column</span> <span class="hljs-attribute">name</span>=<span class="hljs-value">"deptId"</span> <span class="hljs-attribute">length</span>=<span class="hljs-value">"32"</span>&gt;</span><span class="hljs-tag">&lt;/<span class="hljs-title">column</span>&gt;</span>
+        <span class="hljs-tag">&lt;/<span class="hljs-title">property</span>&gt;</span>
+    <span class="hljs-tag">&lt;/<span class="hljs-title">class</span>&gt;</span>
+
+
+    <span class="hljs-tag">&lt;<span class="hljs-title">class</span> <span class="hljs-attribute">name</span>=<span class="hljs-value">"Stud"</span> <span class="hljs-attribute">table</span>=<span class="hljs-value">"stud"</span> <span class="hljs-attribute">catalog</span>=<span class="hljs-value">"mydb"</span>&gt;</span>
+        <span class="hljs-tag">&lt;<span class="hljs-title">id</span> <span class="hljs-attribute">name</span>=<span class="hljs-value">"studId"</span> <span class="hljs-attribute">type</span>=<span class="hljs-value">"java.lang.String"</span>&gt;</span>
+            <span class="hljs-tag">&lt;<span class="hljs-title">column</span> <span class="hljs-attribute">name</span>=<span class="hljs-value">"id"</span> <span class="hljs-attribute">length</span>=<span class="hljs-value">"32"</span>&gt;</span><span class="hljs-tag">&lt;/<span class="hljs-title">column</span>&gt;</span>
+        <span class="hljs-tag">&lt;/<span class="hljs-title">id</span>&gt;</span>
+        <span class="hljs-tag">&lt;<span class="hljs-title">property</span> <span class="hljs-attribute">name</span>=<span class="hljs-value">"studName"</span> <span class="hljs-attribute">type</span>=<span class="hljs-value">"java.lang.String"</span>&gt;</span>
+            <span class="hljs-tag">&lt;<span class="hljs-title">column</span> <span class="hljs-attribute">name</span>=<span class="hljs-value">"name"</span> <span class="hljs-attribute">length</span>=<span class="hljs-value">"20"</span>&gt;</span><span class="hljs-tag">&lt;/<span class="hljs-title">column</span>&gt;</span>
+        <span class="hljs-tag">&lt;/<span class="hljs-title">property</span>&gt;</span>
+        <span class="hljs-tag">&lt;<span class="hljs-title">property</span> <span class="hljs-attribute">name</span>=<span class="hljs-value">"studAge"</span> <span class="hljs-attribute">type</span>=<span class="hljs-value">"java.lang.Integer"</span>&gt;</span>
+            <span class="hljs-tag">&lt;<span class="hljs-title">column</span> <span class="hljs-attribute">name</span>=<span class="hljs-value">"age"</span>&gt;</span><span class="hljs-tag">&lt;/<span class="hljs-title">column</span>&gt;</span>
+        <span class="hljs-tag">&lt;/<span class="hljs-title">property</span>&gt;</span>
+
+    <span class="hljs-comment">&lt;!-- 在多方配置一个一方值对象：为Student类中的dept属性注入值  --&gt;</span>
+            <span class="hljs-tag">&lt;<span class="hljs-title">many-to-one</span> <span class="hljs-attribute">name</span>=<span class="hljs-value">"dept"</span> <span class="hljs-attribute">class</span>=<span class="hljs-value">"Dept"</span> <span class="hljs-attribute">fetch</span>=<span class="hljs-value">"select"</span>&gt;</span>
+                <span class="hljs-tag">&lt;<span class="hljs-title">column</span> <span class="hljs-attribute">name</span>=<span class="hljs-value">"deptId"</span> <span class="hljs-attribute">length</span>=<span class="hljs-value">"32"</span>&gt;</span><span class="hljs-tag">&lt;/<span class="hljs-title">column</span>&gt;</span>
+            <span class="hljs-tag">&lt;/<span class="hljs-title">many-to-one</span>&gt;</span>
+    <span class="hljs-tag">&lt;/<span class="hljs-title">class</span>&gt;</span>
+
+    <span class="hljs-tag">&lt;<span class="hljs-title">class</span> <span class="hljs-attribute">name</span>=<span class="hljs-value">"Dept"</span> <span class="hljs-attribute">table</span>=<span class="hljs-value">"dept"</span> <span class="hljs-attribute">catalog</span>=<span class="hljs-value">"mydb"</span>&gt;</span>
+        <span class="hljs-tag">&lt;<span class="hljs-title">id</span> <span class="hljs-attribute">name</span>=<span class="hljs-value">"deptId"</span> <span class="hljs-attribute">type</span>=<span class="hljs-value">"java.lang.String"</span>&gt;</span>
+            <span class="hljs-tag">&lt;<span class="hljs-title">column</span> <span class="hljs-attribute">name</span>=<span class="hljs-value">"id"</span> <span class="hljs-attribute">length</span>=<span class="hljs-value">"32"</span>&gt;</span><span class="hljs-tag">&lt;/<span class="hljs-title">column</span>&gt;</span>
+        <span class="hljs-tag">&lt;/<span class="hljs-title">id</span>&gt;</span>
+        <span class="hljs-tag">&lt;<span class="hljs-title">property</span> <span class="hljs-attribute">name</span>=<span class="hljs-value">"deptName"</span> <span class="hljs-attribute">type</span>=<span class="hljs-value">"java.lang.String"</span>&gt;</span>
+            <span class="hljs-tag">&lt;<span class="hljs-title">column</span> <span class="hljs-attribute">name</span>=<span class="hljs-value">"name"</span> <span class="hljs-attribute">length</span>=<span class="hljs-value">"20"</span>&gt;</span><span class="hljs-tag">&lt;/<span class="hljs-title">column</span>&gt;</span>
+        <span class="hljs-tag">&lt;/<span class="hljs-title">property</span>&gt;</span>
+
+     <span class="hljs-comment">&lt;!-- 在一方为所拥有的多方集合注入值：为Dept类中的students属性注入值 ,级联必须要配置属性:cascade="all"  --&gt;</span>
+         <span class="hljs-tag">&lt;<span class="hljs-title">set</span> <span class="hljs-attribute">name</span>=<span class="hljs-value">"students"</span> <span class="hljs-attribute">table</span>=<span class="hljs-value">"stud"</span> <span class="hljs-attribute">catalog</span>=<span class="hljs-value">"mydb"</span> <span class="hljs-attribute">inverse</span>=<span class="hljs-value">"true"</span>  <span class="hljs-attribute">cascade</span>=<span class="hljs-value">"none"</span>&gt;</span>
+       <span class="hljs-tag">&lt;<span class="hljs-title">key</span>&gt;</span>
+         <span class="hljs-tag">&lt;<span class="hljs-title">column</span> <span class="hljs-attribute">name</span>=<span class="hljs-value">"deptId"</span> <span class="hljs-attribute">length</span>=<span class="hljs-value">"32"</span>&gt;</span><span class="hljs-tag">&lt;/<span class="hljs-title">column</span>&gt;</span>
+       <span class="hljs-tag">&lt;/<span class="hljs-title">key</span>&gt;</span>
+       <span class="hljs-tag">&lt;<span class="hljs-title">one-to-many</span> <span class="hljs-attribute">class</span>=<span class="hljs-value">"Stud"</span>/&gt;</span>
+    <span class="hljs-tag">&lt;/<span class="hljs-title">set</span>&gt;</span>
+    <span class="hljs-tag">&lt;/<span class="hljs-title">class</span>&gt;</span>
+
+<span class="hljs-tag">&lt;/<span class="hljs-title">hibernate-mapping</span>&gt;</span></code></pre>
+
+<p>Student.java值对象</p>
+
+<pre class="prettyprint"><code class=" hljs java"><span class="hljs-keyword">package</span> cn.hncu.domain;
+
+<span class="hljs-keyword">public</span> <span class="hljs-class"><span class="hljs-keyword">class</span> <span class="hljs-title">Student</span> {</span>
+    <span class="hljs-keyword">private</span> String studId;
+    <span class="hljs-keyword">private</span> String studName;
+    <span class="hljs-keyword">private</span> Integer studAge;
+    <span class="hljs-keyword">private</span> String deptId;
+    <span class="hljs-keyword">public</span> String <span class="hljs-title">getStudId</span>() {
+        <span class="hljs-keyword">return</span> studId;
+    }
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">void</span> <span class="hljs-title">setStudId</span>(String studId) {
+        <span class="hljs-keyword">this</span>.studId = studId;
+    }
+    <span class="hljs-keyword">public</span> String <span class="hljs-title">getStudName</span>() {
+        <span class="hljs-keyword">return</span> studName;
+    }
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">void</span> <span class="hljs-title">setStudName</span>(String studName) {
+        <span class="hljs-keyword">this</span>.studName = studName;
+    }
+    <span class="hljs-annotation">@Override</span>
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">int</span> <span class="hljs-title">hashCode</span>() {
+        <span class="hljs-keyword">final</span> <span class="hljs-keyword">int</span> prime = <span class="hljs-number">31</span>;
+        <span class="hljs-keyword">int</span> result = <span class="hljs-number">1</span>;
+        result = prime * result + ((studId == <span class="hljs-keyword">null</span>) ? <span class="hljs-number">0</span> : studId.hashCode());
+        <span class="hljs-keyword">return</span> result;
+    }
+    <span class="hljs-annotation">@Override</span>
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">boolean</span> <span class="hljs-title">equals</span>(Object obj) {
+        <span class="hljs-keyword">if</span> (<span class="hljs-keyword">this</span> == obj)
+            <span class="hljs-keyword">return</span> <span class="hljs-keyword">true</span>;
+        <span class="hljs-keyword">if</span> (obj == <span class="hljs-keyword">null</span>)
+            <span class="hljs-keyword">return</span> <span class="hljs-keyword">false</span>;
+        <span class="hljs-keyword">if</span> (getClass() != obj.getClass())
+            <span class="hljs-keyword">return</span> <span class="hljs-keyword">false</span>;
+        Student other = (Student) obj;
+        <span class="hljs-keyword">if</span> (studId == <span class="hljs-keyword">null</span>) {
+            <span class="hljs-keyword">if</span> (other.studId != <span class="hljs-keyword">null</span>)
+                <span class="hljs-keyword">return</span> <span class="hljs-keyword">false</span>;
+        } <span class="hljs-keyword">else</span> <span class="hljs-keyword">if</span> (!studId.equals(other.studId))
+            <span class="hljs-keyword">return</span> <span class="hljs-keyword">false</span>;
+        <span class="hljs-keyword">return</span> <span class="hljs-keyword">true</span>;
+    }
+    <span class="hljs-keyword">public</span> Integer <span class="hljs-title">getStudAge</span>() {
+        <span class="hljs-keyword">return</span> studAge;
+    }
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">void</span> <span class="hljs-title">setStudAge</span>(Integer studAge) {
+        <span class="hljs-keyword">this</span>.studAge = studAge;
+    }
+    <span class="hljs-keyword">public</span> String <span class="hljs-title">getDeptId</span>() {
+        <span class="hljs-keyword">return</span> deptId;
+    }
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">void</span> <span class="hljs-title">setDeptId</span>(String deptId) {
+        <span class="hljs-keyword">this</span>.deptId = deptId;
+    }
+    <span class="hljs-annotation">@Override</span>
+    <span class="hljs-keyword">public</span> String <span class="hljs-title">toString</span>() {
+        <span class="hljs-keyword">return</span> <span class="hljs-string">"Student [studId="</span> + studId + <span class="hljs-string">", studName="</span> + studName
+                + <span class="hljs-string">", studAge="</span> + studAge + <span class="hljs-string">", deptId="</span> + deptId + <span class="hljs-string">"]"</span>;
+    }
+}</code></pre>
+
+<p>Stud.java值对象</p>
+
+
+
+<pre class="prettyprint"><code class=" hljs java"><span class="hljs-keyword">package</span> cn.hncu.domain;
+
+<span class="hljs-keyword">public</span> <span class="hljs-class"><span class="hljs-keyword">class</span> <span class="hljs-title">Stud</span> {</span>
+    <span class="hljs-keyword">private</span> String studId;
+    <span class="hljs-keyword">private</span> String studName;
+    <span class="hljs-keyword">private</span> Integer studAge;
+    <span class="hljs-keyword">private</span> Dept dept;
+    <span class="hljs-keyword">public</span> String <span class="hljs-title">getStudId</span>() {
+        <span class="hljs-keyword">return</span> studId;
+    }
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">void</span> <span class="hljs-title">setStudId</span>(String studId) {
+        <span class="hljs-keyword">this</span>.studId = studId;
+    }
+    <span class="hljs-keyword">public</span> String <span class="hljs-title">getStudName</span>() {
+        <span class="hljs-keyword">return</span> studName;
+    }
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">void</span> <span class="hljs-title">setStudName</span>(String studName) {
+        <span class="hljs-keyword">this</span>.studName = studName;
+    }
+    <span class="hljs-keyword">public</span> Integer <span class="hljs-title">getStudAge</span>() {
+        <span class="hljs-keyword">return</span> studAge;
+    }
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">void</span> <span class="hljs-title">setStudAge</span>(Integer studAge) {
+        <span class="hljs-keyword">this</span>.studAge = studAge;
+    }
+    <span class="hljs-keyword">public</span> Dept <span class="hljs-title">getDept</span>() {
+        <span class="hljs-keyword">return</span> dept;
+    }
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">void</span> <span class="hljs-title">setDept</span>(Dept dept) {
+        <span class="hljs-keyword">this</span>.dept = dept;
+    }
+    <span class="hljs-annotation">@Override</span>
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">int</span> <span class="hljs-title">hashCode</span>() {
+        <span class="hljs-keyword">final</span> <span class="hljs-keyword">int</span> prime = <span class="hljs-number">31</span>;
+        <span class="hljs-keyword">int</span> result = <span class="hljs-number">1</span>;
+        result = prime * result + ((studId == <span class="hljs-keyword">null</span>) ? <span class="hljs-number">0</span> : studId.hashCode());
+        <span class="hljs-keyword">return</span> result;
+    }
+    <span class="hljs-annotation">@Override</span>
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">boolean</span> <span class="hljs-title">equals</span>(Object obj) {
+        <span class="hljs-keyword">if</span> (<span class="hljs-keyword">this</span> == obj)
+            <span class="hljs-keyword">return</span> <span class="hljs-keyword">true</span>;
+        <span class="hljs-keyword">if</span> (obj == <span class="hljs-keyword">null</span>)
+            <span class="hljs-keyword">return</span> <span class="hljs-keyword">false</span>;
+        <span class="hljs-keyword">if</span> (getClass() != obj.getClass())
+            <span class="hljs-keyword">return</span> <span class="hljs-keyword">false</span>;
+        Stud other = (Stud) obj;
+        <span class="hljs-keyword">if</span> (studId == <span class="hljs-keyword">null</span>) {
+            <span class="hljs-keyword">if</span> (other.studId != <span class="hljs-keyword">null</span>)
+                <span class="hljs-keyword">return</span> <span class="hljs-keyword">false</span>;
+        } <span class="hljs-keyword">else</span> <span class="hljs-keyword">if</span> (!studId.equals(other.studId))
+            <span class="hljs-keyword">return</span> <span class="hljs-keyword">false</span>;
+        <span class="hljs-keyword">return</span> <span class="hljs-keyword">true</span>;
+    }
+
+}
+</code></pre>
+
+<p>Dept.java值对象</p>
+
+
+
+<pre class="prettyprint"><code class=" hljs java"><span class="hljs-keyword">package</span> cn.hncu.domain;
+
+<span class="hljs-keyword">import</span> java.util.HashSet;
+<span class="hljs-keyword">import</span> java.util.Set;
+
+<span class="hljs-keyword">public</span> <span class="hljs-class"><span class="hljs-keyword">class</span> <span class="hljs-title">Dept</span> {</span>
+    <span class="hljs-keyword">private</span> String deptId;
+    <span class="hljs-keyword">private</span> String deptName;
+    <span class="hljs-keyword">private</span> Set&lt;Stud&gt; students=<span class="hljs-keyword">new</span> HashSet&lt;Stud&gt;();
+    <span class="hljs-keyword">public</span> String <span class="hljs-title">getDeptId</span>() {
+        <span class="hljs-keyword">return</span> deptId;
+    }
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">void</span> <span class="hljs-title">setDeptId</span>(String deptId) {
+        <span class="hljs-keyword">this</span>.deptId = deptId;
+    }
+    <span class="hljs-keyword">public</span> String <span class="hljs-title">getDeptName</span>() {
+        <span class="hljs-keyword">return</span> deptName;
+    }
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">void</span> <span class="hljs-title">setDeptName</span>(String deptName) {
+        <span class="hljs-keyword">this</span>.deptName = deptName;
+    }
+
+    <span class="hljs-keyword">public</span> Set&lt;Stud&gt; <span class="hljs-title">getStudents</span>() {
+        <span class="hljs-keyword">return</span> students;
+    }
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">void</span> <span class="hljs-title">setStudents</span>(Set&lt;Stud&gt; students) {
+        <span class="hljs-keyword">this</span>.students = students;
+    }
+    <span class="hljs-annotation">@Override</span>
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">int</span> <span class="hljs-title">hashCode</span>() {
+        <span class="hljs-keyword">final</span> <span class="hljs-keyword">int</span> prime = <span class="hljs-number">31</span>;
+        <span class="hljs-keyword">int</span> result = <span class="hljs-number">1</span>;
+        result = prime * result + ((deptId == <span class="hljs-keyword">null</span>) ? <span class="hljs-number">0</span> : deptId.hashCode());
+        <span class="hljs-keyword">return</span> result;
+    }
+    <span class="hljs-annotation">@Override</span>
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">boolean</span> <span class="hljs-title">equals</span>(Object obj) {
+        <span class="hljs-keyword">if</span> (<span class="hljs-keyword">this</span> == obj)
+            <span class="hljs-keyword">return</span> <span class="hljs-keyword">true</span>;
+        <span class="hljs-keyword">if</span> (obj == <span class="hljs-keyword">null</span>)
+            <span class="hljs-keyword">return</span> <span class="hljs-keyword">false</span>;
+        <span class="hljs-keyword">if</span> (getClass() != obj.getClass())
+            <span class="hljs-keyword">return</span> <span class="hljs-keyword">false</span>;
+        Dept other = (Dept) obj;
+        <span class="hljs-keyword">if</span> (deptId == <span class="hljs-keyword">null</span>) {
+            <span class="hljs-keyword">if</span> (other.deptId != <span class="hljs-keyword">null</span>)
+                <span class="hljs-keyword">return</span> <span class="hljs-keyword">false</span>;
+        } <span class="hljs-keyword">else</span> <span class="hljs-keyword">if</span> (!deptId.equals(other.deptId))
+            <span class="hljs-keyword">return</span> <span class="hljs-keyword">false</span>;
+        <span class="hljs-keyword">return</span> <span class="hljs-keyword">true</span>;
+    }
+    <span class="hljs-annotation">@Override</span>
+    <span class="hljs-keyword">public</span> String <span class="hljs-title">toString</span>() {
+        <span class="hljs-keyword">return</span> <span class="hljs-string">"Dept [deptId="</span> + deptId + <span class="hljs-string">", deptName="</span> + deptName
+                + <span class="hljs-string">", students="</span> + students + <span class="hljs-string">"]"</span>;
+    }
+
+
+
+
+}</code></pre>
+
+<p>3.写前端页面 <br />
+index.jsp</p>
+
+<pre class="prettyprint"><code class=" hljs xml"><span class="vbscript">&lt;%@ page language=<span class="hljs-string">"java"</span> import=<span class="hljs-string">"java.util.*"</span> pageEncoding=<span class="hljs-string">"UTF-8"</span>%&gt;</span>
+<span class="vbscript">&lt;%@taglib prefix=<span class="hljs-string">"c"</span> uri=<span class="hljs-string">"http://java.sun.com/jsp/jstl/core"</span>%&gt;</span>
+
+<span class="hljs-doctype">&lt;!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN"&gt;</span>
+<span class="hljs-tag">&lt;<span class="hljs-title">html</span>&gt;</span>
+<span class="hljs-tag">&lt;<span class="hljs-title">head</span>&gt;</span>
+<span class="hljs-tag">&lt;<span class="hljs-title">title</span>&gt;</span>hibernate技术演示<span class="hljs-tag">&lt;/<span class="hljs-title">title</span>&gt;</span>
+<span class="hljs-tag">&lt;/<span class="hljs-title">head</span>&gt;</span>
+<span class="hljs-tag">&lt;<span class="hljs-title">body</span>&gt;</span>
+    <span class="hljs-tag">&lt;<span class="hljs-title">a</span> <span class="hljs-attribute">href</span>=<span class="hljs-value">"&lt;c:url value='/DemoServlet'/&gt;"</span>&gt;</span>演示单表操作<span class="hljs-tag">&lt;/<span class="hljs-title">a</span>&gt;</span><span class="hljs-tag">&lt;<span class="hljs-title">br</span>/&gt;</span>
+    <span class="hljs-tag">&lt;<span class="hljs-title">a</span> <span class="hljs-attribute">href</span>=<span class="hljs-value">"&lt;c:url value='/MultiServlet'/&gt;"</span>&gt;</span>演示多表操作<span class="hljs-tag">&lt;/<span class="hljs-title">a</span>&gt;</span>
+<span class="hljs-tag">&lt;/<span class="hljs-title">body</span>&gt;</span>
+<span class="hljs-tag">&lt;/<span class="hljs-title">html</span>&gt;</span></code></pre>
+
+<p>dem1.jsp</p>
+
+
+
+<pre class="prettyprint"><code class=" hljs xml"><span class="vbscript">&lt;%@ page language=<span class="hljs-string">"java"</span> import=<span class="hljs-string">"java.util.*"</span> pageEncoding=<span class="hljs-string">"UTF-8"</span>%&gt;</span>
+<span class="vbscript">&lt;%@taglib prefix=<span class="hljs-string">"c"</span> uri=<span class="hljs-string">"http://java.sun.com/jsp/jstl/core"</span>%&gt;</span>
+
+<span class="hljs-doctype">&lt;!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN"&gt;</span>
+<span class="hljs-tag">&lt;<span class="hljs-title">html</span>&gt;</span>
+<span class="hljs-tag">&lt;<span class="hljs-title">head</span>&gt;</span>
+<span class="hljs-tag">&lt;<span class="hljs-title">title</span>&gt;</span>hibernate技术演示——单表操作<span class="hljs-tag">&lt;/<span class="hljs-title">title</span>&gt;</span>
+<span class="hljs-tag">&lt;<span class="hljs-title">script</span> <span class="hljs-attribute">type</span>=<span class="hljs-value">"text/javascript"</span> <span class="hljs-attribute">src</span>=<span class="hljs-value">"&lt;c:url value='/js/ajax.js'/&gt;"</span>&gt;</span><span class="javascript"></span><span class="hljs-tag">&lt;/<span class="hljs-title">script</span>&gt;</span>
+<span class="hljs-tag">&lt;<span class="hljs-title">script</span> <span class="hljs-attribute">type</span>=<span class="hljs-value">"text/javascript"</span>&gt;</span><span class="javascript">
+    <span class="hljs-keyword">var</span> path = <span class="hljs-string">"&lt;c:url value='/'/&gt;"</span>;
+    <span class="hljs-function"><span class="hljs-keyword">function</span> <span class="hljs-title">showChange</span><span class="hljs-params">(obj)</span> {</span>
+        <span class="hljs-keyword">var</span> id = obj.value;
+        <span class="hljs-keyword">var</span> ajax = <span class="hljs-keyword">new</span> Ajax();
+        <span class="hljs-keyword">var</span> url = path + <span class="hljs-string">"DemoServlet?cmd=updateStudent&amp;id="</span> + id;
+        ajax.get(url, succ, failure);
+    }
+    <span class="hljs-function"><span class="hljs-keyword">function</span> <span class="hljs-title">succ</span><span class="hljs-params">(data)</span> {</span>
+        <span class="hljs-keyword">if</span> (data == <span class="hljs-string">"1"</span>) {
+            window.location.href = path + <span class="hljs-string">"/DemoServlet"</span>;
+        }
+    }
+    <span class="hljs-function"><span class="hljs-keyword">function</span> <span class="hljs-title">failure</span><span class="hljs-params">(data)</span> {</span>
+        alert(data);
+    }
+
+    <span class="hljs-function"><span class="hljs-keyword">function</span> <span class="hljs-title">query</span><span class="hljs-params">()</span>{</span>
+        <span class="hljs-keyword">var</span> id=document.getElementById(<span class="hljs-string">"id"</span>).value;
+        id=id.trim();
+        <span class="hljs-keyword">var</span> name=document.getElementById(<span class="hljs-string">"name"</span>).value;
+        name=name.trim();
+        <span class="hljs-keyword">var</span> age=document.getElementById(<span class="hljs-string">"age"</span>).value;
+        age=age.trim();
+        <span class="hljs-keyword">var</span> deptId=document.getElementById(<span class="hljs-string">"deptId"</span>).value;
+        deptId=deptId.trim();
+        <span class="hljs-keyword">var</span> ajax = <span class="hljs-keyword">new</span> Ajax();
+        <span class="hljs-keyword">var</span> url=path+<span class="hljs-string">"DemoServlet"</span>;
+        param=<span class="hljs-string">"cmd=queryStudent&amp;id="</span>+id+<span class="hljs-string">"&amp;name="</span>+name+<span class="hljs-string">"&amp;age="</span>+age+<span class="hljs-string">"&amp;deptId="</span>+deptId;
+        ajax.post(url, param, succ, failure);
+    }
+</span><span class="hljs-tag">&lt;/<span class="hljs-title">script</span>&gt;</span>
+<span class="hljs-tag">&lt;/<span class="hljs-title">head</span>&gt;</span>
+<span class="hljs-tag">&lt;<span class="hljs-title">body</span>&gt;</span>
+    <span class="hljs-tag">&lt;<span class="hljs-title">h3</span>&gt;</span>hibernate技术演示——单表操作<span class="hljs-tag">&lt;/<span class="hljs-title">h3</span>&gt;</span>
+    <span class="hljs-tag">&lt;<span class="hljs-title">table</span>&gt;</span>
+        <span class="hljs-tag">&lt;<span class="hljs-title">tr</span>&gt;</span>
+            <span class="hljs-tag">&lt;<span class="hljs-title">td</span>&gt;</span>学生ID<span class="hljs-tag">&lt;/<span class="hljs-title">td</span>&gt;</span>
+            <span class="hljs-tag">&lt;<span class="hljs-title">td</span>&gt;</span>学生姓名<span class="hljs-tag">&lt;/<span class="hljs-title">td</span>&gt;</span>
+            <span class="hljs-tag">&lt;<span class="hljs-title">td</span>&gt;</span>学生年龄<span class="hljs-tag">&lt;/<span class="hljs-title">td</span>&gt;</span>
+            <span class="hljs-tag">&lt;<span class="hljs-title">td</span>&gt;</span>部门ID<span class="hljs-tag">&lt;/<span class="hljs-title">td</span>&gt;</span>
+        <span class="hljs-tag">&lt;/<span class="hljs-title">tr</span>&gt;</span>
+        <span class="hljs-tag">&lt;<span class="hljs-title">c:forEach</span> <span class="hljs-attribute">items</span>=<span class="hljs-value">"${sessionScope.list }"</span> <span class="hljs-attribute">var</span>=<span class="hljs-value">"stud"</span>&gt;</span>
+            <span class="hljs-tag">&lt;<span class="hljs-title">tr</span>&gt;</span>
+                <span class="hljs-tag">&lt;<span class="hljs-title">td</span>&gt;</span>${stud.studId}<span class="hljs-tag">&lt;/<span class="hljs-title">td</span>&gt;</span>
+                <span class="hljs-tag">&lt;<span class="hljs-title">td</span>&gt;</span>${stud.studName}<span class="hljs-tag">&lt;/<span class="hljs-title">td</span>&gt;</span>
+                <span class="hljs-tag">&lt;<span class="hljs-title">td</span>&gt;</span>${stud.studAge}<span class="hljs-tag">&lt;/<span class="hljs-title">td</span>&gt;</span>
+                <span class="hljs-tag">&lt;<span class="hljs-title">td</span>&gt;</span>${stud.deptId}<span class="hljs-tag">&lt;/<span class="hljs-title">td</span>&gt;</span>
+                <span class="hljs-tag">&lt;<span class="hljs-title">td</span>&gt;</span><span class="hljs-tag">&lt;<span class="hljs-title">a
+</span>                    <span class="hljs-attribute">href</span>=<span class="hljs-value">"&lt;c:url value='/DemoServlet?cmd=delStudent&amp;id=${stud.studId}'/&gt;"</span>&gt;</span>删除<span class="hljs-tag">&lt;/<span class="hljs-title">a</span>&gt;</span>
+                <span class="hljs-tag">&lt;/<span class="hljs-title">td</span>&gt;</span>
+            <span class="hljs-tag">&lt;/<span class="hljs-title">tr</span>&gt;</span>
+        <span class="hljs-tag">&lt;/<span class="hljs-title">c:forEach</span>&gt;</span>
+    <span class="hljs-tag">&lt;/<span class="hljs-title">table</span>&gt;</span>
+    <span class="hljs-tag">&lt;<span class="hljs-title">h3</span>&gt;</span>添加一个学生信息<span class="hljs-tag">&lt;/<span class="hljs-title">h3</span>&gt;</span>
+    <span class="hljs-tag">&lt;<span class="hljs-title">form</span> <span class="hljs-attribute">action</span>=<span class="hljs-value">"&lt;c:url value='/DemoServlet?cmd=addStudent'/&gt;"</span>
+        <span class="hljs-attribute">method</span>=<span class="hljs-value">"post"</span>&gt;</span>
+        <span class="hljs-tag">&lt;<span class="hljs-title">table</span>&gt;</span>
+            <span class="hljs-tag">&lt;<span class="hljs-title">tr</span>&gt;</span>
+                <span class="hljs-tag">&lt;<span class="hljs-title">td</span>&gt;</span>学号<span class="hljs-tag">&lt;<span class="hljs-title">font</span> <span class="hljs-attribute">color</span>=<span class="hljs-value">"red"</span>&gt;</span>*<span class="hljs-tag">&lt;/<span class="hljs-title">font</span>&gt;</span>
+                <span class="hljs-tag">&lt;/<span class="hljs-title">td</span>&gt;</span>
+                <span class="hljs-tag">&lt;<span class="hljs-title">td</span>&gt;</span><span class="hljs-tag">&lt;<span class="hljs-title">input</span> <span class="hljs-attribute">type</span>=<span class="hljs-value">"text"</span> <span class="hljs-attribute">name</span>=<span class="hljs-value">"id"</span> /&gt;</span><span class="hljs-tag">&lt;/<span class="hljs-title">td</span>&gt;</span>
+            <span class="hljs-tag">&lt;/<span class="hljs-title">tr</span>&gt;</span>
+            <span class="hljs-tag">&lt;<span class="hljs-title">tr</span>&gt;</span>
+                <span class="hljs-tag">&lt;<span class="hljs-title">td</span>&gt;</span>姓名<span class="hljs-tag">&lt;<span class="hljs-title">font</span> <span class="hljs-attribute">color</span>=<span class="hljs-value">"red"</span>&gt;</span>*<span class="hljs-tag">&lt;/<span class="hljs-title">font</span>&gt;</span>
+                <span class="hljs-tag">&lt;/<span class="hljs-title">td</span>&gt;</span>
+                <span class="hljs-tag">&lt;<span class="hljs-title">td</span>&gt;</span><span class="hljs-tag">&lt;<span class="hljs-title">input</span> <span class="hljs-attribute">type</span>=<span class="hljs-value">"text"</span> <span class="hljs-attribute">name</span>=<span class="hljs-value">"name"</span> /&gt;</span><span class="hljs-tag">&lt;/<span class="hljs-title">td</span>&gt;</span>
+            <span class="hljs-tag">&lt;/<span class="hljs-title">tr</span>&gt;</span>
+            <span class="hljs-tag">&lt;<span class="hljs-title">tr</span>&gt;</span>
+                <span class="hljs-tag">&lt;<span class="hljs-title">td</span>&gt;</span>年龄<span class="hljs-tag">&lt;<span class="hljs-title">font</span> <span class="hljs-attribute">color</span>=<span class="hljs-value">"red"</span>&gt;</span><span class="hljs-tag">&lt;/<span class="hljs-title">font</span>&gt;</span>
+                <span class="hljs-tag">&lt;/<span class="hljs-title">td</span>&gt;</span>
+                <span class="hljs-tag">&lt;<span class="hljs-title">td</span>&gt;</span><span class="hljs-tag">&lt;<span class="hljs-title">input</span> <span class="hljs-attribute">type</span>=<span class="hljs-value">"text"</span> <span class="hljs-attribute">name</span>=<span class="hljs-value">"age"</span> /&gt;</span><span class="hljs-tag">&lt;/<span class="hljs-title">td</span>&gt;</span>
+            <span class="hljs-tag">&lt;/<span class="hljs-title">tr</span>&gt;</span>
+            <span class="hljs-tag">&lt;<span class="hljs-title">tr</span>&gt;</span>
+                <span class="hljs-tag">&lt;<span class="hljs-title">td</span>&gt;</span>部门编号<span class="hljs-tag">&lt;<span class="hljs-title">font</span> <span class="hljs-attribute">color</span>=<span class="hljs-value">"red"</span>&gt;</span>*<span class="hljs-tag">&lt;/<span class="hljs-title">font</span>&gt;</span>
+                <span class="hljs-tag">&lt;/<span class="hljs-title">td</span>&gt;</span>
+                <span class="hljs-tag">&lt;<span class="hljs-title">td</span>&gt;</span><span class="hljs-tag">&lt;<span class="hljs-title">input</span> <span class="hljs-attribute">type</span>=<span class="hljs-value">"text"</span> <span class="hljs-attribute">name</span>=<span class="hljs-value">"deptId"</span> /&gt;</span><span class="hljs-tag">&lt;/<span class="hljs-title">td</span>&gt;</span>
+            <span class="hljs-tag">&lt;/<span class="hljs-title">tr</span>&gt;</span>
+            <span class="hljs-tag">&lt;<span class="hljs-title">tr</span>&gt;</span>
+                <span class="hljs-tag">&lt;<span class="hljs-title">td</span> <span class="hljs-attribute">colspan</span>=<span class="hljs-value">"2"</span>&gt;</span><span class="hljs-tag">&lt;<span class="hljs-title">input</span> <span class="hljs-attribute">type</span>=<span class="hljs-value">"submit"</span> <span class="hljs-attribute">value</span>=<span class="hljs-value">"添加"</span> /&gt;</span><span class="hljs-tag">&lt;/<span class="hljs-title">td</span>&gt;</span>
+            <span class="hljs-tag">&lt;/<span class="hljs-title">tr</span>&gt;</span>
+        <span class="hljs-tag">&lt;/<span class="hljs-title">table</span>&gt;</span>
+    <span class="hljs-tag">&lt;/<span class="hljs-title">form</span>&gt;</span>
+    <span class="hljs-tag">&lt;<span class="hljs-title">h3</span>&gt;</span>修改一个学生信息<span class="hljs-tag">&lt;/<span class="hljs-title">h3</span>&gt;</span>
+    <span class="hljs-tag">&lt;<span class="hljs-title">select</span> <span class="hljs-attribute">onchange</span>=<span class="hljs-value">"showChange(this)"</span>&gt;</span>
+
+        <span class="hljs-tag">&lt;<span class="hljs-title">option</span> <span class="hljs-attribute">value</span>=<span class="hljs-value">"none"</span>&gt;</span>请选择学生<span class="hljs-tag">&lt;/<span class="hljs-title">option</span>&gt;</span>
+        <span class="hljs-tag">&lt;<span class="hljs-title">c:forEach</span> <span class="hljs-attribute">items</span>=<span class="hljs-value">"${sessionScope.list }"</span> <span class="hljs-attribute">var</span>=<span class="hljs-value">"stud"</span>&gt;</span>
+            <span class="hljs-tag">&lt;<span class="hljs-title">option</span> <span class="hljs-attribute">value</span>=<span class="hljs-value">"${stud.studId}"</span>&gt;</span>${stud.studId}<span class="hljs-tag">&lt;/<span class="hljs-title">option</span>&gt;</span>
+        <span class="hljs-tag">&lt;/<span class="hljs-title">c:forEach</span>&gt;</span>
+    <span class="hljs-tag">&lt;/<span class="hljs-title">select</span>&gt;</span>
+    <span class="hljs-tag">&lt;<span class="hljs-title">c:if</span> <span class="hljs-attribute">test</span>=<span class="hljs-value">"${!empty updateStud }"</span>&gt;</span>
+        <span class="hljs-tag">&lt;<span class="hljs-title">form</span> <span class="hljs-attribute">action</span>=<span class="hljs-value">"&lt;c:url value='/DemoServlet?cmd=addStudent'/&gt;"</span>
+            <span class="hljs-attribute">method</span>=<span class="hljs-value">"post"</span>&gt;</span>
+            <span class="hljs-tag">&lt;<span class="hljs-title">table</span>&gt;</span>
+                <span class="hljs-tag">&lt;<span class="hljs-title">tr</span>&gt;</span>
+                    <span class="hljs-tag">&lt;<span class="hljs-title">td</span>&gt;</span>学号<span class="hljs-tag">&lt;<span class="hljs-title">font</span> <span class="hljs-attribute">color</span>=<span class="hljs-value">"red"</span>&gt;</span>*<span class="hljs-tag">&lt;/<span class="hljs-title">font</span>&gt;</span>
+                    <span class="hljs-tag">&lt;/<span class="hljs-title">td</span>&gt;</span>
+                    <span class="hljs-tag">&lt;<span class="hljs-title">td</span>&gt;</span><span class="hljs-tag">&lt;<span class="hljs-title">input</span> <span class="hljs-attribute">type</span>=<span class="hljs-value">"text"</span> <span class="hljs-attribute">name</span>=<span class="hljs-value">"id"</span> <span class="hljs-attribute">value</span>=<span class="hljs-value">"${updateStud.studId }"</span> /&gt;</span>
+                    <span class="hljs-tag">&lt;/<span class="hljs-title">td</span>&gt;</span>
+                <span class="hljs-tag">&lt;/<span class="hljs-title">tr</span>&gt;</span>
+                <span class="hljs-tag">&lt;<span class="hljs-title">tr</span>&gt;</span>
+                    <span class="hljs-tag">&lt;<span class="hljs-title">td</span>&gt;</span>姓名<span class="hljs-tag">&lt;<span class="hljs-title">font</span> <span class="hljs-attribute">color</span>=<span class="hljs-value">"red"</span>&gt;</span>*<span class="hljs-tag">&lt;/<span class="hljs-title">font</span>&gt;</span>
+                    <span class="hljs-tag">&lt;/<span class="hljs-title">td</span>&gt;</span>
+                    <span class="hljs-tag">&lt;<span class="hljs-title">td</span>&gt;</span><span class="hljs-tag">&lt;<span class="hljs-title">input</span> <span class="hljs-attribute">type</span>=<span class="hljs-value">"text"</span> <span class="hljs-attribute">name</span>=<span class="hljs-value">"name"</span>
+                        <span class="hljs-attribute">value</span>=<span class="hljs-value">"${updateStud.studName }"</span> /&gt;</span><span class="hljs-tag">&lt;/<span class="hljs-title">td</span>&gt;</span>
+                <span class="hljs-tag">&lt;/<span class="hljs-title">tr</span>&gt;</span>
+                <span class="hljs-tag">&lt;<span class="hljs-title">tr</span>&gt;</span>
+                    <span class="hljs-tag">&lt;<span class="hljs-title">td</span>&gt;</span>年龄<span class="hljs-tag">&lt;<span class="hljs-title">font</span> <span class="hljs-attribute">color</span>=<span class="hljs-value">"red"</span>&gt;</span><span class="hljs-tag">&lt;/<span class="hljs-title">font</span>&gt;</span>
+                    <span class="hljs-tag">&lt;/<span class="hljs-title">td</span>&gt;</span>
+                    <span class="hljs-tag">&lt;<span class="hljs-title">td</span>&gt;</span><span class="hljs-tag">&lt;<span class="hljs-title">input</span> <span class="hljs-attribute">type</span>=<span class="hljs-value">"text"</span> <span class="hljs-attribute">name</span>=<span class="hljs-value">"age"</span>
+                        <span class="hljs-attribute">value</span>=<span class="hljs-value">"${updateStud.studAge }"</span> /&gt;</span><span class="hljs-tag">&lt;/<span class="hljs-title">td</span>&gt;</span>
+                <span class="hljs-tag">&lt;/<span class="hljs-title">tr</span>&gt;</span>
+                <span class="hljs-tag">&lt;<span class="hljs-title">tr</span>&gt;</span>
+                    <span class="hljs-tag">&lt;<span class="hljs-title">td</span>&gt;</span>部门编号<span class="hljs-tag">&lt;<span class="hljs-title">font</span> <span class="hljs-attribute">color</span>=<span class="hljs-value">"red"</span>&gt;</span>*<span class="hljs-tag">&lt;/<span class="hljs-title">font</span>&gt;</span>
+                    <span class="hljs-tag">&lt;/<span class="hljs-title">td</span>&gt;</span>
+                    <span class="hljs-tag">&lt;<span class="hljs-title">td</span>&gt;</span><span class="hljs-tag">&lt;<span class="hljs-title">input</span> <span class="hljs-attribute">type</span>=<span class="hljs-value">"text"</span> <span class="hljs-attribute">name</span>=<span class="hljs-value">"deptId"</span>
+                        <span class="hljs-attribute">value</span>=<span class="hljs-value">"${updateStud.deptId }"</span> /&gt;</span><span class="hljs-tag">&lt;/<span class="hljs-title">td</span>&gt;</span>
+                <span class="hljs-tag">&lt;/<span class="hljs-title">tr</span>&gt;</span>
+                <span class="hljs-tag">&lt;<span class="hljs-title">tr</span>&gt;</span>
+                    <span class="hljs-tag">&lt;<span class="hljs-title">td</span> <span class="hljs-attribute">colspan</span>=<span class="hljs-value">"2"</span>&gt;</span><span class="hljs-tag">&lt;<span class="hljs-title">input</span> <span class="hljs-attribute">type</span>=<span class="hljs-value">"submit"</span> <span class="hljs-attribute">value</span>=<span class="hljs-value">"修改"</span> /&gt;</span><span class="hljs-tag">&lt;/<span class="hljs-title">td</span>&gt;</span>
+                <span class="hljs-tag">&lt;/<span class="hljs-title">tr</span>&gt;</span>
+            <span class="hljs-tag">&lt;/<span class="hljs-title">table</span>&gt;</span>
+        <span class="hljs-tag">&lt;/<span class="hljs-title">form</span>&gt;</span>
+        <span class="hljs-tag">&lt;<span class="hljs-title">c:remove</span> <span class="hljs-attribute">var</span>=<span class="hljs-value">"updateStud"</span> /&gt;</span>
+    <span class="hljs-tag">&lt;/<span class="hljs-title">c:if</span>&gt;</span>
+    <span class="hljs-tag">&lt;<span class="hljs-title">h3</span>&gt;</span>学生信息查询<span class="hljs-tag">&lt;/<span class="hljs-title">h3</span>&gt;</span>
+    <span class="hljs-tag">&lt;<span class="hljs-title">table</span>&gt;</span>
+        <span class="hljs-tag">&lt;<span class="hljs-title">tr</span>&gt;</span>
+            <span class="hljs-tag">&lt;<span class="hljs-title">td</span>&gt;</span>学号<span class="hljs-tag">&lt;<span class="hljs-title">font</span> <span class="hljs-attribute">color</span>=<span class="hljs-value">"red"</span>&gt;</span>*<span class="hljs-tag">&lt;/<span class="hljs-title">font</span>&gt;</span>
+            <span class="hljs-tag">&lt;/<span class="hljs-title">td</span>&gt;</span>
+            <span class="hljs-tag">&lt;<span class="hljs-title">td</span>&gt;</span><span class="hljs-tag">&lt;<span class="hljs-title">input</span> <span class="hljs-attribute">type</span>=<span class="hljs-value">"text"</span> <span class="hljs-attribute">id</span>=<span class="hljs-value">"id"</span> <span class="hljs-attribute">name</span>=<span class="hljs-value">"id"</span> /&gt;</span><span class="hljs-tag">&lt;/<span class="hljs-title">td</span>&gt;</span>
+        <span class="hljs-tag">&lt;/<span class="hljs-title">tr</span>&gt;</span>
+        <span class="hljs-tag">&lt;<span class="hljs-title">tr</span>&gt;</span>
+            <span class="hljs-tag">&lt;<span class="hljs-title">td</span>&gt;</span>姓名<span class="hljs-tag">&lt;<span class="hljs-title">font</span> <span class="hljs-attribute">color</span>=<span class="hljs-value">"red"</span>&gt;</span>*<span class="hljs-tag">&lt;/<span class="hljs-title">font</span>&gt;</span>
+            <span class="hljs-tag">&lt;/<span class="hljs-title">td</span>&gt;</span>
+            <span class="hljs-tag">&lt;<span class="hljs-title">td</span>&gt;</span><span class="hljs-tag">&lt;<span class="hljs-title">input</span> <span class="hljs-attribute">type</span>=<span class="hljs-value">"text"</span><span class="hljs-value">id="name"</span> <span class="hljs-attribute">name</span>=<span class="hljs-value">"name"</span> /&gt;</span><span class="hljs-tag">&lt;/<span class="hljs-title">td</span>&gt;</span>
+        <span class="hljs-tag">&lt;/<span class="hljs-title">tr</span>&gt;</span>
+        <span class="hljs-tag">&lt;<span class="hljs-title">tr</span>&gt;</span>
+            <span class="hljs-tag">&lt;<span class="hljs-title">td</span>&gt;</span>年龄<span class="hljs-tag">&lt;<span class="hljs-title">font</span> <span class="hljs-attribute">color</span>=<span class="hljs-value">"red"</span>&gt;</span><span class="hljs-tag">&lt;/<span class="hljs-title">font</span>&gt;</span>
+            <span class="hljs-tag">&lt;/<span class="hljs-title">td</span>&gt;</span>
+            <span class="hljs-tag">&lt;<span class="hljs-title">td</span>&gt;</span><span class="hljs-tag">&lt;<span class="hljs-title">input</span> <span class="hljs-attribute">type</span>=<span class="hljs-value">"text"</span> <span class="hljs-attribute">id</span>=<span class="hljs-value">"age"</span> <span class="hljs-attribute">name</span>=<span class="hljs-value">"age"</span> /&gt;</span><span class="hljs-tag">&lt;/<span class="hljs-title">td</span>&gt;</span>
+        <span class="hljs-tag">&lt;/<span class="hljs-title">tr</span>&gt;</span>
+        <span class="hljs-tag">&lt;<span class="hljs-title">tr</span>&gt;</span>
+            <span class="hljs-tag">&lt;<span class="hljs-title">td</span>&gt;</span>部门编号<span class="hljs-tag">&lt;<span class="hljs-title">font</span> <span class="hljs-attribute">color</span>=<span class="hljs-value">"red"</span>&gt;</span><span class="hljs-tag">&lt;/<span class="hljs-title">font</span>&gt;</span>
+            <span class="hljs-tag">&lt;/<span class="hljs-title">td</span>&gt;</span>
+            <span class="hljs-tag">&lt;<span class="hljs-title">td</span>&gt;</span><span class="hljs-tag">&lt;<span class="hljs-title">input</span> <span class="hljs-attribute">type</span>=<span class="hljs-value">"text"</span> <span class="hljs-attribute">id</span>=<span class="hljs-value">"deptId"</span> <span class="hljs-attribute">name</span>=<span class="hljs-value">"deptId"</span> /&gt;</span><span class="hljs-tag">&lt;/<span class="hljs-title">td</span>&gt;</span>
+        <span class="hljs-tag">&lt;/<span class="hljs-title">tr</span>&gt;</span>
+        <span class="hljs-tag">&lt;<span class="hljs-title">tr</span>&gt;</span>
+            <span class="hljs-tag">&lt;<span class="hljs-title">td</span> <span class="hljs-attribute">colspan</span>=<span class="hljs-value">"2"</span>&gt;</span><span class="hljs-tag">&lt;<span class="hljs-title">input</span> <span class="hljs-attribute">type</span>=<span class="hljs-value">"button"</span> <span class="hljs-attribute">value</span>=<span class="hljs-value">"查询"</span> <span class="hljs-attribute">onclick</span>=<span class="hljs-value">"query()"</span> /&gt;</span>
+            <span class="hljs-tag">&lt;/<span class="hljs-title">td</span>&gt;</span>
+        <span class="hljs-tag">&lt;/<span class="hljs-title">tr</span>&gt;</span>
+    <span class="hljs-tag">&lt;/<span class="hljs-title">table</span>&gt;</span>
+    <span class="hljs-tag">&lt;<span class="hljs-title">h3</span>&gt;</span>查询结果<span class="hljs-tag">&lt;/<span class="hljs-title">h3</span>&gt;</span>
+    <span class="hljs-tag">&lt;<span class="hljs-title">c:if</span> <span class="hljs-attribute">test</span>=<span class="hljs-value">"${!empty sessionScope.qlist }"</span>&gt;</span>
+        <span class="hljs-tag">&lt;<span class="hljs-title">table</span>&gt;</span>
+            <span class="hljs-tag">&lt;<span class="hljs-title">tr</span>&gt;</span>
+                <span class="hljs-tag">&lt;<span class="hljs-title">td</span>&gt;</span>学号<span class="hljs-tag">&lt;/<span class="hljs-title">td</span>&gt;</span>
+                <span class="hljs-tag">&lt;<span class="hljs-title">td</span>&gt;</span>姓名<span class="hljs-tag">&lt;/<span class="hljs-title">td</span>&gt;</span>
+                <span class="hljs-tag">&lt;<span class="hljs-title">td</span>&gt;</span>年龄<span class="hljs-tag">&lt;/<span class="hljs-title">td</span>&gt;</span>
+                <span class="hljs-tag">&lt;<span class="hljs-title">td</span>&gt;</span>学院编号<span class="hljs-tag">&lt;/<span class="hljs-title">td</span>&gt;</span>
+                <span class="hljs-tag">&lt;<span class="hljs-title">td</span>&gt;</span>操作<span class="hljs-tag">&lt;/<span class="hljs-title">td</span>&gt;</span>
+            <span class="hljs-tag">&lt;/<span class="hljs-title">tr</span>&gt;</span>
+            <span class="hljs-tag">&lt;<span class="hljs-title">c:forEach</span> <span class="hljs-attribute">items</span>=<span class="hljs-value">"${sessionScope.qlist }"</span> <span class="hljs-attribute">var</span>=<span class="hljs-value">"stud"</span>&gt;</span>
+                <span class="hljs-tag">&lt;<span class="hljs-title">tr</span>&gt;</span>
+                    <span class="hljs-tag">&lt;<span class="hljs-title">td</span>&gt;</span>${stud.studId}<span class="hljs-tag">&lt;/<span class="hljs-title">td</span>&gt;</span>
+                    <span class="hljs-tag">&lt;<span class="hljs-title">td</span>&gt;</span>${stud.studName}<span class="hljs-tag">&lt;/<span class="hljs-title">td</span>&gt;</span>
+                    <span class="hljs-tag">&lt;<span class="hljs-title">td</span>&gt;</span>${stud.studAge}<span class="hljs-tag">&lt;/<span class="hljs-title">td</span>&gt;</span>
+                    <span class="hljs-tag">&lt;<span class="hljs-title">td</span>&gt;</span>${stud.deptId}<span class="hljs-tag">&lt;/<span class="hljs-title">td</span>&gt;</span>
+                    <span class="hljs-tag">&lt;<span class="hljs-title">td</span>&gt;</span><span class="hljs-tag">&lt;<span class="hljs-title">a
+</span>                        <span class="hljs-attribute">href</span>=<span class="hljs-value">"&lt;c:url value='/DemoServlet?cmd=delStudent&amp;id=${stud.studId}'/&gt;"</span>&gt;</span>删除<span class="hljs-tag">&lt;/<span class="hljs-title">a</span>&gt;</span>
+                    <span class="hljs-tag">&lt;/<span class="hljs-title">td</span>&gt;</span>
+                <span class="hljs-tag">&lt;/<span class="hljs-title">tr</span>&gt;</span>
+            <span class="hljs-tag">&lt;/<span class="hljs-title">c:forEach</span>&gt;</span>
+        <span class="hljs-tag">&lt;/<span class="hljs-title">table</span>&gt;</span>
+    <span class="hljs-tag">&lt;/<span class="hljs-title">c:if</span>&gt;</span>
+<span class="hljs-tag">&lt;/<span class="hljs-title">body</span>&gt;</span>
+<span class="hljs-tag">&lt;/<span class="hljs-title">html</span>&gt;</span></code></pre>
+
+<p>multi.jsp</p>
+
+
+
+<pre class="prettyprint"><code class=" hljs xml"><span class="vbscript">&lt;%@ page language=<span class="hljs-string">"java"</span> import=<span class="hljs-string">"java.util.*"</span> pageEncoding=<span class="hljs-string">"UTF-8"</span>%&gt;</span>
+<span class="vbscript">&lt;%@taglib prefix=<span class="hljs-string">"c"</span> uri=<span class="hljs-string">"http://java.sun.com/jsp/jstl/core"</span>%&gt;</span>
+
+<span class="hljs-tag">&lt;<span class="hljs-title">html</span>&gt;</span>
+<span class="hljs-tag">&lt;<span class="hljs-title">head</span>&gt;</span>
+<span class="hljs-tag">&lt;<span class="hljs-title">title</span>&gt;</span>hibernate技术演示——多表操作<span class="hljs-tag">&lt;/<span class="hljs-title">title</span>&gt;</span>
+<span class="hljs-tag">&lt;<span class="hljs-title">script</span> <span class="hljs-attribute">type</span>=<span class="hljs-value">"text/javascript"</span> <span class="hljs-attribute">src</span>=<span class="hljs-value">"&lt;c:url value='/js/ajax.js'/&gt;"</span>&gt;</span><span class="javascript"></span><span class="hljs-tag">&lt;/<span class="hljs-title">script</span>&gt;</span>
+<span class="hljs-tag">&lt;<span class="hljs-title">script</span> <span class="hljs-attribute">type</span>=<span class="hljs-value">"text/javascript"</span>&gt;</span><span class="javascript">
+    <span class="hljs-keyword">var</span> path = <span class="hljs-string">"&lt;c:url value='/'/&gt;"</span>;
+    <span class="hljs-function"><span class="hljs-keyword">function</span> <span class="hljs-title">succ</span><span class="hljs-params">(data)</span> {</span>
+            alert(data);
+            window.location.href = path + <span class="hljs-string">"/MultiServlet"</span>;
+    }
+    <span class="hljs-function"><span class="hljs-keyword">function</span> <span class="hljs-title">failure</span><span class="hljs-params">(data)</span> {</span>
+        alert(data);
+    }
+    <span class="hljs-function"><span class="hljs-keyword">function</span> <span class="hljs-title">addDept</span><span class="hljs-params">()</span>{</span>
+        <span class="hljs-keyword">var</span> deptId=document.getElementById(<span class="hljs-string">"deptId"</span>).value;
+        deptId=deptId.trim();
+        <span class="hljs-keyword">var</span> deptName=document.getElementById(<span class="hljs-string">"deptName"</span>).value;
+        deptName=deptName.trim();
+        <span class="hljs-keyword">var</span> ajax = <span class="hljs-keyword">new</span> Ajax();
+        <span class="hljs-keyword">var</span> url=path+<span class="hljs-string">"MultiServlet"</span>;
+        <span class="hljs-keyword">var</span> param=<span class="hljs-string">"cmd=addDept&amp;deptId="</span>+deptId+<span class="hljs-string">"&amp;deptName="</span>+deptName;
+        ajax.post(url, param, succ, failure);
+    }
+
+</span><span class="hljs-tag">&lt;/<span class="hljs-title">script</span>&gt;</span>
+<span class="hljs-tag">&lt;<span class="hljs-title">style</span> <span class="hljs-attribute">type</span>=<span class="hljs-value">"text/css"</span>&gt;</span><span class="css">
+<span class="hljs-tag">table</span> <span class="hljs-rules">{
+    <span class="hljs-rule"><span class="hljs-attribute">border</span>:<span class="hljs-value"> <span class="hljs-number">1</span>px solid</span></span>;
+<span class="hljs-rule">}</span></span>
+
+<span class="hljs-tag">td</span> <span class="hljs-rules">{
+    <span class="hljs-rule"><span class="hljs-attribute">border</span>:<span class="hljs-value"> <span class="hljs-number">1</span>px solid</span></span>;
+    <span class="hljs-rule"><span class="hljs-attribute">border-collapse</span>:<span class="hljs-value"> none</span></span>;
+<span class="hljs-rule">}</span></span>
+</span><span class="hljs-tag">&lt;/<span class="hljs-title">style</span>&gt;</span>
+<span class="hljs-tag">&lt;/<span class="hljs-title">head</span>&gt;</span>
+<span class="hljs-tag">&lt;<span class="hljs-title">body</span>&gt;</span>
+    <span class="hljs-tag">&lt;<span class="hljs-title">h3</span>&gt;</span>hibernate技术演示——多表操作<span class="hljs-tag">&lt;/<span class="hljs-title">h3</span>&gt;</span>
+
+    <span class="hljs-tag">&lt;<span class="hljs-title">table</span>&gt;</span>
+        <span class="hljs-tag">&lt;<span class="hljs-title">tr</span>&gt;</span>
+            <span class="hljs-tag">&lt;<span class="hljs-title">td</span>&gt;</span>部门ID<span class="hljs-tag">&lt;/<span class="hljs-title">td</span>&gt;</span>
+            <span class="hljs-tag">&lt;<span class="hljs-title">td</span>&gt;</span>部门<span class="hljs-tag">&lt;/<span class="hljs-title">td</span>&gt;</span>
+            <span class="hljs-tag">&lt;<span class="hljs-title">td</span>&gt;</span>学生ID<span class="hljs-tag">&lt;/<span class="hljs-title">td</span>&gt;</span>
+            <span class="hljs-tag">&lt;<span class="hljs-title">td</span>&gt;</span>学生姓名<span class="hljs-tag">&lt;/<span class="hljs-title">td</span>&gt;</span>
+            <span class="hljs-tag">&lt;<span class="hljs-title">td</span>&gt;</span>学生年龄<span class="hljs-tag">&lt;/<span class="hljs-title">td</span>&gt;</span>
+        <span class="hljs-tag">&lt;/<span class="hljs-title">tr</span>&gt;</span>
+        <span class="hljs-tag">&lt;<span class="hljs-title">c:forEach</span> <span class="hljs-attribute">items</span>=<span class="hljs-value">"${sessionScope.depts }"</span> <span class="hljs-attribute">var</span>=<span class="hljs-value">"dept"</span>&gt;</span>
+            <span class="hljs-tag">&lt;<span class="hljs-title">c:if</span> <span class="hljs-attribute">test</span>=<span class="hljs-value">"${!empty dept.students }"</span>&gt;</span>
+                <span class="hljs-tag">&lt;<span class="hljs-title">c:forEach</span> <span class="hljs-attribute">items</span>=<span class="hljs-value">"${dept.students }"</span> <span class="hljs-attribute">var</span>=<span class="hljs-value">"stud"</span>&gt;</span>
+                    <span class="hljs-tag">&lt;<span class="hljs-title">tr</span>&gt;</span>
+                        <span class="hljs-tag">&lt;<span class="hljs-title">td</span>&gt;</span>${dept.deptId}<span class="hljs-tag">&lt;/<span class="hljs-title">td</span>&gt;</span>
+                        <span class="hljs-tag">&lt;<span class="hljs-title">td</span>&gt;</span>${dept.deptName}<span class="hljs-tag">&lt;/<span class="hljs-title">td</span>&gt;</span>
+                        <span class="hljs-tag">&lt;<span class="hljs-title">td</span>&gt;</span>${stud.studId}<span class="hljs-tag">&lt;/<span class="hljs-title">td</span>&gt;</span>
+                        <span class="hljs-tag">&lt;<span class="hljs-title">td</span>&gt;</span>${stud.studName}<span class="hljs-tag">&lt;/<span class="hljs-title">td</span>&gt;</span>
+                        <span class="hljs-tag">&lt;<span class="hljs-title">td</span>&gt;</span>${stud.studAge}<span class="hljs-tag">&lt;/<span class="hljs-title">td</span>&gt;</span>
+                        <span class="hljs-tag">&lt;<span class="hljs-title">td</span>&gt;</span><span class="hljs-tag">&lt;<span class="hljs-title">a
+</span>                            <span class="hljs-attribute">href</span>=<span class="hljs-value">"&lt;c:url value='/MultiServlet?cmd=delStudent&amp;studId=${stud.studId}'/&gt;"</span>&gt;</span>删除<span class="hljs-tag">&lt;/<span class="hljs-title">a</span>&gt;</span>
+                        <span class="hljs-tag">&lt;/<span class="hljs-title">td</span>&gt;</span>
+                    <span class="hljs-tag">&lt;/<span class="hljs-title">tr</span>&gt;</span>
+                <span class="hljs-tag">&lt;/<span class="hljs-title">c:forEach</span>&gt;</span>
+            <span class="hljs-tag">&lt;/<span class="hljs-title">c:if</span>&gt;</span>
+            <span class="hljs-tag">&lt;<span class="hljs-title">c:if</span> <span class="hljs-attribute">test</span>=<span class="hljs-value">"${empty dept.students }"</span>&gt;</span>
+                <span class="hljs-tag">&lt;<span class="hljs-title">tr</span>&gt;</span>
+                    <span class="hljs-tag">&lt;<span class="hljs-title">td</span>&gt;</span>${dept.deptId}<span class="hljs-tag">&lt;/<span class="hljs-title">td</span>&gt;</span>
+                    <span class="hljs-tag">&lt;<span class="hljs-title">td</span>&gt;</span>${dept.deptName}<span class="hljs-tag">&lt;/<span class="hljs-title">td</span>&gt;</span>
+                <span class="hljs-tag">&lt;/<span class="hljs-title">tr</span>&gt;</span>
+            <span class="hljs-tag">&lt;/<span class="hljs-title">c:if</span>&gt;</span>
+        <span class="hljs-tag">&lt;/<span class="hljs-title">c:forEach</span>&gt;</span>
+    <span class="hljs-tag">&lt;/<span class="hljs-title">table</span>&gt;</span>
+    <span class="hljs-tag">&lt;<span class="hljs-title">h3</span>&gt;</span>通过学院id查询学院表，把该学院的学生信息也同时输出来<span class="hljs-tag">&lt;/<span class="hljs-title">h3</span>&gt;</span>
+    <span class="hljs-tag">&lt;<span class="hljs-title">form</span> <span class="hljs-attribute">action</span>=<span class="hljs-value">"&lt;c:url value='/MultiServlet?cmd=queryDeptById'/&gt;"</span>
+        <span class="hljs-attribute">method</span>=<span class="hljs-value">"post"</span>&gt;</span>
+        <span class="hljs-tag">&lt;<span class="hljs-title">table</span>&gt;</span>
+            <span class="hljs-tag">&lt;<span class="hljs-title">tr</span>&gt;</span>
+                <span class="hljs-tag">&lt;<span class="hljs-title">td</span>&gt;</span>学院编号<span class="hljs-tag">&lt;<span class="hljs-title">font</span> <span class="hljs-attribute">color</span>=<span class="hljs-value">"red"</span>&gt;</span>*<span class="hljs-tag">&lt;/<span class="hljs-title">font</span>&gt;</span><span class="hljs-tag">&lt;/<span class="hljs-title">td</span>&gt;</span>
+                <span class="hljs-tag">&lt;<span class="hljs-title">td</span>&gt;</span><span class="hljs-tag">&lt;<span class="hljs-title">input</span> <span class="hljs-attribute">type</span>=<span class="hljs-value">"text"</span> <span class="hljs-attribute">name</span>=<span class="hljs-value">"deptId"</span>&gt;</span>
+                <span class="hljs-tag">&lt;/<span class="hljs-title">td</span>&gt;</span>
+            <span class="hljs-tag">&lt;/<span class="hljs-title">tr</span>&gt;</span>
+            <span class="hljs-tag">&lt;<span class="hljs-title">tr</span>&gt;</span>
+                <span class="hljs-tag">&lt;<span class="hljs-title">td</span> <span class="hljs-attribute">colspan</span>=<span class="hljs-value">"2"</span> <span class="hljs-attribute">align</span>=<span class="hljs-value">"center"</span>&gt;</span><span class="hljs-tag">&lt;<span class="hljs-title">input</span> <span class="hljs-attribute">type</span>=<span class="hljs-value">"submit"</span> <span class="hljs-attribute">value</span>=<span class="hljs-value">"查询"</span>&gt;</span>
+                <span class="hljs-tag">&lt;/<span class="hljs-title">td</span>&gt;</span>
+            <span class="hljs-tag">&lt;/<span class="hljs-title">tr</span>&gt;</span>
+        <span class="hljs-tag">&lt;/<span class="hljs-title">table</span>&gt;</span>
+    <span class="hljs-tag">&lt;/<span class="hljs-title">form</span>&gt;</span>
+    <span class="hljs-tag">&lt;<span class="hljs-title">c:if</span> <span class="hljs-attribute">test</span>=<span class="hljs-value">"${!empty sessionScope.map }"</span>&gt;</span>
+        <span class="hljs-tag">&lt;<span class="hljs-title">h3</span>&gt;</span>查询结果<span class="hljs-tag">&lt;/<span class="hljs-title">h3</span>&gt;</span>
+             学院名称:${map.deptName}
+             <span class="hljs-tag">&lt;<span class="hljs-title">table</span>&gt;</span>
+            <span class="hljs-tag">&lt;<span class="hljs-title">tr</span>&gt;</span>
+                <span class="hljs-tag">&lt;<span class="hljs-title">td</span>&gt;</span>学号<span class="hljs-tag">&lt;/<span class="hljs-title">td</span>&gt;</span>
+                <span class="hljs-tag">&lt;<span class="hljs-title">td</span>&gt;</span>姓名<span class="hljs-tag">&lt;/<span class="hljs-title">td</span>&gt;</span>
+                <span class="hljs-tag">&lt;<span class="hljs-title">td</span>&gt;</span>年龄<span class="hljs-tag">&lt;/<span class="hljs-title">td</span>&gt;</span>
+                <span class="hljs-tag">&lt;<span class="hljs-title">td</span>&gt;</span>学院编号<span class="hljs-tag">&lt;/<span class="hljs-title">td</span>&gt;</span>
+                <span class="hljs-tag">&lt;<span class="hljs-title">td</span>&gt;</span>操作<span class="hljs-tag">&lt;/<span class="hljs-title">td</span>&gt;</span>
+            <span class="hljs-tag">&lt;/<span class="hljs-title">tr</span>&gt;</span>
+            <span class="hljs-tag">&lt;<span class="hljs-title">c:forEach</span> <span class="hljs-attribute">items</span>=<span class="hljs-value">"${map.qlist}"</span> <span class="hljs-attribute">var</span>=<span class="hljs-value">"stud"</span>&gt;</span>
+                <span class="hljs-tag">&lt;<span class="hljs-title">tr</span>&gt;</span>
+                    <span class="hljs-tag">&lt;<span class="hljs-title">td</span>&gt;</span>${stud.studId}<span class="hljs-tag">&lt;/<span class="hljs-title">td</span>&gt;</span>
+                    <span class="hljs-tag">&lt;<span class="hljs-title">td</span>&gt;</span>${stud.studName}<span class="hljs-tag">&lt;/<span class="hljs-title">td</span>&gt;</span>
+                    <span class="hljs-tag">&lt;<span class="hljs-title">td</span>&gt;</span>${stud.studAge}<span class="hljs-tag">&lt;/<span class="hljs-title">td</span>&gt;</span>
+                    <span class="hljs-tag">&lt;<span class="hljs-title">td</span>&gt;</span>${map.deptId}<span class="hljs-tag">&lt;/<span class="hljs-title">td</span>&gt;</span>
+                    <span class="hljs-tag">&lt;<span class="hljs-title">td</span>&gt;</span><span class="hljs-tag">&lt;<span class="hljs-title">a
+</span>                        <span class="hljs-attribute">href</span>=<span class="hljs-value">"&lt;c:url value='/MultiServlet?cmd=delStudent&amp;studId=${stud.studId}'/&gt;"</span>&gt;</span>删除<span class="hljs-tag">&lt;/<span class="hljs-title">a</span>&gt;</span>
+                    <span class="hljs-tag">&lt;/<span class="hljs-title">td</span>&gt;</span>
+                <span class="hljs-tag">&lt;/<span class="hljs-title">tr</span>&gt;</span>
+            <span class="hljs-tag">&lt;/<span class="hljs-title">c:forEach</span>&gt;</span>
+        <span class="hljs-tag">&lt;/<span class="hljs-title">table</span>&gt;</span>
+    <span class="hljs-tag">&lt;/<span class="hljs-title">c:if</span>&gt;</span>
+    <span class="hljs-tag">&lt;<span class="hljs-title">h3</span>&gt;</span>删除部门演示<span class="hljs-tag">&lt;/<span class="hljs-title">h3</span>&gt;</span>
+    <span class="hljs-tag">&lt;<span class="hljs-title">table</span>&gt;</span>
+        <span class="hljs-tag">&lt;<span class="hljs-title">tr</span>&gt;</span>
+            <span class="hljs-tag">&lt;<span class="hljs-title">td</span>&gt;</span>部门ID<span class="hljs-tag">&lt;/<span class="hljs-title">td</span>&gt;</span>
+            <span class="hljs-tag">&lt;<span class="hljs-title">td</span>&gt;</span>部门<span class="hljs-tag">&lt;/<span class="hljs-title">td</span>&gt;</span>
+        <span class="hljs-tag">&lt;/<span class="hljs-title">tr</span>&gt;</span>
+        <span class="hljs-tag">&lt;<span class="hljs-title">c:forEach</span> <span class="hljs-attribute">items</span>=<span class="hljs-value">"${sessionScope.depts }"</span> <span class="hljs-attribute">var</span>=<span class="hljs-value">"dept"</span>&gt;</span>
+            <span class="hljs-tag">&lt;<span class="hljs-title">tr</span>&gt;</span>
+                <span class="hljs-tag">&lt;<span class="hljs-title">td</span>&gt;</span>${dept.deptId }<span class="hljs-tag">&lt;/<span class="hljs-title">td</span>&gt;</span>
+                <span class="hljs-tag">&lt;<span class="hljs-title">td</span>&gt;</span>${dept.deptName }<span class="hljs-tag">&lt;/<span class="hljs-title">td</span>&gt;</span>
+                <span class="hljs-tag">&lt;<span class="hljs-title">td</span>&gt;</span><span class="hljs-tag">&lt;<span class="hljs-title">a
+</span>                    <span class="hljs-attribute">href</span>=<span class="hljs-value">"&lt;c:url value='/MultiServlet?cmd=delDept&amp;deptId=${dept.deptId }'/&gt;"</span>&gt;</span>删除<span class="hljs-tag">&lt;/<span class="hljs-title">a</span>&gt;</span>
+                <span class="hljs-tag">&lt;/<span class="hljs-title">td</span>&gt;</span>
+            <span class="hljs-tag">&lt;/<span class="hljs-title">tr</span>&gt;</span>
+        <span class="hljs-tag">&lt;/<span class="hljs-title">c:forEach</span>&gt;</span>
+    <span class="hljs-tag">&lt;/<span class="hljs-title">table</span>&gt;</span>
+    <span class="hljs-tag">&lt;<span class="hljs-title">h3</span>&gt;</span>添加部门演示<span class="hljs-tag">&lt;/<span class="hljs-title">h3</span>&gt;</span>
+        <span class="hljs-tag">&lt;<span class="hljs-title">table</span>&gt;</span>
+        <span class="hljs-tag">&lt;<span class="hljs-title">tr</span>&gt;</span>
+            <span class="hljs-tag">&lt;<span class="hljs-title">td</span>&gt;</span>部门ID<span class="hljs-tag">&lt;<span class="hljs-title">font</span> <span class="hljs-attribute">color</span>=<span class="hljs-value">"red"</span>&gt;</span>*<span class="hljs-tag">&lt;/<span class="hljs-title">font</span>&gt;</span><span class="hljs-tag">&lt;/<span class="hljs-title">td</span>&gt;</span>
+            <span class="hljs-tag">&lt;<span class="hljs-title">td</span>&gt;</span><span class="hljs-tag">&lt;<span class="hljs-title">input</span> <span class="hljs-attribute">type</span>=<span class="hljs-value">"text"</span> <span class="hljs-attribute">id</span>=<span class="hljs-value">"deptId"</span> <span class="hljs-attribute">name</span>=<span class="hljs-value">"deptId"</span>/&gt;</span><span class="hljs-tag">&lt;/<span class="hljs-title">td</span>&gt;</span>
+        <span class="hljs-tag">&lt;/<span class="hljs-title">tr</span>&gt;</span>
+        <span class="hljs-tag">&lt;<span class="hljs-title">tr</span>&gt;</span>
+            <span class="hljs-tag">&lt;<span class="hljs-title">td</span>&gt;</span>部门名称<span class="hljs-tag">&lt;<span class="hljs-title">font</span> <span class="hljs-attribute">color</span>=<span class="hljs-value">"red"</span>&gt;</span>*<span class="hljs-tag">&lt;/<span class="hljs-title">font</span>&gt;</span><span class="hljs-tag">&lt;/<span class="hljs-title">td</span>&gt;</span>
+            <span class="hljs-tag">&lt;<span class="hljs-title">td</span>&gt;</span><span class="hljs-tag">&lt;<span class="hljs-title">input</span> <span class="hljs-attribute">type</span>=<span class="hljs-value">"text"</span> <span class="hljs-attribute">id</span>=<span class="hljs-value">"deptName"</span> <span class="hljs-attribute">name</span>=<span class="hljs-value">"deptName"</span>/&gt;</span><span class="hljs-tag">&lt;/<span class="hljs-title">td</span>&gt;</span>
+        <span class="hljs-tag">&lt;/<span class="hljs-title">tr</span>&gt;</span>
+        <span class="hljs-tag">&lt;<span class="hljs-title">tr</span>&gt;</span>
+            <span class="hljs-tag">&lt;<span class="hljs-title">td</span> <span class="hljs-attribute">colspan</span>=<span class="hljs-value">"2"</span> <span class="hljs-attribute">align</span>=<span class="hljs-value">"center"</span>&gt;</span><span class="hljs-tag">&lt;<span class="hljs-title">input</span> <span class="hljs-attribute">type</span>=<span class="hljs-value">"button"</span> <span class="hljs-attribute">value</span>=<span class="hljs-value">"添加"</span> <span class="hljs-attribute">onclick</span>=<span class="hljs-value">"addDept()"</span>/&gt;</span><span class="hljs-tag">&lt;/<span class="hljs-title">td</span>&gt;</span>
+        <span class="hljs-tag">&lt;/<span class="hljs-title">tr</span>&gt;</span>
+    <span class="hljs-tag">&lt;/<span class="hljs-title">table</span>&gt;</span>
+<span class="hljs-tag">&lt;/<span class="hljs-title">body</span>&gt;</span>
+<span class="hljs-tag">&lt;/<span class="hljs-title">html</span>&gt;</span></code></pre>
+
+<p>ajax.js</p>
+
+
+
+<pre class="prettyprint"><code class=" hljs xml"><span class="vbscript">&lt;%@ page language=<span class="hljs-string">"java"</span> import=<span class="hljs-string">"java.util.*"</span> pageEncoding=<span class="hljs-string">"UTF-8"</span>%&gt;</span>
+<span class="vbscript">&lt;%@taglib prefix=<span class="hljs-string">"c"</span> uri=<span class="hljs-string">"http://java.sun.com/jsp/jstl/core"</span>%&gt;</span>
+
+<span class="hljs-tag">&lt;<span class="hljs-title">html</span>&gt;</span>
+<span class="hljs-tag">&lt;<span class="hljs-title">head</span>&gt;</span>
+<span class="hljs-tag">&lt;<span class="hljs-title">title</span>&gt;</span>hibernate技术演示——多表操作<span class="hljs-tag">&lt;/<span class="hljs-title">title</span>&gt;</span>
+<span class="hljs-tag">&lt;<span class="hljs-title">script</span> <span class="hljs-attribute">type</span>=<span class="hljs-value">"text/javascript"</span> <span class="hljs-attribute">src</span>=<span class="hljs-value">"&lt;c:url value='/js/ajax.js'/&gt;"</span>&gt;</span><span class="javascript"></span><span class="hljs-tag">&lt;/<span class="hljs-title">script</span>&gt;</span>
+<span class="hljs-tag">&lt;<span class="hljs-title">script</span> <span class="hljs-attribute">type</span>=<span class="hljs-value">"text/javascript"</span>&gt;</span><span class="javascript">
+    <span class="hljs-keyword">var</span> path = <span class="hljs-string">"&lt;c:url value='/'/&gt;"</span>;
+    <span class="hljs-function"><span class="hljs-keyword">function</span> <span class="hljs-title">succ</span><span class="hljs-params">(data)</span> {</span>
+            alert(data);
+            window.location.href = path + <span class="hljs-string">"/MultiServlet"</span>;
+    }
+    <span class="hljs-function"><span class="hljs-keyword">function</span> <span class="hljs-title">failure</span><span class="hljs-params">(data)</span> {</span>
+        alert(data);
+    }
+    <span class="hljs-function"><span class="hljs-keyword">function</span> <span class="hljs-title">addDept</span><span class="hljs-params">()</span>{</span>
+        <span class="hljs-keyword">var</span> deptId=document.getElementById(<span class="hljs-string">"deptId"</span>).value;
+        deptId=deptId.trim();
+        <span class="hljs-keyword">var</span> deptName=document.getElementById(<span class="hljs-string">"deptName"</span>).value;
+        deptName=deptName.trim();
+        <span class="hljs-keyword">var</span> ajax = <span class="hljs-keyword">new</span> Ajax();
+        <span class="hljs-keyword">var</span> url=path+<span class="hljs-string">"MultiServlet"</span>;
+        <span class="hljs-keyword">var</span> param=<span class="hljs-string">"cmd=addDept&amp;deptId="</span>+deptId+<span class="hljs-string">"&amp;deptName="</span>+deptName;
+        ajax.post(url, param, succ, failure);
+    }
+
+</span><span class="hljs-tag">&lt;/<span class="hljs-title">script</span>&gt;</span>
+<span class="hljs-tag">&lt;<span class="hljs-title">style</span> <span class="hljs-attribute">type</span>=<span class="hljs-value">"text/css"</span>&gt;</span><span class="css">
+<span class="hljs-tag">table</span> <span class="hljs-rules">{
+    <span class="hljs-rule"><span class="hljs-attribute">border</span>:<span class="hljs-value"> <span class="hljs-number">1</span>px solid</span></span>;
+<span class="hljs-rule">}</span></span>
+
+<span class="hljs-tag">td</span> <span class="hljs-rules">{
+    <span class="hljs-rule"><span class="hljs-attribute">border</span>:<span class="hljs-value"> <span class="hljs-number">1</span>px solid</span></span>;
+    <span class="hljs-rule"><span class="hljs-attribute">border-collapse</span>:<span class="hljs-value"> none</span></span>;
+<span class="hljs-rule">}</span></span>
+</span><span class="hljs-tag">&lt;/<span class="hljs-title">style</span>&gt;</span>
+<span class="hljs-tag">&lt;/<span class="hljs-title">head</span>&gt;</span>
+<span class="hljs-tag">&lt;<span class="hljs-title">body</span>&gt;</span>
+    <span class="hljs-tag">&lt;<span class="hljs-title">h3</span>&gt;</span>hibernate技术演示——多表操作<span class="hljs-tag">&lt;/<span class="hljs-title">h3</span>&gt;</span>
+
+    <span class="hljs-tag">&lt;<span class="hljs-title">table</span>&gt;</span>
+        <span class="hljs-tag">&lt;<span class="hljs-title">tr</span>&gt;</span>
+            <span class="hljs-tag">&lt;<span class="hljs-title">td</span>&gt;</span>部门ID<span class="hljs-tag">&lt;/<span class="hljs-title">td</span>&gt;</span>
+            <span class="hljs-tag">&lt;<span class="hljs-title">td</span>&gt;</span>部门<span class="hljs-tag">&lt;/<span class="hljs-title">td</span>&gt;</span>
+            <span class="hljs-tag">&lt;<span class="hljs-title">td</span>&gt;</span>学生ID<span class="hljs-tag">&lt;/<span class="hljs-title">td</span>&gt;</span>
+            <span class="hljs-tag">&lt;<span class="hljs-title">td</span>&gt;</span>学生姓名<span class="hljs-tag">&lt;/<span class="hljs-title">td</span>&gt;</span>
+            <span class="hljs-tag">&lt;<span class="hljs-title">td</span>&gt;</span>学生年龄<span class="hljs-tag">&lt;/<span class="hljs-title">td</span>&gt;</span>
+        <span class="hljs-tag">&lt;/<span class="hljs-title">tr</span>&gt;</span>
+        <span class="hljs-tag">&lt;<span class="hljs-title">c:forEach</span> <span class="hljs-attribute">items</span>=<span class="hljs-value">"${sessionScope.depts }"</span> <span class="hljs-attribute">var</span>=<span class="hljs-value">"dept"</span>&gt;</span>
+            <span class="hljs-tag">&lt;<span class="hljs-title">c:if</span> <span class="hljs-attribute">test</span>=<span class="hljs-value">"${!empty dept.students }"</span>&gt;</span>
+                <span class="hljs-tag">&lt;<span class="hljs-title">c:forEach</span> <span class="hljs-attribute">items</span>=<span class="hljs-value">"${dept.students }"</span> <span class="hljs-attribute">var</span>=<span class="hljs-value">"stud"</span>&gt;</span>
+                    <span class="hljs-tag">&lt;<span class="hljs-title">tr</span>&gt;</span>
+                        <span class="hljs-tag">&lt;<span class="hljs-title">td</span>&gt;</span>${dept.deptId}<span class="hljs-tag">&lt;/<span class="hljs-title">td</span>&gt;</span>
+                        <span class="hljs-tag">&lt;<span class="hljs-title">td</span>&gt;</span>${dept.deptName}<span class="hljs-tag">&lt;/<span class="hljs-title">td</span>&gt;</span>
+                        <span class="hljs-tag">&lt;<span class="hljs-title">td</span>&gt;</span>${stud.studId}<span class="hljs-tag">&lt;/<span class="hljs-title">td</span>&gt;</span>
+                        <span class="hljs-tag">&lt;<span class="hljs-title">td</span>&gt;</span>${stud.studName}<span class="hljs-tag">&lt;/<span class="hljs-title">td</span>&gt;</span>
+                        <span class="hljs-tag">&lt;<span class="hljs-title">td</span>&gt;</span>${stud.studAge}<span class="hljs-tag">&lt;/<span class="hljs-title">td</span>&gt;</span>
+                        <span class="hljs-tag">&lt;<span class="hljs-title">td</span>&gt;</span><span class="hljs-tag">&lt;<span class="hljs-title">a
+</span>                            <span class="hljs-attribute">href</span>=<span class="hljs-value">"&lt;c:url value='/MultiServlet?cmd=delStudent&amp;studId=${stud.studId}'/&gt;"</span>&gt;</span>删除<span class="hljs-tag">&lt;/<span class="hljs-title">a</span>&gt;</span>
+                        <span class="hljs-tag">&lt;/<span class="hljs-title">td</span>&gt;</span>
+                    <span class="hljs-tag">&lt;/<span class="hljs-title">tr</span>&gt;</span>
+                <span class="hljs-tag">&lt;/<span class="hljs-title">c:forEach</span>&gt;</span>
+            <span class="hljs-tag">&lt;/<span class="hljs-title">c:if</span>&gt;</span>
+            <span class="hljs-tag">&lt;<span class="hljs-title">c:if</span> <span class="hljs-attribute">test</span>=<span class="hljs-value">"${empty dept.students }"</span>&gt;</span>
+                <span class="hljs-tag">&lt;<span class="hljs-title">tr</span>&gt;</span>
+                    <span class="hljs-tag">&lt;<span class="hljs-title">td</span>&gt;</span>${dept.deptId}<span class="hljs-tag">&lt;/<span class="hljs-title">td</span>&gt;</span>
+                    <span class="hljs-tag">&lt;<span class="hljs-title">td</span>&gt;</span>${dept.deptName}<span class="hljs-tag">&lt;/<span class="hljs-title">td</span>&gt;</span>
+                <span class="hljs-tag">&lt;/<span class="hljs-title">tr</span>&gt;</span>
+            <span class="hljs-tag">&lt;/<span class="hljs-title">c:if</span>&gt;</span>
+        <span class="hljs-tag">&lt;/<span class="hljs-title">c:forEach</span>&gt;</span>
+    <span class="hljs-tag">&lt;/<span class="hljs-title">table</span>&gt;</span>
+    <span class="hljs-tag">&lt;<span class="hljs-title">h3</span>&gt;</span>通过学院id查询学院表，把该学院的学生信息也同时输出来<span class="hljs-tag">&lt;/<span class="hljs-title">h3</span>&gt;</span>
+    <span class="hljs-tag">&lt;<span class="hljs-title">form</span> <span class="hljs-attribute">action</span>=<span class="hljs-value">"&lt;c:url value='/MultiServlet?cmd=queryDeptById'/&gt;"</span>
+        <span class="hljs-attribute">method</span>=<span class="hljs-value">"post"</span>&gt;</span>
+        <span class="hljs-tag">&lt;<span class="hljs-title">table</span>&gt;</span>
+            <span class="hljs-tag">&lt;<span class="hljs-title">tr</span>&gt;</span>
+                <span class="hljs-tag">&lt;<span class="hljs-title">td</span>&gt;</span>学院编号<span class="hljs-tag">&lt;<span class="hljs-title">font</span> <span class="hljs-attribute">color</span>=<span class="hljs-value">"red"</span>&gt;</span>*<span class="hljs-tag">&lt;/<span class="hljs-title">font</span>&gt;</span><span class="hljs-tag">&lt;/<span class="hljs-title">td</span>&gt;</span>
+                <span class="hljs-tag">&lt;<span class="hljs-title">td</span>&gt;</span><span class="hljs-tag">&lt;<span class="hljs-title">input</span> <span class="hljs-attribute">type</span>=<span class="hljs-value">"text"</span> <span class="hljs-attribute">name</span>=<span class="hljs-value">"deptId"</span>&gt;</span>
+                <span class="hljs-tag">&lt;/<span class="hljs-title">td</span>&gt;</span>
+            <span class="hljs-tag">&lt;/<span class="hljs-title">tr</span>&gt;</span>
+            <span class="hljs-tag">&lt;<span class="hljs-title">tr</span>&gt;</span>
+                <span class="hljs-tag">&lt;<span class="hljs-title">td</span> <span class="hljs-attribute">colspan</span>=<span class="hljs-value">"2"</span> <span class="hljs-attribute">align</span>=<span class="hljs-value">"center"</span>&gt;</span><span class="hljs-tag">&lt;<span class="hljs-title">input</span> <span class="hljs-attribute">type</span>=<span class="hljs-value">"submit"</span> <span class="hljs-attribute">value</span>=<span class="hljs-value">"查询"</span>&gt;</span>
+                <span class="hljs-tag">&lt;/<span class="hljs-title">td</span>&gt;</span>
+            <span class="hljs-tag">&lt;/<span class="hljs-title">tr</span>&gt;</span>
+        <span class="hljs-tag">&lt;/<span class="hljs-title">table</span>&gt;</span>
+    <span class="hljs-tag">&lt;/<span class="hljs-title">form</span>&gt;</span>
+    <span class="hljs-tag">&lt;<span class="hljs-title">c:if</span> <span class="hljs-attribute">test</span>=<span class="hljs-value">"${!empty sessionScope.map }"</span>&gt;</span>
+        <span class="hljs-tag">&lt;<span class="hljs-title">h3</span>&gt;</span>查询结果<span class="hljs-tag">&lt;/<span class="hljs-title">h3</span>&gt;</span>
+             学院名称:${map.deptName}
+             <span class="hljs-tag">&lt;<span class="hljs-title">table</span>&gt;</span>
+            <span class="hljs-tag">&lt;<span class="hljs-title">tr</span>&gt;</span>
+                <span class="hljs-tag">&lt;<span class="hljs-title">td</span>&gt;</span>学号<span class="hljs-tag">&lt;/<span class="hljs-title">td</span>&gt;</span>
+                <span class="hljs-tag">&lt;<span class="hljs-title">td</span>&gt;</span>姓名<span class="hljs-tag">&lt;/<span class="hljs-title">td</span>&gt;</span>
+                <span class="hljs-tag">&lt;<span class="hljs-title">td</span>&gt;</span>年龄<span class="hljs-tag">&lt;/<span class="hljs-title">td</span>&gt;</span>
+                <span class="hljs-tag">&lt;<span class="hljs-title">td</span>&gt;</span>学院编号<span class="hljs-tag">&lt;/<span class="hljs-title">td</span>&gt;</span>
+                <span class="hljs-tag">&lt;<span class="hljs-title">td</span>&gt;</span>操作<span class="hljs-tag">&lt;/<span class="hljs-title">td</span>&gt;</span>
+            <span class="hljs-tag">&lt;/<span class="hljs-title">tr</span>&gt;</span>
+            <span class="hljs-tag">&lt;<span class="hljs-title">c:forEach</span> <span class="hljs-attribute">items</span>=<span class="hljs-value">"${map.qlist}"</span> <span class="hljs-attribute">var</span>=<span class="hljs-value">"stud"</span>&gt;</span>
+                <span class="hljs-tag">&lt;<span class="hljs-title">tr</span>&gt;</span>
+                    <span class="hljs-tag">&lt;<span class="hljs-title">td</span>&gt;</span>${stud.studId}<span class="hljs-tag">&lt;/<span class="hljs-title">td</span>&gt;</span>
+                    <span class="hljs-tag">&lt;<span class="hljs-title">td</span>&gt;</span>${stud.studName}<span class="hljs-tag">&lt;/<span class="hljs-title">td</span>&gt;</span>
+                    <span class="hljs-tag">&lt;<span class="hljs-title">td</span>&gt;</span>${stud.studAge}<span class="hljs-tag">&lt;/<span class="hljs-title">td</span>&gt;</span>
+                    <span class="hljs-tag">&lt;<span class="hljs-title">td</span>&gt;</span>${map.deptId}<span class="hljs-tag">&lt;/<span class="hljs-title">td</span>&gt;</span>
+                    <span class="hljs-tag">&lt;<span class="hljs-title">td</span>&gt;</span><span class="hljs-tag">&lt;<span class="hljs-title">a
+</span>                        <span class="hljs-attribute">href</span>=<span class="hljs-value">"&lt;c:url value='/MultiServlet?cmd=delStudent&amp;studId=${stud.studId}'/&gt;"</span>&gt;</span>删除<span class="hljs-tag">&lt;/<span class="hljs-title">a</span>&gt;</span>
+                    <span class="hljs-tag">&lt;/<span class="hljs-title">td</span>&gt;</span>
+                <span class="hljs-tag">&lt;/<span class="hljs-title">tr</span>&gt;</span>
+            <span class="hljs-tag">&lt;/<span class="hljs-title">c:forEach</span>&gt;</span>
+        <span class="hljs-tag">&lt;/<span class="hljs-title">table</span>&gt;</span>
+    <span class="hljs-tag">&lt;/<span class="hljs-title">c:if</span>&gt;</span>
+    <span class="hljs-tag">&lt;<span class="hljs-title">h3</span>&gt;</span>删除部门演示<span class="hljs-tag">&lt;/<span class="hljs-title">h3</span>&gt;</span>
+    <span class="hljs-tag">&lt;<span class="hljs-title">table</span>&gt;</span>
+        <span class="hljs-tag">&lt;<span class="hljs-title">tr</span>&gt;</span>
+            <span class="hljs-tag">&lt;<span class="hljs-title">td</span>&gt;</span>部门ID<span class="hljs-tag">&lt;/<span class="hljs-title">td</span>&gt;</span>
+            <span class="hljs-tag">&lt;<span class="hljs-title">td</span>&gt;</span>部门<span class="hljs-tag">&lt;/<span class="hljs-title">td</span>&gt;</span>
+        <span class="hljs-tag">&lt;/<span class="hljs-title">tr</span>&gt;</span>
+        <span class="hljs-tag">&lt;<span class="hljs-title">c:forEach</span> <span class="hljs-attribute">items</span>=<span class="hljs-value">"${sessionScope.depts }"</span> <span class="hljs-attribute">var</span>=<span class="hljs-value">"dept"</span>&gt;</span>
+            <span class="hljs-tag">&lt;<span class="hljs-title">tr</span>&gt;</span>
+                <span class="hljs-tag">&lt;<span class="hljs-title">td</span>&gt;</span>${dept.deptId }<span class="hljs-tag">&lt;/<span class="hljs-title">td</span>&gt;</span>
+                <span class="hljs-tag">&lt;<span class="hljs-title">td</span>&gt;</span>${dept.deptName }<span class="hljs-tag">&lt;/<span class="hljs-title">td</span>&gt;</span>
+                <span class="hljs-tag">&lt;<span class="hljs-title">td</span>&gt;</span><span class="hljs-tag">&lt;<span class="hljs-title">a
+</span>                    <span class="hljs-attribute">href</span>=<span class="hljs-value">"&lt;c:url value='/MultiServlet?cmd=delDept&amp;deptId=${dept.deptId }'/&gt;"</span>&gt;</span>删除<span class="hljs-tag">&lt;/<span class="hljs-title">a</span>&gt;</span>
+                <span class="hljs-tag">&lt;/<span class="hljs-title">td</span>&gt;</span>
+            <span class="hljs-tag">&lt;/<span class="hljs-title">tr</span>&gt;</span>
+        <span class="hljs-tag">&lt;/<span class="hljs-title">c:forEach</span>&gt;</span>
+    <span class="hljs-tag">&lt;/<span class="hljs-title">table</span>&gt;</span>
+    <span class="hljs-tag">&lt;<span class="hljs-title">h3</span>&gt;</span>添加部门演示<span class="hljs-tag">&lt;/<span class="hljs-title">h3</span>&gt;</span>
+        <span class="hljs-tag">&lt;<span class="hljs-title">table</span>&gt;</span>
+        <span class="hljs-tag">&lt;<span class="hljs-title">tr</span>&gt;</span>
+            <span class="hljs-tag">&lt;<span class="hljs-title">td</span>&gt;</span>部门ID<span class="hljs-tag">&lt;<span class="hljs-title">font</span> <span class="hljs-attribute">color</span>=<span class="hljs-value">"red"</span>&gt;</span>*<span class="hljs-tag">&lt;/<span class="hljs-title">font</span>&gt;</span><span class="hljs-tag">&lt;/<span class="hljs-title">td</span>&gt;</span>
+            <span class="hljs-tag">&lt;<span class="hljs-title">td</span>&gt;</span><span class="hljs-tag">&lt;<span class="hljs-title">input</span> <span class="hljs-attribute">type</span>=<span class="hljs-value">"text"</span> <span class="hljs-attribute">id</span>=<span class="hljs-value">"deptId"</span> <span class="hljs-attribute">name</span>=<span class="hljs-value">"deptId"</span>/&gt;</span><span class="hljs-tag">&lt;/<span class="hljs-title">td</span>&gt;</span>
+        <span class="hljs-tag">&lt;/<span class="hljs-title">tr</span>&gt;</span>
+        <span class="hljs-tag">&lt;<span class="hljs-title">tr</span>&gt;</span>
+            <span class="hljs-tag">&lt;<span class="hljs-title">td</span>&gt;</span>部门名称<span class="hljs-tag">&lt;<span class="hljs-title">font</span> <span class="hljs-attribute">color</span>=<span class="hljs-value">"red"</span>&gt;</span>*<span class="hljs-tag">&lt;/<span class="hljs-title">font</span>&gt;</span><span class="hljs-tag">&lt;/<span class="hljs-title">td</span>&gt;</span>
+            <span class="hljs-tag">&lt;<span class="hljs-title">td</span>&gt;</span><span class="hljs-tag">&lt;<span class="hljs-title">input</span> <span class="hljs-attribute">type</span>=<span class="hljs-value">"text"</span> <span class="hljs-attribute">id</span>=<span class="hljs-value">"deptName"</span> <span class="hljs-attribute">name</span>=<span class="hljs-value">"deptName"</span>/&gt;</span><span class="hljs-tag">&lt;/<span class="hljs-title">td</span>&gt;</span>
+        <span class="hljs-tag">&lt;/<span class="hljs-title">tr</span>&gt;</span>
+        <span class="hljs-tag">&lt;<span class="hljs-title">tr</span>&gt;</span>
+            <span class="hljs-tag">&lt;<span class="hljs-title">td</span> <span class="hljs-attribute">colspan</span>=<span class="hljs-value">"2"</span> <span class="hljs-attribute">align</span>=<span class="hljs-value">"center"</span>&gt;</span><span class="hljs-tag">&lt;<span class="hljs-title">input</span> <span class="hljs-attribute">type</span>=<span class="hljs-value">"button"</span> <span class="hljs-attribute">value</span>=<span class="hljs-value">"添加"</span> <span class="hljs-attribute">onclick</span>=<span class="hljs-value">"addDept()"</span>/&gt;</span><span class="hljs-tag">&lt;/<span class="hljs-title">td</span>&gt;</span>
+        <span class="hljs-tag">&lt;/<span class="hljs-title">tr</span>&gt;</span>
+    <span class="hljs-tag">&lt;/<span class="hljs-title">table</span>&gt;</span>
+<span class="hljs-tag">&lt;/<span class="hljs-title">body</span>&gt;</span>
+<span class="hljs-tag">&lt;/<span class="hljs-title">html</span>&gt;</span></code></pre>
+
+<p>4.写工具类和过滤器 <br />
+BaseServlet.java</p>
+
+
+
+<pre class="prettyprint"><code class=" hljs java"><span class="hljs-keyword">package</span> cn.hncu.util;
+
+<span class="hljs-keyword">import</span> java.io.IOException;
+<span class="hljs-keyword">import</span> java.lang.reflect.InvocationTargetException;
+<span class="hljs-keyword">import</span> java.lang.reflect.Method;
+
+<span class="hljs-keyword">import</span> javax.servlet.ServletException;
+<span class="hljs-keyword">import</span> javax.servlet.http.HttpServlet;
+<span class="hljs-keyword">import</span> javax.servlet.http.HttpServletRequest;
+<span class="hljs-keyword">import</span> javax.servlet.http.HttpServletResponse;
+
+<span class="hljs-keyword">public</span> <span class="hljs-keyword">abstract</span> <span class="hljs-class"><span class="hljs-keyword">class</span> <span class="hljs-title">BaseServlet</span> <span class="hljs-keyword">extends</span> <span class="hljs-title">HttpServlet</span> {</span>
+
+    <span class="hljs-annotation">@Override</span>
+    <span class="hljs-keyword">protected</span> <span class="hljs-keyword">void</span> <span class="hljs-title">doGet</span>(HttpServletRequest req, HttpServletResponse resp)
+            <span class="hljs-keyword">throws</span> ServletException, IOException {
+        doPost(req, resp);
+    }
+
+    <span class="hljs-annotation">@Override</span>
+    <span class="hljs-keyword">protected</span> <span class="hljs-keyword">void</span> <span class="hljs-title">doPost</span>(HttpServletRequest req, HttpServletResponse resp)
+            <span class="hljs-keyword">throws</span> ServletException, IOException {
+        String cmd=req.getParameter(<span class="hljs-string">"cmd"</span>);
+        <span class="hljs-keyword">if</span>(<span class="hljs-keyword">null</span>==cmd||cmd.trim().equals(<span class="hljs-string">""</span>)){
+            cmd=<span class="hljs-string">"excute"</span>;
+        }
+        <span class="hljs-keyword">try</span> {
+            Method m=<span class="hljs-keyword">this</span>.getClass().getDeclaredMethod(cmd, HttpServletRequest.class,HttpServletResponse.class);
+            m.invoke(<span class="hljs-keyword">this</span>, req,resp);
+
+        } <span class="hljs-keyword">catch</span> (NoSuchMethodException e) {
+            <span class="hljs-keyword">throw</span> <span class="hljs-keyword">new</span> RuntimeException(<span class="hljs-string">"没有此方法："</span> + e.getMessage(), e);
+        }<span class="hljs-keyword">catch</span>(InvocationTargetException e){
+            <span class="hljs-keyword">throw</span> <span class="hljs-keyword">new</span> RuntimeException(<span class="hljs-string">"目标方法执行失败："</span> + e.getMessage(), e);
+        }<span class="hljs-keyword">catch</span>(IllegalAccessException e){
+            <span class="hljs-keyword">throw</span> <span class="hljs-keyword">new</span> RuntimeException(<span class="hljs-string">"你可能访问了一个私有的方法："</span> + e.getMessage(), e);
+        }<span class="hljs-keyword">catch</span>(Exception e){
+            <span class="hljs-keyword">throw</span> <span class="hljs-keyword">new</span> RuntimeException(e.getMessage(), e);
+        }
+
+    }
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">abstract</span> <span class="hljs-keyword">void</span> <span class="hljs-title">excute</span>(HttpServletRequest req, HttpServletResponse resp)<span class="hljs-keyword">throws</span> ServletException, IOException ;
+}</code></pre>
+
+<p>CharaterFilter.java</p>
+
+
+
+<pre class="prettyprint"><code class=" hljs java"><span class="hljs-keyword">package</span> cn.hncu.filter;
+
+<span class="hljs-keyword">import</span> java.io.IOException;
+
+<span class="hljs-keyword">import</span> javax.servlet.Filter;
+<span class="hljs-keyword">import</span> javax.servlet.FilterChain;
+<span class="hljs-keyword">import</span> javax.servlet.FilterConfig;
+<span class="hljs-keyword">import</span> javax.servlet.ServletException;
+<span class="hljs-keyword">import</span> javax.servlet.ServletRequest;
+<span class="hljs-keyword">import</span> javax.servlet.ServletResponse;
+
+<span class="hljs-keyword">public</span> <span class="hljs-class"><span class="hljs-keyword">class</span> <span class="hljs-title">CharaterFilter</span> <span class="hljs-keyword">implements</span> <span class="hljs-title">Filter</span>{</span>
+    <span class="hljs-annotation">@Override</span>
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">void</span> <span class="hljs-title">init</span>(FilterConfig filterConfig) <span class="hljs-keyword">throws</span> ServletException {
+
+    }
+    <span class="hljs-annotation">@Override</span>
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">void</span> <span class="hljs-title">doFilter</span>(ServletRequest request, ServletResponse response,
+            FilterChain chain) <span class="hljs-keyword">throws</span> IOException, ServletException {
+        request.setCharacterEncoding(<span class="hljs-string">"utf-8"</span>);
+        response.setCharacterEncoding(<span class="hljs-string">"utf-8"</span>);
+        chain.doFilter(request, response);
+    }
+    <span class="hljs-annotation">@Override</span>
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">void</span> <span class="hljs-title">destroy</span>() {
+
+    }
+
+}</code></pre>
+
+<p>HibernateSessionFactory.java</p>
+
+
+
+<pre class="prettyprint"><code class=" hljs java"><span class="hljs-keyword">package</span> cn.hncu.hib;
+
+<span class="hljs-keyword">import</span> org.hibernate.HibernateException;
+<span class="hljs-keyword">import</span> org.hibernate.Session;
+<span class="hljs-keyword">import</span> org.hibernate.SessionFactory;
+<span class="hljs-keyword">import</span> org.hibernate.cfg.Configuration;
+
+<span class="hljs-keyword">public</span> <span class="hljs-class"><span class="hljs-keyword">class</span> <span class="hljs-title">HibernateSessionFactory</span> {</span>
+    <span class="hljs-keyword">private</span> <span class="hljs-keyword">static</span> <span class="hljs-keyword">final</span> String CONFIG_FILENAME=<span class="hljs-string">"/hibernate.cfg.xml"</span>;<span class="hljs-comment">//文件名</span>
+    <span class="hljs-keyword">private</span> <span class="hljs-keyword">static</span> <span class="hljs-keyword">final</span> ThreadLocal&lt;Session&gt; threadLocal=<span class="hljs-keyword">new</span> ThreadLocal&lt;Session&gt;();<span class="hljs-comment">//本地线程</span>
+    <span class="hljs-keyword">private</span> <span class="hljs-keyword">static</span> Configuration config=<span class="hljs-keyword">new</span> Configuration();
+    <span class="hljs-keyword">private</span> <span class="hljs-keyword">static</span> SessionFactory sessionFactory;<span class="hljs-comment">//声明一个SessionFactory对象</span>
+    <span class="hljs-keyword">static</span>{
+        <span class="hljs-keyword">try</span> {
+            config.configure(CONFIG_FILENAME);
+            sessionFactory=config.buildSessionFactory();
+        } <span class="hljs-keyword">catch</span> (HibernateException e) {
+            e.printStackTrace();
+        }
+    }
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">static</span> SessionFactory <span class="hljs-title">getSessionFactory</span>() {
+        <span class="hljs-keyword">return</span> sessionFactory;
+    }
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">static</span> Session <span class="hljs-title">getSession</span>() <span class="hljs-keyword">throws</span> HibernateException{
+        Session session=threadLocal.get();
+        <span class="hljs-keyword">if</span>(session==<span class="hljs-keyword">null</span>||!session.isOpen()){<span class="hljs-comment">//如果这个链接没开</span>
+            <span class="hljs-keyword">if</span> (sessionFactory==<span class="hljs-keyword">null</span>) {
+                config.configure(CONFIG_FILENAME);
+                sessionFactory = config.buildSessionFactory();
+            }
+            session=(sessionFactory!=<span class="hljs-keyword">null</span>)?sessionFactory.openSession():<span class="hljs-keyword">null</span>;<span class="hljs-comment">//是否开放一个session</span>
+            threadLocal.set(session);<span class="hljs-comment">//把session放入本地线程</span>
+        }
+        <span class="hljs-keyword">return</span> session;
+    }
+
+    <span class="hljs-comment">//关闭连接</span>
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">static</span> <span class="hljs-keyword">void</span> <span class="hljs-title">closeSession</span>() <span class="hljs-keyword">throws</span> HibernateException{
+        Session session=threadLocal.get();
+        threadLocal.remove();
+        <span class="hljs-keyword">if</span>(session!=<span class="hljs-keyword">null</span>){
+            session.close();
+        }
+
+    }
+
+}</code></pre>
+
+<p>5.单表的功能demo <br />
+DemoServlet.java</p>
+
+
+
+<pre class="prettyprint"><code class=" hljs avrasm">package cn<span class="hljs-preprocessor">.hncu</span><span class="hljs-preprocessor">.demo</span><span class="hljs-comment">;</span>
+
+import java<span class="hljs-preprocessor">.io</span><span class="hljs-preprocessor">.IOException</span><span class="hljs-comment">;</span>
+import java<span class="hljs-preprocessor">.util</span><span class="hljs-preprocessor">.List</span><span class="hljs-comment">;</span>
+
+import javax<span class="hljs-preprocessor">.servlet</span><span class="hljs-preprocessor">.http</span><span class="hljs-preprocessor">.HttpServletRequest</span><span class="hljs-comment">;</span>
+import javax<span class="hljs-preprocessor">.servlet</span><span class="hljs-preprocessor">.http</span><span class="hljs-preprocessor">.HttpServletResponse</span><span class="hljs-comment">;</span>
+
+import cn<span class="hljs-preprocessor">.hncu</span><span class="hljs-preprocessor">.demo</span><span class="hljs-preprocessor">.service</span><span class="hljs-preprocessor">.DemoServiceImpl</span><span class="hljs-comment">;</span>
+import cn<span class="hljs-preprocessor">.hncu</span><span class="hljs-preprocessor">.domain</span><span class="hljs-preprocessor">.Student</span><span class="hljs-comment">;</span>
+import cn<span class="hljs-preprocessor">.hncu</span><span class="hljs-preprocessor">.util</span><span class="hljs-preprocessor">.BaseServlet</span><span class="hljs-comment">;</span>
+
+
+
+public class DemoServlet extends BaseServlet {
+    private DemoServiceImpl service=new DemoServiceImpl()<span class="hljs-comment">;</span>
+    @Override
+    public void excute(HttpServletRequest req, HttpServletResponse resp) throws IOException {
+        List&lt;Student&gt; list=service<span class="hljs-preprocessor">.queryAllStudent</span>()<span class="hljs-comment">;</span>
+        req<span class="hljs-preprocessor">.getSession</span>()<span class="hljs-preprocessor">.setAttribute</span>(<span class="hljs-string">"list"</span>, list)<span class="hljs-comment">;</span>
+        resp<span class="hljs-preprocessor">.sendRedirect</span>(getServletContext()<span class="hljs-preprocessor">.getContextPath</span>()+<span class="hljs-string">"/jsps/demo1.jsp"</span>)<span class="hljs-comment">;</span>
+    }
+
+    public void delStudent(HttpServletRequest req, HttpServletResponse resp) throws IOException {
+        String id=req<span class="hljs-preprocessor">.getParameter</span>(<span class="hljs-string">"id"</span>)<span class="hljs-comment">;</span>
+        Student stud=new Student()<span class="hljs-comment">;</span>
+        stud<span class="hljs-preprocessor">.setStudId</span>(id)<span class="hljs-comment">;</span>
+        stud=service<span class="hljs-preprocessor">.queryAStudent</span>(stud)<span class="hljs-comment">;</span>
+        service<span class="hljs-preprocessor">.delStudent</span>(stud)<span class="hljs-comment">;</span>
+
+        System<span class="hljs-preprocessor">.out</span><span class="hljs-preprocessor">.println</span>(stud)<span class="hljs-comment">;</span>
+        List&lt;Student&gt; qlist=(List&lt;Student&gt;) req<span class="hljs-preprocessor">.getSession</span>()<span class="hljs-preprocessor">.getAttribute</span>(<span class="hljs-string">"qlist"</span>)<span class="hljs-comment">;</span>
+        if(qlist!=null){
+            if(qlist<span class="hljs-preprocessor">.contains</span>(stud)){
+                System<span class="hljs-preprocessor">.out</span><span class="hljs-preprocessor">.println</span>(<span class="hljs-string">"qlist:"</span>+qlist)<span class="hljs-comment">;</span>
+                qlist<span class="hljs-preprocessor">.remove</span>(stud)<span class="hljs-comment">;//注意写equal方法</span>
+            }
+        }
+        resp<span class="hljs-preprocessor">.sendRedirect</span>(getServletContext()<span class="hljs-preprocessor">.getContextPath</span>()+<span class="hljs-string">"/DemoServlet"</span>)<span class="hljs-comment">;</span>
+    }
+    public void addStudent(HttpServletRequest req, HttpServletResponse resp) throws IOException {
+        Student stud=new Student()<span class="hljs-comment">;</span>
+        String id=req<span class="hljs-preprocessor">.getParameter</span>(<span class="hljs-string">"id"</span>)<span class="hljs-comment">;</span>
+        stud<span class="hljs-preprocessor">.setStudId</span>(id)<span class="hljs-comment">;</span>
+        String name=req<span class="hljs-preprocessor">.getParameter</span>(<span class="hljs-string">"name"</span>)<span class="hljs-comment">;</span>
+        stud<span class="hljs-preprocessor">.setStudName</span>(name)<span class="hljs-comment">;</span>
+        String strAge=req<span class="hljs-preprocessor">.getParameter</span>(<span class="hljs-string">"age"</span>)<span class="hljs-comment">;</span>
+
+        try {
+            Integer age=Integer<span class="hljs-preprocessor">.parseInt</span>(strAge)<span class="hljs-comment">;</span>
+            if(age&gt;<span class="hljs-number">0</span>){
+                stud<span class="hljs-preprocessor">.setStudAge</span>(age)<span class="hljs-comment">;</span>
+            }
+        } catch (NumberFormatException e) {
+        }
+        String deptId=req<span class="hljs-preprocessor">.getParameter</span>(<span class="hljs-string">"deptId"</span>)<span class="hljs-comment">;</span>
+        stud<span class="hljs-preprocessor">.setDeptId</span>(deptId)<span class="hljs-comment">;</span>
+        service<span class="hljs-preprocessor">.addStudent</span>(stud)<span class="hljs-comment">;</span>
+        resp<span class="hljs-preprocessor">.sendRedirect</span>(getServletContext()<span class="hljs-preprocessor">.getContextPath</span>()+<span class="hljs-string">"/DemoServlet"</span>)<span class="hljs-comment">;</span>
+    }
+
+    public void updateStudent(HttpServletRequest req, HttpServletResponse resp) throws IOException {
+        Student stud=new Student()<span class="hljs-comment">;</span>
+        String id=req<span class="hljs-preprocessor">.getParameter</span>(<span class="hljs-string">"id"</span>)<span class="hljs-comment">;</span>
+        stud<span class="hljs-preprocessor">.setStudId</span>(id)<span class="hljs-comment">;</span>
+        Student updateStud=service<span class="hljs-preprocessor">.queryAStudent</span>(stud)<span class="hljs-comment">;</span>
+        req<span class="hljs-preprocessor">.getSession</span>()<span class="hljs-preprocessor">.setAttribute</span>(<span class="hljs-string">"updateStud"</span>, updateStud)<span class="hljs-comment">;</span>
+        resp<span class="hljs-preprocessor">.getWriter</span>()<span class="hljs-preprocessor">.print</span>(<span class="hljs-string">"1"</span>)<span class="hljs-comment">;</span>
+    }
+
+    public void queryStudent(HttpServletRequest req, HttpServletResponse resp) throws IOException {
+        Student stud=new Student()<span class="hljs-comment">;</span>
+        String id=req<span class="hljs-preprocessor">.getParameter</span>(<span class="hljs-string">"id"</span>)<span class="hljs-comment">;</span>
+        stud<span class="hljs-preprocessor">.setStudId</span>(id)<span class="hljs-comment">;</span>
+        String name=req<span class="hljs-preprocessor">.getParameter</span>(<span class="hljs-string">"name"</span>)<span class="hljs-comment">;</span>
+        stud<span class="hljs-preprocessor">.setStudName</span>(name)<span class="hljs-comment">;</span>
+        String strAge=req<span class="hljs-preprocessor">.getParameter</span>(<span class="hljs-string">"age"</span>)<span class="hljs-comment">;</span>
+        try {
+            Integer age=Integer<span class="hljs-preprocessor">.parseInt</span>(strAge)<span class="hljs-comment">;</span>
+            if(age&gt;<span class="hljs-number">0</span>){
+                stud<span class="hljs-preprocessor">.setStudAge</span>(age)<span class="hljs-comment">;</span>
+            }
+        } catch (NumberFormatException e) {
+        }
+        String deptId=req<span class="hljs-preprocessor">.getParameter</span>(<span class="hljs-string">"deptId"</span>)<span class="hljs-comment">;</span>
+        stud<span class="hljs-preprocessor">.setDeptId</span>(deptId)<span class="hljs-comment">;</span>
+        List&lt;Student&gt; qlist=service<span class="hljs-preprocessor">.queryStudent</span>(stud)<span class="hljs-comment">;</span>
+        req<span class="hljs-preprocessor">.getSession</span>()<span class="hljs-preprocessor">.setAttribute</span>(<span class="hljs-string">"qlist"</span>, qlist)<span class="hljs-comment">;</span>
+        resp<span class="hljs-preprocessor">.getWriter</span>()<span class="hljs-preprocessor">.print</span>(<span class="hljs-string">"1"</span>)<span class="hljs-comment">;</span>
+    }
+
+}</code></pre>
+
+<p>DemoServiceImpl.java</p>
+
+
+
+<pre class="prettyprint"><code class=" hljs java"><span class="hljs-keyword">package</span> cn.hncu.demo.service;
+
+<span class="hljs-keyword">import</span> java.util.List;
+
+<span class="hljs-keyword">import</span> cn.hncu.demo.dao.DemoDaoJdbc;
+<span class="hljs-keyword">import</span> cn.hncu.domain.Student;
+
+<span class="hljs-keyword">public</span> <span class="hljs-class"><span class="hljs-keyword">class</span> <span class="hljs-title">DemoServiceImpl</span> {</span>
+    DemoDaoJdbc dao=<span class="hljs-keyword">new</span> DemoDaoJdbc();
+    <span class="hljs-keyword">public</span> List&lt;Student&gt; <span class="hljs-title">queryAllStudent</span>(){
+        <span class="hljs-keyword">return</span> dao.queryAllStudent();
+    }
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">void</span> <span class="hljs-title">delStudent</span>(Student stud) {
+        dao.delStudent(stud);
+    }
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">void</span> <span class="hljs-title">addStudent</span>(Student stud) {
+        dao.addStudent(stud);
+
+    }
+    <span class="hljs-keyword">public</span> Student <span class="hljs-title">queryAStudent</span>(Student stud) {
+        <span class="hljs-keyword">return</span> dao.queryAStudent(stud);
+    }
+    <span class="hljs-keyword">public</span> List&lt;Student&gt; <span class="hljs-title">queryStudent</span>(Student stud) {
+        <span class="hljs-keyword">return</span> dao.queryStudent(stud);
+    }
+}</code></pre>
+
+<p>DemoDaoJdbc.java</p>
+
+
+
+<pre class="prettyprint"><code class=" hljs avrasm">package cn<span class="hljs-preprocessor">.hncu</span><span class="hljs-preprocessor">.demo</span><span class="hljs-preprocessor">.dao</span><span class="hljs-comment">;</span>
+
+import java<span class="hljs-preprocessor">.util</span><span class="hljs-preprocessor">.List</span><span class="hljs-comment">;</span>
+
+import org<span class="hljs-preprocessor">.hibernate</span><span class="hljs-preprocessor">.HibernateException</span><span class="hljs-comment">;</span>
+import org<span class="hljs-preprocessor">.hibernate</span><span class="hljs-preprocessor">.Query</span><span class="hljs-comment">;</span>
+import org<span class="hljs-preprocessor">.hibernate</span><span class="hljs-preprocessor">.Session</span><span class="hljs-comment">;</span>
+import org<span class="hljs-preprocessor">.hibernate</span><span class="hljs-preprocessor">.Transaction</span><span class="hljs-comment">;</span>
+import org<span class="hljs-preprocessor">.junit</span><span class="hljs-preprocessor">.Test</span><span class="hljs-comment">;</span>
+
+import cn<span class="hljs-preprocessor">.hncu</span><span class="hljs-preprocessor">.domain</span><span class="hljs-preprocessor">.Student</span><span class="hljs-comment">;</span>
+import cn<span class="hljs-preprocessor">.hncu</span><span class="hljs-preprocessor">.hib</span><span class="hljs-preprocessor">.HibernateSessionFactory</span><span class="hljs-comment">;</span>
+
+public class DemoDaoJdbc {
+    public List&lt;Student&gt; queryAllStudent(){
+        Session session=HibernateSessionFactory<span class="hljs-preprocessor">.getSession</span>()<span class="hljs-comment">;</span>
+        //无论是Load 还是 Get 都会首先查找缓存（一级缓存） 如果没有，才会去数据库查找，调用Clear() 方法，可以强制清除Session缓存
+        session<span class="hljs-preprocessor">.clear</span>()<span class="hljs-comment">;</span>
+        Query query=session<span class="hljs-preprocessor">.createQuery</span>(<span class="hljs-string">"from Student"</span>)<span class="hljs-comment">;</span>
+        List&lt;Student&gt; list=query<span class="hljs-preprocessor">.list</span>()<span class="hljs-comment">;</span>
+        return list<span class="hljs-comment">;</span>
+    }
+    public void delStudent(Student stud) {
+        Session session=HibernateSessionFactory<span class="hljs-preprocessor">.getSession</span>()<span class="hljs-comment">;</span>
+
+        Transaction tr=session<span class="hljs-preprocessor">.beginTransaction</span>()<span class="hljs-comment">;</span>
+        try {
+            session<span class="hljs-preprocessor">.delete</span>(stud)<span class="hljs-comment">;</span>
+            session<span class="hljs-preprocessor">.flush</span>()<span class="hljs-comment">;</span>
+        } catch (Exception e) {
+            System<span class="hljs-preprocessor">.out</span><span class="hljs-preprocessor">.println</span>(<span class="hljs-string">"回滚了"</span>)<span class="hljs-comment">;</span>
+//          tr<span class="hljs-preprocessor">.rollback</span>()<span class="hljs-comment">;</span>
+        }
+        tr<span class="hljs-preprocessor">.commit</span>()<span class="hljs-comment">;//删除没有事务不行！</span>
+    }
+
+    @Test
+    public void t(){
+        Student stud=new Student()<span class="hljs-comment">;</span>
+        stud<span class="hljs-preprocessor">.setStudId</span>(<span class="hljs-string">"S003"</span>)<span class="hljs-comment">;</span>
+        delStudent(stud)<span class="hljs-comment">;</span>
+        System<span class="hljs-preprocessor">.out</span><span class="hljs-preprocessor">.println</span>(queryAllStudent())<span class="hljs-comment">;</span>
+    }
+
+    public void addStudent(Student stud) {
+        Session session=HibernateSessionFactory<span class="hljs-preprocessor">.getSession</span>()<span class="hljs-comment">;</span>
+        Transaction tr=session<span class="hljs-preprocessor">.beginTransaction</span>()<span class="hljs-comment">;</span>
+        try {
+            session<span class="hljs-preprocessor">.saveOrUpdate</span>(stud)<span class="hljs-comment">;</span>
+//          session<span class="hljs-preprocessor">.update</span>(stud)<span class="hljs-comment">;</span>
+        } catch (HibernateException e) {
+            e<span class="hljs-preprocessor">.printStackTrace</span>()<span class="hljs-comment">;</span>
+        }
+        tr<span class="hljs-preprocessor">.commit</span>()<span class="hljs-comment">;</span>
+    }
+
+    public Student queryAStudent(Student stud) {
+        Session session=HibernateSessionFactory<span class="hljs-preprocessor">.getSession</span>()<span class="hljs-comment">;</span>
+        String hql=<span class="hljs-string">"from Student s where s.studId=?"</span><span class="hljs-comment">;</span>
+        Query query=session<span class="hljs-preprocessor">.createQuery</span>(hql)<span class="hljs-comment">;</span>
+        query<span class="hljs-preprocessor">.setParameter</span>(<span class="hljs-number">0</span>, stud<span class="hljs-preprocessor">.getStudId</span>())<span class="hljs-comment">;</span>
+        List&lt;Student&gt; list=query<span class="hljs-preprocessor">.list</span>()<span class="hljs-comment">;</span>
+        if(list!=null&amp;&amp;list<span class="hljs-preprocessor">.size</span>()&gt;<span class="hljs-number">0</span>){
+            return list<span class="hljs-preprocessor">.get</span>(<span class="hljs-number">0</span>)<span class="hljs-comment">;</span>
+        }
+        return null<span class="hljs-comment">;</span>
+    }
+    public List&lt;Student&gt; queryStudent(Student stud) {
+        Session session=HibernateSessionFactory<span class="hljs-preprocessor">.getSession</span>()<span class="hljs-comment">;</span>
+        String hql=<span class="hljs-string">"from Student s where 1=1"</span><span class="hljs-comment">;</span>
+        if(stud<span class="hljs-preprocessor">.getStudId</span>()!=null&amp;&amp;stud<span class="hljs-preprocessor">.getStudId</span>()<span class="hljs-preprocessor">.trim</span>()<span class="hljs-preprocessor">.length</span>()&gt;<span class="hljs-number">0</span>){
+            hql+=<span class="hljs-string">" and s.studId='"</span>+stud<span class="hljs-preprocessor">.getStudId</span>()+<span class="hljs-string">"'"</span><span class="hljs-comment">;</span>
+        }
+        if(stud<span class="hljs-preprocessor">.getStudName</span>()!=null&amp;&amp;stud<span class="hljs-preprocessor">.getStudName</span>()<span class="hljs-preprocessor">.trim</span>()<span class="hljs-preprocessor">.length</span>()&gt;<span class="hljs-number">0</span>){
+            hql+=<span class="hljs-string">" and s.studName like '%"</span>+stud<span class="hljs-preprocessor">.getStudName</span>()+<span class="hljs-string">"%'"</span><span class="hljs-comment">;</span>
+        }
+        if(stud<span class="hljs-preprocessor">.getStudAge</span>()!=null){
+            hql+=<span class="hljs-string">" and s.studAge ="</span>+stud<span class="hljs-preprocessor">.getStudAge</span>()<span class="hljs-comment">;</span>
+        }
+        if(stud<span class="hljs-preprocessor">.getDeptId</span>()!=null&amp;&amp;stud<span class="hljs-preprocessor">.getDeptId</span>()<span class="hljs-preprocessor">.trim</span>()<span class="hljs-preprocessor">.length</span>()&gt;<span class="hljs-number">0</span>){
+            hql+=<span class="hljs-string">"and s.deptId='"</span>+stud<span class="hljs-preprocessor">.getDeptId</span>()+<span class="hljs-string">"'"</span><span class="hljs-comment">;</span>
+        }
+        Query query=session<span class="hljs-preprocessor">.createQuery</span>(hql)<span class="hljs-comment">;</span>
+        List&lt;Student&gt; list=query<span class="hljs-preprocessor">.list</span>()<span class="hljs-comment">;</span>
+        return list<span class="hljs-comment">;</span>
+    }
+}</code></pre>
+
+<p>6.多表操作模块 <br />
+MultiServlet.java</p>
+
+
+
+<pre class="prettyprint"><code class=" hljs avrasm">package cn<span class="hljs-preprocessor">.hncu</span><span class="hljs-preprocessor">.multi</span><span class="hljs-comment">;</span>
+
+
+import java<span class="hljs-preprocessor">.io</span><span class="hljs-preprocessor">.IOException</span><span class="hljs-comment">;</span>
+import java<span class="hljs-preprocessor">.io</span><span class="hljs-preprocessor">.PrintWriter</span><span class="hljs-comment">;</span>
+import java<span class="hljs-preprocessor">.util</span><span class="hljs-preprocessor">.HashMap</span><span class="hljs-comment">;</span>
+import java<span class="hljs-preprocessor">.util</span><span class="hljs-preprocessor">.List</span><span class="hljs-comment">;</span>
+import java<span class="hljs-preprocessor">.util</span><span class="hljs-preprocessor">.Map</span><span class="hljs-comment">;</span>
+
+import javax<span class="hljs-preprocessor">.servlet</span><span class="hljs-preprocessor">.ServletException</span><span class="hljs-comment">;</span>
+import javax<span class="hljs-preprocessor">.servlet</span><span class="hljs-preprocessor">.http</span><span class="hljs-preprocessor">.HttpServletRequest</span><span class="hljs-comment">;</span>
+import javax<span class="hljs-preprocessor">.servlet</span><span class="hljs-preprocessor">.http</span><span class="hljs-preprocessor">.HttpServletResponse</span><span class="hljs-comment">;</span>
+
+import cn<span class="hljs-preprocessor">.hncu</span><span class="hljs-preprocessor">.domain</span><span class="hljs-preprocessor">.Dept</span><span class="hljs-comment">;</span>
+import cn<span class="hljs-preprocessor">.hncu</span><span class="hljs-preprocessor">.domain</span><span class="hljs-preprocessor">.Stud</span><span class="hljs-comment">;</span>
+import cn<span class="hljs-preprocessor">.hncu</span><span class="hljs-preprocessor">.multi</span><span class="hljs-preprocessor">.service</span><span class="hljs-preprocessor">.MultiServiceImpl</span><span class="hljs-comment">;</span>
+import cn<span class="hljs-preprocessor">.hncu</span><span class="hljs-preprocessor">.util</span><span class="hljs-preprocessor">.BaseServlet</span><span class="hljs-comment">;</span>
+
+public class MultiServlet extends BaseServlet {
+    private MultiServiceImpl service=new MultiServiceImpl()<span class="hljs-comment">;</span>
+    @Override
+    public void excute(HttpServletRequest req, HttpServletResponse resp)
+            throws ServletException, IOException {
+        List&lt;Dept&gt; depts=service<span class="hljs-preprocessor">.queryAll</span>()<span class="hljs-comment">;</span>
+        req<span class="hljs-preprocessor">.getSession</span>()<span class="hljs-preprocessor">.setAttribute</span>(<span class="hljs-string">"depts"</span>, depts)<span class="hljs-comment">;</span>
+        resp<span class="hljs-preprocessor">.sendRedirect</span>(getServletContext()<span class="hljs-preprocessor">.getContextPath</span>()+<span class="hljs-string">"/jsps/multi.jsp"</span>)<span class="hljs-comment">;</span>
+    }
+
+    public void queryDeptById(HttpServletRequest req, HttpServletResponse resp)
+            throws ServletException, IOException {
+        Map&lt;String,Object&gt; map=new HashMap&lt;String,Object&gt;()<span class="hljs-comment">;</span>
+        String deptId=req<span class="hljs-preprocessor">.getParameter</span>(<span class="hljs-string">"deptId"</span>)<span class="hljs-comment">;</span>
+
+        Dept dept=service<span class="hljs-preprocessor">.queryDeptById</span>(deptId)<span class="hljs-comment">;</span>
+        if(dept!=null){
+            map<span class="hljs-preprocessor">.put</span>(<span class="hljs-string">"deptId"</span>, dept<span class="hljs-preprocessor">.getDeptId</span>())<span class="hljs-comment">;</span>
+            map<span class="hljs-preprocessor">.put</span>(<span class="hljs-string">"deptName"</span>, dept<span class="hljs-preprocessor">.getDeptName</span>())<span class="hljs-comment">;</span>
+            map<span class="hljs-preprocessor">.put</span>(<span class="hljs-string">"qlist"</span>, dept<span class="hljs-preprocessor">.getStudents</span>())<span class="hljs-comment">;</span>
+        }
+        req<span class="hljs-preprocessor">.getSession</span>()<span class="hljs-preprocessor">.setAttribute</span>(<span class="hljs-string">"map"</span>, map)<span class="hljs-comment">;</span>
+        resp<span class="hljs-preprocessor">.sendRedirect</span>(getServletContext()<span class="hljs-preprocessor">.getContextPath</span>()+<span class="hljs-string">"/jsps/multi.jsp"</span>)<span class="hljs-comment">;</span>
+    }
+
+    public void delStudent(HttpServletRequest req, HttpServletResponse resp) throws ServletException, IOException{
+        String studId=req<span class="hljs-preprocessor">.getParameter</span>(<span class="hljs-string">"studId"</span>)<span class="hljs-comment">;</span>
+        Stud stud=new Stud()<span class="hljs-comment">;</span>
+        stud<span class="hljs-preprocessor">.setStudId</span>(studId)<span class="hljs-comment">;</span>
+        service<span class="hljs-preprocessor">.delStudent</span>(stud)<span class="hljs-comment">;</span>
+        excute(req, resp)<span class="hljs-comment">;</span>
+    }
+    public void delDept(HttpServletRequest req, HttpServletResponse resp) throws ServletException, IOException{
+        String deptId=req<span class="hljs-preprocessor">.getParameter</span>(<span class="hljs-string">"deptId"</span>)<span class="hljs-comment">;</span>
+        Dept dept=new Dept()<span class="hljs-comment">;</span>
+        dept<span class="hljs-preprocessor">.setDeptId</span>(deptId)<span class="hljs-comment">;</span>
+        service<span class="hljs-preprocessor">.delDept</span>(dept)<span class="hljs-comment">;</span>
+        excute(req, resp)<span class="hljs-comment">;</span>
+    }
+
+    public void addDept(HttpServletRequest req, HttpServletResponse resp) throws ServletException, IOException{
+//      resp<span class="hljs-preprocessor">.setContentType</span>(<span class="hljs-string">"text/html"</span>)<span class="hljs-comment">;</span>
+        String deptId=req<span class="hljs-preprocessor">.getParameter</span>(<span class="hljs-string">"deptId"</span>)<span class="hljs-comment">;</span>
+        String deptName=req<span class="hljs-preprocessor">.getParameter</span>(<span class="hljs-string">"deptName"</span>)<span class="hljs-comment">;</span>
+        Dept dept=new Dept()<span class="hljs-comment">;</span>
+        dept<span class="hljs-preprocessor">.setDeptId</span>(deptId)<span class="hljs-comment">;</span>
+        dept<span class="hljs-preprocessor">.setDeptName</span>(deptName)<span class="hljs-comment">;</span>
+        service<span class="hljs-preprocessor">.addDept</span>(dept)<span class="hljs-comment">;</span>
+        PrintWriter <span class="hljs-keyword">out</span> = resp<span class="hljs-preprocessor">.getWriter</span>()<span class="hljs-comment">;</span>
+        <span class="hljs-keyword">out</span><span class="hljs-preprocessor">.write</span>(<span class="hljs-string">"1"</span>)<span class="hljs-comment">;</span>
+        <span class="hljs-keyword">out</span><span class="hljs-preprocessor">.close</span>()<span class="hljs-comment">;</span>
+    }
+}</code></pre>
+
+<p>MultiServiceImpl.java</p>
+
+
+
+<pre class="prettyprint"><code class=" hljs java"><span class="hljs-keyword">package</span> cn.hncu.multi.service;
+
+<span class="hljs-keyword">import</span> java.util.List;
+<span class="hljs-keyword">import</span> java.util.Set;
+
+<span class="hljs-keyword">import</span> org.hibernate.Session;
+<span class="hljs-keyword">import</span> org.hibernate.Transaction;
+<span class="hljs-keyword">import</span> org.junit.Test;
+
+<span class="hljs-keyword">import</span> cn.hncu.demo.dao.DemoDaoJdbc;
+<span class="hljs-keyword">import</span> cn.hncu.domain.Dept;
+<span class="hljs-keyword">import</span> cn.hncu.domain.Stud;
+<span class="hljs-keyword">import</span> cn.hncu.hib.HibernateSessionFactory;
+<span class="hljs-keyword">import</span> cn.hncu.multi.dao.MultiServiceJdbc;
+
+<span class="hljs-keyword">public</span> <span class="hljs-class"><span class="hljs-keyword">class</span> <span class="hljs-title">MultiServiceImpl</span> {</span>
+    <span class="hljs-keyword">private</span> MultiServiceJdbc dao=<span class="hljs-keyword">new</span> MultiServiceJdbc();
+    <span class="hljs-keyword">private</span> DemoDaoJdbc demodao=<span class="hljs-keyword">new</span> DemoDaoJdbc();
+    <span class="hljs-keyword">public</span> List&lt;Dept&gt; <span class="hljs-title">queryAll</span>(){
+        <span class="hljs-keyword">return</span> dao.queryAll();
+    }
+    <span class="hljs-keyword">public</span> Dept <span class="hljs-title">queryDeptById</span>(String deptId) {
+        <span class="hljs-keyword">return</span> dao.queryDeptById(deptId);
+    }
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">void</span> <span class="hljs-title">delStudent</span>(Stud stud) {
+        Session session=HibernateSessionFactory.getSession();
+        Transaction tr=session.beginTransaction();
+        dao.delStudent(stud);
+        tr.commit();<span class="hljs-comment">//删除没有事务不行！</span>
+    }
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">void</span> <span class="hljs-title">delDept</span>(Dept dept) {
+        dept=dao.queryDeptById(dept.getDeptId());<span class="hljs-comment">//这里要获得新的dept</span>
+        Session session=HibernateSessionFactory.getSession();<span class="hljs-comment">//这里搞事务</span>
+        Transaction tr=session.beginTransaction();
+        <span class="hljs-keyword">if</span> (dept!=<span class="hljs-keyword">null</span>) {
+            Set&lt;Stud&gt; students = dept.getStudents();
+            <span class="hljs-keyword">if</span> (students != <span class="hljs-keyword">null</span> &amp;&amp; students.size() &gt; <span class="hljs-number">0</span>) {
+                <span class="hljs-keyword">for</span> (Stud stud : students) {
+                    dao.delStudent(stud);
+                }
+            }
+            dao.delDept(dept);
+        }
+        tr.commit();
+    }
+
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">void</span> <span class="hljs-title">addDept</span>(Dept dept) {
+        Session session=HibernateSessionFactory.getSession();<span class="hljs-comment">//这里搞事务</span>
+        Transaction tr=session.beginTransaction();
+        dao.addDept(dept);
+        tr.commit();
+    }
+}</code></pre>
+
+<p>MultiDaoJdbc.java</p>
+
+
+
+<pre class="prettyprint"><code class=" hljs avrasm">package cn<span class="hljs-preprocessor">.hncu</span><span class="hljs-preprocessor">.multi</span><span class="hljs-preprocessor">.dao</span><span class="hljs-comment">;</span>
+
+import java<span class="hljs-preprocessor">.util</span><span class="hljs-preprocessor">.List</span><span class="hljs-comment">;</span>
+import java<span class="hljs-preprocessor">.util</span><span class="hljs-preprocessor">.Set</span><span class="hljs-comment">;</span>
+
+import org<span class="hljs-preprocessor">.hibernate</span><span class="hljs-preprocessor">.Hibernate</span><span class="hljs-comment">;</span>
+import org<span class="hljs-preprocessor">.hibernate</span><span class="hljs-preprocessor">.Query</span><span class="hljs-comment">;</span>
+import org<span class="hljs-preprocessor">.hibernate</span><span class="hljs-preprocessor">.Session</span><span class="hljs-comment">;</span>
+import org<span class="hljs-preprocessor">.hibernate</span><span class="hljs-preprocessor">.Transaction</span><span class="hljs-comment">;</span>
+import org<span class="hljs-preprocessor">.junit</span><span class="hljs-preprocessor">.Test</span><span class="hljs-comment">;</span>
+
+import cn<span class="hljs-preprocessor">.hncu</span><span class="hljs-preprocessor">.domain</span><span class="hljs-preprocessor">.Dept</span><span class="hljs-comment">;</span>
+import cn<span class="hljs-preprocessor">.hncu</span><span class="hljs-preprocessor">.domain</span><span class="hljs-preprocessor">.Stud</span><span class="hljs-comment">;</span>
+import cn<span class="hljs-preprocessor">.hncu</span><span class="hljs-preprocessor">.hib</span><span class="hljs-preprocessor">.HibernateSessionFactory</span><span class="hljs-comment">;</span>
+
+public class MultiServiceJdbc {
+    public List&lt;Dept&gt; queryAll(){
+        Session session=HibernateSessionFactory<span class="hljs-preprocessor">.getSession</span>()<span class="hljs-comment">;</span>
+        return session<span class="hljs-preprocessor">.createQuery</span>(<span class="hljs-string">"from Dept"</span>)<span class="hljs-preprocessor">.list</span>()<span class="hljs-comment">;</span>
+
+    }
+    public Dept queryDeptById(String deptId) {
+        Session session=HibernateSessionFactory<span class="hljs-preprocessor">.getSession</span>()<span class="hljs-comment">;</span>
+        session<span class="hljs-preprocessor">.flush</span>()<span class="hljs-comment">;</span>
+        String hql=<span class="hljs-string">"from Dept where 1=1"</span><span class="hljs-comment">;</span>
+        if(deptId!=null&amp;&amp;deptId<span class="hljs-preprocessor">.trim</span>()<span class="hljs-preprocessor">.length</span>()&gt;<span class="hljs-number">0</span>){
+            hql+=<span class="hljs-string">" and id=:deptId"</span><span class="hljs-comment">;</span>
+        }
+        Query query=session<span class="hljs-preprocessor">.createQuery</span>(hql)<span class="hljs-comment">;</span>
+        if(deptId!=null&amp;&amp;deptId<span class="hljs-preprocessor">.trim</span>()<span class="hljs-preprocessor">.length</span>()&gt;<span class="hljs-number">0</span>){
+            query<span class="hljs-preprocessor">.setParameter</span>(<span class="hljs-string">"deptId"</span>, deptId)<span class="hljs-comment">;</span>
+        }
+        Dept resDept =null<span class="hljs-comment">;</span>
+        if (query<span class="hljs-preprocessor">.list</span>()!=null&amp;&amp;query<span class="hljs-preprocessor">.list</span>()<span class="hljs-preprocessor">.size</span>()&gt;<span class="hljs-number">0</span>) {
+            resDept= (Dept) query<span class="hljs-preprocessor">.list</span>()<span class="hljs-preprocessor">.get</span>(<span class="hljs-number">0</span>)<span class="hljs-comment">;</span>
+        }
+        return resDept<span class="hljs-comment">;</span>
+    }
+
+
+
+    public void delDept(Dept dept) {
+        Session session=HibernateSessionFactory<span class="hljs-preprocessor">.getSession</span>()<span class="hljs-comment">;</span>
+        session<span class="hljs-preprocessor">.delete</span>(dept)<span class="hljs-comment">;</span>
+
+    }
+
+    public void delStudent(Stud stud) {
+        Session session=HibernateSessionFactory<span class="hljs-preprocessor">.getSession</span>()<span class="hljs-comment">;</span>
+        try {
+            session<span class="hljs-preprocessor">.delete</span>(stud)<span class="hljs-comment">;</span>
+            session<span class="hljs-preprocessor">.flush</span>()<span class="hljs-comment">;</span>
+        } catch (Exception e) {
+            System<span class="hljs-preprocessor">.out</span><span class="hljs-preprocessor">.println</span>(<span class="hljs-string">"回滚了"</span>)<span class="hljs-comment">;</span>
+        }
+    }
+
+    @Test
+    public void t(){
+//      System<span class="hljs-preprocessor">.out</span><span class="hljs-preprocessor">.println</span>(queryAll())<span class="hljs-comment">;</span>
+//      delDept(<span class="hljs-string">"d004"</span>)<span class="hljs-comment">;</span>
+    }
+    public void addDept(Dept dept) {
+        Session session=HibernateSessionFactory<span class="hljs-preprocessor">.getSession</span>()<span class="hljs-comment">;//这里搞事务</span>
+        session<span class="hljs-preprocessor">.saveOrUpdate</span>(dept)<span class="hljs-comment">;</span>
+
+    }
+}</code></pre>
+
+<p>7.其他 <br />
+web.xml</p>
+
+
+
+<pre class="prettyprint"><code class=" hljs xml"><span class="hljs-pi">&lt;?xml version="1.0" encoding="UTF-8"?&gt;</span>
+<span class="hljs-tag">&lt;<span class="hljs-title">web-app</span> <span class="hljs-attribute">version</span>=<span class="hljs-value">"3.0"</span> 
+    <span class="hljs-attribute">xmlns</span>=<span class="hljs-value">"http://java.sun.com/xml/ns/javaee"</span> 
+    <span class="hljs-attribute">xmlns:xsi</span>=<span class="hljs-value">"http://www.w3.org/2001/XMLSchema-instance"</span> 
+    <span class="hljs-attribute">xsi:schemaLocation</span>=<span class="hljs-value">"http://java.sun.com/xml/ns/javaee 
+    http://java.sun.com/xml/ns/javaee/web-app_3_0.xsd"</span>&gt;</span>
+  <span class="hljs-tag">&lt;<span class="hljs-title">display-name</span>&gt;</span><span class="hljs-tag">&lt;/<span class="hljs-title">display-name</span>&gt;</span> 
+
+  <span class="hljs-tag">&lt;<span class="hljs-title">filter</span>&gt;</span>
+    <span class="hljs-tag">&lt;<span class="hljs-title">filter-name</span>&gt;</span>charset<span class="hljs-tag">&lt;/<span class="hljs-title">filter-name</span>&gt;</span>
+    <span class="hljs-tag">&lt;<span class="hljs-title">filter-class</span>&gt;</span>cn.hncu.filter.CharaterFilter<span class="hljs-tag">&lt;/<span class="hljs-title">filter-class</span>&gt;</span>
+  <span class="hljs-tag">&lt;/<span class="hljs-title">filter</span>&gt;</span>
+  <span class="hljs-tag">&lt;<span class="hljs-title">filter-mapping</span>&gt;</span>
+    <span class="hljs-tag">&lt;<span class="hljs-title">filter-name</span>&gt;</span>charset<span class="hljs-tag">&lt;/<span class="hljs-title">filter-name</span>&gt;</span>
+    <span class="hljs-tag">&lt;<span class="hljs-title">url-pattern</span>&gt;</span>/*<span class="hljs-tag">&lt;/<span class="hljs-title">url-pattern</span>&gt;</span>
+  <span class="hljs-tag">&lt;/<span class="hljs-title">filter-mapping</span>&gt;</span>
+  <span class="hljs-tag">&lt;<span class="hljs-title">servlet</span>&gt;</span>
+    <span class="hljs-tag">&lt;<span class="hljs-title">servlet-name</span>&gt;</span>DemoServlet<span class="hljs-tag">&lt;/<span class="hljs-title">servlet-name</span>&gt;</span>
+    <span class="hljs-tag">&lt;<span class="hljs-title">servlet-class</span>&gt;</span>cn.hncu.demo.DemoServlet<span class="hljs-tag">&lt;/<span class="hljs-title">servlet-class</span>&gt;</span>
+  <span class="hljs-tag">&lt;/<span class="hljs-title">servlet</span>&gt;</span>
+  <span class="hljs-tag">&lt;<span class="hljs-title">servlet</span>&gt;</span>
+    <span class="hljs-tag">&lt;<span class="hljs-title">description</span>&gt;</span>This is the description of my J2EE component<span class="hljs-tag">&lt;/<span class="hljs-title">description</span>&gt;</span>
+    <span class="hljs-tag">&lt;<span class="hljs-title">display-name</span>&gt;</span>This is the display name of my J2EE component<span class="hljs-tag">&lt;/<span class="hljs-title">display-name</span>&gt;</span>
+    <span class="hljs-tag">&lt;<span class="hljs-title">servlet-name</span>&gt;</span>MultiServlet<span class="hljs-tag">&lt;/<span class="hljs-title">servlet-name</span>&gt;</span>
+    <span class="hljs-tag">&lt;<span class="hljs-title">servlet-class</span>&gt;</span>cn.hncu.multi.MultiServlet<span class="hljs-tag">&lt;/<span class="hljs-title">servlet-class</span>&gt;</span>
+  <span class="hljs-tag">&lt;/<span class="hljs-title">servlet</span>&gt;</span>
+
+
+  <span class="hljs-tag">&lt;<span class="hljs-title">servlet-mapping</span>&gt;</span>
+    <span class="hljs-tag">&lt;<span class="hljs-title">servlet-name</span>&gt;</span>DemoServlet<span class="hljs-tag">&lt;/<span class="hljs-title">servlet-name</span>&gt;</span>
+    <span class="hljs-tag">&lt;<span class="hljs-title">url-pattern</span>&gt;</span>/DemoServlet<span class="hljs-tag">&lt;/<span class="hljs-title">url-pattern</span>&gt;</span>
+  <span class="hljs-tag">&lt;/<span class="hljs-title">servlet-mapping</span>&gt;</span>
+  <span class="hljs-tag">&lt;<span class="hljs-title">servlet-mapping</span>&gt;</span>
+    <span class="hljs-tag">&lt;<span class="hljs-title">servlet-name</span>&gt;</span>MultiServlet<span class="hljs-tag">&lt;/<span class="hljs-title">servlet-name</span>&gt;</span>
+    <span class="hljs-tag">&lt;<span class="hljs-title">url-pattern</span>&gt;</span>/MultiServlet<span class="hljs-tag">&lt;/<span class="hljs-title">url-pattern</span>&gt;</span>
+  <span class="hljs-tag">&lt;/<span class="hljs-title">servlet-mapping</span>&gt;</span>
+  <span class="hljs-tag">&lt;<span class="hljs-title">welcome-file-list</span>&gt;</span>
+    <span class="hljs-tag">&lt;<span class="hljs-title">welcome-file</span>&gt;</span>index.jsp<span class="hljs-tag">&lt;/<span class="hljs-title">welcome-file</span>&gt;</span>
+  <span class="hljs-tag">&lt;/<span class="hljs-title">welcome-file-list</span>&gt;</span>
+<span class="hljs-tag">&lt;/<span class="hljs-title">web-app</span>&gt;</span></code></pre></div>&#13;
+        <script type="text/javascript">&#13;
+            $(function () {&#13;
+                $('pre.prettyprint code').each(function () {&#13;
+                    var lines = $(this).text().split('\n').length;&#13;
+                    var $numbering = $('&lt;ul/&gt;').addClass('pre-numbering').hide();&#13;
+                    $(this).addClass('has-numbering').parent().append($numbering);&#13;
+                    for (i = 1; i &lt;= lines; i++) {&#13;
+                        $numbering.append($('&lt;li/&gt;').text(i));&#13;
+                    };&#13;
+                    $numbering.fadeIn(1700);&#13;
+                });&#13;
+            });&#13;
+        </script>&#13;
+   &#13;

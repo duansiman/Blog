@@ -1,0 +1,381 @@
+
+        <div class="markdown_views"><p>本文记录全局异常返回,过滤器,拦截器.</p>
+
+
+
+<h2 id="一全局异常处理器">一.全局异常处理器</h2>
+
+<p>webservice定义全局返回错误码是很重要的一个功能,jersey正好就能实现这一功能.</p>
+
+<p><strong>整个流程就是当jersey托管的类发现了异常,抛出给jersey的异常处理器,该异常处理器直接返回自定义的错误代码.</strong></p>
+
+
+
+<h3 id="1定义异常代码">1.定义异常代码</h3>
+
+<p>可以使用枚举类,也可以写到配置文件中,再写个工具类获取.看项目需求了.</p>
+
+
+
+<pre class="prettyprint"><code class=" hljs cs"><span class="hljs-keyword">public</span> <span class="hljs-keyword">enum</span> ErrorCode {
+    OK(<span class="hljs-number">0</span>,<span class="hljs-string">"OK"</span>),ID_INVALID(<span class="hljs-number">1</span>,<span class="hljs-string">"ID is invalid"</span>),OTHER_ERR(<span class="hljs-number">2</span>,<span class="hljs-string">"未知错误"</span>);
+
+    <span class="hljs-keyword">private</span> <span class="hljs-keyword">int</span> code;
+    <span class="hljs-keyword">private</span> String message;
+
+    ErrorCode(<span class="hljs-keyword">int</span> code, String message) {
+        <span class="hljs-keyword">this</span>.code = code;
+        <span class="hljs-keyword">this</span>.message = message;
+    }
+
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">int</span> <span class="hljs-title">getCode</span>() {
+        <span class="hljs-keyword">return</span> code;
+    }
+
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">void</span> <span class="hljs-title">setCode</span>(<span class="hljs-keyword">int</span> code) {
+        <span class="hljs-keyword">this</span>.code = code;
+    }
+
+    <span class="hljs-keyword">public</span> String <span class="hljs-title">getMessage</span>() {
+        <span class="hljs-keyword">return</span> message;
+    }
+
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">void</span> <span class="hljs-title">setMessage</span>(String message) {
+        <span class="hljs-keyword">this</span>.message = message;
+    }
+}</code></pre>
+
+
+
+<h3 id="2定义出现异常将返回的实体代理">2.定义出现异常将返回的实体代理</h3>
+
+<p>也就是封装异常信息到这个类中,再转换为json串返回,如果自己直接构造字串也是可以代替的</p>
+
+
+
+<pre class="prettyprint"><code class=" hljs cs">@XmlRootElement<span class="hljs-comment">//标识该资源可以被jersey转为json或者xml</span>
+<span class="hljs-keyword">public</span> <span class="hljs-keyword">class</span> ErrorEntity {
+    <span class="hljs-keyword">private</span> <span class="hljs-keyword">int</span> resp_code;
+    <span class="hljs-keyword">private</span> String resp_msg;
+
+    <span class="hljs-keyword">public</span> <span class="hljs-title">ErrorEntity</span>(<span class="hljs-keyword">int</span> resp_code, String resp_msg) {
+        <span class="hljs-keyword">this</span>.resp_code = resp_code;
+        <span class="hljs-keyword">this</span>.resp_msg = resp_msg;
+    }
+    <span class="hljs-keyword">public</span> <span class="hljs-title">ErrorEntity</span>() {
+    }
+
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">int</span> <span class="hljs-title">getResp_code</span>() {
+        <span class="hljs-keyword">return</span> resp_code;
+    }
+
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">void</span> <span class="hljs-title">setResp_code</span>(<span class="hljs-keyword">int</span> resp_code) {
+        <span class="hljs-keyword">this</span>.resp_code = resp_code;
+    }
+
+    <span class="hljs-keyword">public</span> String <span class="hljs-title">getResp_msg</span>() {
+        <span class="hljs-keyword">return</span> resp_msg;
+    }
+
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">void</span> <span class="hljs-title">setResp_msg</span>(String resp_msg) {
+        <span class="hljs-keyword">this</span>.resp_msg = resp_msg;
+    }
+}</code></pre>
+
+
+
+<h3 id="3自定义异常">3.自定义异常</h3>
+
+<p>自定义异常,处理时拦截该指定异常</p>
+
+
+
+<pre class="prettyprint"><code class=" hljs java"><span class="hljs-keyword">public</span> <span class="hljs-class"><span class="hljs-keyword">class</span> <span class="hljs-title">DeviceException</span> <span class="hljs-keyword">extends</span> <span class="hljs-title">Exception</span> {</span>
+    <span class="hljs-keyword">private</span> <span class="hljs-keyword">int</span> code;
+    <span class="hljs-keyword">private</span> String message;
+
+    <span class="hljs-javadoc">/**
+     * 构造异常类
+     *<span class="hljs-javadoctag"> @param</span> code
+     *<span class="hljs-javadoctag"> @param</span> message
+     */</span>
+    <span class="hljs-keyword">public</span> <span class="hljs-title">DeviceException</span>( <span class="hljs-keyword">int</span> code,String message) {
+        <span class="hljs-keyword">this</span>.code = code;
+        <span class="hljs-keyword">this</span>.message = message;
+    }
+
+    <span class="hljs-javadoc">/**
+     * 根据枚举类构造异常结果
+     *<span class="hljs-javadoctag"> @param</span> errorCode
+     */</span>
+    <span class="hljs-keyword">public</span> <span class="hljs-title">DeviceException</span>(ErrorCode errorCode) {
+        <span class="hljs-keyword">this</span>.code = errorCode.getCode();
+        <span class="hljs-keyword">this</span>.message = errorCode.getMessage();
+    }
+
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">int</span> <span class="hljs-title">getCode</span>() {
+        <span class="hljs-keyword">return</span> code;
+    }
+
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">void</span> <span class="hljs-title">setCode</span>(<span class="hljs-keyword">int</span> code) {
+        <span class="hljs-keyword">this</span>.code = code;
+    }
+
+    <span class="hljs-annotation">@Override</span>
+    <span class="hljs-keyword">public</span> String <span class="hljs-title">getMessage</span>() {
+        <span class="hljs-keyword">return</span> message;
+    }
+
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">void</span> <span class="hljs-title">setMessage</span>(String message) {
+        <span class="hljs-keyword">this</span>.message = message;
+    }
+}</code></pre>
+
+
+
+<h3 id="4定义jersey异常处理器">4.定义jersey异常处理器</h3>
+
+<p>异常处理器要实现<code>ExceptionMapper&lt;Exception&gt;</code>接口,并复写返回方法,另外一定要使用@Provider标识该类为一个jersey的’处理器’,如下:</p>
+
+
+
+<pre class="prettyprint"><code class=" hljs php">@Provider
+<span class="hljs-keyword">public</span> <span class="hljs-class"><span class="hljs-keyword">class</span> <span class="hljs-title">DeviceExceptionMapper</span> <span class="hljs-keyword">implements</span> <span class="hljs-title">ExceptionMapper</span>&lt;<span class="hljs-title">Exception</span>&gt; {</span>
+
+    @Override
+    <span class="hljs-keyword">public</span> Response toResponse(<span class="hljs-keyword">Exception</span> e) {
+        Response.ResponseBuilder ResponseBuilder = <span class="hljs-keyword">null</span>;
+
+        <span class="hljs-keyword">if</span> (e <span class="hljs-keyword">instanceof</span> DeviceException){
+
+            <span class="hljs-comment">//截取自定义类型</span>
+            DeviceException exp = (DeviceException) e;
+            ErrorEntity entity = <span class="hljs-keyword">new</span> ErrorEntity(exp.getCode(),exp.getMessage());
+            ResponseBuilder = Response.ok(entity, MediaType.APPLICATION_JSON);
+        }<span class="hljs-keyword">else</span> {
+            ErrorEntity entity = <span class="hljs-keyword">new</span> ErrorEntity(ErrorCode.OTHER_ERR.getCode(),e.getMessage());
+            ResponseBuilder = Response.ok(entity, MediaType.APPLICATION_JSON);
+        }
+        System.out.println(<span class="hljs-string">"执行自定义异常"</span>);
+        <span class="hljs-keyword">return</span> ResponseBuilder.build();
+    }
+}</code></pre>
+
+
+
+<h3 id="5注册该异常">5.注册该异常</h3>
+
+<p>在RESTApplication中要加载该异常,可以使用package扫包,或者直接注册异常都是可以的.</p>
+
+
+
+<pre class="prettyprint"><code class=" hljs java"><span class="hljs-keyword">public</span> <span class="hljs-class"><span class="hljs-keyword">class</span> <span class="hljs-title">RESTApplication</span> <span class="hljs-keyword">extends</span> <span class="hljs-title">ResourceConfig</span> {</span>
+
+    <span class="hljs-keyword">public</span> <span class="hljs-title">RESTApplication</span>() {
+
+        <span class="hljs-comment">//想让jersey托管的部分需要加入扫描,或者使用register指定托管类也可以</span>
+        packages(<span class="hljs-string">"com.haikong.resources"</span>,<span class="hljs-string">"com.haikong.exception"</span>);
+        <span class="hljs-comment">//加载日志包</span>
+        register(LoggingFilter.class);
+        <span class="hljs-comment">//加载json转换器</span>
+        register(JacksonJsonProvider.class);
+        System.out.println(<span class="hljs-string">"加载RESTApplication"</span>);
+    }
+}</code></pre>
+
+
+
+<h3 id="6测试">6.测试</h3>
+
+<p>写一个请求链接,该请求直接抛出其他异常</p>
+
+
+
+<pre class="prettyprint"><code class=" hljs java">
+    <span class="hljs-javadoc">/**
+     * 测试全局异常托管
+     *<span class="hljs-javadoctag"> @throws</span> DeviceException
+     */</span>
+    <span class="hljs-annotation">@GET</span>
+    <span class="hljs-annotation">@Path</span>(<span class="hljs-string">"/testexception"</span>)
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">void</span> <span class="hljs-title">testException</span>() <span class="hljs-keyword">throws</span> DeviceException {
+        <span class="hljs-keyword">if</span> (<span class="hljs-keyword">true</span>){
+            <span class="hljs-keyword">throw</span> <span class="hljs-keyword">new</span> DeviceException(ErrorCode.OTHER_ERR);
+        }
+    }</code></pre>
+
+<p><img src="http://img.blog.csdn.net/20160727223342077" alt="这里写图片描述" title="" /></p>
+
+<p>到此异常处理器完成.</p>
+
+<hr />
+
+
+
+<h2 id="二过滤器">二.过滤器</h2>
+
+<p>过滤器可以修改入站和出站请求和响应包括标题的修改，实体等的请求/响应参数。例如用来操纵请求和响应参数像HTTP头，URI和/或HTTP方法.</p>
+
+<p>服务器过滤主要有</p>
+
+<pre><code>ContainerRequestFilter
+
+ContainerResponseFilter
+</code></pre>
+
+<p>两个接口,显而易见,一个是过滤请求前,一个是过滤请求后.</p>
+
+
+
+<h3 id="1containerresponsefilter">1.ContainerResponseFilter</h3>
+
+<p>这个是请求结束后响应回复阶段过滤,很简单,有什么参数直接加个断点就能查看到了,同样要使用注解,让jersey认为该类为其一个处理器.</p>
+
+
+
+<pre class="prettyprint"><code class=" hljs java"><span class="hljs-javadoc">/**
+ * 对于response的过滤器
+ * 过滤器主要是用来操纵请求和响应参数像HTTP头，URI和/或HTTP方法
+ *<span class="hljs-javadoctag"> @author</span> Niu Li
+ *<span class="hljs-javadoctag"> @date</span> 2016/7/27
+ */</span>
+<span class="hljs-annotation">@Provider</span>
+<span class="hljs-keyword">public</span> <span class="hljs-class"><span class="hljs-keyword">class</span> <span class="hljs-title">ResponseFilter</span> <span class="hljs-keyword">implements</span> <span class="hljs-title">ContainerResponseFilter</span> {</span>
+    <span class="hljs-annotation">@Override</span>
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">void</span> <span class="hljs-title">filter</span>(ContainerRequestContext containerRequestContext,
+                       ContainerResponseContext containerResponseContext) <span class="hljs-keyword">throws</span> IOException {
+        <span class="hljs-javadoc">/**
+         * 具体可以获取什么参数,加个断点就可以看到了
+         */</span>
+        System.out.println(<span class="hljs-string">"执行回复过滤"</span>);
+    }
+}</code></pre>
+
+
+
+<h3 id="2containerrequestfilter">2.ContainerRequestFilter</h3>
+
+<p>对于这个注解有@PreMatching和@Provider,经测试,前者只要收到请求就开始执行,后者是收到请求,匹配到相应的处理方法后执行,也就是前者匹配前,后者匹配后执行. <br />
+<strong>并且我测试的两个一起用的话,只执行前者,这个不知道哪里有问题,按照官方文档应该是都可以执行的.不太懂了</strong></p>
+
+
+
+<pre class="prettyprint"><code class=" hljs java"><span class="hljs-javadoc">/**
+ * 对于request的过滤器
+ * 过滤器主要是用来操纵请求和响应参数像HTTP头，URI和/或HTTP方法
+ *<span class="hljs-javadoctag"> @author</span> Niu Li
+ *<span class="hljs-javadoctag"> @date</span> 2016/7/27
+ * Provider //这个是匹配后增加参数或者减少参数
+ */</span>
+<span class="hljs-annotation">@PreMatching</span>  <span class="hljs-comment">//不知道为什么和后请求过滤器冲突,不能同时使用</span>
+<span class="hljs-keyword">public</span> <span class="hljs-class"><span class="hljs-keyword">class</span> <span class="hljs-title">PreRequestFilter</span> <span class="hljs-keyword">implements</span> <span class="hljs-title">ContainerRequestFilter</span> {</span>
+    <span class="hljs-annotation">@Override</span>
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">void</span> <span class="hljs-title">filter</span>(ContainerRequestContext containerRequestContext) <span class="hljs-keyword">throws</span> IOException {
+        <span class="hljs-javadoc">/**
+         * 具体可以获取什么参数,加个断点就可以看到了
+         */</span>
+        System.out.println(<span class="hljs-string">"PreRequestFilter"</span>);
+    }
+}</code></pre>
+
+
+
+<h3 id="3启用">3.启用</h3>
+
+<p>启用同样需要注册RESTApplication,并且@PreMatching这个注解扫包注入并没什么用,只能手动注册该类.<strong>原因未知</strong>.</p>
+
+
+
+<pre class="prettyprint"><code class=" hljs java"><span class="hljs-keyword">public</span> <span class="hljs-class"><span class="hljs-keyword">class</span> <span class="hljs-title">RESTApplication</span> <span class="hljs-keyword">extends</span> <span class="hljs-title">ResourceConfig</span> {</span>
+
+    <span class="hljs-keyword">public</span> <span class="hljs-title">RESTApplication</span>() {
+
+        <span class="hljs-comment">//想让jersey托管的部分需要加入扫描,或者使用register指定托管类也可以</span>
+        packages(<span class="hljs-string">"com.haikong.resources"</span>,<span class="hljs-string">"com.haikong.exception"</span>);
+        register(LoggingFilter.class);
+        register(JacksonJsonProvider.class);
+        <span class="hljs-comment">//注册过滤器,扫包对@PreMatching注解无用,只能手动加入</span>
+        register(PreRequestFilter.class);
+        register(ResponseFilter.class);
+        <span class="hljs-javadoc">/**
+         * 对于链接,先执行请求过滤,有异常则执行异常过滤,最后执行回复过滤
+         */</span>
+        System.out.println(<span class="hljs-string">"加载RESTApplication"</span>);
+    }
+}</code></pre>
+
+<p>测试结果和下一个的拦截器一起测试.</p>
+
+<hr />
+
+
+
+<h2 id="三拦截器">三.拦截器</h2>
+
+<p>拦截器意图操纵的实体，通过操纵实体的输入/输出数据流。比如你需要编码的客户端请求的实体主体， <br />
+jersey提供如下拦截器:`</p>
+
+<pre><code>ReaderInterceptor
+WriterInterceptor
+</code></pre>
+
+<p>reader用的不多,writer可以用来开启gzip压缩,这个倒是很实用,并且jersey开启gzip压缩很方便,乱码问题解决办法就是主动告诉浏览器使用哪一种编码解码就好了</p>
+
+
+
+<pre class="prettyprint"><code class=" hljs java"><span class="hljs-keyword">public</span> <span class="hljs-class"><span class="hljs-keyword">class</span> <span class="hljs-title">GzipInterceptor</span> <span class="hljs-keyword">implements</span> <span class="hljs-title">WriterInterceptor</span> {</span>
+    <span class="hljs-annotation">@Override</span>
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">void</span> <span class="hljs-title">aroundWriteTo</span>(WriterInterceptorContext context)
+            <span class="hljs-keyword">throws</span> IOException, WebApplicationException {
+
+        MultivaluedMap&lt;String, Object&gt; headers = context.getHeaders();
+        headers.add(<span class="hljs-string">"Content-Encoding"</span>, <span class="hljs-string">"gzip"</span>);
+        String ContentType = context.getMediaType().toString();
+        headers.add(<span class="hljs-string">"Content-Type"</span>,ContentType+<span class="hljs-string">";charset=utf-8"</span>);<span class="hljs-comment">//解决乱码问题</span>
+        <span class="hljs-keyword">final</span> OutputStream outputStream = context.getOutputStream();
+        context.setOutputStream(<span class="hljs-keyword">new</span> GZIPOutputStream(outputStream));
+        context.proceed();
+        System.out.println(<span class="hljs-string">"GZIP拦截器压缩"</span>);
+    }
+}</code></pre>
+
+<p>同样需要注册该类</p>
+
+
+
+<pre class="prettyprint"><code class=" hljs delphi">        <span class="hljs-comment">//注册拦截器</span>
+        <span class="hljs-keyword">register</span>(GzipInterceptor.<span class="hljs-keyword">class</span>);</code></pre>
+
+
+
+<h2 id="四执行顺序">四.执行顺序</h2>
+
+<p>还是之前那个抛出异常的方法,访问后先执行请求过滤器,再匹配到相应方法,执行方法体,然后有异常,执行异常拦截器,其次执行回复过滤,最后是GZIP压缩,如下图:</p>
+
+<p><img src="http://img.blog.csdn.net/20160727225713400" alt="这里写图片描述" title="" /></p>
+
+<p>具体执行顺序官方给的很清楚.可以去查看官方文档</p>
+
+<p>参考资料: <br />
+<a href="https://waylau.gitbooks.io/jersey-2-user-guide/content/">https://waylau.gitbooks.io/jersey-2-user-guide/content/</a> <br />
+<a href="https://jersey.java.net/documentation/latest/">https://jersey.java.net/documentation/latest/</a></p>
+
+<hr />
+
+<p>项目示例:</p>
+
+<p>SJM框架整合: <a href="https://github.com/nl101531/JavaWEB">https://github.com/nl101531/JavaWEB</a></p></div>&#13;
+        <script type="text/javascript">&#13;
+            $(function () {&#13;
+                $('pre.prettyprint code').each(function () {&#13;
+                    var lines = $(this).text().split('\n').length;&#13;
+                    var $numbering = $('&lt;ul/&gt;').addClass('pre-numbering').hide();&#13;
+                    $(this).addClass('has-numbering').parent().append($numbering);&#13;
+                    for (i = 1; i &lt;= lines; i++) {&#13;
+                        $numbering.append($('&lt;li/&gt;').text(i));&#13;
+                    };&#13;
+                    $numbering.fadeIn(1700);&#13;
+                });&#13;
+            });&#13;
+        </script>&#13;
+   &#13;

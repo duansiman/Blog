@@ -1,0 +1,260 @@
+
+
+<p align="LEFT" style="margin-bottom:0in; widows:2; orphans:2"><span style="font-family:Microsoft YaHei"><span lang="zh-CN" xml:lang="zh-CN"><span style="color:#000000"><span><span style="font-size:14px"><span style="font-size:14px">【版权声明：尊重原创，转载请保留出处：blog.csdn.net/shallnet，文章仅供学习交流，请勿用于商业用途】</span><br />&#13;
+</span></span></span></span></span></p>&#13;
+<p align="LEFT" style="margin-bottom:0in; widows:2; orphans:2"><span style="font-family:Microsoft YaHei"><span lang="zh-CN" xml:lang="zh-CN"><span style="color:#000000"><span><span style="font-size:14px">    </span><span style="font-size:14px">   </span><span style="font-size:14px">上一节最后说到对于小内存区的请求，如果采用伙伴系统来进行分配，则会在页内产生很多</span></span></span><span style="font-size:14px; color:#000000"><span style="font-size:14px"><span style="font-size:14px">空闲空间无法使用</span></span></span><span style="font-size:14px; color:#000000"><span style="font-size:14px"><span style="font-size:14px">，因此产生</span></span></span></span><span style="color:#000000"><span style="font-size:14px"><span style="font-size:14px">slab</span></span><span lang="zh-CN" xml:lang="zh-CN"><span><span><span style="font-size:14px">分配器来处理对小内存区（几十或几百字节）的</span><span style="font-size:14px">请求。</span></span><span style="font-size:14px">Linux</span><span style="font-size:14px">中引入</span><span style="font-size:14px">Slab</span><span style="font-size:14px">的主要目的是为了减少对伙伴算法的调用次数。</span></span></span></span></span></p>&#13;
+<p align="LEFT" style="margin-bottom:0in; widows:2; orphans:2"><span style="font-family:Microsoft YaHei"><span style="color:#000000"><span lang="zh-CN" xml:lang="zh-CN"><span><span style="font-size:14px">    </span><span style="font-size:14px">    </span><span style="font-size:14px">内核经常反复使用某一内存区。例如，只要内核创建一个新的进程，就要为该进程相关的数据结构（</span><span style="font-size:14px">task_struct</span><span style="font-size:14px">、打开</span><span style="font-size:14px">文件对象等）分配内存区。当进程结束时，收回这些内存区。因为进程的创建和撤销非常频繁</span><span style="font-size:14px">，linux</span><span style="font-size:14px">把那些频繁使用的页面保存在高速缓存中并重新使用。</span></span></span></span></span></p>&#13;
+<p align="LEFT" style="margin-bottom:0in; widows:2; orphans:2"><span style="font-family:Microsoft YaHei"><span style="color:#000000"><span lang="zh-CN" xml:lang="zh-CN"><span></span></span></span></span></p>&#13;
+<p align="LEFT" style="margin-bottom:0in; widows:2; orphans:2"><span style="font-family:Microsoft YaHei"><span style="color:#333333"><span style="background:#ffffff"><span style="font-size:14px"><span style="font-size:14px">        </span></span><span><span></span><span style="font-size:14px">slab</span></span></span><span style="font-size:14px"><span lang="zh-CN" style="font-size:14px" xml:lang="zh-CN"><span style="font-size:14px; background:#FFFFFF none repeat scroll 0% 0%"><span style="font-size:14px"><span style="font-size:14px">分配器基于对象进行管理，相同类型的对象归为一类</span></span></span></span></span></span><span style="color:#333333"><span style="font-size:14px"><span style="font-size:14px"><span style="font-size:14px; background:#FFFFFF none repeat scroll 0% 0%">(</span></span></span><span style="font-size:14px"><span lang="zh-CN" style="font-size:14px" xml:lang="zh-CN"><span style="font-size:14px; background:#FFFFFF none repeat scroll 0% 0%"><span style="font-size:14px"><span style="font-size:14px">如进程描述符就是一类</span></span></span></span></span></span><span style="color:#333333"><span style="font-size:14px"><span style="font-size:14px"><span style="font-size:14px; background:#FFFFFF none repeat scroll 0% 0%">)</span></span></span><span style="font-size:14px"><span lang="zh-CN" style="font-size:14px" xml:lang="zh-CN"><span style="font-size:14px; background:#FFFFFF none repeat scroll 0% 0%"><span style="font-size:14px"><span style="font-size:14px">，每当要申请这样一个对象，</span></span></span></span></span></span><span style="color:#333333"><span style="font-size:14px"><span style="font-size:14px"><span style="font-size:14px; background:#FFFFFF none repeat scroll 0% 0%">slab</span></span></span><span style="font-size:14px"><span lang="zh-CN" style="font-size:14px" xml:lang="zh-CN"><span style="font-size:14px; background:#FFFFFF none repeat scroll 0% 0%"><span style="font-size:14px"><span style="font-size:14px">分配器就分配一个空闲对象出去，而当要释放时，将其重新保存在</span></span></span></span></span></span><span style="color:#333333"><span style="font-size:14px"><span style="font-size:14px"><span style="font-size:14px; background:#FFFFFF none repeat scroll 0% 0%">slab</span></span></span><span style="font-size:14px"><span lang="zh-CN" style="font-size:14px" xml:lang="zh-CN"><span style="font-size:14px; background:#FFFFFF none repeat scroll 0% 0%"><span style="font-size:14px"><span style="font-size:14px">分配器中，而不是直接返回给伙伴系统。对于频繁请求的对象，创建适当大小的专用对象来处理。对于不频繁的对象，用一系列几何分布大小的对象来处理（详见通用对象）。</span></span></span></span></span></span></span></p>&#13;
+<p style="text-indent:22.8pt"><span style="font-family:Microsoft YaHei"><span style="color:#333333"><span><span lang="zh-CN" xml:lang="zh-CN"><span style="background:#FFFFFF none repeat scroll 0% 0%"><span><span><span style="font-size:14px">        </span><span style="font-size:14px">Slab</span></span><span style="font-size:14px">分配模式把对象分组放进缓冲区</span><span style="font-size:14px">，</span><span style="font-size:14px">为缓冲区的组织和管理与硬件高速缓存的命中率密切相关，因此，</span><span style="font-size:14px">Slab</span><span style="font-size:14px">缓冲区并非由各个对象直接构成，而是由一连串的“大块（</span><span style="font-size:14px">Slab</span><span style="font-size:14px">）”构成，而每个大块中则包含了若干个同种类型的对象，这些对象或已被分配，或空闲。</span></span></span></span></span></span><span style="font-size:14px">实际上，缓冲区就是主存中的一片区域，把这片区域划分为多个块，每块就是一个</span><span style="font-size:14px">Slab</span><span style="font-size:14px">，每个</span><span style="font-size:14px">Slab</span><span style="font-size:14px">由一个或多个页面组成，每个</span><span style="font-size:14px">Slab</span><span style="font-size:14px">中存放的就是对象。</span></span></p>&#13;
+<p style="text-indent:22.8pt"><span style="font-family:Microsoft YaHei; font-size:14px">slab相关数据结构：</span></p>&#13;
+<p style="text-indent:22.8pt"><span style="font-family:Microsoft YaHei; font-size:14px">缓冲区数据结构使用kmem_cache结构来表示。</span></p>&#13;
+<p style="text-indent:22.8pt"><span style="font-size:14px"></span></p>&#13;
+<pre name="code" class="cpp">struct kmem_cache {
+/* 1) per-cpu data, touched during every alloc/free */
+	struct array_cache *array[NR_CPUS];
+/* 2) Cache tunables. Protected by cache_chain_mutex */
+	unsigned int batchcount;
+	unsigned int limit;
+	unsigned int shared;
+
+	unsigned int buffer_size;
+	u32 reciprocal_buffer_size;
+/* 3) touched by every alloc &amp; free from the backend */
+
+	unsigned int flags;		/* constant flags */
+	unsigned int num;		/* # of objs per slab */
+
+/* 4) cache_grow/shrink */
+	/* order of pgs per slab (2^n) */
+	unsigned int gfporder;
+
+	/* force GFP flags, e.g. GFP_DMA */
+	gfp_t gfpflags;
+
+	size_t colour;			/* cache colouring range */
+	unsigned int colour_off;	/* colour offset */
+	struct kmem_cache *slabp_cache;
+	unsigned int slab_size;
+	unsigned int dflags;		/* dynamic flags */
+
+	/* constructor func */
+	void (*ctor)(void *obj);
+
+/* 5) cache creation/removal */
+	const char *name;
+	struct list_head next;
+
+/* 6) statistics */
+#ifdef CONFIG_DEBUG_SLAB
+	unsigned long num_active;
+	unsigned long num_allocations;
+	unsigned long high_mark;
+	unsigned long grown;
+	unsigned long reaped;
+	unsigned long errors;
+	unsigned long max_freeable;
+	unsigned long node_allocs;
+	unsigned long node_frees;
+	unsigned long node_overflow;
+	atomic_t allochit;
+	atomic_t allocmiss;
+	atomic_t freehit;
+	atomic_t freemiss;
+
+	/*
+	 * If debugging is enabled, then the allocator can add additional
+	 * fields and/or padding to every object. buffer_size contains the total
+	 * object size including these internal fields, the following two
+	 * variables contain the offset to the user object and its size.
+	 */
+	int obj_offset;
+	int obj_size;
+#endif /* CONFIG_DEBUG_SLAB */
+
+	/*
+	 * We put nodelists[] at the end of kmem_cache, because we want to size
+	 * this array to nr_node_ids slots instead of MAX_NUMNODES
+	 * (see kmem_cache_init())
+	 * We still use [MAX_NUMNODES] and not [1] or [0] because cache_cache
+	 * is statically defined, so we reserve the max number of nodes.
+	 */
+	struct kmem_list3 *nodelists[MAX_NUMNODES];
+	/*
+	 * Do not add fields after nodelists[]
+	 */
+};</pre>&#13;
+<p></p>&#13;
+<p style="text-indent:22.8pt"><span style="font-family:Microsoft YaHei; font-size:14px">其中</span><span style="font-family:Microsoft YaHei; font-size:14px">struct kmem_list3</span><span style="font-family:Microsoft YaHei; font-size:14px">结构体</span><span style="font-family:Microsoft YaHei"><span style="font-size:14px"><span lang="zh-CN" style="font-size:14px" xml:lang="zh-CN"><span style="font-size:14px; color:#000000"><span style="font-size:14px"><span style="font-size:14px">链接</span></span></span></span></span><span style="color:#000000"><span style="font-size:14px"><span style="font-size:14px">slab</span></span><span style="font-size:14px"><span lang="zh-CN" style="font-size:14px" xml:lang="zh-CN"><span style="font-size:14px"><span style="font-size:14px">，共享高速缓存</span></span></span></span></span><span style="font-size:14px">，其定义如下:</span></span></p>&#13;
+<p style="text-indent:22.8pt"><span style="font-size:14px"></span></p>&#13;
+<pre name="code" class="cpp">/*
+ * The slab lists for all objects.
+ */
+struct kmem_list3 {
+	struct list_head slabs_partial;	/* partial list first, better asm code */
+	struct list_head slabs_full;
+	struct list_head slabs_free;
+	unsigned long free_objects;
+	unsigned int free_limit;
+	unsigned int colour_next;	/* Per-node cache coloring */
+	spinlock_t list_lock;
+	struct array_cache *shared;	/* shared per node */
+	struct array_cache **alien;	/* on other nodes */
+	unsigned long next_reap;	/* updated without locking */
+	int free_touched;		/* updated without locking */
+};
+</pre><span style="font-size:14px"></span>&#13;
+<p></p>&#13;
+<p style="text-indent:22.8pt"><span style="font-family:Microsoft YaHei; font-size:14px">该结构包含三个链表：</span><span style="font-family:Microsoft YaHei; font-size:14px">slabs_partial</span><span style="font-family:Microsoft YaHei; font-size:14px">、</span><span style="font-family:Microsoft YaHei; font-size:14px">slabs_full、</span><span style="font-family:Microsoft YaHei; font-size:14px">slabs_free</span><span style="font-family:Microsoft YaHei; font-size:14px">，这些链表包含缓冲区所有slab，slab描述符struct&#13;
+ slab用于描述每个slab：</span> </p>&#13;
+<p style="text-indent:22.8pt"><span style="font-size:14px"></span></p>&#13;
+<pre name="code" class="cpp">/*
+ * struct slab
+ *
+ * Manages the objs in a slab. Placed either at the beginning of mem allocated
+ * for a slab, or allocated from an general cache.
+ * Slabs are chained into three list: fully used, partial, fully free slabs.
+ */
+struct slab {
+	struct list_head list;
+	unsigned long colouroff;
+	void *s_mem;		/* including colour offset */
+	unsigned int inuse;	/* num of objs active in slab */
+	kmem_bufctl_t free;
+	unsigned short nodeid;
+};
+</pre><span style="font-size:14px"></span>&#13;
+<p></p>&#13;
+<p style="text-indent:22.8pt"><span style="font-family:Microsoft YaHei; font-size:14px"><span style="font-size:14px">一个新的缓冲区使用如下函数创建：</span></span></p>&#13;
+<p style="text-indent:22.8pt"></p>&#13;
+<pre name="code" class="cpp">struct kmem_cache *kmem_cache_create (const char *name, size_t size, size_t align, unsigned long flags, void (*ctor)(void *)); </pre><span style="font-size:14px"></span>&#13;
+<p></p>&#13;
+<p style="text-indent:22.8pt"><span style="font-family:Microsoft YaHei; font-size:14px"><span style="font-size:14px">函数创建成功会返回一个指向所创建缓冲区的指针；撤销一个缓冲区调用如下函数：</span></span></p>&#13;
+<p style="text-indent:22.8pt"></p>&#13;
+<pre name="code" class="cpp">&lt;span style="font-family:Microsoft YaHei;"&gt;void kmem_cache_destroy(struct kmem_cache *cachep)；&lt;/span&gt;</pre>&#13;
+<p></p>&#13;
+<p style="text-indent:22.8pt"><span style="font-family:Microsoft YaHei; font-size:14px"><span style="font-size:14px">上面两个函数都不能在中断上下文中使用，因为它可能睡眠。</span></span></p>&#13;
+<p style="text-indent:22.8pt"><span style="font-family:Microsoft YaHei; font-size:14px"><span style="font-size:14px">在创建来缓冲区之后，可以通过下列函数获取对象：</span></span></p>&#13;
+<p style="text-indent:22.8pt"><span style="font-size:14px"></span></p>&#13;
+<pre name="code" class="cpp">/**
+ * kmem_cache_alloc - Allocate an object
+ * @cachep: The cache to allocate from.
+ * @flags: See kmalloc().
+ *
+ * Allocate an object from this cache.  The flags are only relevant
+ * if the cache has no available objects.
+ */
+void *kmem_cache_alloc(struct kmem_cache *cachep, gfp_t flags)
+{
+	void *ret = __cache_alloc(cachep, flags, __builtin_return_address(0));
+
+	trace_kmem_cache_alloc(_RET_IP_, ret,
+			       obj_size(cachep), cachep-&gt;buffer_size, flags);
+
+	return ret;
+}</pre>&#13;
+<p></p>&#13;
+<p style="text-indent:22.8pt"><span style="font-family:Microsoft YaHei; font-size:14px">该函数从给点缓冲区</span><span style="font-family:Microsoft YaHei; font-size:14px">cachep中返回一个指向对象的指针。如果缓冲区的所有slab中都没有空闲对象，那么slab层必须通过kmem_getpages()获取新的页，</span><span style="font-family:Microsoft YaHei; font-size:14px"><span style="font-size:14px">参数flags传递给_get_free_pages()。</span></span></p>&#13;
+<p style="text-indent:22.8pt"></p>&#13;
+<pre name="code" class="cpp">&lt;span style="font-family:Microsoft YaHei;"&gt;static void *kmem_getpages(struct kmem_cache *cachep, gfp_t flags, int nodeid)；&lt;/span&gt;</pre>&#13;
+<p></p>&#13;
+<p style="text-indent:22.8pt"><span style="font-family:Microsoft YaHei; font-size:14px"><span style="font-size:14px">释放对象使用如下函数：</span></span></p>&#13;
+<p style="text-indent:22.8pt"><span style="font-size:14px"></span></p>&#13;
+<pre name="code" class="cpp">/**
+ * kmem_cache_free - Deallocate an object
+ * @cachep: The cache the allocation was from.
+ * @objp: The previously allocated object.
+ *
+ * Free an object which was previously allocated from this
+ * cache.
+ */
+void kmem_cache_free(struct kmem_cache *cachep, void *objp)
+{
+	unsigned long flags;
+
+	local_irq_save(flags);
+	debug_check_no_locks_freed(objp, obj_size(cachep));
+	if (!(cachep-&gt;flags &amp; SLAB_DEBUG_OBJECTS))
+		debug_check_no_obj_freed(objp, obj_size(cachep));
+	__cache_free(cachep, objp);
+	local_irq_restore(flags);
+
+	trace_kmem_cache_free(_RET_IP_, objp);
+}</pre><span style="font-size:14px"></span>&#13;
+<p></p>&#13;
+<p style="text-indent:22.8pt"><span style="font-family:Microsoft YaHei; font-size:14px">如果你要频繁的创建很多相同类型的对象，就要当考虑使用slab高速缓存区。</span></p>&#13;
+<p style="text-indent:22.8pt"><span style="font-family:Microsoft YaHei; font-size:14px">实际上上一节所讲kmalloc()函数也是使用slab分配器分配的。</span><span style="font-family:Microsoft YaHei"><br />&#13;
+</span></p>&#13;
+<p align="LEFT" style="margin-bottom:0in; widows:2; orphans:2"><span style="font-size:14px"></span></p>&#13;
+<pre name="code" class="cpp">static __always_inline void *kmalloc(size_t size, gfp_t flags)
+{
+	struct kmem_cache *cachep;
+	void *ret;
+
+	if (__builtin_constant_p(size)) {
+		int i = 0;
+
+		if (!size)
+			return ZERO_SIZE_PTR;
+
+#define CACHE(x) \
+		if (size &lt;= x) \
+			goto found; \
+		else \
+			i++;
+#include &lt;linux/kmalloc_sizes.h&gt;
+#undef CACHE
+		return NULL;
+found:
+#ifdef CONFIG_ZONE_DMA
+		if (flags &amp; GFP_DMA)
+			cachep = malloc_sizes[i].cs_dmacachep;
+		else
+#endif
+			cachep = malloc_sizes[i].cs_cachep;
+
+		ret = kmem_cache_alloc_notrace(cachep, flags);
+
+		trace_kmalloc(_THIS_IP_, ret,
+			      size, slab_buffer_size(cachep), flags);
+
+		return ret;
+	}
+	return __kmalloc(size, flags);
+}</pre><span style="color:#333333"><span><span lang="zh-CN" xml:lang="zh-CN"><span style="background:#FFFFFF none repeat scroll 0% 0%"><span></span></span></span></span></span><span style="color:rgb(51,51,51); font-size:14px"><span style="font-size:14px"><span lang="zh-CN" style="font-size:14px" xml:lang="zh-CN"><span style="background:rgb(255,255,255) none repeat scroll 0% 0%; font-size:14px"><span style="font-size:14px"><span style="font-size:14px"><span style="font-size:14px">kfree函数实现如下：</span></span></span></span></span></span></span>&#13;
+<p></p>&#13;
+<p align="LEFT" style="margin-bottom:0in; widows:2; orphans:2"><span style="color:#333333"><span><span lang="zh-CN" xml:lang="zh-CN"><span style="background:#FFFFFF none repeat scroll 0% 0%"><span><span style="font-size:14px"></span></span></span></span></span></span></p>&#13;
+<pre name="code" class="cpp">/**
+ * kfree - free previously allocated memory
+ * @objp: pointer returned by kmalloc.
+ *
+ * If @objp is NULL, no operation is performed.
+ *
+ * Don't free memory not originally allocated by kmalloc()
+ * or you will run into trouble.
+ */
+void kfree(const void *objp)
+{
+	struct kmem_cache *c;
+	unsigned long flags;
+
+	trace_kfree(_RET_IP_, objp);
+
+	if (unlikely(ZERO_OR_NULL_PTR(objp)))
+		return;
+	local_irq_save(flags);
+	kfree_debugcheck(objp);
+	c = virt_to_cache(objp);
+	debug_check_no_locks_freed(objp, obj_size(c));
+	debug_check_no_obj_freed(objp, obj_size(c));
+	__cache_free(c, (void *)objp);
+	local_irq_restore(flags);
+}</pre><span style="font-size:14px"></span>&#13;
+<p></p>&#13;
+<span style="font-family:Microsoft YaHei; font-size:14px">最后，结合上一节，</span><span style="font-family:Microsoft YaHei; font-size:14px">看看分配函数的选择：</span><span style="font-family:Microsoft YaHei"><br />&#13;
+</span>&#13;
+<p><span style="font-family:Microsoft YaHei; font-size:14px">如果需要连续的物理页，就可以使用某个低级页分配器或kmalloc()。</span><span style="font-family:Microsoft YaHei"><br />&#13;
+</span><span style="font-family:Microsoft YaHei; font-size:14px">如果想从高端内存进行分配，使用alloc_pages()。</span><span style="font-family:Microsoft YaHei"><br />&#13;
+</span><span style="font-family:Microsoft YaHei; font-size:14px">如果不需要物理上连续的页，而仅仅是虚拟地址上连续的页，那么就是用vmalloc。</span><span style="font-family:Microsoft YaHei"><br />&#13;
+</span><span style="font-family:Microsoft YaHei; font-size:14px">如果要创建和销毁很多大的数据结构，那么考虑建立slab高速缓存。</span></p>&#13;
+   &#13;

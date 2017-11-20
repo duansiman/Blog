@@ -1,0 +1,224 @@
+
+                
+<p><br/>&#13;
+</p>&#13;
+<p>我们以一个例子demo的形式，说明Mybatis的一对一关联查询</p>&#13;
+<p>设计teachers表</p>&#13;
+<p><img width="907" height="489" alt="" src="http://img.blog.csdn.net/20160501231647161?watermark/2/text/aHR0cDovL2Jsb2cuY3Nkbi5uZXQv/font/5a6L5L2T/fontsize/400/fill/I0JBQkFCMA==/dissolve/70/gravity/Center" style="width:920px; height:614px"/></p>&#13;
+<p>classes表设置外键</p>&#13;
+<p><img width="908" height="490" alt="" src="http://img.blog.csdn.net/20160501231628661?watermark/2/text/aHR0cDovL2Jsb2cuY3Nkbi5uZXQv/font/5a6L5L2T/fontsize/400/fill/I0JBQkFCMA==/dissolve/70/gravity/Center" style="width:913px; height:580px"/></p>&#13;
+<p>classes表</p>&#13;
+<p><img width="908" height="460" alt="" src="http://img.blog.csdn.net/20160501231605891?watermark/2/text/aHR0cDovL2Jsb2cuY3Nkbi5uZXQv/font/5a6L5L2T/fontsize/400/fill/I0JBQkFCMA==/dissolve/70/gravity/Center" style="width:899px; height:615px"/></p>&#13;
+<p><br/>&#13;
+</p>&#13;
+<p>classes表是课程表，teachers表是教师信息表</p>&#13;
+<p>这里是一对一的关联关系，当然实际中一般不是这样的，一般可以是多对多，不过这里只是举例子</p>&#13;
+<p>项目的结构，如图：</p>&#13;
+<p><img alt="" src="http://img.blog.csdn.net/20160501231332951?watermark/2/text/aHR0cDovL2Jsb2cuY3Nkbi5uZXQv/font/5a6L5L2T/fontsize/400/fill/I0JBQkFCMA==/dissolve/70/gravity/Center"/></p>&#13;
+<p><br/>&#13;
+</p>&#13;
+<p>Classes.java:</p>&#13;
+<pre code_snippet_id="1668796" snippet_file_name="blog_20160501_1_9897814" class="java" name="code">package com.mybatis.entity;
+
+import java.util.List;
+
+public class Classes {
+
+	private int id;
+	
+	private String name;
+	
+	private Teacher teacher;
+
+	private List&lt;Student&gt; students;
+	
+	public List&lt;Student&gt; getStudents() {
+		return students;
+	}
+
+	public void setStudents(List&lt;Student&gt; students) {
+		this.students = students;
+	}
+
+	public int getId() {
+		return id;
+	}
+
+	public void setId(int id) {
+		this.id = id;
+	}
+
+	public String getName() {
+		return name;
+	}
+
+	public void setName(String name) {
+		this.name = name;
+	}
+
+	public Teacher getTeacher() {
+		return teacher;
+	}
+
+	public void setTeacher(Teacher teacher) {
+		this.teacher = teacher;
+	}
+	
+	@Override
+	public String toString() {
+		return "Classes [id=" + id + ", name=" + name + "]";
+	}
+	
+}
+</pre>&#13;
+<p>Teacher.java:</p>&#13;
+<p/><pre code_snippet_id="1668796" snippet_file_name="blog_20160501_2_8055433" class="java" name="code">package com.mybatis.entity;
+
+public class Teacher {
+	
+	private int id;
+	
+	private String name;
+
+	public int getId() {
+		return id;
+	}
+
+	public void setId(int id) {
+		this.id = id;
+	}
+
+	public String getName() {
+		return name;
+	}
+
+	public void setName(String name) {
+		this.name = name;
+	}
+	
+
+}
+</pre><br/>&#13;
+这里以两种方式进行使用<br/>&#13;
+&#13;
+<p/>&#13;
+<p>classesMapper.xml:</p>&#13;
+<pre code_snippet_id="1668796" snippet_file_name="blog_20160501_3_6212270" class="html" name="code">&lt;?xml version="1.0" encoding="UTF-8" ?&gt;
+&lt;!DOCTYPE  mapper  PUBLIC  "-//mybatis.org//DTD  Mapper  3.0//EN"
+"http://mybatis.org/dtd/mybatis-3-mapper.dtd"&gt;
+&lt;!-- 
+	为这个mapper指定一个唯一的namespace，namespace的值习惯上设置成包名+sql映射文件名，这样就能够保证namespace的值是唯一的 
+--&gt;
+&lt;mapper namespace="com.mybatis.mapper.classesMapper"&gt;
+
+&lt;!-- 
+	在select标签中编写查询的SQL语句， 设置select标签的id属性为findById，id属性值必须是唯一的，不能够重复
+    parameterType可以在MyBatis的配置文件里设置，也可以直接用包名+类名
+ --&gt;
+ 
+	&lt;select id="findById" parameterType="int" resultMap="ClassesResultMap"&gt;
+	select * from classes c,teachers t where c.teacher_id=t.t_id and c.c_id=#{id}
+	&lt;/select&gt;
+	&lt;resultMap type="Classes" id="ClassesResultMap"&gt;
+		&lt;id property="id" column="c_id" /&gt;
+		&lt;result property="name" column="c_name" /&gt;
+		&lt;association property="teacher" column="teacher_id" javaType="Teacher"&gt;
+			&lt;id property="id" column="t_id" /&gt;
+			&lt;result property="name" column="t_name" /&gt;
+		&lt;/association&gt;
+	&lt;/resultMap&gt;
+	
+	&lt;select id="findById2" parameterType="int" resultMap="ClassesResultMap2"&gt;
+	select * from classes where c_id=#{id}
+	&lt;/select&gt;
+	&lt;resultMap type="Classes" id="ClassesResultMap2"&gt;
+		&lt;id property="id" column="c_id" /&gt;
+		&lt;result property="name" column="c_name" /&gt;
+		&lt;association property="teacher" column="teacher_id" javaType="Teacher" select="getTeacherInfo"&gt;
+		&lt;/association&gt;
+	&lt;/resultMap&gt;
+	&lt;select id="getTeacherInfo" parameterType="int" resultType="Teacher"&gt;
+	select t_id,t_name from teachers where t_id=#{id}
+	&lt;/select&gt;
+&lt;/mapper&gt;
+</pre>&#13;
+<p>然后对mybatis进行配置：</p>&#13;
+<pre code_snippet_id="1668796" snippet_file_name="blog_20160501_4_6038330" class="html" name="code">&lt;?xml version="1.0" encoding="UTF-8"?&gt;
+&lt;!DOCTYPE configuration PUBLIC "-//mybatis.org//DTD Config 3.0//EN" 
+"http://mybatis.org/dtd/mybatis-3-config.dtd"&gt;
+&lt;configuration&gt;
+	
+	&lt;!-- 数据库配置文件  --&gt; 
+    &lt;properties resource="db.properties" /&gt;  
+     
+   &lt;!-- 实体类,简称 -设置别名 --&gt;
+	&lt;typeAliases&gt;
+		&lt;typeAlias alias="User" type="com.mybatis.entity.User" /&gt;
+		&lt;typeAlias alias="Classes" type="com.mybatis.entity.Classes" /&gt;
+		&lt;typeAlias alias="Student" type="com.mybatis.entity.Student" /&gt;
+		&lt;typeAlias alias="Teacher" type="com.mybatis.entity.Teacher" /&gt;
+	&lt;/typeAliases&gt;
+
+	
+	&lt;!-- 读取db.properties里的数据，进行数据库配置 --&gt;
+	&lt;environments default="development"&gt;
+		&lt;environment id="development"&gt;
+			&lt;transactionManager type="JDBC" /&gt;
+			&lt;dataSource type="POOLED"&gt;
+				&lt;property name="driver" value="${driver}"/&gt;
+	            &lt;property name="url" value="${url}" /&gt;
+	            &lt;property name="username" value="${username}"/&gt;
+	            &lt;property name="password" value="${password}"/&gt;
+			&lt;/dataSource&gt;
+		&lt;/environment&gt;
+	&lt;/environments&gt;
+	
+	&lt;!--  
+		注册userMapper.xml文件 
+	&lt;mappers&gt;
+		&lt;mapper resource="com/mybatis/mapper/userMapper.xml"/&gt;
+	&lt;/mappers&gt;
+	--&gt;
+	
+	&lt;mappers&gt;
+		&lt;mapper class="com.mybatis.mapper.UserMapper"/&gt;
+		&lt;mapper resource="com/mybatis/mapper/classesMapper.xml"/&gt;
+	&lt;/mappers&gt;
+	
+&lt;/configuration&gt;
+</pre>&#13;
+<p>db,properties:</p>&#13;
+<pre code_snippet_id="1668796" snippet_file_name="blog_20160501_5_8131881" class="html" name="code">driver=com.mysql.jdbc.Driver
+url=jdbc\:mysql\://localhost\:3306/db_mysql?useUnicode\=true&amp;characterEncoding\=utf-8
+username=root
+password=111
+</pre>&#13;
+<p><br/>&#13;
+<br/>&#13;
+编写测试类：</p>&#13;
+<p/><pre code_snippet_id="1668796" snippet_file_name="blog_20160501_6_3813483" class="java" name="code">String resource = "mybatis-config.xml";
+		try{
+			//加载Mybatis的配置文件
+			Reader reader = Resources.getResourceAsReader(resource);
+			//构建sqlSession的工厂
+	        SqlSessionFactory sessionFactory = new SqlSessionFactoryBuilder().build(reader);
+			//创建可以执行sql的SqlSession
+	        SqlSession session = sessionFactory.openSession();
+			UserMapper mapper = session.getMapper(UserMapper.class);
+			User user = mapper.findById(1);
+	        System.out.println(user);
+	        
+	        Classes c = session.selectOne("com.mybatis.mapper.classesMapper.findById1",1);
+	        System.out.println(c);
+	      
+	        
+		}catch (Exception e) {
+			e.printStackTrace();
+		}</pre><br/>&#13;
+<br/>&#13;
+&#13;
+<p/>&#13;
+<p><br/>&#13;
+</p>&#13;
+<link rel="stylesheet" href="http://static.blog.csdn.net/public/res-min/markdown_views.css?v=1.0"/>&#13;
+            

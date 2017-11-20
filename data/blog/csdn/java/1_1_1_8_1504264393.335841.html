@@ -1,0 +1,463 @@
+
+        <div class="markdown_views"><h2 id="一redis了解">一、Redis了解</h2>
+
+<p><strong>1.1、Redis介绍：</strong></p>
+
+<p>redis是一个key-value存储系统。和Memcached类似，它支持存储的value类型相对更多，包括string(字符串)、list(链表)、set(集合)、zset(sorted set –有序集合)和hash（哈希类型）。这些数据类型都支持push/pop、add/remove及取交集并集和差集及更丰富的操作，而且这些操作都是原子性的。在此基础上，redis支持各种不同方式的排序。与memcached一样，为了保证效率，数据都是缓存在内存中。区别的是redis会周期性的把更新的数据写入磁盘或者把修改操作写入追加的记录文件，并且在此基础上实现了master-slave(主从)同步。</p>
+
+<p>Redis数据库完全在内存中，使用磁盘仅用于持久性。相比许多键值数据存储，Redis拥有一套较为丰富的数据类型。Redis可以将数据复制到任意数量的从服务器。</p>
+
+<p><strong>1.2、Redis优点：</strong></p>
+
+<p>（1）异常快速：Redis的速度非常快，每秒能执行约11万集合，每秒约81000+条记录。</p>
+
+<p>（2）支持丰富的数据类型：Redis支持最大多数开发人员已经知道像列表，集合，有序集合，散列数据类型。这使得它非常容易解决各种各样的问题，因为我们知道哪些问题是可以处理通过它的数据类型更好。</p>
+
+<p>（3）操作都是原子性：所有Redis操作是原子的，这保证了如果两个客户端同时访问的Redis服务器将获得更新后的值。</p>
+
+<p>（4）多功能实用工具：Redis是一个多实用的工具，可以在多个用例如缓存，消息，队列使用(Redis原生支持发布/订阅)，任何短暂的数据，应用程序，如Web应用程序会话，网页命中计数等。</p>
+
+<p><strong>1.3、Redis缺点：</strong></p>
+
+<p>（1）单线程</p>
+
+<p>（2）耗内存</p>
+
+<h2 id="二64位windows下redis安装">二、64位windows下Redis安装</h2>
+
+<p>Redis官方是不支持windows的，但是Microsoft Open Tech group 在 GitHub上开发了一个Win64的版本，下载地址：<a href="https://github.com/MSOpenTech/redis/releases">https://github.com/MSOpenTech/redis/releases</a>。<strong>注意只支持64位哈</strong>。</p>
+
+<p>小宝鸽是下载了Redis-x64-3.0.500.msi进行安装。安装过程中全部采取默认即可。</p>
+
+<p>安装完成之后可能已经帮你开启了Redis对应的服务，博主的就是如此。查看资源管理如下，说明已经开启：</p>
+
+<p><img src="http://img.blog.csdn.net/20160114095940982" alt="图1" title="" /></p>
+
+<p>已经开启了对应服务的，我们让它保持，下面例子需要用到。如果没有开启的，我们命令开启，进入Redis的安装目录（博主的是C:\Program Files\Redis），然后如下命令开启：</p>
+
+
+
+<pre class="prettyprint"><code class=" hljs avrasm">redis-server  redis<span class="hljs-preprocessor">.windows</span><span class="hljs-preprocessor">.conf</span> </code></pre>
+
+<p><img src="http://img.blog.csdn.net/20160114100006742" alt="这里写图片描述" title="" /></p>
+
+<p>OK，下面我们进行实例。</p>
+
+
+
+<h2 id="三详细实例">三、详细实例</h2>
+
+<p>本工程采用的环境：eclipse + maven + spring + junit</p>
+
+<p><strong>3.1、添加相关依赖（spring+junit+redis依赖），pom.xml：</strong></p>
+
+
+
+<pre class="prettyprint"><code class=" hljs xml"><span class="hljs-tag">&lt;<span class="hljs-title">project</span> <span class="hljs-attribute">xmlns</span>=<span class="hljs-value">"http://maven.apache.org/POM/4.0.0"</span> <span class="hljs-attribute">xmlns:xsi</span>=<span class="hljs-value">"http://www.w3.org/2001/XMLSchema-instance"</span> <span class="hljs-attribute">xsi:schemaLocation</span>=<span class="hljs-value">"http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd"</span>&gt;</span>
+  <span class="hljs-tag">&lt;<span class="hljs-title">modelVersion</span>&gt;</span>4.0.0<span class="hljs-tag">&lt;/<span class="hljs-title">modelVersion</span>&gt;</span>
+  <span class="hljs-tag">&lt;<span class="hljs-title">groupId</span>&gt;</span>com.luo<span class="hljs-tag">&lt;/<span class="hljs-title">groupId</span>&gt;</span>
+  <span class="hljs-tag">&lt;<span class="hljs-title">artifactId</span>&gt;</span>redis_project<span class="hljs-tag">&lt;/<span class="hljs-title">artifactId</span>&gt;</span>
+  <span class="hljs-tag">&lt;<span class="hljs-title">version</span>&gt;</span>0.0.1-SNAPSHOT<span class="hljs-tag">&lt;/<span class="hljs-title">version</span>&gt;</span>
+
+  <span class="hljs-tag">&lt;<span class="hljs-title">properties</span>&gt;</span>
+        <span class="hljs-comment">&lt;!-- spring版本号 --&gt;</span>
+        <span class="hljs-tag">&lt;<span class="hljs-title">spring.version</span>&gt;</span>3.2.8.RELEASE<span class="hljs-tag">&lt;/<span class="hljs-title">spring.version</span>&gt;</span>
+        <span class="hljs-comment">&lt;!-- junit版本号 --&gt;</span>
+        <span class="hljs-tag">&lt;<span class="hljs-title">junit.version</span>&gt;</span>4.10<span class="hljs-tag">&lt;/<span class="hljs-title">junit.version</span>&gt;</span>
+  <span class="hljs-tag">&lt;/<span class="hljs-title">properties</span>&gt;</span>
+
+  <span class="hljs-tag">&lt;<span class="hljs-title">dependencies</span>&gt;</span>
+        <span class="hljs-comment">&lt;!-- 添加Spring依赖 --&gt;</span>
+        <span class="hljs-tag">&lt;<span class="hljs-title">dependency</span>&gt;</span>
+            <span class="hljs-tag">&lt;<span class="hljs-title">groupId</span>&gt;</span>org.springframework<span class="hljs-tag">&lt;/<span class="hljs-title">groupId</span>&gt;</span>
+            <span class="hljs-tag">&lt;<span class="hljs-title">artifactId</span>&gt;</span>spring-core<span class="hljs-tag">&lt;/<span class="hljs-title">artifactId</span>&gt;</span>
+            <span class="hljs-tag">&lt;<span class="hljs-title">version</span>&gt;</span>${spring.version}<span class="hljs-tag">&lt;/<span class="hljs-title">version</span>&gt;</span>
+        <span class="hljs-tag">&lt;/<span class="hljs-title">dependency</span>&gt;</span>
+        <span class="hljs-tag">&lt;<span class="hljs-title">dependency</span>&gt;</span>
+            <span class="hljs-tag">&lt;<span class="hljs-title">groupId</span>&gt;</span>org.springframework<span class="hljs-tag">&lt;/<span class="hljs-title">groupId</span>&gt;</span>
+            <span class="hljs-tag">&lt;<span class="hljs-title">artifactId</span>&gt;</span>spring-webmvc<span class="hljs-tag">&lt;/<span class="hljs-title">artifactId</span>&gt;</span>
+            <span class="hljs-tag">&lt;<span class="hljs-title">version</span>&gt;</span>${spring.version}<span class="hljs-tag">&lt;/<span class="hljs-title">version</span>&gt;</span>
+        <span class="hljs-tag">&lt;/<span class="hljs-title">dependency</span>&gt;</span>
+        <span class="hljs-tag">&lt;<span class="hljs-title">dependency</span>&gt;</span>
+            <span class="hljs-tag">&lt;<span class="hljs-title">groupId</span>&gt;</span>org.springframework<span class="hljs-tag">&lt;/<span class="hljs-title">groupId</span>&gt;</span>
+            <span class="hljs-tag">&lt;<span class="hljs-title">artifactId</span>&gt;</span>spring-context<span class="hljs-tag">&lt;/<span class="hljs-title">artifactId</span>&gt;</span>
+            <span class="hljs-tag">&lt;<span class="hljs-title">version</span>&gt;</span>${spring.version}<span class="hljs-tag">&lt;/<span class="hljs-title">version</span>&gt;</span>
+        <span class="hljs-tag">&lt;/<span class="hljs-title">dependency</span>&gt;</span>
+        <span class="hljs-tag">&lt;<span class="hljs-title">dependency</span>&gt;</span>
+            <span class="hljs-tag">&lt;<span class="hljs-title">groupId</span>&gt;</span>org.springframework<span class="hljs-tag">&lt;/<span class="hljs-title">groupId</span>&gt;</span>
+            <span class="hljs-tag">&lt;<span class="hljs-title">artifactId</span>&gt;</span>spring-context-support<span class="hljs-tag">&lt;/<span class="hljs-title">artifactId</span>&gt;</span>
+            <span class="hljs-tag">&lt;<span class="hljs-title">version</span>&gt;</span>${spring.version}<span class="hljs-tag">&lt;/<span class="hljs-title">version</span>&gt;</span>
+        <span class="hljs-tag">&lt;/<span class="hljs-title">dependency</span>&gt;</span>
+        <span class="hljs-tag">&lt;<span class="hljs-title">dependency</span>&gt;</span>
+            <span class="hljs-tag">&lt;<span class="hljs-title">groupId</span>&gt;</span>org.springframework<span class="hljs-tag">&lt;/<span class="hljs-title">groupId</span>&gt;</span>
+            <span class="hljs-tag">&lt;<span class="hljs-title">artifactId</span>&gt;</span>spring-aop<span class="hljs-tag">&lt;/<span class="hljs-title">artifactId</span>&gt;</span>
+            <span class="hljs-tag">&lt;<span class="hljs-title">version</span>&gt;</span>${spring.version}<span class="hljs-tag">&lt;/<span class="hljs-title">version</span>&gt;</span>
+        <span class="hljs-tag">&lt;/<span class="hljs-title">dependency</span>&gt;</span>
+        <span class="hljs-tag">&lt;<span class="hljs-title">dependency</span>&gt;</span>
+            <span class="hljs-tag">&lt;<span class="hljs-title">groupId</span>&gt;</span>org.springframework<span class="hljs-tag">&lt;/<span class="hljs-title">groupId</span>&gt;</span>
+            <span class="hljs-tag">&lt;<span class="hljs-title">artifactId</span>&gt;</span>spring-aspects<span class="hljs-tag">&lt;/<span class="hljs-title">artifactId</span>&gt;</span>
+            <span class="hljs-tag">&lt;<span class="hljs-title">version</span>&gt;</span>${spring.version}<span class="hljs-tag">&lt;/<span class="hljs-title">version</span>&gt;</span>
+        <span class="hljs-tag">&lt;/<span class="hljs-title">dependency</span>&gt;</span>
+        <span class="hljs-tag">&lt;<span class="hljs-title">dependency</span>&gt;</span>
+            <span class="hljs-tag">&lt;<span class="hljs-title">groupId</span>&gt;</span>org.springframework<span class="hljs-tag">&lt;/<span class="hljs-title">groupId</span>&gt;</span>
+            <span class="hljs-tag">&lt;<span class="hljs-title">artifactId</span>&gt;</span>spring-tx<span class="hljs-tag">&lt;/<span class="hljs-title">artifactId</span>&gt;</span>
+            <span class="hljs-tag">&lt;<span class="hljs-title">version</span>&gt;</span>${spring.version}<span class="hljs-tag">&lt;/<span class="hljs-title">version</span>&gt;</span>
+        <span class="hljs-tag">&lt;/<span class="hljs-title">dependency</span>&gt;</span>
+        <span class="hljs-tag">&lt;<span class="hljs-title">dependency</span>&gt;</span>
+            <span class="hljs-tag">&lt;<span class="hljs-title">groupId</span>&gt;</span>org.springframework<span class="hljs-tag">&lt;/<span class="hljs-title">groupId</span>&gt;</span>
+            <span class="hljs-tag">&lt;<span class="hljs-title">artifactId</span>&gt;</span>spring-jdbc<span class="hljs-tag">&lt;/<span class="hljs-title">artifactId</span>&gt;</span>
+            <span class="hljs-tag">&lt;<span class="hljs-title">version</span>&gt;</span>${spring.version}<span class="hljs-tag">&lt;/<span class="hljs-title">version</span>&gt;</span>
+        <span class="hljs-tag">&lt;/<span class="hljs-title">dependency</span>&gt;</span>
+        <span class="hljs-tag">&lt;<span class="hljs-title">dependency</span>&gt;</span>
+            <span class="hljs-tag">&lt;<span class="hljs-title">groupId</span>&gt;</span>org.springframework<span class="hljs-tag">&lt;/<span class="hljs-title">groupId</span>&gt;</span>
+            <span class="hljs-tag">&lt;<span class="hljs-title">artifactId</span>&gt;</span>spring-web<span class="hljs-tag">&lt;/<span class="hljs-title">artifactId</span>&gt;</span>
+            <span class="hljs-tag">&lt;<span class="hljs-title">version</span>&gt;</span>${spring.version}<span class="hljs-tag">&lt;/<span class="hljs-title">version</span>&gt;</span>
+        <span class="hljs-tag">&lt;/<span class="hljs-title">dependency</span>&gt;</span>
+
+        <span class="hljs-comment">&lt;!--单元测试依赖 --&gt;</span>
+        <span class="hljs-tag">&lt;<span class="hljs-title">dependency</span>&gt;</span>
+            <span class="hljs-tag">&lt;<span class="hljs-title">groupId</span>&gt;</span>junit<span class="hljs-tag">&lt;/<span class="hljs-title">groupId</span>&gt;</span>
+            <span class="hljs-tag">&lt;<span class="hljs-title">artifactId</span>&gt;</span>junit<span class="hljs-tag">&lt;/<span class="hljs-title">artifactId</span>&gt;</span>
+            <span class="hljs-tag">&lt;<span class="hljs-title">version</span>&gt;</span>${junit.version}<span class="hljs-tag">&lt;/<span class="hljs-title">version</span>&gt;</span>
+            <span class="hljs-tag">&lt;<span class="hljs-title">scope</span>&gt;</span>test<span class="hljs-tag">&lt;/<span class="hljs-title">scope</span>&gt;</span>
+        <span class="hljs-tag">&lt;/<span class="hljs-title">dependency</span>&gt;</span>
+
+        <span class="hljs-comment">&lt;!--spring单元测试依赖 --&gt;</span>
+        <span class="hljs-tag">&lt;<span class="hljs-title">dependency</span>&gt;</span>
+            <span class="hljs-tag">&lt;<span class="hljs-title">groupId</span>&gt;</span>org.springframework<span class="hljs-tag">&lt;/<span class="hljs-title">groupId</span>&gt;</span>
+            <span class="hljs-tag">&lt;<span class="hljs-title">artifactId</span>&gt;</span>spring-test<span class="hljs-tag">&lt;/<span class="hljs-title">artifactId</span>&gt;</span>
+            <span class="hljs-tag">&lt;<span class="hljs-title">version</span>&gt;</span>${spring.version}<span class="hljs-tag">&lt;/<span class="hljs-title">version</span>&gt;</span>
+            <span class="hljs-tag">&lt;<span class="hljs-title">scope</span>&gt;</span>test<span class="hljs-tag">&lt;/<span class="hljs-title">scope</span>&gt;</span>
+        <span class="hljs-tag">&lt;/<span class="hljs-title">dependency</span>&gt;</span>
+
+        <span class="hljs-comment">&lt;!-- Redis 相关依赖  --&gt;</span>
+        <span class="hljs-tag">&lt;<span class="hljs-title">dependency</span>&gt;</span>
+            <span class="hljs-tag">&lt;<span class="hljs-title">groupId</span>&gt;</span>org.springframework.data<span class="hljs-tag">&lt;/<span class="hljs-title">groupId</span>&gt;</span>
+            <span class="hljs-tag">&lt;<span class="hljs-title">artifactId</span>&gt;</span>spring-data-redis<span class="hljs-tag">&lt;/<span class="hljs-title">artifactId</span>&gt;</span>
+            <span class="hljs-tag">&lt;<span class="hljs-title">version</span>&gt;</span>1.6.1.RELEASE<span class="hljs-tag">&lt;/<span class="hljs-title">version</span>&gt;</span>
+        <span class="hljs-tag">&lt;/<span class="hljs-title">dependency</span>&gt;</span>
+        <span class="hljs-tag">&lt;<span class="hljs-title">dependency</span>&gt;</span>
+            <span class="hljs-tag">&lt;<span class="hljs-title">groupId</span>&gt;</span>redis.clients<span class="hljs-tag">&lt;/<span class="hljs-title">groupId</span>&gt;</span>
+            <span class="hljs-tag">&lt;<span class="hljs-title">artifactId</span>&gt;</span>jedis<span class="hljs-tag">&lt;/<span class="hljs-title">artifactId</span>&gt;</span>
+            <span class="hljs-tag">&lt;<span class="hljs-title">version</span>&gt;</span>2.7.3<span class="hljs-tag">&lt;/<span class="hljs-title">version</span>&gt;</span>
+        <span class="hljs-tag">&lt;/<span class="hljs-title">dependency</span>&gt;</span>
+
+    <span class="hljs-tag">&lt;/<span class="hljs-title">dependencies</span>&gt;</span>
+<span class="hljs-tag">&lt;/<span class="hljs-title">project</span>&gt;</span></code></pre>
+
+<p><strong>3.2、spring配置文件application.xml：</strong></p>
+
+
+
+<pre class="prettyprint"><code class=" hljs xml"><span class="hljs-pi">&lt;?xml version="1.0" encoding="UTF-8"?&gt;</span>
+<span class="hljs-tag">&lt;<span class="hljs-title">beans</span> <span class="hljs-attribute">xmlns</span>=<span class="hljs-value">"http://www.springframework.org/schema/beans"</span>
+    <span class="hljs-attribute">xmlns:xsi</span>=<span class="hljs-value">"http://www.w3.org/2001/XMLSchema-instance"</span> 
+    <span class="hljs-attribute">xmlns:context</span>=<span class="hljs-value">"http://www.springframework.org/schema/context"</span>
+    <span class="hljs-attribute">xmlns:aop</span>=<span class="hljs-value">"http://www.springframework.org/schema/aop"</span>
+    <span class="hljs-attribute">xsi:schemaLocation</span>=<span class="hljs-value">"  
+           http://www.springframework.org/schema/beans  
+           http://www.springframework.org/schema/beans/spring-beans-3.0.xsd  
+           http://www.springframework.org/schema/aop  
+           http://www.springframework.org/schema/aop/spring-aop-3.0.xsd
+           http://www.springframework.org/schema/context  
+           http://www.springframework.org/schema/context/spring-context-3.0.xsd"</span>&gt;</span>
+
+    <span class="hljs-comment">&lt;!-- 自动扫描注解的bean --&gt;</span>
+    <span class="hljs-tag">&lt;<span class="hljs-title">context:component-scan</span> <span class="hljs-attribute">base-package</span>=<span class="hljs-value">"com.luo.service"</span> /&gt;</span>
+
+    <span class="hljs-comment">&lt;!-- 引入properties配置文件 --&gt;</span>  
+    <span class="hljs-tag">&lt;<span class="hljs-title">bean</span> <span class="hljs-attribute">id</span>=<span class="hljs-value">"propertyConfigurer"</span> <span class="hljs-attribute">class</span>=<span class="hljs-value">"org.springframework.beans.factory.config.PropertyPlaceholderConfigurer"</span>&gt;</span>
+        <span class="hljs-tag">&lt;<span class="hljs-title">property</span> <span class="hljs-attribute">name</span>=<span class="hljs-value">"locations"</span>&gt;</span>
+            <span class="hljs-tag">&lt;<span class="hljs-title">list</span>&gt;</span>
+               <span class="hljs-tag">&lt;<span class="hljs-title">value</span>&gt;</span>classpath:properties/*.properties<span class="hljs-tag">&lt;/<span class="hljs-title">value</span>&gt;</span>
+                <span class="hljs-comment">&lt;!--要是有多个配置文件，只需在这里继续添加即可 --&gt;</span>
+            <span class="hljs-tag">&lt;/<span class="hljs-title">list</span>&gt;</span>
+        <span class="hljs-tag">&lt;/<span class="hljs-title">property</span>&gt;</span>
+    <span class="hljs-tag">&lt;/<span class="hljs-title">bean</span>&gt;</span>
+
+    <span class="hljs-comment">&lt;!-- jedis 配置 --&gt;</span>
+    <span class="hljs-tag">&lt;<span class="hljs-title">bean</span> <span class="hljs-attribute">id</span>=<span class="hljs-value">"poolConfig"</span> <span class="hljs-attribute">class</span>=<span class="hljs-value">"redis.clients.jedis.JedisPoolConfig"</span> &gt;</span>
+          <span class="hljs-tag">&lt;<span class="hljs-title">property</span> <span class="hljs-attribute">name</span>=<span class="hljs-value">"maxIdle"</span> <span class="hljs-attribute">value</span>=<span class="hljs-value">"${redis.maxIdle}"</span> /&gt;</span>
+          <span class="hljs-tag">&lt;<span class="hljs-title">property</span> <span class="hljs-attribute">name</span>=<span class="hljs-value">"maxWaitMillis"</span> <span class="hljs-attribute">value</span>=<span class="hljs-value">"${redis.maxWait}"</span> /&gt;</span>
+          <span class="hljs-tag">&lt;<span class="hljs-title">property</span> <span class="hljs-attribute">name</span>=<span class="hljs-value">"testOnBorrow"</span> <span class="hljs-attribute">value</span>=<span class="hljs-value">"${redis.testOnBorrow}"</span> /&gt;</span>
+    <span class="hljs-tag">&lt;/<span class="hljs-title">bean</span> &gt;</span>
+
+    <span class="hljs-comment">&lt;!-- redis服务器中心 --&gt;</span>
+    <span class="hljs-tag">&lt;<span class="hljs-title">bean</span> <span class="hljs-attribute">id</span>=<span class="hljs-value">"connectionFactory"</span>  <span class="hljs-attribute">class</span>=<span class="hljs-value">"org.springframework.data.redis.connection.jedis.JedisConnectionFactory"</span> &gt;</span>
+          <span class="hljs-tag">&lt;<span class="hljs-title">property</span> <span class="hljs-attribute">name</span>=<span class="hljs-value">"poolConfig"</span> <span class="hljs-attribute">ref</span>=<span class="hljs-value">"poolConfig"</span> /&gt;</span>
+          <span class="hljs-tag">&lt;<span class="hljs-title">property</span> <span class="hljs-attribute">name</span>=<span class="hljs-value">"port"</span> <span class="hljs-attribute">value</span>=<span class="hljs-value">"${redis.port}"</span> /&gt;</span>
+          <span class="hljs-tag">&lt;<span class="hljs-title">property</span> <span class="hljs-attribute">name</span>=<span class="hljs-value">"hostName"</span> <span class="hljs-attribute">value</span>=<span class="hljs-value">"${redis.host}"</span> /&gt;</span>
+          <span class="hljs-comment">&lt;!-- &lt;property name="password" value="${redis.password}" /&gt; --&gt;</span>
+          <span class="hljs-tag">&lt;<span class="hljs-title">property</span> <span class="hljs-attribute">name</span>=<span class="hljs-value">"timeout"</span> <span class="hljs-attribute">value</span>=<span class="hljs-value">"${redis.timeout}"</span> &gt;</span><span class="hljs-tag">&lt;/<span class="hljs-title">property</span>&gt;</span>
+    <span class="hljs-tag">&lt;/<span class="hljs-title">bean</span> &gt;</span>
+    <span class="hljs-tag">&lt;<span class="hljs-title">bean</span> <span class="hljs-attribute">id</span>=<span class="hljs-value">"redisTemplate"</span> <span class="hljs-attribute">class</span>=<span class="hljs-value">"org.springframework.data.redis.core.RedisTemplate"</span> &gt;</span>
+          <span class="hljs-tag">&lt;<span class="hljs-title">property</span> <span class="hljs-attribute">name</span>=<span class="hljs-value">"connectionFactory"</span> <span class="hljs-attribute">ref</span>=<span class="hljs-value">"connectionFactory"</span> /&gt;</span>
+          <span class="hljs-tag">&lt;<span class="hljs-title">property</span> <span class="hljs-attribute">name</span>=<span class="hljs-value">"keySerializer"</span> &gt;</span>
+              <span class="hljs-tag">&lt;<span class="hljs-title">bean</span> <span class="hljs-attribute">class</span>=<span class="hljs-value">"org.springframework.data.redis.serializer.StringRedisSerializer"</span> /&gt;</span>
+          <span class="hljs-tag">&lt;/<span class="hljs-title">property</span>&gt;</span>
+          <span class="hljs-tag">&lt;<span class="hljs-title">property</span> <span class="hljs-attribute">name</span>=<span class="hljs-value">"valueSerializer"</span> &gt;</span>
+              <span class="hljs-tag">&lt;<span class="hljs-title">bean</span> <span class="hljs-attribute">class</span>=<span class="hljs-value">"org.springframework.data.redis.serializer.JdkSerializationRedisSerializer"</span> /&gt;</span>
+          <span class="hljs-tag">&lt;/<span class="hljs-title">property</span>&gt;</span>
+    <span class="hljs-tag">&lt;/<span class="hljs-title">bean</span> &gt;</span>
+
+    <span class="hljs-comment">&lt;!-- cache配置 --&gt;</span>
+    <span class="hljs-tag">&lt;<span class="hljs-title">bean</span> <span class="hljs-attribute">id</span>=<span class="hljs-value">"methodCacheInterceptor"</span> <span class="hljs-attribute">class</span>=<span class="hljs-value">"com.luo.redis.cache.MethodCacheInterceptor"</span> &gt;</span>
+          <span class="hljs-tag">&lt;<span class="hljs-title">property</span> <span class="hljs-attribute">name</span>=<span class="hljs-value">"redisTemplate"</span> <span class="hljs-attribute">ref</span>=<span class="hljs-value">"redisTemplate"</span> /&gt;</span>
+    <span class="hljs-tag">&lt;/<span class="hljs-title">bean</span> &gt;</span>
+
+    <span class="hljs-comment">&lt;!-- aop配置切点跟通知 --&gt;</span>
+    <span class="hljs-tag">&lt;<span class="hljs-title">bean</span> <span class="hljs-attribute">id</span>=<span class="hljs-value">"methodCachePointCut"</span> <span class="hljs-attribute">class</span>=<span class="hljs-value">"org.springframework.aop.support.RegexpMethodPointcutAdvisor"</span>&gt;</span>
+        <span class="hljs-tag">&lt;<span class="hljs-title">property</span> <span class="hljs-attribute">name</span>=<span class="hljs-value">"advice"</span> <span class="hljs-attribute">ref</span>=<span class="hljs-value">"methodCacheInterceptor"</span>/&gt;</span>
+        <span class="hljs-tag">&lt;<span class="hljs-title">property</span> <span class="hljs-attribute">name</span>=<span class="hljs-value">"pattern"</span> <span class="hljs-attribute">value</span>=<span class="hljs-value">".*ServiceImpl.*getTimestamp"</span>/&gt;</span>
+    <span class="hljs-tag">&lt;/<span class="hljs-title">bean</span>&gt;</span>
+    <span class="hljs-tag">&lt;<span class="hljs-title">bean</span> <span class="hljs-attribute">id</span>=<span class="hljs-value">"redisTestService"</span> <span class="hljs-attribute">class</span>=<span class="hljs-value">"com.luo.service.impl.RedisTestServiceImpl"</span>&gt;</span>
+    <span class="hljs-tag">&lt;/<span class="hljs-title">bean</span>&gt;</span>
+    <span class="hljs-tag">&lt;<span class="hljs-title">bean</span> <span class="hljs-attribute">class</span>=<span class="hljs-value">"org.springframework.aop.framework.autoproxy.DefaultAdvisorAutoProxyCreator"</span>/&gt;</span>
+
+<span class="hljs-tag">&lt;/<span class="hljs-title">beans</span>&gt;</span></code></pre>
+
+<p><strong>3.3、Redis配置参数，redis.properties：</strong></p>
+
+
+
+<pre class="prettyprint"><code class=" hljs vala"><span class="hljs-preprocessor">#redis中心</span>
+<span class="hljs-preprocessor">#绑定的主机地址</span>
+redis.host=<span class="hljs-number">127.0</span><span class="hljs-number">.0</span><span class="hljs-number">.1</span> 
+<span class="hljs-preprocessor">#指定Redis监听端口，默认端口为6379</span>
+redis.port=<span class="hljs-number">6379</span> 
+<span class="hljs-preprocessor">#授权密码（本例子没有使用）</span>
+redis.password=<span class="hljs-number">123456</span>  
+<span class="hljs-preprocessor">#最大空闲数：空闲链接数大于maxIdle时，将进行回收</span>
+redis.maxIdle=<span class="hljs-number">100</span>  
+<span class="hljs-preprocessor">#最大连接数：能够同时建立的“最大链接个数”</span>
+redis.maxActive=<span class="hljs-number">300</span>  
+<span class="hljs-preprocessor">#最大等待时间：单位ms</span>
+redis.maxWait=<span class="hljs-number">1000</span>   
+<span class="hljs-preprocessor">#使用连接时，检测连接是否成功 </span>
+redis.testOnBorrow=<span class="hljs-literal">true</span> 
+<span class="hljs-preprocessor">#当客户端闲置多长时间后关闭连接，如果指定为0，表示关闭该功能</span>
+redis.timeout=<span class="hljs-number">10000</span> </code></pre>
+
+<p><strong>3.4、添加接口及对应实现RedisTestService.java和RedisTestServiceImpl.java：</strong></p>
+
+
+
+<pre class="prettyprint"><code class=" hljs cs">package com.luo.service;
+
+<span class="hljs-keyword">public</span> <span class="hljs-keyword">interface</span> RedisTestService {
+    <span class="hljs-keyword">public</span> String <span class="hljs-title">getTimestamp</span>(String param);
+}
+</code></pre>
+
+
+
+<pre class="prettyprint"><code class=" hljs java"><span class="hljs-keyword">package</span> com.luo.service.impl;
+
+<span class="hljs-keyword">import</span> org.springframework.stereotype.Service;
+<span class="hljs-keyword">import</span> com.luo.service.RedisTestService;
+
+<span class="hljs-annotation">@Service</span>
+<span class="hljs-keyword">public</span> <span class="hljs-class"><span class="hljs-keyword">class</span> <span class="hljs-title">RedisTestServiceImpl</span> <span class="hljs-keyword">implements</span> <span class="hljs-title">RedisTestService</span> {</span>
+
+    <span class="hljs-keyword">public</span> String <span class="hljs-title">getTimestamp</span>(String param) {
+        Long timestamp = System.currentTimeMillis();
+        <span class="hljs-keyword">return</span> timestamp.toString();
+    }
+
+}
+</code></pre>
+
+<p><strong>3.5、本例采用spring aop切面方式进行缓存，配置已在上面spring配置文件中，对应实现为MethodCacheInterceptor.java：</strong></p>
+
+
+
+<pre class="prettyprint"><code class=" hljs java"><span class="hljs-keyword">package</span> com.luo.redis.cache;
+
+<span class="hljs-keyword">import</span> java.io.Serializable;
+<span class="hljs-keyword">import</span> java.util.concurrent.TimeUnit;
+<span class="hljs-keyword">import</span> org.aopalliance.intercept.MethodInterceptor;
+<span class="hljs-keyword">import</span> org.aopalliance.intercept.MethodInvocation;
+<span class="hljs-keyword">import</span> org.springframework.data.redis.core.RedisTemplate;
+<span class="hljs-keyword">import</span> org.springframework.data.redis.core.ValueOperations;
+
+<span class="hljs-keyword">public</span> <span class="hljs-class"><span class="hljs-keyword">class</span> <span class="hljs-title">MethodCacheInterceptor</span> <span class="hljs-keyword">implements</span> <span class="hljs-title">MethodInterceptor</span> {</span>
+
+    <span class="hljs-keyword">private</span> RedisTemplate&lt;Serializable, Object&gt; redisTemplate;
+    <span class="hljs-keyword">private</span> Long defaultCacheExpireTime = <span class="hljs-number">10</span>l; <span class="hljs-comment">// 缓存默认的过期时间,这里设置了10秒</span>
+
+    <span class="hljs-keyword">public</span> Object <span class="hljs-title">invoke</span>(MethodInvocation invocation) <span class="hljs-keyword">throws</span> Throwable {
+        Object value = <span class="hljs-keyword">null</span>;
+
+        String targetName = invocation.getThis().getClass().getName();
+        String methodName = invocation.getMethod().getName();
+
+        Object[] arguments = invocation.getArguments();
+        String key = getCacheKey(targetName, methodName, arguments);
+
+        <span class="hljs-keyword">try</span> {
+            <span class="hljs-comment">// 判断是否有缓存</span>
+            <span class="hljs-keyword">if</span> (exists(key)) {
+                <span class="hljs-keyword">return</span> getCache(key);
+            }
+            <span class="hljs-comment">// 写入缓存</span>
+            value = invocation.proceed();
+            <span class="hljs-keyword">if</span> (value != <span class="hljs-keyword">null</span>) {
+                <span class="hljs-keyword">final</span> String tkey = key;
+                <span class="hljs-keyword">final</span> Object tvalue = value;
+                <span class="hljs-keyword">new</span> Thread(<span class="hljs-keyword">new</span> Runnable() {
+                    <span class="hljs-keyword">public</span> <span class="hljs-keyword">void</span> <span class="hljs-title">run</span>() {
+                        setCache(tkey, tvalue, defaultCacheExpireTime);
+                    }
+                }).start();
+            }
+        } <span class="hljs-keyword">catch</span> (Exception e) {
+            e.printStackTrace();
+            <span class="hljs-keyword">if</span> (value == <span class="hljs-keyword">null</span>) {
+                <span class="hljs-keyword">return</span> invocation.proceed();
+            }
+        }
+        <span class="hljs-keyword">return</span> value;
+    }
+
+    <span class="hljs-javadoc">/**
+     * 创建缓存key
+     *
+     *<span class="hljs-javadoctag"> @param</span> targetName
+     *<span class="hljs-javadoctag"> @param</span> methodName
+     *<span class="hljs-javadoctag"> @param</span> arguments
+     */</span>
+    <span class="hljs-keyword">private</span> String <span class="hljs-title">getCacheKey</span>(String targetName, String methodName,
+            Object[] arguments) {
+        StringBuffer sbu = <span class="hljs-keyword">new</span> StringBuffer();
+        sbu.append(targetName).append(<span class="hljs-string">"_"</span>).append(methodName);
+        <span class="hljs-keyword">if</span> ((arguments != <span class="hljs-keyword">null</span>) &amp;&amp; (arguments.length != <span class="hljs-number">0</span>)) {
+            <span class="hljs-keyword">for</span> (<span class="hljs-keyword">int</span> i = <span class="hljs-number">0</span>; i &lt; arguments.length; i++) {
+                sbu.append(<span class="hljs-string">"_"</span>).append(arguments[i]);
+            }
+        }
+        <span class="hljs-keyword">return</span> sbu.toString();
+    }
+
+
+
+    <span class="hljs-javadoc">/**
+     * 判断缓存中是否有对应的value
+     * 
+     *<span class="hljs-javadoctag"> @param</span> key
+     *<span class="hljs-javadoctag"> @return</span>
+     */</span>
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">boolean</span> <span class="hljs-title">exists</span>(<span class="hljs-keyword">final</span> String key) {
+        <span class="hljs-keyword">return</span> redisTemplate.hasKey(key);
+    }
+
+    <span class="hljs-javadoc">/**
+     * 读取缓存
+     * 
+     *<span class="hljs-javadoctag"> @param</span> key
+     *<span class="hljs-javadoctag"> @return</span>
+     */</span>
+    <span class="hljs-keyword">public</span> Object <span class="hljs-title">getCache</span>(<span class="hljs-keyword">final</span> String key) {
+        Object result = <span class="hljs-keyword">null</span>;
+        ValueOperations&lt;Serializable, Object&gt; operations = redisTemplate
+                .opsForValue();
+        result = operations.get(key);
+        <span class="hljs-keyword">return</span> result;
+    }
+
+
+
+    <span class="hljs-javadoc">/**
+     * 写入缓存
+     * 
+     *<span class="hljs-javadoctag"> @param</span> key
+     *<span class="hljs-javadoctag"> @param</span> value
+     *<span class="hljs-javadoctag"> @return</span>
+     */</span>
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">boolean</span> <span class="hljs-title">setCache</span>(<span class="hljs-keyword">final</span> String key, Object value, Long expireTime) {
+        <span class="hljs-keyword">boolean</span> result = <span class="hljs-keyword">false</span>;
+        <span class="hljs-keyword">try</span> {
+            ValueOperations&lt;Serializable, Object&gt; operations = redisTemplate
+                    .opsForValue();
+            operations.set(key, value);
+            redisTemplate.expire(key, expireTime, TimeUnit.SECONDS);
+            result = <span class="hljs-keyword">true</span>;
+        } <span class="hljs-keyword">catch</span> (Exception e) {
+            e.printStackTrace();
+        }
+        <span class="hljs-keyword">return</span> result;
+    }
+
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">void</span> <span class="hljs-title">setRedisTemplate</span>(
+            RedisTemplate&lt;Serializable, Object&gt; redisTemplate) {
+        <span class="hljs-keyword">this</span>.redisTemplate = redisTemplate;
+    }
+}
+</code></pre>
+
+<p><strong>3.6、单元测试相关类：</strong></p>
+
+
+
+<pre class="prettyprint"><code class=" hljs java"><span class="hljs-keyword">package</span> com.luo.baseTest;
+
+<span class="hljs-keyword">import</span> org.junit.runner.RunWith;  
+<span class="hljs-keyword">import</span> org.springframework.test.context.ContextConfiguration;  
+<span class="hljs-keyword">import</span> org.springframework.test.context.junit4.AbstractJUnit4SpringContextTests;  
+<span class="hljs-keyword">import</span> org.springframework.test.context.junit4.SpringJUnit4ClassRunner;  
+
+<span class="hljs-comment">//指定bean注入的配置文件  </span>
+<span class="hljs-annotation">@ContextConfiguration</span>(locations = { <span class="hljs-string">"classpath:application.xml"</span> })  
+<span class="hljs-comment">//使用标准的JUnit @RunWith注释来告诉JUnit使用Spring TestRunner  </span>
+<span class="hljs-annotation">@RunWith</span>(SpringJUnit4ClassRunner.class)  
+<span class="hljs-keyword">public</span> <span class="hljs-class"><span class="hljs-keyword">class</span> <span class="hljs-title">SpringTestCase</span> <span class="hljs-keyword">extends</span> <span class="hljs-title">AbstractJUnit4SpringContextTests</span> {</span>
+
+}</code></pre>
+
+
+
+<pre class="prettyprint"><code class=" hljs java"><span class="hljs-keyword">package</span> com.luo.service;
+
+<span class="hljs-keyword">import</span> org.junit.Test;
+<span class="hljs-keyword">import</span> org.springframework.beans.factory.annotation.Autowired;
+
+<span class="hljs-keyword">import</span> com.luo.baseTest.SpringTestCase;
+
+<span class="hljs-keyword">public</span> <span class="hljs-class"><span class="hljs-keyword">class</span> <span class="hljs-title">RedisTestServiceTest</span> <span class="hljs-keyword">extends</span> <span class="hljs-title">SpringTestCase</span> {</span>
+
+    <span class="hljs-annotation">@Autowired</span>  
+    <span class="hljs-keyword">private</span> RedisTestService redisTestService;
+
+    <span class="hljs-annotation">@Test</span>  
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">void</span> <span class="hljs-title">getTimestampTest</span>() <span class="hljs-keyword">throws</span> InterruptedException{  
+        System.out.println(<span class="hljs-string">"第一次调用："</span> + redisTestService.getTimestamp(<span class="hljs-string">"param"</span>));
+        Thread.sleep(<span class="hljs-number">2000</span>);
+        System.out.println(<span class="hljs-string">"2秒之后调用："</span> + redisTestService.getTimestamp(<span class="hljs-string">"param"</span>));
+        Thread.sleep(<span class="hljs-number">11000</span>);
+        System.out.println(<span class="hljs-string">"再过11秒之后调用："</span> + redisTestService.getTimestamp(<span class="hljs-string">"param"</span>));
+    } 
+}
+</code></pre>
+
+<p><strong>3.7、运行结果：</strong></p>
+
+<p><img src="http://img.blog.csdn.net/20160114101040765" alt="这里写图片描述" title="" /></p>
+
+
+
+<h2 id="四源码下载">四、源码下载</h2>
+
+<p><a href="http://download.csdn.net/detail/u013142781/9403316">http://download.csdn.net/detail/u013142781/9403316</a></p></div>&#13;
+        <script type="text/javascript">&#13;
+            $(function () {&#13;
+                $('pre.prettyprint code').each(function () {&#13;
+                    var lines = $(this).text().split('\n').length;&#13;
+                    var $numbering = $('&lt;ul/&gt;').addClass('pre-numbering').hide();&#13;
+                    $(this).addClass('has-numbering').parent().append($numbering);&#13;
+                    for (i = 1; i &lt;= lines; i++) {&#13;
+                        $numbering.append($('&lt;li/&gt;').text(i));&#13;
+                    };&#13;
+                    $numbering.fadeIn(1700);&#13;
+                });&#13;
+            });&#13;
+        </script>&#13;
+   &#13;

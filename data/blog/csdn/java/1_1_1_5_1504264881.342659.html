@@ -1,0 +1,212 @@
+
+        <div class="markdown_views"><p>Java中终止线程的方式主要有三种：</p>
+
+<p>1、使用stop()方法，已被弃用。原因是：stop()是立即终止，会导致一些数据被到处理一部分就会被终止，而用户并不知道哪些数据被处理，哪些没有被处理，产生了不完整的“残疾”数据，不符合完整性，所以被废弃。So, forget it!</p>
+
+<p>2、使用volatile标志位</p>
+
+<p>看一个简单的例子：</p>
+
+<p>首先，实现一个Runnable接口，在其中定义volatile标志位，在run()方法中使用标志位控制程序运行</p>
+
+
+
+<pre class="prettyprint"><code class=" hljs java"><span class="hljs-keyword">public</span> <span class="hljs-class"><span class="hljs-keyword">class</span> <span class="hljs-title">MyRunnable</span> <span class="hljs-keyword">implements</span> <span class="hljs-title">Runnable</span> {</span>  
+
+    <span class="hljs-comment">//定义退出标志，true会一直执行，false会退出循环  </span>
+    <span class="hljs-comment">//使用volatile目的是保证可见性，一处修改了标志，处处都要去主存读取新的值，而不是使用缓存  </span>
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">volatile</span> <span class="hljs-keyword">boolean</span> flag = <span class="hljs-keyword">true</span>;  
+
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">void</span> <span class="hljs-title">run</span>() {  
+        System.out.println(<span class="hljs-string">"第"</span> + Thread.currentThread().getName() + <span class="hljs-string">"个线程创建"</span>);  
+
+        <span class="hljs-keyword">try</span> {  
+            Thread.sleep(<span class="hljs-number">1000</span>L);  
+        } <span class="hljs-keyword">catch</span> (InterruptedException e) {  
+            e.printStackTrace();  
+        }  
+
+        <span class="hljs-comment">//退出标志生效位置  </span>
+        <span class="hljs-keyword">while</span> (flag) {  
+        }  
+        System.out.println(<span class="hljs-string">"第"</span> + Thread.currentThread().getName() + <span class="hljs-string">"个线程终止"</span>);  
+    }  
+}</code></pre>
+
+<p>然后，在main()方法中创建线程，在合适的时候，修改标志位，终止运行中的线程。</p>
+
+
+
+<pre class="prettyprint"><code class=" hljs cs"><span class="hljs-keyword">public</span> <span class="hljs-keyword">class</span> TreadTest {  
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">static</span> <span class="hljs-keyword">void</span> <span class="hljs-title">main</span>(String[] arg) throws InterruptedException {  
+        MyRunnable runnable = <span class="hljs-keyword">new</span> MyRunnable();  
+
+        <span class="hljs-comment">//创建3个线程  </span>
+        <span class="hljs-keyword">for</span> (<span class="hljs-keyword">int</span> i = <span class="hljs-number">1</span>; i &lt;= <span class="hljs-number">3</span>; i++) {  
+            Thread thread = <span class="hljs-keyword">new</span> Thread(runnable, i + <span class="hljs-string">""</span>);  
+            thread.start();  
+        }  
+        <span class="hljs-comment">//线程休眠  </span>
+        Thread.sleep(<span class="hljs-number">2000</span>L);  
+        System.<span class="hljs-keyword">out</span>.println(<span class="hljs-string">"——————————————————————————"</span>);  
+        <span class="hljs-comment">//修改退出标志，使线程终止  </span>
+        runnable.flag = <span class="hljs-keyword">false</span>;    
+    }  
+}</code></pre>
+
+<p>最后，运行结果，如下：</p>
+
+
+
+<pre class="prettyprint"><code class=" hljs asciidoc">第1个线程创建
+第2个线程创建
+<span class="hljs-header">第3个线程创建
+--------------------------</span>
+第3个线程终止
+第1个线程终止
+第2个线程终止</code></pre>
+
+<p>3、使用interrupt()中断的方式，注意使用interrupt()方法中断正在运行中的线程只会修改中断状态位，可以通过isInterrupted()判断。如果使用interrupt()方法中断阻塞中的线程，那么就会抛出InterruptedException异常，可以通过catch捕获异常，然后进行处理后终止线程。有些情况，我们不能判断线程的状态，所以使用interrupt()方法时一定要慎重考虑。</p>
+
+<p>第一种：正在运行中终止</p>
+
+
+
+<pre class="prettyprint"><code class=" hljs java"><span class="hljs-keyword">public</span> <span class="hljs-class"><span class="hljs-keyword">class</span> <span class="hljs-title">MyThread</span> <span class="hljs-keyword">extends</span> <span class="hljs-title">Thread</span> {</span>
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">void</span> <span class="hljs-title">run</span>(){
+        <span class="hljs-keyword">super</span>.run();
+        <span class="hljs-keyword">try</span> {
+            <span class="hljs-keyword">for</span>(<span class="hljs-keyword">int</span> i=<span class="hljs-number">0</span>; i&lt;<span class="hljs-number">500000</span>; i++){
+                <span class="hljs-keyword">if</span>(<span class="hljs-keyword">this</span>.interrupted()) {
+                    System.out.println(<span class="hljs-string">"线程已经终止， for循环不再执行"</span>);
+                        <span class="hljs-keyword">throw</span> <span class="hljs-keyword">new</span> InterruptedException();
+                }
+                System.out.println(<span class="hljs-string">"i="</span>+(i+<span class="hljs-number">1</span>));
+            }
+
+            System.out.println(<span class="hljs-string">"这是for循环外面的语句，也会被执行"</span>);
+        } <span class="hljs-keyword">catch</span> (InterruptedException e) {
+            System.out.println(<span class="hljs-string">"进入MyThread.java类中的catch了。。。"</span>);
+            e.printStackTrace();
+        }
+    }
+}</code></pre>
+
+
+
+<pre class="prettyprint"><code class=" hljs cs"><span class="hljs-keyword">public</span> <span class="hljs-keyword">class</span> Run {
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">static</span> <span class="hljs-keyword">void</span> <span class="hljs-title">main</span>(String args[]){
+        Thread thread = <span class="hljs-keyword">new</span> MyThread();
+        thread.start();
+        <span class="hljs-keyword">try</span> {
+            Thread.sleep(<span class="hljs-number">2000</span>);
+            thread.interrupt();
+        } <span class="hljs-keyword">catch</span> (InterruptedException e) {
+            e.printStackTrace();
+        }
+    }
+}</code></pre>
+
+<p>运行结果如下：</p>
+
+
+
+<pre class="prettyprint"><code class=" hljs r"><span class="hljs-keyword">...</span>
+i=<span class="hljs-number">203798</span>
+i=<span class="hljs-number">203799</span>
+i=<span class="hljs-number">203800</span>
+线程已经终止， <span class="hljs-keyword">for</span>循环不再执行
+进入MyThread.java类中的catch了。。。
+java.lang.InterruptedException
+    at thread.MyThread.run(MyThread.java:<span class="hljs-number">13</span>)</code></pre>
+
+<p>第二种：阻塞状态（sleep,wait等）终止</p>
+
+
+
+<pre class="prettyprint"><code class=" hljs java"><span class="hljs-keyword">public</span> <span class="hljs-class"><span class="hljs-keyword">class</span> <span class="hljs-title">MyThread</span> <span class="hljs-keyword">extends</span> <span class="hljs-title">Thread</span> {</span>
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">void</span> <span class="hljs-title">run</span>(){
+        <span class="hljs-keyword">super</span>.run();
+
+        <span class="hljs-keyword">try</span> {
+            System.out.println(<span class="hljs-string">"线程开始。。。"</span>);
+            Thread.sleep(<span class="hljs-number">200000</span>);
+            System.out.println(<span class="hljs-string">"线程结束。"</span>);
+        } <span class="hljs-keyword">catch</span> (InterruptedException e) {
+            System.out.println(<span class="hljs-string">"在沉睡中被停止, 进入catch， 调用isInterrupted()方法的结果是："</span> + <span class="hljs-keyword">this</span>.isInterrupted());
+            e.printStackTrace();
+        }
+
+    }
+}</code></pre>
+
+
+
+<pre class="prettyprint"><code class=" hljs oxygene">线程开始。。。
+在沉睡中被停止, 进入catch， 调用isInterrupted()方法的结果是：<span class="hljs-keyword">false</span>
+java.lang.InterruptedException: sleep interrupted
+    at java.lang.Thread.sleep(Native <span class="hljs-function"><span class="hljs-keyword">Method</span>)
+    <span class="hljs-title">at</span> <span class="hljs-title">thread</span>.<span class="hljs-title">MyThread</span>.<span class="hljs-title">run</span><span class="hljs-params">(MyThread.java:12)</span></span></code></pre>
+
+<p>从打印的结果来看， 如果在sleep状态下停止某一线程，会进入catch语句，并且清除停止状态值，使之变为false。</p>
+
+<p>前一个实验是先sleep然后再用interrupt()停止，与之相反的操作在学习过程中也要注意：</p>
+
+
+
+<pre class="prettyprint"><code class=" hljs java"><span class="hljs-keyword">public</span> <span class="hljs-class"><span class="hljs-keyword">class</span> <span class="hljs-title">MyThread</span> <span class="hljs-keyword">extends</span> <span class="hljs-title">Thread</span> {</span>
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">void</span> <span class="hljs-title">run</span>(){
+        <span class="hljs-keyword">super</span>.run();
+        <span class="hljs-keyword">try</span> {
+            System.out.println(<span class="hljs-string">"线程开始。。。"</span>);
+            <span class="hljs-keyword">for</span>(<span class="hljs-keyword">int</span> i=<span class="hljs-number">0</span>; i&lt;<span class="hljs-number">10000</span>; i++){
+                System.out.println(<span class="hljs-string">"i="</span> + i);
+            }
+            Thread.sleep(<span class="hljs-number">200000</span>);
+            System.out.println(<span class="hljs-string">"线程结束。"</span>);
+        } <span class="hljs-keyword">catch</span> (InterruptedException e) {
+             System.out.println(<span class="hljs-string">"先停止，再遇到sleep，进入catch异常"</span>);
+            e.printStackTrace();
+        }
+
+    }
+}
+
+<span class="hljs-keyword">public</span> <span class="hljs-class"><span class="hljs-keyword">class</span> <span class="hljs-title">Run</span> {</span>
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">static</span> <span class="hljs-keyword">void</span> <span class="hljs-title">main</span>(String args[]){
+        Thread thread = <span class="hljs-keyword">new</span> MyThread();
+        thread.start();
+        thread.interrupt();
+    }
+}</code></pre>
+
+<p>运行结果：</p>
+
+
+
+<pre class="prettyprint"><code class=" hljs oxygene">i=<span class="hljs-number">9998</span>
+i=<span class="hljs-number">9999</span>
+先停止，再遇到sleep，进入catch异常
+java.lang.InterruptedException: sleep interrupted
+    at java.lang.Thread.sleep(Native <span class="hljs-function"><span class="hljs-keyword">Method</span>)
+    <span class="hljs-title">at</span> <span class="hljs-title">thread</span>.<span class="hljs-title">MyThread</span>.<span class="hljs-title">run</span><span class="hljs-params">(MyThread.java:15)</span></span></code></pre>
+
+<p><strong>总结</strong></p>
+
+<p>对于线程的终止，个人觉得用得最多也最安全的还是属于第二种使用volatile标志位来终止线程，因为第三种的使用受到很多方面的制约，一旦没用好会出各种问题。</p>
+
+<p>得看你的具体业务场景，如果是标志位中断的话，标志位的位置安放也是要注意的，如果你用到的是第三种interrupt中断线程就得综合考虑线程所处的状态，如果抛异常那么这个异常抛出来的之后的代码处理也是正确中断线程的关键。</p></div>&#13;
+        <script type="text/javascript">&#13;
+            $(function () {&#13;
+                $('pre.prettyprint code').each(function () {&#13;
+                    var lines = $(this).text().split('\n').length;&#13;
+                    var $numbering = $('&lt;ul/&gt;').addClass('pre-numbering').hide();&#13;
+                    $(this).addClass('has-numbering').parent().append($numbering);&#13;
+                    for (i = 1; i &lt;= lines; i++) {&#13;
+                        $numbering.append($('&lt;li/&gt;').text(i));&#13;
+                    };&#13;
+                    $numbering.fadeIn(1700);&#13;
+                });&#13;
+            });&#13;
+        </script>&#13;
+   &#13;

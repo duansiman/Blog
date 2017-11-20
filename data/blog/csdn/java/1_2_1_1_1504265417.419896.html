@@ -1,0 +1,630 @@
+
+                <div class="markdown_views"><p>继上一篇博客设计模式之代理模式学习之后<a href="http://blog.csdn.net/u014427391/article/details/75115928" target="_blank">http://blog.csdn.net/u014427391/article/details/75115928</a>，本博客介绍JDK动态代理的实现原理，学习一下JDK动态代理的源码。 <br/>
+Proxy类。该类即为动态代理类，可以使用反编译工具查看jdk里源码。JDK动态代理实现主要由Proxy类的newProxyInstance()方法实现。实现起来很容易，但是学习都要学习原理，所以本博客主要介绍jdk动态代理实现的源码。</p>
+
+<blockquote>
+  <p>newProxyInstance()方法用于根据传入的接口类型interfaces返回一个动态创建的代理类的实例，方法中第一个参数loader表示代理类的类加载器，第二个参数interfaces表示被代理类实现的接口列表，第三个参数h表示所指派的调用处理程序类。</p>
+</blockquote>
+
+<p>首先写个例子实现jdk动态代理 <br/>
+主题接口类：</p>
+
+
+
+<pre class="prettyprint"><code class=" hljs cs"><span class="hljs-keyword">public</span> <span class="hljs-keyword">interface</span> IHello {
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">void</span> <span class="hljs-title">sayHello</span>();
+}</code></pre>
+
+<p>被代理的类：</p>
+
+
+
+<pre class="prettyprint"><code class=" hljs java"><span class="hljs-keyword">public</span> <span class="hljs-class"><span class="hljs-keyword">class</span> <span class="hljs-title">Hello</span> <span class="hljs-keyword">implements</span> <span class="hljs-title">IHello</span>{</span>
+
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">void</span> <span class="hljs-title">sayHello</span>() {
+        System.out.println(<span class="hljs-string">"hello!"</span>);
+    }
+}</code></pre>
+
+<p>JDK动态代理InvocationHandler类</p>
+
+
+
+<pre class="prettyprint"><code class=" hljs java"><span class="hljs-keyword">import</span> java.lang.reflect.InvocationHandler;
+<span class="hljs-keyword">import</span> java.lang.reflect.Method;
+<span class="hljs-keyword">import</span> java.lang.reflect.Proxy;
+
+<span class="hljs-keyword">public</span> <span class="hljs-class"><span class="hljs-keyword">class</span> <span class="hljs-title">MyInvocationHandler</span> <span class="hljs-keyword">implements</span> <span class="hljs-title">InvocationHandler</span> {</span>
+    <span class="hljs-keyword">private</span> Object target;<span class="hljs-comment">//委托类</span>
+    <span class="hljs-keyword">public</span> <span class="hljs-title">MyInvocationHandler</span>(Object target){
+        <span class="hljs-keyword">this</span>.target=target;
+    }
+
+    <span class="hljs-annotation">@Override</span>
+    <span class="hljs-keyword">public</span> Object <span class="hljs-title">invoke</span>(Object o, Method method, Object[] args) <span class="hljs-keyword">throws</span> Throwable {
+        <span class="hljs-javadoc">/**代理环绕**/</span>
+        <span class="hljs-comment">//执行实际的方法</span>
+        Object invoke = method.invoke(target, args);
+        <span class="hljs-keyword">return</span> invoke;
+    }
+}</code></pre>
+
+<p>写个类模拟字节码文件生成：</p>
+
+
+
+<pre class="prettyprint"><code class=" hljs java"><span class="hljs-keyword">import</span> java.lang.reflect.Proxy;
+
+<span class="hljs-javadoc">/**
+ * Created by Nicky on 2017/7/20 0020.
+ */</span>
+<span class="hljs-keyword">public</span> <span class="hljs-class"><span class="hljs-keyword">class</span> <span class="hljs-title">Test</span> {</span>
+
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">static</span> <span class="hljs-keyword">void</span> <span class="hljs-title">main</span>(String[] args){
+        System.getProperties().put(<span class="hljs-string">"sun.misc.ProxyGenerator.saveGeneratedFiles"</span>, <span class="hljs-string">"true"</span>);
+        IHello  ihello = (IHello) Proxy.newProxyInstance(IHello.class.getClassLoader(),  <span class="hljs-comment">//加载接口的类加载器</span>
+                <span class="hljs-keyword">new</span> Class[]{IHello.class},      <span class="hljs-comment">//一组接口</span>
+                <span class="hljs-keyword">new</span> MyInvocationHandler(<span class="hljs-keyword">new</span> Hello())); <span class="hljs-comment">//自定义的InvocationHandler</span>
+        ihello.sayHello();
+    }
+}
+</code></pre>
+
+<p>实现jdk动态代理是很容易的，不过现在介绍一下jdk源码，理解一下原理实现</p>
+
+<p>下面看一下Proxy类里的newProxyInstance方法</p>
+
+
+
+<pre class="prettyprint"><code class=" hljs java"> <span class="hljs-annotation">@CallerSensitive</span>
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">static</span> Object <span class="hljs-title">newProxyInstance</span>(ClassLoader loader,
+                                          Class&lt;?&gt;[] interfaces,
+                                          InvocationHandler h)
+        <span class="hljs-keyword">throws</span> IllegalArgumentException
+    {
+        Objects.requireNonNull(h);
+        <span class="hljs-comment">//对象的拷贝</span>
+        <span class="hljs-keyword">final</span> Class&lt;?&gt;[] intfs = interfaces.clone();
+        <span class="hljs-comment">/*
+         *  权限安全检查
+         */</span>
+        <span class="hljs-keyword">final</span> SecurityManager sm = System.getSecurityManager();
+        <span class="hljs-keyword">if</span> (sm != <span class="hljs-keyword">null</span>) {
+            checkProxyAccess(Reflection.getCallerClass(), loader, intfs);
+        }
+
+        <span class="hljs-comment">/*
+         * Look up or generate the designated proxy class.
+         * (查找或生产指定的代理类。)
+         */</span>
+        Class&lt;?&gt; cl = getProxyClass0(loader, intfs);
+
+        <span class="hljs-comment">/*
+         * Invoke its constructor with the designated invocation handler.
+         * (使用指定的调用处理程序调用它的构造函数。)
+         */</span>
+        <span class="hljs-keyword">try</span> {
+            <span class="hljs-keyword">if</span> (sm != <span class="hljs-keyword">null</span>) {
+                checkNewProxyPermission(Reflection.getCallerClass(), cl);
+            }
+            <span class="hljs-comment">//获取代理类的构造函数</span>
+            <span class="hljs-keyword">final</span> Constructor&lt;?&gt; cons = cl.getConstructor(constructorParams);
+            <span class="hljs-keyword">final</span> InvocationHandler ih = h;
+
+            <span class="hljs-comment">/*
+             *  onstructor、Filed、Method都继承自java.lang.reflect.AccessibleObject，
+             *  访问非public的方法或者字段都会产生IllegalAccessException异常
+             */</span>
+            <span class="hljs-keyword">if</span> (!Modifier.isPublic(cl.getModifiers())) {
+                AccessController.doPrivileged(<span class="hljs-keyword">new</span> PrivilegedAction&lt;Void&gt;() {
+                    <span class="hljs-keyword">public</span> Void <span class="hljs-title">run</span>() {
+                        cons.setAccessible(<span class="hljs-keyword">true</span>);<span class="hljs-comment">//setAccessible()为true可以绕过默认的权限检查</span>
+                        <span class="hljs-keyword">return</span> <span class="hljs-keyword">null</span>;
+                    }
+                });
+            }
+            <span class="hljs-comment">//根据代理类的构造函数来创建代理对象</span>
+            <span class="hljs-keyword">return</span> cons.newInstance(<span class="hljs-keyword">new</span> Object[]{h});
+        } <span class="hljs-keyword">catch</span> (IllegalAccessException|InstantiationException e) {
+            <span class="hljs-keyword">throw</span> <span class="hljs-keyword">new</span> InternalError(e.toString(), e);
+        } <span class="hljs-keyword">catch</span> (InvocationTargetException e) {
+            Throwable t = e.getCause();
+            <span class="hljs-keyword">if</span> (t <span class="hljs-keyword">instanceof</span> RuntimeException) {
+                <span class="hljs-keyword">throw</span> (RuntimeException) t;
+            } <span class="hljs-keyword">else</span> {
+                <span class="hljs-keyword">throw</span> <span class="hljs-keyword">new</span> InternalError(t.toString(), t);
+            }
+        } <span class="hljs-keyword">catch</span> (NoSuchMethodException e) {
+            <span class="hljs-keyword">throw</span> <span class="hljs-keyword">new</span> InternalError(e.toString(), e);
+        }
+    }</code></pre>
+
+<p>从newProxyInstance方法可以看出，生产代理类是由getProxyClass0获取或者生成的。下面看一下getProxyClass0方法，从方法可以看出如果缓存中有代理类就直接返回代理的副本，否就使用ProxyClassFactory创建代理类。</p>
+
+
+
+<pre class="prettyprint"><code class=" hljs java"> <span class="hljs-javadoc">/**
+     * Generate a proxy class.  Must call the checkProxyAccess method
+     * to perform permission checks before calling this.
+     */</span>
+    <span class="hljs-keyword">private</span> <span class="hljs-keyword">static</span> Class&lt;?&gt; <span class="hljs-title">getProxyClass0</span>(ClassLoader loader,
+                                           Class&lt;?&gt;... interfaces) {
+        <span class="hljs-comment">//接口列表数目不能超过65535,因为在class文件中，这些个数都是用4位16进制表示的，所以最大值是2的16次方-1  </span>
+        <span class="hljs-keyword">if</span> (interfaces.length &gt; <span class="hljs-number">65535</span>) {
+            <span class="hljs-keyword">throw</span> <span class="hljs-keyword">new</span> IllegalArgumentException(<span class="hljs-string">"interface limit exceeded"</span>);
+        }
+        <span class="hljs-comment">// If the proxy class defined by the given loader implementing</span>
+        <span class="hljs-comment">// the given interfaces exists, this will simply return the cached copy;</span>
+        <span class="hljs-comment">// otherwise, it will create the proxy class via the ProxyClassFactory</span>
+        <span class="hljs-comment">//如果缓存中有代理类就直接返回代理的副本，否就使用ProxyClassFactory创建代理类</span>
+        <span class="hljs-keyword">return</span> proxyClassCache.get(loader, interfaces);
+    }</code></pre>
+
+<p>proxyClassCache是一个WeakCache类型的缓存，它的构造函数有两个参数，其中一个就是用于生成代理类的ProxyClassFactory，看一下proxyClassCache.get方法的代码：</p>
+
+
+
+<pre class="prettyprint"><code class=" hljs java"><span class="hljs-keyword">public</span> V <span class="hljs-title">get</span>(K key, P parameter) {
+        Objects.requireNonNull(parameter);
+        <span class="hljs-comment">//清理持有弱引用的WeakHashMap这种数据结构</span>
+        expungeStaleEntries();
+        <span class="hljs-comment">//从队列中获取cacheKey</span>
+        Object cacheKey = CacheKey.valueOf(key, refQueue);
+
+        <span class="hljs-comment">// lazily install the 2nd level valuesMap for the particular cacheKey</span>
+        <span class="hljs-comment">//懒加载的方式封装第二层valueMap，ConcurrentMap是一种线程安全的Map</span>
+        ConcurrentMap&lt;Object, Supplier&lt;V&gt;&gt; valuesMap = map.get(cacheKey);
+        <span class="hljs-keyword">if</span> (valuesMap == <span class="hljs-keyword">null</span>) {
+            ConcurrentMap&lt;Object, Supplier&lt;V&gt;&gt; oldValuesMap
+                = map.putIfAbsent(cacheKey,
+                                  valuesMap = <span class="hljs-keyword">new</span> ConcurrentHashMap&lt;&gt;());
+            <span class="hljs-keyword">if</span> (oldValuesMap != <span class="hljs-keyword">null</span>) {
+                valuesMap = oldValuesMap;
+            }
+        }
+
+        <span class="hljs-comment">// create subKey and retrieve the possible Supplier&lt;V&gt; stored by that</span>
+        <span class="hljs-comment">// subKey from valuesMap</span>
+        Object subKey = Objects.requireNonNull(subKeyFactory.apply(key, parameter));
+        Supplier&lt;V&gt; supplier = valuesMap.get(subKey);
+        Factory factory = <span class="hljs-keyword">null</span>;
+
+        <span class="hljs-keyword">while</span> (<span class="hljs-keyword">true</span>) {
+            <span class="hljs-keyword">if</span> (supplier != <span class="hljs-keyword">null</span>) {
+                <span class="hljs-comment">// supplier might be a Factory or a CacheValue&lt;V&gt; instance</span>
+                <span class="hljs-comment">//核心代码，从supplier或者value，可能返回工厂实例或者Cache实例，返回实现InvokeHandler的类并包含了所需要的信息。</span>
+                V value = supplier.get();
+                <span class="hljs-keyword">if</span> (value != <span class="hljs-keyword">null</span>) {
+                    <span class="hljs-keyword">return</span> value;
+                }
+            }
+            <span class="hljs-comment">// else no supplier in cache</span>
+            <span class="hljs-comment">// or a supplier that returned null (could be a cleared CacheValue</span>
+            <span class="hljs-comment">// or a Factory that wasn't successful in installing the CacheValue)</span>
+
+            <span class="hljs-comment">// lazily construct a Factory</span>
+            <span class="hljs-comment">//懒加载方式构建工厂实例</span>
+            <span class="hljs-keyword">if</span> (factory == <span class="hljs-keyword">null</span>) {
+                factory = <span class="hljs-keyword">new</span> Factory(key, parameter, subKey, valuesMap);
+            }
+            <span class="hljs-javadoc">/**填充supplier**/</span>
+            <span class="hljs-keyword">if</span> (supplier == <span class="hljs-keyword">null</span>) {
+                supplier = valuesMap.putIfAbsent(subKey, factory);
+                <span class="hljs-keyword">if</span> (supplier == <span class="hljs-keyword">null</span>) {
+                    <span class="hljs-comment">// successfully installed Factory</span>
+                    supplier = factory;
+                }
+                <span class="hljs-comment">// else retry with winning supplier</span>
+            } <span class="hljs-keyword">else</span> {
+                <span class="hljs-keyword">if</span> (valuesMap.replace(subKey, supplier, factory)) {
+                    <span class="hljs-comment">// successfully replaced</span>
+                    <span class="hljs-comment">// cleared CacheEntry / unsuccessful Factory</span>
+                    <span class="hljs-comment">// with our Factory</span>
+                    supplier = factory;
+                } <span class="hljs-keyword">else</span> {
+                    <span class="hljs-comment">// retry with current supplier</span>
+                    supplier = valuesMap.get(subKey);
+                }
+            }
+        }
+    }</code></pre>
+
+<p>若缓存中找不到代理类，就使用ProxyClassFactory生产代理类，看一下ProxyClassFactory类的代码：</p>
+
+
+
+<pre class="prettyprint"><code class=" hljs axapta"> <span class="hljs-comment">/**
+     * A factory function that generates, defines and returns the proxy class given
+     * the ClassLoader and array of interfaces.
+     */</span>
+    <span class="hljs-keyword">private</span> <span class="hljs-keyword">static</span> <span class="hljs-keyword">final</span> <span class="hljs-class"><span class="hljs-keyword">class</span> <span class="hljs-title">ProxyClassFactory</span>
+        <span class="hljs-inheritance"><span class="hljs-keyword">implements</span></span> <span class="hljs-title">BiFunction</span>&lt;<span class="hljs-title">ClassLoader</span>, <span class="hljs-title">Class</span>&lt;?&gt;[], <span class="hljs-title">Class</span>&lt;?&gt;&gt;
+    {</span>
+        <span class="hljs-comment">// prefix for all proxy class names(统一所以代理类的前缀名都以$Proxy开始)</span>
+        <span class="hljs-keyword">private</span> <span class="hljs-keyword">static</span> <span class="hljs-keyword">final</span> String proxyClassNamePrefix = <span class="hljs-string">"$Proxy"</span>;
+
+        <span class="hljs-comment">// next number to use for generation of unique proxy class names</span>
+        <span class="hljs-comment">//给每个代理类名加个唯一的编号,如$Proxy0，$Proxy1等等</span>
+        <span class="hljs-keyword">private</span> <span class="hljs-keyword">static</span> <span class="hljs-keyword">final</span> AtomicLong nextUniqueNumber = <span class="hljs-keyword">new</span> AtomicLong();
+
+        @Override
+        <span class="hljs-keyword">public</span> Class&lt;?&gt; apply(ClassLoader loader, Class&lt;?&gt;[] interfaces) {
+
+            Map&lt;Class&lt;?&gt;, Boolean&gt; interfaceSet = <span class="hljs-keyword">new</span> IdentityHashMap&lt;&gt;(interfaces.length);
+            <span class="hljs-keyword">for</span> (Class&lt;?&gt; intf : interfaces) {
+                <span class="hljs-comment">/*
+                 * Verify that the class loader resolves the name of this
+                 * interface to the same Class object.
+                 */</span>
+                Class&lt;?&gt; interfaceClass = <span class="hljs-keyword">null</span>;
+                <span class="hljs-comment">//通过类名加载每一个接口运行时的信息</span>
+                <span class="hljs-keyword">try</span> {
+                    interfaceClass = Class.forName(intf.getName(), <span class="hljs-keyword">false</span>, loader);
+                } <span class="hljs-keyword">catch</span> (ClassNotFoundException e) {
+                }
+                <span class="hljs-comment">//验证使用classLoad加载的类与传入的类是否相同</span>
+                <span class="hljs-keyword">if</span> (interfaceClass != intf) {
+                    <span class="hljs-keyword">throw</span> <span class="hljs-keyword">new</span> IllegalArgumentException(
+                        intf + <span class="hljs-string">" is not visible from class loader"</span>);
+                }
+                <span class="hljs-comment">/*
+                 * Verify that the Class object actually represents an
+                 * interface.
+                 * 验证传入的是否为接口类型，因为jdk动态代理只支持接口类型
+                 */</span>
+                <span class="hljs-keyword">if</span> (!interfaceClass.isInterface()) {
+                    <span class="hljs-keyword">throw</span> <span class="hljs-keyword">new</span> IllegalArgumentException(
+                        interfaceClass.getName() + <span class="hljs-string">" is not an interface"</span>);
+                }
+                <span class="hljs-comment">/*
+                 * Verify that this interface is not a duplicate.
+                 * 验证接口是否重复
+                 */</span>
+                <span class="hljs-keyword">if</span> (interfaceSet.put(interfaceClass, Boolean.TRUE) != <span class="hljs-keyword">null</span>) {
+                    <span class="hljs-keyword">throw</span> <span class="hljs-keyword">new</span> IllegalArgumentException(
+                        <span class="hljs-string">"repeated interface: "</span> + interfaceClass.getName());
+                }
+            }
+
+            String proxyPkg = <span class="hljs-keyword">null</span>;     <span class="hljs-comment">// package to define proxy class in</span>
+            <span class="hljs-keyword">int</span> accessFlags = Modifier.PUBLIC | Modifier.FINAL;
+
+            <span class="hljs-comment">/*
+             * Record the package of a non-public proxy interface so that the
+             * proxy class will be defined in the same package.  Verify that
+             * all non-public proxy interfaces are in the same package.
+             * 验证传入的接口中有没有非public的接口，若有，就将这些接口全部放在一个包里定义
+             */</span>
+            <span class="hljs-keyword">for</span> (Class&lt;?&gt; intf : interfaces) {
+                <span class="hljs-keyword">int</span> flags = intf.getModifiers();
+                <span class="hljs-keyword">if</span> (!Modifier.isPublic(flags)) {
+                    accessFlags = Modifier.FINAL;
+                    String name = intf.getName();
+                    <span class="hljs-keyword">int</span> n = name.lastIndexOf(<span class="hljs-string">'.'</span>);
+                    <span class="hljs-comment">//substring包名</span>
+                    String pkg = ((n == -<span class="hljs-number">1</span>) ? <span class="hljs-string">""</span> : name.substring(<span class="hljs-number">0</span>, n + <span class="hljs-number">1</span>));
+                    <span class="hljs-keyword">if</span> (proxyPkg == <span class="hljs-keyword">null</span>) {
+                        proxyPkg = pkg;
+                    } <span class="hljs-keyword">else</span> <span class="hljs-keyword">if</span> (!pkg.equals(proxyPkg)) {
+                        <span class="hljs-keyword">throw</span> <span class="hljs-keyword">new</span> IllegalArgumentException(
+                            <span class="hljs-string">"non-public interfaces from different packages"</span>);
+                    }
+                }
+            }
+
+            <span class="hljs-keyword">if</span> (proxyPkg == <span class="hljs-keyword">null</span>) {
+                <span class="hljs-comment">// if no non-public proxy interfaces, use com.sun.proxy package</span>
+                <span class="hljs-comment">//(如果没有非公共的代理接口，请使用com.sun.proxy包)</span>
+                proxyPkg = ReflectUtil.PROXY_PACKAGE + <span class="hljs-string">"."</span>;
+            }
+
+            <span class="hljs-comment">/*
+             * Choose a name for the proxy class to generate.(为代理类选择一个名称来生成)
+             */</span>
+            <span class="hljs-keyword">long</span> num = nextUniqueNumber.getAndIncrement();
+            <span class="hljs-comment">//生产随机代理类的类名,$Proxy+num</span>
+            String proxyName = proxyPkg + proxyClassNamePrefix + num;
+
+            <span class="hljs-comment">/*
+             * Generate the specified proxy class.
+             * 生产代理类的字节码文件，实现过程看generateProxyClass()方法
+             */</span>
+            <span class="hljs-keyword">byte</span>[] proxyClassFile = ProxyGenerator.generateProxyClass(
+                proxyName, interfaces, accessFlags);
+            <span class="hljs-keyword">try</span> {
+                <span class="hljs-keyword">return</span> defineClass0(loader, proxyName,
+                                    proxyClassFile, <span class="hljs-number">0</span>, proxyClassFile.length);
+            } <span class="hljs-keyword">catch</span> (ClassFormatError e) {
+                <span class="hljs-comment">/*
+                 * A ClassFormatError here means that (barring bugs in the
+                 * proxy class generation code) there was some other
+                 * invalid aspect of the arguments supplied to the proxy
+                 * class creation (such as virtual machine limitations
+                 * exceeded).
+                 */</span>
+                <span class="hljs-keyword">throw</span> <span class="hljs-keyword">new</span> IllegalArgumentException(e.toString());
+            }
+        }
+    }</code></pre>
+
+<p>从ProxyClassFactory类可以看出生产字节码文件的执行代码由generateProxyClass方法执行：</p>
+
+
+
+<pre class="prettyprint"><code class=" hljs cs"><span class="hljs-keyword">public</span> <span class="hljs-keyword">static</span> <span class="hljs-keyword">byte</span>[] <span class="hljs-title">generateProxyClass</span>(final String var0, Class&lt;?&gt;[] var1, <span class="hljs-keyword">int</span> var2) {
+        <span class="hljs-comment">//新建ProxyGenerator实例，放入参数proxyName, interfaces, accessFlags，也即代理名称，接口列表，是否允许代理的flag标志</span>
+        ProxyGenerator var3 = <span class="hljs-keyword">new</span> ProxyGenerator(var0, var1, var2);
+        <span class="hljs-comment">//真正实现生产字节码文件的方法</span>
+        final <span class="hljs-keyword">byte</span>[] var4 = var3.generateClassFile();
+        <span class="hljs-comment">//检查是否允许生产文件，如果可以就保存class文件到本地</span>
+        <span class="hljs-keyword">if</span>(saveGeneratedFiles) {
+            AccessController.doPrivileged(<span class="hljs-keyword">new</span> PrivilegedAction() {
+                <span class="hljs-keyword">public</span> Void <span class="hljs-title">run</span>() {
+                    <span class="hljs-keyword">try</span> {
+                        <span class="hljs-keyword">int</span> var1 = var0.lastIndexOf(<span class="hljs-number">46</span>);
+                        Path var2;
+                        <span class="hljs-keyword">if</span>(var1 &gt; <span class="hljs-number">0</span>) {
+                            Path var3 = Paths.<span class="hljs-keyword">get</span>(var0.substring(<span class="hljs-number">0</span>, var1).replace(<span class="hljs-string">'.'</span>, File.separatorChar), <span class="hljs-keyword">new</span> String[<span class="hljs-number">0</span>]);
+                            Files.createDirectories(var3, <span class="hljs-keyword">new</span> FileAttribute[<span class="hljs-number">0</span>]);
+                            var2 = var3.resolve(var0.substring(var1 + <span class="hljs-number">1</span>, var0.length()) + <span class="hljs-string">".class"</span>);
+                        } <span class="hljs-keyword">else</span> {
+                            var2 = Paths.<span class="hljs-keyword">get</span>(var0 + <span class="hljs-string">".class"</span>, <span class="hljs-keyword">new</span> String[<span class="hljs-number">0</span>]);
+                        }
+
+                        Files.write(var2, var4, <span class="hljs-keyword">new</span> OpenOption[<span class="hljs-number">0</span>]);
+                        <span class="hljs-keyword">return</span> <span class="hljs-keyword">null</span>;
+                    } <span class="hljs-keyword">catch</span> (IOException var4x) {
+                        <span class="hljs-keyword">throw</span> <span class="hljs-keyword">new</span> InternalError(<span class="hljs-string">"I/O exception saving generated file: "</span> + var4x);
+                    }
+                }
+            });
+        }
+
+        <span class="hljs-keyword">return</span> var4;
+    }</code></pre>
+
+<p>看了这么久，终于知道generateClassFile是真正执行class文件生成的方法，现在看一下generateClassFile的代码：</p>
+
+
+
+<pre class="prettyprint"><code class=" hljs java"><span class="hljs-keyword">private</span> <span class="hljs-keyword">byte</span>[] <span class="hljs-title">generateClassFile</span>() {
+        <span class="hljs-javadoc">/**将Object类的三个方法hashCode、equals、toString都加到代理方法里，生产class文件时一起重写**/</span>
+        <span class="hljs-keyword">this</span>.addProxyMethod(hashCodeMethod, Object.class);
+        <span class="hljs-keyword">this</span>.addProxyMethod(equalsMethod, Object.class);
+        <span class="hljs-keyword">this</span>.addProxyMethod(toStringMethod, Object.class);
+        Class[] var1 = <span class="hljs-keyword">this</span>.interfaces;
+        <span class="hljs-keyword">int</span> var2 = var1.length;
+
+        <span class="hljs-keyword">int</span> var3;
+        Class var4;
+        <span class="hljs-comment">//将接口和接口下的方法对应起来</span>
+        <span class="hljs-keyword">for</span>(var3 = <span class="hljs-number">0</span>; var3 &lt; var2; ++var3) {
+            var4 = var1[var3];
+            Method[] var5 = var4.getMethods();
+            <span class="hljs-keyword">int</span> var6 = var5.length;
+
+            <span class="hljs-keyword">for</span>(<span class="hljs-keyword">int</span> var7 = <span class="hljs-number">0</span>; var7 &lt; var6; ++var7) {
+                Method var8 = var5[var7];
+                <span class="hljs-keyword">this</span>.addProxyMethod(var8, var4);
+            }
+        }
+
+        Iterator var11 = <span class="hljs-keyword">this</span>.proxyMethods.values().iterator();
+
+        List var12;
+        <span class="hljs-comment">//检查所有代理方法的返回类型</span>
+        <span class="hljs-keyword">while</span>(var11.hasNext()) {
+            var12 = (List)var11.next();
+            checkReturnTypes(var12);
+        }
+
+        Iterator var15;
+        <span class="hljs-keyword">try</span> {
+        <span class="hljs-comment">//将构造函数放在方法里，这个构造方法只有一个，即一个带有InvocationHandler实例的构造方法</span>
+            <span class="hljs-keyword">this</span>.methods.add(<span class="hljs-keyword">this</span>.generateConstructor());
+            var11 = <span class="hljs-keyword">this</span>.proxyMethods.values().iterator();
+            <span class="hljs-comment">//遍历代理方法</span>
+            <span class="hljs-keyword">while</span>(var11.hasNext()) {
+                var12 = (List)var11.next();
+                var15 = var12.iterator();
+
+                <span class="hljs-keyword">while</span>(var15.hasNext()) {
+                    ProxyGenerator.ProxyMethod var16 = (ProxyGenerator.ProxyMethod)var15.next();
+                    <span class="hljs-comment">//给每一个代理方法加一个Method类型的属性，数字10是class文件的标识符，代表这些属性都是private static的</span>
+                    <span class="hljs-keyword">this</span>.fields.add(<span class="hljs-keyword">new</span> ProxyGenerator.FieldInfo(var16.methodFieldName, <span class="hljs-string">"Ljava/lang/reflect/Method;"</span>, <span class="hljs-number">10</span>));
+                    <span class="hljs-comment">//将方法都加到代理类的方法里</span>
+                    <span class="hljs-keyword">this</span>.methods.add(var16.generateMethod());
+                }
+            }
+            <span class="hljs-comment">//加入一个静态的类构造方法，将每一个属性初始化</span>
+            <span class="hljs-keyword">this</span>.methods.add(<span class="hljs-keyword">this</span>.generateStaticInitializer());
+        } <span class="hljs-keyword">catch</span> (IOException var10) {
+            <span class="hljs-keyword">throw</span> <span class="hljs-keyword">new</span> InternalError(<span class="hljs-string">"unexpected I/O Exception"</span>, var10);
+        }
+        <span class="hljs-comment">//方法和属性个数都不能超过65535,因为在class文件中，这些个数都是用4位16进制表示的，所以最大值是2的16次方-1  </span>
+        <span class="hljs-keyword">if</span>(<span class="hljs-keyword">this</span>.methods.size() &gt; <span class="hljs-string">'\uffff'</span>) {
+            <span class="hljs-keyword">throw</span> <span class="hljs-keyword">new</span> IllegalArgumentException(<span class="hljs-string">"method limit exceeded"</span>);
+        } <span class="hljs-keyword">else</span> <span class="hljs-keyword">if</span>(<span class="hljs-keyword">this</span>.fields.size() &gt; <span class="hljs-string">'\uffff'</span>) {
+            <span class="hljs-keyword">throw</span> <span class="hljs-keyword">new</span> IllegalArgumentException(<span class="hljs-string">"field limit exceeded"</span>);
+        } <span class="hljs-keyword">else</span> {
+            <span class="hljs-comment">//将类名中的.转成成斜线为了写入class文件。  </span>
+            <span class="hljs-keyword">this</span>.cp.getClass(dotToSlash(<span class="hljs-keyword">this</span>.className));
+            <span class="hljs-keyword">this</span>.cp.getClass(<span class="hljs-string">"java/lang/reflect/Proxy"</span>);
+            var1 = <span class="hljs-keyword">this</span>.interfaces;
+            var2 = var1.length;
+
+            <span class="hljs-keyword">for</span>(var3 = <span class="hljs-number">0</span>; var3 &lt; var2; ++var3) {
+                var4 = var1[var3];
+                <span class="hljs-keyword">this</span>.cp.getClass(dotToSlash(var4.getName()));
+            }
+
+            <span class="hljs-keyword">this</span>.cp.setReadOnly();
+            <span class="hljs-comment">//开始真正的写class文件</span>
+            ByteArrayOutputStream var13 = <span class="hljs-keyword">new</span> ByteArrayOutputStream();
+            DataOutputStream var14 = <span class="hljs-keyword">new</span> DataOutputStream(var13);
+
+            <span class="hljs-keyword">try</span> {
+                <span class="hljs-comment">//写入class文件的标识号，标识这是一个class文件  </span>
+                var14.writeInt(-<span class="hljs-number">889275714</span>);
+                <span class="hljs-comment">//次版本号0</span>
+                var14.writeShort(<span class="hljs-number">0</span>);
+                <span class="hljs-comment">//主版本号,49代表的是JDK1.5</span>
+                var14.writeShort(<span class="hljs-number">49</span>);
+                <span class="hljs-keyword">this</span>.cp.write(var14);
+                var14.writeShort(<span class="hljs-keyword">this</span>.accessFlags);
+                <span class="hljs-comment">//写入代理类的类名</span>
+                var14.writeShort(<span class="hljs-keyword">this</span>.cp.getClass(dotToSlash(<span class="hljs-keyword">this</span>.className)));
+                var14.writeShort(<span class="hljs-keyword">this</span>.cp.getClass(<span class="hljs-string">"java/lang/reflect/Proxy"</span>));
+                <span class="hljs-comment">//写入代理类所实现的接口数量  </span>
+                var14.writeShort(<span class="hljs-keyword">this</span>.interfaces.length);
+                Class[] var17 = <span class="hljs-keyword">this</span>.interfaces;
+                <span class="hljs-keyword">int</span> var18 = var17.length;
+
+                <span class="hljs-keyword">for</span>(<span class="hljs-keyword">int</span> var19 = <span class="hljs-number">0</span>; var19 &lt; var18; ++var19) {
+                    Class var22 = var17[var19];
+                    var14.writeShort(<span class="hljs-keyword">this</span>.cp.getClass(dotToSlash(var22.getName())));
+                }
+                <span class="hljs-comment">//写入属性个数</span>
+                var14.writeShort(<span class="hljs-keyword">this</span>.fields.size());
+                var15 = <span class="hljs-keyword">this</span>.fields.iterator();
+                <span class="hljs-comment">//写入属性描述</span>
+                <span class="hljs-keyword">while</span>(var15.hasNext()) {
+                    ProxyGenerator.FieldInfo var20 = (ProxyGenerator.FieldInfo)var15.next();
+                    var20.write(var14);
+                }
+                <span class="hljs-comment">//写入方法个数</span>
+                var14.writeShort(<span class="hljs-keyword">this</span>.methods.size());
+                var15 = <span class="hljs-keyword">this</span>.methods.iterator();
+                <span class="hljs-comment">//写入方法描述，方法的code属性，以及构造方法和类构造方法</span>
+                <span class="hljs-keyword">while</span>(var15.hasNext()) {
+                    ProxyGenerator.MethodInfo var21 = (ProxyGenerator.MethodInfo)var15.next();
+                    var21.write(var14);
+                }
+
+                var14.writeShort(<span class="hljs-number">0</span>);
+                <span class="hljs-keyword">return</span> var13.toByteArray();
+            } <span class="hljs-keyword">catch</span> (IOException var9) {
+                <span class="hljs-keyword">throw</span> <span class="hljs-keyword">new</span> InternalError(<span class="hljs-string">"unexpected I/O Exception"</span>, var9);
+            }
+        }
+    }</code></pre>
+
+<p>使用反编译工具查看生产的字节码文件代码,说明了下文件中生成的部分与刚才分析的时候写入的过程的对应关系。：</p>
+
+<pre class="prettyprint"><code class=" hljs java"><span class="hljs-keyword">package</span> com.sun.proxy;
+
+<span class="hljs-keyword">import</span> IHello;
+<span class="hljs-keyword">import</span> java.lang.reflect.InvocationHandler;
+<span class="hljs-keyword">import</span> java.lang.reflect.Method;
+<span class="hljs-keyword">import</span> java.lang.reflect.Proxy;
+<span class="hljs-keyword">import</span> java.lang.reflect.UndeclaredThrowableException;
+
+<span class="hljs-comment">//生产的代理类都是以$Proxy+唯一的数字为类名的，继承Proxy类同时implements你主题接口</span>
+<span class="hljs-keyword">public</span> <span class="hljs-keyword">final</span> <span class="hljs-class"><span class="hljs-keyword">class</span> $<span class="hljs-title">Proxy0</span> <span class="hljs-keyword">extends</span> <span class="hljs-title">Proxy</span>
+  <span class="hljs-keyword">implements</span> <span class="hljs-title">IHello</span>
+{</span>
+  <span class="hljs-keyword">private</span> <span class="hljs-keyword">static</span> Method m1;
+  <span class="hljs-keyword">private</span> <span class="hljs-keyword">static</span> Method m3;
+  <span class="hljs-keyword">private</span> <span class="hljs-keyword">static</span> Method m2;
+  <span class="hljs-keyword">private</span> <span class="hljs-keyword">static</span> Method m0;
+
+<span class="hljs-comment">//将InvocationHandler实例放在构造方法里</span>
+  <span class="hljs-keyword">public</span> $<span class="hljs-title">Proxy0</span>(InvocationHandler paramInvocationHandler)
+    <span class="hljs-keyword">throws</span> 
+  {
+    <span class="hljs-keyword">super</span>(paramInvocationHandler);
+  }
+
+<span class="hljs-comment">//重写Object的equals方法</span>
+  <span class="hljs-keyword">public</span> <span class="hljs-keyword">final</span> <span class="hljs-keyword">boolean</span> <span class="hljs-title">equals</span>(Object paramObject)
+    <span class="hljs-keyword">throws</span> 
+  {
+    <span class="hljs-keyword">try</span>
+    {
+      <span class="hljs-keyword">return</span> ((Boolean)<span class="hljs-keyword">this</span>.h.invoke(<span class="hljs-keyword">this</span>, m1, <span class="hljs-keyword">new</span> Object[] { paramObject })).booleanValue();
+    }
+    <span class="hljs-keyword">catch</span> (RuntimeException localRuntimeException)
+    {
+      <span class="hljs-keyword">throw</span> localRuntimeException;
+    }
+    <span class="hljs-keyword">catch</span> (Throwable localThrowable)
+    {
+    }
+    <span class="hljs-keyword">throw</span> <span class="hljs-keyword">new</span> UndeclaredThrowableException(localThrowable);
+  }
+
+
+  <span class="hljs-keyword">public</span> <span class="hljs-keyword">final</span> <span class="hljs-keyword">void</span> <span class="hljs-title">sayHello</span>()
+    <span class="hljs-keyword">throws</span> 
+  {
+    <span class="hljs-keyword">try</span>
+    {
+      <span class="hljs-keyword">this</span>.h.invoke(<span class="hljs-keyword">this</span>, m3, <span class="hljs-keyword">null</span>);
+      <span class="hljs-keyword">return</span>;
+    }
+    <span class="hljs-keyword">catch</span> (RuntimeException localRuntimeException)
+    {
+      <span class="hljs-keyword">throw</span> localRuntimeException;
+    }
+    <span class="hljs-keyword">catch</span> (Throwable localThrowable)
+    {
+    }
+    <span class="hljs-keyword">throw</span> <span class="hljs-keyword">new</span> UndeclaredThrowableException(localThrowable);
+  }
+
+  <span class="hljs-keyword">public</span> <span class="hljs-keyword">final</span> String <span class="hljs-title">toString</span>()
+    <span class="hljs-keyword">throws</span> 
+  {
+    <span class="hljs-keyword">try</span>
+    {
+      <span class="hljs-keyword">return</span> (String)<span class="hljs-keyword">this</span>.h.invoke(<span class="hljs-keyword">this</span>, m2, <span class="hljs-keyword">null</span>);
+    }
+    <span class="hljs-keyword">catch</span> (RuntimeException localRuntimeException)
+    {
+      <span class="hljs-keyword">throw</span> localRuntimeException;
+    }
+    <span class="hljs-keyword">catch</span> (Throwable localThrowable)
+    {
+    }
+    <span class="hljs-keyword">throw</span> <span class="hljs-keyword">new</span> UndeclaredThrowableException(localThrowable);
+  }
+
+  <span class="hljs-keyword">public</span> <span class="hljs-keyword">final</span> <span class="hljs-keyword">int</span> <span class="hljs-title">hashCode</span>()
+    <span class="hljs-keyword">throws</span> 
+  {
+    <span class="hljs-keyword">try</span>
+    {
+      <span class="hljs-keyword">return</span> ((Integer)<span class="hljs-keyword">this</span>.h.invoke(<span class="hljs-keyword">this</span>, m0, <span class="hljs-keyword">null</span>)).intValue();
+    }
+    <span class="hljs-keyword">catch</span> (RuntimeException localRuntimeException)
+    {
+      <span class="hljs-keyword">throw</span> localRuntimeException;
+    }
+    <span class="hljs-keyword">catch</span> (Throwable localThrowable)
+    {
+    }
+    <span class="hljs-keyword">throw</span> <span class="hljs-keyword">new</span> UndeclaredThrowableException(localThrowable);
+  }
+
+  <span class="hljs-keyword">static</span>
+  {
+    <span class="hljs-keyword">try</span>
+    {
+    <span class="hljs-comment">//每一个属性所代表的Method都是与上面加入代理方法列表时与固定类绑定的，这是class文件中的格式，方法要与固定的类绑定 </span>
+      m1 = Class.forName(<span class="hljs-string">"java.lang.Object"</span>).getMethod(<span class="hljs-string">"equals"</span>, <span class="hljs-keyword">new</span> Class[] { Class.forName(<span class="hljs-string">"java.lang.Object"</span>) });
+      m3 = Class.forName(<span class="hljs-string">"IHello"</span>).getMethod(<span class="hljs-string">"sayHello"</span>, <span class="hljs-keyword">new</span> Class[<span class="hljs-number">0</span>]);
+      m2 = Class.forName(<span class="hljs-string">"java.lang.Object"</span>).getMethod(<span class="hljs-string">"toString"</span>, <span class="hljs-keyword">new</span> Class[<span class="hljs-number">0</span>]);
+      m0 = Class.forName(<span class="hljs-string">"java.lang.Object"</span>).getMethod(<span class="hljs-string">"hashCode"</span>, <span class="hljs-keyword">new</span> Class[<span class="hljs-number">0</span>]);
+      <span class="hljs-keyword">return</span>;
+    }
+    <span class="hljs-keyword">catch</span> (NoSuchMethodException localNoSuchMethodException)
+    {
+      <span class="hljs-keyword">throw</span> <span class="hljs-keyword">new</span> NoSuchMethodError(localNoSuchMethodException.getMessage());
+    }
+    <span class="hljs-keyword">catch</span> (ClassNotFoundException localClassNotFoundException)
+    {
+    }
+    <span class="hljs-keyword">throw</span> <span class="hljs-keyword">new</span> NoClassDefFoundError(localClassNotFoundException.getMessage());
+  }
+}</code></pre><link rel="stylesheet" href="http://static.blog.csdn.net/public/res-min/markdown_views.css?v=1.0"/></div><link rel="stylesheet" href="http://static.blog.csdn.net/public/res-min/markdown_views.css?v=1.0"/>&#13;
+            

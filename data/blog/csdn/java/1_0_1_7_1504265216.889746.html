@@ -1,0 +1,236 @@
+
+<p style="margin: 0in; font-size: 14pt;"><span style="font-family:KaiTi_GB2312;"><br /></span></p><p style="margin: 0in; font-size: 14pt;"><span style="font-family:KaiTi_GB2312;">线程范围内共享变量要实现的效果为：</span></p><p style="margin: 0in; font-size: 14pt;"><span style="font-family:KaiTi_GB2312;"> </span></p><p style="margin: 0in; font-size: 14pt;"><span style="font-family:KaiTi_GB2312;">多个对象间共享同一线程内的变量</span></p><p style="margin: 0in; font-size: 14pt;"><span style="font-family:KaiTi_GB2312;"><img src="http://img.blog.csdn.net/20150722103542394?watermark/2/text/aHR0cDovL2Jsb2cuY3Nkbi5uZXQv/font/5a6L5L2T/fontsize/400/fill/I0JBQkFCMA==/dissolve/70/gravity/Center" alt="" /><br /></span></p><p style="margin: 0in; font-size: 14pt;"></p><p style="margin:0in;font-size:14.0pt"><span style="font-family:KaiTi_GB2312;"><span lang="zh-CN" xml:lang="zh-CN"><br /></span></span></p><h1 style="margin:0in;font-size:14.0pt"><span style="font-family:KaiTi_GB2312;"><span lang="zh-CN" xml:lang="zh-CN">未实现线程共享变量的</span><span lang="en-US" xml:lang="en-US">demo</span><span lang="zh-CN" xml:lang="zh-CN">：</span></span></h1><p style="margin:0in;font-size:14.0pt"><span style="font-family:KaiTi_GB2312;"><span lang="zh-CN" xml:lang="zh-CN"><br /></span></span></p><span style="font-family:KaiTi_GB2312;"></span><pre name="code" class="java">package cn.itcast.heima2;
+
+import java.util.HashMap;
+import java.util.Map;
+import java.util.Random;
+
+public class ThreadScopeShareData {
+
+	private static int data = 0;
+//	private static Map&lt;Thread, Integer&gt; threadData = new HashMap&lt;Thread, Integer&gt;();
+	
+	public static void main(String[] args) {
+		//共启动2个线程
+		for(int i=0;i&lt;2;i++){
+			//启动一个线程
+			new Thread(new Runnable(){
+				@Override
+				public void run() {
+					data = new Random().nextInt();
+					System.out.println(Thread.currentThread().getName() 
+							+ " has put data :" + data);
+					//以当前线程为key值放入到map中，当取值时根据各自的线程取各自的数据
+//					threadData.put(Thread.currentThread(), data);
+					new A().get();
+					new B().get();
+				}
+			}).start();
+		}
+	}
+	
+	static class A{
+		public void get(){
+//			int data = threadData.get(Thread.currentThread());
+			System.out.println("A from " + Thread.currentThread().getName() 
+					+ " get data :" + data);
+		}
+	}
+	
+	static class B{
+		public void get(){
+//			int data = threadData.get(Thread.currentThread());			
+			System.out.println("B from " + Thread.currentThread().getName() 
+					+ " get data :" + data);
+		}		
+	}
+}</pre><br /><p style="margin: 0in; font-size: 14pt;"></p><p style="margin: 0in; font-size: 14pt;"><span style="font-family:KaiTi_GB2312;">运行结果：</span></p><p style="margin: 0in; font-size: 14pt;"><span style="font-family:KaiTi_GB2312;"><br /></span></p><span style="font-family:KaiTi_GB2312;"><img src="http://img.blog.csdn.net/20150722103601727?watermark/2/text/aHR0cDovL2Jsb2cuY3Nkbi5uZXQv/font/5a6L5L2T/fontsize/400/fill/I0JBQkFCMA==/dissolve/70/gravity/Center" alt="" /><br /></span><p style="margin: 0in; font-size: 14pt;"><span style="font-family:KaiTi_GB2312;"><br /></span></p><p style="margin: 0in; font-size: 14pt;"></p><p style="margin-top:7pt;margin-bottom:7pt;font-size:14.0pt"><span style="font-family:KaiTi_GB2312;"><span lang="zh-CN" xml:lang="zh-CN">通过打印出的结果可以看出，当</span><span lang="zh-CN" xml:lang="zh-CN">Thread-</span><span lang="en-US" xml:lang="en-US">0</span><span lang="zh-CN" xml:lang="zh-CN">获取了一个随机数，修改了</span><span lang="zh-CN" xml:lang="zh-CN">data</span><span lang="zh-CN" xml:lang="zh-CN">的值，正在睡眠的时候，</span><span lang="zh-CN" xml:lang="zh-CN">Thread-</span><span lang="en-US" xml:lang="en-US">1</span><span lang="zh-CN" xml:lang="zh-CN">又获取了一个随机数，同样修改了</span><span lang="zh-CN" xml:lang="zh-CN">data</span><span lang="zh-CN" xml:lang="zh-CN">的值，然后</span><span lang="zh-CN" xml:lang="zh-CN">Thread-1</span><span lang="zh-CN" xml:lang="zh-CN">调用了静态内部类</span><span lang="zh-CN" xml:lang="zh-CN">A</span><span lang="zh-CN" xml:lang="zh-CN">和</span><span lang="zh-CN" xml:lang="zh-CN">B</span><span lang="zh-CN" xml:lang="zh-CN">的</span><span lang="zh-CN" xml:lang="zh-CN">get</span><span lang="zh-CN" xml:lang="zh-CN">方法，实际上此时的</span><span lang="zh-CN" xml:lang="zh-CN">data</span><span lang="zh-CN" xml:lang="zh-CN">已经是</span><span lang="zh-CN" xml:lang="zh-CN">Thread-</span><span lang="en-US" xml:lang="en-US">1</span><span lang="zh-CN" xml:lang="zh-CN">拿到的随机数了。</span></span></p><p style="margin-top:7pt;margin-bottom:7pt;font-size:14.0pt"><span style="font-family:KaiTi_GB2312;"><span lang="zh-CN" xml:lang="zh-CN">当然，我们可以通过增加</span><span lang="zh-CN" xml:lang="zh-CN">synchronized</span><span lang="zh-CN" xml:lang="zh-CN">加锁来控制线程的运行。让</span><span lang="zh-CN" xml:lang="zh-CN">Thread-</span><span lang="en-US" xml:lang="en-US">0</span><span lang="zh-CN" xml:lang="zh-CN">运行完方法之前，</span><span lang="zh-CN" xml:lang="zh-CN">Thread-</span><span lang="en-US" xml:lang="en-US">1</span><span lang="zh-CN" xml:lang="zh-CN">不能修改</span><span lang="zh-CN" xml:lang="zh-CN">data</span><span lang="zh-CN" xml:lang="zh-CN">的值。</span></span></p><p style="margin-top: 7pt; margin-bottom: 7pt; font-size: 14pt;"><span style="font-family:KaiTi_GB2312;">此外，还可以使用另外几种方法来获取线程运行时变量赋予的真正值。</span></p><p style="margin-top: 7pt; margin-bottom: 7pt; font-size: 14pt;"><span style="font-family:KaiTi_GB2312;"><br /></span></p><h1 style="margin: 0in; font-size: 14pt;"><span style="font-family:KaiTi_GB2312;">线程范围内共享变量实现方式: </span></h1><p style="margin: 0in; font-size: 14pt;" lang="en-US" xml:lang="en-US"><span style="font-family:KaiTi_GB2312;"> </span></p><h2 style="margin:0in;font-size:14.0pt"><span style="font-family:KaiTi_GB2312;"><span lang="en-US" xml:lang="en-US">Map</span><span lang="zh-CN" xml:lang="zh-CN">实现方式：</span></span></h2><p style="margin:0in;font-size:14.0pt"><span style="font-family:KaiTi_GB2312;"><span lang="zh-CN" xml:lang="zh-CN"><br /></span></span></p><span style="font-family:KaiTi_GB2312;"></span><pre name="code" class="java">package cn.itcast.heima2;
+
+import java.util.HashMap;
+import java.util.Map;
+import java.util.Random;
+
+public class ThreadScopeShareData {
+
+	
+	private static Map&lt;Thread, Integer&gt; threadData = new HashMap&lt;Thread, Integer&gt;();
+	
+	public static void main(String[] args) {
+		//共启动2个线程
+		for(int i=0;i&lt;2;i++){
+			//启动一个线程
+			new Thread(new Runnable(){
+				@Override
+				public void run() {
+					int data = new Random().nextInt();
+					System.out.println(Thread.currentThread().getName() 
+							+ " has put data :" + data);
+					//以当前线程为key值放入到map中，当取值时根据各自的线程取各自的数据
+					threadData.put(Thread.currentThread(), data);
+					new A().get();
+					new B().get();
+				}
+			}).start();
+		}
+	}
+	
+	static class A{
+		public void get(){
+			int data = threadData.get(Thread.currentThread());
+			System.out.println("A from " + Thread.currentThread().getName() 
+					+ " get data :" + data);
+		}
+	}
+	
+	static class B{
+		public void get(){
+			int data = threadData.get(Thread.currentThread());			
+			System.out.println("B from " + Thread.currentThread().getName() 
+					+ " get data :" + data);
+		}		
+	}
+}</pre><br /><p style="margin: 0in; font-size: 14pt;"></p><p style="margin: 0in; font-size: 14pt;"><span style="font-family:KaiTi_GB2312;">运行结果：</span></p><p style="margin: 0in; font-size: 14pt;"><span style="font-family:KaiTi_GB2312;"><br /></span></p><p style="margin: 0in; font-size: 14pt;"><span style="font-family:KaiTi_GB2312;"><img src="http://img.blog.csdn.net/20150722103617082?watermark/2/text/aHR0cDovL2Jsb2cuY3Nkbi5uZXQv/font/5a6L5L2T/fontsize/400/fill/I0JBQkFCMA==/dissolve/70/gravity/Center" alt="" /> </span></p><p style="margin: 0in; font-size: 14pt;"><span style="font-family:KaiTi_GB2312;"><br /></span></p><h2 style="margin: 0in; font-size: 14pt;"><span style="font-family:KaiTi_GB2312;"><span lang="en-US" xml:lang="en-US">ThreadLocal</span><span lang="zh-CN" xml:lang="zh-CN">方式：</span></span></h2><p style="margin: 0in; font-size: 14pt;"><span style="font-family:KaiTi_GB2312;"><span lang="zh-CN" xml:lang="zh-CN"><br /></span></span></p><p style="margin: 0in; font-size: 14pt;"><span lang="zh-CN" xml:lang="zh-CN"><span style="font-family:KaiTi_GB2312;"></span></span></p><pre name="code" class="java">package cn.itcast.heima2;
+
+import java.util.Random;
+
+public class ThreadLocalTest {
+
+	private static ThreadLocal&lt;Integer&gt; x = new ThreadLocal&lt;Integer&gt;();
+	public static void main(String[] args) {
+		for(int i=0;i&lt;2;i++){
+			new Thread(new Runnable(){
+				@Override
+				public void run() {
+					int data = new Random().nextInt();
+					System.out.println(Thread.currentThread().getName() 
+							+ " has put data :" + data);
+					x.set(data);
+					new A().get();
+					new B().get();
+				}							
+			}).start();
+		}
+	}
+	
+	static class A{
+		public void get(){
+			int data = x.get();
+			System.out.println("A from " + Thread.currentThread().getName() 
+					+ " get data :" + data);
+		}
+	}
+	
+	static class B{
+		public void get(){
+			int data = x.get();			
+			System.out.println("B from " + Thread.currentThread().getName() 
+					+ " get data :" + data);					
+		}		
+	}
+}
+</pre><br /><br /><p></p><p style="margin: 0in; font-size: 14pt;"><span lang="zh-CN" xml:lang="zh-CN"></span></p><p style="margin: 0in; font-size: 14pt;"><span style="font-family:KaiTi_GB2312;"><span lang="zh-CN" xml:lang="zh-CN">存在的问题：一个</span><span lang="en-US" xml:lang="en-US">ThreadLocal</span><span lang="zh-CN" xml:lang="zh-CN">代表一个变量，故其中只能放一个数据，如果你有两个变量要线程范围内共享，则要定义两个</span><span lang="en-US" xml:lang="en-US">ThreadLocal</span><span lang="zh-CN" xml:lang="zh-CN">。如下为解决方案：</span></span></p><p style="margin: 0in; font-size: 14pt;" lang="en-US" xml:lang="en-US"><span style="font-family:KaiTi_GB2312;"> </span></p><h2 style="margin: 0in; font-size: 14pt;"><span style="font-family:KaiTi_GB2312;"><span lang="zh-CN" xml:lang="zh-CN">扩展方式</span><span lang="en-US" xml:lang="en-US">-</span><span lang="zh-CN" xml:lang="zh-CN">单例方式处理对象：</span></span></h2><p style="margin: 0in; font-size: 14pt;"><span style="font-family:KaiTi_GB2312;"><span lang="zh-CN" xml:lang="zh-CN"><br /></span></span></p><p style="margin: 0in; font-size: 14pt;"><span lang="zh-CN" xml:lang="zh-CN"><span style="font-family:KaiTi_GB2312;"></span></span></p><pre name="code" class="java">package cn.itcast.heima2;
+
+import java.util.Random;
+
+public class ThreadLocalTest {
+
+//	方式一
+//	private static ThreadLocal&lt;Integer&gt; x = new ThreadLocal&lt;Integer&gt;();
+	
+	private static ThreadLocal&lt;MyThreadScopeData&gt; myThreadScopeData = new ThreadLocal&lt;MyThreadScopeData&gt;();
+	public static void main(String[] args) {
+		for(int i=0;i&lt;2;i++){
+			new Thread(new Runnable(){
+				@Override
+				public void run() {
+					int data = new Random().nextInt();
+					System.out.println(Thread.currentThread().getName() 
+							+ " has put data :" + data);
+//					方式一 ThreadLocal
+//					x.set(data);
+//					方式二 new对象方式，将多个属性放到对象中
+//					MyThreadScopeData myData = new MyThreadScopeData();
+//					myData.setName("name" + data);
+//					myData.setAge(data);
+//					myThreadScopeData.set(myData);
+//					方式三 使用单例模式
+					MyThreadScopeData.getThreadInstance().setName("name" + data);
+					MyThreadScopeData.getThreadInstance().setAge(data);
+					
+					new A().get();
+					new B().get();
+				}							
+			}).start();
+		}
+	}
+	
+	static class A{
+		public void get(){
+//			方式一 ThreadLocal
+//			int data = x.get();
+//			System.out.println("A from " + Thread.currentThread().getName() 
+//					+ " get data :" + data);
+//			方式二 new对象方式，将多个属性放到对象中
+//			MyThreadScopeData myData = myThreadScopeData.get();;
+//			System.out.println("A from " + Thread.currentThread().getName() 
+//					+ " getMyData: " + myData.getName() + "," +
+//					myData.getAge());
+//			方式三 使用单例模式
+			MyThreadScopeData myData = MyThreadScopeData.getThreadInstance();
+			System.out.println("A from " + Thread.currentThread().getName() 
+					+ " getMyData: " + myData.getName() + "," +
+					myData.getAge());
+		}
+	}
+	
+	static class B{
+		public void get(){
+//			int data = x.get();			
+//			System.out.println("B from " + Thread.currentThread().getName() 
+//					+ " get data :" + data);
+//			MyThreadScopeData myData = myThreadScopeData.get();;
+//			System.out.println("B from " + Thread.currentThread().getName() 
+//					+ " getMyData: " + myData.getName() + "," +
+//					myData.getAge());
+			MyThreadScopeData myData = MyThreadScopeData.getThreadInstance();
+			System.out.println("B from " + Thread.currentThread().getName() 
+					+ " getMyData: " + myData.getName() + "," +
+					myData.getAge());			
+		}		
+	}
+}
+
+class MyThreadScopeData{
+	
+	private MyThreadScopeData(){}
+	
+	private static MyThreadScopeData instance = null;//new MyThreadScopeData();
+	
+	private static ThreadLocal&lt;MyThreadScopeData&gt; map = new ThreadLocal&lt;MyThreadScopeData&gt;();
+	
+	public static /*synchronized*/ MyThreadScopeData getThreadInstance(){
+		MyThreadScopeData instance = map.get();
+		if(instance == null){
+			instance = new MyThreadScopeData();
+			map.set(instance);
+		}
+		return instance;
+	}
+	
+	
+	private String name;
+	private int age;
+	public String getName() {
+		return name;
+	}
+	public void setName(String name) {
+		this.name = name;
+	}
+	public int getAge() {
+		return age;
+	}
+	public void setAge(int age) {
+		this.age = age;
+	}
+}
+</pre><br /><br /><p></p><p style="margin: 0in; font-size: 14pt;"><span lang="zh-CN" xml:lang="zh-CN"><span style="font-family:KaiTi_GB2312;"></span></span></p><h1 style="margin: 0in; font-size: 14pt;"><span style="font-family:KaiTi_GB2312;">总结：</span></h1><p></p><p style="margin: 0in; font-size: 14pt;"><span style="font-family:KaiTi_GB2312;"> </span></p><p style="margin:0in;font-size:14.0pt"><span style="font-family:KaiTi_GB2312;"><span lang="zh-CN" xml:lang="zh-CN">    synchronized</span><span lang="zh-CN" xml:lang="zh-CN">和使用</span><span lang="en-US" xml:lang="en-US">ThreadLocal</span><span lang="zh-CN" xml:lang="zh-CN">均可以解决以上的问题，只是这是两种不同的方式，</span><span lang="zh-CN" xml:lang="zh-CN">synchronized</span><span lang="zh-CN" xml:lang="zh-CN">是依赖锁的机制一个执行完后另一个再执行。ThreadLocal会为每一个线程维护一个和该线程绑定的变量的副本，从而隔离了多个线程的数据，每一个线程都拥有自己的变量副本，从而也就没有必要对该变量进行同步了。</span></span></p><p style="margin: 0in; font-size: 14pt;"><span style="font-family:KaiTi_GB2312;">    概括起来说，对于多线程资源共享的问题，同步机制采用了“以时间换空间”的方式，而ThreadLocal采用了“以空间换时间”的方式。前者仅提供一份变量，让不同的线程排队访问，而后者为每一个线程都提供了一份变量，因此可以同时访问而互不影响。</span></p><p style="margin: 0in; font-size: 14pt;"><span style="font-family:KaiTi_GB2312;">    当然ThreadLocal并不能替代同步机制，两者面向的问题领域不同。同步机制是为了同步多个线程对相同资源的并发访问，是为了多个线程之间进行通信的有效方式；而ThreadLocal是隔离多个线程的数据共享，从根本上就不在多个线程之间共享资源(变量)，这样当然不需要对多个线程进行同步了。</span></p><p style="margin:0in;font-size:14.0pt"><span style="font-family:KaiTi_GB2312;"><span lang="en-US" xml:lang="en-US">    ThreadLocal</span><span lang="zh-CN" xml:lang="zh-CN">的应用：</span></span></p><p style="margin: 0in; font-size: 14.25pt;"><span style="font-family:KaiTi_GB2312;"><span style="background-image: initial; background-attachment: initial; background-size: initial; background-origin: initial; background-clip: initial; background-position: initial; background-repeat: initial;" lang="zh-CN" xml:lang="zh-CN">    在业务逻辑层需要调用多个</span><span style="background-image: initial; background-attachment: initial; background-size: initial; background-origin: initial; background-clip: initial; background-position: initial; background-repeat: initial;" lang="en-US" xml:lang="en-US">Dao</span><span style="background-image: initial; background-attachment: initial; background-size: initial; background-origin: initial; background-clip: initial; background-position: initial; background-repeat: initial;" lang="zh-CN" xml:lang="zh-CN">层的方法，我们要保证事务（</span><span style="background-image: initial; background-attachment: initial; background-size: initial; background-origin: initial; background-clip: initial; background-position: initial; background-repeat: initial;" lang="en-US" xml:lang="en-US">jdbc</span><span style="background-image: initial; background-attachment: initial; background-size: initial; background-origin: initial; background-clip: initial; background-position: initial; background-repeat: initial;" lang="zh-CN" xml:lang="zh-CN">事务）就要确保他们使用的是同一个数据库连接</span><span style="background-image: initial; background-attachment: initial; background-size: initial; background-origin: initial; background-clip: initial; background-position: initial; background-repeat: initial;" lang="en-US" xml:lang="en-US">.</span><span style="background-image: initial; background-attachment: initial; background-size: initial; background-origin: initial; background-clip: initial; background-position: initial; background-repeat: initial;" lang="zh-CN" xml:lang="zh-CN">那么如何确保使用同一个数据库连接呢？</span></span></p><span style="font-family:KaiTi_GB2312;"><br /></span><p style="margin: 0in; font-size: 14pt;"><span lang="zh-CN" xml:lang="zh-CN"><span style="font-family:KaiTi_GB2312;"><br /></span></span></p><p style="margin: 0in; font-size: 14pt;"><span lang="zh-CN" xml:lang="zh-CN"><span style="font-family:KaiTi_GB2312;"><br /></span></span></p><br />   &#13;

@@ -1,0 +1,389 @@
+
+
+<p>1、工作队列</p>&#13;
+<p>工作队列(work queue)是linux kernel中将工作推后执行的一种机制；这种机制和tasklet不同之处在于工作队列是把推后的工作交由一个内核线程去执行，因此工作队列的优势就在于它允许重新调度甚至睡眠。<br />&#13;
+</p>&#13;
+<p>工作队列数据类型定义，在&lt;linux/workqueue.h&gt;中<br />&#13;
+</p>&#13;
+<pre code_snippet_id="218112" snippet_file_name="blog_20140305_1_1347960" name="code" class="objc">struct work_struct{
+atomic_long_t data;//记录工作状态和指向工作者线程的指针
+struct list_head entry;//工作数据链成员
+work_func_t func;//工作处理函数，由用户实现
+}</pre><pre code_snippet_id="218112" snippet_file_name="blog_20140305_2_4826543" name="code" class="html">typedef void (*work_func_t)(struct work_struct *work);//工作函数原型
+struct delayed_work{//处理延迟执行的工作的结构体
+struct work_struct work;//工作结构体
+struct timer_list timer;//推后执行的定时器
+}</pre>工作队列操作：<br />&#13;
+初始化工作<br />&#13;
+INIT_WORK(struct work_struct *work, work_func_t func);初始化工作队列并制定工作队列处理函数<br />&#13;
+INIT_DELAYED_WORK(struct delayed_work *work, work_func_t func);初始化延迟工作队列并制定工作队列处理函数<br />&#13;
+调度工作<br />&#13;
+int schedule_work(struct work_struct *work);调度工作，即把工作处理函数提交给缺省的工作队列和工作者线程<br />&#13;
+int schedule_delayed_work(struct delayed_work *work, unsigned long delay);调度延迟工作，即把工作处理函数提交给缺省的工作队列和工作者线程，并制定延迟时间（同内核定时器延迟处理）<br />&#13;
+刷新工作队列<br />&#13;
+void flush_schedule_work(void);刷新缺省工作队列，此函数会一直等待，知道队列中的所有工作都被执行完成<br />&#13;
+取消延迟工作<br />&#13;
+int cancel_delayed_work(struct delay_work *work);取消缺省工作队列中处于等待状态的延迟工作<br />&#13;
+取消工作<br />&#13;
+int cancel_work_sync(struct work_struct *work);取消缺省工作队列中处于等待状态的工作，如果工作处理函数已经开始执行，该函数会阻塞直到工作处理函数完成<br />&#13;
+工作者线程<br />&#13;
+工作者线程本质上是一个普通的内核线程，在默认情况下，每个cpu均有一个类型为“events“的工作者线程，当调用schedule_work时，这个工作者线程会被唤醒去执行工作链表上的所有工作。&#13;
+<p></p>&#13;
+<p>创建工作队列<br />&#13;
+struct workqueue_struct *create_workqueue(const char *name);创建新的工作队列和相应的工作者线程，name用于该内核线程的命名<br />&#13;
+调度工作<br />&#13;
+int queue_work(struct workqueue_struct *wq, struct work_struct *work);调度工作，类似于schedule_work()函数；将制定工作work提交给指定工作队列wq<br />&#13;
+调度延迟工作<br />&#13;
+int queue_delayed_work(struct workqueue_struct *wq, struct work_struct *work, unsigned long delay);调度工作，类似于schedule_work()函数,将指定延迟工作work提交给指定工作队列wq,并指定延迟时间(同内核定时器延迟处理)<br />&#13;
+刷新工作队列<br />&#13;
+void flush_workqueue(struct workqueue_struct *wq);刷新指定工作队列wq,此函数会一直等待，直到队列中所有工作都被执行完成<br />&#13;
+销毁工作队列<br />&#13;
+void destroy_workqueue(struct workqueue_struct *wq);销毁指定工作队列wq</p>&#13;
+<p></p>&#13;
+<pre code_snippet_id="218112" snippet_file_name="blog_20140305_3_4161452" name="code" class="objc">/**
+*Copyright (c) 2013.TianYuan
+*All rights reserved.
+*
+*文件名称: irq.c
+*文件标识: 工作者队列实现，登记底半部
+*make menuconfig--- device drivers 
+*input keyboards ---s3c gpio keypad supports
+#cat /proc/interrupts : 32(中断号) :intertupt_demo
+*
+*当前版本：1.0
+*作者：wuyq 
+*
+*取代版本：xxx
+*原作者：xxx
+*完成日期：2014-03-05
+*/
+#include &lt;linux/init.h&gt;
+#include &lt;linux/module.h&gt;
+#include &lt;linux/fs.h&gt;
+#include &lt;linux/cdev.h&gt;
+#include &lt;linux/device.h&gt;
+#include &lt;linux/slab.h&gt;
+#include &lt;asm/uaccess.h&gt;
+
+#include &lt;asm/gpio.h&gt;
+#include &lt;plat/gpio-cfg.h&gt;
+#include &lt;linux/spinlock_types.h&gt;
+#include &lt;linux/sched.h&gt;
+#include &lt;linux/poll.h&gt;
+#include &lt;linux/interrupt.h&gt;
+
+
+
+MODULE_LICENSE("GPL");
+#define CDD_MAJOR	200//cat /proc/devices找一个尚未使用的
+#define CDD_MINOR	0
+#define CDD_COUNT	10
+dev_t dev = 0;
+u32 cdd_major = 0;
+u32 cdd_minor = 0;
+
+struct class *dev_class = NULL;
+#define BUF_SIZE	100
+struct cdd_cdev{
+	struct cdev cdev;
+	struct device *dev_device;
+	u8 led;
+	
+	char kbuf[BUF_SIZE];
+	
+	u32 data_len;//记录缓冲区中已经写入数据的长度
+	//定义等待队列头
+	wait_queue_head_t wqh;
+	
+};
+//定义一个work
+struct work_struct cdd_work;
+
+struct cdd_cdev *cdd_cdevp = NULL;
+
+unsigned long led_gpio_table[2] = {
+	S5PV210_GPC1(3),//数字
+	S5PV210_GPC1(4),
+};
+
+int cdd_open(struct inode* inode, struct file *filp)
+{
+	struct cdd_cdev *pcdevp = NULL;
+	printk("enter cdd_open!\n");
+
+	pcdevp = container_of(inode-&gt;i_cdev, struct cdd_cdev, cdev);
+	printk("led = %d\n", pcdevp-&gt;led);
+	
+	/*获取信号量*/
+	//down获取信号量不成功，会导致进程睡眠（第3个进程的时候）
+	//down(&amp;pcdevp-&gt;sem_open);
+	if(down_interruptible(&amp;pcdevp-&gt;sem_open)&lt;0){
+		return -1;
+	}
+	filp-&gt;private_data = pcdevp;
+	//申请gpio管脚
+	gpio_request(led_gpio_table[0], "GPC1_3");
+	gpio_request(led_gpio_table[1], "GPC1_4");
+	
+	return 0;
+}
+
+int cdd_read(struct file *filp, char __user *buf, size_t count, loff_t *offset)
+{
+	int ret = 0;
+	u32 pos = *offset;
+	u32 cnt = count;
+	
+	struct cdd_cdev *cdevp = filp-&gt;private_data;
+#if 0
+	//定义并初始化一个等待队列
+	DECLARE_WAITQUEUE(wq, current);
+	//将等待队列添加到wqh指向的链表
+	add_wait_queue(&amp;pcdevp-&gt;wqh, &amp;wq);
+	//判断设备有没有数据供用户空间读,假设led不为0，表示有数据供用户空间读取
+	if(pcdevp-&gt;led == 0){
+		printk("no data for reading! sleep...\n");
+		//设置当前线程为睡眠状态
+		set_current_state(TASK_INTERRUPTIBLE);
+		schedule();//内核调度cpu的算法
+		printk("have data for reading!\n");
+	}
+	//从指定的链表中删除等待队列
+	remove_wait_queue(&amp;pcdevp-&gt;wqh, &amp;wq);
+#endif
+	wait_event_interruptible(pcdevp-&gt;wqh, pcdevp-&gt;led != 0); 
+	
+	//printk("enter cdd_read!\n");
+	if(cnt &gt; (cdevp-&gt;data_len-pos) ){
+		cnt = cdevp-&gt;data_len - pos;
+	}
+	
+	ret = copy_to_user(buf, cdevp-&gt;kbuf+pos, cnt);
+	//printk("kernel kbuf content:%s\n", cdevp-&gt;kbuf);
+	*offset += cnt;
+	
+	pcdevp-&gt;led = 0;
+	
+	return ret;
+}
+
+int cdd_write(struct file *filp, const char __user *buf, size_t count, loff_t *offset)
+{
+	int ret = 0;
+	struct cdd_cdev *cdevp = filp-&gt;private_data;
+	u32 pos = *offset;
+	u32 cnt = count;
+	
+	//printk("enter cdd_write!\n");
+	if(cnt &gt; (BUF_SIZE - pos) ){
+		cnt = BUF_SIZE - pos;
+	}
+	ret = copy_from_user(cdevp-&gt;kbuf+pos, buf, cnt);
+	*offset += cnt;
+	if(*offset &gt; cdevp-&gt;data_len){
+		cdevp-&gt;data_len = *offset;
+	}
+	pcdevp-&gt;led = 1;
+	//唤醒等待队列头中的一个等待队列
+	wake_up_interruptible(&amp;pcdevp-&gt;wqh);
+	
+	
+	return ret;
+}
+
+int cdd_ioctl(struct inode *inode, struct file *filp, unsigned int cmd, unsigned long data)
+{
+	//printk("enter cdd_ioctl!\n");
+	switch(cmd){
+		case 1://点亮灯
+			//设置管脚为输出功能
+			//参数：1.要设置的管脚编号2.默认的输出值 0低电平1高电平
+			gpio_direction_output(led_gpio_table[data], 0);
+			//禁止内部上拉
+			s3c_gpio_setpull(led_gpio_table[data], SEC_GPIO_PULL_NONE);
+			//设置输出值
+			gpio_set_value(led_gpio_table[data], 1);
+			
+			break;
+		case 0://熄灭灯
+			
+			//设置管脚为输出功能
+			//参数：1.要设置的管脚编号2.默认的输出值 0低电平1高电平
+			gpio_direction_output(led_gpio_table[data], 0);
+			//禁止内部上拉
+			s3c_gpio_setpull(led_gpio_table[data], SEC_GPIO_PULL_NONE);
+			//设置输出值
+			gpio_set_value(led_gpio_table[data], 0);
+			
+			break;
+		default:
+			return -EINVAL;
+	}
+	
+	
+	return 0;
+}
+
+int cdd_release(struct inode *inode, struct file *filp)
+{
+	struct cdd_cdev *pcdevp = filp-&gt;private_data;
+	printk("enter cdd_release!\n");
+	
+	gpio_free(led_gpio_table[0]);
+	gpio_free(led_gpio_table[1]);
+	up(&amp;pcdevp-&gt;sem_open);
+	return 0;
+}
+
+loff_t cdd_llseek(struct file *filp, loff_t offset, int whence)
+{
+	struct cdd_cdev *pcdevp = filp-&gt;private_data;
+	loff_t newpos = 0;
+	switch(whence){
+		case SEEK_SET:
+			newpos = offset;
+			break;
+		case SEEK_CUR:
+			newpos = filp-&gt;f_pos + offset;
+			break;
+		case SEEK_END:
+			newpos = pcdevp-&gt;data_len + offset;
+			break;
+		default:
+			return -EINVAL;//无效的参数
+	}
+	
+	if( newpos&lt;0 || newpos&gt;= BUF_SIZE ){
+		return -EINVAL;
+	}
+	filp-&gt;f_pos = newpos;
+	return newpos;
+}
+
+unsigned int cdd_poll(struct file *filp, struct poll_table_struct *wait)
+{
+	unsigned int mask = 0;
+	struct cdd_cdev pcdevp = filp-&gt;private_data;
+	printk("enter cdd_poll!\n");
+	poll_wait(filp, &amp;pcdep-&gt;wqh, wait);
+	//led不为0即可读
+	if(pcdevp-&gt;led){
+		mask = POLLIN | POLLRDNORM;
+	}
+	return mask;
+}
+
+struct file_operations cdd_fops = {
+	.owner = THIS_MODULE,
+	.open = cdd_open,
+	.read = cdd_read,
+	.write = cdd_write,
+	.ioctl = cdd_ioctl,
+	.release = cdd_release,
+	.llseek = cdd_llseek,
+	.poll = cdd_poll,
+};
+
+void cdd_work_func(struct work_struct *work)
+{
+	int i = 10000000;
+	printk("enter cdd_work_func!\n");
+	while(i--);
+}
+
+irqreturn_t cdd_isr(int irq, void *dev_id)
+{
+	printk("occur up key press or release!\n");
+	//登记底半部
+	schedule_work(&amp;cdd_work);
+	printk("exit cdd_isr!\n");	
+	return IRQ_HANDLED;
+}
+
+int __init cdd_init(void)
+{
+	int ret = 0;
+	int i = 0;
+	
+	if(cdd_major){
+		dev = MKDEV(CDD_MAJOR, CDD_MINOR);//生成设备号
+		//注册设备号;1、要注册的起始设备号2、连续注册的设备号个数3、名字
+		ret = register_chrdev_region(dev, CDD_COUNT, "cdd_demo");
+	}else{
+		// 动态分配设备号
+		ret = alloc_chrdev_region(&amp;dev, cdd_minor, CDD_COUNT, "cdd_demo02");
+	}
+	
+	if(ret &lt; 0){
+		printk("register_chrdev_region failed!\n");
+		goto failure_register_chrdev;
+	}
+	//获取主设备号
+	cdd_major = MAJOR(dev);
+	printk("cdd_major = %d\n", cdd_major);
+	
+	cdd_cdevp = kzalloc(sizeof(struct cdd_cdev)*CDD_COUNT, GFP_KERNEL);
+	if(IS_ERR(cdd_cdevp)){
+		printk("kzalloc failed!\n");
+		goto failure_kzalloc;
+	}
+	/*创建设备类*/
+	dev_class = class_create(THIS_MODULE, "cdd_class");
+	if(IS_ERR(dev_class)){
+		printk("class_create failed!\n");
+		goto failure_dev_class;
+	}
+	for(i=0; i&lt;CDD_COUNT; i++){
+		/*初始化cdev*/
+		cdev_init(&amp;(cdd_cdevp[i].cdev), &amp;cdd_fops);
+		/*添加cdev到内核*/
+		cdev_add(&amp;(cdd_cdevp[i].cdev), dev+i, 1);
+		
+		/* “/dev/xxx” */
+		device_create(dev_class, NULL, dev+i, NULL, "cdd%d", i);
+		
+		cdd_cdevp[i].led = i;
+		//初始化等待队列头
+		init_waitqueue_head(&amp;cdd_cdevp[i].wqh);
+	}
+	//初始化work
+	INIT_WORK(&amp;cdd_work, cdd_work_func);
+	
+	//注册中断
+	request_irq(IRQ_EINT0, cdd_isr, IRQF_TRIGGER_FALLING  | IRQF_TRIGGER_RISING, "interrupt_demo", NULL);
+	
+	return 0;
+failure_dev_class:
+	kfree(cdd_cdevp);
+failure_kzalloc:
+	unregister_chrdev_region(dev, CDD_COUNT);
+failure_register_chrdev:
+	return ret;
+}
+
+void __exit cdd_exit(void)
+{
+/*逆序消除*/
+	int i = 0;
+	flush_work(&amp;cdd_work);
+	
+	free_irq(IRQ_EINT0, NULL);
+	
+	for(; i &lt; CDD_COUNT; i++){
+		device_destroy(dev_class, dev+i);
+		cdev_del(&amp;(cdd_cdevp[i].cdev));
+		//cdev_del(&amp;((cdd_cdevp+i)-&gt;cdev));
+	}
+	class_destroy(dev_class);
+	kfree(cdd_cdevp);
+	unregister_chrdev_region(dev, CDD_COUNT);
+	
+}	
+
+module_init(cdd_init);
+module_exit(cdd_exit);
+</pre><br />&#13;
+<br />&#13;
+<br />&#13;
+<p></p>&#13;
+   &#13;

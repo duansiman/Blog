@@ -1,0 +1,180 @@
+
+        <div class="markdown_views"><p>验证码是现在必不可少的一个小功能,可以放爆破,防垃圾请求,总之还是有一定约束力的</p>
+
+<p>SpringMVC实现验证码功能主要是提供一个URL请求,该请求对应的方法可以生成一张验证码图片,然后把该验证码数值存入session中,再把图片显示到界面,这样来实现验证码的验证.</p>
+
+
+
+<h2 id="1生成验证码">1.生成验证码</h2>
+
+<p>生成验证码主要使用awt的几个类,详情可以看代码注释,一共8个步骤,一步一步画出验证码</p>
+
+
+
+<pre class="prettyprint"><code class=" hljs java"><span class="hljs-javadoc">/**
+ * 控制验证码的controller
+ */</span>
+<span class="hljs-annotation">@Controller</span>
+<span class="hljs-keyword">public</span> <span class="hljs-class"><span class="hljs-keyword">class</span> <span class="hljs-title">CodeController</span> {</span>
+    <span class="hljs-keyword">private</span> <span class="hljs-keyword">int</span> width = <span class="hljs-number">90</span>;<span class="hljs-comment">//验证码宽度</span>
+    <span class="hljs-keyword">private</span> <span class="hljs-keyword">int</span> height = <span class="hljs-number">40</span>;<span class="hljs-comment">//验证码高度</span>
+    <span class="hljs-keyword">private</span> <span class="hljs-keyword">int</span> codeCount = <span class="hljs-number">4</span>;<span class="hljs-comment">//验证码个数</span>
+    <span class="hljs-keyword">private</span> <span class="hljs-keyword">int</span> lineCount = <span class="hljs-number">19</span>;<span class="hljs-comment">//混淆线个数</span>
+
+    <span class="hljs-keyword">char</span>[] codeSequence = { <span class="hljs-string">'A'</span>, <span class="hljs-string">'B'</span>, <span class="hljs-string">'C'</span>, <span class="hljs-string">'D'</span>, <span class="hljs-string">'E'</span>, <span class="hljs-string">'F'</span>, <span class="hljs-string">'G'</span>, <span class="hljs-string">'H'</span>, <span class="hljs-string">'I'</span>, <span class="hljs-string">'J'</span>,
+            <span class="hljs-string">'K'</span>, <span class="hljs-string">'L'</span>, <span class="hljs-string">'M'</span>, <span class="hljs-string">'N'</span>, <span class="hljs-string">'O'</span>, <span class="hljs-string">'P'</span>, <span class="hljs-string">'Q'</span>, <span class="hljs-string">'R'</span>, <span class="hljs-string">'S'</span>, <span class="hljs-string">'T'</span>, <span class="hljs-string">'U'</span>, <span class="hljs-string">'V'</span>, <span class="hljs-string">'W'</span>,
+            <span class="hljs-string">'X'</span>, <span class="hljs-string">'Y'</span>, <span class="hljs-string">'Z'</span>, <span class="hljs-string">'0'</span>, <span class="hljs-string">'1'</span>, <span class="hljs-string">'2'</span>, <span class="hljs-string">'3'</span>, <span class="hljs-string">'4'</span>, <span class="hljs-string">'5'</span>, <span class="hljs-string">'6'</span>, <span class="hljs-string">'7'</span>, <span class="hljs-string">'8'</span>, <span class="hljs-string">'9'</span> };
+
+    <span class="hljs-javadoc">/**
+     * 具体获取验证码的方法
+     *<span class="hljs-javadoctag"> @param</span> time  time为时戳,这样的话可以避免浏览器缓存验证码
+     *<span class="hljs-javadoctag"> @throws</span> IOException
+     */</span>
+    <span class="hljs-annotation">@RequestMapping</span>(value = <span class="hljs-string">"/code/{time}"</span>,method = RequestMethod.GET)
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">void</span> <span class="hljs-title">getCode</span>(@<span class="hljs-title">PathVariable</span>("time") String time, HttpServletRequest request,
+                        HttpServletResponse response) <span class="hljs-keyword">throws</span> IOException{
+        <span class="hljs-comment">//定义随机数类</span>
+        Random r = <span class="hljs-keyword">new</span> Random();
+        <span class="hljs-comment">//定义存储验证码的类</span>
+        StringBuilder builderCode = <span class="hljs-keyword">new</span> StringBuilder();
+        <span class="hljs-comment">//定义画布</span>
+        BufferedImage buffImg = <span class="hljs-keyword">new</span> BufferedImage(width,height,BufferedImage.TYPE_INT_RGB);
+        <span class="hljs-comment">//得到画笔</span>
+        Graphics g = buffImg.getGraphics();
+        <span class="hljs-comment">//1.设置颜色,画边框</span>
+        g.setColor(Color.black);
+        g.drawRect(<span class="hljs-number">0</span>,<span class="hljs-number">0</span>,width,height);
+        <span class="hljs-comment">//2.设置颜色,填充内部</span>
+        g.setColor(Color.white);
+        g.fillRect(<span class="hljs-number">1</span>,<span class="hljs-number">1</span>,width-<span class="hljs-number">2</span>,height-<span class="hljs-number">2</span>);
+        <span class="hljs-comment">//3.设置干扰线</span>
+        g.setColor(Color.gray);
+        <span class="hljs-keyword">for</span> (<span class="hljs-keyword">int</span> i = <span class="hljs-number">0</span>; i &lt; lineCount; i++) {
+            g.drawLine(r.nextInt(width),r.nextInt(width),r.nextInt(width),r.nextInt(width));
+        }
+        <span class="hljs-comment">//4.设置验证码</span>
+        g.setColor(Color.blue);
+        <span class="hljs-comment">//4.1设置验证码字体</span>
+        g.setFont(<span class="hljs-keyword">new</span> Font(<span class="hljs-string">"宋体"</span>,Font.BOLD|Font.ITALIC,<span class="hljs-number">15</span>));
+        <span class="hljs-keyword">for</span> (<span class="hljs-keyword">int</span> i = <span class="hljs-number">0</span>; i &lt; codeCount; i++) {
+            <span class="hljs-keyword">char</span> c = codeSequence[r.nextInt(codeSequence.length)];
+            builderCode.append(c);
+            g.drawString(c+<span class="hljs-string">""</span>,<span class="hljs-number">15</span>*(i+<span class="hljs-number">1</span>),<span class="hljs-number">15</span>);
+        }
+        <span class="hljs-comment">//5.输出到屏幕</span>
+        ServletOutputStream sos = response.getOutputStream();
+        ImageIO.write(buffImg,<span class="hljs-string">"png"</span>,sos);
+        <span class="hljs-comment">//6.保存到session中</span>
+        HttpSession session = request.getSession();
+        session.setAttribute(<span class="hljs-string">"codeValidate"</span>,builderCode.toString());
+        <span class="hljs-comment">//7.禁止图像缓存。</span>
+        response.setHeader(<span class="hljs-string">"Pragma"</span>, <span class="hljs-string">"no-cache"</span>);
+        response.setHeader(<span class="hljs-string">"Cache-Control"</span>, <span class="hljs-string">"no-cache"</span>);
+        response.setDateHeader(<span class="hljs-string">"Expires"</span>, <span class="hljs-number">0</span>);
+        response.setContentType(<span class="hljs-string">"image/png"</span>);
+        <span class="hljs-comment">//8.关闭sos</span>
+        sos.close();
+    }
+}</code></pre>
+
+<p>测试下生成的验证码</p>
+
+<p><img src="http://img.blog.csdn.net/20160714195827267" alt="这里写图片描述" title="" /></p>
+
+<p>总体步骤如下,你想更改验证码样式就在上面那个controller中来更改</p>
+
+
+
+<h2 id="2登录验证">2.登录验证</h2>
+
+<p>在登录的基础上加上验证码功能,因为在生成验证码的时候,已经在session中存储了验证码,因此提交到服务器的验证码和session中的进行对比,这个对比应该不区分大小写,对比正确可以登录,失败则提示验证码错误</p>
+
+
+
+<pre class="prettyprint"><code class=" hljs handlebars"><span class="xml"><span class="hljs-tag">//首先是页面,这里使用<span class="hljs-attribute">img</span>来承载验证码,注意<span class="hljs-attribute">img</span>的请求,为你生成验证码的那个请求,同时<span class="hljs-attribute">onclick</span>=<span class="hljs-value">"changeUrl()"</span><span class="hljs-value">是用来点击改变验证码的一个js方法,后面会叙述</span>
+
+&lt;<span class="hljs-attribute">tr</span>&gt;</span>
+  <span class="hljs-tag">&lt;<span class="hljs-title">td</span> <span class="hljs-attribute">class</span>=<span class="hljs-value">"text-right"</span>&gt;</span><span class="hljs-tag">&lt;<span class="hljs-title">strong</span>&gt;</span>验证码:<span class="hljs-tag">&lt;/<span class="hljs-title">strong</span>&gt;</span>&amp;nbsp;&amp;nbsp;<span class="hljs-tag">&lt;/<span class="hljs-title">td</span>&gt;</span>
+  <span class="hljs-tag">&lt;<span class="hljs-title">td</span>&gt;</span><span class="hljs-tag">&lt;<span class="hljs-title">input</span> <span class="hljs-attribute">type</span>=<span class="hljs-value">"text"</span> <span class="hljs-attribute">class</span>=<span class="hljs-value">"form-control"</span> <span class="hljs-attribute">required</span> <span class="hljs-attribute">name</span>=<span class="hljs-value">"codevalidate"</span> <span class="hljs-attribute">style</span>=<span class="hljs-value">"width: 40%;display: inline"</span>&gt;</span>
+      <span class="hljs-tag">&lt;<span class="hljs-title">img</span> <span class="hljs-attribute">id</span>=<span class="hljs-value">"codevalidate"</span> <span class="hljs-attribute">src</span>=<span class="hljs-value">"/code/&lt;%=new Date().getTime()%&gt;"</span> <span class="hljs-attribute">width</span>=<span class="hljs-value">"90"</span> <span class="hljs-attribute">height</span>=<span class="hljs-value">"30"</span> <span class="hljs-attribute">style</span>=<span class="hljs-value">"margin-left: 10px"</span> <span class="hljs-attribute">onclick</span>=<span class="hljs-value">"changeUrl()"</span>&gt;</span>
+  <span class="hljs-tag">&lt;/<span class="hljs-title">td</span>&gt;</span>
+<span class="hljs-tag">&lt;/<span class="hljs-title">tr</span>&gt;</span></span></code></pre>
+
+<p>然后服务器端进行验证:</p>
+
+
+
+<pre class="prettyprint"><code class=" hljs java"><span class="hljs-javadoc">/**
+     * 用户登录控制
+     *<span class="hljs-javadoctag"> @param</span> user
+     *<span class="hljs-javadoctag"> @param</span> attr 重定向传参数
+     *<span class="hljs-javadoctag"> @param</span> session
+     *<span class="hljs-javadoctag"> @return</span>
+     */</span>
+    <span class="hljs-annotation">@RequestMapping</span>(value = <span class="hljs-string">"/login"</span>,method = RequestMethod.POST)
+    <span class="hljs-keyword">public</span> String <span class="hljs-title">login</span>(User user,String codevalidate, RedirectAttributes attr, HttpSession session, HttpServletResponse response) <span class="hljs-keyword">throws</span> IOException {
+        <span class="hljs-keyword">if</span> (user.getUsername() == <span class="hljs-keyword">null</span> || user.getPassword() == <span class="hljs-keyword">null</span>){
+            attr.addFlashAttribute(<span class="hljs-string">"error"</span>,<span class="hljs-string">"请输入用户名或密码"</span>);
+            <span class="hljs-keyword">return</span> <span class="hljs-string">"redirect:/login"</span>;
+        }
+        <span class="hljs-comment">//去掉空格</span>
+        user.setUsername(user.getUsername().trim());
+        user.setPassword(user.getPassword().trim());
+        <span class="hljs-comment">//添加到要显示的信息中</span>
+        attr.addFlashAttribute(<span class="hljs-string">"username"</span>,user.getUsername().trim());
+        <span class="hljs-comment">//验证码验证</span>
+        String code = (String) session.getAttribute(<span class="hljs-string">"codeValidate"</span>);
+        <span class="hljs-keyword">if</span> (codevalidate == <span class="hljs-keyword">null</span> || !codevalidate.equalsIgnoreCase(code)){
+            attr.addFlashAttribute(<span class="hljs-string">"error"</span>,<span class="hljs-string">"验证码错误"</span>);
+            <span class="hljs-keyword">return</span> <span class="hljs-string">"redirect:/login"</span>;
+        }
+        <span class="hljs-comment">//用户名密码错误</span>
+        user.setPassword(DecriptUtil.SHA1(user.getPassword().trim()));
+        user = userDao.findUserByLogin(user);
+        <span class="hljs-keyword">if</span> (user == <span class="hljs-keyword">null</span>){
+            attr.addFlashAttribute(<span class="hljs-string">"error"</span>,<span class="hljs-string">"用户名或密码错误"</span>);
+            <span class="hljs-keyword">return</span> <span class="hljs-string">"redirect:/login"</span>;
+        }
+        <span class="hljs-comment">//登录成功加入session</span>
+        session.setAttribute(<span class="hljs-string">"userLogin"</span>,user);
+        <span class="hljs-comment">//更新登录时间</span>
+        userDao.updateDateById(user.getId());
+        <span class="hljs-comment">//跳转到用户主页</span>
+        <span class="hljs-keyword">return</span> <span class="hljs-string">"redirect:/user/"</span>+user.getId();
+    }</code></pre>
+
+
+
+<h2 id="3点击验证码切换">3.点击验证码切换</h2>
+
+<p>切换的原理是更改img标签的src链接,<strong>注意这个链接要加上时戳</strong>,不然浏览器会缓存图片,导致没法刷新图片</p>
+
+
+
+<pre class="prettyprint"><code class=" hljs javascript"><span class="hljs-function"><span class="hljs-keyword">function</span> <span class="hljs-title">changeUrl</span><span class="hljs-params">()</span> {</span>
+            <span class="hljs-keyword">var</span> url = $(<span class="hljs-string">"#codevalidate"</span>).prop(<span class="hljs-string">'src'</span>);
+            url = url.substr(<span class="hljs-number">0</span>,url.lastIndexOf(<span class="hljs-string">'/'</span>)+<span class="hljs-number">1</span>);
+            url = url + (<span class="hljs-keyword">new</span> <span class="hljs-built_in">Date</span>()).valueOf();
+            $(<span class="hljs-string">"#codevalidate"</span>).prop(<span class="hljs-string">'src'</span>,url);
+        }</code></pre>
+
+<p>最终效果如下:</p>
+
+<p><img src="http://img.blog.csdn.net/20160714200328941" alt="这里写图片描述" title="" /></p>
+
+<p>登录失败则提示失败信息: <br />
+<img src="http://img.blog.csdn.net/20160714200354550" alt="这里写图片描述" title="" /></p></div>&#13;
+        <script type="text/javascript">&#13;
+            $(function () {&#13;
+                $('pre.prettyprint code').each(function () {&#13;
+                    var lines = $(this).text().split('\n').length;&#13;
+                    var $numbering = $('&lt;ul/&gt;').addClass('pre-numbering').hide();&#13;
+                    $(this).addClass('has-numbering').parent().append($numbering);&#13;
+                    for (i = 1; i &lt;= lines; i++) {&#13;
+                        $numbering.append($('&lt;li/&gt;').text(i));&#13;
+                    };&#13;
+                    $numbering.fadeIn(1700);&#13;
+                });&#13;
+            });&#13;
+        </script>&#13;
+   &#13;

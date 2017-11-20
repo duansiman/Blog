@@ -1,0 +1,449 @@
+
+        <div class="markdown_views"><h2 id="一shiro框架简单介绍">一、Shiro框架简单介绍</h2>
+
+<p>Apache Shiro是Java的一个安全框架，旨在简化身份验证和授权。Shiro在JavaSE和JavaEE项目中都可以使用。它主要用来处理身份认证，授权，企业会话管理和加密等。Shiro的具体功能点如下：</p>
+
+<p>（1）身份认证/登录，验证用户是不是拥有相应的身份； <br />
+（2）授权，即权限验证，验证某个已认证的用户是否拥有某个权限；即判断用户是否能做事情，常见的如：验证某个用户是否拥有某个角色。或者细粒度的验证某个用户对某个资源是否具有某个权限； <br />
+（3）会话管理，即用户登录后就是一次会话，在没有退出之前，它的所有信息都在会话中；会话可以是普通JavaSE环境的，也可以是如Web环境的； <br />
+（4）加密，保护数据的安全性，如密码加密存储到数据库，而不是明文存储； <br />
+（5）Web支持，可以非常容易的集成到Web环境； <br />
+Caching：缓存，比如用户登录后，其用户信息、拥有的角色/权限不必每次去查，这样可以提高效率； <br />
+（6）shiro支持多线程应用的并发验证，即如在一个线程中开启另一个线程，能把权限自动传播过去； <br />
+（7）提供测试支持； <br />
+（8）允许一个用户假装为另一个用户（如果他们允许）的身份进行访问； <br />
+（9）记住我，这个是非常常见的功能，即一次登录后，下次再来的话不用登录了。</p>
+
+<p>文字描述可能并不能让猿友们完全理解具体功能的意思。下面我们以登录验证为例，向猿友们介绍Shiro的使用。至于其他功能点，猿友们用到的时候再去深究其用法也不迟。</p>
+
+
+
+<h2 id="二shiro实例详细说明">二、Shiro实例详细说明</h2>
+
+<p>本实例环境：eclipse + maven <br />
+本实例采用的主要技术：spring + springmvc + shiro</p>
+
+<p><strong>2.1、依赖的包</strong></p>
+
+<p>假设已经配置好了spring和springmvc的情况下，还需要引入shiro以及shiro集成到spring的包，maven依赖如下：</p>
+
+
+
+<pre class="prettyprint"><code class=" hljs xml"><span class="hljs-comment">&lt;!-- Spring 整合Shiro需要的依赖 --&gt;</span>  
+<span class="hljs-tag">&lt;<span class="hljs-title">dependency</span>&gt;</span>  
+    <span class="hljs-tag">&lt;<span class="hljs-title">groupId</span>&gt;</span>org.apache.shiro<span class="hljs-tag">&lt;/<span class="hljs-title">groupId</span>&gt;</span>  
+    <span class="hljs-tag">&lt;<span class="hljs-title">artifactId</span>&gt;</span>shiro-core<span class="hljs-tag">&lt;/<span class="hljs-title">artifactId</span>&gt;</span>  
+    <span class="hljs-tag">&lt;<span class="hljs-title">version</span>&gt;</span>1.2.1<span class="hljs-tag">&lt;/<span class="hljs-title">version</span>&gt;</span>  
+<span class="hljs-tag">&lt;/<span class="hljs-title">dependency</span>&gt;</span>  
+<span class="hljs-tag">&lt;<span class="hljs-title">dependency</span>&gt;</span>  
+    <span class="hljs-tag">&lt;<span class="hljs-title">groupId</span>&gt;</span>org.apache.shiro<span class="hljs-tag">&lt;/<span class="hljs-title">groupId</span>&gt;</span>  
+    <span class="hljs-tag">&lt;<span class="hljs-title">artifactId</span>&gt;</span>shiro-web<span class="hljs-tag">&lt;/<span class="hljs-title">artifactId</span>&gt;</span>  
+    <span class="hljs-tag">&lt;<span class="hljs-title">version</span>&gt;</span>1.2.1<span class="hljs-tag">&lt;/<span class="hljs-title">version</span>&gt;</span>  
+<span class="hljs-tag">&lt;/<span class="hljs-title">dependency</span>&gt;</span>  
+<span class="hljs-tag">&lt;<span class="hljs-title">dependency</span>&gt;</span>  
+    <span class="hljs-tag">&lt;<span class="hljs-title">groupId</span>&gt;</span>org.apache.shiro<span class="hljs-tag">&lt;/<span class="hljs-title">groupId</span>&gt;</span>  
+    <span class="hljs-tag">&lt;<span class="hljs-title">artifactId</span>&gt;</span>shiro-ehcache<span class="hljs-tag">&lt;/<span class="hljs-title">artifactId</span>&gt;</span>  
+    <span class="hljs-tag">&lt;<span class="hljs-title">version</span>&gt;</span>1.2.1<span class="hljs-tag">&lt;/<span class="hljs-title">version</span>&gt;</span>  
+<span class="hljs-tag">&lt;/<span class="hljs-title">dependency</span>&gt;</span>  
+<span class="hljs-tag">&lt;<span class="hljs-title">dependency</span>&gt;</span>  
+    <span class="hljs-tag">&lt;<span class="hljs-title">groupId</span>&gt;</span>org.apache.shiro<span class="hljs-tag">&lt;/<span class="hljs-title">groupId</span>&gt;</span>  
+    <span class="hljs-tag">&lt;<span class="hljs-title">artifactId</span>&gt;</span>shiro-spring<span class="hljs-tag">&lt;/<span class="hljs-title">artifactId</span>&gt;</span>  
+    <span class="hljs-tag">&lt;<span class="hljs-title">version</span>&gt;</span>1.2.1<span class="hljs-tag">&lt;/<span class="hljs-title">version</span>&gt;</span>  
+<span class="hljs-tag">&lt;/<span class="hljs-title">dependency</span>&gt;</span>  </code></pre>
+
+<p><strong>2.2、定义shiro拦截器</strong></p>
+
+<p>对url进行拦截，如果没有验证成功的需要验证，然后额外给用户赋予角色和权限。</p>
+
+<p>自定义的拦截器需要继承AuthorizingRealm并实现登录验证和赋予角色权限的两个方法，具体代码如下：</p>
+
+
+
+<pre class="prettyprint"><code class=" hljs java"><span class="hljs-keyword">package</span> com.luo.shiro.realm;
+
+<span class="hljs-keyword">import</span> java.util.HashSet;
+<span class="hljs-keyword">import</span> java.util.Set;
+<span class="hljs-keyword">import</span> org.apache.shiro.authc.AuthenticationException;
+<span class="hljs-keyword">import</span> org.apache.shiro.authc.AuthenticationInfo;
+<span class="hljs-keyword">import</span> org.apache.shiro.authc.AuthenticationToken;
+<span class="hljs-keyword">import</span> org.apache.shiro.authc.SimpleAuthenticationInfo;
+<span class="hljs-keyword">import</span> org.apache.shiro.authc.UsernamePasswordToken;
+<span class="hljs-keyword">import</span> org.apache.shiro.authz.AuthorizationInfo;
+<span class="hljs-keyword">import</span> org.apache.shiro.authz.SimpleAuthorizationInfo;
+<span class="hljs-keyword">import</span> org.apache.shiro.realm.AuthorizingRealm;
+<span class="hljs-keyword">import</span> org.apache.shiro.subject.PrincipalCollection;
+<span class="hljs-keyword">import</span> com.luo.util.DecriptUtil;
+
+<span class="hljs-keyword">public</span> <span class="hljs-class"><span class="hljs-keyword">class</span> <span class="hljs-title">MyShiroRealm</span> <span class="hljs-keyword">extends</span> <span class="hljs-title">AuthorizingRealm</span> {</span>
+
+    <span class="hljs-comment">//这里因为没有调用后台，直接默认只有一个用户("luoguohui"，"123456")</span>
+    <span class="hljs-keyword">private</span> <span class="hljs-keyword">static</span> <span class="hljs-keyword">final</span> String USER_NAME = <span class="hljs-string">"luoguohui"</span>;  
+    <span class="hljs-keyword">private</span> <span class="hljs-keyword">static</span> <span class="hljs-keyword">final</span> String PASSWORD = <span class="hljs-string">"123456"</span>;  
+
+    <span class="hljs-comment">/* 
+     * 授权
+     */</span>
+    <span class="hljs-annotation">@Override</span>
+    <span class="hljs-keyword">protected</span> AuthorizationInfo <span class="hljs-title">doGetAuthorizationInfo</span>(PrincipalCollection principals) { 
+        Set&lt;String&gt; roleNames = <span class="hljs-keyword">new</span> HashSet&lt;String&gt;();  
+        Set&lt;String&gt; permissions = <span class="hljs-keyword">new</span> HashSet&lt;String&gt;();  
+        roleNames.add(<span class="hljs-string">"administrator"</span>);<span class="hljs-comment">//添加角色</span>
+        permissions.add(<span class="hljs-string">"newPage.jhtml"</span>);  <span class="hljs-comment">//添加权限</span>
+        SimpleAuthorizationInfo info = <span class="hljs-keyword">new</span> SimpleAuthorizationInfo(roleNames);  
+        info.setStringPermissions(permissions);  
+        <span class="hljs-keyword">return</span> info;  
+    }
+
+    <span class="hljs-comment">/* 
+     * 登录验证
+     */</span>
+    <span class="hljs-annotation">@Override</span>
+    <span class="hljs-keyword">protected</span> AuthenticationInfo <span class="hljs-title">doGetAuthenticationInfo</span>(
+            AuthenticationToken authcToken) <span class="hljs-keyword">throws</span> AuthenticationException {
+        UsernamePasswordToken token = (UsernamePasswordToken) authcToken;
+        <span class="hljs-keyword">if</span>(token.getUsername().equals(USER_NAME)){
+            <span class="hljs-keyword">return</span> <span class="hljs-keyword">new</span> SimpleAuthenticationInfo(USER_NAME, DecriptUtil.MD5(PASSWORD), getName());  
+        }<span class="hljs-keyword">else</span>{
+            <span class="hljs-keyword">throw</span> <span class="hljs-keyword">new</span> AuthenticationException();  
+        }
+    }
+
+}
+</code></pre>
+
+<p><strong>2.3、shiro配置文件</strong></p>
+
+<p>spring-shiro.xml文件内容如下：</p>
+
+
+
+<pre class="prettyprint"><code class=" hljs xml"><span class="hljs-pi">&lt;?xml version="1.0" encoding="UTF-8"?&gt;</span>  
+<span class="hljs-tag">&lt;<span class="hljs-title">beans</span> <span class="hljs-attribute">xmlns</span>=<span class="hljs-value">"http://www.springframework.org/schema/beans"</span>  
+    <span class="hljs-attribute">xmlns:xsi</span>=<span class="hljs-value">"http://www.w3.org/2001/XMLSchema-instance"</span>  
+    <span class="hljs-attribute">xsi:schemaLocation</span>=<span class="hljs-value">"http://www.springframework.org/schema/beans   
+                        http://www.springframework.org/schema/beans/spring-beans-3.0.xsd"</span>  
+    <span class="hljs-attribute">default-lazy-init</span>=<span class="hljs-value">"true"</span>&gt;</span>  
+
+    <span class="hljs-tag">&lt;<span class="hljs-title">description</span>&gt;</span>Shiro Configuration<span class="hljs-tag">&lt;/<span class="hljs-title">description</span>&gt;</span>  
+
+    <span class="hljs-comment">&lt;!-- Shiro's main business-tier object for web-enabled applications --&gt;</span>  
+    <span class="hljs-tag">&lt;<span class="hljs-title">bean</span> <span class="hljs-attribute">id</span>=<span class="hljs-value">"securityManager"</span> <span class="hljs-attribute">class</span>=<span class="hljs-value">"org.apache.shiro.web.mgt.DefaultWebSecurityManager"</span>&gt;</span>  
+        <span class="hljs-tag">&lt;<span class="hljs-title">property</span> <span class="hljs-attribute">name</span>=<span class="hljs-value">"realm"</span> <span class="hljs-attribute">ref</span>=<span class="hljs-value">"myShiroRealm"</span> /&gt;</span>  
+        <span class="hljs-tag">&lt;<span class="hljs-title">property</span> <span class="hljs-attribute">name</span>=<span class="hljs-value">"cacheManager"</span> <span class="hljs-attribute">ref</span>=<span class="hljs-value">"cacheManager"</span> /&gt;</span>  
+    <span class="hljs-tag">&lt;/<span class="hljs-title">bean</span>&gt;</span>  
+
+    <span class="hljs-comment">&lt;!-- 項目自定义的Realm --&gt;</span>  
+    <span class="hljs-tag">&lt;<span class="hljs-title">bean</span> <span class="hljs-attribute">id</span>=<span class="hljs-value">"myShiroRealm"</span> <span class="hljs-attribute">class</span>=<span class="hljs-value">"com.luo.shiro.realm.MyShiroRealm"</span>&gt;</span>  
+        <span class="hljs-tag">&lt;<span class="hljs-title">property</span> <span class="hljs-attribute">name</span>=<span class="hljs-value">"cacheManager"</span> <span class="hljs-attribute">ref</span>=<span class="hljs-value">"cacheManager"</span> /&gt;</span>  
+    <span class="hljs-tag">&lt;/<span class="hljs-title">bean</span>&gt;</span>  
+
+    <span class="hljs-comment">&lt;!-- Shiro Filter --&gt;</span>  
+    <span class="hljs-tag">&lt;<span class="hljs-title">bean</span> <span class="hljs-attribute">id</span>=<span class="hljs-value">"shiroFilter"</span> <span class="hljs-attribute">class</span>=<span class="hljs-value">"org.apache.shiro.spring.web.ShiroFilterFactoryBean"</span>&gt;</span>  
+        <span class="hljs-tag">&lt;<span class="hljs-title">property</span> <span class="hljs-attribute">name</span>=<span class="hljs-value">"securityManager"</span> <span class="hljs-attribute">ref</span>=<span class="hljs-value">"securityManager"</span> /&gt;</span>  
+        <span class="hljs-tag">&lt;<span class="hljs-title">property</span> <span class="hljs-attribute">name</span>=<span class="hljs-value">"loginUrl"</span> <span class="hljs-attribute">value</span>=<span class="hljs-value">"/login.jhtml"</span> /&gt;</span>  
+        <span class="hljs-tag">&lt;<span class="hljs-title">property</span> <span class="hljs-attribute">name</span>=<span class="hljs-value">"successUrl"</span> <span class="hljs-attribute">value</span>=<span class="hljs-value">"/loginsuccess.jhtml"</span> /&gt;</span>  
+        <span class="hljs-tag">&lt;<span class="hljs-title">property</span> <span class="hljs-attribute">name</span>=<span class="hljs-value">"unauthorizedUrl"</span> <span class="hljs-attribute">value</span>=<span class="hljs-value">"/error.jhtml"</span> /&gt;</span>  
+        <span class="hljs-tag">&lt;<span class="hljs-title">property</span> <span class="hljs-attribute">name</span>=<span class="hljs-value">"filterChainDefinitions"</span>&gt;</span>  
+            <span class="hljs-tag">&lt;<span class="hljs-title">value</span>&gt;</span>  
+                /index.jhtml = authc  
+                /login.jhtml = anon
+                /checkLogin.json = anon  
+                /loginsuccess.jhtml = anon  
+                /logout.json = anon  
+                /** = authc  
+            <span class="hljs-tag">&lt;/<span class="hljs-title">value</span>&gt;</span>  
+        <span class="hljs-tag">&lt;/<span class="hljs-title">property</span>&gt;</span>  
+    <span class="hljs-tag">&lt;/<span class="hljs-title">bean</span>&gt;</span>  
+
+    <span class="hljs-comment">&lt;!-- 用户授权信息Cache --&gt;</span>  
+    <span class="hljs-tag">&lt;<span class="hljs-title">bean</span> <span class="hljs-attribute">id</span>=<span class="hljs-value">"cacheManager"</span> <span class="hljs-attribute">class</span>=<span class="hljs-value">"org.apache.shiro.cache.MemoryConstrainedCacheManager"</span> /&gt;</span>  
+
+    <span class="hljs-comment">&lt;!-- 保证实现了Shiro内部lifecycle函数的bean执行 --&gt;</span>  
+    <span class="hljs-tag">&lt;<span class="hljs-title">bean</span> <span class="hljs-attribute">id</span>=<span class="hljs-value">"lifecycleBeanPostProcessor"</span> <span class="hljs-attribute">class</span>=<span class="hljs-value">"org.apache.shiro.spring.LifecycleBeanPostProcessor"</span> /&gt;</span>  
+
+    <span class="hljs-comment">&lt;!-- AOP式方法级权限检查 --&gt;</span>  
+    <span class="hljs-tag">&lt;<span class="hljs-title">bean</span> <span class="hljs-attribute">class</span>=<span class="hljs-value">"org.springframework.aop.framework.autoproxy.DefaultAdvisorAutoProxyCreator"</span>  
+        <span class="hljs-attribute">depends-on</span>=<span class="hljs-value">"lifecycleBeanPostProcessor"</span>&gt;</span>  
+        <span class="hljs-tag">&lt;<span class="hljs-title">property</span> <span class="hljs-attribute">name</span>=<span class="hljs-value">"proxyTargetClass"</span> <span class="hljs-attribute">value</span>=<span class="hljs-value">"true"</span> /&gt;</span>  
+    <span class="hljs-tag">&lt;/<span class="hljs-title">bean</span>&gt;</span>  
+
+    <span class="hljs-tag">&lt;<span class="hljs-title">bean</span> <span class="hljs-attribute">class</span>=<span class="hljs-value">"org.apache.shiro.spring.security.interceptor.AuthorizationAttributeSourceAdvisor"</span>&gt;</span>  
+        <span class="hljs-tag">&lt;<span class="hljs-title">property</span> <span class="hljs-attribute">name</span>=<span class="hljs-value">"securityManager"</span> <span class="hljs-attribute">ref</span>=<span class="hljs-value">"securityManager"</span> /&gt;</span>  
+    <span class="hljs-tag">&lt;/<span class="hljs-title">bean</span>&gt;</span>  
+
+<span class="hljs-tag">&lt;/<span class="hljs-title">beans</span>&gt;</span>  </code></pre>
+
+<p>这里有必要说清楚”shiroFilter” 这个bean里面的各个属性property的含义：</p>
+
+<p>（1）securityManager：这个属性是必须的，没什么好说的，就这样配置就好。 <br />
+（2）loginUrl：没有登录的用户请求需要登录的页面时自动跳转到登录页面，可配置也可不配置。 <br />
+（3）successUrl：登录成功默认跳转页面，不配置则跳转至”/”，一般可以不配置，直接通过代码进行处理。 <br />
+（4）unauthorizedUrl：没有权限默认跳转的页面。 <br />
+（5）filterChainDefinitions，对于过滤器就有必要详细说明一下：</p>
+
+<p>1）Shiro验证URL时,URL匹配成功便不再继续匹配查找(所以要注意配置文件中的URL顺序,尤其在使用通配符时)，故filterChainDefinitions的配置顺序为自上而下,以最上面的为准</p>
+
+<p>2）当运行一个Web应用程序时,Shiro将会创建一些有用的默认Filter实例,并自动地在[main]项中将它们置为可用自动地可用的默认的Filter实例是被DefaultFilter枚举类定义的,枚举的名称字段就是可供配置的名称</p>
+
+<p>3）通常可将这些过滤器分为两组：</p>
+
+<p>anon,authc,authcBasic,user是第一组认证过滤器</p>
+
+<p>perms,port,rest,roles,ssl是第二组授权过滤器</p>
+
+<p>注意user和authc不同：当应用开启了rememberMe时,用户下次访问时可以是一个user,但绝不会是authc,因为authc是需要重新认证的 <br />
+user表示用户不一定已通过认证,只要曾被Shiro记住过登录状态的用户就可以正常发起请求,比如rememberMe</p>
+
+<p>说白了,以前的一个用户登录时开启了rememberMe,然后他关闭浏览器,下次再访问时他就是一个user,而不会authc</p>
+
+<p>4)举几个例子 <br />
+/admin=authc,roles[admin]      表示用户必需已通过认证,并拥有admin角色才可以正常发起’/admin’请求 <br />
+/edit=authc,perms[admin:edit]  表示用户必需已通过认证,并拥有admin:edit权限才可以正常发起’/edit’请求 <br />
+ /home=user                     表示用户不一定需要已经通过认证,只需要曾经被Shiro记住过登录状态就可以正常发起’/home’请求</p>
+
+<p>5)各默认过滤器常用如下(注意URL Pattern里用到的是两颗星,这样才能实现任意层次的全匹配) <br />
+ /admins/**=anon             无参,表示可匿名使用,可以理解为匿名用户或游客 <br />
+ /admins/user/**=authc       无参,表示需认证才能使用 <br />
+/admins/user/**=authcBasic  无参,表示httpBasic认证 <br />
+/admins/user/**=user        无参,表示必须存在用户,当登入操作时不做检查 <br />
+/admins/user/**=ssl         无参,表示安全的URL请求,协议为https <br />
+ /admins/user/<em>*=perms[user:add:</em>] <br />
+参数可写多个,多参时必须加上引号,且参数之间用逗号分割,如/admins/user/<em>*=perms[“user:add:</em>,user:modify:*”] <br />
+当有多个参数时必须每个参数都通过才算通过,相当于isPermitedAll()方法 <br />
+ /admins/user/**=port[8081] <br />
+当请求的URL端口不是8081时,跳转到schemal://serverName:8081?queryString <br />
+ 其中schmal是协议http或https等,serverName是你访问的Host,8081是Port端口,queryString是你访问的URL里的?后面的参数 <br />
+ /admins/user/**=rest[user] <br />
+根据请求的方法,相当于/admins/user/**=perms[user:method],其中method为post,get,delete等 <br />
+/admins/user/**=roles[admin] <br />
+ 参数可写多个,多个时必须加上引号,且参数之间用逗号分割,如/admins/user/**=roles[“admin,guest”] <br />
+当有多个参数时必须每个参数都通过才算通过,相当于hasAllRoles()方法</p>
+
+<p>上文参考了<a href="http://www.cppblog.com/guojingjia2006/archive/2014/05/14/206956.html">http://www.cppblog.com/guojingjia2006/archive/2014/05/14/206956.html</a>，更多详细说明请访问该链接。</p>
+
+<p><strong>2.4、web.xml配置引入对应的配置文件和过滤器</strong></p>
+
+
+
+<pre class="prettyprint"><code class=" hljs xml"><span class="hljs-comment">&lt;!-- 读取spring和shiro配置文件 --&gt;</span>
+<span class="hljs-tag">&lt;<span class="hljs-title">context-param</span>&gt;</span>
+    <span class="hljs-tag">&lt;<span class="hljs-title">param-name</span>&gt;</span>contextConfigLocation<span class="hljs-tag">&lt;/<span class="hljs-title">param-name</span>&gt;</span>
+    <span class="hljs-tag">&lt;<span class="hljs-title">param-value</span>&gt;</span>classpath:application.xml,classpath:shiro/spring-shiro.xml<span class="hljs-tag">&lt;/<span class="hljs-title">param-value</span>&gt;</span>
+<span class="hljs-tag">&lt;/<span class="hljs-title">context-param</span>&gt;</span>
+
+<span class="hljs-comment">&lt;!-- shiro过滤器 --&gt;</span>
+<span class="hljs-tag">&lt;<span class="hljs-title">filter</span>&gt;</span>  
+    <span class="hljs-tag">&lt;<span class="hljs-title">filter-name</span>&gt;</span>shiroFilter<span class="hljs-tag">&lt;/<span class="hljs-title">filter-name</span>&gt;</span>  
+    <span class="hljs-tag">&lt;<span class="hljs-title">filter-class</span>&gt;</span>org.springframework.web.filter.DelegatingFilterProxy<span class="hljs-tag">&lt;/<span class="hljs-title">filter-class</span>&gt;</span>  
+    <span class="hljs-tag">&lt;<span class="hljs-title">init-param</span>&gt;</span>  
+        <span class="hljs-tag">&lt;<span class="hljs-title">param-name</span>&gt;</span>targetFilterLifecycle<span class="hljs-tag">&lt;/<span class="hljs-title">param-name</span>&gt;</span>  
+        <span class="hljs-tag">&lt;<span class="hljs-title">param-value</span>&gt;</span>true<span class="hljs-tag">&lt;/<span class="hljs-title">param-value</span>&gt;</span>  
+    <span class="hljs-tag">&lt;/<span class="hljs-title">init-param</span>&gt;</span>  
+<span class="hljs-tag">&lt;/<span class="hljs-title">filter</span>&gt;</span>  
+<span class="hljs-tag">&lt;<span class="hljs-title">filter-mapping</span>&gt;</span>  
+    <span class="hljs-tag">&lt;<span class="hljs-title">filter-name</span>&gt;</span>shiroFilter<span class="hljs-tag">&lt;/<span class="hljs-title">filter-name</span>&gt;</span>  
+    <span class="hljs-tag">&lt;<span class="hljs-title">url-pattern</span>&gt;</span>*.jhtml<span class="hljs-tag">&lt;/<span class="hljs-title">url-pattern</span>&gt;</span>  
+    <span class="hljs-tag">&lt;<span class="hljs-title">url-pattern</span>&gt;</span>*.json<span class="hljs-tag">&lt;/<span class="hljs-title">url-pattern</span>&gt;</span>  
+<span class="hljs-tag">&lt;/<span class="hljs-title">filter-mapping</span>&gt;</span> </code></pre>
+
+<p><strong>2.5、controller代码</strong></p>
+
+
+
+<pre class="prettyprint"><code class=" hljs java"><span class="hljs-keyword">package</span> com.luo.controller;
+
+<span class="hljs-keyword">import</span> java.util.HashMap;
+<span class="hljs-keyword">import</span> java.util.Map;
+
+<span class="hljs-keyword">import</span> javax.servlet.http.HttpServletRequest;
+
+<span class="hljs-keyword">import</span> org.apache.shiro.SecurityUtils;
+<span class="hljs-keyword">import</span> org.apache.shiro.authc.UsernamePasswordToken;
+<span class="hljs-keyword">import</span> org.apache.shiro.subject.Subject;
+<span class="hljs-keyword">import</span> org.springframework.stereotype.Controller;
+<span class="hljs-keyword">import</span> org.springframework.web.bind.annotation.RequestMapping;
+<span class="hljs-keyword">import</span> org.springframework.web.bind.annotation.RequestMethod;
+<span class="hljs-keyword">import</span> org.springframework.web.bind.annotation.ResponseBody;
+<span class="hljs-keyword">import</span> org.springframework.web.servlet.ModelAndView;
+
+<span class="hljs-keyword">import</span> com.alibaba.druid.support.json.JSONUtils;
+<span class="hljs-keyword">import</span> com.luo.errorcode.LuoErrorCode;
+<span class="hljs-keyword">import</span> com.luo.exception.BusinessException;
+<span class="hljs-keyword">import</span> com.luo.util.DecriptUtil;
+
+<span class="hljs-annotation">@Controller</span>
+<span class="hljs-keyword">public</span> <span class="hljs-class"><span class="hljs-keyword">class</span> <span class="hljs-title">UserController</span> {</span>
+
+    <span class="hljs-annotation">@RequestMapping</span>(<span class="hljs-string">"/index.jhtml"</span>)
+    <span class="hljs-keyword">public</span> ModelAndView <span class="hljs-title">getIndex</span>(HttpServletRequest request) <span class="hljs-keyword">throws</span> Exception {
+        ModelAndView mav = <span class="hljs-keyword">new</span> ModelAndView(<span class="hljs-string">"index"</span>);
+        <span class="hljs-keyword">return</span> mav;
+    }
+
+    <span class="hljs-annotation">@RequestMapping</span>(<span class="hljs-string">"/exceptionForPageJumps.jhtml"</span>)
+    <span class="hljs-keyword">public</span> ModelAndView <span class="hljs-title">exceptionForPageJumps</span>(HttpServletRequest request) <span class="hljs-keyword">throws</span> Exception {
+        <span class="hljs-keyword">throw</span> <span class="hljs-keyword">new</span> BusinessException(LuoErrorCode.NULL_OBJ);
+    }
+
+    <span class="hljs-annotation">@RequestMapping</span>(value=<span class="hljs-string">"/businessException.json"</span>, method=RequestMethod.POST)
+    <span class="hljs-annotation">@ResponseBody</span>  
+    <span class="hljs-keyword">public</span> String <span class="hljs-title">businessException</span>(HttpServletRequest request) {
+        <span class="hljs-keyword">throw</span> <span class="hljs-keyword">new</span> BusinessException(LuoErrorCode.NULL_OBJ);
+    }
+
+    <span class="hljs-annotation">@RequestMapping</span>(value=<span class="hljs-string">"/otherException.json"</span>, method=RequestMethod.POST)
+    <span class="hljs-annotation">@ResponseBody</span>  
+    <span class="hljs-keyword">public</span> String <span class="hljs-title">otherException</span>(HttpServletRequest request) <span class="hljs-keyword">throws</span> Exception {
+        <span class="hljs-keyword">throw</span> <span class="hljs-keyword">new</span> Exception();
+    }
+
+    <span class="hljs-comment">//跳转到登录页面</span>
+    <span class="hljs-annotation">@RequestMapping</span>(<span class="hljs-string">"/login.jhtml"</span>)
+    <span class="hljs-keyword">public</span> ModelAndView <span class="hljs-title">login</span>() <span class="hljs-keyword">throws</span> Exception {
+        ModelAndView mav = <span class="hljs-keyword">new</span> ModelAndView(<span class="hljs-string">"login"</span>);
+        <span class="hljs-keyword">return</span> mav;
+    }
+
+    <span class="hljs-comment">//跳转到登录成功页面</span>
+    <span class="hljs-annotation">@RequestMapping</span>(<span class="hljs-string">"/loginsuccess.jhtml"</span>)
+    <span class="hljs-keyword">public</span> ModelAndView <span class="hljs-title">loginsuccess</span>() <span class="hljs-keyword">throws</span> Exception {
+        ModelAndView mav = <span class="hljs-keyword">new</span> ModelAndView(<span class="hljs-string">"loginsuccess"</span>);
+        <span class="hljs-keyword">return</span> mav;
+    }
+
+    <span class="hljs-annotation">@RequestMapping</span>(<span class="hljs-string">"/newPage.jhtml"</span>)
+    <span class="hljs-keyword">public</span> ModelAndView <span class="hljs-title">newPage</span>() <span class="hljs-keyword">throws</span> Exception {
+        ModelAndView mav = <span class="hljs-keyword">new</span> ModelAndView(<span class="hljs-string">"newPage"</span>);
+        <span class="hljs-keyword">return</span> mav;
+    }
+
+    <span class="hljs-annotation">@RequestMapping</span>(<span class="hljs-string">"/newPageNotAdd.jhtml"</span>)
+    <span class="hljs-keyword">public</span> ModelAndView <span class="hljs-title">newPageNotAdd</span>() <span class="hljs-keyword">throws</span> Exception {
+        ModelAndView mav = <span class="hljs-keyword">new</span> ModelAndView(<span class="hljs-string">"newPageNotAdd"</span>);
+        <span class="hljs-keyword">return</span> mav;
+    }
+
+    <span class="hljs-javadoc">/** 
+     * 验证用户名和密码 
+     *<span class="hljs-javadoctag"> @param</span> String username,String password
+     *<span class="hljs-javadoctag"> @return</span> 
+     */</span>  
+    <span class="hljs-annotation">@RequestMapping</span>(value=<span class="hljs-string">"/checkLogin.json"</span>,method=RequestMethod.POST)  
+    <span class="hljs-annotation">@ResponseBody</span>  
+    <span class="hljs-keyword">public</span> String <span class="hljs-title">checkLogin</span>(String username,String password) {  
+        Map&lt;String, Object&gt; result = <span class="hljs-keyword">new</span> HashMap&lt;String, Object&gt;();
+        <span class="hljs-keyword">try</span>{
+            UsernamePasswordToken token = <span class="hljs-keyword">new</span> UsernamePasswordToken(username, DecriptUtil.MD5(password));  
+            Subject currentUser = SecurityUtils.getSubject();  
+            <span class="hljs-keyword">if</span> (!currentUser.isAuthenticated()){
+                <span class="hljs-comment">//使用shiro来验证  </span>
+                token.setRememberMe(<span class="hljs-keyword">true</span>);  
+                currentUser.login(token);<span class="hljs-comment">//验证角色和权限  </span>
+            } 
+        }<span class="hljs-keyword">catch</span>(Exception ex){
+            <span class="hljs-keyword">throw</span> <span class="hljs-keyword">new</span> BusinessException(LuoErrorCode.LOGIN_VERIFY_FAILURE);
+        }
+        result.put(<span class="hljs-string">"success"</span>, <span class="hljs-keyword">true</span>);
+        <span class="hljs-keyword">return</span> JSONUtils.toJSONString(result);  
+    }  
+
+    <span class="hljs-javadoc">/** 
+     * 退出登录
+     */</span>  
+    <span class="hljs-annotation">@RequestMapping</span>(value=<span class="hljs-string">"/logout.json"</span>,method=RequestMethod.POST)    
+    <span class="hljs-annotation">@ResponseBody</span>    
+    <span class="hljs-keyword">public</span> String <span class="hljs-title">logout</span>() {   
+        Map&lt;String, Object&gt; result = <span class="hljs-keyword">new</span> HashMap&lt;String, Object&gt;();
+        result.put(<span class="hljs-string">"success"</span>, <span class="hljs-keyword">true</span>);
+        Subject currentUser = SecurityUtils.getSubject();       
+        currentUser.logout();    
+        <span class="hljs-keyword">return</span> JSONUtils.toJSONString(result);
+    }  
+}
+</code></pre>
+
+<p>上面代码，我们只需要更多地关注登录验证和退出登录的代码。 <br />
+其中DecriptUtil.MD5(password)，对密码进行md5加密解密是我自己写的工具类DecriptUtil，对应MyShiroRealm里面的登录验证里面也有对应对应的方法。 <br />
+另外，BusinessException是我自己封装的异常类。 <br />
+最后会提供整个工程源码供猿友下载，里面包含了所有的代码。</p>
+
+<p><strong>2.6、login.jsp代码</strong></p>
+
+
+
+<pre class="prettyprint"><code class=" hljs xml"><span class="vbscript">&lt;%@ page language=<span class="hljs-string">"java"</span> contentType=<span class="hljs-string">"text/html; charset=UTF-8"</span> pageEncoding=<span class="hljs-string">"UTF-8"</span>%&gt;</span>
+<span class="hljs-tag">&lt;<span class="hljs-title">html</span>&gt;</span>
+<span class="hljs-tag">&lt;<span class="hljs-title">head</span>&gt;</span>
+<span class="hljs-tag">&lt;<span class="hljs-title">script</span> <span class="hljs-attribute">src</span>=<span class="hljs-value">"&lt;%=request.getContextPath()%&gt;/static/bui/js/jquery-1.8.1.min.js"</span>&gt;</span><span class="javascript"></span><span class="hljs-tag">&lt;/<span class="hljs-title">script</span>&gt;</span>
+<span class="hljs-tag">&lt;/<span class="hljs-title">head</span>&gt;</span>
+<span class="hljs-tag">&lt;<span class="hljs-title">body</span>&gt;</span>
+username: <span class="hljs-tag">&lt;<span class="hljs-title">input</span> <span class="hljs-attribute">type</span>=<span class="hljs-value">"text"</span> <span class="hljs-attribute">id</span>=<span class="hljs-value">"username"</span>&gt;</span><span class="hljs-tag">&lt;<span class="hljs-title">br</span>&gt;</span><span class="hljs-tag">&lt;<span class="hljs-title">br</span>&gt;</span>  
+password: <span class="hljs-tag">&lt;<span class="hljs-title">input</span> <span class="hljs-attribute">type</span>=<span class="hljs-value">"password"</span> <span class="hljs-attribute">id</span>=<span class="hljs-value">"password"</span>&gt;</span><span class="hljs-tag">&lt;<span class="hljs-title">br</span>&gt;</span><span class="hljs-tag">&lt;<span class="hljs-title">br</span>&gt;</span>
+<span class="hljs-tag">&lt;<span class="hljs-title">button</span> <span class="hljs-attribute">id</span>=<span class="hljs-value">"loginbtn"</span>&gt;</span>登录<span class="hljs-tag">&lt;/<span class="hljs-title">button</span>&gt;</span>
+<span class="hljs-tag">&lt;/<span class="hljs-title">body</span>&gt;</span>
+<span class="hljs-tag">&lt;<span class="hljs-title">script</span> <span class="hljs-attribute">type</span>=<span class="hljs-value">"text/javascript"</span>&gt;</span><span class="javascript">
+$(<span class="hljs-string">'#loginbtn'</span>).click(<span class="hljs-function"><span class="hljs-keyword">function</span><span class="hljs-params">()</span> {</span>
+    <span class="hljs-keyword">var</span> param = {
+        username : $(<span class="hljs-string">"#username"</span>).val(),
+        password : $(<span class="hljs-string">"#password"</span>).val()
+    };
+    $.ajax({ 
+        type: <span class="hljs-string">"post"</span>, 
+        url: <span class="hljs-string">"&lt;%=request.getContextPath()%&gt;"</span> + <span class="hljs-string">"/checkLogin.json"</span>, 
+        data: param, 
+        dataType: <span class="hljs-string">"json"</span>, 
+        success: <span class="hljs-function"><span class="hljs-keyword">function</span><span class="hljs-params">(data)</span> {</span> 
+            <span class="hljs-keyword">if</span>(data.success == <span class="hljs-literal">false</span>){
+                alert(data.errorMsg);
+            }<span class="hljs-keyword">else</span>{
+                <span class="hljs-comment">//登录成功</span>
+                window.location.href = <span class="hljs-string">"&lt;%=request.getContextPath()%&gt;"</span> +  <span class="hljs-string">"/loginsuccess.jhtml"</span>;
+            }
+        },
+        error: <span class="hljs-function"><span class="hljs-keyword">function</span><span class="hljs-params">(data)</span> {</span> 
+            alert(<span class="hljs-string">"调用失败...."</span>); 
+        }
+    });
+});
+</span><span class="hljs-tag">&lt;/<span class="hljs-title">script</span>&gt;</span>
+<span class="hljs-tag">&lt;/<span class="hljs-title">html</span>&gt;</span></code></pre>
+
+<p><strong>2.7、效果演示</strong></p>
+
+<p>（1）如果未登录前，输入<a href="http://localhost:8080/web_exception_project/index.jhtml">http://localhost:8080/web_exception_project/index.jhtml</a>会自动跳转到<a href="http://localhost:8080/web_exception_project/login.jhtml">http://localhost:8080/web_exception_project/login.jhtml</a>。</p>
+
+<p>（2）如果登录失败和登录成功：</p>
+
+<p><img src="http://img.blog.csdn.net/20160203152217474" alt="这里写图片描述" title="" /></p>
+
+<p><img src="http://img.blog.csdn.net/20160203152227443" alt="这里写图片描述" title="" /></p>
+
+<p>（3）如果登录成功，访问<a href="http://localhost:8080/web_exception_project/index.jhtml">http://localhost:8080/web_exception_project/index.jhtml</a>就可以到其对应的页面了。</p>
+
+<p><img src="http://img.blog.csdn.net/20160203152237349" alt="这里写图片描述" title="" /></p>
+
+<p><strong>2.8、源码下载</strong></p>
+
+<p><a href="http://download.csdn.net/detail/u013142781/9426670">http://download.csdn.net/detail/u013142781/9426670</a></p>
+
+<p><strong>2.9、我遇到的坑</strong></p>
+
+<p>在本实例的调试里面遇到一个问题，虽然跟shiro没有关系，但是也跟猿友们分享一下。 <br />
+就是ajax请求设置了“contentType : “application/json””，导致controller获取不到username和password这两个参数。 <br />
+后面去掉contentType : “application/json”，采用默认的就可以了。</p>
+
+<p>具体原因可以浏览博文：<a href="http://blog.csdn.net/mhmyqn/article/details/25561535">http://blog.csdn.net/mhmyqn/article/details/25561535</a></p></div>&#13;
+        <script type="text/javascript">&#13;
+            $(function () {&#13;
+                $('pre.prettyprint code').each(function () {&#13;
+                    var lines = $(this).text().split('\n').length;&#13;
+                    var $numbering = $('&lt;ul/&gt;').addClass('pre-numbering').hide();&#13;
+                    $(this).addClass('has-numbering').parent().append($numbering);&#13;
+                    for (i = 1; i &lt;= lines; i++) {&#13;
+                        $numbering.append($('&lt;li/&gt;').text(i));&#13;
+                    };&#13;
+                    $numbering.fadeIn(1700);&#13;
+                });&#13;
+            });&#13;
+        </script>&#13;
+   &#13;

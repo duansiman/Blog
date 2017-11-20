@@ -1,0 +1,492 @@
+
+        <div class="markdown_views"><p><strong>摘要：</strong></p>
+
+<p>　　无论是JavaWeb Filter、Strurs2 Interceptor 还是 SpringMVC Interceptor，它们都是AOP理念的实现，但具体的实现机制又互不相同：JavaWeb Filter的实现是基于函数回调的，Strurs2 Interceptor是基于代理的，并且二者的接口惊人的相似，都是责任链模式的应用；SpringMVC Interceptor 的实现与SpringAOP几乎没有任何联系，也并非采用责任链模式处理请求，而是通过循环的方式在handler处理请求前后分别调用preHandle()方法和postHandle()方法对请求和响应进行处理。</p>
+
+<hr />
+
+<p><strong>声明与致谢：</strong></p>
+
+<p>　　本文的大部分内容均转载于CSDN博主FcBayernMunchen的<a href="http://blog.csdn.net/fcbayernmunchen/article/details/8441210" target="_blank">《浅谈Struts2拦截器Interceptor的设计原理》</a>一文。</p>
+
+<hr />
+
+
+
+<h2 id="一-strurs2-interceptor">一. Strurs2 Interceptor</h2>
+
+<p>　　使用过struts2框架的朋友们都知道拦截器Interceptor在struts2中的地位是非常重要的，可以说是struts2在控制流调度部分的核心，并且struts2做为一个MVC框架，之所以在 controller层有如此强大的扩展能力，完全是由其拦截器的设计决定的，我们先看看下面这张图：</p>
+
+<p>　　　　　　　　　　　　　　　　　　<img src="http://static.zybuluo.com/Rico123/9fuuteszs8mc8u1ufpzjn3aa/Struts2%20Interceptor.jpg" alt="Struts2 Interceptor.jpg-12.9kB" title="" />                  </p>
+
+<p>　　从上图中我们可以看到，整个Action(Controller)层被一层层的Interceptor包裹了起来，而Action则处于最核心的位置，整体形成了一个 <font color="red"><b>责任链调用模式</b></font>，那么struts2为什么采取如此的设计呢？这就不得不提一下整个struts2框架的设计理念。</p>
+
+<p>　　我们采用的是面向对象程序设计，那么我们知道一个对象可以从某个角度上分为有状态对象和无状态对象，而区分的标准就是对象是否具备代表其自身属性的字段，而Web层的http协议是基于<font color="red"><b> 请求-响应机制 </b></font>的，其核心处理过程便是<font color="red"><b> “请求参数–&gt;逻辑处理—&gt;返回参数”</b></font> 。那么，在对象中如何来实现请求-响应的过程呢？ </p>
+
+<p>　　我们可以来横向对比servlet标准和spring mvc的实现方式，他们都是采用Java中的天然语法，即对象的方法来实现的，请求参数都是自然的包含在了方法的参数中：<font color="red"><b>servlet标准是直接把web容器中的request和respose对象作为service方法的参数，而spring mvc则是对方法参数进行额外的绑定处理，在返回值的处理上他们也有所不同，但是方法作为一个载体天然的把请求参数、业务逻辑处理和返回值封装在方法内部了。</b></font>回到我们现在要讨论的struts2上来，<font color="red"><b>struts2对于http请求-响应机制的实现方式与前两者完全不同，对于请求参数和返回参数，struts2是用对象的属性字段承载，而业务逻辑处理则是用的无参数的方法来响应。</b></font></p>
+
+<p>　　可以这么认为，<font color="red"><b>servlet标准和springmvc采用的是无状态对象，而struts2是采用的有状态对象作为请求响应的载体，这是他们在设计理念上的根本区别！</b></font>servlet标准采用无状态的servlet对象是因为传统的servlet不是线程安全的，即servlet对象是单例的，所以直接把原生的web容器对象request和response作为参数传递给servlet的service方法以避开线程安全问题，这也造成了servlet对象与web容器的紧耦合。而struts2则是另辟蹊径，在整体设计上通过<font color="red"><b> ThreadLocal </b></font>将请求参数绑定到线程上下文中去，使得Action完全和web容器解耦，同时也解决了线程安全问题。因此，Action对象作为一个普通的 POJO，其属性字段便成为了请求参数和返回参数寄居的理想场所，无参的方法处理业务逻辑。</p>
+
+<p>　　既然Action是一个有状态的对象，并且请求参数是以对象属性的形式出现，那么我们在设计的时候如何能够将请求参数注入到 Action对象中，并且能在Action层设计一个可扩展的方案呢？这里就引入了AOP的设计理念：<font color="red"><b>struts2将一个或一组 Action对象作为AOP中的拦截点，众多的 Interceptor作为切面环绕在 Action的周围。</b></font>我们打开struts2自带的核心配置文件 struts-default.xml，里面定义了众多struts2默认的Interpector，其中就包含了注入Action对象属性值的ParamterInterpector，还有 fileuploadInterceptor 等等好多，加上我们自己在应用的 struts.xml 中定义的 Inteceptor，这些拦截器就形成了一个AOP的拦截器链。<font color="red"><b>Action中的方法负责执行核心业务逻辑，而这些Interceptor则扮演的辅助的角色，这样整个Action层就得到了极大的扩展。</b></font></p>
+
+<p>　　接下来我们看看struts2源码中是如何实现这个AOP效果的。</p>
+
+
+
+<pre class="prettyprint"><code class="language-java hljs "><span class="hljs-keyword">public</span> <span class="hljs-class"><span class="hljs-keyword">interface</span> <span class="hljs-title">Interceptor</span> <span class="hljs-keyword">extends</span> <span class="hljs-title">Serializable</span> {</span>  
+
+    <span class="hljs-javadoc">/** 
+     * Called to let an interceptor clean up any resources it has allocated. 
+     */</span>  
+    <span class="hljs-keyword">void</span> destroy();  
+
+    <span class="hljs-javadoc">/** 
+     * Called after an interceptor is created, but before any requests are processed using 
+     * {@link #intercept(com.opensymphony.xwork2.ActionInvocation) intercept} , giving 
+     * the Interceptor a chance to initialize any needed resources. 
+     */</span>  
+    <span class="hljs-keyword">void</span> init();  
+
+    <span class="hljs-javadoc">/** 
+     * Allows the Interceptor to do some processing on the request before and/or after the rest of the processing of the 
+     * request by the {@link ActionInvocation} or to short-circuit the processing and just return a String return code. 
+     * 
+     *<span class="hljs-javadoctag"> @param</span> invocation the action invocation 
+     *<span class="hljs-javadoctag"> @return</span> the return code, either returned from {@link ActionInvocation#invoke()}, or from the interceptor itself. 
+     *<span class="hljs-javadoctag"> @throws</span> Exception any system-level error, as defined in {@link com.opensymphony.xwork2.Action#execute()}. 
+     */</span>  
+    String intercept(ActionInvocation invocation) <span class="hljs-keyword">throws</span> Exception;  
+
+}  </code></pre>
+
+<p>　　其核心方法便是这个intercept(ActionInvocation invocation) 方法，具体的Interceptor实现类重写该方法。其中的方法参数ActionInvocation代表的是struts2中（严格来说是struts2的 xwork部分）的核心调度元素，他负责整个intercepter、action、result 的调度，具体的实现类为 defaultActionInvocation:</p>
+
+
+
+<pre class="prettyprint"><code class="language-java hljs "><span class="hljs-keyword">public</span> <span class="hljs-class"><span class="hljs-keyword">class</span> <span class="hljs-title">DefaultActionInvocation</span> <span class="hljs-keyword">implements</span> <span class="hljs-title">ActionInvocation</span> {</span>  
+
+    <span class="hljs-keyword">protected</span> Iterator&lt;InterceptorMapping&gt; interceptors;  
+
+    <span class="hljs-keyword">public</span> String <span class="hljs-title">invoke</span>() <span class="hljs-keyword">throws</span> Exception {
+        String profileKey = <span class="hljs-string">"invoke: "</span>;
+        <span class="hljs-keyword">try</span> {
+            UtilTimerStack.push(profileKey);
+
+            <span class="hljs-keyword">if</span> (executed) {
+                <span class="hljs-keyword">throw</span> <span class="hljs-keyword">new</span> IllegalStateException(<span class="hljs-string">"Action has already executed"</span>);
+            }
+
+            <span class="hljs-comment">// 由容器依次调用拦截器链中的各拦截器</span>
+            <span class="hljs-keyword">if</span> (interceptors.hasNext()) {
+                <span class="hljs-keyword">final</span> InterceptorMapping interceptor = (InterceptorMapping) interceptors.next();
+                String interceptorMsg = <span class="hljs-string">"interceptor: "</span> + interceptor.getName();
+                UtilTimerStack.push(interceptorMsg);
+                <span class="hljs-keyword">try</span> {
+                    <span class="hljs-comment">// 不断从拦截器栈中取出新的拦截器，并调用拦截器的intercept方法</span>
+                    resultCode = interceptor.getInterceptor().intercept(DefaultActionInvocation.<span class="hljs-keyword">this</span>);             
+                }<span class="hljs-keyword">finally</span> {
+                    UtilTimerStack.pop(interceptorMsg);
+                }
+            } <span class="hljs-keyword">else</span> {
+                <span class="hljs-comment">// 若拦截器栈中所有的拦截器都已调用，则开始调用Action的指定方法进行业务逻辑的处理 </span>
+                resultCode = invokeActionOnly();
+            }
+
+            <span class="hljs-comment">// 其余代码省略</span>
+}</code></pre>
+
+<p>　　我们来看看invocation对Interceptor的调度:首先众多定义好的Interceptor很自然的存储在链表的数据结构当中，只不过在 DefaultInvocation当中Interceptor已经被包装为InterceptorMapping对象当中，并且链表已经被转换为Iterator迭代器的形式，为接下来的Interceptor调用做好了准备。也许很多人会认为接下来对Interpector的调用无非就是一个简单的循环遍历，然后逐个调用 Interceptor的 intercept方法，最后调用 Action的方法嘛，如下：</p>
+
+
+
+<pre class="prettyprint"><code class="language-java hljs "><span class="hljs-keyword">while</span>(interceptors.hasNext()) {  
+          <span class="hljs-keyword">final</span> InterceptorMapping interceptor = (InterceptorMapping) interceptors.next();  
+          resultCode = interceptor.getInterceptor().intercept(DefaultActionInvocation.<span class="hljs-keyword">this</span>);  
+    }  
+resultCode = invokeActionOnly();</code></pre>
+
+<p>　　这样做是行不通的，首先 这样直接循环遍历 无法实现 AOP的效果，即在执行 invokeActionOnly() 之前执行一段逻辑，而在执行Action之后再执行另一段逻辑，即 before() 和 after() 通知；再者 无法灵活的改变 程序执行流程。现在我们就来看看struts2中是怎么做的，回过头我们再看下 defaultActionInvocation 中的关键代码：</p>
+
+
+
+<pre class="prettyprint"><code class="language-java hljs "><span class="hljs-keyword">if</span> (interceptors.hasNext()) {  
+     <span class="hljs-keyword">final</span> InterceptorMapping interceptor = (InterceptorMapping) interceptors.next();  
+     String interceptorMsg = <span class="hljs-string">"interceptor: "</span> + interceptor.getName();  
+     UtilTimerStack.push(interceptorMsg);  
+     <span class="hljs-keyword">try</span> {  
+                     resultCode = interceptor.getInterceptor().intercept(DefaultActionInvocation.<span class="hljs-keyword">this</span>);  
+                 }  
+     <span class="hljs-keyword">finally</span> {  
+         UtilTimerStack.pop(interceptorMsg);  
+     }  
+ } <span class="hljs-keyword">else</span> {  
+     resultCode = invokeActionOnly();  
+ } </code></pre>
+
+<p>　　从上面的代码中我们至少可以得出两点：</p>
+
+<p>　　1. 没有看到Iterator迭代器对所有Interceptor的循环遍历，而只是在 if 块中调用了第一个Interceptor的intercept方法；  <br />
+　　2. 调用action 的代码 invokeActionOnly 方法 和 Interceptor 处于 if-else 的互斥代码块中。</p>
+
+<p>　　针对以上两个问题，我们必须结合Interceptor的实现类来给出解释，来看看我们自己定的一个Interceptor实现类吧：</p>
+
+
+
+<pre class="prettyprint"><code class="language-java hljs "><span class="hljs-keyword">public</span> <span class="hljs-class"><span class="hljs-keyword">class</span> <span class="hljs-title">Interceptor1</span> <span class="hljs-keyword">extends</span> <span class="hljs-title">AbstractInterceptor</span> {</span>  
+
+    <span class="hljs-keyword">public</span> String <span class="hljs-title">intercept</span>(ActionInvocation invocation) <span class="hljs-keyword">throws</span> Exception {  
+        <span class="hljs-comment">// AOP中的 before通知  </span>
+        System.out.println(<span class="hljs-string">"do something before action invoked"</span>);  
+        <span class="hljs-comment">// 这里实现了Interceptor的递归调用  </span>
+        String resultCode = invocation.invoke();  
+        <span class="hljs-comment">// AOP中的 after通知  </span>
+        System.out.println(<span class="hljs-string">"do something before action invoked"</span>);  
+        <span class="hljs-keyword">return</span> resultCode;  
+  } </code></pre>
+
+<p>　　我们看到，负责核心调度的 DefaultActionInvocation 对象将其自身作为参数传递给 Interceptor 实现类，而在 Interceptor的实现类中又通过 invocation 参数回调了 DefaultActionInvocation 负责核心调度任务的 invoke() 方法。这样一来一去 产生的效果如下图：</p>
+
+<p>　　　　　　　　　　　　　　　　<img src="http://static.zybuluo.com/Rico123/oiyljvhgx794913f0oc359ju/interceptors.jpg" alt="interceptors.jpg-21.9kB" title="" /></p>
+
+<p>　　此图是从struts2的 Apache官网上截取的一部分，我们可以看到:<font color="red"><b>Interceptor链与Action共同组成了一个类似堆栈的数据结构，而Action对象则处于栈底，而对这个堆栈的遍历过程则是由堆栈中的元素自己来完成的，即前一个Interceptor负责调用下一个Interceptor，以此类推，最后一个Interceptor则负责调用处于栈底的Action对象，这是一个递归的调用过程。</b></font>因此，在Interceptor实现类中，处于invocation.invoke()之前的代码(AOP中的before通知)按照顺序依次被调度执行，处于invocation.invoke()之后的代码(AOP中的after通知)则暂时被保存了起来，当最后一个 Interceptor 调用了invocation.invoke() 操作时，触发了 defaultActionInvocation 中 invoke()方法内 if-else 互斥块的 else 区域：</p>
+
+
+
+<pre class="prettyprint"><code class="language-java hljs "> <span class="hljs-keyword">else</span> {  
+    resultCode = invokeActionOnly();  
+}  </code></pre>
+
+<p>　　这里即执行了 AOP拦截点 Action对象的调用，当Action对象调用执行完毕后，由于递归的特性，之前暂时保存起来的诸多Interceptor 中的after通知，即位于invocation.invoke()之后的代码被依次逆序执行，这样便实现了一个AOP的调用效果！</p>
+
+<p>　　<font color="red"><b>所谓的AOP，在struts2中被精巧的实现了，采用的只是最普通的数据结构链表 + 算法(递归)，而且，这里的AOP切面并不是一个而是由一组Interceptor形成的责任链调用模式。</b></font>在传递调用的过程中，当其中的某一个Interceptor没有再调用invocation.invoke()进行回调，而是直接返回 resultCode，那么整个调用过程便提前逆序执行，即后面的Interceptor和栈底的Action不会再被调用执行了，这可以让我们在Interpector中做一些诸如校验工作的时候由于某些原因而让请求调度过程中止退出。</p>
+
+<p>　　由于 Interceptor可以很方便的对被拦截的Action对象的属性进行操作，就像struts2 自带的ParamterInterceptor做的那样对Action对象的属性进行注入，因此我们可以认为 struts2 中的 IOC容器和Interceptor的AOP调用模式共同完成了对Action对象的依赖注入操作（struts2中的IOC容器可以参见我在CSDN中的上一篇博客<a href="http://blog.csdn.net/FcBayernMunchen/article/details/7686385" target="_blank">《struts2源码分析-IOC容器的实现机制（上篇）》</a>）！当然，如果将Action对象托管给spring的IOC容器，那么spring IOC 也参与了Action对象的依赖注入了。</p>
+
+<hr />
+
+
+
+<h2 id="二-java-web-filter">二. Java web Filter</h2>
+
+<p>　　相对于struts2中的拦截器Interceptor在struts2设计中的重要程度而言，Tomcat的过滤器Filter显得低调不少，因为在整个Tomcat的设计核心是连接器Connector和容器Container这两大模块：Connector模块负责建立ServerSocket监听请求，分配线程池中的线程进行处理，并且将原始的Http请求报文内容解析为Request和Respose，然后将控制权转交到 Container模块中去处理了。而 Container 作为抽象的容器，又分别由Engine、Host、Context和Wrapper四大具体的容器来实现，这4大容器之间的父子关系及生命周期的管理，request和response在管道中的传递等才是tomcat设计的重点之一，而 Filter 只是在最后一个的子容器Wrapper中被使用到。<font color="red"><b>因为Wrapper对应一个Servlet的调用，所以在调用Servlet的方法。必须先经过它所关联的过滤器链，其调用方式和 struts2 中的 Interceptor十分类似，都是递归！</b></font></p>
+
+
+
+<pre class="prettyprint"><code class="language-java hljs "><span class="hljs-comment">// 实现了 FilterChain 接口，本身相当于一个 FilterChain</span>
+<span class="hljs-keyword">final</span> class ApplicationFilterChain implements FilterChain, CometFilterChain {  
+   <span class="hljs-javadoc">/** 
+     * Filters. 
+     */</span>  
+    <span class="hljs-keyword">private</span> ApplicationFilterConfig[] filters =   
+        <span class="hljs-keyword">new</span> ApplicationFilterConfig[<span class="hljs-number">0</span>];  
+
+
+    <span class="hljs-javadoc">/** 
+     * The int which is used to maintain the current position  
+     * in the filter chain. 
+     */</span>  
+    <span class="hljs-keyword">private</span> <span class="hljs-keyword">int</span> pos = <span class="hljs-number">0</span>;  
+
+
+    <span class="hljs-javadoc">/** 
+     * The int which gives the current number of filters in the chain. 
+     */</span>  
+    <span class="hljs-keyword">private</span> <span class="hljs-keyword">int</span> n = <span class="hljs-number">0</span>;  
+
+
+    <span class="hljs-javadoc">/** 
+     * The servlet instance to be executed by this chain. 
+     */</span>  
+    <span class="hljs-keyword">private</span> Servlet servlet = <span class="hljs-keyword">null</span>;  
+
+  <span class="hljs-keyword">private</span> <span class="hljs-keyword">void</span> <span class="hljs-title">internalDoFilter</span>(ServletRequest request,   
+                                  ServletResponse response)  
+        <span class="hljs-keyword">throws</span> IOException, ServletException {  
+
+        <span class="hljs-comment">// Call the next filter if there is one  </span>
+        <span class="hljs-keyword">if</span> (pos &lt; n) {  
+            ApplicationFilterConfig filterConfig = filters[pos++];  
+            Filter filter = <span class="hljs-keyword">null</span>;  
+            filter = filterConfig.getFilter();  
+            filter.doFilter(request, response, <span class="hljs-keyword">this</span>);  
+            <span class="hljs-keyword">return</span>;  
+          }  
+       <span class="hljs-comment">// We fell off the end of the chain -- call the servlet instance  </span>
+      servlet.service(request, response);  
+}</code></pre>
+
+<p>　　上面的代码我省略了很多，只贴出核心逻辑部分，可以看出：<font color="red"><b>T   omcat是将过滤器链封装在一个数组中，而if代码块判断的便是是否到达数组底部了，类似于struts2中的 iterator.hasNext()，关键的一行在于 ：filter.doFilter(request, response, this);这里便是一个分水岭，类似于struts2中的invocation.invoke()，而在我们自定义的Filter中通过回调chain.doFilter(request,response) 方法最终又会嵌套调用internalDoFilter方法，这样便形成了 递归，而AOP的拦截点就是servlet中的方法。</b></font>T具体不再详细展开了，总之其算法思想和 struts2 的 Interceptor十分类似。</p>
+
+<hr />
+
+
+
+<h2 id="三-springmvc-interceptor">三. SpringMVC Interceptor</h2>
+
+<p>　　<font color="red"><b>SpringMVC同样也有自身的拦截器设计，这里的拦截器和Spring本身的AOP拦截是两码事，完全不同的实现机制，后者是通过JDK的动态代理或者第三方的字节码生成机制实现的，而SpringMVC中则没那么复杂。</b></font>其执行流程如下图所示：</p>
+
+<p>　　　　　　　　　　　　<img src="http://img.blog.csdn.net/20170711171956527?watermark/2/text/aHR0cDovL2Jsb2cuY3Nkbi5uZXQvanVzdGxvdmV5b3Vf/font/5a6L5L2T/fontsize/400/fill/I0JBQkFCMA==/dissolve/70/gravity/SouthEast" alt="这里写图片描述" title="" /></p>
+
+<p>　　对比struts2的拦截器和tomcat的过滤器实现算法，SpringMVC则是用的最简单的循环调用来达到对Controller方法的前后拦截，之所以循环能实现，是因为它的拦截器接口设计和struts2中的拦截器接口不同，我们来看看 spring mvc中的拦截器接口源码：</p>
+
+
+
+<pre class="prettyprint"><code class="language-java hljs "><span class="hljs-keyword">public</span> <span class="hljs-class"><span class="hljs-keyword">interface</span> <span class="hljs-title">HandlerInterceptor</span> {</span>  
+
+    <span class="hljs-javadoc">/** 
+     * Intercept the execution of a handler. Called after HandlerMapping determined 
+     * an appropriate handler object, but before HandlerAdapter invokes the handler. 
+     * &lt;p&gt;DispatcherServlet processes a handler in an execution chain, consisting 
+     * of any number of interceptors, with the handler itself at the end. 
+     * With this method, each interceptor can decide to abort the execution chain, 
+     * typically sending a HTTP error or writing a custom response. 
+     *<span class="hljs-javadoctag"> @param</span> request current HTTP request 
+     *<span class="hljs-javadoctag"> @param</span> response current HTTP response 
+     *<span class="hljs-javadoctag"> @param</span> handler chosen handler to execute, for type and/or instance evaluation 
+     *<span class="hljs-javadoctag"> @return</span> &lt;code&gt;true&lt;/code&gt; if the execution chain should proceed with the 
+     * next interceptor or the handler itself. Else, DispatcherServlet assumes 
+     * that this interceptor has already dealt with the response itself. 
+     *<span class="hljs-javadoctag"> @throws</span> Exception in case of errors 
+     */</span>  
+     <span class="hljs-comment">// 返回true，则依次调用下一个拦截器或者Handler;返回false，则DispatcherServlet认为当前        </span>
+     <span class="hljs-comment">// interceptor 会处理请求并生成响应，因此不再继续执行</span>
+    <span class="hljs-keyword">boolean</span> preHandle(HttpServletRequest request, HttpServletResponse response, Object handler)  
+        <span class="hljs-keyword">throws</span> Exception;  
+
+    <span class="hljs-javadoc">/** 
+     * Intercept the execution of a handler. Called after HandlerAdapter actually 
+     * invoked the handler, but before the DispatcherServlet renders the view. 
+     * Can expose additional model objects to the view via the given ModelAndView. 
+     * &lt;p&gt;DispatcherServlet processes a handler in an execution chain, consisting 
+     * of any number of interceptors, with the handler itself at the end. 
+     * With this method, each interceptor can post-process an execution, 
+     * getting applied in inverse order of the execution chain. 
+     *<span class="hljs-javadoctag"> @param</span> request current HTTP request 
+     *<span class="hljs-javadoctag"> @param</span> response current HTTP response 
+     *<span class="hljs-javadoctag"> @param</span> handler chosen handler to execute, for type and/or instance examination 
+     *<span class="hljs-javadoctag"> @param</span> modelAndView the &lt;code&gt;ModelAndView&lt;/code&gt; that the handler returned 
+     * (can also be &lt;code&gt;null&lt;/code&gt;) 
+     *<span class="hljs-javadoctag"> @throws</span> Exception in case of errors 
+     */</span>  
+    <span class="hljs-keyword">void</span> postHandle(  
+            HttpServletRequest request, HttpServletResponse response, Object handler, ModelAndView modelAndView)  
+            <span class="hljs-keyword">throws</span> Exception;  
+
+    <span class="hljs-javadoc">/** 
+     * Callback after completion of request processing, that is, after rendering 
+     * the view. Will be called on any outcome of handler execution, thus allows 
+     * for proper resource cleanup. 
+     * &lt;p&gt;Note: Will only be called if this interceptor's &lt;code&gt;preHandle&lt;/code&gt; 
+     * method has successfully completed and returned &lt;code&gt;true&lt;/code&gt;! 
+     * &lt;p&gt;As with the {@code postHandle} method, the method will be invoked on each 
+     * interceptor in the chain in reverse order(逆序), so the first interceptor will be 
+     * the last to be invoked. 
+     *<span class="hljs-javadoctag"> @param</span> request current HTTP request 
+     *<span class="hljs-javadoctag"> @param</span> response current HTTP response 
+     *<span class="hljs-javadoctag"> @param</span> handler chosen handler to execute, for type and/or instance examination 
+     *<span class="hljs-javadoctag"> @param</span> ex exception thrown on handler execution, if any 
+     *<span class="hljs-javadoctag"> @throws</span> Exception in case of errors 
+     */</span>  
+    <span class="hljs-keyword">void</span> afterCompletion(  
+            HttpServletRequest request, HttpServletResponse response, Object handler, Exception ex)  
+            <span class="hljs-keyword">throws</span> Exception;  
+
+}  </code></pre>
+
+<p>　　相比 Struts2的Interceptor接口中只有一个 intercept(Invocation invocation) 方法声明，spring mvc中则有 3个，从名字就可以看的出来 第一个方法是负责拦截点执行之前的代码逻辑，第二个方法是负责拦截点执行之后的代码逻辑，最后一个方法是负责渲染视图之前的代码逻辑，那么我们可以很自然的想象这里肯定是用 两个循环遍历Interceptor来实现前、后拦截，翻开源码一看，确实如此：</p>
+
+
+
+<pre class="prettyprint"><code class="language-java hljs "><span class="hljs-keyword">protected</span>   <span class="hljs-keyword">void</span>  <span class="hljs-title">doDispatch</span>( <span class="hljs-keyword">final</span>  HttpServletRequest request, HttpServletResponse response)  <span class="hljs-keyword">throws</span>  Exception {      
+   HttpServletRequest processedRequest = request;      
+    <span class="hljs-comment">//这是从handlerMapping中得到的执行链      </span>
+    HandlerExecutionChain mappedHandler =  <span class="hljs-keyword">null</span> ;      
+    <span class="hljs-keyword">int</span>  interceptorIndex = - <span class="hljs-number">1</span> ;      
+
+    ........      
+     <span class="hljs-keyword">try</span>  {      
+         <span class="hljs-comment">//我们熟悉的ModelAndView开始出现了。      </span>
+        ModelAndView mv =  <span class="hljs-keyword">null</span> ;      
+         <span class="hljs-keyword">try</span>  {      
+            processedRequest = checkMultipart(request);      
+
+             <span class="hljs-comment">// 这是我们得到handler的过程      </span>
+            mappedHandler = getHandler(processedRequest,  <span class="hljs-keyword">false</span> );      
+             <span class="hljs-keyword">if</span>  (mappedHandler ==  <span class="hljs-keyword">null</span>  || mappedHandler.getHandler() ==  <span class="hljs-keyword">null</span> ) {     
+                noHandlerFound(processedRequest, response);      
+                 <span class="hljs-keyword">return</span> ;      
+            }      
+
+             <span class="hljs-comment">// 这里取出执行链中的 Interceptor进行前处理，顺序调用     </span>
+             <span class="hljs-keyword">if</span>  (mappedHandler.getInterceptors() !=  <span class="hljs-keyword">null</span> ) {      
+                 <span class="hljs-keyword">for</span>  ( <span class="hljs-keyword">int</span>  i =  <span class="hljs-number">0</span> ; i &lt; mappedHandler.getInterceptors().length; i++) {     
+                     HandlerInterceptor interceptor = mappedHandler.getInterceptors()[i];     
+                     <span class="hljs-keyword">if</span>  (!interceptor.preHandle(processedRequest, response, mappedHandler.getHandler())) {     
+                         triggerAfterCompletion(mappedHandler, interceptorIndex, processedRequest, response,  <span class="hljs-keyword">null</span> );     
+                          <span class="hljs-keyword">return</span> ;      
+                    }      
+                    interceptorIndex = i;      
+                }      
+            }      
+
+             <span class="hljs-comment">//1. 在执行handler之前，用 HandlerAdapter先检查一下handler的合法性：是不是按Spring的要求编写的。     </span>
+             HandlerAdapter ha = getHandlerAdapter(mappedHandler.getHandler());     
+               <span class="hljs-number">2.</span>  mv = ha.handle(processedRequest, response, mappedHandler.getHandler());     
+
+             <span class="hljs-comment">//3. 这里取出执行链中的 Interceptor进行后处理，逆序调用   </span>
+             <span class="hljs-keyword">if</span>  (mappedHandler.getInterceptors() !=  <span class="hljs-keyword">null</span> ) {      
+                <span class="hljs-keyword">for</span>  ( <span class="hljs-keyword">int</span>  i = mappedHandler.getInterceptors().length -  <span class="hljs-number">1</span> ; i &gt;=  <span class="hljs-number">0</span> ; i--) {     
+                     HandlerInterceptor interceptor = mappedHandler.getInterceptors()[i];     
+                   interceptor.postHandle(processedRequest, response, mappedHandler.getHandler(), mv);     
+                 }      
+            }      
+        }      
+
+        ........      
+
+         <span class="hljs-comment">// Did the handler return a view to render?      </span>
+        <span class="hljs-comment">//这里对视图生成进行处理      </span>
+         <span class="hljs-keyword">if</span>  (mv !=  <span class="hljs-keyword">null</span>  &amp;&amp; !mv.wasCleared()) {      
+            render(mv, processedRequest, response);      
+        }      
+        .......      
+}      </code></pre>
+
+<p>　　其中的 1、2、3 这三处标出说明了这个处理过程，第2点标注处便是执行了Controller的方法了。需要注意的是，HandlerInterceptor接口中的preHandler方法声明，该方法的返回值为boolean类型，参考注释及代码我们可以知道这里是通过一个标志位来判断拦截器链是否继续往下执行，和struts2中的拦截器及tomcat过滤器有所不同，这也是因为这里用的是循环，而不是递归！下面我们看一个拦截器使用实例，其拦截逻辑是“在未登录前，任何访问url都跳转到login页面；登录成功后跳转至先前的url”，具体代码如下：</p>
+
+
+
+<pre class="prettyprint"><code class="language-java hljs "><span class="hljs-keyword">package</span> com.alibaba.interceptor;  
+
+<span class="hljs-keyword">import</span> javax.servlet.http.HttpServletRequest;  
+<span class="hljs-keyword">import</span> javax.servlet.http.HttpServletResponse;  
+
+<span class="hljs-keyword">import</span> org.slf4j.Logger;  
+<span class="hljs-keyword">import</span> org.slf4j.LoggerFactory;  
+<span class="hljs-keyword">import</span> org.springframework.web.servlet.ModelAndView;  
+<span class="hljs-keyword">import</span> org.springframework.web.servlet.handler.HandlerInterceptorAdapter;  
+
+<span class="hljs-keyword">import</span> com.alibaba.util.RequestUtil;  
+
+<span class="hljs-keyword">public</span> <span class="hljs-class"><span class="hljs-keyword">class</span> <span class="hljs-title">CommonInterceptor</span> <span class="hljs-keyword">extends</span> <span class="hljs-title">HandlerInterceptorAdapter</span>{</span>  
+    <span class="hljs-keyword">private</span> <span class="hljs-keyword">final</span> Logger log = LoggerFactory.getLogger(CommonInterceptor.class);  
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">static</span> <span class="hljs-keyword">final</span> String LAST_PAGE = <span class="hljs-string">"com.alibaba.lastPage"</span>;  
+    <span class="hljs-comment">/* 
+     * 利用正则映射到需要拦截的路径     
+
+    private String mappingURL; 
+
+    public void setMappingURL(String mappingURL) {     
+               this.mappingURL = mappingURL;     
+    }    
+  */</span>  
+    <span class="hljs-javadoc">/**  
+     * 在业务处理器处理请求之前被调用  
+     * 如果返回false  
+     *     从当前的拦截器往回执行所有拦截器的afterCompletion(),再退出拦截器链 
+     * 如果返回true  
+     *    执行下一个拦截器,直到所有的拦截器都执行完毕  
+     *    再执行被拦截的Controller  
+     *    然后进入拦截器链,  
+     *    从最后一个拦截器往回执行所有的postHandle()  
+     *    接着再从最后一个拦截器往回执行所有的afterCompletion()  
+     */</span>    
+    <span class="hljs-annotation">@Override</span>    
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">boolean</span> <span class="hljs-title">preHandle</span>(HttpServletRequest request,    
+            HttpServletResponse response, Object handler) <span class="hljs-keyword">throws</span> Exception {    
+        <span class="hljs-keyword">if</span> (<span class="hljs-string">"GET"</span>.equalsIgnoreCase(request.getMethod())) {  
+            RequestUtil.saveRequest();  
+        }  
+        log.info(<span class="hljs-string">"==============执行顺序: 1、preHandle================"</span>);    
+        String requestUri = request.getRequestURI();  
+        String contextPath = request.getContextPath();  
+        String url = requestUri.substring(contextPath.length());  
+
+        log.info(<span class="hljs-string">"requestUri:"</span>+requestUri);    
+        log.info(<span class="hljs-string">"contextPath:"</span>+contextPath);    
+        log.info(<span class="hljs-string">"url:"</span>+url);    
+
+        String username =  (String)request.getSession().getAttribute(<span class="hljs-string">"user"</span>);   
+        <span class="hljs-keyword">if</span>(username == <span class="hljs-keyword">null</span>){  
+            log.info(<span class="hljs-string">"Interceptor：跳转到login页面！"</span>);  
+            <span class="hljs-comment">// 拦截处理</span>
+            request.getRequestDispatcher(<span class="hljs-string">"/WEB-INF/jsp/login.jsp"</span>).forward(request, response);  
+            <span class="hljs-keyword">return</span> <span class="hljs-keyword">false</span>;  
+        }<span class="hljs-keyword">else</span>  
+            <span class="hljs-keyword">return</span> <span class="hljs-keyword">true</span>;     
+    }    
+
+    <span class="hljs-javadoc">/** 
+     * 在业务处理器处理请求执行完成后,生成视图之前执行的动作    
+     * 可在modelAndView中加入数据，比如当前时间 
+     */</span>  
+    <span class="hljs-annotation">@Override</span>    
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">void</span> <span class="hljs-title">postHandle</span>(HttpServletRequest request,    
+            HttpServletResponse response, Object handler,    
+            ModelAndView modelAndView) <span class="hljs-keyword">throws</span> Exception {     
+        log.info(<span class="hljs-string">"==============执行顺序: 2、postHandle================"</span>);    
+        <span class="hljs-keyword">if</span>(modelAndView != <span class="hljs-keyword">null</span>){  <span class="hljs-comment">//加入当前时间    </span>
+            modelAndView.addObject(<span class="hljs-string">"var"</span>, <span class="hljs-string">"测试postHandle"</span>);    
+        }    
+    }    
+
+    <span class="hljs-javadoc">/**  
+     * 在DispatcherServlet完全处理完请求后被调用,可用于清理资源等   
+     *   
+     * 当有拦截器抛出异常时,会从当前拦截器往回执行所有的拦截器的afterCompletion()  
+     */</span>    
+    <span class="hljs-annotation">@Override</span>    
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">void</span> <span class="hljs-title">afterCompletion</span>(HttpServletRequest request,    
+            HttpServletResponse response, Object handler, Exception ex)    
+            <span class="hljs-keyword">throws</span> Exception {    
+        log.info(<span class="hljs-string">"==============执行顺序: 3、afterCompletion================"</span>);    
+    }    
+}    </code></pre>
+
+<p>　　至于是递归好还是循环好，这里我觉得仁者见仁了：递归方法实现的比较精妙，而循环实现的方式比较浅显易懂。两种不同的实现算法也导致接口设计的不同，如：spring mvc和struts2中的拦截器接口。</p>
+
+<p>　　最后我想总结的是： Struts2中的拦截器拦截的对象是整个Action，这是由Struts2的设计理念决定的，负责请求-响应类的是一个有状态的POJO；而Filter和SrpingMVC中的过滤器拦截的对象是某个方法，负责请求响应类的是一个无状态对象中的某个方法。</p>
+
+<p>　　看来在 Controller层上的设计理念的差异决定了两种MVC框架的不同走向，站在比 框架 更高一层的角度 去学习和总结他们的原理，今后再有其他神马 MVC 框架出来，也都只是浮云而已。</p>
+
+<hr />
+
+
+
+<h2 id="四-小结">四. 小结</h2>
+
+<p>　　无论是JavaWeb Filter、Strurs2 Interceptor 还是 SpringMVC Interceptor，它们都是AOP理念的实现，但具体的实现机制又互不相同：JavaWeb Filter的实现是基于函数回调的，Strurs2 Interceptor是基于代理的，并且二者的接口惊人的相似，都是责任链模式的应用；SpringMVC Interceptor 的实现与SpringAOP几乎没有任何联系，也并非采用责任链模式处理请求，而是通过循环的方式在handler处理请求前后分别调用preHandle()方法和postHandle()方法对请求和响应进行处理。</p>
+
+<hr />
+
+
+
+<h2 id="五-更多">五. 更多</h2>
+
+<p>　　若读者想对Struts2的拦截器机制、AOP理念和责任链模式内涵进行进一步的了解的话，请移步到我的文章<a href="http://blog.csdn.net/justloveyou_/article/details/68489505" target="_blank">《责任链模式综述(基础篇)》</a> 和 <a href="http://blog.csdn.net/justloveyou_/article/details/68491121" target="_blank">《责任链模式进阶：与AOP思想的融合与应用》</a>。</p>
+
+<p>　　若读者想对Struts2的拦截器机制和Filter内涵进行进一步的了解的话，请移步到我的文章<a href="http://blog.csdn.net/justloveyou_/article/details/74936208" target="_blank">《 过滤器(Filter)和拦截器(Interceptor)的区别》</a>。</p>
+
+<hr />
+
+<blockquote>
+  <h2 id="引用">引用</h2>
+  
+  <p><a href="http://blog.csdn.net/fcbayernmunchen/article/details/8441210" target="_blank">《浅谈Struts2拦截器Interceptor的设计原理》</a> <br />
+  <a href="http://blog.csdn.net/xiaodanjava/article/details/32125687" target="_blank">过滤器(Filter)和拦截器(Interceptor)的区别</a> <br />
+  <a href="http://www.cnblogs.com/jianjianyang/p/5009457.html" target="_blank">SpringMVC 拦截器实现原理和登录实现</a></p>
+</blockquote></div>&#13;
+        <script type="text/javascript">&#13;
+            $(function () {&#13;
+                $('pre.prettyprint code').each(function () {&#13;
+                    var lines = $(this).text().split('\n').length;&#13;
+                    var $numbering = $('&lt;ul/&gt;').addClass('pre-numbering').hide();&#13;
+                    $(this).addClass('has-numbering').parent().append($numbering);&#13;
+                    for (i = 1; i &lt;= lines; i++) {&#13;
+                        $numbering.append($('&lt;li/&gt;').text(i));&#13;
+                    };&#13;
+                    $numbering.fadeIn(1700);&#13;
+                });&#13;
+            });&#13;
+        </script>&#13;
+   &#13;

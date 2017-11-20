@@ -1,0 +1,330 @@
+
+                <div class="markdown_views"><h1 id="rabbitmq入门教程-for-java3-publishsubscribe">RabbitMQ入门教程 For Java【3】 - Publish/Subscribe</h1>
+
+<hr/>
+
+<p>我的开发环境： <br/>
+操作系统： Windows7 64bit  <br/>
+开发环境： JDK 1.7 - 1.7.0_55 <br/>
+开发工具： Eclipse Kepler SR2 <br/>
+RabbitMQ版本：  3.6.0 <br/>
+Elang版本： erl7.2.1 <br/>
+关于Windows7下安装RabbitMQ的教程请先在网上找一下，有空我再补安装教程。 <br/>
+源码地址 <br/>
+<a href="https://github.com/chwshuang/rabbitmq.git">https://github.com/chwshuang/rabbitmq.git</a></p>
+
+<hr/>
+
+<hr/>
+
+<pre><code> 在上一章中，我们学习创建了一个消息队列，她的每个任务消息只发送给一个工人。这一章，我们会将同一个任务消息发送给多个工人。这种模式就是“发布/订阅”。
+</code></pre>
+
+<p>为了说明这种模式，我们将以一个日志系统进行讲解：一个日志发送者，两个日志接收者，接收者1可以把这条日志写入到磁盘上，另外一个接收者2可以将这条日志打印到控制台中。</p>
+
+<p>“发布/订阅”模式的基础是将消息广播到所有的接收器上。</p>
+
+<hr/>
+
+
+
+<h2 id="交换器">交换器</h2>
+
+<hr/>
+
+<p>在之前的教程中，我们都是直接在消息队列中进行发送和接收消息，现在开始要介绍RabbitMQ完整的消息模型了。 <br/>
+首先，我们先来回顾一下之前学到关于RabbitMQ的内容：</p>
+
+<ul>
+<li>生产者是发送消息的应用程序</li>
+<li>队列是存储消息的缓冲区</li>
+<li>消费者是接收消息的应用程序</li>
+</ul>
+
+<p>实际上，RabbitMQ中消息传递模型的核心思想是：生产者不直接发送消息到队列。实际的运行环境中，生产者是不知道消息会发送到那个队列上，她只会将消息发送到一个交换器，交换器也像一个生产线，她一边接收生产者发来的消息，另外一边则根据交换规则，将消息放到队列中。交换器必须知道她所接收的消息是什么？它应该被放到那个队列中？它应该被添加到多个队列吗？还是应该丢弃？这些规则都是按照交换器的规则来确定的。 <br/>
+<img src="http://img.blog.csdn.net/20160113173940960" alt="这里写图片描述" title=""/></p>
+
+
+
+<h4 id="交换器的规则有"><strong>交换器的规则有：</strong></h4>
+
+<ul>
+<li>direct      （直连）</li>
+<li>topic       （主题）</li>
+<li>headers  （标题）</li>
+<li>fanout     （分发）也有翻译为扇出的。</li>
+</ul>
+
+<p>我们将使用【fanout】类型创建一个名称为 logs的交换器，</p>
+
+
+
+<pre class="prettyprint"><code class=" hljs avrasm">channel<span class="hljs-preprocessor">.exchangeDeclare</span>(<span class="hljs-string">"logs"</span>, <span class="hljs-string">"fanout"</span>)<span class="hljs-comment">;</span></code></pre>
+
+<p>分发交换器很简单，你通过名称也能想到，她是广播所有的消息，</p>
+
+<blockquote>
+  <p>交换器列表 <br/>
+  通过rabbitmqctl list_exchanges指令列出服务器上所有可用的交换器</p>
+</blockquote>
+
+
+
+<pre class="prettyprint"><code class=" hljs avrasm">$ sudo rabbitmqctl list_exchanges
+Listing exchanges ...
+        direct
+amq<span class="hljs-preprocessor">.direct</span>      direct
+amq<span class="hljs-preprocessor">.fanout</span>      fanout
+amq<span class="hljs-preprocessor">.headers</span>     headers
+amq<span class="hljs-preprocessor">.match</span>       headers
+amq<span class="hljs-preprocessor">.rabbitmq</span><span class="hljs-preprocessor">.log</span>        topic
+amq<span class="hljs-preprocessor">.rabbitmq</span><span class="hljs-preprocessor">.trace</span>      topic
+amq<span class="hljs-preprocessor">.topic</span>       topic
+logs    fanout
+..<span class="hljs-preprocessor">.done</span>.</code></pre>
+
+<blockquote>
+  <p>这个列表里面所有以【amq.*】开头的交换器都是RabbitMQ默认创建的。在生产环境中，可以自己定义。</p>
+  
+  <p><strong>匿名交换器</strong>  <br/>
+     在之前的教程中，我们知道，发送消息到队列时根本没有使用交换器，但是消息也能发送到队列。这是因为RabbitMQ选择了一个空“”字符串的默认交换器。 <br/>
+      来看看我们之前的代码：</p>
+</blockquote>
+
+
+
+<pre class="prettyprint"><code class=" hljs avrasm">channel<span class="hljs-preprocessor">.basicPublish</span>(<span class="hljs-string">""</span>, <span class="hljs-string">"hello"</span>, null, message<span class="hljs-preprocessor">.getBytes</span>())<span class="hljs-comment">;</span></code></pre>
+
+<blockquote>
+  <p>第一个参数就是交换器的名称。如果输入“”空字符串，表示使用默认的匿名交换器。 <br/>
+   第二个参数是【routingKey】路由线索 <br/>
+  <strong>匿名交换器规则：</strong> <br/>
+   发送到routingKey名称对应的队列。</p>
+</blockquote>
+
+<p>现在，我们可以发送消息到交换器中：</p>
+
+
+
+<pre class="prettyprint"><code class=" hljs avrasm">channel<span class="hljs-preprocessor">.basicPublish</span>( <span class="hljs-string">"logs"</span>, <span class="hljs-string">""</span>, null, message<span class="hljs-preprocessor">.getBytes</span>())<span class="hljs-comment">;</span></code></pre>
+
+<hr/>
+
+
+
+<h2 id="临时队列">临时队列</h2>
+
+<hr/>
+
+<p>记得前两章中使用的队列指定的名称吗？（Hello World和task_queue）. <br/>
+如果要在生产者和消费者之间创建一个新的队列，又不想使用原来的队列，临时队列就是为这个场景而生的：</p>
+
+<ol>
+<li>首先，每当我们连接到RabbitMQ，我们需要一个新的空队列，我们可以用一个随机名称来创建，或者说让服务器选择一个随机队列名称给我们。</li>
+<li><p>一旦我们断开消费者，队列应该立即被删除。</p>
+
+<p>在Java客户端，提供queuedeclare()为我们创建一个非持久化、独立、自动删除的队列名称。</p></li>
+</ol>
+
+
+
+<pre class="prettyprint"><code class=" hljs avrasm">String queueName = channel<span class="hljs-preprocessor">.queueDeclare</span>()<span class="hljs-preprocessor">.getQueue</span>()<span class="hljs-comment">;</span></code></pre>
+
+<p>通过上面的代码就能获取到一个随机队列名称。 <br/>
+例如：它可能是：amq.gen-jzty20brgko-hjmujj0wlg。</p>
+
+<hr/>
+
+
+
+<h2 id="绑定">绑定</h2>
+
+<hr/>
+
+<p><img src="http://img.blog.csdn.net/20160113183309831" alt="这里写图片描述" title=""/> <br/>
+如果我们已经创建了一个分发交换器和队列，现在我们就可以就将我们的队列跟交换器进行绑定。</p>
+
+
+
+<pre class="prettyprint"><code class=" hljs avrasm">channel<span class="hljs-preprocessor">.queueBind</span>(queueName, <span class="hljs-string">"logs"</span>, <span class="hljs-string">""</span>)<span class="hljs-comment">;</span></code></pre>
+
+<p>执行完这段代码后，日志交换器会将消息添加到我们的队列中。</p>
+
+<blockquote>
+  <p><strong>绑定列表</strong> <br/>
+  如果要查看绑定列表，可以执行【rabbitmqctl list_bindings】命令</p>
+</blockquote>
+
+<hr/>
+
+
+
+<h2 id="全部代码">全部代码</h2>
+
+<hr/>
+
+<p><img src="http://img.blog.csdn.net/20160113184028068" alt="这里写图片描述" title=""/></p>
+
+
+
+<h3 id="目录">目录</h3>
+
+<p><img src="http://img.blog.csdn.net/20160115113916015" alt="这里写图片描述" title=""/></p>
+
+<p>生产者程序，他负责发送日志消息，与之前不同的是它不是将消息发送到匿名交换器中，而是发送到一个名为【logs】的交换器中。我们提供一个空字符串的routingkey，它的功能被交换器的分发类型代替了。下面是EmitLog.java的代码：</p>
+
+
+
+<pre class="prettyprint"><code class=" hljs java"><span class="hljs-keyword">import</span> com.rabbitmq.client.Channel;
+<span class="hljs-keyword">import</span> com.rabbitmq.client.Connection;
+<span class="hljs-keyword">import</span> com.rabbitmq.client.ConnectionFactory;
+
+<span class="hljs-keyword">public</span> <span class="hljs-class"><span class="hljs-keyword">class</span> <span class="hljs-title">EmitLog</span> {</span>
+
+    <span class="hljs-keyword">private</span> <span class="hljs-keyword">static</span> <span class="hljs-keyword">final</span> String EXCHANGE_NAME = <span class="hljs-string">"logs"</span>;
+
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">static</span> <span class="hljs-keyword">void</span> <span class="hljs-title">main</span>(String[] argv) <span class="hljs-keyword">throws</span> Exception {
+
+        ConnectionFactory factory = <span class="hljs-keyword">new</span> ConnectionFactory();
+        factory.setHost(<span class="hljs-string">"localhost"</span>);
+        Connection connection = factory.newConnection();
+        Channel channel = connection.createChannel();
+
+        channel.exchangeDeclare(EXCHANGE_NAME, <span class="hljs-string">"fanout"</span>);
+
+<span class="hljs-comment">//      分发消息</span>
+        <span class="hljs-keyword">for</span>(<span class="hljs-keyword">int</span> i = <span class="hljs-number">0</span> ; i &lt; <span class="hljs-number">5</span>; i++){
+            String message = <span class="hljs-string">"Hello World! "</span> + i;
+             channel.basicPublish(EXCHANGE_NAME, <span class="hljs-string">""</span>, <span class="hljs-keyword">null</span>, message.getBytes());
+             System.out.println(<span class="hljs-string">" [x] Sent '"</span> + message + <span class="hljs-string">"'"</span>);
+        }
+        channel.close();
+        connection.close();
+    }
+}</code></pre>
+
+<p>上面的代码中，在建立连接后，我们声明了一个交互。如果当前没有队列被绑定到交换器，消息将被丢弃，因为没有消费者监听，这条消息将被丢弃。</p>
+
+<p>下面的代码是接收日志ReceiveLogs1.java 和ReceiveLogs2.java:</p>
+
+
+
+<pre class="prettyprint"><code class=" hljs java"><span class="hljs-keyword">import</span> com.rabbitmq.client.*;
+
+<span class="hljs-keyword">import</span> java.io.IOException;
+
+<span class="hljs-keyword">public</span> <span class="hljs-class"><span class="hljs-keyword">class</span> <span class="hljs-title">ReceiveLogs1</span> {</span>
+    <span class="hljs-keyword">private</span> <span class="hljs-keyword">static</span> <span class="hljs-keyword">final</span> String EXCHANGE_NAME = <span class="hljs-string">"logs"</span>;
+
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">static</span> <span class="hljs-keyword">void</span> <span class="hljs-title">main</span>(String[] argv) <span class="hljs-keyword">throws</span> Exception {
+        ConnectionFactory factory = <span class="hljs-keyword">new</span> ConnectionFactory();
+        factory.setHost(<span class="hljs-string">"localhost"</span>);
+        Connection connection = factory.newConnection();
+        Channel channel = connection.createChannel();
+
+        channel.exchangeDeclare(EXCHANGE_NAME, <span class="hljs-string">"fanout"</span>);
+        String queueName = channel.queueDeclare().getQueue();
+        channel.queueBind(queueName, EXCHANGE_NAME, <span class="hljs-string">""</span>);
+
+        System.out.println(<span class="hljs-string">" [*] Waiting for messages. To exit press CTRL+C"</span>);
+
+        Consumer consumer = <span class="hljs-keyword">new</span> DefaultConsumer(channel) {
+            <span class="hljs-annotation">@Override</span>
+            <span class="hljs-keyword">public</span> <span class="hljs-keyword">void</span> <span class="hljs-title">handleDelivery</span>(String consumerTag, Envelope envelope, AMQP.BasicProperties properties, <span class="hljs-keyword">byte</span>[] body) <span class="hljs-keyword">throws</span> IOException {
+                String message = <span class="hljs-keyword">new</span> String(body, <span class="hljs-string">"UTF-8"</span>);
+                System.out.println(<span class="hljs-string">" [x] Received '"</span> + message + <span class="hljs-string">"'"</span>);
+            }
+        };
+        channel.basicConsume(queueName, <span class="hljs-keyword">true</span>, consumer);
+    }
+}
+</code></pre>
+
+
+
+<pre class="prettyprint"><code class=" hljs java"><span class="hljs-keyword">import</span> com.rabbitmq.client.*;
+
+<span class="hljs-keyword">import</span> java.io.IOException;
+
+<span class="hljs-keyword">public</span> <span class="hljs-class"><span class="hljs-keyword">class</span> <span class="hljs-title">ReceiveLogs1</span> {</span>
+    <span class="hljs-keyword">private</span> <span class="hljs-keyword">static</span> <span class="hljs-keyword">final</span> String EXCHANGE_NAME = <span class="hljs-string">"logs"</span>;
+
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">static</span> <span class="hljs-keyword">void</span> <span class="hljs-title">main</span>(String[] argv) <span class="hljs-keyword">throws</span> Exception {
+        ConnectionFactory factory = <span class="hljs-keyword">new</span> ConnectionFactory();
+        factory.setHost(<span class="hljs-string">"localhost"</span>);
+        Connection connection = factory.newConnection();
+        Channel channel = connection.createChannel();
+
+        channel.exchangeDeclare(EXCHANGE_NAME, <span class="hljs-string">"fanout"</span>);
+        String queueName = channel.queueDeclare().getQueue();
+        channel.queueBind(queueName, EXCHANGE_NAME, <span class="hljs-string">""</span>);
+
+        System.out.println(<span class="hljs-string">" [*] Waiting for messages. To exit press CTRL+C"</span>);
+
+        Consumer consumer = <span class="hljs-keyword">new</span> DefaultConsumer(channel) {
+            <span class="hljs-annotation">@Override</span>
+            <span class="hljs-keyword">public</span> <span class="hljs-keyword">void</span> <span class="hljs-title">handleDelivery</span>(String consumerTag, Envelope envelope, AMQP.BasicProperties properties, <span class="hljs-keyword">byte</span>[] body) <span class="hljs-keyword">throws</span> IOException {
+                String message = <span class="hljs-keyword">new</span> String(body, <span class="hljs-string">"UTF-8"</span>);
+                System.out.println(<span class="hljs-string">" [x] Received '"</span> + message + <span class="hljs-string">"'"</span>);
+            }
+        };
+        channel.basicConsume(queueName, <span class="hljs-keyword">true</span>, consumer);
+    }
+}
+</code></pre>
+
+<hr/>
+
+
+
+<h3 id="运行">运行</h3>
+
+<hr/>
+
+<p>先运行ReceiveLogs1和ReceiveLogs2可以看到日志：</p>
+
+
+
+<pre class="prettyprint"><code class=" hljs vbnet"> [*] Waiting <span class="hljs-keyword">for</span> messages. <span class="hljs-keyword">To</span> <span class="hljs-keyword">exit</span> press CTRL+C</code></pre>
+
+<p>然后运行EmitLog：</p>
+
+
+
+<pre class="prettyprint"><code class=" hljs vbnet">EmitLog日志：
+ [x] Sent <span class="hljs-comment">'Hello World! 0'</span>
+ [x] Sent <span class="hljs-comment">'Hello World! 1'</span>
+ [x] Sent <span class="hljs-comment">'Hello World! 2'</span>
+ [x] Sent <span class="hljs-comment">'Hello World! 3'</span>
+ [x] Sent <span class="hljs-comment">'Hello World! 4'</span>
+
+ReceiveLogs1和ReceiveLogs2日志
+ [*] Waiting <span class="hljs-keyword">for</span> messages. <span class="hljs-keyword">To</span> <span class="hljs-keyword">exit</span> press CTRL+C
+ [x] Received <span class="hljs-comment">'Hello World! 0'</span>
+ [x] Received <span class="hljs-comment">'Hello World! 1'</span>
+ [x] Received <span class="hljs-comment">'Hello World! 2'</span>
+ [x] Received <span class="hljs-comment">'Hello World! 3'</span>
+ [x] Received <span class="hljs-comment">'Hello World! 4'</span></code></pre>
+
+<p>看到这里，说明我们的程序运行正常，消费者通过声明【logs】交换器和【fanout】类型，接收到了来自【logs】交换器的所有消息。</p>
+
+<p>使用【rabbitmqctl list_bindings】命令可以看到两个临时队列的名称</p>
+
+
+
+<pre class="prettyprint"><code class=" hljs r">$ sudo rabbitmqctl list_bindings
+Listing bindings <span class="hljs-keyword">...</span>
+logs    exchange        amq.gen-JzTY20BRgKO-HjmUJj0wLg  queue           []
+logs    exchange        amq.gen-vso0PVvyiRIL2WoV3i48Yg  queue           []
+...done.</code></pre>
+
+<p>以上就是这一章讲的发布/订阅模式，下一章将介绍消息路由（Routing）</p>
+
+<p>本教程所有文章： <br/>
+<a href="http://blog.csdn.net/chwshuang/article/details/50521708">RabbitMQ入门教程 For Java【1】 - Hello World - 你好世界！</a> <br/>
+<a href="http://blog.csdn.net/chwshuang/article/details/50506284">RabbitMQ入门教程 For Java【2】 - Work Queues      - 工作队列</a> <br/>
+<a href="http://blog.csdn.net/chwshuang/article/details/50512057">RabbitMQ入门教程 For Java【3】 - Publish/Subscribe - 发布/订阅</a> <br/>
+<a href="http://blog.csdn.net/chwshuang/article/details/50505060">RabbitMQ入门教程 For Java【4】 - Routing -  消息路由</a> <br/>
+<a href="http://blog.csdn.net/chwshuang/article/details/50516904">RabbitMQ入门教程 For Java【5】 - Topic  -  模糊匹配</a> <br/>
+<a href="http://blog.csdn.net/chwshuang/article/details/50518570">RabbitMQ入门教程 For Java【6】 - Remote procedure call (RPC) - 远程调用</a></p><link rel="stylesheet" href="http://static.blog.csdn.net/public/res-min/markdown_views.css?v=1.0"/></div><link rel="stylesheet" href="http://static.blog.csdn.net/public/res-min/markdown_views.css?v=1.0"/>&#13;
+            

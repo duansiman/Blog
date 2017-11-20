@@ -1,0 +1,235 @@
+
+        <div class="markdown_views"><p>工厂方法模式（Factory Method）:通过对产品类的抽象使其创建业务主要负责用于创建多类产品的实例。</p>
+
+<p>广告是一个公司主要的一个经济来源，这不，很多企业等着要来公司首页打广告呢。</p>
+
+
+
+<h1 id="广告展现">广告展现</h1>
+
+<p>“小白, 咱们新来了一批广告资源需要投放, 关于计算机培训的。一批是 Java的, 用绿色字体。还有一批是PHP的,要用黄色字体,红色背景。”</p>
+
+<p>“没问题, 于是小白准备创建两个类, 然后通过实例对象方式来完成这个需求”。</p>
+
+
+
+<pre class="prettyprint"><code class=" hljs javascript"><span class="hljs-comment">//创建Java学科类</span>
+<span class="hljs-keyword">var</span> Java = <span class="hljs-function"><span class="hljs-keyword">function</span><span class="hljs-params">(content)</span>{</span>
+    <span class="hljs-comment">//将内容保存在content里面以备日后使用</span>
+    <span class="hljs-keyword">this</span>.content = content;
+    <span class="hljs-comment">//创建对象时，通过闭包，直接执行，将内容按需求的样式插入到页面</span>
+    (<span class="hljs-function"><span class="hljs-keyword">function</span><span class="hljs-params">(content)</span>{</span>
+        <span class="hljs-keyword">var</span> div = document.createElement(<span class="hljs-string">'div'</span>);
+        div.innerHTML = content;
+        div.style.color = <span class="hljs-string">'green'</span>;
+        document.getElementById(<span class="hljs-string">"container"</span>).appendChild(div);
+    })(content);
+}
+
+<span class="hljs-comment">//创建PHP学科类</span>
+<span class="hljs-keyword">var</span> Php = <span class="hljs-function"><span class="hljs-keyword">function</span><span class="hljs-params">()</span>{</span>
+    <span class="hljs-keyword">this</span>.content = content;
+    (<span class="hljs-function"><span class="hljs-keyword">function</span><span class="hljs-params">(content)</span>{</span>
+        <span class="hljs-keyword">var</span> div = document.createElement(<span class="hljs-string">'div'</span>);
+        div.innerHTML = content;
+        div.style.color = <span class="hljs-string">'yellow'</span>;
+        div.style.background = <span class="hljs-string">'red'</span>;
+        document.getElementById(<span class="hljs-string">"container"</span>).appendChild(div);
+    })(content);
+}
+</code></pre>
+
+<p>刚写完就听到身后的喊声:“小白,又来了一批广告,关于 JavaScript的,要求背景色粉色……”</p>
+
+<p>好吧,”突然间小白想起昨天学习的简单工厂模式,心想,“正好派上用场了,就用简单工厂模式去实现吧, 这样日后再创建对象直接找工厂就好了 。”</p>
+
+
+
+<pre class="prettyprint"><code class=" hljs javascript"><span class="hljs-comment">//创建Java学科类</span>
+<span class="hljs-keyword">var</span> Java = <span class="hljs-function"><span class="hljs-keyword">function</span><span class="hljs-params">(content)</span>{</span>
+    ..........
+}
+
+<span class="hljs-comment">//创建PHP学科类</span>
+<span class="hljs-keyword">var</span> Php = <span class="hljs-function"><span class="hljs-keyword">function</span><span class="hljs-params">(content)</span>{</span>
+    ..........
+}
+
+<span class="hljs-comment">//创建JavaScript学科</span>
+<span class="hljs-keyword">var</span> JavaScript = <span class="hljs-function"><span class="hljs-keyword">function</span><span class="hljs-params">(content)</span>{</span>
+    <span class="hljs-keyword">this</span>.content = content;
+    (<span class="hljs-function"><span class="hljs-keyword">function</span><span class="hljs-params">(content)</span>{</span>
+        <span class="hljs-keyword">var</span> div = document.createElement(<span class="hljs-string">'div'</span>);
+        div.innerHTML = content;
+        div.style.background = <span class="hljs-string">'pink'</span>;
+        document.getElementById(<span class="hljs-string">"container"</span>).appendChild(div);
+    })(content);
+}
+
+<span class="hljs-comment">//学科类工厂</span>
+<span class="hljs-function"><span class="hljs-keyword">function</span> <span class="hljs-title">JobFactory</span><span class="hljs-params">(type, content)</span>{</span>
+    <span class="hljs-keyword">switch</span>(type){
+        <span class="hljs-keyword">case</span> <span class="hljs-string">'java'</span> :
+            <span class="hljs-keyword">return</span> <span class="hljs-keyword">new</span> Java(content);
+        <span class="hljs-keyword">case</span> <span class="hljs-string">'php'</span> :
+            <span class="hljs-keyword">return</span> <span class="hljs-keyword">new</span> Php(content);
+        <span class="hljs-keyword">case</span> <span class="hljs-string">'JavaScript'</span> :
+            <span class="hljs-keyword">return</span> <span class="hljs-keyword">new</span> JavaScript(content);
+    }
+}</code></pre>
+
+<p>然后写了一个测试案例：</p>
+
+
+
+<pre class="prettyprint"><code class=" hljs scss"><span class="hljs-function">JobFactory(<span class="hljs-string">'JavaScript'</span>, <span class="hljs-string">'JavaScript哪家强'</span>)</span>;</code></pre>
+
+<p>“小白, 又来了一批uI学科, 红色边框……”。</p>
+
+<p>小白沉默了…</p>
+
+
+
+<h1 id="方案的抉择">方案的抉择</h1>
+
+<p>小铭见状走了过来。“怎么了,小白?”</p>
+
+<p>“需求总在变,我不知道哪种解决方式更好,开始需求简单,我就直接创建对象,后来需求多了,我就用简单工厂方法重构,而现在又变了,我不仅仅要添加类,还要修改工厂函数。兩我更担心的是未来的需求还会变……””</p>
+
+<p>“这样呀,”小铭微笑一下,”不用担心,需求变是正常的,而我们还有更好的模式可以应用, 刚才你用简单工厂模式遇到的问题就是每添加一个类就要修改两处是吧, 所以说你可以试用一下工厂方法模式 。这样以后每需要一个类,你只需要添加这个类就行,其他的不用操心了 。”</p>
+
+<p>“工厂方法?这是一个什么样的模式?”</p>
+
+<p>“工厂方法模式本意是说将实际创建对象工作推迟到子类当中。这样核心类就成了抽象类, 不过对于 JavaScript不必这么深究, JavaScript没有像传统创建抽象类那样的方式轻易创建抽象类, 所以在 JavaScript中实现工厂方法模式我们只需要参考它的核心思想即可 。 所以我们可以将工厂方法看作是一个实例化对象的工厂类。安全起见,我们釆用安全模式类,而我们将创建对象的基类放在工厂方法类的原型中即可 。”</p>
+
+
+
+<h1 id="安全模式类">安全模式类</h1>
+
+<p>小白有些不懂,打断小铭的话:“小铭,什么叫安全模式类?你说的我不是很懂,你能详细说明一下么? ”</p>
+
+<p>“安全模式类是说可以屏蔽使用这对类的错误使用造成的错误。 比如对于一个类 (我们暂且称之为 Demo类)的创建,我们知道类的前面是需要有 new关键字的(如 var d= new Demo()),不过如果其他人不知道这个对象(Demo)是一个类, 那么在使用时很可能忽略 new关键字直接执行类(如 var d = Demo();),此时我们得到的并不是我们预期的对象，如下所示</p>
+
+
+
+<pre class="prettyprint"><code class=" hljs javascript"><span class="hljs-keyword">var</span> Demo = <span class="hljs-function"><span class="hljs-keyword">function</span><span class="hljs-params">()</span>{</span>};
+Demo.prototype = {
+    show : <span class="hljs-function"><span class="hljs-keyword">function</span><span class="hljs-params">()</span>{</span>
+        console.log(<span class="hljs-string">'成功获取！'</span>);
+    }
+}
+
+<span class="hljs-keyword">var</span> d = <span class="hljs-keyword">new</span> Demo();
+d.show();<span class="hljs-comment">//成功获取</span>
+<span class="hljs-keyword">var</span> d = Demo();
+d.show();<span class="hljs-comment">//Uncaught TypeError: Cannot read property 'show' of undefined</span>
+</code></pre>
+
+<p>“那么你所说的安全模式就是为了解决这种问题吧 。”</p>
+
+<p>“当然, 这也是避免像你一样的那些新来同学可能犯的错误。 当然解决方案很简单, 就是在构造函数开始时先判断当前对象this指代是不是类(Demo),如果是则通过 new关键字创建对象, 如果不是说明类在全局作用域中执行 (通常情况下) , 那么既然在全局作用域中执行当然this就会指向 window了(通常情况下,如非浏览器环境可为其他全局对象),这样我们就要重新返回新创建的对象了 。”</p>
+
+
+
+<pre class="prettyprint"><code class=" hljs javascript"><span class="hljs-keyword">var</span> Demo = <span class="hljs-function"><span class="hljs-keyword">function</span><span class="hljs-params">()</span>{</span>
+    <span class="hljs-keyword">if</span>(!(<span class="hljs-keyword">this</span> <span class="hljs-keyword">instanceof</span> Demo)){
+        <span class="hljs-keyword">return</span> <span class="hljs-keyword">new</span> Demo();
+    }
+}
+Demo.prototype = {
+    show : <span class="hljs-function"><span class="hljs-keyword">function</span><span class="hljs-params">()</span>{</span>
+        console.log(<span class="hljs-string">'成功获取！'</span>);
+    }
+}
+
+<span class="hljs-keyword">var</span> d = Demo();
+d.show();<span class="hljs-comment">//成功获取</span>
+</code></pre>
+
+<p>“有了安全模式我们就可以将这种技术应用在我们的工厂方法中了 。”</p>
+
+
+
+<h1 id="安全的工厂方法">安全的工厂方法</h1>
+
+
+
+<pre class="prettyprint"><code class=" hljs javascript"><span class="hljs-comment">//安全模式创建的工厂类</span>
+<span class="hljs-keyword">var</span> Factory = <span class="hljs-function"><span class="hljs-keyword">function</span><span class="hljs-params">(type, content)</span>{</span>
+    <span class="hljs-keyword">if</span>(<span class="hljs-keyword">this</span> <span class="hljs-keyword">instanceof</span> Factory){
+        <span class="hljs-keyword">var</span> s = <span class="hljs-keyword">new</span> <span class="hljs-keyword">this</span>[type](content);
+        <span class="hljs-keyword">return</span> s;
+    } <span class="hljs-keyword">else</span> {
+        <span class="hljs-keyword">return</span> <span class="hljs-keyword">new</span> Factory(type, content);
+    }
+}
+<span class="hljs-comment">//工厂原型中设置创建所有类型数据对象的基类</span>
+Factory.prototype = {
+    Java : <span class="hljs-function"><span class="hljs-keyword">function</span><span class="hljs-params">(content)</span>{</span>
+        .....
+    },
+    JavaScript : <span class="hljs-function"><span class="hljs-keyword">function</span><span class="hljs-params">(content)</span>{</span>
+        .....
+    },
+    UI : <span class="hljs-function"><span class="hljs-keyword">function</span><span class="hljs-params">(content)</span>{</span>
+        <span class="hljs-keyword">this</span>.content = content;
+        (<span class="hljs-function"><span class="hljs-keyword">function</span><span class="hljs-params">(content)</span>{</span>
+            <span class="hljs-keyword">var</span> div = document.createElement(<span class="hljs-string">'div'</span>);
+            div.innerHTML = content;
+            div.style.border = <span class="hljs-string">'1px solid red'</span>;
+            document.getElementById(<span class="hljs-string">'container'</span>).appendChild(div);
+        })
+    },
+    php : <span class="hljs-function"><span class="hljs-keyword">function</span><span class="hljs-params">(content)</span>{</span>
+        .....
+    }
+};
+</code></pre>
+
+<p>“这样我们以后如果想添加其他类时,是不是只需写在 Factory 这个工厂类的原型里面就可以了？”</p>
+
+<p>“嗯,是这样,你再也不必担心创建时做任何修改。就好比你在 Factory 类的原型里面注册了一张名片, 以后需要哪类直接拿着这张名片, 査找上面的信息就能找到这个类了, 所以你就不用担心使用时找不到基类的问题了。”</p>
+
+<p>“小白。这里是我们今天要添加广告的数据,给你,现在就给添加上吧。”经理走过来对小白说。</p>
+
+
+
+<pre class="prettyprint"><code class=" hljs lasso"><span class="hljs-built_in">var</span> <span class="hljs-built_in">data</span> <span class="hljs-subst">=</span> <span class="hljs-preprocessor">[</span>
+    {<span class="hljs-keyword">type</span>:<span class="hljs-string">'JavaScript'</span>, content:<span class="hljs-string">'JavaScript哪家强'</span>},
+    {<span class="hljs-keyword">type</span>:<span class="hljs-string">'Java'</span>, content:<span class="hljs-string">'Java哪家强'</span>},
+    {<span class="hljs-keyword">type</span>:<span class="hljs-string">'Php'</span>, content:<span class="hljs-string">'Php哪家强'</span>},
+    {<span class="hljs-keyword">type</span>:<span class="hljs-string">'UI'</span>, content:<span class="hljs-string">'UI哪家强'</span>},
+    {<span class="hljs-keyword">type</span>:<span class="hljs-string">'Java'</span>, content:<span class="hljs-string">'Java哪家强'</span>},
+<span class="hljs-preprocessor">]</span><span class="hljs-markup">;</span></code></pre>
+
+<p>小白接过数据一看, 格式很友好。 于是很快完成了经理提出的需求。</p>
+
+
+
+<pre class="prettyprint"><code class=" hljs haskell"><span class="hljs-title">for</span>(var i = <span class="hljs-number">6</span>; i &gt;=<span class="hljs-number">0</span>; i<span class="hljs-comment">--){</span>
+    <span class="hljs-type">Factory</span>(<span class="hljs-typedef"><span class="hljs-keyword">data</span>[i].<span class="hljs-keyword">type</span>, <span class="hljs-keyword">data</span>[i].content);</span>
+}</code></pre>
+
+<p>“小白,广告那边又来了需求,需要一批C++学科,蓝色字体……”</p>
+
+<p>小白听到,笑了笑。。。。</p>
+
+
+
+<h1 id="回忆">回忆</h1>
+
+<p>对于创建多类对象,前面学过的简单工厂模式就不太适用了,这是简单工厂模式的应用局限, 当然这正是工厂方法模式的价值之所在, 通过工厂方法模式我们可以轻松创建多个类的实例对象, 这样工J一方法对象在创建对象的方式也避免了使用者与对象类之间的耦合, 用户不必关心创建该对象的具体类, 只需调用工厂方法即可。在实践中, 理想与现实总有一线之隔的, 新来的同事很可能错误地直接调用工厂方法, 这样就很有可能通过工厂方法执行中的 this对象为全局对象添加全局变量,并且得不到期望的实样就很有可能通过工厂方法执行中的 this对象为全局对象添加全局变量,并且得不到期望的实例对象, 此时一个安全的工厂对象则让我们吃了一颗定心丸 。</p></div>&#13;
+        <script type="text/javascript">&#13;
+            $(function () {&#13;
+                $('pre.prettyprint code').each(function () {&#13;
+                    var lines = $(this).text().split('\n').length;&#13;
+                    var $numbering = $('&lt;ul/&gt;').addClass('pre-numbering').hide();&#13;
+                    $(this).addClass('has-numbering').parent().append($numbering);&#13;
+                    for (i = 1; i &lt;= lines; i++) {&#13;
+                        $numbering.append($('&lt;li/&gt;').text(i));&#13;
+                    };&#13;
+                    $numbering.fadeIn(1700);&#13;
+                });&#13;
+            });&#13;
+        </script>&#13;
+   &#13;

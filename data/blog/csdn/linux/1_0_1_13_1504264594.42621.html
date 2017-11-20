@@ -1,0 +1,53 @@
+
+                
+<p><span style="font-size:18px">我理解的系统调用就是内核提供的一组用户进程与内核进行交互的接口。除异常和陷入外，系统调用是内核唯一的合法入口。像/proc也是通过系统调用进行访问的。</span></p>&#13;
+<p><span style="font-size:18px"><u><strong>系统调用的意义：</strong></u></span></p>&#13;
+<p/>&#13;
+<ul>&#13;
+<li><span style="font-size:18px">让用户进程受限地访问硬件设备</span></li><li><span style="font-size:18px">为用户空间提供一种硬件的抽象接口</span></li><li><span style="font-size:18px">提供了创建新进程并与已有进程进行通信的机制</span></li><li><span style="font-size:18px">提供了申请操作系统其他资源的能力</span></li><li><span style="font-size:18px">保证系统稳定可靠，避免应用程序恣意妄为</span></li></ul>&#13;
+<div><span style="font-size:18px"><u><strong>系统调用的基本原理：</strong></u></span></div>&#13;
+<div><span style="font-size:18px">系统调用通常的入口是C库中定义的函数，也可以是自定义的函数（通过syscall进行调用）。每个系统调用被赋予一个系统调用号，通过这个独一无二的号就可以关联系统调用。如果一个系统调用被删除，它所占用的系统调用号也不允许被回收利用，否则，以前编译过的代码会调用这个系统调用，但事实上却调用另一个系统调用。内核中用sys_call_table记录所有已注册过的系统调用。</span></div>&#13;
+<div><span style="font-size:18px">既然系统调用要从用户空间切换到内核态，那应用程序是如何通知内核的？软中断。通过引发一个异常来促使系统切换到内核态去执行异常处理程序，不过这里异常处理程序就是系统调用的处理程序。在x86上用int 0x80进行软中断的触发，执行第128号异常处理程序system_call()。</span></div>&#13;
+<div><br/>&#13;
+</div>&#13;
+<div><span style="font-size:18px"><u><strong>系统调用添加过程：</strong></u></span></div>&#13;
+<div>&#13;
+<ul>&#13;
+<li><span style="font-size:18px">实现自定义的系统调用并编译进内核映像，可以放在kernel/sys.c文件中，也可以依据具体功能放在相关的文件中。实现格式如下：</span></li></ul>&#13;
+<div><pre code_snippet_id="389296" snippet_file_name="blog_20140612_1_5304920" name="code" class="cpp">asmlinkage long sys_mysyscall(void)
+{
+    ...
+}</pre><br/>&#13;
+<ul>&#13;
+<li><span style="font-size:18px">在系统调用表（entry.S）的最后加入一个表项，本例中为.long sys_mysyscall，其对应的系统调用号(338)为其在文件中的次序。</span></li><li><span style="font-size:18px">对于所支持的各种体系结构，系统调用号都必须定义于asm/unistd.h中——#define __NR_mysyscall 338。</span></li></ul>&#13;
+<div><span style="font-size:18px"><u><strong>从用户空间访问系统调用</strong></u></span></div>&#13;
+</div>&#13;
+</div>&#13;
+<div><span style="font-size:18px">拿系统调用open()来说，</span></div>&#13;
+<div><span style="font-size:18px">我们可以借助C库，以</span></div>&#13;
+<div><pre code_snippet_id="389296" snippet_file_name="blog_20140612_2_211963" name="code" class="cpp">long open(const char *filename, int flags, int mode);</pre><br/>&#13;
+<span style="font-size:18px">的形式调用此系统调用。也可以不靠库支持:</span></div>&#13;
+<div><pre code_snippet_id="389296" snippet_file_name="blog_20140612_3_975331" name="code" class="cpp">#define NR_open 5
+_syscall3(long, open, const char*, filename, int, flags, int, mode);</pre><br/>&#13;
+<span style="font-size:18px">用宏的方式，这样在我们的程序中，不用引入C头文件，直接使用open()即可。</span></div>&#13;
+<div><span style="font-size:18px"><br/>&#13;
+</span></div>&#13;
+<div><span style="font-size:18px"><u><strong>常用系统调用</strong></u></span></div>&#13;
+<div>&#13;
+<ul>&#13;
+<li><span style="font-size:18px">exec</span></li><li><span style="font-size:18px">fork</span></li><li><span style="font-size:18px">open</span></li><li><span style="font-size:18px">reboot</span></li><li><span style="font-size:18px">getpid</span></li><li><span style="font-size:18px">read</span></li><li><span style="font-size:18px">write</span></li><li><span style="font-size:18px">ioctl</span></li></ul>&#13;
+</div>&#13;
+<div><span style="font-size:18px"><strong><u>与一般函数的区别</u></strong></span></div>&#13;
+<div>&#13;
+<ul>&#13;
+<li><span style="font-size:18px">系统调用由操作系统核心提供，运行于内核状态，而库函数或自定义函数由用户调用，运行于用户态。<br/>&#13;
+</span></li><li><span style="font-size:18px">部分libc库函数的实现借助系统调用（如printf调用了write这样的系统调用），而另一些则不会使用系统调用（如strlen, strcat, memcpy等）。<br/>&#13;
+</span></li></ul>&#13;
+<div><span style="font-size:18px"><br/>&#13;
+</span></div>&#13;
+</div>&#13;
+<div><span style="font-size:18px"><br/>&#13;
+</span></div>&#13;
+<p/>&#13;
+<link rel="stylesheet" href="http://static.blog.csdn.net/public/res-min/markdown_views.css?v=1.0"/>&#13;
+            

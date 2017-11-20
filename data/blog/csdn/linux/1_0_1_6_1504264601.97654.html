@@ -1,0 +1,93 @@
+
+                
+<p><span style="font-size:18px">我个人比较喜欢学习数据结构，而Linux内核中实现的数据结构会是我们去学习、理解和应用数据结构的一个很好途径。这里介绍内核中广泛应用的四种数据结构：链表、队列、映射和二叉树。</span></p>&#13;
+<p><span style="font-size:18px"><br/>&#13;
+</span></p>&#13;
+<p><span style="font-size:18px"><u><strong>链表：</strong></u></span></p>&#13;
+<p><span style="font-size:18px">Linux内核讲求高效精简，所以有时需要我们动态去创建和分配内存，这时就要借助链表，我们根据实际情况分配内存后，只需修改链表的指针，仍能索引到刚分配的内存区。链表分单向链表、双向链表和循环链表。</span></p>&#13;
+<p/>&#13;
+<ul>&#13;
+<li><span style="font-size:18px">单向链表</span></li></ul>&#13;
+<div><pre code_snippet_id="392771" snippet_file_name="blog_20140614_1_2304264" name="code" class="cpp">struct list_element {
+	void *data;
+	struct list_element *next; /* 指向下一个元素的指针 */
+}；</pre><br/>&#13;
+<ul>&#13;
+<li><span style="font-size:18px">双向链表</span></li></ul>&#13;
+<div><pre code_snippet_id="392771" snippet_file_name="blog_20140614_2_9382087" name="code" class="cpp">struct list_element {
+	void *data;
+	struct list_element *next; /* 指向下一个元素的指针 */
+	struct list_element *prev; /* 指向前一个元素的指针 */
+};</pre><br/>&#13;
+<ul>&#13;
+<li><span style="font-size:18px">循环链表</span></li></ul>&#13;
+<div><span style="font-size:18px">链表最后一个元素的next指针不为NULL，而是指向链表首元素。循环链表中也分单向和双向。</span></div>&#13;
+</div>&#13;
+</div>&#13;
+<div><span style="font-size:18px"><img src="http://img.blog.csdn.net/20140614134536921" alt=""/><br/>&#13;
+</span></div>&#13;
+<div><span style="font-size:18px"><br/>&#13;
+</span></div>&#13;
+<div><span style="font-size:18px">因为循环双向链表提供了最大的灵活性（没有具体例子的对比，暂时还看不出来，希望懂的朋友们留下评论:），所以Linux内核的标准链表就是采用循环双向链表。</span></div>&#13;
+<div><span style="font-size:18px">另外，如果需要随机访问数据，一般不使用链表，使用链表的理想情况是需要遍历所有数据或需要动态加入和删除数据时。</span></div>&#13;
+<div><span style="font-size:18px">不过Linux内核中的链表可不像上面例子那样简单和原始，它不是将数据结构塞入链表，而是将链表节点塞入数据结构。</span></div>&#13;
+<div><pre code_snippet_id="392771" snippet_file_name="blog_20140614_3_6666872" name="code" class="cpp">struct list_head {
+	struct list_head *next;
+	struct list_head *prev;
+};</pre><br/>&#13;
+</div>&#13;
+<div><span style="font-size:18px">其实这就是所谓的链表节点，那它是如何塞入数据结构的呢？当然是作为数据结构的成员：</span></div>&#13;
+<div><pre code_snippet_id="392771" snippet_file_name="blog_20140614_4_7331964" name="code" class="cpp">struct fox {
+	unsigned long tail_length;
+	unsigned long weight;
+	bool is_fantastic;
+	struct list_head list;  /* 所有fox结构体形成链表 */
+};</pre><br/>&#13;
+<span style="font-size:18px">也就是list不再是指向一个fox结构体，而是用.next和.prev指向前后两个list_head结构体。真奇怪，这样的话我们需要知道所指向的两个list_head结构体分别属于哪两个fox结构体，这需要借助宏container_of()，这样我们可以找到这个list_head结构体的父结构（也就是所属的fox结构体）中包含的任何变量。为什么要这样构造链表，希望懂的朋友们留下评论:)</span></div>&#13;
+<div><span style="font-size:18px"><br/>&#13;
+</span></div>&#13;
+<div><span style="font-size:18px"><u><strong>队列：</strong></u></span></div>&#13;
+<div><span style="font-size:18px"><img src="http://img.blog.csdn.net/20140614192252437" alt=""/><br/>&#13;
+</span></div>&#13;
+<div><span style="font-size:18px">在内核编程中，我们经常遇到生产者——消费者模型，这时队列是最理想的数据结构，生产者将数据放入队列，消费者则随后取出，先到先得。</span></div>&#13;
+<div><span style="font-size:18px"><br/>&#13;
+</span></div>&#13;
+<div><span style="font-size:18px"><u><strong>映射：</strong></u></span></div>&#13;
+<div><span style="font-size:18px"><u><strong><br/>&#13;
+</strong></u></span></div>&#13;
+<div><span style="font-size:18px">映射指的是一种做法：有一个由唯一键组成的集合，每个键关联一个特定的值，由键得到值得这种关系我们称之为映射。</span></div>&#13;
+<div><span style="font-size:18px">但用什么数据结构来实现，一般采用散列表（Hash）和自平衡二叉搜索树。也许散列表是我们最熟悉的，构造散列函数，输入唯一键，得到对应值。但其实更多的时候采用二叉树，Linux内核就是如此。</span></div>&#13;
+<div><span style="font-size:18px">Linux内核中用idr维护一个自定义的映射，用</span></div>&#13;
+<div><span style="font-size:18px"><br/>&#13;
+</span></div>&#13;
+<div><pre code_snippet_id="392771" snippet_file_name="blog_20140614_5_1236442" name="code" class="cpp">int idr_get_new(struct idr *idp, void *ptr, int *id);</pre><br/>&#13;
+<span style="font-size:18px">将id（键）和ptr（值）的映射注入到idr中。而查找操作如下：</span></div>&#13;
+<div><span style="font-size:18px"><br/>&#13;
+</span></div>&#13;
+<div><pre code_snippet_id="392771" snippet_file_name="blog_20140614_6_7441430" name="code" class="cpp">void *idr_find(struct idr *idp, int id);</pre><br/>&#13;
+<span style="font-size:18px">根据id找到对应的指针ptr。</span></div>&#13;
+<div><span style="font-size:18px"><br/>&#13;
+</span></div>&#13;
+<div><span style="font-size:18px"><u><strong>二叉树：</strong></u></span></div>&#13;
+<div><span style="font-size:18px"><u><strong><br/>&#13;
+</strong></u></span></div>&#13;
+<div><span style="font-size:18px">具体红黑树的介绍参见我的博文</span>&#13;
+<h1 style="margin:0px; padding:0px; display:inline; font-weight:normal; font-size:20px; line-height:30px; font-family:'Microsoft YaHei'; vertical-align:middle">&#13;
+<span class="link_title"><span style="color:#666666"><a target="_blank" href="http://blog.csdn.net/bluecloudmatrix/article/details/22686757">红黑树（RED-BLACK TREES）基本概念</a></span></span></h1>&#13;
+<h1 style="margin:0px; padding:0px; display:inline; font-weight:normal; font-size:20px; line-height:30px; font-family:'Microsoft YaHei'; vertical-align:middle">&#13;
+<span class="link_title"/></h1>&#13;
+</div>&#13;
+<div><span style="font-size:18px">内核中每个i节点都有自己的rbtree，以关联在文件中的页偏移，这是红黑树在Linux中的一个应用。</span></div>&#13;
+<div><span style="font-size:18px"><br/>&#13;
+</span></div>&#13;
+<div><span style="font-size:18px"><br/>&#13;
+</span></div>&#13;
+<div><span style="font-size:18px"><br/>&#13;
+</span></div>&#13;
+<div><span style="font-size:18px"><br/>&#13;
+</span></div>&#13;
+<div><span style="font-size:18px"><br/>&#13;
+</span></div>&#13;
+<p/>&#13;
+<link rel="stylesheet" href="http://static.blog.csdn.net/public/res-min/markdown_views.css?v=1.0"/>&#13;
+            

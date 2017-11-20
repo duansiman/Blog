@@ -1,0 +1,199 @@
+
+
+<div style="text-align:center"><span style="font-family:&quot;Microsoft YaHei&quot;; font-size:24px">架构师入门笔记七 并发框架Disruptor快速入门</span></div>&#13;
+<h1 style="text-align:left"><span style="font-family:&quot;Microsoft YaHei&quot;"><span style="font-size:18px">1. 什么是Disruptor</span></span></h1>&#13;
+<div style="text-align:left"><span style="font-family:&quot;Microsoft YaHei&quot;"><span style="font-size:18px">Disruptor它是一个高性能的异步处理的开源并发框架，能够在无锁的情况下实现网络的Queue并发操作。可以认为是最快的消息框架（轻量的JMS），也可以认为是一个观察者模式的实现，或者事件监听模式的实现。<br />&#13;
+</span></span></div>&#13;
+<div style="text-align:left"><span style="font-family:&quot;Microsoft YaHei&quot;"><span style="font-size:18px"><br />&#13;
+</span></span></div>&#13;
+<h1 style="text-align:left"><span style="font-family:&quot;Microsoft YaHei&quot;"><span style="font-size:18px">2. HelloWorld代码</span></span></h1>&#13;
+<div style="text-align:left"><span style="font-family:&quot;Microsoft YaHei&quot;"><span style="font-size:18px">在生产者-消费者设计模型的中，采用有界队列BlockingQueue作为存储任务的容器，生产者将任务分配给容器，再由容器分配给消费者。Disruptor框架和该模型很相似。区别在于它用一个环形的RingBuffer作为存储任务的容器。消费者是主动从RingBuffer中获取数据而不是等待分配。从某种角度来说，Disruptor框架是升级版的生产者-消费者模型。</span></span></div>&#13;
+<div style="text-align:left"><span style="font-family:&quot;Microsoft YaHei&quot;"><span style="font-size:18px"><br />&#13;
+</span></span></div>&#13;
+<div style="text-align:left"><span style="font-family:&quot;Microsoft YaHei&quot;"><span style="font-size:18px">这里用一段代码学习 Disruptor框架，业务逻辑是把10000以内的数据全部打印出来</span></span></div>&#13;
+<div style="text-align:left"><span style="font-family:&quot;Microsoft YaHei&quot;"><span style="font-size:18px">1） 首先是创建传递数据的Event（Event是从生产者到消费者过程中所处理的数据单元）类，该类是由用户定义。</span></span></div>&#13;
+<div style="text-align:left"><span style="font-family:&quot;Microsoft YaHei&quot;"><span style="font-size:18px"></span></span><pre code_snippet_id="2560443" snippet_file_name="blog_20170901_1_5085356" name="code" class="java">/**
+ * 第一步：创建一个数据单元Event
+ * Event：从生产者到消费者过程中所处理的数据单元
+ *
+ */
+public class MyDataEvent {
+
+	private Long value;
+
+	public Long getValue() {
+		return value;
+	}
+
+	public void setValue(Long value) {
+		this.value = value;
+	}
+
+}</pre></div>&#13;
+<div style="text-align:left"><span style="font-family:&quot;Microsoft YaHei&quot;"><span style="font-size:18px">2）创建一个实例化Event的工厂类</span></span></div>&#13;
+<div style="text-align:left"><span style="font-family:&quot;Microsoft YaHei&quot;"><span style="font-size:18px"></span></span><pre code_snippet_id="2560443" snippet_file_name="blog_20170901_2_4496711" name="code" class="java">import com.lmax.disruptor.EventFactory;
+
+/**
+ * 第二步创建工厂类实例化Event
+ * EventFactory 工厂，用于实例化Event类
+ */
+public class MyDataEventFactory implements EventFactory&lt;MyDataEvent&gt;{
+
+	@Override
+	public MyDataEvent newInstance() {
+		return new MyDataEvent();
+	}
+
+}</pre><span style="font-size:18px">3）创建一个事件处理器，也就是消费者，这里只做数据打印的事件。</span></div>&#13;
+<div style="text-align:left"><span style="font-family:&quot;Microsoft YaHei&quot;"><span style="font-size:18px"></span></span><pre code_snippet_id="2560443" snippet_file_name="blog_20170901_3_8226465" name="code" class="java">import com.lmax.disruptor.EventHandler;
+
+/**
+ * 第三步：消费端
+ * EventHandler：消费者，也可以理解为事件处理器
+ */
+public class MyDataEventHandler implements EventHandler&lt;MyDataEvent&gt;{
+
+	@Override
+	public void onEvent(MyDataEvent myDataEvent, long arg1, boolean arg2)
+			throws Exception {
+		// 处理事件 ....
+		System.out.println("处理事件，打印数据： " + myDataEvent.getValue());
+	}
+
+}</pre></div>&#13;
+<div style="text-align:left"><span style="font-family:&quot;Microsoft YaHei&quot;"><span style="font-size:18px">4）生产者发布事件</span></span></div>&#13;
+<div style="text-align:left"><span style="font-family:&quot;Microsoft YaHei&quot;"><span style="font-size:18px"></span></span><pre code_snippet_id="2560443" snippet_file_name="blog_20170901_4_3559403" name="code" class="java">import com.lmax.disruptor.RingBuffer;
+
+/**
+ * 第四步：生产端
+ * 生产者
+ */
+public class MyDataEventProducer {
+	
+	private final RingBuffer&lt;MyDataEvent&gt; ringBuffer; // 敲黑板！ 很重要的知识点
+
+	public MyDataEventProducer(RingBuffer&lt;MyDataEvent&gt; ringBuffer) {
+		this.ringBuffer = ringBuffer;
+	}
+	
+	/**
+	 * 发布事件，每调用一次就发布一次事件
+     * 它的参数会通过事件传递给消费者
+	 * @param byteBuffer 用 byteBuffer传参 是考虑到 Disruptor 是消息框架，而ByteBuffer又是读取时信道 (SocketChannel)最常用的缓冲区
+	 */
+	public void publishData(ByteBuffer byteBuffer){
+		// RingBuffer 是一个圆环，.next() 方法是获取下一个索引值
+		long sequence = ringBuffer.next();
+		try {
+			// 通过索引值获取其对象
+			MyDataEvent myDataEvent = ringBuffer.get(sequence);
+			// 给数据单元赋值
+			myDataEvent.setValue(byteBuffer.getLong(0)); // byteBuffer 的一个方法，文章中有链接
+		} catch (Exception e) {
+			e.printStackTrace();
+		} finally {
+			// 发布事件，其实就是发布索引 ，发布方法必须放在finally 中，避免出现阻塞情况。
+			ringBuffer.publish(sequence);
+		}
+	}
+
+}</pre>&#13;
+<div style="text-align:left"><span style="font-family:&quot;Microsoft YaHei&quot;"><span style="font-size:18px"><span style="font-family:&quot;Microsoft YaHei&quot;; font-size:18px">注意</span>：</span></span></div>&#13;
+<div style="text-align:left"><span style="font-family:&quot;Microsoft YaHei&quot;"><span style="font-size:18px">发布事件是两个步骤，第一步：先要从RingBuffer获取下一个事件槽（可以理解为索引），第二步再是发送事件。需要注意的是：获取的事件槽，就要发布该事件槽对应的事件。不然会出现混乱的情况。所以发布事件的代码要放在finally中。 java8的写法，文章底部有链接。</span></span></div>&#13;
+<span style="font-size:18px">5）执行的Main方法，打印10000以内的数据</span></div>&#13;
+<div style="text-align:left"><span style="font-family:&quot;Microsoft YaHei&quot;"><span style="font-size:18px"></span></span><pre code_snippet_id="2560443" snippet_file_name="blog_20170901_5_8717616" name="code" class="java">import java.nio.ByteBuffer;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import com.lmax.disruptor.RingBuffer;
+import com.lmax.disruptor.dsl.Disruptor;
+
+public class MyDataEventMain {
+
+	public static void main(String[] args) {
+		// step1 : 创建缓冲池
+		ExecutorService executor = Executors.newCachedThreadPool();
+		// step2 : 创建工厂
+		MyDataEventFactory factory = new MyDataEventFactory();
+		// step3 : 创建bufferSize ,也就是RingBuffer大小，必须是2的N次方
+	 	int ringBufferSize = 1024 * 1024;
+		
+	 	// step4 : 创建disruptor
+	 	Disruptor&lt;MyDataEvent&gt; disruptor = new Disruptor&lt;MyDataEvent&gt;(factory, ringBufferSize, executor);
+	 	
+	 	// step5 : 连接消费事件方法&lt;消费者&gt;
+	 	disruptor.handleEventsWith(new MyDataEventHandler());
+	 	
+	 	// step6 : 启动
+	 	disruptor.start();
+	 	
+	 	RingBuffer&lt;MyDataEvent&gt; ringBuffer = disruptor.getRingBuffer(); // 获取 ringBuffer
+	 	
+	 	// step7 : 生产者发布事件
+	 	MyDataEventProducer producer = new MyDataEventProducer(ringBuffer);
+	 	
+	 	ByteBuffer byteBuffer = ByteBuffer.allocate(128); // 创建一个容量为128字节的ByteBuffer
+	 	
+	 	for (long data = 1; data &lt;= 10000 ; data++) { // 不管是打印100，1000，10000，基本上都是一秒内输出。
+			byteBuffer.putLong(0, data); // 在下标为零的位置存储值
+			producer.publishData(byteBuffer); // 
+		}
+	 	
+	 	disruptor.shutdown(); // 关闭 disruptor，方法会堵塞，直至所有的事件都得到处理；
+		executor.shutdown(); // 关闭 disruptor 使用的线程池；如果需要的话，必须手动关闭， disruptor 在 shutdown 时不会自动关闭；
+	}
+ 	
+}</pre></div>&#13;
+<h1 style="text-align:left"><span style="font-size:18px">3 组件说明</span></h1>&#13;
+<div style="text-align:left"><span style="font-size:18px">从生产者-消费者的整体：</span></div>&#13;
+<div style="text-align:left"><span style="font-size:18px">RingBuffer：环形队列，是Disruptor最为重要的组件，其作用是存储和更新Disruptor中流通的数据。</span></div>&#13;
+<div style="text-align:left"><span style="font-size:18px">Sequence：递增序号（AtomicLong），Disruptor使用Sequence标识一个特殊组件处理的序号。每个重要的组件基本都有一个Sequence。</span></div>&#13;
+<div style="text-align:left"><span style="font-size:18px">Producer：生产者，泛指通过Disruptor发布事件的用户代码（实际业务代码，而并发框架代码）生成Event数据。</span></div>&#13;
+<div style="text-align:left"><span style="font-size:18px">Event：事件，从生产者到消费者过程中的数据单元。由用户定义代码。</span></div>&#13;
+<div style="text-align:left"><span style="font-size:18px">EventHandler：消费者，代表Disruptor框架中的一个消费者接口，由用户实现代码，负责处理Event数据，进度通过Sequence控制。</span></div>&#13;
+<div style="text-align:left"><span style="font-size:18px">（打个比方：<span style="font-size:18px">餐饮店买奶茶</span></span></div>&#13;
+<div style="text-align:left"><span style="font-size:18px">你去餐饮店买奶茶，先要去柜台找服务员点一杯红豆抹茶，</span><span style="font-size:18px">服务员会给你一个55号的排队号，</span><span style="font-size:18px">等到服务员大喊：‘55号，55号’，</span><span style="font-size:18px">于是你就屁颠屁颠的去拿红豆抹茶；</span></div>&#13;
+<div style="text-align:left"><span style="font-size:18px">“<span style="font-size:18px">你去买红豆抹茶</span>” 就是 Producer</span></div>&#13;
+<div style="text-align:left"><span style="font-size:18px">“<span style="font-size:18px">红豆抹茶</span>” 就是 Event</span></div>&#13;
+<div style="text-align:left"><span style="font-size:18px">“<span style="font-size:18px">柜台</span>” 就是 RingBuffer</span></div>&#13;
+<div style="text-align:left"><span style="font-size:18px">“<span style="font-size:18px">55号</span>” 就是 Sequence</span></div>&#13;
+<div style="text-align:left"><span style="font-size:18px">“<span style="font-size:18px">你去拿红豆抹茶</span>” 就是 EventHandler</span><span style="font-size:18px">）</span></div>&#13;
+<div style="text-align:left"><span style="font-size:18px"><br />&#13;
+</span></div>&#13;
+<div style="text-align:left"><span style="font-size:18px">从Disruptor框架如何处理Event的细节：</span></div>&#13;
+<div style="text-align:left"><span style="font-size:18px">Sequecer：Disruptor框架真正的核心，在生产者和消费者直接进行高效准确快速的数据传输。通过复杂的算法去协调生存者和消费者之间的关系。</span></div>&#13;
+<div style="text-align:left"><span style="font-size:18px">SequenceBarrier：Sequecer具体的实施者，字面理解是序号屏障，其目的是决定消费者 消费Evnet的逻辑。（生产者发布事件快于消费，生产者等待。消费速度大于生产者发布事件速度，消费者监听）</span></div>&#13;
+<div style="text-align:left"><span style="font-size:18px">EventProcessor：可以理解为具体的消费线程，最后把结果返回给EventHandler。</span></div>&#13;
+<div style="text-align:left"><span style="font-size:18px">WaitStrategy：</span><span style="font-size:18px">当消费者等待在SequenceBarrier上时，有许多可选的等待策略</span></div>&#13;
+<div>&#13;
+<p style="margin-top:0px; margin-bottom:1em; padding-top:0px; padding-bottom:0px; line-height:35px">&#13;
+</p>&#13;
+<ul>&#13;
+<li><span style="font-size:18px">BusySpinWaitStrategy ： 自旋等待，类似Linux Kernel使用的自旋锁。低延迟但同时对CPU资源的占用也多。</span></li><li><span style="font-size:18px">BlockingWaitStrategy ： 使用锁和条件变量。CPU资源的占用少，延迟大。</span></li><li><span style="font-size:18px">SleepingWaitStrategy ： 在多次循环尝试不成功后，选择让出CPU，等待下次调度，多次调度后仍不成功，尝试前睡眠一个纳秒级别的时间再尝试。这种策略平衡了延迟和CPU资源占用，但延迟不均匀。</span></li><li><span style="font-size:18px">YieldingWaitStrategy ： 在多次循环尝试不成功后，选择让出CPU，等待下次调。平衡了延迟和CPU资源占用，但延迟也比较均匀。</span></li><li><span style="font-size:18px">PhasedBackoffWaitStrategy ： 上面多种策略的综合，CPU资源的占用少，延迟大。</span></li></ul>&#13;
+<p></p>&#13;
+<span style="font-size:18px">（打个比方：</span></div>&#13;
+<div><span style="font-size:18px">柜台的服务员通知某位厨师：“<span style="font-size:18px">55号要一杯红豆抹茶</span>”，然后厨师准备拿机器做奶茶，发现机器都在使用中，于是厨师就盯着机器看，当有空闲的机器就立马占用，做好后就端给客户。如果等了很久都没有空闲的机器，厨师会跟客服员说：“55号的红豆抹茶，<span style="font-size:18px">可能要多等一会</span>”，然后工作人员就和客户协调一下说明情况。</span></div>&#13;
+<div><span style="font-size:18px">“<span style="font-size:18px">服务员</span>” 就是 Sequecer</span></div>&#13;
+<div><span style="font-size:18px">“某位厨师” 就是 SequenceBarrier</span></div>&#13;
+<div><span style="font-size:18px">“用机器做红豆抹茶” 就是 <span style="font-size:18px">EventProcessor</span></span></div>&#13;
+<div><span style="font-size:18px"><span style="font-size:18px">“发现没有空闲机器，厨师监听” 就是 <span style="font-size:18px">WaitStrategy</span></span></span></div>&#13;
+<div><span style="font-size:18px">）</span><br />&#13;
+<br />&#13;
+</div>&#13;
+<div style="text-align:left"><span style="font-family:&quot;Microsoft YaHei&quot;"><span style="font-size:18px">打的比方<span style="font-family:&quot;Microsoft YaHei&quot;; font-size:18px">可能</span>不是很形象。如果不理解的，可以反复的敲打代码，多问问为什么这样写，这样做有什么好处。慢慢的就理解了。</span></span></div>&#13;
+<div style="text-align:left"><span style="font-family:&quot;Microsoft YaHei&quot;"><span style="font-size:18px"><br />&#13;
+</span></span></div>&#13;
+<h1 style="text-align:left"><span style="font-family:&quot;Microsoft YaHei&quot;"><span style="font-size:18px">4 优质博客</span></span></h1>&#13;
+<div style="text-align:left"><span style="font-family:&quot;Microsoft YaHei&quot;"><span style="font-size:18px"><a target="_blank" href="http://ifeve.com/disruptor-getting-started/" style="font-family:&quot;Microsoft YaHei&quot;; font-size:18px">Disruptor入门</a><br />&#13;
+</span></span></div>&#13;
+<div style="text-align:left"><span style="font-family:&quot;Microsoft YaHei&quot;"><span style="font-size:18px"><br />&#13;
+</span></span></div>&#13;
+<div style="text-align:left"><span style="font-family:&quot;Microsoft YaHei&quot;"><span style="font-size:18px">以上边上Disruptor基础知识和相关的代码笔记，方便自己查阅，同时也希望能帮助到读者。下一章Disruptor场景应用。更多干货尽在<a target="_blank" href="http://www.itit123.cn/" style="color:rgb(12,137,207); font-family:&quot;Microsoft YaHei&quot;; font-size:18px">ITDragon博客</a></span></span></div>&#13;
+<div style="text-align:left"><br />&#13;
+</div>&#13;
+<div style="text-align:left"><span style="font-family:&quot;Microsoft YaHei&quot;"><br />&#13;
+</span></div>&#13;
+<div style="text-align:left"><span style="font-family:&quot;Microsoft YaHei&quot;"><span style="font-size:18px"><br />&#13;
+</span></span></div>&#13;
+<div style="text-align:left"><span style="font-family:&quot;Microsoft YaHei&quot;"><span style="font-size:18px"><br />&#13;
+</span></span></div>&#13;
+   &#13;

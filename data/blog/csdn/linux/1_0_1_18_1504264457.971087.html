@@ -1,0 +1,47 @@
+
+
+<p>        为了看懂Linux内核源代码，所以不得不重新学习下汇编语言。汇编语言大体可以分为两个风格，官方的intel风格和unix系列的AT&amp;T风格。Intel风格汇编是比较常见的，一般大学时会学习点基础的（至少我大学时学过点基本指令），这一类代表性的有NASM汇编、as86等（我熟悉的就只有NASM汇编，不过这一类汇编都大同小异），我前面几篇x86汇编xxx其实就是用的NASM汇编。而AT&amp;T风格的汇编是比较少见的（其实也是比较羞涩难懂的），一般只有做Linux开发的才会接触，尤其是做linux&#13;
+ c语言开发的，有时候为了追踪代码，迫不得已编译成汇编来检查（如果在Linux下用C语言开发过的，一定不会忘记编译C语言程序的四个步骤，其中第二步：gcc -S -o test.s test.i 就是编译生成AT&amp;T风格的汇编代码）；</p>&#13;
+<p>        在Linux源代码中有三段汇编代码，第一段是bootsect.s，第二段是setup.s，第三段是head.s  其中前面两个汇编代码都是用Intel风格的as86编写的，最后一个head.s是用AT&amp;T风格的as汇编的。所以为了学习Linux内核代码，只有两种汇编都学习下咯。虽然汇编都是大同小异，但是要命的是这两种风格的汇编指令中源操作数和目的操作数是相反的，搞的头大（晚上看intel汇编，白天看AT&amp;T汇编）。如果有什么不正确之处，希望多多包涵，同时也非常欢迎对一些问题指正。</p>&#13;
+<p>        先来摘抄一段有关intel和AT&amp;T汇编的差异：</p>&#13;
+<p>        1、AT&amp;T语法中立即数前面加一个“$”；寄存器前面加一个百分号“%”；绝对跳转和调用操作数前面要加个“*”，intel汇编中没有限制；例：movl $1, %eax</p>&#13;
+<p>        2、AT&amp;T语法与Intel语法使用的源操作数和目的操作数相反。例：把立即数1传送给eax。Intel：mov eax, 1；   AT&amp;T：movl $1, %eax；</p>&#13;
+<p>        3、AT&amp;T语法中操作符会标明操作数的宽度，movl $1, %eax  标明移动的是long长度类型操作数；如果没有说明,mov $1, %eax 那么会根据目的操作宽度来确定操作范围；在Intel中是不需要在操作符中标明操作数据宽度的；</p>&#13;
+<p>        4、AT&amp;T远跳转/远调用：ljmp/lcall  $section, $offset，Intel的是：jmp/call far section:offset；</p>&#13;
+<p>        以这一段Intel和AT&amp;T汇编差异性来自于赵炯先生的《Linux内核完全注释》</p>&#13;
+<p>   </p>&#13;
+<p>        下面看个完整的hello word汇编代码：</p>&#13;
+<p></p>&#13;
+<pre name="code" class="plain"> .section .data   #数据段定义初始化过的数据
+     outputi:     #ouputi标签代表一个地址，在汇编中标签就是代表地址
+         .ascii "hello word!\n" #.ascii 代表数据类型，如c语言中的int类型，float类型等,这里表示ascii码
+ 
+ .section .bss    #数据段未初始化的数据
+     .lcomm buffer 12 #.lcomm 同样的表示数据类型，comm是通用类型，lcomm是本地通用类型;bss段中的两种数据类型
+ 
+ .section .text   #正式的代码段
+ 
+ .global _start   #定义全局变量_start，如果是gcc编译的这个_start要替换成main
+     _start:      #程序开始的入口,如果上面换成了main，那么这里就也要换成main
+     
+     movl $4, %eax #中断子系统号，这个表示调用打印例程
+     movl $1, %ebx #输出文件描述符号,一般来讲是显示器。0==stdin,1==stdout,2==stderr
+     movl $outputi, %ecx #这是把地址加载到ecx寄存器中，因为outputi是地址，相对于立即数
+     movl $13, %edx #13代表了要打印的字符串个数，如果不控制会越界
+     int $0x80      #调用中断
+ 
+     movl $1, %eax  #中断子系统号，代表exit
+     movl $0, %ebx  #正确返回
+     int $0x80      #调用中断
+ </pre>        下载gcc（gcc软件包里面包含了很多其他命令）就可以编译了，命令: as -o test.o test.s；ld -o test test.o；然后执行test：./test；就可以打印hello word了。&#13;
+<p></p>&#13;
+<p>        总结：上面就是一个AT&amp;T汇编的整体框架，虽然bss段没有用到，但为了说明一个完整的框架，就把bss数据也加进来。可以看出整个框架：</p>&#13;
+<p>        .section .data   xxx  # 定义初始化数据区</p>&#13;
+<p>        .section .bss    xxx  #定义未初始化数据区</p>&#13;
+<p>        .section .text    xxx  #定义代码段</p>&#13;
+<p>.global _start                  #这是固定写法，用ld链接的话会找start标识符，但如果用gcc编译链接的话会找main标识符；注意一定要定义全局的；</p>&#13;
+<p>        _start:                     #程序入口后面就是程序的设计了</p>&#13;
+<p>        转载请注明作者和原文出处，原文地址：<a target="_blank" href="http://blog.csdn.net/yuzhihui_no1/article/details/42527189">http://blog.csdn.net/yuzhihui_no1/article/details/42527189</a></p>&#13;
+<p><br />&#13;
+</p>&#13;
+   &#13;

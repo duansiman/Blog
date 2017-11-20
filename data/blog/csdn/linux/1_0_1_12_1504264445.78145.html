@@ -1,0 +1,87 @@
+
+
+<p>        本篇blog只给几个例题来进行快速学习内嵌as汇编。</p>&#13;
+<p>        第一、输入参数中包含输出参数</p>&#13;
+<p></p>&#13;
+<pre name="code" class="cpp"> #include&lt;stdio.h&gt;
+ 
+ int main(void)
+ {
+     char string1[]={"this is yzh test code!"};
+     int len = 25; 
+     char string2[30]= {'\0'};
+     //asm volatile(
+     asm (
+             "rep movsb"
+             :   
+             :"S"(string1), "D"(string2), "c"(len)
+             );  
+     printf("%s\n",string2);
+     return 0;
+ }</pre>        例题中的S和D分别表示esi和edi，c为ecx（可以参考上一篇约束代码表），其实这里的内嵌汇编所要表达的是：ds:esi  === &gt;&gt;  es:edi，利用rep movsb配合ecx循环的把ds:esi位置上的数据搬运到es:edi上；所以edi作为输入参数同时也是输出参数，那么输出位置只需要：就可以了。<br />&#13;
+<br />&#13;
+<p></p>&#13;
+<p>        第二、利用占位符替代输入输出寄存器</p>&#13;
+<p></p>&#13;
+<pre name="code" class="cpp"> #include&lt;stdio.h&gt;
+ 
+ int main(void)
+ {
+     int data1 = 10; 
+     int data2 = 20; 
+     int result;
+     asm(
+         "imull %1, %2\n\t"
+         "movl %2, %0\n\t"
+         :"=r"(result)
+         :"r"(data1),"r"(data2)
+        );  
+     printf("the answord is :%d\n", result);
+     return 0;
+ }</pre>        其中%0代表的是与result相对应的寄存器（其中有个约束码为r，表示任何可用的通用寄存器），同理，1%表示的是data1所对应的寄存器，2%表示的是data2所对应的寄存器。在汇编程序中可以直接使用0%来表示result（中间还有个寄存器作为桥梁）。&#13;
+<p></p>&#13;
+<p><br />&#13;
+</p>&#13;
+<p>        第三、引用占位符</p>&#13;
+<p></p>&#13;
+<pre name="code" class="cpp"> #include&lt;stdio.h&gt;
+ 
+ int main(void)
+ {
+     int data1 = 10; 
+     int data2 = 20; 
+     int result;
+     asm(
+         "imull %1, %0\n\t"
+         :"=r"(result)
+         :"r"(data1),"0"(data2)
+        );  
+     printf("the answord is :%d\n", result);
+     return 0;
+ }</pre>        这个例子和上一个“利用占位符替代输入输出寄存器”相似，但是为了节约寄存器，第二个输入寄存器引用了输出寄存器，假设输出寄存器为eax，那么第二个输入寄存器也是使用eax，即是data2 == eax == result。（    “0”(data2) == 引用了第一个寄存器（"=r"(result)）   ）&#13;
+<p></p>&#13;
+<p>  </p>&#13;
+<p>        第四、改变过的寄存器列表</p>&#13;
+<p></p>&#13;
+<pre name="code" class="cpp"> #include&lt;stdio.h&gt;
+ 
+ int main()
+ {
+	int data1 = 10;
+	int result = 20;
+	
+	asm {
+		"movl %1,%%eax\n\t"
+		"addl %%eax,%0"
+		:"=r"(result)
+		:"r"(data1),"0"(result)
+		:"%eax"
+	};
+	printf("The result is %d\n", result);
+	return 0;
+ }</pre>        内联汇编使用过的寄存器，可能是输入值寄存器，可能是输出值寄存器，要不就一定要罗列在改变过寄存器列表中（比如：上面的eax）。其实改变过的寄存器列表只是为了提醒编译器：某些寄存器已经在内嵌汇编中改变过，后面编译C代码生成的汇编中要小心使用这些寄存器。<br />&#13;
+        转载请注明作者和原文出处，原文地址：<a target="_blank" href="http://blog.csdn.net/yuzhihui_no1/article/details/42712297">http://blog.csdn.net/yuzhihui_no1/article/details/42712297</a>&#13;
+<p></p>&#13;
+<p><br />&#13;
+</p>&#13;
+   &#13;

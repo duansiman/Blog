@@ -1,0 +1,29 @@
+
+                <div class="markdown_views"><p>BIOS在内存最开始的位置构建中断向量表，紧接着是BIOS数据区，此外还要有与中断向量表相应的中断服务程序。我们正是利用这些中断服务程序把内核加载到内存中。 <br/>
+中断是操作系统里的一个意义重大的概念，是一个技术手段。</p>
+
+
+
+<h2 id="加载内核程序并为保护模式做准备">加载内核程序并为保护模式做准备</h2>
+
+<p>对于Linux 0.11来说，计算机将分三批次逐次加载操作系统的内核代码，第一批由BIOS中断 int 0x19 把第一扇区 bootsect 的内容加载到内存；第二批、第三批在bootsect的指挥下，分别把其后的4个扇区和随后的240个扇区的内容加载至内存。</p>
+
+<p>先来看一下 int 0x19 指向的中断服务程序 —— “启动加载服务程序”。首先这个程序是BIOS事先设计好的，代码是固定的，与操作系统无关，<strong>它的目的就是找到软盘并加载第一扇区</strong>。 <br/>
+所以BIOS是独立于操作系统的。</p>
+
+<p>接着就是将第一扇区加载到内存 0x07C00 的位置，操作系统出现了。 <br/>
+这个扇区里存放的是 Linux 0.11 的引导程序（俗称bootloader）。</p>
+
+<blockquote>
+  <p>这里要区分一下：BIOS和bootloader是不同的。BIOS之后，bootloader开始工作。在PC上bootloader分为两部分：第一阶段引导程序位于主引导记录（MBR），用以引导位于某个分区上的第二阶段引导程序，如NTLDR、BOOTMGR和GNU <br/>
+  GRUB等。所以我们经常见到的grub就属于bootloader，当然它不是BIOS。 <br/>
+  在ARM板移植时，我们通常会对uboot进行裁剪，使得这个板子拥有合适的bootloader，但与PC不同的是，对于嵌入式Linux来说，并没有BIOS，而是直接从flash中运行bootloader，然后装载内核，所以省去了BIOS。</p>
+</blockquote>
+
+<p>于是第一扇区就称为启动扇区（boot sector）。第一扇区的载入，标志着 Linux 0.11 中的代码即将发挥作用。第一扇区中的代码是汇编程序 bootsect.s ，这是计算机开机以来，内存中第一次有了 linux 操作系统自己的代码，虽然只是启动代码。</p>
+
+<p>到目前流程是这样的：  <br/>
+开机——BIOS——bootsect.s</p>
+
+<p>对BIOS开发人员来说，他们只需要做到：接到启动操作系统的命令后，只从启动扇区把代码加载到0x07C00位置，至于这个扇区中存放的是不是操作系统的引导程序，则不管，将责任推给用户。也就是说用户要确保正确安装了操作系统。而操作系统的设计者必须把最开始执行的程序“定位”在启动扇区，其余的程序则可以根据具体的操作系统而有不同的设计。</p><link rel="stylesheet" href="http://static.blog.csdn.net/public/res-min/markdown_views.css?v=1.0"/></div><link rel="stylesheet" href="http://static.blog.csdn.net/public/res-min/markdown_views.css?v=1.0"/>&#13;
+            

@@ -1,0 +1,152 @@
+
+        <div class="markdown_views"><p>前面说到要做linux底层开发或者编写Linux的驱动，必须建立内核源码树，之前我们提到过在本机上<a href="http://blog.csdn.net/gatieme/article/details/44961475">构建源码树—-Linux内核剖析（三）</a>，其建立的源码树是针对i686平台的，但是我么嵌入式系统用的是arm平台，这就需要我们为arm板交叉构建一份板子可用的内核源码树。</p>
+
+<p>首先下载与你嵌入式系统平台版本号一致的linux内核，我的版本为2.6.35，当然如果你使用的是之前做好的板子，那么内核源码可能已经有了 <br />
+我们解压缩我们的内核源码，并进入到内核源码的根目录</p>
+
+
+
+<pre class="prettyprint"><code class=" hljs avrasm">tar -jxvf linux-<span class="hljs-number">2.6</span><span class="hljs-number">.35</span><span class="hljs-preprocessor">.tar</span><span class="hljs-preprocessor">.bz</span>2
+cd linux-<span class="hljs-number">2.6</span><span class="hljs-number">.35</span></code></pre>
+
+<p>然后执行<code>make mrproper</code> 命令，该命令确保源代码目录下没有不正确的.o文件以及文件的互相依赖。</p>
+
+<p>因为我是为arm平台编译内核，需要用到交叉编译工具（可从<a href="ftp://ftp.arm.linux.org.uk/pub/armlinux/toolchain">ftp://ftp.arm.linux.org.uk/pub/armlinux/toolchain</a>站点下载）。</p>
+
+
+
+<h1 id="清理垃圾文件非必须">清理垃圾文件(非必须)</h1>
+
+<hr />
+
+<p>Linux下面去编译项目之前，一般常会用make mrproper去先删除之前编译所生成的文件和配置文件，备份文件等，其中，mrproper和distclean，clean之间的区别，Linux内核源码根目录下面的makefile中，有很清晰的解释：</p>
+
+
+
+<pre class="prettyprint"><code class="language-cpp hljs ">help:
+ @echo  <span class="hljs-string">'Cleaning targets:'</span>
+ @echo  <span class="hljs-string">'  clean    - Remove most generated files but keep the config and'</span>
+ @echo  <span class="hljs-string">'                    enough build support to build external modules'</span>
+ @echo  <span class="hljs-string">'  mrproper   - Remove all generated files + config + various backup files'</span>
+
+ @echo  <span class="hljs-string">'  distclean   - mrproper + remove editor backup and patch files'</span></code></pre>
+
+<p>mrproper到底是什么意思呢？为什么起了个这么个看起来如此诡异的名字。</p>
+
+<p>在英文wiki对Mr. Clean的解释提到了此点；</p>
+
+<p><a href="http://en.wikipedia.org/wiki/Mr._Clean">http://en.wikipedia.org/wiki/Mr._Clean</a></p>
+
+
+
+<pre class="prettyprint"><code class="language-cpp hljs ">  <span class="hljs-string">"make mrproper"</span> is a command in the Linux kernel build system, used to <span class="hljs-string">"clean up"</span> all files from past builds and restore the build directory to its original clean state. The reason <span class="hljs-string">"make mrproper"</span> is used instead of <span class="hljs-string">"make mrclean"</span> is because Linus Torvalds, the father of Linux, was familiar with the name <span class="hljs-string">"Mr. Proper"</span> as <span class="hljs-keyword">this</span> is the brand widely known in Europe.<span class="hljs-string">"</span></code></pre>
+
+<p>总的来说，就是：首先，我们要知道的是make mrproper想要做的事情是，清理旧的编译生成的文件及其他配置等文件，所以，相当于Clean，即我们在现实世界中用清洁剂去清洁卫生，清理旧的，不再需要的，脏东西。而现实世界中，保洁（P&amp;G）公司的，有一个清洁产品方面的品牌，在美国叫做Mr.Clean，在欧洲叫做Mr.Proper，所以编译之前的清理旧东西的命令，原先是用的make mrclean,即make Mr.Clean。只是后来被Linux之父Linus Torvalds改成了make mrproper,即make Mr.Proper。所以，现在就变成了用make mrproper来清理之前的东西了。</p>
+
+<p>看帮助可以发现删除的文件范围从小到大依次为: </p>
+
+<pre class="prettyprint"><code class="language-cpp hljs ">make clean &lt; make mrproper &lt; make distclean</code></pre>
+
+<p>查看源码目录树的顶层目录下的Makefile求证， 可以发现， 执行make mrproper， 会先执行make clean， 执行make distclean之前， 会先执行make mrproper。</p>
+
+<p>再回到make help的结果：</p>
+
+
+
+<pre class="prettyprint"><code class="language-cpp hljs ">make clean      删除大多数的编译生成文件， 但是会保留内核的配置文件.config， 还有足够的编译支持来建立扩展模块
+make mrproper   删除所有的编译生成文件， 还有内核配置文件， 再加上各种备份文件,所以几乎只在第一次执行内核编译前才用这条命令
+make distclean  mrproper删除的文件， 加上编辑备份文件和一些补丁文件。</code></pre>
+
+<h1 id="修改makefile">修改makefile</h1>
+
+<hr />
+
+<p>配置内核之前还要修改内核最上层目录下的Makefile（linux-2.6.35/Makefile) <br />
+把文件中的<code>ARCH ?= $(SUBARCH)</code> 改为 <code>ARCH =arm</code>  <br />
+把<code>CROSS_COMPILE ?=</code> 改为<code>CROSS_COMPILE   =arm-linux-</code></p>
+
+<p><img src="http://img.blog.csdn.net/20151001171922891" alt="这里写图片描述" title="" /></p>
+
+
+
+<h1 id="配置内核config">配置内核config</h1>
+
+<hr />
+
+<p>接着就是配置内核，可以使用下面命令中的一个：</p>
+
+
+
+<pre class="prettyprint"><code class=" hljs go"><span class="hljs-built_in">make</span> config(基于文本的最为传统的配置界面，不推荐使用）
+<span class="hljs-built_in">make</span> menuconfig（基于文本菜单的配置界面, 字符终端下推荐使用）
+<span class="hljs-built_in">make</span> xconfig（基于图形窗口模式的配置界面，Xwindow下推荐使用,要求QT被安装）
+<span class="hljs-built_in">make</span> gconfig（要求GTK+被安装）
+<span class="hljs-built_in">make</span> oldconfig（如果只想在原来内核配置的基础上修改一些小地方，会省去不少麻烦）
+<span class="hljs-built_in">make</span> defconfig (使用源码中默认的config配置)</code></pre>
+
+<p>目的都是生成一个.config文件,</p>
+
+<blockquote>
+  <p>注意：使用make menuconfig 需要安装ncurses( sudo apt-get install ncurses-dev)</p>
+  
+  <p>注意：如果要用make xconfig，则要先安装libqt3-compat-headers( sudo apt-get install libqt3-compat-headers)</p>
+</blockquote>
+
+<p>其中，make xconfig的界面最为友好，如果你可以使用Xwindow，你就用这个好了，这个比较方便，也好设置。如果你不能使用Xwindow，那么就使用make</p>
+
+<p>menuconfig好了。界面虽然比上面一个差点，总比make config的要好多了。 选择相应的配置时，有三种选择，它们分别代表的含义如下：</p>
+
+<p>一直以为make oldconfig的作用是将利用当前的.config覆盖defconfig，从而使下次运行make config/menuconfig时的缺省设置成为当前.config的设置，今天发现是个错误，需要澄清：</p>
+
+<ol>
+<li><p>如果.config不存在，运行make config/menuconfig时的缺省设置由固化在各个Kconfig文件中各项目的缺省值决定。</p></li>
+<li><p>如果.config存在，运行make config/menuconfig时的缺省设置即是当前.config的设置，若对设置进行了修改,.config将被更新。</p></li>
+<li><p>arch/arm/defconfig是一个缺省的配置文件，make defconfig时会根据这个文件生成当前的.config。</p></li>
+<li><p>arch/arm/configs文件夹中有许多命名为xxx_defconfig的配置文件，如果运行make xxx_defconfig，当前.config文件会由xxx_defconfig文件生成。</p></li>
+<li><p>make oldconfig的作用是备份当前.config文件为.config.old，如若make config/menuconfig设置不当可用于恢复先前的.config。</p></li>
+</ol>
+
+<p>配置内容可参考相关文献。</p>
+
+
+
+<h1 id="编译内核镜像">编译内核镜像</h1>
+
+<hr />
+
+<p>第三步：配置过内核之后，就可以进行编译了。执行以下命令中的一种：</p>
+
+
+
+<pre class="prettyprint"><code class=" hljs go"><span class="hljs-built_in">make</span> （生成一个压缩的内核影像）
+<span class="hljs-built_in">make</span> bzImage（生成一个使用gzip压缩的内核）</code></pre>
+
+<p><img src="http://img.blog.csdn.net/20151001172315098" alt="这里写图片描述" title="" /></p>
+
+
+
+<h1 id="安装内核模块">安装内核模块</h1>
+
+<hr />
+
+<p>执行<code>make modules</code>（编译在内核配置时选中的模块）在此过程中可能会遇到某些模块不能编译通过，把相应模块去除再执行<code>make modules_install</code> 安装内核</p>
+
+<p>安装的内核在/lib/modules/2.6.35里。</p>
+
+<p>至此，针对arm平台的内核树安装完成。</p>
+
+<p>内核最上层的makefile在内核编译过程中起了决定性的作用，在编译过程中遇到的许多问题都可以在里面得到解决的思路，希望大家多看看。</p></div>&#13;
+        <script type="text/javascript">&#13;
+            $(function () {&#13;
+                $('pre.prettyprint code').each(function () {&#13;
+                    var lines = $(this).text().split('\n').length;&#13;
+                    var $numbering = $('&lt;ul/&gt;').addClass('pre-numbering').hide();&#13;
+                    $(this).addClass('has-numbering').parent().append($numbering);&#13;
+                    for (i = 1; i &lt;= lines; i++) {&#13;
+                        $numbering.append($('&lt;li/&gt;').text(i));&#13;
+                    };&#13;
+                    $numbering.fadeIn(1700);&#13;
+                });&#13;
+            });&#13;
+        </script>&#13;
+   &#13;

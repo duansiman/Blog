@@ -1,0 +1,291 @@
+
+
+<h3>迭代器模式</h3>&#13;
+<p>提供一个方法顺序访问一个聚合对象的各个元素，而又不需要暴露该对象的内部表示。</p>&#13;
+<p> </p>&#13;
+<p></p><pre code_snippet_id="149762" snippet_file_name="blog_20140109_1_7693181" name="code" class="java">package com.ruishenh.designPatter.action.iterator;
+ 
+import java.util.ArrayList;
+import java.util.List;
+ 
+public class IteratorClient {
+   public static void main(String[] args) {
+      ICollection&lt;Module&gt; list=new Collection&lt;Module&gt;();
+      list.add(new  Module(1,"h1"));
+      list.add(new  Module(2,"h2"));
+      list.add(new  Module(3,"h3"));
+      Iterator&lt;Module&gt; moduls=list.iterator();
+      while(moduls.hasNext()){
+        Module m=moduls.next();
+        System.out.println(m.toString());
+      }
+     
+   }
+}
+ 
+//迭代器
+interface Iterator&lt;T&gt;{
+  
+   boolean hasNext();
+  
+   T next();
+}
+//组合器
+interface IAssembler&lt;T&gt;{
+  
+   boolean add(T t);
+  
+   boolean remove(T t);
+  
+}
+//容器角色
+interface ICollection&lt;T&gt; extends IAssembler&lt;T&gt;{
+   Iterator&lt;T&gt;  iterator();
+}
+//具体容器角色
+class Collection&lt;T&gt; implements ICollection&lt;T&gt;{
+  
+   private List&lt;T&gt; list;
+  
+   @Override
+   public Iterator&lt;T&gt; iterator() {
+      return new ContretelIterator&lt;T&gt;(this.list);
+   }
+   @Override
+   public boolean add(T t) {
+      if (list==null) {
+        list=new ArrayList&lt;T&gt;();
+      }
+      return list.add(t);
+   }
+ 
+   @Override
+   public boolean remove(T t) {
+      return list.remove(t);
+   }
+  
+}
+//具体迭代器角色
+class ContretelIterator&lt;T&gt; implements Iterator&lt;T&gt;{
+  
+   private transient List&lt;T&gt; list;
+  
+   public ContretelIterator(List&lt;T&gt; list){
+      this.list=list;
+   }
+    
+   int cursor = 0;
+  
+   @Override
+   public boolean hasNext() {
+      return cursor!=list.size();
+   }
+ 
+   @Override
+   public T next() {
+      return list.get(cursor++);
+   }
+}
+class Module{
+   public Module(int id,String name){this.id=id;this.name=name;}
+   int id;
+   String name;
+   public int getId() {
+      return id;
+   }
+   public void setId(int id) {
+      this.id = id;
+   }
+   public String getName() {
+      return name;
+   }
+   public void setName(String name) {
+      this.name = name;
+   }
+   @Override
+   public String toString() {
+      return "id:"+id+",name:"+name;
+   }
+  
+}</pre><br />&#13;
+<br />&#13;
+&#13;
+<p>迭代器模式核心任务把数据实体的操作和生成分离开来，容器负责产生对应的数据，迭代器负责把集合返回用户来一个个操作。</p>&#13;
+<p> </p>&#13;
+<h3>观察者模式</h3>&#13;
+<p>定义对象间一对多的依赖关系，当一个对象的状态发生改变时，所有依赖于它的对象都得到通知自动更新。</p>&#13;
+<p> </p>&#13;
+<p></p><pre code_snippet_id="149762" snippet_file_name="blog_20140109_2_9056384" name="code" class="java">package com.ruishenh.designPatter.action.observer;
+ 
+import java.util.ArrayList;
+import java.util.List;
+ 
+ 
+public class ObserverClient {
+   public static void main(String[] args) {
+      //初始化容器，安装核心程序
+      Container&lt;IDependent&lt;ICore&gt;,ICore&gt; container=new Container&lt;IDependent&lt;ICore&gt;, ICore&gt;(new Wash());
+     
+      //容器注册设备1
+      App1 a1=new App1();
+      container.add(a1);
+     
+      //容器注册设备1
+      App2 a2=new App2();
+      container.add(a2);
+      //设备工作
+      a1.function();
+      a2.function();
+     
+      //更新核心程序
+      container.upgrade(new Clear());
+     
+      //设备工作
+      a1.function();
+      a2.function();
+ 
+   }
+ 
+}
+//约定更新接口
+interface IDependent&lt;E&gt;{
+   void update(E e,String msg);
+   void setCore(E e,String msg);
+}
+//核心包功能包
+interface ICore{
+   void function();
+}
+class Wash implements ICore{
+   @Override
+   public void function() {
+      System.out.println("洗衣服......");
+   }
+}
+class Clear implements ICore{
+   @Override
+   public void function() {
+      System.out.println("清除垃圾......");
+   }
+}
+ 
+//管理注册容器
+class Container&lt;T extends IDependent&lt;E&gt;, E&gt;{
+  
+   public Container(E e){
+      this.core=e;
+      System.out.println("初始化核心程序....");
+   }
+   E core;
+   List&lt;T&gt; list;
+   String msg="更新了最新程序，由1.0更新到1.1";
+  
+   void upgrade(E core){
+      this.core=core;
+      notfiy();
+   }
+   void add(T t){
+      if(list==null)list=new ArrayList&lt;T&gt;();
+      list.add(t);
+      t.setCore(core, "初始化程序，当期程序1.0版本");
+   }
+   void remove(T t){
+      if(list==null)return;
+      list.remove(t);
+   }
+   void notfiy(){
+      for (T t:list) {
+        t.update(core,msg);
+      }
+   }
+}
+class App1 implements IDependent&lt;ICore&gt;{
+  
+   ICore core;
+ 
+   @Override
+   public void setCore(ICore e, String msg) {
+      this.core=e;
+      System.out.print("我是App1程序：");
+      System.out.println(msg);
+     
+   }
+   @Override
+   public void update(ICore e,String msg) {
+      System.out.print("我是App1程序：");
+      System.out.println(msg);
+      this.core=e;
+   }
+   void function(){core.function();}
+}
+class App2 implements IDependent&lt;ICore&gt;{
+   ICore core;
+  
+   @Override
+   public void setCore(ICore e, String msg) {
+      this.core=e;
+      System.out.print("我是App2程序：");
+      System.out.println(msg);
+     
+   }
+   @Override
+   public void update(ICore e,String msg) {
+      System.out.print("我是App2程序：");
+      System.out.println(msg);
+      this.core=e;
+   }
+   void function(){core.function();}
+  
+}</pre><br />&#13;
+ &#13;
+<p> </p>&#13;
+<p><span style="font-size:12px"><br />&#13;
+观察者模式的核心任务个人理解是主要是对依赖主题的变更提高更好地维护性。</span>                         </p>&#13;
+<p>当被依赖的东西发生了改变，依赖它的其他对象能及时的更新变更</p>&#13;
+<p> </p>&#13;
+<p> </p>&#13;
+<p> </p>&#13;
+<h3>模板方法</h3>&#13;
+<p>定义一个操作中的算法的骨架，而将一些步骤延迟到子类中，TemplateMethod使得子类可以不改变一个算法的结构即可以重定义该算法得某些特定步骤。</p>&#13;
+<p> </p>&#13;
+<p><span style="font-size:12px"><br />&#13;
+</span></p><pre code_snippet_id="149762" snippet_file_name="blog_20140109_3_8882443" name="code" class="java">package com.ruishenh.designPatter.action.templateMethod;
+ 
+public class TemplateMethodClient {
+   public static void main(String[] args) {
+      Shop shop = new IceCreamShop();
+      shop.buy();
+   }
+}
+ 
+abstract class Shop {
+   // 买东西
+   void buy() {
+ 
+      pay();
+ 
+      take();
+ 
+   }
+ 
+   public abstract void pay();
+ 
+   public abstract void take();
+}
+ 
+class IceCreamShop extends Shop {
+ 
+   @Override
+   public void pay() {
+      System.out.println("付冰激凌的钱");
+   }
+ 
+   @Override
+   public void take() {
+      System.out.println("服务员给了我冰激凌");
+   }
+ 
+}</pre><br />&#13;
+  &#13;
+<p>模板方法的核心就是把要做的一件事的框架给定好了，有些具体操作留给它的子类去完成。</p>&#13;
+   &#13;

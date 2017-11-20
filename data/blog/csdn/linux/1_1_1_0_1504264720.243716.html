@@ -1,0 +1,359 @@
+
+
+<p>    上一篇的介绍已经OK，那么此处就只贴上代码！</p>&#13;
+<p>   CODE_1 : 主线程accept，但是线程比进程有一个好处是，对于conn_fd资源来说是可以直接共享的，所以就可以不需要像在进程中那样需要传递socket，所以设计会简单一点！但是同样注意互斥的问题！<br />&#13;
+</p>&#13;
+<p>   Server：<br />&#13;
+</p>&#13;
+   <pre name="code" class="cpp">/*
+	主线程预先创建一批线程，线程进行等待，然后主线程
+	accept， 子线程互斥抢占conn_fd，然后处理数据
+*/
+
+#include &lt;stdio.h&gt;
+#include &lt;unistd.h&gt;
+#include &lt;stdlib.h&gt;
+#include &lt;string.h&gt;
+#include &lt;pthread.h&gt;
+#include &lt;sys/select.h&gt;
+#include &lt;sys/types.h&gt;
+#include &lt;errno.h&gt;
+#include &lt;sys/socket.h&gt;
+#include &lt;netinet/in.h&gt;
+#include &lt;fcntl.h&gt;
+
+#define	PORT			6000
+#define	MAXBACK	100
+#define	MAXLINE		1024
+#define	CHILD_NUM	10
+
+pthread_mutex_t		g_mutex;        //!&gt; 互斥量
+pthread_cond_t		g_cond;		//!&gt; 条件变量
+
+int			connfds[MAXBACK];	//!&gt; 保存连接s
+int			i_get = 0;		//!&gt; 取出connfd
+int			i_put = 0;		//!&gt; 放进去connfd
+
+void * thread_do( void * arg )
+{
+	int 		i = 0;
+	int		n_read;
+	int		conn_fd;
+	char	buf[MAXLINE];
+	
+	while( 1 )
+	{
+		pthread_mutex_lock( &amp;g_mutex );			//!&gt; 加锁
+		
+		while( i_get == i_put )				//!&gt; 当前缓冲区没有connfd
+		{					        //!&gt; 阻塞
+			pthread_cond_wait( &amp;g_cond, &amp;g_mutex );
+		}
+		
+		conn_fd = connfds[i_get];			//!&gt; 获取conn_fd
+		
+		if( ++i_get == MAXBACK )			//!&gt; 到头
+		{
+			i_get = 0;
+		}
+		
+		pthread_mutex_unlock( &amp;g_mutex );		//!&gt; 解锁
+		
+		while( strcmp( buf, "Q" ) != 0 &amp;&amp; strcmp( buf, "q" ) != 0  )
+		{
+		
+			if( ( n_read = read( conn_fd, buf, MAXLINE ) ) &lt; 0 )
+			{
+				printf( "Read errnr! :%d \n", errno );
+				exit( EXIT_FAILURE );
+			}
+			else if( n_read == 0 )
+			{
+				continue;
+			}
+			else
+			{
+				while( buf[i] )
+				{
+					buf[i] = toupper( buf[i] );
+					i++;
+				}
+			
+				printf("Child %d done! \n", ( int )pthread_self());
+				printf("Child %d send %s\n", ( int )pthread_self(), buf);
+				write( conn_fd, buf, strlen( buf ) );			//!&gt; 写回给client
+			}
+		}
+	}
+}
+
+//!&gt; MAIN 
+//!&gt; 
+int main( int argc, char ** argv )
+{
+	pthread_t		tids[CHILD_NUM];
+	int		i;
+	int 		listen_fd;
+	int 		conn_fd;
+	int		n_read;
+	char	buf[5];
+	struct sockaddr_in servaddr;
+	struct sockaddr_in cliaddr;
+	int		len = sizeof( struct sockaddr_in );
+	
+	//!&gt;下面需要设置互斥
+	//!&gt; 
+	pthread_mutex_init( &amp;g_mutex, NULL );	//!&gt; 互斥量初始化
+	pthread_cond_init( &amp;g_cond, NULL );	//!&gt; 条件变量初始化
+	
+	//!&gt; server 套接口
+	//!&gt; 
+	bzero( &amp;servaddr, sizeof( servaddr ) );
+	servaddr.sin_family = AF_INET;
+	servaddr.sin_addr.s_addr = htonl( INADDR_ANY );
+	servaddr.sin_port = htons( PORT );
+	
+	//!&gt; 建立套接字
+	//!&gt; 
+	if( ( listen_fd = socket( AF_INET, SOCK_STREAM, 0 ) ) == -1 )
+	{
+		printf("Socket Error...\n" , errno );
+		exit( EXIT_FAILURE );
+	}
+	
+	//!&gt; 绑定
+	//!&gt;
+	if( bind( listen_fd, ( struct sockaddr *)&amp;servaddr, sizeof( servaddr ) ) == -1 )
+	{
+		printf("Bind Error : %d\n", errno);
+		exit( EXIT_FAILURE );
+	}
+	
+	//!&gt; 监听
+	//!&gt; 
+	if( listen( listen_fd, MAXBACK ) == -1 )
+	{
+		printf("Listen Error : %d\n", errno);
+		exit( EXIT_FAILURE );
+	}
+	
+	for( i = 0; i &lt; CHILD_NUM; i++ )		//!&gt; 创建10个线程
+	{
+		if( pthread_create( &amp;tids[i], NULL, thread_do, NULL ) != 0 )
+		{
+			printf("Create %d thread error! : %d", i, errno);
+			exit( EXIT_FAILURE );
+		}
+	}
+	
+	while( 1 )
+	{
+		if( ( conn_fd = accept( listen_fd, ( struct sockaddr *)&amp;cliaddr , &amp;len ) ) == -1 )
+		{
+			printf("Accept error! :%d\n", errno);
+			exit( EXIT_FAILURE );
+		}
+		
+		pthread_mutex_lock( &amp;g_mutex );		//!&gt; 加锁
+		
+		connfds[i_put] = conn_fd;		//!&gt; 放进缓存区
+		
+		if( ++i_put == MAXBACK )		//!&gt; 到头
+		{
+			i_put = 0;
+		}
+		
+		if( i_get == i_put )
+		{
+			printf( "Get and put error! :%d\n", errno );
+			exit( EXIT_FAILURE );
+		}
+		
+		pthread_cond_signal( &amp;g_cond );		//!&gt; 给一个信号说明有数据了
+		pthread_mutex_unlock( &amp;g_mutex );	//!&gt; 解锁
+		
+	}
+	
+	pthread_mutex_destroy( &amp;g_mutex );		//!&gt; 删除互斥灯
+	pthread_cond_destroy( &amp;g_cond );
+	
+	return 0;
+}
+
+
+
+
+</pre>&#13;
+<p><br />&#13;
+</p>&#13;
+<p>Client 和进程中的一样，可以直接copy！<br />&#13;
+</p>&#13;
+<p><br />&#13;
+</p>&#13;
+<p><br />&#13;
+</p>&#13;
+<p>CODE_2 : 直接由子线程accept，还是互斥问题( 这个问题比较简单 )<br />&#13;
+</p>&#13;
+<p><br />&#13;
+</p>&#13;
+<p></p><pre name="code" class="cpp">/*
+	主线成创建n个子线程，然后主线成就没有事做了，
+	进入pause，由子线程互斥调用accept处理
+*/
+
+#include &lt;stdio.h&gt;
+#include &lt;unistd.h&gt;
+#include &lt;stdlib.h&gt;
+#include &lt;string.h&gt;
+#include &lt;pthread.h&gt;
+#include &lt;sys/select.h&gt;
+#include &lt;sys/types.h&gt;
+#include &lt;errno.h&gt;
+#include &lt;sys/socket.h&gt;
+#include &lt;netinet/in.h&gt;
+#include &lt;fcntl.h&gt;
+
+#define	PORT		6000
+#define	MAXBACK	100
+#define	MAXLINE		1024
+#define	CHILD_NUM	10
+
+pthread_mutex_t		g_mutex;		//!&gt; 互斥量
+
+//!&gt; 子线程子线程执行函数
+//!&gt; 
+void * thread_do( void * arg )
+{
+	struct sockaddr_in cliaddr;
+	int		len = sizeof( struct sockaddr_in );
+	int		conn_fd;
+	int		n_read;
+	int		i;
+	char	buf[MAXLINE];
+	
+	int		*listen_fd = (int *)arg;//!&gt; 监听口号	
+	while( 1 )
+	{
+		pthread_mutex_lock( &amp;g_mutex );	//!&gt; 加锁
+		
+		if( ( conn_fd = accept( *listen_fd, ( struct sockaddr *)&amp;cliaddr , &amp;len ) ) == -1 )
+		{
+			printf(" Thread %d accept error! :%d \n", ( int )pthread_self(), errno);
+			exit( EXIT_FAILURE );
+		}
+		
+		pthread_mutex_unlock( &amp;g_mutex );//!&gt; 加锁
+	
+		while( strcmp( buf, "Q" ) != 0 &amp;&amp; strcmp( buf, "q" ) != 0  )
+		{
+			memset( buf, 0, sizeof( buf ) );
+			
+			if( ( n_read = read( conn_fd, buf, MAXLINE ) ) &lt; 0 )
+			{
+				printf( "Read errnr! :%d \n", errno );
+				exit( EXIT_FAILURE );
+			}
+			else if( n_read == 0 )
+			{
+				continue;
+			}
+			else
+			{
+				while( buf[i] )
+				{
+					buf[i] = toupper( buf[i] );
+					i++;
+				}
+			
+				printf("Child %d done! \n", ( int )pthread_self());
+				printf("Child %d send %s\n", ( int )pthread_self(), buf);
+				write( conn_fd, buf, strlen( buf ) );			//!&gt; 写回给client
+			}
+		}
+	}
+	
+}
+
+//!&gt; MAIN 
+//!&gt;
+int main( int argc, char ** argv )
+{
+	int		i;
+	int 		listen_fd;
+	int 		conn_fd;
+	int		n_read;
+	char	        buf[5];
+	pthread_t	tids[CHILD_NUM];
+	struct sockaddr_in servaddr;
+
+	//!&gt;  互斥锁
+	//!&gt; 
+	pthread_mutex_init( &amp;g_mutex, NULL );	//!&gt; 互斥量初始化
+	
+	//!&gt; server 套接口
+	//!&gt; 
+	bzero( &amp;servaddr, sizeof( servaddr ) );
+	servaddr.sin_family = AF_INET;
+	servaddr.sin_addr.s_addr = htonl( INADDR_ANY );
+	servaddr.sin_port = htons( PORT );
+	
+	//!&gt; 建立套接字
+	//!&gt; 
+	if( ( listen_fd = socket( AF_INET, SOCK_STREAM, 0 ) ) == -1 )
+	{
+		printf("Socket Error...\n" , errno );
+		exit( EXIT_FAILURE );
+	}
+	
+	//!&gt; 绑定
+	//!&gt;
+	if( bind( listen_fd, ( struct sockaddr *)&amp;servaddr, sizeof( servaddr ) ) == -1 )
+	{
+		printf("Bind Error : %d\n", errno);
+		exit( EXIT_FAILURE );
+	}
+	
+	//!&gt; 监听
+	//!&gt; 
+	if( listen( listen_fd, MAXBACK ) == -1 )
+	{
+		printf("Listen Error : %d\n", errno);
+		exit( EXIT_FAILURE );
+	}
+	
+	for( i = 0; i &lt; CHILD_NUM; i++ )		//!&gt; 创建10个线程
+	{
+		if( pthread_create( &amp;tids[i], NULL, thread_do, &amp;listen_fd ) != 0 )
+		{
+			printf("Create %d thread error! : %d", i, errno);
+			exit( EXIT_FAILURE );
+		}
+		
+		if(  pthread_detach( tids[i] ) != 0 )
+		{
+			printf("Thead %d detach error! :%d \n", ( int )pthread_self(), errno);
+			exit( EXIT_FAILURE );
+		}
+		
+	}
+
+	while( 1 )
+	{
+		pause();				//!&gt; 主进程暂停
+	}
+	
+	return 0;
+}
+
+
+
+
+</pre><br />&#13;
+&#13;
+<p>到此，全部结束！</p>&#13;
+<p>bye～～～</p>&#13;
+<p><br />&#13;
+</p>&#13;
+<p><br />&#13;
+</p>&#13;
+   &#13;

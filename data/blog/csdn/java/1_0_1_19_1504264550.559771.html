@@ -1,0 +1,127 @@
+
+
+<p><span style="font-size:14px">2013年8月，本人那时候刚毕业来到了北京找工作，在网上投递了各种简历，也面试了很多家公司，遇到最大的问题就是：你什么时候毕业的呀？，做过什么项目呀？都将我拒之门外，但是我还是幸运总会来的，那天早上9点半的时候，接到电话，说叫我去面试，问了一下是什么公司？是酷我，感觉公司规模挺大的还可以，就很兴奋的跑去面试了，他们公司没有笔试，只有面试，有三轮面试，第一轮就是问你做过哪些项目，都遇到什么问题怎么解决的等，和技术不沾边，第二轮面试的时候就来了一个技术，问了很多关于技术上的问题，但是貌似都不深入，比如：怎样快速的查找到单链表中的倒数第k个元素(网上有答案，上数据结构课的时候老师说过的)；找出两个升序序列的相同元素(普通方法肯定是可以的，但是不是他想要的答案，使用头指针和尾指针，时间复杂度是O(n))；单列表的反转等这些问题。因为我是有准备去面试的，这些问题网上很是流传，所以早弄得滚瓜烂熟了，全部搞定，感觉他挺满意的，最后他又来一道题：</span></p>&#13;
+<p><span style="font-size:14px"><br />&#13;
+</span></p>&#13;
+<p><span style="font-size:14px"><strong>单例模式的定义？单例模式有哪些形式？怎样控制多线程访问单例模式？怎么提高多线程访问单例模式的性能？</strong></span></p>&#13;
+<p><span style="font-size:14px">其实总共是四个问题，都是循序渐进的：个人感觉这个问题我没有准备，但是我之前搞过这些：所以就开始回答了：</span></p>&#13;
+<p><span style="font-size:14px"><br />&#13;
+</span></p>&#13;
+<p><span style="font-size:14px">1.单例模式的定义很简单的：构造方法为private，定义一个static的自身实例变量，提供一个static的供外部访问对象的getInstance方法</span></p>&#13;
+<p><span style="font-size:14px"><br />&#13;
+</span></p>&#13;
+<p><span style="font-size:14px">2.单例模式有懒汉和饿汉模式：具体看下面的代码：</span></p>&#13;
+<p><span style="font-size:14px"></span></p>&#13;
+<pre code_snippet_id="216255" snippet_file_name="blog_20140304_1_9607347" name="code" class="java">//比较:
+//饿汉式是线程安全的,在类创建的同时就已经创建好一个静态的对象供系统使用,以后不在改变
+//懒汉式如果在创建实例对象时不加上synchronized则会导致对对象的访问不是线程安全的,因为多个线程可能创建出多个实例
+//推荐使用第一种 
+
+//饿汉式:
+class HungrySingleton{
+    private static HungrySingleton hungrysingleton = new HungrySingleton();
+    private HungrySingleton (){}
+    public HungrySingleton getInstance(){
+    	return hungrysingleton;
+    }
+} 
+
+//懒汉式:
+class FullSingleton{
+    private static FullSingleton fullsingleton = null;
+    public static synchronized FullSingleton getInstance(){
+         if(fullsingleton==null){
+        	 fullsingleton = new FullSingleton();
+         }
+        return fullsingleton;
+    }
+} </pre><br />&#13;
+<p></p>&#13;
+<p><span style="font-size:14px">3.我们看一下上面的代码：</span></p>&#13;
+<p><span style="font-size:14px">对于饿汉模式是不存在多线程访问不安全的问题的，只有下面的懒汉模式有多线程访问的安全问题，所以我们在getInstance()方法前加入synchronized进行互斥操作即可</span></p>&#13;
+<p><span style="font-size:14px"><br />&#13;
+</span></p>&#13;
+<p><span style="font-size:14px">4.因为我们知道使用synchronized关键字来实现互斥，性能很低的，所以怎么提高性能呢？有的人可能说了，直接使用饿汉模式就可以了，但是现在我们就是用懒汉模式来实现，多线程访问，那就可以想到了Java中的ThreadLocal类了，就是和本线程相关的一个map集合，这样就很好理解了，但是他内部实现是很复杂的，要考虑到效率的问题，比如一个线程消亡的时候，线程持有的资源该怎么释放都是要特殊处理的，但是我们没必要考虑他那么深入，只要知道怎么用的就行了，下面就直接来看一下代码吧：</span></p>&#13;
+<p><span style="font-size:14px"></span></p>&#13;
+<pre code_snippet_id="216255" snippet_file_name="blog_20140304_2_5572357" name="code" class="java">package cn.itcast.heima;
+
+import java.util.Random;
+
+public class ThreadLocalTest {
+	
+	public static void main(String[] args){
+		//开启两个线程设置值
+		for(int i=0;i&lt;2;i++){
+			new Thread(new Runnable(){
+				@Override
+				public void run() {
+					int data = new Random().nextInt();
+					System.out.println(Thread.currentThread().getName()+" has put data :" + data);
+					MyThreadScopeData.getInstance().setName(data+"");
+					MyThreadScopeData.getInstance().setAge(data+"");
+					new A().get();
+					new B().get();
+				}
+				
+			}).start();
+		}
+	}
+	
+	//获取值
+	static class A{
+		public void get(){
+			System.out.println(Thread.currentThread().getName()+" : " + "Name:"+MyThreadScopeData.getInstance().getName());
+			System.out.println(Thread.currentThread().getName()+" : " + "Age:"+MyThreadScopeData.getInstance().getAge());
+		}
+	}
+	
+	//获取值
+	static class B{
+		public void get(){
+			System.out.println(Thread.currentThread().getName()+" : " + "Name:"+MyThreadScopeData.getInstance().getName());
+			System.out.println(Thread.currentThread().getName()+" : " + "Age:"+MyThreadScopeData.getInstance().getAge());
+		}
+	}
+
+}
+
+class MyThreadScopeData{
+	
+	private MyThreadScopeData(){}
+	
+	private static ThreadLocal&lt;MyThreadScopeData&gt; map = new ThreadLocal&lt;MyThreadScopeData&gt;();
+	//因为使用了ThreadLocal的方法，所以这里就不需要synchronized,这样效率就更高了
+	public static MyThreadScopeData getInstance(){
+		MyThreadScopeData instance = map.get();
+		if(instance == null){
+			instance = new MyThreadScopeData();
+			map.set(instance);
+		}
+		return instance;
+	}
+	
+	private String name;
+	private String age;
+	
+	public String getName() {
+		return name;
+	}
+	public void setName(String name) {
+		this.name = name;
+	}
+	public String getAge() {
+		return age;
+	}
+	public void setAge(String age) {
+		this.age = age;
+	}
+	
+	
+}
+</pre>代码中定义了两个线程，我们在MyThreadScopeData类中的getInstance()方法中我们使用到了ThreadLocal类，将对象实例和线程相关联上，运行结果：&#13;
+<p></p>&#13;
+<p><span style="font-size:14px"><img src="http://img.blog.csdn.net/20140304113037734?watermark/2/text/aHR0cDovL2Jsb2cuY3Nkbi5uZXQvamlhbmd3ZWkwOTEwNDEwMDAz/font/5a6L5L2T/fontsize/400/fill/I0JBQkFCMA==/dissolve/70/gravity/Center" alt="" /><br />&#13;
+<br />&#13;
+</span></p>&#13;
+<p><span style="font-size:14px">我们从结果可以看到，两个线程产生的数据是一致的。这样四个问题就回答完了，其实我现在也不清楚这几个问题回答的怎么样，但是面试很顺利，所以我就分享一下我的答案！如有不正确的地方，希望给予指正，小弟不胜感激。</span></p>&#13;
+   &#13;

@@ -1,0 +1,106 @@
+
+                
+<div style="top:0px">﻿﻿</div>&#13;
+<p style="margin:0pt; text-align:left; line-height:18pt; text-indent:0pt"><span style="text-transform:none; letter-spacing:0pt; font-family:Consolas; font-size:14pt; font-style:normal; font-weight:normal"><span style="font-family:Comic Sans MS; font-size:14px; color:#000066"><strong>一、Set核心实现类</strong></span></span></p>&#13;
+<p style="margin:0pt; text-align:left; line-height:18pt; text-indent:0pt"><span style="font-family:Comic Sans MS"><img width="638" height="476" src="http://img.blog.csdn.net/20160514205835891?watermark/2/text/aHR0cDovL2Jsb2cuY3Nkbi5uZXQv/font/5a6L5L2T/fontsize/400/fill/I0JBQkFCMA==/dissolve/70/gravity/Center" alt="" style="width:601px; height:443px"/></span></p>&#13;
+<p style="margin:0pt; text-align:left; line-height:18pt; text-indent:21pt"><span style="color:rgb(0,0,0); text-transform:none; letter-spacing:0pt; font-size:11pt; font-style:normal; font-weight:normal"><span style="font-family:Comic Sans MS">如上图，Set和List是Collection接口的两个分支，比较重要且频繁使用的有<span style="background-color:rgb(255,204,153)">HashSet、LinkedHashSet和TreeSet</span>。比较鲜明的特点就是<span style="background-color:rgb(255,204,153)">整个Set以及它的实现类中，集合中的元素是不能重复的，还有一个比较有意思的点在于，Set中的主要实现类都是对Map实现类的封装，例如HashSet封装了HashMap，LinkedHashSet封装了LinkedHashMap，TreeSet封装了TreeMap。查看源码，不难发现，HashSet中提供的构造方法，实际初始化的是一个HashMap对象。</span>其他两个实现类亦是如此。</span></span></p>&#13;
+<p style="margin:0pt; text-align:left; line-height:18pt; text-indent:21pt"><span style="color:rgb(0,0,0); text-transform:none; letter-spacing:0pt; font-size:11pt; font-style:normal; font-weight:normal"><span style="font-family:Comic Sans MS"/></span></p><pre code_snippet_id="1683597" snippet_file_name="blog_20160514_1_8262381" class="html" name="code">public class HashSet&lt;E&gt;
+    extends AbstractSet&lt;E&gt;
+    implements Set&lt;E&gt;, Cloneable, java.io.Serializable
+{
+   public HashSet() {
+        map = new HashMap&lt;&gt;();
+    }  
+    public HashSet(Collection&lt;? extends E&gt; c) {
+        map = new HashMap&lt;&gt;(Math.max((int) (c.size()/.75f) + 1, 16));
+        addAll(c);
+    }  
+} 
+//TreeSet构造方法
+    public TreeSet() {
+        this(new TreeMap&lt;E,Object&gt;());
+    } 
+    public TreeSet(Comparator&lt;? super E&gt; comparator) {
+        this(new TreeMap&lt;&gt;(comparator));
+    }  </pre><span style="color:rgb(0,0,0); text-transform:none; letter-spacing:0pt; font-size:11pt; font-style:normal; font-weight:normal"><span style="font-family:Comic Sans MS"/></span>&#13;
+<p style="margin:0pt; text-align:left; line-height:18pt; text-indent:21pt"><span style="color:rgb(0,0,0); text-transform:none; letter-spacing:0pt; font-size:11pt; font-style:normal; font-weight:normal"><span style="font-family:Comic Sans MS">而且不难发现，<span style="background-color:rgb(255,204,153)">HashSet中的数据操作方法都是通过内部维护的一个HashMap对象，并将与Set相关的实现委托给改map对象进行处理。</span></span></span></p>&#13;
+<span style="font-family:Comic Sans MS"/>&#13;
+<p style="margin:0pt; text-align:left; line-height:18pt; text-indent:0pt"/><pre code_snippet_id="1683597" snippet_file_name="blog_20160514_2_8230144" class="html" name="code"> private transient HashMap&lt;E,Object&gt; map;
+  public int size() {
+        return map.size();
+    } 
+   public boolean isEmpty() {
+        return map.isEmpty();
+    }</pre>&#13;
+<p style="margin:0pt; text-align:left; line-height:18pt; text-indent:0pt"><span style="color:rgb(0,0,0); text-transform:none; letter-spacing:0pt; font-size:11pt; font-style:normal; font-weight:normal"><span style="font-family:Comic Sans MS">      所以对于与Map各实现类的特点Set相应的实现类也具备。这里进行简单总结：</span></span></p>&#13;
+<table style="width:624.75pt; margin-left:-0.6pt; border-collapse:collapse">&#13;
+<tbody>&#13;
+<tr>&#13;
+<td width="278" valign="center" style="padding:3pt 6pt; border:1pt solid rgb(187,187,187); width:208.5pt; background-color:transparent">&#13;
+<p style="margin:0pt; text-align:left"><span style="font-size:12pt"><span style="font-family:Comic Sans MS">Set</span></span></p>&#13;
+</td>&#13;
+<td width="278" valign="center" style="border-width:1pt 1pt 1pt 0px; border-style:solid solid solid none; border-color:rgb(187,187,187) rgb(187,187,187) rgb(187,187,187) rgb(0,0,0); padding:3pt 6pt; width:208.5pt; background-color:transparent">&#13;
+<p style="margin:0pt; text-align:left"><span style="font-size:12pt"><span style="font-family:Comic Sans MS">对应Map</span></span></p>&#13;
+</td>&#13;
+<td width="276" valign="center" style="border-width:1pt 1pt 1pt 0px; border-style:solid solid solid none; border-color:rgb(187,187,187) rgb(187,187,187) rgb(187,187,187) rgb(0,0,0); padding:3pt 6pt; width:207.7pt; background-color:transparent">&#13;
+<p style="margin:0pt; text-align:left"><span style="font-size:12pt"><span style="font-family:Comic Sans MS">特点</span></span></p>&#13;
+</td>&#13;
+</tr>&#13;
+<tr>&#13;
+<td width="278" valign="center" style="border-width:0px 1pt 1pt; border-style:none solid solid; border-color:rgb(0,0,0) rgb(187,187,187) rgb(187,187,187); padding:3pt 6pt; width:208.5pt; background-color:transparent">&#13;
+<p style="margin:0pt; text-align:left"><span style="font-size:12pt"><span style="font-family:Comic Sans MS">HashSet</span></span></p>&#13;
+</td>&#13;
+<td width="278" valign="center" style="border-width:0px 1pt 1pt 0px; border-style:none solid solid none; border-color:rgb(0,0,0) rgb(187,187,187) rgb(187,187,187) rgb(0,0,0); padding:3pt 6pt; width:208.5pt; background-color:transparent">&#13;
+<p style="margin:0pt; text-align:left"><span style="font-size:12pt"><span style="font-family:Comic Sans MS">HashSet</span></span></p>&#13;
+</td>&#13;
+<td width="276" valign="center" style="border-width:0px 1pt 1pt 0px; border-style:none solid solid none; border-color:rgb(0,0,0) rgb(187,187,187) rgb(187,187,187) rgb(0,0,0); padding:3pt 6pt; width:207.7pt; background-color:transparent">&#13;
+<p style="margin:0pt; text-align:left"><span style="font-size:12pt"><span style="font-family:Comic Sans MS">基于hash的快速插入，元素间无序</span></span></p>&#13;
+</td>&#13;
+</tr>&#13;
+<tr>&#13;
+<td width="278" valign="center" style="border-width:0px 1pt 1pt; border-style:none solid solid; border-color:rgb(0,0,0) rgb(187,187,187) rgb(187,187,187); padding:3pt 6pt; width:208.5pt; background-color:transparent">&#13;
+<p style="margin:0pt; text-align:left"><span style="font-size:12pt"><span style="font-family:Comic Sans MS">LinkedHashSet</span></span></p>&#13;
+</td>&#13;
+<td width="278" valign="center" style="border-width:0px 1pt 1pt 0px; border-style:none solid solid none; border-color:rgb(0,0,0) rgb(187,187,187) rgb(187,187,187) rgb(0,0,0); padding:3pt 6pt; width:208.5pt; background-color:transparent">&#13;
+<p style="margin:0pt; text-align:left"><span style="font-size:12pt"><span style="font-family:Comic Sans MS">LinkedHashMap</span></span></p>&#13;
+</td>&#13;
+<td width="276" valign="center" style="border-width:0px 1pt 1pt 0px; border-style:none solid solid none; border-color:rgb(0,0,0) rgb(187,187,187) rgb(187,187,187) rgb(0,0,0); padding:3pt 6pt; width:207.7pt; background-color:transparent">&#13;
+<p style="margin:0pt; text-align:left"><span style="font-size:12pt"><span style="font-family:Comic Sans MS">同上，元素有序，遍历集合时按照FIFO</span></span></p>&#13;
+</td>&#13;
+</tr>&#13;
+<tr>&#13;
+<td width="278" valign="center" style="border-width:0px 1pt 1pt; border-style:none solid solid; border-color:rgb(0,0,0) rgb(187,187,187) rgb(187,187,187); padding:3pt 6pt; width:208.5pt; background-color:transparent">&#13;
+<p style="margin:0pt; text-align:left"><span style="font-size:12pt"><span style="font-family:Comic Sans MS">TreeSet</span></span></p>&#13;
+</td>&#13;
+<td width="278" valign="center" style="border-width:0px 1pt 1pt 0px; border-style:none solid solid none; border-color:rgb(0,0,0) rgb(187,187,187) rgb(187,187,187) rgb(0,0,0); padding:3pt 6pt; width:208.5pt; background-color:transparent">&#13;
+<p style="margin:0pt; text-align:left"><span style="font-size:12pt"><span style="font-family:Comic Sans MS">TreeMap</span></span></p>&#13;
+</td>&#13;
+<td width="276" valign="center" style="border-width:0px 1pt 1pt 0px; border-style:none solid solid none; border-color:rgb(0,0,0) rgb(187,187,187) rgb(187,187,187) rgb(0,0,0); padding:3pt 6pt; width:207.7pt; background-color:transparent">&#13;
+<p style="margin:0pt; text-align:left"><span style="font-size:12pt"><span style="font-family:Comic Sans MS">高效的基于Key的排序算法</span></span></p>&#13;
+</td>&#13;
+</tr>&#13;
+</tbody>&#13;
+</table>&#13;
+<p style="margin:0pt; text-align:left; line-height:18pt; text-indent:0pt"><span style="color:rgb(0,0,0); text-transform:none; letter-spacing:0pt; font-size:11pt; font-style:normal; font-weight:normal"><span style="font-family:Comic Sans MS"> </span></span><span style="color:rgb(0,0,0); text-transform:none; letter-spacing:0pt; font-size:11pt; font-style:normal; font-weight:normal"><span style="font-family:Comic Sans MS; font-size:14px; color:#000066"><strong>二、优化集合操作</strong></span></span></p>&#13;
+<p style="margin:0pt; text-align:left; line-height:18pt; text-indent:0pt"><span style="color:rgb(0,0,0); text-transform:none; letter-spacing:0pt; font-size:11pt; font-style:normal; font-weight:normal"><span style="font-family:Comic Sans MS; color:#ff0000">1、分离循环调用的代码</span></span></p>&#13;
+<p style="margin:0pt; text-align:left; line-height:18pt; text-indent:0pt"><span style="color:rgb(0,0,0); text-transform:none; letter-spacing:0pt; font-size:11pt; font-style:normal; font-weight:normal"><span style="font-family:Comic Sans MS">例如：</span></span></p>&#13;
+<p style="margin:0pt; text-align:left; line-height:18pt; text-indent:0pt"><span style="color:rgb(0,0,0); text-transform:none; letter-spacing:0pt; font-size:11pt; font-style:normal; font-weight:normal"><span style="font-family:Comic Sans MS"/></span></p><pre code_snippet_id="1683597" snippet_file_name="blog_20160514_3_1436511" class="html" name="code">		//优化前
+		for(int i=0;i&lt;list.size();i++)
+		{
+		}		
+		//优化后
+		int count=list.size();
+		for(int i=0;i&lt;count;i++)
+		{}</pre><span style="color:rgb(0,0,0); text-transform:none; letter-spacing:0pt; font-size:11pt; font-style:normal; font-weight:normal"><span style="font-family:Comic Sans MS">优化后，size方法只被调用一次，而不是每次都循环执行。同样循环体中的方法也注意这样的优化，集合中元素越多，这样的处理就越有意义。</span></span>&#13;
+<p style="margin:0pt; text-align:left; line-height:18pt; text-indent:0pt"><span style="color:#ff0000"><span style="color:#ff0000"><span style="color:rgb(0,0,0); text-transform:none; letter-spacing:0pt; font-size:11pt; font-style:normal; font-weight:normal"><span style="font-family:Comic Sans MS"> </span></span><span style="color:rgb(0,0,0); text-transform:none; letter-spacing:0pt; font-size:11pt; font-style:normal; font-weight:normal"><span style="font-family:Comic Sans MS">2、省略相同操作</span></span></span></span></p>&#13;
+<p style="margin:0pt; text-align:left; line-height:18pt; text-indent:0pt"><span style="color:rgb(0,0,0); text-transform:none; letter-spacing:0pt; font-size:11pt; font-style:normal; font-weight:normal"><span style="font-family:Comic Sans MS"/></span></p><pre code_snippet_id="1683597" snippet_file_name="blog_20160514_4_9942011" class="html" name="code">		//简化前
+		if(list.get(i).indexOf("max")!=-1 &amp;&amp; list.get(i).indexOf("zhong")!=-1
+				||list.get(i).indexOf("ai")!=-1)
+		{}
+		//简化为
+		String s=null;
+		if(s=list.get(i).indexOf("max")!=-1 &amp;&amp; s.indexOf("zhong")!=-1
+				||s.indexOf("ai")!=-1)
+		{}</pre><span style="color:rgb(0,0,0); text-transform:none; letter-spacing:0pt; font-family:Helvetica; font-size:11pt; font-style:normal; font-weight:normal"><span style="font-family:Comic Sans MS">3、必要时还可直接调用原生的参数。如Vector类中的elementCount参数来替代对象的size方法以减少方法调用。这种优化程度应该是对系统精度要求极高。但也不失为一种思路。</span></span>&#13;
+<link rel="stylesheet" href="http://static.blog.csdn.net/public/res-min/markdown_views.css?v=1.0"/>&#13;
+            

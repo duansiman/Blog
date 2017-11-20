@@ -1,0 +1,126 @@
+
+
+<p>代理模式就是，不直接调用目标函数，而是通过一个代理类来调用。</p>&#13;
+<p>它的类继承关系和装饰模式很类似。但是它们的目的不一样。</p>&#13;
+<p>代理模式不会增加新的功能，只是在调用和被调用之间加入代理层。而装饰模式旨在增加新功能。</p>&#13;
+<p>看代码：<br />&#13;
+</p>&#13;
+<pre code_snippet_id="439570" snippet_file_name="blog_20140731_1_328303" class="java" name="code">package com.pattern.struct.proxy;
+
+public interface Subject {
+
+	public void request();
+	
+}
+</pre>&#13;
+<p><br />&#13;
+</p>&#13;
+<pre code_snippet_id="439570" snippet_file_name="blog_20140731_2_3108775" class="java" name="code">package com.pattern.struct.proxy;
+
+public class RealSubject implements Subject {
+
+	@Override
+	public void request() {
+		System.out.println("-------------a");
+	}
+
+}
+</pre>&#13;
+<p><br />&#13;
+</p>&#13;
+<pre code_snippet_id="439570" snippet_file_name="blog_20140731_3_4918918" class="java" name="code">package com.pattern.struct.proxy;
+
+public class SubjectProxy implements Subject{
+
+	private Subject subject;
+	
+	public SubjectProxy(Subject subject){
+		this.subject = subject;
+	}
+
+	@Override
+	public void request() {
+		doBefor();
+		
+		this.subject.request();
+		
+		doAfter();
+	}
+	
+	private void doBefor(){
+		System.out.println("-----------before------------");
+	}
+	
+	private void doAfter(){
+		System.out.println("-----------after------------");
+	}
+	
+}
+</pre>&#13;
+<p><br />&#13;
+</p>&#13;
+<pre code_snippet_id="439570" snippet_file_name="blog_20140731_4_5158898" class="java" name="code">package com.pattern.struct.proxy;
+
+public class StartUp {
+
+	public static void main(String...args){
+		Subject subject = new RealSubject();
+		Subject proxy = new SubjectProxy(subject);
+		proxy.request();
+	}
+}
+</pre>&#13;
+<p><br />&#13;
+java内置了动态代理，常见的AOP事务处理就是使用动态代理实现的。</p>&#13;
+<pre code_snippet_id="439570" snippet_file_name="blog_20140731_5_5922266" class="java" name="code">package com.pattern.struct.proxy.dynamic;
+
+import java.lang.reflect.InvocationHandler;
+import java.lang.reflect.Method;
+
+import com.pattern.struct.proxy.Subject;
+
+public class SubjectHandler implements InvocationHandler{
+
+	private Subject subject;
+	public SubjectHandler(Subject subject){
+		this.subject = subject;
+	}
+	@Override
+	public Object invoke(Object obj, Method method, Object[] aobj)
+			throws Throwable {
+		System.out.println("do before...");
+		method.invoke(subject, aobj);
+		System.out.println("do after...");
+		
+		return null;
+	}
+	
+
+}
+</pre>&#13;
+<p><br />&#13;
+ </p>&#13;
+<pre code_snippet_id="439570" snippet_file_name="blog_20140731_6_3064564" class="java" name="code">package com.pattern.struct.proxy.dynamic;
+
+import java.lang.reflect.Proxy;
+
+import com.pattern.struct.proxy.RealSubject;
+import com.pattern.struct.proxy.Subject;
+
+public class StartUp {
+
+	public static void main(String[] args) {
+		RealSubject realSubject = new RealSubject();
+		Subject subject = (Subject) Proxy.newProxyInstance(realSubject
+				.getClass().getClassLoader(), realSubject.getClass()
+				.getInterfaces(), new SubjectHandler(realSubject));
+		
+		
+		subject.request();
+	}
+
+}
+</pre>&#13;
+<p><br />&#13;
+ </p>&#13;
+   &#13;

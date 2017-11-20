@@ -1,0 +1,104 @@
+
+
+<p>(2.2.2 伪装配厂/建造者模式)</p>&#13;
+<p>工厂模式中描述的，是工厂能够直接提供产品的模式。本节讲述的装配厂模式/建造者模式，则由于产品较复杂因而不再简单的提供，builder/装配厂/建造者需要一个指导者说明装配过程，指导者<span style="color:#ff0000">调度(员) /director</span>。（实际工厂的车间中，都有一个调度）</p>&#13;
+<p>2.2 装配厂模式<br />&#13;
+2.2.1 串接式setter模式 <span style="font-size:24px">如StringBuilder，参见</span><span style="font-size:24px"><strong>Effective Java。</strong></span><br />&#13;
+2.2.2 伪 装配厂模式  最2 的伪建造者模式<br />&#13;
+2.2.3 <a target="_blank" href="http://blog.csdn.net/yqj2065/article/details/8570241">&#13;
+真正的装配厂模式</a><br />&#13;
+</p>&#13;
+<p></p>&#13;
+<hr />&#13;
+<p></p>&#13;
+<p><strong>伪装配厂模式</strong></p>&#13;
+<p></p>&#13;
+<p>在一些关于设计模式的书籍中，讲解建造者模式的例子和演示程序，<strong>并非</strong>GoF所称的建造者模式(3.2)，例如一些人和书籍中使用的游戏角色设计例子，事实上使用的是<strong><span style="color:#ff0000">工厂方法+模板方法模式</span></strong>【参见[3.3模板方法模式(5.10)】。之所以称之为伪装配厂模式，因为它的适用场景和装配厂模式相似。</p>&#13;
+<p><strong><span style="font-size:14px; color:#ff0000">产品类型已知型装配厂模式(伪 装配厂模式)：它建造的产品，可以有各种不同的部件，但产品属于同一种类型。</span></strong><br />&#13;
+</p>&#13;
+<p>以电脑/MyPC的装配为例。电脑是一个完整的<strong>复杂产品，它包含多个成员变量表示的对象</strong>，这些成员变量可以称为产品的部件或零件，如CUP、显示器/ Display和硬盘/ HD。你可以将这些部件设计成抽象类，如CUP有Intel和AMD子类，使得更有代表性。MyPC及其部件，我们将它们放在package creational.builder.pc包中。</p>&#13;
+<h2>1.Client仅仅依赖于装配厂</h2>&#13;
+你/Client到电脑市场配一台机器，你(假设是一个小白)<strong><span style="color:#ff0000">无须</span></strong>知道产品的内部组成与装配方式，你也不需要自己买各种部件自己装机，你只需要知道<strong>找一家装机店/PCBuilder</strong>即可。PCBuilder有很多很多的子类，如坑人的KKPCBuilder、傻傻的SSPCBuilder等。不管哪一家，假定它们都按照一定的流程组装电脑，<strong><span style="color:#ff0000">该流程封装为方法construct()</span></strong>。很自然地，可以将construct()<strong>放在PCBuilder中</strong>作为<strong><span style="color:#ff0000">模板方法</span></strong>。&#13;
+<p></p>&#13;
+<pre name="code" class="java">例程 2 9模板方法
+package creational.builder.pseudoBuilder;
+import creational.builder.pc.*;
+public abstract class PCBuilder{
+    public void addCPU(){}
+    public void addDisplay(){}
+    public void addHD(){}  
+    public abstract MyPC getResult();
+    
+    public void construct(){        
+        addCPU();
+        addDisplay();
+        addHD();
+    }
+}
+</pre> 注意：PCBuilder中定义了一个abstract MyPC getResult()，这是<strong><span style="color:#ff0000">工厂方法</span></strong>。&#13;
+<p></p>&#13;
+<p>配机器的小白现在可以买装机的结果了。</p>&#13;
+<p></p>&#13;
+<pre name="code" class="java">package creational.builder.pseudoBuilder;
+import creational.builder.pc.*;
+import tool.God;
+/**
+ * 配机器的小白
+ * 
+ * @author yqj2065
+ * @version 0.1
+ */
+public class Client{
+    public static void main(String args[])	{
+        PCBuilder b = (PCBuilder)God.create("2-9-Builder");
+        b.construct();
+        MyPC pc = b.getResult();
+        System.out.println(pc);
+    }
+    public static void test(){
+        PCDirector director =  new PCDirector("2-9-Builder");
+        MyPC pc = director.construct();
+        System.out.println(pc);
+    }
+}</pre>&#13;
+<p>本来，这是使用了工厂方法+模板方法的这种<span style="color:rgb(153,51,153)"><strong>多种设计模式的组合应用的典型例子，值得学习</strong></span>。</p>&#13;
+<h2>2. 调度的作用</h2>&#13;
+<p>然而，有人对照GoF的建造者模式，生编硬造地按照建造者模式(3.2)的类图，将模板方法封装到调度(员) /Director类中，就曲解了建造者模式(3.2)的“适用性”。</p>&#13;
+<p>下面是某些书籍中的Director：</p>&#13;
+<p></p>&#13;
+<pre name="code" class="java">package creational.builder.pseudoBuilder;
+import creational.builder.pc.*;
+/**
+ * 生编硬造
+ */
+public class PCDirector{
+    private PCBuilder b;
+    public PCDirector(String builder){
+        this.b = b ;
+    }    
+    public MyPC construct(){        
+        b.addCPU();
+        b.addDisplay();
+        b.addHD();
+        return b.getResult();
+    }
+}</pre>可以用Client.test()测试。如此编程，<strong><span style="color:#ff0000">Client可以仅仅依赖于调度(员) /Director</span></strong>，如图2-4所示。有人说，Director相当于装配店的销售人员，此实现使得<strong><span style="color:#ff0000">Client与Build隔离</span></strong>。(但是，建造者模式的本意是<strong><span style="color:rgb(255,0,0)">产品的构建过程construct()与产品类型的隔离</span></strong>。)&#13;
+<p style="text-align:center"><img src="http://img.blog.csdn.net/20150920183341760?watermark/2/text/aHR0cDovL2Jsb2cuY3Nkbi5uZXQv/font/5a6L5L2T/fontsize/400/fill/I0JBQkFCMA==/dissolve/70/gravity/Center" alt="" width="338" height="220" /></p>&#13;
+<p><br />&#13;
+伪装配厂模式的核心将<span style="color:rgb(0,102,0)"><strong>PCBuilder定义的装配电脑的流程construct()搬到Director中。</strong></span></p>&#13;
+<p>此时，调度(员)能够发挥作用的场合，是<strong><span style="color:#ff0000">存在多种Director</span></strong>，它们封装对象构成的算法。例如买一碗牛肉粉，客户给出一些参数——嘱咐加或不加葱、加多少辣椒。调度(员) /Director的construct()描述该需求并让任意的牛肉粉生产者照此办理；另外的客户则可能需要另一个construct()。</p>&#13;
+<p><span style="font-size:14px; color:#ff0000"><strong>在伪装配厂模式中，Director应用策略模式(封装抽象的construct()方法)、Director的子类应用模板方法模式，而PCBuilder应用工厂方法模式。</strong></span><br />&#13;
+</p>&#13;
+<p><br />&#13;
+</p>&#13;
+<p>伪装配厂模式具有如下特点：</p>&#13;
+<ul>&#13;
+<li> 生产的产品属于一个产品族。例如本例中的MyPC是一个具体的类；而在游戏角色设计时，不管是天使、英雄还是魔鬼，都是某一个类如Actor的对象。</li><li> 伪建造者模式的生产流程由一个<span style="color:rgb(153,0,0)">模板方法控制</span>，模板方法的目的是控制<span style="color:#ff0000">组装过程/方式和组装逻辑</span>。它决定了<span style="color:#ff0000"><strong>产品部件的所有选项</strong></span>，最终的产品有固定的组成部分或一些可选项。例如买一碗牛肉粉，可能需要嘱咐加或不加葱、加多少辣椒。再例如生产有门、引擎、轮子、框架的产品，而产品为汽车、摩托、自行车(没有门和引擎)。</li><li> 通过依赖注入，AcerBuilder可以配置不同的部件（如果CPU等为抽象类，AcerBuilder可以在CPU、显示器和硬盘的各种品牌、规格中组合）。通过依赖注入，客户One可以依赖抽象类PCBuilder。</li><li>注意，此时PCBuilder定义了方法<strong>public abstract MyPC getMyPC()，以返回装配后的产品</strong>。真正的建造者模式中<strong><span style="color:#cc0000">产品没有共同的抽象类</span></strong>。</li></ul>&#13;
+<div>&#13;
+<p style="margin-top:0px; margin-bottom:0px; padding-top:0px; padding-bottom:0px; font-family:Arial; font-size:14px; line-height:26px; color:rgb(51,51,51)">&#13;
+<a target="_blank" href="http://blog.csdn.net/yqj2065/article/details/8592375" style="text-align:center"><img src="http://img.blog.csdn.net/20140919170809965?watermark/2/text/aHR0cDovL2Jsb2cuY3Nkbi5uZXQveXFqMjA2NQ==/font/5a6L5L2T/fontsize/400/fill/I0JBQkFCMA==/dissolve/70/gravity/SouthEast" alt="" /></a><br />&#13;
+</p>&#13;
+<p style="margin-top:0px; margin-bottom:0px; padding-top:0px; padding-bottom:0px; font-family:Arial; font-size:14px; line-height:26px; color:rgb(51,51,51)">&#13;
+最后编辑时间：2015.9.5</p>&#13;
+</div>&#13;
+   &#13;

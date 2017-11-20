@@ -1,0 +1,112 @@
+
+        <div class="markdown_views"><p>今天在写提交一个json数据到后台，然后后台返回一个json数据类型。但是发现后台通过request.getParamter(“”)取到的值为null。</p>
+
+<p>于是写一个简单的ajax 请求，来排查问题 <br />
+前台代码：</p>
+
+<pre class="prettyprint"><code class=" hljs javascript">$(document).ready(<span class="hljs-function"><span class="hljs-keyword">function</span><span class="hljs-params">()</span>{</span>
+    $(<span class="hljs-string">"#ajax"</span>).click(<span class="hljs-function"><span class="hljs-keyword">function</span><span class="hljs-params">()</span>{</span>
+        <span class="hljs-keyword">var</span> depart=<span class="hljs-string">"depart"</span>;
+        $.ajax({
+            url :path+ <span class="hljs-string">"/AjaxReponse"</span>,
+            data :<span class="hljs-string">"depart="</span>+depart,
+            type : <span class="hljs-string">"post"</span>,
+            dataType : <span class="hljs-string">"json"</span>,      
+            success: <span class="hljs-function"><span class="hljs-keyword">function</span><span class="hljs-params">(data)</span>{</span>
+                alert(data);
+            }
+        });
+    });
+});</code></pre>
+
+<p>后台代码：</p>
+
+<pre class="prettyprint"><code class=" hljs vbscript"><span class="hljs-built_in">String</span> depart=<span class="hljs-built_in">request</span>.getParameter(<span class="hljs-string">"depart"</span>);</code></pre>
+
+<p>现象：后台取到值为null。但是在google chrome调试工具调试时，request中已经有发送的值了 <br />
+<img src="http://img.blog.csdn.net/20150329151436677" alt="这里写图片描述" title="" /></p>
+
+<p>一.网友方法</p>
+
+<blockquote>
+  <p>正常的post请求(不包括ajax请求)在http头中的content-type为application/x-www-form-urlencoded,这时在java后台可以通过request.getParameter(name)的形式获取.但是通过原生ajax请求时,在java后台通过request.getParameter(name)的形式却无法获取到传入的参数. <br />
+  但是实际上在上图中可以看到，content-type已经是application/x-www-form-urlencoded的形式了。所以网友的方法不适用 <br />
+  <a href="http://m.blog.csdn.net/blog/eyebrother/36007145">http://m.blog.csdn.net/blog/eyebrother/36007145</a></p>
+</blockquote>
+
+<p>二.编码格式 <br />
+既然在调试器中看到request的发送内容没问题，那么就是编码格式的问题了。在后台添加代码： <br />
+request.setCharacterEncoding(“utf-8”)； <br />
+可以解决这个问题。 <br />
+但是发现前台写成这种类型</p>
+
+<pre class="prettyprint"><code class=" hljs haskell">    <span class="hljs-typedef"><span class="hljs-keyword">data</span> :<span class="hljs-container">{
+                "<span class="hljs-title">depart</span>" : <span class="hljs-title">depart</span>
+            }</span>,</span></code></pre>
+
+<p>后台取到的也是null。所以最终将js文件编码格式改为utf-8.解决这个问题</p>
+
+<p><strong>三.发送json类型数据到后台</strong></p>
+
+<pre class="prettyprint"><code class=" hljs javascript">$(document).ready(<span class="hljs-function"><span class="hljs-keyword">function</span><span class="hljs-params">()</span>{</span>
+    $(<span class="hljs-string">"#ajax"</span>).click(<span class="hljs-function"><span class="hljs-keyword">function</span><span class="hljs-params">()</span>{</span>
+        <span class="hljs-keyword">var</span> isReceipt = <span class="hljs-string">"1"</span>;
+        <span class="hljs-keyword">var</span> adress =<span class="hljs-string">"2"</span>;
+        <span class="hljs-keyword">var</span> reason = <span class="hljs-string">"3"</span>;
+        <span class="hljs-keyword">var</span> projectInfo = {
+                <span class="hljs-string">"adress"</span> : isReceipt,
+                <span class="hljs-string">"ownerDept"</span> : {
+                    <span class="hljs-string">"deptCode"</span> : adress
+            },      
+            <span class="hljs-string">"reason"</span> : reason
+        };
+        $.ajax({
+            url :path+ <span class="hljs-string">"/AjaxReponse"</span>,
+            data :{
+                <span class="hljs-string">"depart"</span> : <span class="hljs-built_in">JSON</span>.stringify(projectInfo)
+            },
+            type : <span class="hljs-string">"post"</span>,
+            dataType : <span class="hljs-string">"json"</span>,      
+            success: <span class="hljs-function"><span class="hljs-keyword">function</span><span class="hljs-params">(data)</span>{</span>
+                alert(data);
+            }
+        });
+    });
+});</code></pre>
+
+<p>后台：</p>
+
+
+
+<pre class="prettyprint"><code class=" hljs avrasm">String depart=request<span class="hljs-preprocessor">.getParameter</span>(<span class="hljs-string">"depart"</span>)<span class="hljs-comment">;</span>
+Gson gson = new GsonBuilder()<span class="hljs-preprocessor">.create</span>()<span class="hljs-comment">;</span>
+Depart dep = gson<span class="hljs-preprocessor">.fromJson</span>(depart),
+        Depart<span class="hljs-preprocessor">.class</span>)<span class="hljs-comment">;</span></code></pre>
+
+<p>前台通过JSON.stringify()方法将json类型转换为string类型发送。 <br />
+后台是使用google的GSON包，然后将json类型数据（String）转换为实体类数据类型。</p>
+
+<p><strong>四.js 工具</strong> <br />
+由于js语法比较复杂，编译器无法进行检查。所以js代码风格，错误比较难找。这里推荐我使用的两个工具。 <br />
+1. JSTool <br />
+可以格式化js代码 <br />
+2. JSLINT <br />
+检查语法错误 <br />
+具体使用不详述了，我都是下载这两个工具对应的notepad++插件。在notepad使用非常方便。</p>
+
+<p><strong>五. 吐槽</strong> <br />
+csdn 的新版博客编辑器确实不错，但是在写博客时没有随手保存，打开其他的csdn页面时，提示markdown 编辑器实例已运行，必须重写加载。然后整篇博客都重写了。实在是不能忍！</p></div>&#13;
+        <script type="text/javascript">&#13;
+            $(function () {&#13;
+                $('pre.prettyprint code').each(function () {&#13;
+                    var lines = $(this).text().split('\n').length;&#13;
+                    var $numbering = $('&lt;ul/&gt;').addClass('pre-numbering').hide();&#13;
+                    $(this).addClass('has-numbering').parent().append($numbering);&#13;
+                    for (i = 1; i &lt;= lines; i++) {&#13;
+                        $numbering.append($('&lt;li/&gt;').text(i));&#13;
+                    };&#13;
+                    $numbering.fadeIn(1700);&#13;
+                });&#13;
+            });&#13;
+        </script>&#13;
+   &#13;

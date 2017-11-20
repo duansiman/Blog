@@ -1,0 +1,145 @@
+
+                <p><span style="font-size:18px;"><br/></span></p><p><span style="font-size:18px;">本博客介绍log4j的日志管理配置</span></p><p><span style="font-size:18px;"><br/></span></p><p><span style="font-size:18px;">log4j.peroperties:</span></p><p><span style="font-size:18px;">在D盘创建一个logs的文件夹来存放日志</span></p><p><span style="font-size:18px;"/></p><pre code_snippet_id="1882079" snippet_file_name="blog_20160916_1_3982001" name="code" class="html">### set log levels ### 
+log4j.rootLogger = info , Console , D
+#Console
+log4j.appender.Console=org.apache.log4j.ConsoleAppender
+log4j.appender.Console.layout=org.apache.log4j.PatternLayout
+log4j.appender.Console.layout.ConversionPattern=%d [%t] %-5p [%c] - %m%n
+log4j.logger.java.sql.ResultSet=INFO
+log4j.logger.org.apache=INFO
+log4j.logger.java.sql.Connection=INFO
+log4j.logger.java.sql.Statement=INFO
+log4j.logger.java.sql.PreparedStatement=INFO
+#output2file
+log4j.appender.D = org.apache.log4j.DailyRollingFileAppender 
+log4j.appender.D.File = D\:/logs/log.log 
+log4j.appender.D.Append = true 
+log4j.appender.D.Threshold = INFO \#\# \u8F93\u51FAinfo\u7EA7\u522B\u4EE5\u4E0A\u7684\u65E5\u5FD7 
+log4j.appender.D.layout = org.apache.log4j.PatternLayout 
+log4j.appender.D.layout.ConversionPattern = %-d{yyyy-MM-dd HH\:mm\:ss} [ %t\:%r ] - [ %p ] %m%n 
+ 
+</pre><br/>写个日志管理类：<p/><p><span style="font-size:18px;"/></p><pre code_snippet_id="1882079" snippet_file_name="blog_20160916_2_2062390" name="code" class="java">package com.appweb.core.logger;
+
+
+public class Logger {
+
+	private org.apache.log4j.Logger logger;
+
+	
+	/**
+	 * 构造方法，初始化Log4j的日志对象
+	 */
+	private Logger(org.apache.log4j.Logger log4jLogger) {
+		logger = log4jLogger;
+	}
+
+	/**
+	 * 获取构造器，根据类初始化Logger对象
+	 * 
+	 * @param Class
+	 *            Class对象
+	 * @return Logger对象
+	 */
+	public static Logger getLogger(Class classObject) {
+		return new Logger(org.apache.log4j.Logger.getLogger(classObject));
+	}
+
+	/**
+	 * 获取构造器，根据类名初始化Logger对象
+	 * 
+	 * @param String
+	 *            类名字符串
+	 * @return Logger对象
+	 */
+	public static Logger getLogger(String loggerName) {
+		return new Logger(org.apache.log4j.Logger.getLogger(loggerName));
+	}
+
+	public void debug(Object object) {
+		logger.debug(object);
+	}
+
+	public void debug(Object object, Throwable e) {
+		logger.debug(object, e);
+	}
+
+	public void info(Object object) {
+		logger.info(object);
+	}
+
+	public void info(Object object, Throwable e) {
+		logger.info(object, e);
+	}
+
+	public void warn(Object object) {
+		logger.warn(object);
+	}
+
+	public void warn(Object object, Throwable e) {
+		logger.warn(object, e);
+	}
+
+	public void error(Object object) {
+		logger.error(object);
+	}
+
+	public void error(Object object, Throwable e) {
+		logger.error(object, e);
+	}
+
+	public void fatal(Object object) {
+		logger.fatal(object);
+	}
+
+	public String getName() {
+		return logger.getName();
+	}
+
+	public org.apache.log4j.Logger getLog4jLogger() {
+		return logger;
+	}
+
+	public boolean equals(Logger newLogger) {
+		return logger.equals(newLogger.getLog4jLogger());
+	}
+}</pre><br/>可以写个BaseController的控制类<p/><p><span style="font-size:18px;">然后将log的管理类加进来，实现日志管理的重复使用</span></p><p><span style="font-size:18px;"/></p><pre code_snippet_id="1882079" snippet_file_name="blog_20160916_3_6904176" name="code" class="java">package com.appweb.core.base;
+
+
+import javax.servlet.http.HttpServletRequest;
+
+import org.springframework.web.context.request.RequestContextHolder;
+import org.springframework.web.context.request.ServletRequestAttributes;
+import org.springframework.web.servlet.ModelAndView;
+
+import com.appweb.core.entity.Page;
+import com.appweb.core.entity.PageData;
+import com.appweb.core.logger.Logger;
+import com.appweb.core.utils.UuidUtil;
+
+public class BaseController {
+	
+	protected Logger logger = Logger.getLogger(this.getClass());
+
+	private static final long serialVersionUID = 6357869213649815390L;
+	
+
+	
+	/**
+	 * 得到分页列表的信息 
+	 */
+	
+	
+	public static void logBefore(Logger logger, String interfaceName){
+		logger.info("");
+		logger.info("start");
+		logger.info(interfaceName);
+	}
+	
+	public static void logAfter(Logger logger){
+		logger.info("end");
+		logger.info("");
+	}
+	
+}
+</pre><br/><br/><p/><p><span style="font-size:18px;">然后每个控制类都extends这个BaseController，使用日志的时候叫调用logger日志管理类</span></p><p><br/></p><link rel="stylesheet" href="http://static.blog.csdn.net/public/res-min/markdown_views.css?v=1.0"/>&#13;
+            

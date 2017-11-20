@@ -1,0 +1,266 @@
+
+        <div class="markdown_views"><h1 id="原型模式"><center> 原型模式</center></h1>
+
+<p>标签 ： Java与设计模式</p>
+
+<hr />
+
+<blockquote>
+  <p>原型模式 <br />
+  用原型实例指定创建对象的种类, 并通过拷贝这些原型创建新的对象.</p>
+</blockquote>
+
+<p>原型模式就是通过一个对象再创建另一个可定制的对象, 而且不需要知道任何创建的细节. <br />
+因此, 原型模式要求对象实现一个可以“克隆”自身的接口，这样就可以通过复制一个实例对象本身来创建一个新的实例。这样一来，通过原型实例创建新的对象，就不再需要关心这个实例本身的类型，只要实现了克隆自身的方法，就可以通过这个方法来获取新的对象，而无须再去通过new来创建。标准的原型模式的URL类图为: <br />
+<img src="http://7xrgh9.com1.z0.glb.clouddn.com/16-8-25/53986934.jpg" alt="" title="" /> <br />
+但由于Java类库已经帮我们实现了一个<code>java.lang.Cloneable</code>接口, 因此我们的实现就简单了些,下面我们模仿<strong>多利羊</strong>的诞生过程: <br />
+<img src="http://7xrgh9.com1.z0.glb.clouddn.com/16-8-25/55275682.jpg" alt="" title="" /></p>
+
+
+
+<pre class="prettyprint"><code class=" hljs java"><span class="hljs-javadoc">/**
+ * 该羊支持克隆
+ * (浅复制)
+ * Created by jifang on 15/12/9.
+ */</span>
+<span class="hljs-keyword">public</span> <span class="hljs-class"><span class="hljs-keyword">class</span> <span class="hljs-title">Sheep</span> <span class="hljs-keyword">implements</span> <span class="hljs-title">Cloneable</span> {</span>
+
+    <span class="hljs-keyword">private</span> String name;
+    <span class="hljs-keyword">private</span> Date birthday;
+
+    <span class="hljs-keyword">public</span> <span class="hljs-title">Sheep</span>() {
+    }
+
+    <span class="hljs-keyword">public</span> <span class="hljs-title">Sheep</span>(String name, Date birthday) {
+        <span class="hljs-keyword">this</span>.name = name;
+        <span class="hljs-keyword">this</span>.birthday = birthday;
+    }
+
+    <span class="hljs-keyword">public</span> String <span class="hljs-title">getName</span>() {
+        <span class="hljs-keyword">return</span> name;
+    }
+
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">void</span> <span class="hljs-title">setName</span>(String name) {
+        <span class="hljs-keyword">this</span>.name = name;
+    }
+
+    <span class="hljs-keyword">public</span> Date <span class="hljs-title">getBirthday</span>() {
+        <span class="hljs-keyword">return</span> birthday;
+    }
+
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">void</span> <span class="hljs-title">setBirthday</span>(Date birthday) {
+        <span class="hljs-keyword">this</span>.birthday = birthday;
+    }
+
+    <span class="hljs-annotation">@Override</span>
+    <span class="hljs-keyword">public</span> String <span class="hljs-title">toString</span>() {
+        <span class="hljs-keyword">return</span> <span class="hljs-string">"Sheep{"</span> +
+                <span class="hljs-string">"name='"</span> + name + <span class="hljs-string">'\''</span> +
+                <span class="hljs-string">", birthday="</span> + birthday +
+                <span class="hljs-string">'}'</span>;
+    }
+
+    <span class="hljs-annotation">@Override</span>
+    <span class="hljs-keyword">protected</span> Sheep <span class="hljs-title">clone</span>() <span class="hljs-keyword">throws</span> CloneNotSupportedException {
+        <span class="hljs-keyword">return</span> (Sheep) <span class="hljs-keyword">super</span>.clone();
+    }
+}</code></pre>
+
+<ul>
+<li>Client</li>
+</ul>
+
+
+
+<pre class="prettyprint"><code class=" hljs cs"><span class="hljs-keyword">public</span> <span class="hljs-keyword">class</span> Client {
+
+    @Test
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">void</span> <span class="hljs-title">client</span>() throws CloneNotSupportedException {
+        Date birthday = <span class="hljs-keyword">new</span> Date();
+        Sheep mother = <span class="hljs-keyword">new</span> Sheep(<span class="hljs-string">"多利母亲"</span>, birthday);
+        System.<span class="hljs-keyword">out</span>.println(mother);
+
+        Sheep dolly = mother.clone();
+        dolly.setName(<span class="hljs-string">"多利"</span>);
+        System.<span class="hljs-keyword">out</span>.println(dolly);
+    }
+}</code></pre>
+
+<hr />
+
+
+
+<h3 id="浅复制与深复制">浅复制与深复制</h3>
+
+<ul>
+<li>浅复制 <br />
+在上面的Client上添加几行代码, 就可以发现问题:</li>
+</ul>
+
+
+
+<pre class="prettyprint"><code class=" hljs avrasm">@Test
+public void client() throws CloneNotSupportedException {
+    Date birthday = new Date()<span class="hljs-comment">;</span>
+    Sheep mother = new Sheep(<span class="hljs-string">"多利母亲"</span>, birthday)<span class="hljs-comment">;</span>
+    System<span class="hljs-preprocessor">.out</span><span class="hljs-preprocessor">.println</span>(mother)<span class="hljs-comment">;</span>
+
+    Sheep dolly = mother<span class="hljs-preprocessor">.clone</span>()<span class="hljs-comment">;</span>
+    dolly<span class="hljs-preprocessor">.setName</span>(<span class="hljs-string">"多利"</span>)<span class="hljs-comment">;</span>
+    System<span class="hljs-preprocessor">.out</span><span class="hljs-preprocessor">.println</span>(dolly)<span class="hljs-comment">;</span>
+
+    birthday<span class="hljs-preprocessor">.setTime</span>(<span class="hljs-number">123123123123</span>L)<span class="hljs-comment">;</span>
+    System<span class="hljs-preprocessor">.out</span><span class="hljs-preprocessor">.println</span>(<span class="hljs-string">"dolly birthday: "</span> + dolly<span class="hljs-preprocessor">.getBirthday</span>())<span class="hljs-comment">;</span>
+}</code></pre>
+
+<p>运行上面的代码我们可以看到更改了mother的birthday, dolly的birthday也更改了. 这个问题是由浅复制引起的.</p>
+
+<blockquote>
+  <p>浅复制: <br />
+      创建当前对象的浅复制版本, 方法是创建一个新对象, 然后将当前对象的非静态字段复制到该新对象. 如果字段是值类型, 则对该字段执行逐位复制; 如果字段是引用类型, 则复制引用但不复制引用的对象; 因此原始对象及其副本引用同一对象;</p>
+</blockquote>
+
+<p>此时运行的内存简化图如下: <br />
+<img src="http://7xrgh9.com1.z0.glb.clouddn.com/16-8-25/96342956.jpg" alt="" title="" /> <br />
+可以看到mother和dolly的birthday指向同一个date对象.</p>
+
+<ul>
+<li>深复制版本 <br />
+
+
+<blockquote>
+  深复制: 把引用对象的变量指向<code>复制过来的新对象</code>, 而不是原有的被引用的对象;</blockquote></li>
+  </ul>
+  
+
+
+<pre class="prettyprint"><code class=" hljs java"><span class="hljs-annotation">@Override</span>
+<span class="hljs-keyword">protected</span> Sheep <span class="hljs-title">clone</span>() <span class="hljs-keyword">throws</span> CloneNotSupportedException {
+    Sheep sheep = (Sheep) <span class="hljs-keyword">super</span>.clone();
+    <span class="hljs-comment">// 添加下面代码支持深复制</span>
+    sheep.birthday = (Date) <span class="hljs-keyword">this</span>.birthday.clone();
+    <span class="hljs-keyword">return</span> sheep;
+}</code></pre>
+
+
+
+
+
+<blockquote>
+  <p>因此我们把Sheep的clone方法改成上面实现后, 再调用client方法就不会出现问题了, 此时的内存简图如下: <br />
+  <img src="http://7xrgh9.com1.z0.glb.clouddn.com/16-8-25/74897275.jpg" alt="" title="" /></p>
+</blockquote>
+
+<ul>
+<li>利用序列化实现深复制 <br />
+Sheep需要先实现Serializable接口.</li>
+</ul>
+
+<pre class="prettyprint"><code class=" hljs java"><span class="hljs-annotation">@Override</span>
+<span class="hljs-keyword">protected</span> Sheep <span class="hljs-title">clone</span>() <span class="hljs-keyword">throws</span> CloneNotSupportedException {
+    ByteArrayOutputStream bos = <span class="hljs-keyword">new</span> ByteArrayOutputStream();
+    <span class="hljs-keyword">try</span> {
+        ObjectOutputStream oos = <span class="hljs-keyword">new</span> ObjectOutputStream(bos);
+        oos.writeObject(<span class="hljs-keyword">this</span>);
+
+        ObjectInputStream ois = <span class="hljs-keyword">new</span> ObjectInputStream(<span class="hljs-keyword">new</span> ByteArrayInputStream(bos.toByteArray()));
+        <span class="hljs-keyword">return</span> (Sheep) ois.readObject();
+    } <span class="hljs-keyword">catch</span> (IOException e) {
+        e.printStackTrace();
+    } <span class="hljs-keyword">catch</span> (ClassNotFoundException e) {
+        e.printStackTrace();
+    }
+    <span class="hljs-keyword">return</span> <span class="hljs-keyword">null</span>;
+}</code></pre>
+
+<hr />
+
+
+
+<h3 id="原型模式性能测试">原型模式性能测试</h3>
+
+<p>假设创建Sheep是比较耗时的, 在此基础上进行原型模式的额性能测试:</p>
+
+
+
+<pre class="prettyprint"><code class=" hljs java"><span class="hljs-javadoc">/**
+ * 模拟耗时的对象创建过程
+ *
+ *<span class="hljs-javadoctag"> @param</span> name
+ *<span class="hljs-javadoctag"> @param</span> birthday
+ */</span>
+<span class="hljs-keyword">public</span> <span class="hljs-title">Sheep</span>(String name, Date birthday) {
+    <span class="hljs-keyword">try</span> {
+        Thread.sleep(<span class="hljs-number">10</span>);
+    } <span class="hljs-keyword">catch</span> (InterruptedException e) {
+        e.printStackTrace();
+    }
+    <span class="hljs-keyword">this</span>.name = name;
+    <span class="hljs-keyword">this</span>.birthday = birthday;
+}</code></pre>
+
+<ul>
+<li>测试Client</li>
+</ul>
+
+
+
+<pre class="prettyprint"><code class=" hljs java"><span class="hljs-keyword">public</span> <span class="hljs-class"><span class="hljs-keyword">class</span> <span class="hljs-title">Client</span> {</span>
+    <span class="hljs-keyword">private</span> <span class="hljs-keyword">static</span> <span class="hljs-keyword">final</span> <span class="hljs-keyword">int</span> OBJECT_COUNT = <span class="hljs-number">1000</span>;
+
+    <span class="hljs-keyword">private</span> <span class="hljs-keyword">long</span> <span class="hljs-title">testNew</span>() {
+        <span class="hljs-keyword">long</span> start = System.currentTimeMillis();
+        <span class="hljs-keyword">for</span> (<span class="hljs-keyword">int</span> i = <span class="hljs-number">0</span>; i &lt; OBJECT_COUNT; ++i) {
+            Sheep sheep = <span class="hljs-keyword">new</span> Sheep(<span class="hljs-string">"name"</span>, <span class="hljs-keyword">new</span> Date());
+        }
+        <span class="hljs-keyword">return</span> System.currentTimeMillis() - start;
+    }
+
+    <span class="hljs-keyword">private</span> <span class="hljs-keyword">long</span> <span class="hljs-title">testPrototype</span>() <span class="hljs-keyword">throws</span> CloneNotSupportedException {
+        <span class="hljs-keyword">long</span> start = System.currentTimeMillis();
+        Sheep sheep = <span class="hljs-keyword">new</span> Sheep(<span class="hljs-string">"name"</span>, <span class="hljs-keyword">new</span> Date());
+        <span class="hljs-keyword">for</span> (<span class="hljs-keyword">int</span> i = <span class="hljs-number">0</span>; i &lt; OBJECT_COUNT; ++i) {
+            Sheep newSheep = sheep.clone();
+            newSheep.setName(<span class="hljs-string">"new name"</span>);
+        }
+        <span class="hljs-keyword">return</span> System.currentTimeMillis() - start;
+    }
+
+    <span class="hljs-annotation">@Test</span>
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">void</span> <span class="hljs-title">client</span>() <span class="hljs-keyword">throws</span> CloneNotSupportedException {
+        System.out.println(testNew());
+        System.out.println(testPrototype());
+    }
+}</code></pre>
+
+<p>运行上面程序, 可以很明显看出new与原型模式的性能差异, 如果吧Sheep构造器中的sleep注释掉, new与clone虽然有差异, 但是差距较小.</p>
+
+<p>应用场景:</p>
+
+<ul>
+<li>原型模式很少单独出现, 一般都是与工厂方法模式一起出现, 通过clone方法创建一个对象, 然后由工厂返回给调用者. 像Spring中的Bean的创建模式就有singleton与prototype模式.</li>
+</ul>
+
+<hr />
+
+<p>参考:</p>
+
+<ul>
+<li><a href="http://www.cnblogs.com/java-my-life/archive/2012/04/11/2439387.html">《JAVA与模式》之原型模式</a></li>
+<li><a href="http://book.douban.com/subject/2334288/">大话设计模式</a></li>
+<li><a href="http://www.bjsxt.com/2014/down_0425/34.html">高淇讲设计模式</a></li>
+</ul></div>&#13;
+        <script type="text/javascript">&#13;
+            $(function () {&#13;
+                $('pre.prettyprint code').each(function () {&#13;
+                    var lines = $(this).text().split('\n').length;&#13;
+                    var $numbering = $('&lt;ul/&gt;').addClass('pre-numbering').hide();&#13;
+                    $(this).addClass('has-numbering').parent().append($numbering);&#13;
+                    for (i = 1; i &lt;= lines; i++) {&#13;
+                        $numbering.append($('&lt;li/&gt;').text(i));&#13;
+                    };&#13;
+                    $numbering.fadeIn(1700);&#13;
+                });&#13;
+            });&#13;
+        </script>&#13;
+   &#13;

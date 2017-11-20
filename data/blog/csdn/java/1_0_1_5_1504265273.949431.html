@@ -1,0 +1,348 @@
+
+
+<p><span style="font-size:18px">        在java的开发中，经常使用的框架当属SSH，而在这张框架中，我们首先接触到的就是神奇的Spring，虽然有N多前辈说Spring就是N多公共代码的集合，是帮助我们实现了，我们很久之前就想实现或者已经实现的好的点子的集合，但是作为一名合格工程师，怎么能不懂spring的底层实现呢！在今天咱们就一起探索Spring是怎么完成IOC工作的，也自己做一个简单Spring框架！</span></p>&#13;
+<h1><span style="font-size:18px">1，Spring中Bean的定义</span></h1>&#13;
+<p><span style="font-size:18px">作用：在spring中使用的bean，都有某些公共属性，此类就是对公共属性的定义</span></p>&#13;
+<p></p>&#13;
+<pre code_snippet_id="609766" snippet_file_name="blog_20150301_1_4960474" name="code" class="java">&lt;span style="font-size:18px;"&gt;package com.My.Spring;
+
+/**
+ * @Description:Spring用到的类公共部分定义
+ * @ClassName: BeanDefinition
+ * @Project: MySpring
+ * @Author: xvshu
+ * @Date: 2015年2月28日
+ */
+public class BeanDefine {
+
+	public String id;
+	public String className;
+
+	public BeanDefine(String id, String className) {
+		this.id = id;
+		this.className = className;
+	}
+
+	public String getId() {
+		return id;
+	}
+
+	public void setId(String id) {
+		this.id = id;
+	}
+
+	public String getClassName() {
+		return className;
+	}
+
+	public void setClassName(String className) {
+		this.className = className;
+	}
+
+}
+&lt;/span&gt;</pre>&#13;
+<p></p>&#13;
+<h1><span style="font-size:18px">2，装配类</span></h1>&#13;
+<h2><span style="font-size:18px">2.1，XML装配类</span></h2>&#13;
+<p><span style="font-size:18px">作用：对spring中Xml的配置进行类的装配，实际就是注入</span></p>&#13;
+<p></p>&#13;
+<pre code_snippet_id="609766" snippet_file_name="blog_20150301_2_929628" name="code" class="java">&lt;span style="font-size:18px;"&gt;package com.My.Spring;
+
+import java.beans.Introspector;
+import java.beans.PropertyDescriptor;
+import java.lang.reflect.Field;
+import java.lang.reflect.Method;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.Iterator;
+import java.util.List;
+import java.util.Map;
+import org.apache.log4j.Logger;
+import org.dom4j.Document;
+import org.dom4j.DocumentException;
+import org.dom4j.Element;
+import org.dom4j.io.SAXReader;
+
+import com.My.Test.TestServiceImpl;
+
+/**
+ * @Description: spring中的注解原理
+ * @ClassName: ClassPathXMLApplicationContext
+ * @Project: MySpring
+ * @Author: xvshu
+ * @Date: 2015年2月28日
+ */
+public class ClassPathXMLApplicationContext {
+
+	Logger log = Logger.getLogger(ClassPathXMLApplicationContext.class);
+
+	List&lt;BeanDefine&gt; beanList = new ArrayList&lt;BeanDefine&gt;();
+	Map&lt;String, Object&gt; sigletions = new HashMap&lt;String, Object&gt;();
+
+	public ClassPathXMLApplicationContext(String fileName) {
+		//读取配置文件中管理的bean
+		this.readXML(fileName);
+		//实例化bean
+		this.instancesBean();
+		//注解处理器
+		this.annotationInject();
+	}
+
+	/**
+	 * 读取Bean配置文件
+	 * @param fileName
+	 * @return
+	 */
+	@SuppressWarnings("unchecked")
+	public void readXML(String fileName) {
+		Document document = null;
+		SAXReader saxReader = new SAXReader();
+		try {
+			ClassLoader classLoader = Thread.currentThread().getContextClassLoader();
+			document = saxReader.read(classLoader.getResourceAsStream(fileName));
+			Element beans = document.getRootElement();
+			for (Iterator&lt;Element&gt; beansList = beans.elementIterator(); beansList.hasNext();) {
+				Element element = beansList.next();
+				BeanDefine bean = new BeanDefine(
+						element.attributeValue("id"),
+						element.attributeValue("class"));
+				beanList.add(bean);
+			}
+		} catch (DocumentException e) {
+			log.info("读取配置文件出错....");
+		}
+	}
+	
+	/**
+	 * 实例化Bean
+	 */
+	public void instancesBean() {
+		for (BeanDefine bean : beanList) {
+			try {
+				sigletions.put(bean.getId(), Class.forName(bean.getClassName()).newInstance());
+			} catch (Exception e) {
+				log.info("实例化Bean出错...");
+			}
+		}
+	}
+	
+	/**
+	 * 注解处理器
+	 * 如果注解ZxfResource配置了name属性，则根据name所指定的名称获取要注入的实例引用，如果注解ZxfResource
+	 * 没有配置name属性，则根据属性所属类型来扫描配置文件获取要注入的实例引用
+	 * 
+	 */
+	public void annotationInject(){
+		for(String beanName:sigletions.keySet()){
+			Object bean = sigletions.get(beanName);
+			if(bean!=null){
+				this.propertyAnnotation(bean);
+				this.fieldAnnotation(bean);
+			}
+		}
+	}
+	
+	/**
+	 * 处理在set方法加入的注解
+	 * @param bean 处理的bean
+	 */
+	public void propertyAnnotation(Object bean){
+		try {
+			//获取其属性的描述
+			PropertyDescriptor[] ps = Introspector.getBeanInfo(bean.getClass()).getPropertyDescriptors();
+			for(PropertyDescriptor proderdesc : ps){
+				//获取所有set方法
+				Method setter = proderdesc.getWriteMethod();
+				//判断set方法是否定义了注解
+				if(setter!=null &amp;&amp; setter.isAnnotationPresent(ZxfResource.class)){
+					//获取当前注解，并判断name属性是否为空
+					ZxfResource resource = setter.getAnnotation(ZxfResource.class);
+					String name ="";
+					Object value = null;
+					if(resource.name()!=null&amp;&amp;!"".equals(resource.name())){
+						//获取注解的name属性的内容
+						name = resource.name();
+						value = sigletions.get(name);
+					}else{ //如果当前注解没有指定name属性,则根据类型进行匹配
+						for(String key : sigletions.keySet()){
+							//判断当前属性所属的类型是否在配置文件中存在
+							if(proderdesc.getPropertyType().isAssignableFrom(sigletions.get(key).getClass())){
+								//获取类型匹配的实例对象
+								value = sigletions.get(key);
+								break;
+							}
+						}
+					}
+					//允许访问private方法
+					setter.setAccessible(true);
+					//把引用对象注入属性
+					setter.invoke(bean, value); 
+				}
+			}
+		} catch (Exception e) {
+			log.info("set方法注解解析异常..........");
+		}
+	}
+	
+	/**
+	 * 处理在字段上的注解
+	 * @param bean 处理的bean
+	 */
+	public void fieldAnnotation(Object bean){
+		try {
+			//获取其全部的字段描述
+			Field[] fields = bean.getClass().getFields();
+			for(Field f : fields){
+				if(f!=null &amp;&amp; f.isAnnotationPresent(ZxfResource.class)){
+					ZxfResource resource = f.getAnnotation(ZxfResource.class);
+					String name ="";
+					Object value = null;
+					if(resource.name()!=null&amp;&amp;!"".equals(resource.name())){
+						name = resource.name();
+						value = sigletions.get(name);
+					}else{
+						for(String key : sigletions.keySet()){
+							//判断当前属性所属的类型是否在配置文件中存在
+							if(f.getType().isAssignableFrom(sigletions.get(key).getClass())){
+								//获取类型匹配的实例对象
+								value = sigletions.get(key);
+								break;
+							}
+						}
+					}
+					//允许访问private字段
+					f.setAccessible(true);
+					//把引用对象注入属性
+					f.set(bean, value);
+				}
+			}
+		} catch (Exception e) {
+			log.info("字段注解解析异常..........");
+		}
+	}
+	
+	/**
+	 * 获取Map中的对应的bean实例
+	 * @param beanId
+	 * @return
+	 */
+	public Object getBean(String beanId) {
+		return sigletions.get(beanId);
+	}
+
+
+}
+&lt;/span&gt;</pre><span style="font-size:18px"><br />&#13;
+<br />&#13;
+</span>&#13;
+<h2><span style="font-size:18px">2.2，注解装配类</span></h2>&#13;
+<p><span style="font-size:18px">作用：对spring中用注解标记的部分进行注入，就是一个自定义注解</span></p>&#13;
+<p></p>&#13;
+<pre code_snippet_id="609766" snippet_file_name="blog_20150301_3_7082347" name="code" class="java">&lt;span style="font-size:18px;"&gt;package com.My.Spring;
+
+import java.lang.annotation.ElementType;
+import java.lang.annotation.Retention;
+import java.lang.annotation.RetentionPolicy;
+import java.lang.annotation.Target;
+
+/**
+ * @Description:定义注解
+ * @ClassName: ZxfResource
+ * @Project: MySpring
+ * @Author: xvshu
+ * @Date: 2015年2月28日
+ */
+// 在运行时执行
+@Retention(RetentionPolicy.RUNTIME)
+// 注解适用地方(字段和方法)
+@Target({ ElementType.FIELD, ElementType.METHOD })
+public @interface ZxfResource {
+
+	//注解的name属性
+	public String name() default "";
+}
+&lt;/span&gt;</pre><span style="font-size:18px"><br />&#13;
+</span>&#13;
+<h1><span style="font-size:18px">3，配置文件</span></h1>&#13;
+<h2>3.1xml：</h2>&#13;
+<p><br />&#13;
+</p>&#13;
+<pre code_snippet_id="609766" snippet_file_name="blog_20150301_4_3999218" name="code" class="html">&lt;beans&gt;  
+    &lt;bean id = "TestObject1" class="com.My.Test.TestObject1" /&gt;  
+    &lt;bean id = "TestObject2" class="com.My.Test.TestObject2" /&gt;  
+    &lt;bean id = "TestObject3" class="com.My.Test.TestObject3" /&gt;  
+    &lt;bean id = "TestService" class = "com.My.Test.TestServiceImpl" /&gt;  
+&lt;/beans&gt;  
+</pre><pre code_snippet_id="609766" snippet_file_name="blog_20150301_4_3999218" name="code" class="html">&#13;
+</pre>&#13;
+<h2><span style="font-size:18px">3.2注解：</span></h2>&#13;
+<p><span style="font-size:18px"></span></p><pre name="code" class="java">package com.My.Test;
+
+import com.My.Spring.ZxfResource;
+
+/**
+ * @Description: 带有注解的服务
+ * @ClassName: TestServiceImpl
+ * @Project: MySpring
+ * @Author: xvshu
+ * @Date: 2015年2月28日
+ */
+public class TestServiceImpl {
+
+	public TestObject3 TestObject3;
+	public TestObject1 TestObject1;
+
+	// 字段上的注解,可以配置name属性
+	@ZxfResource
+	public TestObject2 TestObject2;
+
+	// set方法上的注解，带有name属性
+	@ZxfResource(name = "TestObject3")
+	public void setUserDao(TestObject3 TestObject3) {
+		this.TestObject3 = TestObject3;
+	}
+
+	// set方法上的注解，没有配置name属性
+	@ZxfResource
+	public void setUser1Dao(TestObject1 TestObject1) {
+		this.TestObject1 = TestObject1;
+	}
+
+	public void show() {
+		
+		TestObject1.show1();
+		TestObject2.show2();
+		TestObject3.show();
+		
+		System.out.println("调用了TestService方法........");
+		
+	}
+}
+</pre><br />&#13;
+<br />&#13;
+&#13;
+<h1><span style="font-size:18px">4，测试类</span></h1>&#13;
+<p><span style="font-size:18px">和普通spring类一样的写法</span></p>&#13;
+<p><span style="font-size:18px">类关系结果图：</span></p>&#13;
+<p><span style="font-size:18px"><img src="http://img.blog.csdn.net/20150228100413675?watermark/2/text/aHR0cDovL2Jsb2cuY3Nkbi5uZXQveHZzaHU=/font/5a6L5L2T/fontsize/400/fill/I0JBQkFCMA==/dissolve/70/gravity/Center" alt="" /><br />&#13;
+</span></p>&#13;
+<p><span style="font-size:18px"><br />&#13;
+</span></p>&#13;
+<p><span style="font-size:18px">测试类：</span></p>&#13;
+<p></p>&#13;
+<pre code_snippet_id="609766" snippet_file_name="blog_20150301_5_5201467" name="code" class="java">&lt;span style="font-size:18px;"&gt;public static void main(String[] args) {
+		ClassPathXMLApplicationContext path = new ClassPathXMLApplicationContext(
+				"configAnnotation.xml");
+		TestServiceImpl userService =(TestServiceImpl)path.getBean("TestService");
+		userService.show();
+	}&lt;/span&gt;</pre><span style="font-size:18px"><br />&#13;
+测试结果：</span>&#13;
+<p></p>&#13;
+<p><span style="font-size:18px"><img src="http://img.blog.csdn.net/20150228100551191?watermark/2/text/aHR0cDovL2Jsb2cuY3Nkbi5uZXQveHZzaHU=/font/5a6L5L2T/fontsize/400/fill/I0JBQkFCMA==/dissolve/70/gravity/Center" alt="" /><br />&#13;
+</span></p>&#13;
+<h1><span style="font-size:18px">总结: </span></h1>&#13;
+<p><span style="font-size:18px">        在我们的编程中，有很多我们前人总结的框架，前期我们停留在用的层次上是完全可以的，但是要想进入深入的开发，就要理解这个框架的深层结构，这不是让我们自己再创造一遍，而是充分总结前人的经验更好地使用这个工具，俗话说，知己知彼方能百战百胜，这就是知己知彼的过程，关于spring技术的其他原理，请大家期待我的系列博客！</span></p>&#13;
+<p><span style="font-size:18px"><br />&#13;
+</span></p>&#13;
+<p><span style="font-size:18px">源码下载：<a target="_blank" href="http://pan.baidu.com/s/1qWLpyaC">MySpring</a></span></p>&#13;
+   &#13;

@@ -1,0 +1,131 @@
+
+                <div class="markdown_views"><h2 id="定义">定义</h2>
+
+<p>适配器模式（Adapter Pattern）:</p>
+
+<blockquote>
+  <p>Convert the interface of a class into another interface clients expect. Adapter lets classes work together that couldn’t otherwise because of incompatible interfaces. <br/>
+  译：将一个类的接口变换成客户端所期待的另一个接口，从而使原本因接口不匹配而无法在一起工作的两个类能够在一起工作。</p>
+</blockquote>
+
+
+
+<h2 id="类图">类图</h2>
+
+<p><img src="http://img.blog.csdn.net/20161128224707137" alt="适配器模式UML" title=""/> <br/>
+来解释一下这个图片： <br/>
+适配器模式分为类适配模式（图1）和对象适配模式（图2）。 <br/>
+通过图来看，第一个是继承的方式，第二个是依赖组合的方式。 <br/>
+作用都是将Adaptee源类经过Adapter类，改装成Target能够识别的接口。实例代码稍后添加~</p>
+
+<p>除了这两种外，Android里面还有ListView的Adapter，或者IOS的UITableView里面的datasource，而这种模式也是适配器模式，这种是将无数中输入转化成约束好的接口输出。代码也在后面附上~</p>
+
+<h2 id="使用场景">使用场景</h2>
+
+<p>接口不兼容，类似三头没法插在两头插座上一样，需要一个转换器 <br/>
+统一的输出接口，而输入多种多样，类似上面的ListView 的Adapter <br/>
+用于关联一些关系不大的类。</p>
+
+
+
+<h2 id="实现方式">实现方式</h2>
+
+<hr/>
+
+<p>类适配模式，继承的方式</p>
+
+
+
+<pre class="prettyprint"><code class="language-java hljs "><span class="hljs-comment">//Target</span>
+<span class="hljs-keyword">public</span> <span class="hljs-class"><span class="hljs-keyword">interface</span> <span class="hljs-title">TwoPlug</span> {</span>
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">int</span> <span class="hljs-title">getTwoPlug</span>();
+}</code></pre>
+
+
+
+<pre class="prettyprint"><code class="language-java hljs "><span class="hljs-comment">//Adaptee</span>
+<span class="hljs-keyword">public</span> <span class="hljs-class"><span class="hljs-keyword">class</span> <span class="hljs-title">ThreePlug</span> {</span>
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">int</span> <span class="hljs-title">getThreePlug</span>() {
+        <span class="hljs-keyword">return</span> <span class="hljs-number">3</span>;
+    }
+}</code></pre>
+
+
+
+<pre class="prettyprint"><code class="language-java hljs "><span class="hljs-comment">// Adapter</span>
+<span class="hljs-keyword">public</span> <span class="hljs-class"><span class="hljs-keyword">class</span> <span class="hljs-title">ThreeToTwoAdapter</span> <span class="hljs-keyword">extends</span> <span class="hljs-title">ThreePlug</span> <span class="hljs-keyword">implements</span> <span class="hljs-title">TwoPlug</span> {</span>
+
+    <span class="hljs-annotation">@Override</span>
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">int</span> <span class="hljs-title">getTwoPlug</span>() {
+        <span class="hljs-keyword">return</span> changeToTwo();
+    }
+
+    <span class="hljs-keyword">private</span> <span class="hljs-keyword">int</span> <span class="hljs-title">changeToTwo</span>() {
+        <span class="hljs-keyword">int</span> originalPlug = getThreePlug();
+        <span class="hljs-comment">// 只接两根线，不使用接地线，对接！！</span>
+        <span class="hljs-keyword">return</span> <span class="hljs-number">2</span>;
+    }
+}</code></pre>
+
+
+
+<pre class="prettyprint"><code class="language-java hljs "><span class="hljs-keyword">public</span> <span class="hljs-keyword">static</span> <span class="hljs-keyword">void</span> <span class="hljs-title">main</span>(String[] args) {
+    <span class="hljs-keyword">int</span> plugin = <span class="hljs-keyword">new</span> ThreeToTwoAdapter().getThreePlug();
+}</code></pre>
+
+<hr/>
+
+<p>对象适配模式 <br/>
+Target与Adaptee类不做修改，只改Adapter类</p>
+
+
+
+<pre class="prettyprint"><code class="language-java hljs "><span class="hljs-comment">// Adapter</span>
+<span class="hljs-keyword">public</span> <span class="hljs-class"><span class="hljs-keyword">class</span> <span class="hljs-title">ThreeToTwoAdapter</span> <span class="hljs-keyword">implements</span> <span class="hljs-title">TwoPlug</span> {</span>
+    <span class="hljs-keyword">private</span> ThreePlug plug;
+    <span class="hljs-comment">// 以参数传入</span>
+    <span class="hljs-keyword">public</span> <span class="hljs-title">ThreeToTwoAdapter</span>(ThreePlug plug) {
+        <span class="hljs-keyword">this</span>.plug = plug;
+    }
+
+    <span class="hljs-annotation">@Override</span>
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">int</span> <span class="hljs-title">getTwoPlug</span>() {
+        <span class="hljs-keyword">return</span> changeToTwo();
+    }
+
+    <span class="hljs-keyword">private</span> <span class="hljs-keyword">int</span> <span class="hljs-title">changeToTwo</span>() {
+        <span class="hljs-keyword">int</span> originalPlug = plug.getThreePlug();
+        <span class="hljs-comment">// 只接两根线，不使用接地线，对接！！</span>
+        <span class="hljs-keyword">return</span> <span class="hljs-number">2</span>;
+    }
+}</code></pre>
+
+<hr/>
+
+<p>ListView adapter <br/>
+我们只需要实现下面4个方法，就可以做到自定义不同样式的item，而针对ListView来说都是一样的接口，非常方便</p>
+
+
+
+<pre class="prettyprint"><code class="language-java hljs ">    <span class="hljs-annotation">@Override</span>
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">int</span> <span class="hljs-title">getCount</span>() {
+        <span class="hljs-keyword">return</span> <span class="hljs-number">0</span>;<span class="hljs-comment">//返回总共多少个条目</span>
+    }
+
+    <span class="hljs-annotation">@Override</span>
+    <span class="hljs-keyword">public</span> Object <span class="hljs-title">getItem</span>(<span class="hljs-keyword">int</span> position) {
+        <span class="hljs-keyword">return</span> <span class="hljs-keyword">null</span>;<span class="hljs-comment">//返回每个条目的对象</span>
+    }
+
+    <span class="hljs-annotation">@Override</span>
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">long</span> <span class="hljs-title">getItemId</span>(<span class="hljs-keyword">int</span> position) {
+        <span class="hljs-keyword">return</span> <span class="hljs-number">0</span>;<span class="hljs-comment">//返回条目的id</span>
+    }
+
+    <span class="hljs-annotation">@Override</span>
+    <span class="hljs-keyword">public</span> View <span class="hljs-title">getView</span>(<span class="hljs-keyword">int</span> position, View convertView, ViewGroup parent) {
+        <span class="hljs-keyword">return</span> <span class="hljs-keyword">null</span>;<span class="hljs-comment">//返回每个条目具体的View样式</span>
+    }</code></pre>
+
+<p>原文地址：<a href="http://blog.csdn.net/yk3372/article/details/53384968">http://blog.csdn.net/yk3372/article/details/53384968</a></p><link rel="stylesheet" href="http://static.blog.csdn.net/public/res-min/markdown_views.css?v=1.0"/></div><link rel="stylesheet" href="http://static.blog.csdn.net/public/res-min/markdown_views.css?v=1.0"/>&#13;
+            

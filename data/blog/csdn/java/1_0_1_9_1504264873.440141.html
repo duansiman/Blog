@@ -1,0 +1,170 @@
+
+<p>工厂方法模式同样属于类的创建模式又被称为多态工厂模式。工厂方法模式的意义是定义一个创建产品对象的工厂接口，将实际创建工作推迟到子类当中。核心工厂类不再负责产品的创建，这样核心类成为一个抽象的工厂角色，仅负责具体工厂子类必须实现的接口，这样进一步抽象化的好处是使得工厂方法模式可以使系统在不修改具体工厂角色的情况下引进新的产品。</p><p>这一节内容需要有：《设计模式——简单工厂 》的代码为基础</p><p><a target="_blank" href="http://blog.csdn.net/dawanganban/article/details/9875873">http://blog.csdn.net/dawanganban/article/details/9875873</a></p><p>工程结构</p><p><img src="http://img.blog.csdn.net/20130810152346546?watermark/2/text/aHR0cDovL2Jsb2cuY3Nkbi5uZXQvZGF3YW5nYW5iYW4=/font/5a6L5L2T/fontsize/400/fill/I0JBQkFCMA==/dissolve/70/gravity/SouthEast" alt="" /><br /></p><p>现在我们添加一个Pear水果（产品）</p><p></p><pre name="code" class="java">package com.meritit;
+
+public class Pear implements Fruit{
+
+	@Override
+	public void get() {
+		System.out.println("采集梨子");	
+	}
+
+}
+</pre>其他各个类如下：<p>（1）fruit.properties 配置文件</p><p>apple = com.meritit.Apple<br />banana = com.meritit.Banana<br />pear = com.meritit.Pear<br /></p><p>（2）Apple类</p><pre name="code" class="java">package com.meritit;
+
+public class Apple implements Fruit{
+	/*
+	 * 采集
+	 */
+	public void get(){
+		System.out.println("采集苹果");
+	}
+}
+</pre>（3）Banana类<pre name="code" class="java">package com.meritit;
+
+public class Banana implements Fruit{
+	/*
+	 * 采集
+	 */
+	public void get(){
+		System.out.println("采集香蕉");
+	}
+}
+</pre>（4）Fruit接口<br /><p></p><pre name="code" class="java">package com.meritit;
+
+public interface Fruit {
+
+	/*
+	 * 采集
+	 */
+	public void get();
+}
+</pre>（5）FruitFactory工厂<br /><p></p><pre code_snippet_id="563655" snippet_file_name="blog_20141226_5_6706997" name="code" class="java">package com.meritit;
+
+public class FruitFactory {
+	
+	/**
+	 * get方法，获得所有产品对象
+	 * @throws IllegalAccessException 
+	 * @throws Exception 
+	 */
+	public static Fruit getFruit(String type) throws Exception{
+		String fruittype = ConfigUtil.getConfig(type);
+		return (Fruit)Class.forName(fruittype).newInstance();
+	}
+}</pre>（6）ConfigUtil工具类<pre code_snippet_id="563655" snippet_file_name="blog_20141226_6_8163548" name="code" class="java">package com.meritit;
+
+import java.io.IOException;
+import java.io.InputStream;
+import java.util.Properties;
+public class ConfigUtil {
+	/**
+	 * 
+	 * @param key
+	 * @return value
+	 */
+	public static String getConfig(String style){
+		Properties pro = new Properties();
+		InputStream inStream = ConfigUtil.class.getClassLoader()
+				.getResourceAsStream("fruit.properties");
+		try {
+			pro.load(inStream);
+		} catch (IOException e) {
+			e.printStackTrace();
+		}
+		return pro.getProperty(style);
+	}
+}</pre>（7）MainClass类<br /><p></p><pre code_snippet_id="563655" snippet_file_name="blog_20141226_7_9587080" name="code" class="java">package com.meritit;
+
+public class MainClass {
+	
+	public static void main(String[] args) throws Exception {
+		//得到Apple实例
+		Fruit apple = FruitFactory.getFruit("apple");
+		//得到Banana实例
+		Fruit banana = FruitFactory.getFruit("banana");
+		//得到Pear实例
+		Fruit pear = FruitFactory.getFruit("pear");
+		//采集
+		apple.get();
+		banana.get();
+		pear.get();
+	}	
+}</pre>输出结果：<p>采集苹果</p><p>采集香蕉</p><p>采集梨子</p><p>下面我们开始：</p><p>定义一个抽象的水果工厂（抽象出工厂的生产方法）</p><p></p><pre code_snippet_id="563655" snippet_file_name="blog_20141226_8_4372452" name="code" class="java">package com.meritit;
+
+public interface FruitFactory {
+	
+	public Fruit getFruit();
+	
+}
+</pre>在实现具体的工厂（苹果厂和香蕉厂）<br /><p></p><pre code_snippet_id="563655" snippet_file_name="blog_20141226_9_5810537" name="code" class="java">package com.meritit;
+
+public class AppleFactory implements FruitFactory{
+
+	@Override
+	public Fruit getFruit() {
+		return new Apple();
+	}
+
+}</pre><pre code_snippet_id="563655" snippet_file_name="blog_20141226_10_5056011" name="code" class="java">package com.meritit;
+
+public class BananaFactory implements FruitFactory{
+
+	@Override
+	public Fruit getFruit() {
+		return new Banana();
+	}
+
+}
+</pre>MainClass中实例化：<br /><pre code_snippet_id="563655" snippet_file_name="blog_20141226_11_7333127" name="code" class="java">package com.meritit;
+
+public class MainClass {
+	
+	public static void main(String[] args) throws Exception {
+		//获得Apple工厂
+		FruitFactory af = new AppleFactory();
+		//获得Banana工厂
+		FruitFactory bf = new BananaFactory();
+		//得到Apple实例
+		Fruit apple = af.getFruit();
+		//得到Banana实例
+		Fruit banana = bf.getFruit();
+		//得到Pear实例
+		//Fruit pear = FruitFactory.getFruit("pear");
+		//采集
+		apple.get();
+		banana.get();
+		//pear.get();
+	}	
+}
+</pre>现在要添加一个生产梨子的工厂，怎么办呢？<p></p><p>很简单！</p><p></p><pre code_snippet_id="563655" snippet_file_name="blog_20141226_12_2990552" name="code" class="java">package com.meritit;
+
+public class PearFactory implements FruitFactory{
+
+	@Override
+	public Fruit getFruit() {
+		return new Pear();
+	}
+
+}</pre>这样就可以获得实例<br /><p></p><pre code_snippet_id="563655" snippet_file_name="blog_20141226_13_1887362" name="code" class="java">package com.meritit;
+
+public class MainClass {
+	
+	public static void main(String[] args) throws Exception {
+		//获得Apple工厂
+		FruitFactory af = new AppleFactory();
+		//获得Banana工厂
+		FruitFactory bf = new BananaFactory();
+		//获得Pear工厂
+		FruitFactory pf = new PearFactory();
+		//得到Apple实例
+		Fruit apple = af.getFruit();
+		//得到Banana实例
+		Fruit banana = bf.getFruit();
+		//得到Pear实例
+		Fruit pear = pf.getFruit();
+		//采集
+		apple.get();
+		banana.get();
+		pear.get();
+	}	
+}</pre>我们可以看到要增加工厂类，不需要修改工厂方法，可以直接添加，这样更加灵活<p></p><p>工厂方法模式中的角色：</p><p>（1）抽象工厂角色：工厂方法模式的核心，任何工厂类都必须实现这个类。</p><p>（2）具体工厂角色：具体工厂类是抽象工厂的一个实现，负责实例化产品对象。</p><p>（3）抽象角色：工厂方法模式所创建的所有对象的父类，它负责描述所有实例所共有的公共接口。</p><p>（4）具体产品角色：工厂方法模式所创建的具体实例对象。</p><p><br /></p><p>源代码下载：<a target="_blank" href="http://download.csdn.net/detail/lxq_xsyu/5903707">http://download.csdn.net/detail/lxq_xsyu/5903707</a><br /></p>   &#13;

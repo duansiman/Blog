@@ -1,0 +1,512 @@
+
+        <div class="markdown_views"><p>这篇博客是filter、listener和servlet技术的相关总结，实现了简单的显示在线人数、在线人详细信息、管理员踢人功能</p>
+
+<p>下面是详细代码</p>
+
+<p>web.xml</p>
+
+<pre class="prettyprint"><code class=" hljs xml"><span class="hljs-pi">&lt;?xml version="1.0" encoding="UTF-8"?&gt;</span>
+<span class="hljs-tag">&lt;<span class="hljs-title">web-app</span> <span class="hljs-attribute">version</span>=<span class="hljs-value">"3.0"</span> 
+    <span class="hljs-attribute">xmlns</span>=<span class="hljs-value">"http://java.sun.com/xml/ns/javaee"</span> 
+    <span class="hljs-attribute">xmlns:xsi</span>=<span class="hljs-value">"http://www.w3.org/2001/XMLSchema-instance"</span> 
+    <span class="hljs-attribute">xsi:schemaLocation</span>=<span class="hljs-value">"http://java.sun.com/xml/ns/javaee 
+    http://java.sun.com/xml/ns/javaee/web-app_3_0.xsd"</span>&gt;</span>
+  <span class="hljs-tag">&lt;<span class="hljs-title">display-name</span>&gt;</span><span class="hljs-tag">&lt;/<span class="hljs-title">display-name</span>&gt;</span> 
+  <span class="hljs-tag">&lt;<span class="hljs-title">filter</span>&gt;</span>
+    <span class="hljs-tag">&lt;<span class="hljs-title">filter-name</span>&gt;</span>character<span class="hljs-tag">&lt;/<span class="hljs-title">filter-name</span>&gt;</span>
+    <span class="hljs-tag">&lt;<span class="hljs-title">filter-class</span>&gt;</span>cn.hncu.filter.CharacterFilter<span class="hljs-tag">&lt;/<span class="hljs-title">filter-class</span>&gt;</span>
+    <span class="hljs-tag">&lt;<span class="hljs-title">init-param</span>&gt;</span>
+        <span class="hljs-tag">&lt;<span class="hljs-title">param-name</span>&gt;</span>charset<span class="hljs-tag">&lt;/<span class="hljs-title">param-name</span>&gt;</span>
+        <span class="hljs-tag">&lt;<span class="hljs-title">param-value</span>&gt;</span>utf-8<span class="hljs-tag">&lt;/<span class="hljs-title">param-value</span>&gt;</span>
+    <span class="hljs-tag">&lt;/<span class="hljs-title">init-param</span>&gt;</span>
+  <span class="hljs-tag">&lt;/<span class="hljs-title">filter</span>&gt;</span>
+  <span class="hljs-tag">&lt;<span class="hljs-title">filter</span>&gt;</span>
+    <span class="hljs-tag">&lt;<span class="hljs-title">filter-name</span>&gt;</span>login<span class="hljs-tag">&lt;/<span class="hljs-title">filter-name</span>&gt;</span>
+    <span class="hljs-tag">&lt;<span class="hljs-title">filter-class</span>&gt;</span>cn.hncu.filter.LoginFilter<span class="hljs-tag">&lt;/<span class="hljs-title">filter-class</span>&gt;</span>
+  <span class="hljs-tag">&lt;/<span class="hljs-title">filter</span>&gt;</span>
+
+  <span class="hljs-tag">&lt;<span class="hljs-title">filter-mapping</span>&gt;</span>
+    <span class="hljs-tag">&lt;<span class="hljs-title">filter-name</span>&gt;</span>character<span class="hljs-tag">&lt;/<span class="hljs-title">filter-name</span>&gt;</span>
+    <span class="hljs-tag">&lt;<span class="hljs-title">url-pattern</span>&gt;</span>/*<span class="hljs-tag">&lt;/<span class="hljs-title">url-pattern</span>&gt;</span>
+  <span class="hljs-tag">&lt;/<span class="hljs-title">filter-mapping</span>&gt;</span>
+  <span class="hljs-tag">&lt;<span class="hljs-title">filter-mapping</span>&gt;</span>
+    <span class="hljs-tag">&lt;<span class="hljs-title">filter-name</span>&gt;</span>login<span class="hljs-tag">&lt;/<span class="hljs-title">filter-name</span>&gt;</span>
+    <span class="hljs-tag">&lt;<span class="hljs-title">url-pattern</span>&gt;</span>/servlet/*<span class="hljs-tag">&lt;/<span class="hljs-title">url-pattern</span>&gt;</span>
+    <span class="hljs-tag">&lt;<span class="hljs-title">url-pattern</span>&gt;</span>/jsps/*<span class="hljs-tag">&lt;/<span class="hljs-title">url-pattern</span>&gt;</span>
+    <span class="hljs-tag">&lt;<span class="hljs-title">dispatcher</span>&gt;</span>REQUEST<span class="hljs-tag">&lt;/<span class="hljs-title">dispatcher</span>&gt;</span>
+    <span class="hljs-tag">&lt;<span class="hljs-title">dispatcher</span>&gt;</span>FORWARD<span class="hljs-tag">&lt;/<span class="hljs-title">dispatcher</span>&gt;</span>
+  <span class="hljs-tag">&lt;/<span class="hljs-title">filter-mapping</span>&gt;</span>
+
+
+  <span class="hljs-tag">&lt;<span class="hljs-title">listener</span>&gt;</span>
+    <span class="hljs-tag">&lt;<span class="hljs-title">listener-class</span>&gt;</span>cn.hncu.listener.MySessionListener<span class="hljs-tag">&lt;/<span class="hljs-title">listener-class</span>&gt;</span>
+  <span class="hljs-tag">&lt;/<span class="hljs-title">listener</span>&gt;</span>
+
+  <span class="hljs-tag">&lt;<span class="hljs-title">servlet</span>&gt;</span>
+    <span class="hljs-tag">&lt;<span class="hljs-title">servlet-name</span>&gt;</span>LoginServlet<span class="hljs-tag">&lt;/<span class="hljs-title">servlet-name</span>&gt;</span>
+    <span class="hljs-tag">&lt;<span class="hljs-title">servlet-class</span>&gt;</span>cn.hncu.servlet.LoginServlet<span class="hljs-tag">&lt;/<span class="hljs-title">servlet-class</span>&gt;</span>
+  <span class="hljs-tag">&lt;/<span class="hljs-title">servlet</span>&gt;</span>
+  <span class="hljs-tag">&lt;<span class="hljs-title">servlet</span>&gt;</span>
+    <span class="hljs-tag">&lt;<span class="hljs-title">servlet-name</span>&gt;</span>ShowServlet<span class="hljs-tag">&lt;/<span class="hljs-title">servlet-name</span>&gt;</span>
+    <span class="hljs-tag">&lt;<span class="hljs-title">servlet-class</span>&gt;</span>cn.hncu.servlet.ShowServlet<span class="hljs-tag">&lt;/<span class="hljs-title">servlet-class</span>&gt;</span>
+  <span class="hljs-tag">&lt;/<span class="hljs-title">servlet</span>&gt;</span>
+  <span class="hljs-tag">&lt;<span class="hljs-title">servlet</span>&gt;</span>
+    <span class="hljs-tag">&lt;<span class="hljs-title">description</span>&gt;</span>This is the description of my J2EE component<span class="hljs-tag">&lt;/<span class="hljs-title">description</span>&gt;</span>
+    <span class="hljs-tag">&lt;<span class="hljs-title">display-name</span>&gt;</span>This is the display name of my J2EE component<span class="hljs-tag">&lt;/<span class="hljs-title">display-name</span>&gt;</span>
+    <span class="hljs-tag">&lt;<span class="hljs-title">servlet-name</span>&gt;</span>KickOutServlet<span class="hljs-tag">&lt;/<span class="hljs-title">servlet-name</span>&gt;</span>
+    <span class="hljs-tag">&lt;<span class="hljs-title">servlet-class</span>&gt;</span>cn.hncu.servlet.KickOutServlet<span class="hljs-tag">&lt;/<span class="hljs-title">servlet-class</span>&gt;</span>
+  <span class="hljs-tag">&lt;/<span class="hljs-title">servlet</span>&gt;</span>
+  <span class="hljs-tag">&lt;<span class="hljs-title">servlet</span>&gt;</span>
+    <span class="hljs-tag">&lt;<span class="hljs-title">description</span>&gt;</span>This is the description of my J2EE component<span class="hljs-tag">&lt;/<span class="hljs-title">description</span>&gt;</span>
+    <span class="hljs-tag">&lt;<span class="hljs-title">display-name</span>&gt;</span>This is the display name of my J2EE component<span class="hljs-tag">&lt;/<span class="hljs-title">display-name</span>&gt;</span>
+    <span class="hljs-tag">&lt;<span class="hljs-title">servlet-name</span>&gt;</span>LoginOutServlet<span class="hljs-tag">&lt;/<span class="hljs-title">servlet-name</span>&gt;</span>
+    <span class="hljs-tag">&lt;<span class="hljs-title">servlet-class</span>&gt;</span>cn.hncu.servlet.LoginOutServlet<span class="hljs-tag">&lt;/<span class="hljs-title">servlet-class</span>&gt;</span>
+  <span class="hljs-tag">&lt;/<span class="hljs-title">servlet</span>&gt;</span>
+
+
+
+
+  <span class="hljs-tag">&lt;<span class="hljs-title">servlet-mapping</span>&gt;</span>
+    <span class="hljs-tag">&lt;<span class="hljs-title">servlet-name</span>&gt;</span>LoginServlet<span class="hljs-tag">&lt;/<span class="hljs-title">servlet-name</span>&gt;</span>
+    <span class="hljs-tag">&lt;<span class="hljs-title">url-pattern</span>&gt;</span>/LoginServlet<span class="hljs-tag">&lt;/<span class="hljs-title">url-pattern</span>&gt;</span>
+  <span class="hljs-tag">&lt;/<span class="hljs-title">servlet-mapping</span>&gt;</span>
+  <span class="hljs-tag">&lt;<span class="hljs-title">servlet-mapping</span>&gt;</span>
+    <span class="hljs-tag">&lt;<span class="hljs-title">servlet-name</span>&gt;</span>ShowServlet<span class="hljs-tag">&lt;/<span class="hljs-title">servlet-name</span>&gt;</span>
+    <span class="hljs-tag">&lt;<span class="hljs-title">url-pattern</span>&gt;</span>/servlet/ShowServlet<span class="hljs-tag">&lt;/<span class="hljs-title">url-pattern</span>&gt;</span>
+  <span class="hljs-tag">&lt;/<span class="hljs-title">servlet-mapping</span>&gt;</span>
+  <span class="hljs-tag">&lt;<span class="hljs-title">servlet-mapping</span>&gt;</span>
+    <span class="hljs-tag">&lt;<span class="hljs-title">servlet-name</span>&gt;</span>KickOutServlet<span class="hljs-tag">&lt;/<span class="hljs-title">servlet-name</span>&gt;</span>
+    <span class="hljs-tag">&lt;<span class="hljs-title">url-pattern</span>&gt;</span>/servlet/KickOutServlet<span class="hljs-tag">&lt;/<span class="hljs-title">url-pattern</span>&gt;</span>
+  <span class="hljs-tag">&lt;/<span class="hljs-title">servlet-mapping</span>&gt;</span>
+  <span class="hljs-tag">&lt;<span class="hljs-title">servlet-mapping</span>&gt;</span>
+    <span class="hljs-tag">&lt;<span class="hljs-title">servlet-name</span>&gt;</span>LoginOutServlet<span class="hljs-tag">&lt;/<span class="hljs-title">servlet-name</span>&gt;</span>
+    <span class="hljs-tag">&lt;<span class="hljs-title">url-pattern</span>&gt;</span>/servlet/LoginOutServlet<span class="hljs-tag">&lt;/<span class="hljs-title">url-pattern</span>&gt;</span>
+  <span class="hljs-tag">&lt;/<span class="hljs-title">servlet-mapping</span>&gt;</span>
+
+
+  <span class="hljs-tag">&lt;<span class="hljs-title">welcome-file-list</span>&gt;</span>
+    <span class="hljs-tag">&lt;<span class="hljs-title">welcome-file</span>&gt;</span>index.jsp<span class="hljs-tag">&lt;/<span class="hljs-title">welcome-file</span>&gt;</span>
+  <span class="hljs-tag">&lt;/<span class="hljs-title">welcome-file-list</span>&gt;</span>
+<span class="hljs-tag">&lt;/<span class="hljs-title">web-app</span>&gt;</span></code></pre>
+
+<p>index.jsp</p>
+
+
+
+<pre class="prettyprint"><code class=" hljs xml"><span class="vbscript">&lt;%@ page language=<span class="hljs-string">"java"</span> import=<span class="hljs-string">"java.util.*"</span> pageEncoding=<span class="hljs-string">"UTF-8"</span>%&gt;</span>
+<span class="vbscript">&lt;%@taglib prefix=<span class="hljs-string">"c"</span> uri=<span class="hljs-string">"http://java.sun.com/jsp/jstl/core"</span>%&gt;</span>
+<span class="hljs-doctype">&lt;!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN"&gt;</span>
+<span class="hljs-tag">&lt;<span class="hljs-title">html</span>&gt;</span>
+  <span class="hljs-tag">&lt;<span class="hljs-title">head</span>&gt;</span>
+  <span class="hljs-tag">&lt;<span class="hljs-title">title</span>&gt;</span>在线人信息管理<span class="hljs-tag">&lt;/<span class="hljs-title">title</span>&gt;</span>
+  <span class="hljs-tag">&lt;/<span class="hljs-title">head</span>&gt;</span>
+
+  <span class="hljs-tag">&lt;<span class="hljs-title">body</span>&gt;</span>
+    <span class="hljs-tag">&lt;<span class="hljs-title">h2</span>&gt;</span>在线人信息管理<span class="hljs-tag">&lt;/<span class="hljs-title">h2</span>&gt;</span>
+    <span class="hljs-tag">&lt;<span class="hljs-title">h3</span>&gt;</span>会员登录<span class="hljs-tag">&lt;/<span class="hljs-title">h3</span>&gt;</span>
+    <span class="hljs-tag">&lt;<span class="hljs-title">c:if</span> <span class="hljs-attribute">test</span>=<span class="hljs-value">"${ empty sessionScope.user.name}"</span> <span class="hljs-attribute">var</span>=<span class="hljs-value">"boo"</span>&gt;</span>
+        <span class="hljs-tag">&lt;<span class="hljs-title">form</span> <span class="hljs-attribute">action</span>=<span class="hljs-value">'&lt;c:url value="/LoginServlet"&gt;&lt;/c:url&gt;'</span>&gt;</span>
+            姓名:<span class="hljs-tag">&lt;<span class="hljs-title">input</span> <span class="hljs-attribute">type</span>=<span class="hljs-value">"text"</span> <span class="hljs-attribute">name</span>=<span class="hljs-value">"name"</span>&gt;</span><span class="hljs-tag">&lt;<span class="hljs-title">br</span>/&gt;</span>
+                <span class="hljs-tag">&lt;<span class="hljs-title">input</span> <span class="hljs-attribute">type</span>=<span class="hljs-value">"submit"</span> <span class="hljs-attribute">value</span>=<span class="hljs-value">"登录"</span>&gt;</span><span class="hljs-tag">&lt;<span class="hljs-title">br</span>/&gt;</span>
+        <span class="hljs-tag">&lt;/<span class="hljs-title">form</span>&gt;</span>
+    <span class="hljs-tag">&lt;/<span class="hljs-title">c:if</span>&gt;</span>
+    <span class="hljs-tag">&lt;<span class="hljs-title">c:if</span> <span class="hljs-attribute">test</span>=<span class="hljs-value">"${!boo}"</span> &gt;</span>
+        欢迎回来,${ sessionScope.user.name}
+        <span class="hljs-tag">&lt;<span class="hljs-title">c:if</span> <span class="hljs-attribute">test</span>=<span class="hljs-value">"${ sessionScope.user.admin}"</span> <span class="hljs-attribute">var</span>=<span class="hljs-value">"bo"</span>&gt;</span>
+            管理员
+        <span class="hljs-tag">&lt;/<span class="hljs-title">c:if</span>&gt;</span>
+        <span class="hljs-tag">&lt;<span class="hljs-title">c:if</span> <span class="hljs-attribute">test</span>=<span class="hljs-value">"${!bo}"</span> &gt;</span>
+            会员
+        <span class="hljs-tag">&lt;/<span class="hljs-title">c:if</span>&gt;</span>
+    <span class="hljs-tag">&lt;/<span class="hljs-title">c:if</span>&gt;</span>
+    <span class="hljs-tag">&lt;<span class="hljs-title">br</span>/&gt;</span>
+     <span class="hljs-tag">&lt;<span class="hljs-title">c:if</span> <span class="hljs-attribute">test</span>=<span class="hljs-value">"${!boo}"</span> <span class="hljs-attribute">var</span>=<span class="hljs-value">"boo"</span>&gt;</span>
+        <span class="hljs-tag">&lt;<span class="hljs-title">a</span> <span class="hljs-attribute">href</span>=<span class="hljs-value">'&lt;c:url value="/servlet/ShowServlet"/&gt;'</span>&gt;</span>查看在线人信息<span class="hljs-tag">&lt;/<span class="hljs-title">a</span>&gt;</span><span class="hljs-tag">&lt;<span class="hljs-title">br</span>/&gt;</span>
+        <span class="hljs-tag">&lt;<span class="hljs-title">a</span> <span class="hljs-attribute">href</span>=<span class="hljs-value">'&lt;c:url value="/servlet/LoginOutServlet"/&gt;'</span>&gt;</span>安全退出<span class="hljs-tag">&lt;/<span class="hljs-title">a</span>&gt;</span><span class="hljs-tag">&lt;<span class="hljs-title">br</span>/&gt;</span>
+     <span class="hljs-tag">&lt;/<span class="hljs-title">c:if</span>&gt;</span>
+
+  <span class="hljs-tag">&lt;/<span class="hljs-title">body</span>&gt;</span>
+<span class="hljs-tag">&lt;/<span class="hljs-title">html</span>&gt;</span></code></pre>
+
+<p>/jsps/show.jsp</p>
+
+
+
+<pre class="prettyprint"><code class=" hljs xml"><span class="vbscript">&lt;%@ page language=<span class="hljs-string">"java"</span> import=<span class="hljs-string">"java.util.*"</span> pageEncoding=<span class="hljs-string">"UTF-8"</span>%&gt;</span>
+<span class="vbscript">&lt;%@taglib uri=<span class="hljs-string">"http://java.sun.com/jsp/jstl/core"</span> prefix=<span class="hljs-string">"c"</span>%&gt;</span>
+<span class="hljs-doctype">&lt;!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN"&gt;</span>
+<span class="hljs-tag">&lt;<span class="hljs-title">html</span>&gt;</span>
+<span class="hljs-tag">&lt;<span class="hljs-title">head</span>&gt;</span>
+<span class="hljs-tag">&lt;<span class="hljs-title">title</span>&gt;</span>在线人信息<span class="hljs-tag">&lt;/<span class="hljs-title">title</span>&gt;</span>
+<span class="hljs-tag">&lt;<span class="hljs-title">style</span> <span class="hljs-attribute">type</span>=<span class="hljs-value">"text/css"</span>&gt;</span><span class="css">
+    <span class="hljs-tag">table</span> <span class="hljs-rules">{
+        <span class="hljs-rule"><span class="hljs-attribute">color</span>:<span class="hljs-value"> green</span></span>;
+        <span class="hljs-rule"><span class="hljs-attribute">border</span>:<span class="hljs-value"> <span class="hljs-number">1</span>px solid blue</span></span>;
+        <span class="hljs-rule"><span class="hljs-attribute">border-collapse</span>:<span class="hljs-value"> collapse</span></span>;
+        <span class="hljs-rule"><span class="hljs-attribute">width</span>:<span class="hljs-value"> <span class="hljs-number">500</span>px</span></span>;
+        <span class="hljs-rule"><span class="hljs-attribute">margin</span>:<span class="hljs-value"> auto</span></span>;
+    <span class="hljs-rule">}</span></span>
+    <span class="hljs-tag">td</span> <span class="hljs-rules">{
+        <span class="hljs-rule"><span class="hljs-attribute">border</span>:<span class="hljs-value"> <span class="hljs-number">1</span>px solid blue</span></span>;
+    <span class="hljs-rule">}</span></span>
+    <span class="hljs-tag">th</span> <span class="hljs-rules">{
+        <span class="hljs-rule"><span class="hljs-attribute">border</span>:<span class="hljs-value"> <span class="hljs-number">1</span>px solid blue</span></span>;
+    <span class="hljs-rule">}</span></span>
+    <span class="hljs-tag">body</span> <span class="hljs-rules">{
+        <span class="hljs-rule"><span class="hljs-attribute">text-align</span>:<span class="hljs-value"> center</span></span>;
+    <span class="hljs-rule">}</span></span>
+</span><span class="hljs-tag">&lt;/<span class="hljs-title">style</span>&gt;</span>
+    <span class="hljs-tag">&lt;<span class="hljs-title">meta</span> <span class="hljs-attribute">http-equiv</span>=<span class="hljs-value">"refresh"</span> <span class="hljs-attribute">content</span>=<span class="hljs-value">"3"</span>&gt;</span>
+<span class="hljs-tag">&lt;/<span class="hljs-title">head</span>&gt;</span>
+
+<span class="hljs-tag">&lt;<span class="hljs-title">body</span>&gt;</span>
+    <span class="hljs-tag">&lt;<span class="hljs-title">table</span>&gt;</span>
+        <span class="hljs-tag">&lt;<span class="hljs-title">tr</span>&gt;</span>
+            <span class="hljs-tag">&lt;<span class="hljs-title">th</span>&gt;</span>姓名<span class="hljs-tag">&lt;/<span class="hljs-title">th</span>&gt;</span>
+            <span class="hljs-tag">&lt;<span class="hljs-title">th</span>&gt;</span>上线时间<span class="hljs-tag">&lt;/<span class="hljs-title">th</span>&gt;</span>
+            <span class="hljs-tag">&lt;<span class="hljs-title">th</span>&gt;</span>最后访问时间<span class="hljs-tag">&lt;/<span class="hljs-title">th</span>&gt;</span>
+            <span class="hljs-tag">&lt;<span class="hljs-title">th</span>&gt;</span>ip<span class="hljs-tag">&lt;/<span class="hljs-title">th</span>&gt;</span>
+            <span class="hljs-tag">&lt;<span class="hljs-title">th</span>&gt;</span>操作<span class="hljs-tag">&lt;/<span class="hljs-title">th</span>&gt;</span>
+        <span class="hljs-tag">&lt;/<span class="hljs-title">tr</span>&gt;</span>
+
+        <span class="hljs-tag">&lt;<span class="hljs-title">c:forEach</span> <span class="hljs-attribute">items</span>=<span class="hljs-value">"${requestScope.onlines}"</span> <span class="hljs-attribute">var</span>=<span class="hljs-value">"online"</span>&gt;</span>
+        <span class="hljs-tag">&lt;<span class="hljs-title">tr</span>&gt;</span>
+            <span class="hljs-tag">&lt;<span class="hljs-title">td</span>&gt;</span>
+                <span class="hljs-tag">&lt;<span class="hljs-title">c:if</span> <span class="hljs-attribute">test</span>=<span class="hljs-value">"${!empty online.user }"</span> <span class="hljs-attribute">var</span>=<span class="hljs-value">"boo"</span>&gt;</span>
+                        ${online.user.name  }
+                <span class="hljs-tag">&lt;/<span class="hljs-title">c:if</span>&gt;</span>
+                <span class="hljs-tag">&lt;<span class="hljs-title">c:if</span> <span class="hljs-attribute">test</span>=<span class="hljs-value">"${empty online.user }"</span>&gt;</span>
+                        游客
+                <span class="hljs-tag">&lt;/<span class="hljs-title">c:if</span>&gt;</span>
+            <span class="hljs-tag">&lt;/<span class="hljs-title">td</span>&gt;</span>
+            <span class="hljs-tag">&lt;<span class="hljs-title">td</span>&gt;</span>${online.createTime }<span class="hljs-tag">&lt;/<span class="hljs-title">td</span>&gt;</span>
+            <span class="hljs-tag">&lt;<span class="hljs-title">td</span>&gt;</span>${online.lastAccessedTime }<span class="hljs-tag">&lt;/<span class="hljs-title">td</span>&gt;</span>
+            <span class="hljs-tag">&lt;<span class="hljs-title">td</span>&gt;</span>${online.ip }<span class="hljs-tag">&lt;/<span class="hljs-title">td</span>&gt;</span>
+            <span class="hljs-tag">&lt;<span class="hljs-title">td</span>&gt;</span>
+                <span class="hljs-tag">&lt;<span class="hljs-title">c:if</span> <span class="hljs-attribute">test</span>=<span class="hljs-value">"${online.user!=sessionScope.user }"</span>&gt;</span> 
+                    <span class="hljs-tag">&lt;<span class="hljs-title">c:if</span> <span class="hljs-attribute">test</span>=<span class="hljs-value">"${!online.user.admin&amp;&amp;boo}"</span>&gt;</span>
+                            <span class="hljs-tag">&lt;<span class="hljs-title">a</span> <span class="hljs-attribute">href</span>=<span class="hljs-value">'&lt;c:url value="/servlet/KickOutServlet?id=${online.id }"/&gt;'</span> &gt;</span>踢出<span class="hljs-tag">&lt;/<span class="hljs-title">a</span>&gt;</span>
+                    <span class="hljs-tag">&lt;/<span class="hljs-title">c:if</span>&gt;</span>
+                <span class="hljs-tag">&lt;/<span class="hljs-title">c:if</span>&gt;</span>
+            <span class="hljs-tag">&lt;/<span class="hljs-title">td</span>&gt;</span>
+        <span class="hljs-tag">&lt;/<span class="hljs-title">tr</span>&gt;</span>
+        <span class="hljs-tag">&lt;/<span class="hljs-title">c:forEach</span>&gt;</span>
+    <span class="hljs-tag">&lt;/<span class="hljs-title">table</span>&gt;</span>
+<span class="hljs-tag">&lt;/<span class="hljs-title">body</span>&gt;</span>
+<span class="hljs-tag">&lt;/<span class="hljs-title">html</span>&gt;</span></code></pre>
+
+<p>User.java(值对象）</p>
+
+
+
+<pre class="prettyprint"><code class=" hljs java"><span class="hljs-keyword">package</span> cn.hncu.domain;
+
+<span class="hljs-keyword">public</span> <span class="hljs-class"><span class="hljs-keyword">class</span> <span class="hljs-title">User</span> {</span>
+    <span class="hljs-keyword">private</span> String name;
+    <span class="hljs-keyword">private</span> <span class="hljs-keyword">boolean</span> admin;
+    <span class="hljs-keyword">public</span> String <span class="hljs-title">getName</span>() {
+        <span class="hljs-keyword">return</span> name;
+    }
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">void</span> <span class="hljs-title">setName</span>(String name) {
+        <span class="hljs-keyword">this</span>.name = name;
+    }
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">boolean</span> <span class="hljs-title">isAdmin</span>() {
+        <span class="hljs-keyword">return</span> admin;
+    }
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">void</span> <span class="hljs-title">setAdmin</span>(<span class="hljs-keyword">boolean</span> admin) {
+        <span class="hljs-keyword">this</span>.admin = admin;
+    }
+    <span class="hljs-annotation">@Override</span>
+    <span class="hljs-keyword">public</span> String <span class="hljs-title">toString</span>() {
+        <span class="hljs-keyword">return</span> <span class="hljs-string">"User [name="</span> + name + <span class="hljs-string">", admin="</span> + admin + <span class="hljs-string">"]"</span>;
+    }
+}</code></pre>
+
+<p>MySessionListener.java(监听器）</p>
+
+<pre class="prettyprint"><code class=" hljs java"><span class="hljs-keyword">package</span> cn.hncu.listener;
+
+<span class="hljs-keyword">import</span> java.util.Collections;
+<span class="hljs-keyword">import</span> java.util.HashMap;
+<span class="hljs-keyword">import</span> java.util.Map;
+
+<span class="hljs-keyword">import</span> javax.servlet.http.HttpSession;
+<span class="hljs-keyword">import</span> javax.servlet.http.HttpSessionEvent;
+<span class="hljs-keyword">import</span> javax.servlet.http.HttpSessionListener;
+
+<span class="hljs-keyword">public</span> <span class="hljs-class"><span class="hljs-keyword">class</span> <span class="hljs-title">MySessionListener</span> <span class="hljs-keyword">implements</span> <span class="hljs-title">HttpSessionListener</span>{</span>
+
+    <span class="hljs-annotation">@Override</span>
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">void</span> <span class="hljs-title">sessionCreated</span>(HttpSessionEvent se) {
+        Map&lt;String, HttpSession&gt; onlines= (Map&lt;String, HttpSession&gt;) se.getSession().getServletContext().getAttribute(<span class="hljs-string">"onlines"</span>);
+        <span class="hljs-keyword">if</span>(onlines==<span class="hljs-keyword">null</span>){
+            onlines=Collections.synchronizedMap(<span class="hljs-keyword">new</span> HashMap&lt;String, HttpSession&gt;());<span class="hljs-comment">//对map进行加上同步锁</span>
+            se.getSession().getServletContext().setAttribute(<span class="hljs-string">"onlines"</span>,onlines);
+        }
+        onlines.put(se.getSession().getId(), se.getSession());
+    }
+
+    <span class="hljs-annotation">@Override</span>
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">void</span> <span class="hljs-title">sessionDestroyed</span>(HttpSessionEvent se) {
+        Map&lt;String, HttpSession&gt; onlines= (Map&lt;String, HttpSession&gt;) se.getSession().getServletContext().getAttribute(<span class="hljs-string">"onlines"</span>);
+        <span class="hljs-keyword">if</span>(onlines.containsKey(se.getSession().getId())){
+            onlines.remove(se.getSession().getId());
+        }
+    }
+
+}</code></pre>
+
+<p>CharacterFilter.java(字符过滤器）</p>
+
+<pre class="prettyprint"><code class=" hljs java"><span class="hljs-keyword">package</span> cn.hncu.filter;
+
+<span class="hljs-keyword">import</span> java.io.IOException;
+
+<span class="hljs-keyword">import</span> javax.servlet.Filter;
+<span class="hljs-keyword">import</span> javax.servlet.FilterChain;
+<span class="hljs-keyword">import</span> javax.servlet.FilterConfig;
+<span class="hljs-keyword">import</span> javax.servlet.ServletException;
+<span class="hljs-keyword">import</span> javax.servlet.ServletRequest;
+<span class="hljs-keyword">import</span> javax.servlet.ServletResponse;
+<span class="hljs-keyword">import</span> javax.servlet.http.HttpServletRequest;
+
+<span class="hljs-keyword">public</span> <span class="hljs-class"><span class="hljs-keyword">class</span> <span class="hljs-title">CharacterFilter</span> <span class="hljs-keyword">implements</span> <span class="hljs-title">Filter</span> {</span>
+    <span class="hljs-keyword">private</span> String charset;
+    <span class="hljs-annotation">@Override</span>
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">void</span> <span class="hljs-title">init</span>(FilterConfig filterConfig) <span class="hljs-keyword">throws</span> ServletException {
+        charset=filterConfig.getInitParameter(<span class="hljs-string">"charset"</span>);
+    }
+
+    <span class="hljs-annotation">@Override</span>
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">void</span> <span class="hljs-title">doFilter</span>(ServletRequest request, ServletResponse response,
+            FilterChain chain) <span class="hljs-keyword">throws</span> IOException, ServletException {
+        request.setCharacterEncoding(charset);
+        response.setCharacterEncoding(charset);
+        HttpServletRequest req=(HttpServletRequest) request;
+        <span class="hljs-keyword">if</span>(req.getSession().getAttribute(<span class="hljs-string">"ip"</span>)==<span class="hljs-keyword">null</span>){
+            req.getSession().setAttribute(<span class="hljs-string">"ip"</span>, req.getRemoteAddr());
+        }
+        chain.doFilter(request, response);
+    }
+
+    <span class="hljs-annotation">@Override</span>
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">void</span> <span class="hljs-title">destroy</span>() {
+    }
+
+}</code></pre>
+
+<p>LoginFilter.java(防止游客乱访问过滤器）</p>
+
+
+
+<pre class="prettyprint"><code class=" hljs java"><span class="hljs-keyword">package</span> cn.hncu.filter;
+
+<span class="hljs-keyword">import</span> java.io.IOException;
+
+<span class="hljs-keyword">import</span> javax.servlet.Filter;
+<span class="hljs-keyword">import</span> javax.servlet.FilterChain;
+<span class="hljs-keyword">import</span> javax.servlet.FilterConfig;
+<span class="hljs-keyword">import</span> javax.servlet.ServletException;
+<span class="hljs-keyword">import</span> javax.servlet.ServletRequest;
+<span class="hljs-keyword">import</span> javax.servlet.ServletResponse;
+<span class="hljs-keyword">import</span> javax.servlet.http.HttpServletRequest;
+<span class="hljs-keyword">import</span> javax.servlet.http.HttpServletResponse;
+
+<span class="hljs-keyword">public</span> <span class="hljs-class"><span class="hljs-keyword">class</span> <span class="hljs-title">LoginFilter</span> <span class="hljs-keyword">implements</span> <span class="hljs-title">Filter</span> {</span>
+
+    <span class="hljs-annotation">@Override</span>
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">void</span> <span class="hljs-title">init</span>(FilterConfig filterConfig) <span class="hljs-keyword">throws</span> ServletException {
+
+    }
+
+    <span class="hljs-annotation">@Override</span>
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">void</span> <span class="hljs-title">doFilter</span>(ServletRequest request, ServletResponse response,
+            FilterChain chain) <span class="hljs-keyword">throws</span> IOException, ServletException {
+        HttpServletRequest req=(HttpServletRequest) request;
+        <span class="hljs-keyword">if</span>(req.getSession().getAttribute(<span class="hljs-string">"user"</span>)==<span class="hljs-keyword">null</span>){
+            ((HttpServletResponse)response).sendRedirect(req.getContextPath()+<span class="hljs-string">"/index.jsp"</span>);
+            <span class="hljs-keyword">return</span>;
+        }
+        chain.doFilter(request, response);
+    }
+
+    <span class="hljs-annotation">@Override</span>
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">void</span> <span class="hljs-title">destroy</span>() {
+    }
+
+}</code></pre>
+
+<p>LoginServlet.java</p>
+
+<pre class="prettyprint"><code class=" hljs java"><span class="hljs-keyword">package</span> cn.hncu.servlet;
+
+<span class="hljs-keyword">import</span> java.io.IOException;
+<span class="hljs-keyword">import</span> java.io.PrintWriter;
+
+<span class="hljs-keyword">import</span> javax.servlet.ServletException;
+<span class="hljs-keyword">import</span> javax.servlet.http.HttpServlet;
+<span class="hljs-keyword">import</span> javax.servlet.http.HttpServletRequest;
+<span class="hljs-keyword">import</span> javax.servlet.http.HttpServletResponse;
+
+<span class="hljs-keyword">import</span> cn.hncu.domain.User;
+
+<span class="hljs-keyword">public</span> <span class="hljs-class"><span class="hljs-keyword">class</span> <span class="hljs-title">LoginServlet</span> <span class="hljs-keyword">extends</span> <span class="hljs-title">HttpServlet</span> {</span>
+
+
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">void</span> <span class="hljs-title">doGet</span>(HttpServletRequest request, HttpServletResponse response)
+            <span class="hljs-keyword">throws</span> ServletException, IOException {
+        doPost(request, response);
+    }
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">void</span> <span class="hljs-title">doPost</span>(HttpServletRequest request, HttpServletResponse response)
+            <span class="hljs-keyword">throws</span> ServletException, IOException {
+        String name=request.getParameter(<span class="hljs-string">"name"</span>);
+        User user=(User) request.getSession().getAttribute(<span class="hljs-string">"user"</span>);
+        <span class="hljs-keyword">if</span> (user==<span class="hljs-keyword">null</span>&amp;&amp;name!=<span class="hljs-keyword">null</span>&amp;&amp;name.trim().length()&gt;<span class="hljs-number">0</span>) {<span class="hljs-comment">//封装User</span>
+            user = <span class="hljs-keyword">new</span> User();
+            user.setName(name);
+            <span class="hljs-keyword">if</span>(name.equals(<span class="hljs-string">"admin"</span>)){
+                user.setAdmin(<span class="hljs-keyword">true</span>);
+            }
+        }
+        request.getSession().setAttribute(<span class="hljs-string">"user"</span>, user);
+        response.sendRedirect(request.getContextPath()+<span class="hljs-string">"/index.jsp"</span>);
+    }
+
+}</code></pre>
+
+<p>ShowServlet.java</p>
+
+
+
+<pre class="prettyprint"><code class=" hljs lasso">package <span class="hljs-literal">cn</span><span class="hljs-built_in">.</span>hncu<span class="hljs-built_in">.</span>servlet;
+
+<span class="hljs-keyword">import</span> java<span class="hljs-built_in">.</span>io<span class="hljs-built_in">.</span>IOException;
+<span class="hljs-keyword">import</span> java<span class="hljs-built_in">.</span>io<span class="hljs-built_in">.</span>PrintWriter;
+<span class="hljs-keyword">import</span> java<span class="hljs-built_in">.</span>text<span class="hljs-built_in">.</span>SimpleDateFormat;
+<span class="hljs-keyword">import</span> java<span class="hljs-built_in">.</span>util<span class="hljs-built_in">.</span>ArrayList;
+<span class="hljs-keyword">import</span> java<span class="hljs-built_in">.</span>util<span class="hljs-built_in">.</span><span class="hljs-built_in">Date</span>;
+<span class="hljs-keyword">import</span> java<span class="hljs-built_in">.</span>util<span class="hljs-built_in">.</span>HashMap;
+<span class="hljs-keyword">import</span> java<span class="hljs-built_in">.</span>util<span class="hljs-built_in">.</span>Iterator;
+<span class="hljs-keyword">import</span> java<span class="hljs-built_in">.</span>util<span class="hljs-built_in">.</span><span class="hljs-built_in">List</span>;
+<span class="hljs-keyword">import</span> java<span class="hljs-built_in">.</span>util<span class="hljs-built_in">.</span><span class="hljs-built_in">Map</span>;
+
+<span class="hljs-keyword">import</span> javax<span class="hljs-built_in">.</span>servlet<span class="hljs-built_in">.</span>ServletException;
+<span class="hljs-keyword">import</span> javax<span class="hljs-built_in">.</span>servlet<span class="hljs-built_in">.</span>http<span class="hljs-built_in">.</span>HttpServlet;
+<span class="hljs-keyword">import</span> javax<span class="hljs-built_in">.</span>servlet<span class="hljs-built_in">.</span>http<span class="hljs-built_in">.</span>HttpServletRequest;
+<span class="hljs-keyword">import</span> javax<span class="hljs-built_in">.</span>servlet<span class="hljs-built_in">.</span>http<span class="hljs-built_in">.</span>HttpServletResponse;
+<span class="hljs-keyword">import</span> javax<span class="hljs-built_in">.</span>servlet<span class="hljs-built_in">.</span>http<span class="hljs-built_in">.</span>HttpSession;
+
+<span class="hljs-keyword">public</span> class ShowServlet extends HttpServlet {
+
+
+    <span class="hljs-keyword">public</span> <span class="hljs-literal">void</span> doGet(HttpServletRequest request, HttpServletResponse response)
+            throws ServletException, IOException {
+        doPost(request, response);
+    }
+
+
+
+    <span class="hljs-keyword">public</span> <span class="hljs-literal">void</span> doPost(HttpServletRequest request, HttpServletResponse response)
+            throws ServletException, IOException {
+        <span class="hljs-built_in">Map</span><span class="hljs-subst">&lt;</span><span class="hljs-built_in">String</span>, HttpSession<span class="hljs-subst">&gt;</span> onlines<span class="hljs-subst">=</span>(<span class="hljs-built_in">Map</span><span class="hljs-subst">&lt;</span><span class="hljs-built_in">String</span>, HttpSession<span class="hljs-subst">&gt;</span>) request<span class="hljs-built_in">.</span>getServletContext()<span class="hljs-built_in">.</span>getAttribute(<span class="hljs-string">"onlines"</span>);
+        <span class="hljs-built_in">List</span><span class="hljs-subst">&lt;</span><span class="hljs-built_in">Map</span><span class="hljs-subst">&lt;</span><span class="hljs-built_in">String</span>, Object<span class="hljs-subst">&gt;&gt;</span> <span class="hljs-built_in">list</span><span class="hljs-subst">=</span><span class="hljs-literal">new</span> ArrayList<span class="hljs-subst">&lt;</span><span class="hljs-built_in">Map</span><span class="hljs-subst">&lt;</span><span class="hljs-built_in">String</span>,Object<span class="hljs-subst">&gt;&gt;</span>();<span class="hljs-comment">//吧Online封装成list</span>
+        <span class="hljs-keyword">if</span> (onlines<span class="hljs-subst">!=</span><span class="hljs-built_in">null</span>) {
+            Iterator<span class="hljs-subst">&lt;</span>HttpSession<span class="hljs-subst">&gt;</span> it <span class="hljs-subst">=</span> onlines<span class="hljs-built_in">.</span>values()<span class="hljs-built_in">.</span>iterator();
+            <span class="hljs-keyword">while</span> (it<span class="hljs-built_in">.</span>hasNext()) {
+                HttpSession s <span class="hljs-subst">=</span> it<span class="hljs-built_in">.</span>next();
+                <span class="hljs-built_in">Map</span><span class="hljs-subst">&lt;</span><span class="hljs-built_in">String</span>, Object<span class="hljs-subst">&gt;</span> <span class="hljs-built_in">map</span> <span class="hljs-subst">=</span> <span class="hljs-literal">new</span> HashMap<span class="hljs-subst">&lt;</span><span class="hljs-built_in">String</span>, Object<span class="hljs-subst">&gt;</span>();
+                <span class="hljs-built_in">map</span><span class="hljs-built_in">.</span>put(<span class="hljs-string">"id"</span>, s<span class="hljs-built_in">.</span>getId());
+                SimpleDateFormat sdf<span class="hljs-subst">=</span><span class="hljs-literal">new</span> SimpleDateFormat(<span class="hljs-string">"yyyy-MM-dd HH:mm:ss"</span>);
+                <span class="hljs-built_in">map</span><span class="hljs-built_in">.</span>put(<span class="hljs-string">"createTime"</span>, sdf<span class="hljs-built_in">.</span>format(<span class="hljs-literal">new</span> <span class="hljs-built_in">Date</span>(s<span class="hljs-built_in">.</span>getCreationTime())));
+                <span class="hljs-built_in">map</span><span class="hljs-built_in">.</span>put(<span class="hljs-string">"lastAccessedTime"</span>,sdf<span class="hljs-built_in">.</span>format(<span class="hljs-literal">new</span> <span class="hljs-built_in">Date</span>(s<span class="hljs-built_in">.</span>getLastAccessedTime())) );
+                <span class="hljs-built_in">map</span><span class="hljs-built_in">.</span>put(<span class="hljs-string">"ip"</span>, s<span class="hljs-built_in">.</span>getAttribute(<span class="hljs-string">"ip"</span>));<span class="hljs-comment">//ip信息在characterFilter中补</span>
+                <span class="hljs-built_in">map</span><span class="hljs-built_in">.</span>put(<span class="hljs-string">"user"</span>, s<span class="hljs-built_in">.</span>getAttribute(<span class="hljs-string">"user"</span>));
+                <span class="hljs-built_in">list</span><span class="hljs-built_in">.</span>add(<span class="hljs-built_in">map</span>);
+            }
+        }
+        request<span class="hljs-built_in">.</span>setAttribute(<span class="hljs-string">"onlines"</span>, <span class="hljs-built_in">list</span>);
+        request<span class="hljs-built_in">.</span>getRequestDispatcher(<span class="hljs-string">"/jsps/show.jsp"</span>)<span class="hljs-built_in">.</span>forward(request, response);
+    }
+
+}</code></pre>
+
+<p>KickOutServlet.java</p>
+
+<pre class="prettyprint"><code class=" hljs java"><span class="hljs-keyword">package</span> cn.hncu.servlet;
+
+<span class="hljs-keyword">import</span> java.io.IOException;
+<span class="hljs-keyword">import</span> java.io.PrintWriter;
+<span class="hljs-keyword">import</span> java.util.Map;
+
+<span class="hljs-keyword">import</span> javax.servlet.ServletException;
+<span class="hljs-keyword">import</span> javax.servlet.http.HttpServlet;
+<span class="hljs-keyword">import</span> javax.servlet.http.HttpServletRequest;
+<span class="hljs-keyword">import</span> javax.servlet.http.HttpServletResponse;
+<span class="hljs-keyword">import</span> javax.servlet.http.HttpSession;
+
+<span class="hljs-keyword">public</span> <span class="hljs-class"><span class="hljs-keyword">class</span> <span class="hljs-title">KickOutServlet</span> <span class="hljs-keyword">extends</span> <span class="hljs-title">HttpServlet</span> {</span>
+
+
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">void</span> <span class="hljs-title">doGet</span>(HttpServletRequest request, HttpServletResponse response)
+            <span class="hljs-keyword">throws</span> ServletException, IOException {
+
+        doPost(request, response);
+    }
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">void</span> <span class="hljs-title">doPost</span>(HttpServletRequest request, HttpServletResponse response)
+            <span class="hljs-keyword">throws</span> ServletException, IOException {
+        String id=request.getParameter(<span class="hljs-string">"id"</span>);
+        Map&lt;String, HttpSession&gt; onlines=(Map&lt;String, HttpSession&gt;) request.getServletContext().getAttribute(<span class="hljs-string">"onlines"</span>);
+        <span class="hljs-keyword">if</span> (onlines!=<span class="hljs-keyword">null</span>) {
+            <span class="hljs-keyword">if</span> (onlines.containsKey(id)) {
+                onlines.get(id).invalidate();
+            }
+        }
+        request.getRequestDispatcher(<span class="hljs-string">"/servlet/ShowServlet"</span>).forward(request, response);
+    }
+
+}
+</code></pre>
+
+<p>LoginOutServlet.java</p>
+
+<pre class="prettyprint"><code class=" hljs java"><span class="hljs-keyword">package</span> cn.hncu.servlet;
+
+<span class="hljs-keyword">import</span> java.io.IOException;
+<span class="hljs-keyword">import</span> java.io.PrintWriter;
+
+<span class="hljs-keyword">import</span> javax.servlet.ServletException;
+<span class="hljs-keyword">import</span> javax.servlet.http.HttpServlet;
+<span class="hljs-keyword">import</span> javax.servlet.http.HttpServletRequest;
+<span class="hljs-keyword">import</span> javax.servlet.http.HttpServletResponse;
+
+<span class="hljs-keyword">public</span> <span class="hljs-class"><span class="hljs-keyword">class</span> <span class="hljs-title">LoginOutServlet</span> <span class="hljs-keyword">extends</span> <span class="hljs-title">HttpServlet</span> {</span>
+
+
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">void</span> <span class="hljs-title">doGet</span>(HttpServletRequest request, HttpServletResponse response)
+            <span class="hljs-keyword">throws</span> ServletException, IOException {
+
+        doPost(request, response);
+    }
+
+        <span class="hljs-keyword">public</span> <span class="hljs-keyword">void</span> <span class="hljs-title">doPost</span>(HttpServletRequest request, HttpServletResponse response)
+            <span class="hljs-keyword">throws</span> ServletException, IOException {
+            request.getSession().invalidate();
+            response.sendRedirect(request.getContextPath()+<span class="hljs-string">"/index.jsp"</span>);
+
+    }
+
+}</code></pre></div>&#13;
+        <script type="text/javascript">&#13;
+            $(function () {&#13;
+                $('pre.prettyprint code').each(function () {&#13;
+                    var lines = $(this).text().split('\n').length;&#13;
+                    var $numbering = $('&lt;ul/&gt;').addClass('pre-numbering').hide();&#13;
+                    $(this).addClass('has-numbering').parent().append($numbering);&#13;
+                    for (i = 1; i &lt;= lines; i++) {&#13;
+                        $numbering.append($('&lt;li/&gt;').text(i));&#13;
+                    };&#13;
+                    $numbering.fadeIn(1700);&#13;
+                });&#13;
+            });&#13;
+        </script>&#13;
+   &#13;

@@ -1,0 +1,127 @@
+
+
+<div>&#13;
+<div style="text-align:center"><strong><span style="font-size:18px">mini2440驱动分析之ADC</span></strong></div>&#13;
+<span style="font-size:16px">1 . ADC_DEV 结构</span><br />&#13;
+<pre name="code" class="plain">typedef struct {
+	wait_queue_head_t wait;
+	int channel;
+	int prescale;
+}ADC_DEV;</pre> wait      等待队列，进程读取设备，如果没有转换数据，就会睡眠在此队列上<br />&#13;
+channel   转换通道，s3c2440有八通道的ad，但是只有四个通道AIN[3:0]可以使用，其他四个用于触摸屏<br />&#13;
+prescale   计算转换速率的时候使用<br />&#13;
+<span style="font-size:16px">2 . 变量</span><br />&#13;
+    OwnADC   表示是否拥有ADC信号量<br />&#13;
+    ev_adc   使能ADC标志，用于等待队列的等待条件<br />&#13;
+    adc_data 转换读出的数据<br />&#13;
+<span style="font-size:16px">3 模块初始化，dev_init（）</span> <pre name="code" class="plain">static int __init dev_init(void)
+{
+	int ret;
+
+	base_addr=ioremap(S3C2410_PA_ADC,0x20);
+        //映射虚拟地址,其中S3C2410_PA_ADC为物理地址
+	if (base_addr == NULL) {
+		printk(KERN_ERR "Failed to remap register block\n");
+		return -ENOMEM;
+	}
+
+	adc_clock = clk_get(NULL, "adc");
+	if (!adc_clock) {
+		printk(KERN_ERR "failed to get adc clock source\n");
+		return -ENOENT;
+	}
+	clk_enable(adc_clock);
+	//设置时钟,adc_clk为clk结构体,定义在arm/mach-mmp/clock.h中，代表一种时钟,系统默认时钟是关闭的，所以这里要使能
+	/* normal ADC */
+	ADCTSC = 0;
+
+	ret = request_irq(IRQ_ADC, adcdone_int_handler, IRQF_SHARED, DEVICE_NAME, &amp;adcdev);
+        //装载中断处理例程 
+	if (ret) {
+		iounmap(base_addr);
+		return ret;
+	}
+
+	ret = misc_register(&amp;misc);
+        //注册杂项设备
+	printk (DEVICE_NAME"\tinitialized\n");
+	return ret;
+}</pre></div>&#13;
+<div>      ADC为字符设备，所有注册成杂项设备，接口简单<br />&#13;
+<span style="font-size:16px">4 . 设备打开</span><br />&#13;
+<pre name="code" class="plain">static int s3c2410_adc_open(struct inode *inode, struct file *filp)
+{
+	init_waitqueue_head(&amp;(adcdev.wait));   //初始化等待队列
+
+	adcdev.channel=0;   //设置转换通道为0，从电路图中可以看到，mini2440的AIN[0]接了一个可调电阻。
+	adcdev.prescale=0xff; //这个是设置转换速率用
+	DPRINTK( "adc opened\n"); //这个宏是模块自己定义的，用于打印调试信息
+	return 0;
+}</pre><span style="font-size:16px">5 . 读操作</span><br />&#13;
+<pre name="code" class="plain">static ssize_t s3c2410_adc_read(struct file *filp, char *buffer, size_t count, loff_t *ppos)
+{
+	char str[20];
+	int value;
+	size_t len;
+	if (down_trylock(&amp;ADC_LOCK) == 0) {
+        //down_trylock不会睡眠，如果获得不了信号量就会返回
+        //每个设备都因该有一个信号量或者自旋锁来保护，以防止并发引起的竞态，这种错误很难调试（ldd3）
+		OwnADC = 1;
+        //代表拥有设备
+		START_ADC_AIN(adcdev.channel, adcdev.prescale);
+    // 这是一个宏定义，就是设置ADCCON寄存器，通道，装换速率，并开始转换，把设置寄存器定义成宏简单明了
+		wait_event_interruptible(adcdev.wait, ev_adc);
+        // 已经开始转换了，等待转换完成中断
+		ev_adc = 0;
+        //装换完成，清完成条件为下次转换做准备
+		DPRINTK("AIN[%d] = 0x%04x, %d\n", adcdev.channel, adc_data, ADCCON &amp; 0x80 ? 1:0);
+
+		value = adc_data;
+
+		OwnADC = 0;
+		up(&amp;ADC_LOCK);
+	} else {
+		value = -1;
+	}
+        // 释放信号量，因为不操作设备了，这里用信号量而不是自旋锁，因为拥有自旋锁的代码不允许睡眠
+        // 接下来将转换读出的数据，复制到用户空间
+	len = sprintf(str, "%d\n", value);
+	if (count &gt;= len) {
+		int r = copy_to_user(buffer, str, len);
+		return r ? r : len;
+	} else {
+		return -EINVAL;
+	}
+}</pre>START_ADC_AIN 定义如下<br />&#13;
+<pre name="code" class="plain">#define START_ADC_AIN(ch, prescale) \
+	do{ \
+		ADCCON = PRESCALE_EN | PRSCVL(prescale) | ADC_INPUT((ch)) ; \
+		ADCCON |= ADC_START; \
+	}while(0)</pre>这个宏，设置装换速率，设置转换通道，并开始ad转换<br />&#13;
+<span style="font-size:16px">6 . 中断处理例程</span><br />&#13;
+<pre name="code" class="plain">static irqreturn_t adcdone_int_handler(int irq, void *dev_id)
+{
+	if (OwnADC) {
+		adc_data = ADCDAT0 &amp; 0x3ff;
+        //如果现在拥有设备，读取转换结果
+		ev_adc = 1;
+        //设置等待条件为真
+		wake_up_interruptible(&amp;adcdev.wait);
+        //唤醒等待的进程
+	}
+
+	return IRQ_HANDLED;
+}</pre><span style="font-size:16px">7. 其他</span><br />&#13;
+       release 函数什么也没有做，只是通知设备关闭了<br />&#13;
+       模块卸载函数，释放掉中断线，注销设备<br />&#13;
+       <br />&#13;
+</div>&#13;
+<div>&#13;
+<div style="text-align:left"></div>&#13;
+<div style="text-align:left"></div>&#13;
+<div style="text-align:left"></div>&#13;
+<div style="text-align:left"></div>&#13;
+<div style="text-align:left"></div>&#13;
+<div></div>&#13;
+</div>&#13;
+   &#13;

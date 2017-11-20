@@ -1,0 +1,248 @@
+
+
+<h1><span style="font-family:KaiTi_GB2312; font-size:18px">概述</span></h1>&#13;
+<p><span style="font-family:KaiTi_GB2312; font-size:18px">    Servlet也是JavaEE的一种规范，位于javax.servlet下，Servlet规范还包含Filter。该包下分为两部分：servlet有关和http有关。</span></p>&#13;
+<p><span style="font-family:KaiTi_GB2312; font-size:18px">    为什么会有两部分？设计该规范时认为Servlet是一种服务模型，不应与协议耦合，因此就抽象出了一个 javax.servlet，同时提供一套基于HTTP协议上的Servlet扩展，当然就现在看，还没有基于其他协议的流行的Servlet实现。也是因为HttpServlet的普遍性，本文以此为例说明。</span></p>&#13;
+<span style="font-family:KaiTi_GB2312; font-size:18px">    从宏观上来看，HttpServlet基于“请求-响应”模型：用户发出请求，服务端响应用户。说到这点，可以先来看看CGI。<br />&#13;
+</span>&#13;
+<h1><span style="font-family:KaiTi_GB2312; font-size:18px">关于CGI</span></h1>&#13;
+<p><span style="font-family:KaiTi_GB2312; font-size:18px">    Common Gateway Interface，通用网关接口，执行过程为：</span></p>&#13;
+<p></p>&#13;
+<ul>&#13;
+<li><span style="font-family:KaiTi_GB2312; font-size:18px">浏览器通过HTML表单或超链接请求指上一个CGI应用程序的URL。</span></li><li><span style="font-family:KaiTi_GB2312; font-size:18px">服务器收发到请求。 </span></li><li><span style="font-family:KaiTi_GB2312; font-size:18px">服务器执行指定所CGI应用程序。 </span></li><li><span style="font-family:KaiTi_GB2312; font-size:18px">CGI应用程序执行所需要的操作，通常是基于浏览者输人的内容。 </span></li><li><span style="font-family:KaiTi_GB2312; font-size:18px">CGI应用程序把结果格式化为网络服务器和浏览器能够理解的文档（通常是HTML网页）。 </span></li><li><span style="font-family:KaiTi_GB2312; font-size:18px">网络服务器把结果返回到浏览器中。 </span></li></ul>&#13;
+<p></p>&#13;
+<span style="font-family:KaiTi_GB2312; font-size:18px">    可以看到这跟HttpServlet流程基本一致，在servlet出现以前，普遍使用的是CGI，CGI之所以被淘汰因为：<br />&#13;
+</span>&#13;
+<ul>&#13;
+<li><span style="font-family:KaiTi_GB2312; font-size:18px">与操作系统耦合</span></li><li><span style="font-family:KaiTi_GB2312; font-size:18px">编写难度较大</span></li><li><span style="font-family:KaiTi_GB2312; font-size:18px">每次请求启动一个CGI程序进程，资源消耗大。</span></li></ul>&#13;
+<span style="font-family:KaiTi_GB2312; font-size:18px">    关于CGI的详细内容，大家可自行查阅，本文只是简单介绍一下CGI，然后过渡到Servlet。</span><br />&#13;
+<h1><span style="font-family:KaiTi_GB2312; font-size:18px">Servlet</span></h1>&#13;
+<h2><span style="font-family:KaiTi_GB2312; font-size:18px">    弥补</span></h2>&#13;
+<p><span style="font-family:KaiTi_GB2312; font-size:18px">    Servlet的出现弥补了以上缺点，我们知道HttpServlet：</span></p>&#13;
+<p></p>&#13;
+<ul>&#13;
+<li><span style="font-family:KaiTi_GB2312; font-size:18px">用java语言编写，可以跨平台</span></li><li><span style="font-family:KaiTi_GB2312; font-size:18px">Servlet接口定义简单，编写较易</span></li><li><span style="font-family:KaiTi_GB2312; font-size:18px">每个Servlet仅在内存中保存一个实例，资源消耗小</span></li></ul>&#13;
+<p></p>&#13;
+<h2><span style="font-family:KaiTi_GB2312; font-size:18px">    执行流程</span></h2>&#13;
+<p><span style="font-family:KaiTi_GB2312; font-size:18px">    下面来看一下HttpServlet的执行流程：</span></p>&#13;
+<p><span style="font-family:KaiTi_GB2312; font-size:18px">    <img src="http://img.blog.csdn.net/20140802121100109?watermark/2/text/aHR0cDovL2Jsb2cuY3Nkbi5uZXQvbGlkYXRnYg==/font/5a6L5L2T/fontsize/400/fill/I0JBQkFCMA==/dissolve/70/gravity/SouthEast" alt="" /><br />&#13;
+</span></p>&#13;
+<p><span style="font-family:KaiTi_GB2312; font-size:18px">    解释一下：</span></p>&#13;
+<p></p>&#13;
+<ul>&#13;
+<li><span style="font-family:KaiTi_GB2312; font-size:18px">客户端（常见的是浏览器）向Servlet容器发出Http请求</span></li><li><span style="font-family:KaiTi_GB2312; font-size:18px">Servlet容器接收客户端请求</span></li><li><span style="font-family:KaiTi_GB2312; font-size:18px">Servlet容器创建一个HttpRequest对象，将请求信息封装</span></li><li><span style="font-family:KaiTi_GB2312; font-size:18px">Servlet容器创建一个HttpResponse对象，将响应信息封装</span></li><li><span style="font-family:KaiTi_GB2312; font-size:18px">Servlet容器调用HttpServlet对象的service方法，以HttpRequest对象与HttpResponse对象为参数</span></li><li><span style="font-family:KaiTi_GB2312; font-size:18px">HttpServlet调用HttpRequest对象的有关方法，获取Http请求信息、</span><span style="font-family:KaiTi_GB2312; font-size:18px">HttpServlet调用HttpResponse对象的有关方法，生成响应数据</span></li><li><span style="font-family:KaiTi_GB2312; font-size:18px">Servlet容器把HttpServlet的响应结果传给客户端</span></li></ul>&#13;
+<p></p>&#13;
+<span style="font-family:KaiTi_GB2312; font-size:18px">    实际上关注Servlet更应该关注的是Servlet容器，这点在关于Tomcat的博客中再细说。<br />&#13;
+</span>&#13;
+<h2><span style="font-family:KaiTi_GB2312; font-size:18px">    Session</span></h2>&#13;
+<span style="font-family:KaiTi_GB2312; font-size:18px">    HTTP协议里请求响应是无状态的，Session就是根据HTTP协议这种特点而产生的，实现无非就是在服务器产生一个哈希表，Key就是传递给浏览器的名为jsessionid的Cookie值。当需要将某个值保存到 session 时，容器会执行如下几步：<br />&#13;
+</span>&#13;
+<ul>&#13;
+<li><span style="font-family:KaiTi_GB2312; font-size:18px">获取jsessionid值，如果没有使用request.getSession()产生</span></li><li><span style="font-family:KaiTi_GB2312; font-size:18px">得到HttpSession对象实例哈希表，存放数据(setAttribute)</span></li><li><span style="font-family:KaiTi_GB2312; font-size:18px">可以通过 getAttribute 来获取某个值</span></li></ul>&#13;
+<span style="font-family:KaiTi_GB2312; font-size:18px">    而这个名为jsessionid的Cookie在浏览器关闭时会自动删除。当把Cookie的MaxAge值设为-1时，浏览器关闭即自动删除。</span><br />&#13;
+<h2><span style="font-family:KaiTi_GB2312; font-size:18px">    Request Response</span></h2>&#13;
+<span style="font-family:KaiTi_GB2312; font-size:18px">    HttpServletRequest和HttpServletResponse实际上就是对HTTP协议做面向对象的封装，HTTP协议中的请求和响应就是对应了HttpServletRequest和HttpServletResponse这两个接口。<br />&#13;
+    HttpServletRequest作为请求，用来获取所有请求相关的信息，包括 URI、Cookie、Header、请求参数等等；HttpServletResponse接口是用来生产 HTTP 回应，包含 Cookie、Header 以及回应的内容等等。<br />&#13;
+</span>&#13;
+<p><span style="font-family:KaiTi_GB2312; font-size:18px">    而各种V层框架仅仅是对这两个类的进一步封装，再怎么操作，最终还是操作的HttpServletRequest和HttpServletResponse。</span></p>&#13;
+<h1><span style="font-family:KaiTi_GB2312; font-size:18px">源码分析</span></h1>&#13;
+<span style="font-family:KaiTi_GB2312; font-size:18px">    javax.servlet 和 javax.servlet.http 这两个包总共加起来也不过是42个类文件，按照所需，分析源码也并非不可能：<br />&#13;
+<img src="http://img.blog.csdn.net/20140802121226876?watermark/2/text/aHR0cDovL2Jsb2cuY3Nkbi5uZXQvbGlkYXRnYg==/font/5a6L5L2T/fontsize/400/fill/I0JBQkFCMA==/dissolve/70/gravity/SouthEast" alt="" /><br />&#13;
+<br />&#13;
+</span>&#13;
+<h2><span style="font-family:KaiTi_GB2312; font-size:18px">    核心内容</span></h2>&#13;
+<span style="font-family:KaiTi_GB2312; font-size:18px">    如果条件允许，全看这42个源码文件也没问题，如果有限，最少以下核心的类要仔细分析一下：<br />&#13;
+</span>&#13;
+<ul>&#13;
+<li><span style="font-family:KaiTi_GB2312; font-size:18px">HttpServlet</span></li><li><span style="font-family:KaiTi_GB2312; font-size:18px">ServetConfig</span></li><li><span style="font-family:KaiTi_GB2312; font-size:18px">ServletContext</span></li><li><span style="font-family:KaiTi_GB2312; font-size:18px">Filter</span></li><li><span style="font-family:KaiTi_GB2312; font-size:18px">FilterConfig</span></li><li><span style="font-family:KaiTi_GB2312; font-size:18px">FilterChain</span></li><li><span style="font-family:KaiTi_GB2312; font-size:18px">RequestDispatcher</span></li><li><span style="font-family:KaiTi_GB2312; font-size:18px">HttpServletRequest</span></li><li><span style="font-family:KaiTi_GB2312; font-size:18px">HttpServletResponse</span></li><li><span style="font-family:KaiTi_GB2312; font-size:18px">HttpSession</span></li><li><span style="font-family:KaiTi_GB2312; font-size:18px">Listenser </span></li></ul>&#13;
+<div><span style="font-family:KaiTi_GB2312; font-size:18px">    接下来我们来看一下HttpServlet，因为继承（实现）关系为HttpServlet→GenericServlet→Servlet，所以先来看一下Servlet：</span></div>&#13;
+<div>&#13;
+<h2><span style="font-family:KaiTi_GB2312; font-size:18px">    Servlet</span></h2>&#13;
+<pre name="code" class="java">public interface Servlet
+{
+
+    public abstract void init(ServletConfig servletconfig)
+        throws ServletException;
+
+    public abstract ServletConfig getServletConfig();
+
+    public abstract void service(ServletRequest servletrequest, ServletResponse servletresponse)
+        throws ServletException, IOException;
+
+    public abstract String getServletInfo();
+
+    public abstract void destroy();
+}</pre><span style="font-family:KaiTi_GB2312; font-size:18px">    Servlet定义了生命周期有关的和读取配置的接口，它的作用就是规定声明周期管理、接受ServletRequest和ServletResponse。</span></div>&#13;
+<h2><span style="font-family:KaiTi_GB2312; font-size:18px">    GenericServlet</span></h2>&#13;
+<div><span style="font-family:KaiTi_GB2312; font-size:18px">    再来看一下GenericServlet：</span></div>&#13;
+<div><span style="font-family:KaiTi_GB2312; font-size:18px"></span><pre name="code" class="java">package javax.servlet;
+
+import java.io.IOException;
+import java.io.Serializable;
+import java.util.Enumeration;
+import java.util.ResourceBundle;
+
+// Referenced classes of package javax.servlet:
+//            Servlet, ServletConfig, ServletException, ServletContext, 
+//            ServletRequest, ServletResponse
+
+public abstract class GenericServlet
+    implements Servlet, ServletConfig, Serializable
+{
+
+    public void destroy()
+    {
+    }
+
+    public void init(ServletConfig config)
+        throws ServletException
+    {
+        this.config = config;
+        init();
+    }
+
+    public void init()
+        throws ServletException
+    {
+    }
+    //省略其他函数
+}</pre><br />&#13;
+</div>&#13;
+<div><span style="font-family:KaiTi_GB2312; font-size:18px">    可以看到，GenericServlet实现了Servlet、ServletConfig、Serializable三个接口类，所以GenernicServlet除了实现和预留未实现的Servelt接口，还实现了ServletConfig有关获取parameter（参数）和配置（config）的接口，同时新增与log日志有关的方法；javva.io.Serializable实际上是一个空接口类，没有可供实现的接口。</span></div>&#13;
+<div><span style="font-family:KaiTi_GB2312; font-size:18px">    GenericServlet在实现Servlet的init()方法时，也调用了另一个无参数的init()方法，在实现Servlet时，如果有一些初始化所要执行的操作，可以重新定义这个无参数的init()方法，不要直接重新定义有参数的init()方法。</span><br />&#13;
+</div>&#13;
+<div><span style="font-family:KaiTi_GB2312; font-size:18px">    总的来说GenericServlet主要的目的，就是将Servlet调用init()方法所传入的的ServletConfig封装起來。</span></div>&#13;
+<h2><span style="font-family:KaiTi_GB2312; font-size:18px">    HttpServlet</span></h2>&#13;
+<div><span style="font-family:KaiTi_GB2312; font-size:18px">    接下来再来看HttpServlet：</span></div>&#13;
+<div><pre name="code" class="java">package javax.servlet.http;
+
+import java.io.IOException;
+import java.io.Serializable;
+import java.lang.reflect.Method;
+import java.text.MessageFormat;
+import java.util.Enumeration;
+import java.util.ResourceBundle;
+import javax.servlet.*;
+
+// Referenced classes of package javax.servlet.http:
+//            NoBodyResponse, HttpServletRequest, HttpServletResponse
+
+public abstract class HttpServlet extends GenericServlet
+    implements Serializable
+{
+
+    public HttpServlet()
+    {
+    }
+	
+	//省略部分函数
+	
+    public void service(ServletRequest req, ServletResponse res)
+        throws ServletException, IOException
+    {
+        HttpServletRequest request;
+        HttpServletResponse response;
+        try
+        {
+            request = (HttpServletRequest)req;
+            response = (HttpServletResponse)res;
+        }
+        catch(ClassCastException e)
+        {
+            throw new ServletException("non-HTTP request or response");
+        }
+        service(request, response);
+    }
+
+    protected void service(HttpServletRequest req, HttpServletResponse resp)
+        throws ServletException, IOException
+    {
+        String method = req.getMethod();
+        if(method.equals("GET"))
+        {
+            long lastModified = getLastModified(req);
+            if(lastModified == -1L)
+            {
+                doGet(req, resp);
+            } else
+            {
+                long ifModifiedSince = req.getDateHeader("If-Modified-Since");
+                if(ifModifiedSince &lt; (lastModified / 1000L) * 1000L)
+                {
+                    maybeSetLastModified(resp, lastModified);
+                    doGet(req, resp);
+                } else
+                {
+                    resp.setStatus(304);
+                }
+            }
+        } else
+        if(method.equals("HEAD"))
+        {
+            long lastModified = getLastModified(req);
+            maybeSetLastModified(resp, lastModified);
+            doHead(req, resp);
+        } else
+        if(method.equals("POST"))
+            doPost(req, resp);
+        else
+        if(method.equals("PUT"))
+            doPut(req, resp);
+        else
+        if(method.equals("DELETE"))
+            doDelete(req, resp);
+        else
+        if(method.equals("OPTIONS"))
+            doOptions(req, resp);
+        else
+        if(method.equals("TRACE"))
+        {
+            doTrace(req, resp);
+        } else
+        {
+            String errMsg = lStrings.getString("http.method_not_implemented");
+            Object errArgs[] = new Object[1];
+            errArgs[0] = method;
+            errMsg = MessageFormat.format(errMsg, errArgs);
+            resp.sendError(501, errMsg);
+        }
+    }
+    protected void doGet(HttpServletRequest req, HttpServletResponse resp)
+        throws ServletException, IOException
+    {
+        String protocol = req.getProtocol();
+        String msg = lStrings.getString("http.method_get_not_supported");
+        if(protocol.endsWith("1.1"))
+            resp.sendError(405, msg);
+        else
+            resp.sendError(400, msg);
+    }
+
+
+    protected void doPost(HttpServletRequest req, HttpServletResponse resp)
+        throws ServletException, IOException
+    {
+        String protocol = req.getProtocol();
+        String msg = lStrings.getString("http.method_post_not_supported");
+        if(protocol.endsWith("1.1"))
+            resp.sendError(405, msg);
+        else
+            resp.sendError(400, msg);
+    }
+	
+	//省略doHead、doDelete等方法
+	
+}</pre><span style="font-family:KaiTi_GB2312; font-size:18px"><br />&#13;
+    可以看到doGet、doPost等do系列函数，仅仅是在HttpServletResponse中添加了错误信息，这些函数需要我们自己实现。    </span></div>&#13;
+<div><span style="font-family:KaiTi_GB2312; font-size:18px">    第一个service函数是实现了GenericServlet中没有实现的接口，它的作用是将ServletRequest和ServletResponse转换为HttpServletRequest和HttpServletResponse。</span></div>&#13;
+<div><span style="font-family:KaiTi_GB2312; font-size:18px">    第二个service函数是HttpServlet自己的，它的作用是根据HttpServletRequest中的参数条件，决定调用doGet、doPost等函数。</span></div>&#13;
+<h2><span style="font-family:KaiTi_GB2312; font-size:18px">    模板方法模式</span></h2>&#13;
+<div><span style="font-family:KaiTi_GB2312; font-size:18px">    HttpServlet使用的模式就是常说的模板方法模式：在service()中定义了调用doGet、doPost的条件，在子类中我们只需要覆盖doGet、doPost等即可，然后当我们调用service时，它即可根据定义的条件，去调用我们实现的do系列方法。</span></div>&#13;
+<h2><span style="font-family:KaiTi_GB2312; font-size:18px">    注意</span></h2>&#13;
+<div><span style="font-family:KaiTi_GB2312; font-size:18px">    需要注意的是，当使用HttpServlet输出文本时，避免使用多个String，这个涉及到String的机制，因为String是不可变类，每次更改都会产生一个新的String对象，如果使用String输出非常多的文本，要么使用一个长字符串，要么使用StringBuffer的append()。</span></div>&#13;
+<h1><span style="font-size:18px"><span style="font-family:KaiTi_GB2312">总结</span></span></h1>&#13;
+<div><span style="font-family:KaiTi_GB2312; font-size:18px">    总的来说，Servlet是JavaEE的一种标准，而servlet.http是基于HTTP协议的Servlet扩展，读完Servlet相关内容后，我们可以再进一步，关注Servlet容器，这点在关于Tomcat的博客中再细说。</span><br />&#13;
+</div>&#13;
+<div><br />&#13;
+</div>&#13;
+   &#13;

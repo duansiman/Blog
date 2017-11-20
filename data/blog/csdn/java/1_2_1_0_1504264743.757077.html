@@ -1,0 +1,102 @@
+
+                <div class="markdown_views"><h2 id="1起因">1.起因</h2>
+
+<p>openclinica是优秀的开源的临床试验EDC系统，社区版提供的功能就很强大，可以供学习和使用的用途。之前分别在 Linux 系统和win7 (部署指南推荐 Windows server 2008/2012)系统部署成功过，但是自己平时 用 的是 win 10, 如果 还要安装虚拟机不太方便,所以一直在尝试 能不能在 win 10    上解决这个部署的问题，今天终于搞定。</p>
+
+<p>提到的部署指南  :</p>
+
+<blockquote>
+  <p><a href="https://github.com/OpenClinica/OpenClinica/wiki/Install-OpenClinica-v3.6-and-higher-on-Linux">在Linux系统上安装部署 OpenClinica v3.6 或更高版本</a> <br/>
+  <a href="https://github.com/OpenClinica/OpenClinica/wiki/Install-OpenClinica-v3.6-and-higher-on-Windows">在Windows系统上安装部署 OpenClinica v3.6 或更高版本</a></p>
+</blockquote>
+
+<hr/>
+
+<p><strong><em>###其中不同版本号部署指南不用，大家根据自己的版本来！</em></strong> <br/>
+<img src="http://img.blog.csdn.net/20170425172418134?watermark/2/text/aHR0cDovL2Jsb2cuY3Nkbi5uZXQv/font/5a6L5L2T/fontsize/400/fill/I0JBQkFCMA==/dissolve/70/gravity/SouthEast" alt="这里写图片描述" title=""/></p>
+
+<p><strong>今天我要讲 的部署是 3.5版本的。</strong></p>
+
+
+
+<h2 id="2软件准备">2.软件准备</h2>
+
+<ul>
+<li>2.1 Java JDK 1.7.0_51 </li>
+<li>2.2 PostgreSQL 8.4.7-2</li>
+<li>2.3 Tomcat 7.0.52</li>
+<li>2.4 OpenClinica 3.5 </li>
+<li>2.5 Rule Designer 1.2</li>
+</ul>
+
+<p>其中JDK、Tomcat 、PostgreSQL的下载地址：<a href="https://dev.openclinica.com/oc/software/OpenClinica-3.2/windows/">https://dev.openclinica.com/oc/software/OpenClinica-3.2/windows/</a> <br/>
+<img src="http://img.blog.csdn.net/20170425173045106?watermark/2/text/aHR0cDovL2Jsb2cuY3Nkbi5uZXQv/font/5a6L5L2T/fontsize/400/fill/I0JBQkFCMA==/dissolve/70/gravity/SouthEast" alt="这里写图片描述" title=""/></p>
+
+<p>OpenClinica 3.5下载地址:<a href="https://dev.openclinica.com/distros/OpenClinica-3.5.zip">https://dev.openclinica.com/distros/OpenClinica-3.5.zip </a> <br/>
+Rule Designer 1.2 下载地址:<a href="https://dev.openclinica.com/distros/Designer-1.2.war">https://dev.openclinica.com/distros/Designer-1.2.war </a></p>
+
+
+
+<h2 id="3软件安装">3.软件安装</h2>
+
+<p><strong>3.1 安装 jdk (不作说明，应该都会，不会的百度吧)</strong></p>
+
+<pre><code>没有特别要说明的地方
+</code></pre>
+
+<p><strong>3.2 数据库安装（PostgreSQL 8.4） </strong></p>
+
+<p><strong>3.2.1</strong> 事先准备好一个安装目录，比如我的是 E:\DataBase\PostgreSQL\8.4，右键属性–》安全，选择Users,编辑，将权限能勾 的都勾上。 <br/>
+<img src="http://img.blog.csdn.net/20170425185843091?watermark/2/text/aHR0cDovL2Jsb2cuY3Nkbi5uZXQvQnJ1Y2Vfc2hhbg==/font/5a6L5L2T/fontsize/400/fill/I0JBQkFCMA==/dissolve/70/gravity/SouthEast" alt="这里写图片描述" title=""/> <br/>
+<strong>3.2.2</strong> <br/>
+安装基本是一路  next ，遇到单选框 都不要勾选。 <br/>
+<strong>3.2.3 安装完成之后的设置</strong> <br/>
+运行 PostgreSQL (pgAdminIII) →双击：PostgreSQL 8.4 (localhost:5432)→输入安装时设置的 密码→确定； <br/>
+<img src="http://img.blog.csdn.net/20170425190602137?watermark/2/text/aHR0cDovL2Jsb2cuY3Nkbi5uZXQvQnJ1Y2Vfc2hhbg==/font/5a6L5L2T/fontsize/400/fill/I0JBQkFCMA==/dissolve/70/gravity/SouthEast" alt="这里写图片描述" title=""/></p>
+
+<p>依次执行下面两段 sql 语句： <br/>
+1.创建clinica角色并且设置密码也是clinica</p>
+
+
+
+<pre class="prettyprint"><code class=" hljs sql"><span class="hljs-operator"><span class="hljs-keyword">CREATE</span> ROLE clinica LOGIN ENCRYPTED PASSWORD <span class="hljs-string">'clinica'</span> SUPERUSER NOINHERIT NOCREATEDB NOCREATEROLE;</span></code></pre>
+
+<p>2.创建数据库</p>
+
+
+
+<pre class="prettyprint"><code class=" hljs sql"><span class="hljs-operator"><span class="hljs-keyword">CREATE</span> <span class="hljs-keyword">DATABASE</span> openclinica <span class="hljs-keyword">WITH</span> ENCODING=<span class="hljs-string">'UTF8'</span> OWNER=clinica;</span> </code></pre>
+
+<p>3.启动数据库服务 <br/>
+win10可能需要管理员身份运行，其他系统不是很确定。 <br/>
+<img src="http://img.blog.csdn.net/20170513165752021?watermark/2/text/aHR0cDovL2Jsb2cuY3Nkbi5uZXQvQnJ1Y2Vfc2hhbg==/font/5a6L5L2T/fontsize/400/fill/I0JBQkFCMA==/dissolve/70/gravity/SouthEast" alt="这里写图片描述" title=""/></p>
+
+<p><strong>3.2 Tomcat安装 </strong> <br/>
+如果web app 下项目比较多，将Maxinum memory pool的值设置为1280，应用-&gt;确定。 <br/>
+<img src="http://img.blog.csdn.net/20170425195628939?watermark/2/text/aHR0cDovL2Jsb2cuY3Nkbi5uZXQv/font/5a6L5L2T/fontsize/400/fill/I0JBQkFCMA==/dissolve/70/gravity/SouthEast" alt="这里写图片描述" title=""/> <br/>
+以下配置可以选择加在：Java→Java Options里，我没有加但是也能跑</p>
+
+<pre class="prettyprint"><code class=" hljs haml">-<span class="ruby"><span class="hljs-constant">XX</span><span class="hljs-symbol">:+UseParallelGC</span>
+</span>-<span class="ruby"><span class="hljs-constant">XX</span><span class="hljs-symbol">:ParallelGCThreads=</span><span class="hljs-number">1</span>
+</span>-<span class="ruby"><span class="hljs-constant">XX</span><span class="hljs-symbol">:PermSize=</span><span class="hljs-number">512</span>m
+</span>-<span class="ruby"><span class="hljs-constant">XX</span><span class="hljs-symbol">:MaxPermSize=</span><span class="hljs-number">1024</span>m
+</span>-<span class="ruby"><span class="hljs-constant">XX</span><span class="hljs-symbol">:+CMSClassUnloadingEnabled</span>
+</span>-<span class="ruby"><span class="hljs-constant">Dfile</span>.encoding=<span class="hljs-constant">UTF</span>-<span class="hljs-number">8</span>
+</span>-<span class="ruby"><span class="hljs-constant">Dorg</span>.apache.el.parser.<span class="hljs-constant">SKIP_IDENTIFIER_CHECK</span>=<span class="hljs-keyword">true</span></span></code></pre>
+
+<hr/>
+
+
+
+<h2 id="3edc系统安装部署openclinica-35">3.EDC系统安装部署（OpenClinica 3.5）</h2>
+
+<p><strong>3.1 将前面事先下载的 OpenClinica3.5文件“openclinica.war”（注文件名需要与数据库一致） 复制到路径：Tomcat 安装目录\webapps，则 Tomcat将自动解压文件夹： Tomcat 安装目录\webapps\openclinica； </strong></p>
+
+<p><strong>3.2 打开文件：Tomcat 安装目录\webapps\openclinica\WEB-INF\classes\ datainfo.properties，将 dbPass=clinica的 clinica改为前述所设用户 clinica的密码。其它参数 根据自己需求进行设定（如：若想外部网络能访问本系统，需将服务器公网 IP 或域名加至 参数 sysURL当中；若安装 Rule Designer，则参数 designerURL需改为指向 Designer的地 址）。</strong></p>
+
+<p><strong>重启 Tomcat，打开浏览器，输入 <a href="http://localhost:8080/openclinica/">http://localhost:8080/openclinica/</a>，打开 OpenClinica页面， 安装工作完成。超级管理员用户名：root，密码：12345678。</strong> </p>
+
+<p><img src="http://img.blog.csdn.net/20170425195123667?watermark/2/text/aHR0cDovL2Jsb2cuY3Nkbi5uZXQv/font/5a6L5L2T/fontsize/400/fill/I0JBQkFCMA==/dissolve/70/gravity/SouthEast" alt="这里写图片描述" title=""/></p>
+
+<p><strong>看到这个界面说明大功告成！编辑核查设计器安装 (Rule Designer 1.2) 这里就不再说了</strong></p><link rel="stylesheet" href="http://static.blog.csdn.net/public/res-min/markdown_views.css?v=1.0"/></div><link rel="stylesheet" href="http://static.blog.csdn.net/public/res-min/markdown_views.css?v=1.0"/>&#13;
+            

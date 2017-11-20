@@ -1,0 +1,148 @@
+
+
+<p><span style="font-family:KaiTi_GB2312; font-size:18px">    事务是编程中必不可少的一项内容，基于此，为了规范事务开发，Java增加了关于事务的规范，即JTA和JTS，在网上搜索关于JTA和JTS，发现有效内容远少于EJB，这倒不是说它们的重要性低于EJB，而是说明JTA和JTS封装的更为透明，隐藏了大部分细节，通常情况下，我们仅仅需要使用几个简单的APIs就能解决问题。</span></p>&#13;
+<h1><span style="font-family:KaiTi_GB2312; font-size:18px">JTA和JTS</span></h1>&#13;
+<h2><span style="font-family:KaiTi_GB2312; font-size:18px">    JTA</span></h2>&#13;
+<p><span style="font-family:KaiTi_GB2312; font-size:18px">    JTA定义了一套接口，其中约定了几种主要的角色：TransactionManager、UserTransaction、Transaction、XAResource，并定义了这些<span style="font-family:KaiTi_GB2312; font-size:18px">角色之间需要遵守的规范，如Transaction的委托给TransactionManager等。</span><br />&#13;
+</span></p>&#13;
+<h2><span style="font-family:KaiTi_GB2312; font-size:18px">    JTS</span></h2>&#13;
+<p></p>&#13;
+<p><span style="font-family:KaiTi_GB2312; font-size:18px">    JTS也是一组规范，上面提到JTA中需要角色之间的交互，那应该如何交互？JTS就是约定了交互细节的规范。</span></p>&#13;
+<p><span style="font-family:KaiTi_GB2312; font-size:18px">    总体上来说JTA更多的是从框架的角度来约定程序角色的接口，而JTS则是从具体实现的角度来约定程序角色之间的接口，两者各司其职。<br />&#13;
+</span></p>&#13;
+<p><span style="font-family:KaiTi_GB2312; font-size:18px">    因为JTA相对来说，更高层一些，我们主要关注JTA。</span></p>&#13;
+<h2><span style="font-family:KaiTi_GB2312; font-size:18px"><span style="font-family:KaiTi_GB2312; font-size:18px">    XA</span></span></h2>&#13;
+<p><span style="font-family:KaiTi_GB2312; font-size:18px"><span style="font-family:KaiTi_GB2312; font-size:18px">    XA协议，规定事务管理器和资源管理器接口，采用二阶段提交协议。</span><br />&#13;
+</span></p>&#13;
+<h2><span style="font-family:KaiTi_GB2312; font-size:18px">    源码</span></h2>&#13;
+<p><span style="font-family:KaiTi_GB2312; font-size:18px">    规范的接口位于javax.transaction：</span></p>&#13;
+<p><span style="font-family:KaiTi_GB2312; font-size:18px">    <img src="http://img.blog.csdn.net/20140810110328712?watermark/2/text/aHR0cDovL2Jsb2cuY3Nkbi5uZXQvbGlkYXRnYg==/font/5a6L5L2T/fontsize/400/fill/I0JBQkFCMA==/dissolve/70/gravity/SouthEast" alt="" /></span></p>&#13;
+<h1><span style="font-family:KaiTi_GB2312; font-size:18px">再说事务    </span></h1>&#13;
+<p><span style="font-family:KaiTi_GB2312; font-size:18px">    事务从范围上分类，可以分为本地事务和分布式事务。</span></p>&#13;
+<h2><span style="font-family:KaiTi_GB2312; font-size:18px">    本地事务</span></h2>&#13;
+<p><span style="font-family:KaiTi_GB2312; font-size:18px">    本地事务更常见，可以理解从Connection引出的事务，因为这种事务绑到了连接上，所以仅能对一个连接，一个库起作用，如下代码：</span></p>&#13;
+<pre code_snippet_id="462843" snippet_file_name="blog_20140902_1_7870" name="code" class="java"> public void transferAccount() 
+ { 
+	 Connection conn = null; 
+	 Statement stmt = null; 
+	 try
+	 { 
+		 conn = getDataSource().getConnection(); 
+		 // 将自动提交设置为 false，
+		 //若设置为 true 则数据库将会把每一次数据更新认定为一个事务并自动提交
+		 conn.setAutoCommit(false);
+		
+		 stmt = conn.createStatement(); 
+		 // 将 A 账户中的金额减少 500 
+		 stmt.execute("\
+		 update t_account set amount = amount - 500 where account_id = 'A'");
+		 // 将 B 账户中的金额增加 500 
+		 stmt.execute("\
+		 update t_account set amount = amount + 500 where account_id = 'B'");
+		
+		 // 提交事务
+		 conn.commit();
+		 // 事务提交：转账的两步操作同时成功
+	 }
+	 catch(SQLException sqle)
+	 { 			
+		 try
+		 { 
+			 // 发生异常，回滚在本事务中的操做
+			conn.rollback();
+			 // 事务回滚：转账的两步操作完全撤销
+			 stmt.close(); 
+			 conn.close(); 
+		 }
+		 sqle.printStackTrace(); 
+	 } 
+}</pre>&#13;
+<h2><span style="font-family:KaiTi_GB2312; font-size:18px">    分布式事务</span></h2>&#13;
+<p><span style="font-family:KaiTi_GB2312; font-size:18px">    使用JTA和JTS可以提供了分布式事务服务，分布式事务（Distributed Transaction）包括事务管理器（Transaction Manager）和 XA 协议的资源管理器 ( Resource Manager )，资源管理器看做任意类型的持久化数据存储；事务管理器承担着事务协调与控制。</span></p>&#13;
+<p><span style="font-family:KaiTi_GB2312; font-size:18px"><span style="font-family:KaiTi_GB2312; font-size:18px">    使用 JTA 处理事务的示例如下（注意：connA 和 connB 是来自不同数据库的连接），如下：</span><br />&#13;
+</span></p>&#13;
+<pre code_snippet_id="462843" snippet_file_name="blog_20140902_2_3661177" name="code" class="java">public void transferAccount() 
+{ 
+	
+	 UserTransaction userTx = null; 
+	 Connection connA = null; 
+	 Statement stmtA = null; 
+			
+	 Connection connB = null; 
+	 Statement stmtB = null; 
+
+	 try{ 
+		  // 获得 Transaction 管理对象
+		 userTx = (UserTransaction)getContext().lookup("\
+			   java:comp/UserTransaction"); 
+		 // 从数据库 A 中取得数据库连接
+		 connA = getDataSourceA().getConnection(); 
+		
+		 // 从数据库 B 中取得数据库连接
+		 connB = getDataSourceB().getConnection(); 
+  
+		 // 启动事务
+		 userTx.begin();
+		
+		 // 将 A 账户中的金额减少 500 
+		 stmtA = connA.createStatement(); 
+		 stmtA.execute("
+		 update t_account set amount = amount - 500 where account_id = 'A'");
+		
+		 // 将 B 账户中的金额增加 500 
+		 stmtB = connB.createStatement(); 
+		 stmtB.execute("\
+		 update t_account set amount = amount + 500 where account_id = 'B'");
+		
+		 // 提交事务
+		 userTx.commit();
+		 // 事务提交：转账的两步操作同时成功（数据库 A 和数据库 B 中的数据被同时更新）
+	 } 
+	 catch(SQLException sqle)
+	 { 
+		try
+		 { 
+		     // 发生异常，回滚在本事务中的操纵
+			userTx.rollback();
+			 // 事务回滚：转账的两步操作完全撤销 
+			 //( 数据库 A 和数据库 B 中的数据更新被同时撤销）
+			 stmt.close(); 
+			 conn.close(); 
+			sqle.printStackTrace(); 
+		
+		} 
+		catch(Exception ne)
+		{ 
+		 e.printStackTrace();
+		}
+	 } 
+ }
+</pre>&#13;
+<p><span style="font-family:KaiTi_GB2312; font-size:18px">    以上即实现了一个分布式的事务。</span></p>&#13;
+<p><span style="font-family:KaiTi_GB2312; font-size:18px">    JTA事务有效的屏蔽了底层事务资源，但是与本地事务相比，XA协议的系统开销大，在系统开发过程中应慎重考虑是否确实需要分布式事务。若确实需要分布式事务以协调多个事务资源，则应实现和配置所支持 XA 协议的事务资源，如 JMS、JDBC 数据库连接池等。</span><br />&#13;
+</p>&#13;
+<h2><span style="font-family:KaiTi_GB2312; font-size:18px">    EJB事务</span></h2>&#13;
+<p><span style="font-family:KaiTi_GB2312; font-size:18px">    使用JTA为EJB提供事务，结合注解的方式也非常直观，只需要提供@TransactionManagement和@TransactionAttribute，并提供相应属性配置即可，如：</span></p>&#13;
+<pre code_snippet_id="462843" snippet_file_name="blog_20140902_3_2439678" name="code" class="java">@Stateless
+@Remote({ ITemplateBean.class })
+@TransactionManagement(TransactionManagementType.CONTAINER)
+@TransactionAttribute(TransactionAttributeType.REQUIRED)
+public class TemplateBeanImpl implements ITemplateBean {
+	//code...
+}</pre>&#13;
+<p></p>&#13;
+<h1><span style="font-family:KaiTi_GB2312; font-size:18px">总结</span></h1>&#13;
+<h2><span style="font-family:KaiTi_GB2312; font-size:18px">    关键接口</span></h2>&#13;
+<p><span style="font-family:KaiTi_GB2312; font-size:18px">    先介绍一下JTA的规范接口中，主要围绕以下几个接口：</span></p>&#13;
+<p></p>&#13;
+<ul>&#13;
+<li><span style="font-family:KaiTi_GB2312; font-size:18px">UserTransaction：编程人员接口</span></li><li><span style="font-family:KaiTi_GB2312; font-size:18px">TransactionManager：留给厂商实现的与事务管理有关的接口</span></li><li><span style="font-family:KaiTi_GB2312; font-size:18px">Transaction：留给厂商实现的事务</span></li><li><span style="font-family:KaiTi_GB2312; font-size:18px">XAResource：留给厂商实现的与持久化资源有关的接口</span></li></ul>&#13;
+<p><span style="font-family:KaiTi_GB2312; font-size:18px">    接口类中的接口定义可参见源码，几个接口类关系如下：</span></p>&#13;
+<p><span style="font-family:KaiTi_GB2312; font-size:18px">    <img src="http://img.blog.csdn.net/20140810214204079?watermark/2/text/aHR0cDovL2Jsb2cuY3Nkbi5uZXQvbGlkYXRnYg==/font/5a6L5L2T/fontsize/400/fill/I0JBQkFCMA==/dissolve/70/gravity/SouthEast" alt="" width="500" height="309" /><br />&#13;
+</span></p>&#13;
+<p><span style="font-family:KaiTi_GB2312; font-size:18px">    下载了JBoss的JTA实现源码，但是发现深入这个源码有难度，且需要的时间也会较长，故留着以后学习。JBoss的JTA实现是Narayana，SVN地址为https://github.com/jbosstm/narayana，如果有兴趣可以研究一下。</span></p>&#13;
+<h1><span style="font-family:KaiTi_GB2312; font-size:18px">总结</span></h1>&#13;
+<p><span style="font-family:KaiTi_GB2312; font-size:18px">    JTA总结到此告一段落，事务的阶段提交详见我的博客<a target="_blank" href="http://blog.csdn.net/lidatgb/article/details/38468073">《事务的一阶段提交协议和二阶段提交协议》</a>。</span></p>&#13;
+<p><span style="font-family:KaiTi_GB2312; font-size:18px"><br />&#13;
+</span></p>&#13;
+   &#13;

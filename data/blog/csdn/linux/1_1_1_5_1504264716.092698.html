@@ -1,0 +1,360 @@
+
+
+<p style="text-align:center"><strong><span style="font-size:18px">linux input子系统分析--子系统核心.事件处理层.事件传递过程</span></strong><br />&#13;
+</p>&#13;
+<p><span style="font-size:16px">一.  输入子系统核心分析。</span></p>&#13;
+    1.输入子系统核心对应与/drivers/input/input.c文件,这个也是作为一个模块注册到内核的。所以首先分析模块初始化函数。<br />&#13;
+<pre name="code" class="cpp">static int __init input_init(void)
+{
+	int err;
+
+	input_init_abs_bypass();
+        //这个暂时没有发现是做什么的
+	err = class_register(&amp;input_class);
+        //向内核注册一个类，用于linux设备模型。注册后会在/sys/class下面出现input目录
+	if (err) {
+		printk(KERN_ERR "input: unable to register input_dev class\n");
+		return err;
+	}
+
+	err = input_proc_init();
+        //和proc文件系统有关，暂时不管
+	if (err)
+		goto fail1;
+
+
+	err = register_chrdev(INPUT_MAJOR, "input", &amp;input_fops);
+        //注册字符设备，接口是2.4内核的。以主设备号INPUT_MAJOR,次设备号0-255,注册266个设备，说明input设备最大只能有255个
+	if (err) {
+		printk(KERN_ERR "input: unable to register char major %d", INPUT_MAJOR);
+		goto fail2;
+	}
+
+	return 0;
+
+ fail2:	input_proc_exit();
+ fail1:	class_unregister(&amp;input_class);
+	return err;
+}  </pre>    这个函数主要是注册了字符设备，这里和杂项设备的原理是一样，所以input设备也是一类字符设备，只不过操作方法交给了输入子系统。从这里可以看出无论linux设备驱动这块有多复杂，他们都是由一些基本的组件构成的，都是ldd3所讲的基本驱动程序模型。 <br />&#13;
+    2. 输入子系统的核心其他部分都是提供的接口，向上连接事件处理层，向下连接驱动层。<br />&#13;
+    向下对驱动层的接口主要有：<br />&#13;
+    input_allocate_device    这个函数主要是分配一个input_dev接口，并初始化一些基本的成员，这就是我们不能简单用kmalloc分配input_dev结构的原因，因为缺少了一些初始化。<br />&#13;
+    input_unregister_device  注册一个input设备<br />&#13;
+    input_event              这个函数很重要，是驱动层向input子系统核心报告事件的函数，在事件传递过程中再分析。<br />&#13;
+    input_allocate_device    分配并初始化一个input_dev结构<br />&#13;
+    向上对事件处理层接口主要有：<br />&#13;
+    input_register_handler   注册一个事件处理器<br />&#13;
+    input_register_handle    注册一个input_handle结构<br />&#13;
+<span style="font-size:16px">二.  事件处理层分析（以evdev事件处理器为例）</span><br />&#13;
+    1.事件处理层与用户程序和输入子系统核心打交道，是他们两层的桥梁。一般内核有好几个事件处理器，像evdev mousedev jotdev。evdev事件处理器可以处理所有的事件，触摸屏驱动就是用的这个，所以下面分析这个事件处理器的实现。它也是作为模块注册到内核中的，首先分析它的模块初始化函数。<br />&#13;
+<pre name="code" class="cpp">static int __init evdev_init(void)
+{
+	return input_register_handler(&amp;evdev_handler);
+}</pre>   模块初始化函数就调用一个注册handler函数，将evdev_handler注册到系统中。<br />&#13;
+    2.主要数据结构<br />&#13;
+    （1） evdev设备结构<br />&#13;
+<pre name="code" class="cpp">struct evdev {
+	int exist;
+	int open;           //打开标志
+	int minor;          //次设备号
+	struct input_handle handle;  //关联的input_handle
+	wait_queue_head_t wait;      //等待队列，当进程读取设备，而没有事件产生的时候，进程就会睡在其上面
+	struct evdev_client *grab;   //强制绑定的evdev_client结构，这个结构后面再分析
+	struct list_head client_list;  //evdev_client 链表，这说明一个evdev设备可以处理多个evdev_client，可以有多个进程访问evdev设备
+	spinlock_t client_lock; /* protects client_list */
+	struct mutex mutex;
+	struct device dev;       //device结构，说明这是一个设备结构
+};</pre>    evdev结构体在配对成功的时候生成，由handler-&gt;connect生成，对应设备文件为/class/input/event(n)，如触摸屏驱动的event0，这个设备是用户空间要访问的设备，可以理解它是一个虚拟设备，因为没有对应的硬件，但是通过handle-&gt;dev 就可以找到input_dev结构，而它对应着触摸屏，设备文件为/class/input/input0。这个设备结构生成之后保存在evdev_table中，<br />&#13;
+    索引值是minor<br />&#13;
+   （2） evdev用户端结构<br />&#13;
+<pre name="code" class="cpp">struct evdev_client {
+	struct input_event buffer[EVDEV_BUFFER_SIZE];  
+        //这个是一个input_event数据结构的数组，input_event代表一个事件，基本成员：类型（type），编码（code），值（value）
+	int head;              //针对buffer数组的索引
+	int tail;              //针对buffer数组的索引，当head与tail相等的时候，说明没有事件
+	spinlock_t buffer_lock; /* protects access to buffer, head and tail */
+	struct fasync_struct *fasync;  //异步通知函数
+	struct evdev *evdev;           //evdev设备
+	struct list_head node;         // evdev_client 链表项
+};</pre>   这个结构在进程打开event0设备的时候调用evdev的open方法，在open中创建这个结构，并初始化。在关闭设备文件的时候释放这个结构。<br />&#13;
+   3.主要函数<br />&#13;
+   （1）evdev设备打开函数<br />&#13;
+<pre name="code" class="cpp">static int evdev_open(struct inode *inode, struct file *file)
+{
+	struct evdev *evdev;
+	struct evdev_client *client;
+	int i = iminor(inode) - EVDEV_MINOR_BASE;
+	int error;
+
+
+	if (i &gt;= EVDEV_MINORS)
+		return -ENODEV;
+
+
+	error = mutex_lock_interruptible(&amp;evdev_table_mutex);
+	if (error)
+		return error;
+	evdev = evdev_table[i];
+        //得到evdev设备结构,每次调用evdev_connect配对成功后都会把分配的evdev结构以minor为索引，保存在evdev_table数组中
+	if (evdev)
+		get_device(&amp;evdev-&gt;dev);  //增加device引用计数
+	mutex_unlock(&amp;evdev_table_mutex);
+
+
+	if (!evdev)
+		return -ENODEV;
+
+
+	client = kzalloc(sizeof(struct evdev_client), GFP_KERNEL);  //分配用户端结构
+	if (!client) {
+		error = -ENOMEM;
+		goto err_put_evdev;
+	}
+
+
+	spin_lock_init(&amp;client-&gt;buffer_lock);
+	client-&gt;evdev = evdev;    //使用户端与evdev设备结构联系起来
+	evdev_attach_client(evdev, client);
+        //这个函数所做的就是把client连接到evdev的client链表中
+	error = evdev_open_device(evdev);
+        //这个函数打开设备，有很多层调用，后面详细分析
+	if (error)
+		goto err_free_client;
+
+
+	file-&gt;private_data = client;
+	return 0;
+
+
+ err_free_client:
+	evdev_detach_client(evdev, client);
+	kfree(client);
+ err_put_evdev:
+	put_device(&amp;evdev-&gt;dev);
+	return error;
+} </pre>   （2）evdev设备打开函数evdev_open_device，由evdev_open调用。<br />&#13;
+<pre name="code" class="cpp">static int evdev_open_device(struct evdev *evdev)
+{
+	int retval;
+
+
+	retval = mutex_lock_interruptible(&amp;evdev-&gt;mutex);
+	if (retval)
+		return retval;
+
+
+	if (!evdev-&gt;exist)
+		retval = -ENODEV;
+        //判断设备结构是否存在，在evdev_connect中初始话此成员为1
+	else if (!evdev-&gt;open++) {
+		retval = input_open_device(&amp;evdev-&gt;handle);
+		if (retval)
+			evdev-&gt;open--;
+	}
+        //evdev-&gt;open分配结构的时候没有初始化，默认为0，也就是没有打开，每次打开都会加1
+	mutex_unlock(&amp;evdev-&gt;mutex);
+	return retval;
+}</pre>    此函数在判断结构存在与否后，主要调用了input_open_device，这个函数是子系统核心函数，定义在input.c中，下面分析这个函数：<br />&#13;
+<pre name="code" class="cpp">int input_open_device(struct input_handle *handle)
+{
+	struct input_dev *dev = handle-&gt;dev;
+	int retval;
+
+
+	retval = mutex_lock_interruptible(&amp;dev-&gt;mutex);
+	if (retval)
+		return retval;
+
+
+	if (dev-&gt;going_away) {
+		retval = -ENODEV;
+		goto out;
+	}
+
+
+	handle-&gt;open++;
+        //将handle的打开计数加1，注意和evdev的open的区别
+	if (!dev-&gt;users++ &amp;&amp; dev-&gt;open)
+		retval = dev-&gt;open(dev);
+        //如果此input_dev没有进程在引用，并且定义了open方法，就调用open方法
+	if (retval) {    //retval = 1 说明没有打开成功
+		dev-&gt;users--;  
+		if (!--handle-&gt;open) {  //说明有其他的进程已经打开了这个handle
+			/*
+			 * Make sure we are not delivering any more events
+			 * through this handle
+			 */
+			synchronize_rcu();
+		}
+	}
+
+
+ out:
+	mutex_unlock(&amp;dev-&gt;mutex);
+	return retval;
+}</pre>   （3）读操作函数 evdev_read<br />&#13;
+<pre name="code" class="cpp">static ssize_t evdev_read(struct file *file, char __user *buffer,
+			  size_t count, loff_t *ppos)
+{
+	struct evdev_client *client = file-&gt;private_data;    //这个客户端结构在打开的时候分配并保存在file-&gt;private_data中
+	struct evdev *evdev = client-&gt;evdev;
+	struct input_event event;
+	int retval;
+
+
+	if (count &lt; input_event_size())
+		return -EINVAL;
+        //这条语句提示，用户进程每次读取设备的字节数，不要少于input_event结构的大小
+	if (client-&gt;head == client-&gt;tail &amp;&amp; evdev-&gt;exist &amp;&amp;
+	    (file-&gt;f_flags &amp; O_NONBLOCK))
+		return -EAGAIN;
+        //head等于tail说明目前还没有事件传回来，如果设置了非阻塞操作，则会立刻返回
+	retval = wait_event_interruptible(evdev-&gt;wait,
+		client-&gt;head != client-&gt;tail || !evdev-&gt;exist);
+        //没有事件就会睡在evdev的等待队列上了，等待条件是有事件到来或者设备不存在了（设备关闭的时候，清这个标志）
+	if (retval)
+		return retval;
+        //如果能执行上面这条语句说明有事件传来或者，设备被关闭了，或者内核发过来终止信号
+	if (!evdev-&gt;exist)
+		return -ENODEV;
+
+
+	while (retval + input_event_size() &lt;= count &amp;&amp;
+	       evdev_fetch_next_event(client, &amp;event)) {
+        // evdev_fetch_next_event这个函数遍历client里面的input_event buffer数组
+		if (input_event_to_user(buffer + retval, &amp;event))
+        //将事件复制到用户空间
+			return -EFAULT;
+
+
+		retval += input_event_size();
+	}
+
+	return retval;   //返回复制的数据字节数
+}</pre><span style="font-size:16px">三. 事件传递过程（以s3c2410_ts为例）</span><br />&#13;
+   1. 事件产生<br />&#13;
+    当按下触摸屏时，进入触摸屏按下中断，开始ad转换，ad转换完成进入ad完成中断，在这个终端中将事件发送出去，调用<br />&#13;
+    input_report_abs(dev, ABS_X, xp);<br />&#13;
+    input_report_abs(dev, ABS_Y, yp); 这两个函数调用了 input_event(dev, EV_ABS, code, value)<br />&#13;
+    所有的事件报告函数都调用这个函数。<br />&#13;
+   2. 事件报告<br />&#13;
+   （1） input_event 函数分析，这个函数定义在input.c中<br />&#13;
+<pre name="code" class="cpp">void input_event(struct input_dev *dev,
+		 unsigned int type, unsigned int code, int value)
+{
+	unsigned long flags;
+
+
+	if (is_event_supported(type, dev-&gt;evbit, EV_MAX)) {
+        //判断是否支持此种事件类型和事件类型中的编码类型
+		spin_lock_irqsave(&amp;dev-&gt;event_lock, flags);
+		add_input_randomness(type, code, value);
+        //对系统随机熵池有贡献，因为这个也是一个随机过程
+		input_handle_event(dev, type, code, value);
+        //这个函数是事件处理的关键函数，下面详细分析
+		spin_unlock_irqrestore(&amp;dev-&gt;event_lock, flags);
+	}
+} </pre>   （2） input_handle_event 函数分析，这个函数定义在input.c中<br />&#13;
+<pre name="code" class="cpp">static void input_handle_event(struct input_dev *dev,
+			       unsigned int type, unsigned int code, int value)
+{
+	int disposition = INPUT_IGNORE_EVENT;
+
+
+	switch (type) {
+        ......
+	case EV_KEY:
+		if (is_event_supported(code, dev-&gt;keybit, KEY_MAX) &amp;&amp;
+		    !!test_bit(code, dev-&gt;key) != value) {
+
+
+			if (value != 2) {
+				__change_bit(code, dev-&gt;key);
+				if (value)
+					input_start_autorepeat(dev, code);
+				else
+					input_stop_autorepeat(dev);
+			}
+			disposition = INPUT_PASS_TO_HANDLERS;
+		}
+		break;
+        ......
+	if (disposition != INPUT_IGNORE_EVENT &amp;&amp; type != EV_SYN)
+		dev-&gt;sync = 0;
+
+
+	if ((disposition &amp; INPUT_PASS_TO_DEVICE) &amp;&amp; dev-&gt;event)
+		dev-&gt;event(dev, type, code, value);
+
+
+	if (disposition &amp; INPUT_PASS_TO_HANDLERS)
+		input_pass_event(dev, type, code, value);
+}</pre>   这个函数主要是根据事件类型的不同，做相应的处理。这里之关心EV_KEY类型，其他函数和事件传递关系不大，只要关心，disposition这个是事件处理的方式，默认的是INPUT_IGNORE_EVENT，忽略这个事件，如果是INPUT_PASS_TO_HANDLERS则是传递给事件处理器，如果是INPUT_PASS_TO_DEVICE，则是传递给设备处理，触摸屏驱动没有定义这个。下面分析input_pass_event函数。<br />&#13;
+<pre name="code" class="cpp">static void input_pass_event(struct input_dev *dev,
+			     unsigned int type, unsigned int code, int value)
+{
+	struct input_handle *handle;
+
+
+	rcu_read_lock();
+
+
+	handle = rcu_dereference(dev-&gt;grab);  //如果是绑定的handle，则调用绑定的handler-&gt;event函数
+	if (handle)
+		handle-&gt;handler-&gt;event(handle, type, code, value);
+	else
+        //如果没有绑定，则遍历dev的h_list链表，寻找handle，如果handle已经打开，说明有进程读取设备关联的evdev。
+		list_for_each_entry_rcu(handle, &amp;dev-&gt;h_list, d_node)
+			if (handle-&gt;open)
+				handle-&gt;handler-&gt;event(handle,
+							type, code, value);
+        // 调用相关的事件处理器的event函数，进行事件的处理
+	rcu_read_unlock();
+}</pre>下面分析 evdev事件处理器的event函数<br />&#13;
+<pre name="code" class="cpp">static void evdev_event(struct input_handle *handle,
+			unsigned int type, unsigned int code, int value)
+{
+	struct evdev *evdev = handle-&gt;private;
+	struct evdev_client *client;
+	struct input_event event;
+
+
+	do_gettimeofday(&amp;event.time);
+	event.type = type;
+	event.code = code;
+	event.value = value;
+        //将传过来的事件，赋值给input_event结构
+	rcu_read_lock();
+
+
+	client = rcu_dereference(evdev-&gt;grab);
+        //如果evdev绑定了client那么，处理这个客户端，触摸屏驱动没有绑定
+	if (client)
+		evdev_pass_event(client, &amp;event);
+	else
+        //遍历client链表，调用evdev_pass_event函数
+		list_for_each_entry_rcu(client, &amp;evdev-&gt;client_list, node)
+			evdev_pass_event(client, &amp;event);
+
+
+	rcu_read_unlock();
+
+
+	wake_up_interruptible(&amp;evdev-&gt;wait); //唤醒等待的进程
+}</pre>下面分析 evdev_pass_event 函数<br />&#13;
+<pre name="code" class="cpp">static void evdev_pass_event(struct evdev_client *client,
+			     struct input_event *event)
+{
+	/*
+	 * Interrupts are disabled, just acquire the lock
+	 */
+	spin_lock(&amp;client-&gt;buffer_lock);
+	client-&gt;buffer[client-&gt;head++] = *event;   //将事件赋值给客户端的input_event 数组
+	client-&gt;head &amp;= EVDEV_BUFFER_SIZE - 1;
+	spin_unlock(&amp;client-&gt;buffer_lock);
+
+
+	kill_fasync(&amp;client-&gt;fasync, SIGIO, POLL_IN);
+}</pre>可以看出， evdev_pass_event函数最终将事件传递给了用户端的client结构中的input_event数组中，只需将这个input_event数组复制给用户空间，进程就能收到触摸屏按下的信息了。具体处理由具体的应用程序来完成。<br />&#13;
+<br />&#13;
+   &#13;

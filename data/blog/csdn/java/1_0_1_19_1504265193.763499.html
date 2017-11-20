@@ -1,0 +1,582 @@
+
+        <div class="markdown_views"><p><strong>摘要：</strong></p>
+
+<p>　　JSP脚本中包含九个内置对象，它们都是Servlet-API接口的实例，并且JSP规范对它们进行了默认初始化。本文首先通过一个JSP实例来认识JSP内置对象的实质，紧接着以基于请求/响应架构应用的运行机制为背景，引出JSP/Servlet的通信方式与内置对象的作用域，并对每个内置对象的常见用法进行深入介绍和总结。</p>
+
+<hr />
+
+
+
+<h2 id="一-jsp-九大内置对象概述及相关概念说明">一. JSP 九大内置对象概述及相关概念说明</h2>
+
+<p>　　<font color="blue">JSP脚本中包含九个内置对象，这九个内置对象都是 Servlet API 接口的实例，并且JSP规范对它们进行了默认初始化（由 JSP 页面对应 Servlet 的 _jspService() 方法来创建并初始化这些实例）。</font>也就是说，它们已经是实例化的对象，可以直接使用。因此，概括地说，下表中所列出的内置对象具有以下四个特点：</p>
+
+<ul>
+<li><font color="red">由JSP规范提供，不用使用者实例化；</font></li>
+<li><font color="red">通过Web容器实现和管理；</font></li>
+<li><font color="red">所有JSP页面均可使用；</font></li>
+<li><font color="red">只有在脚本元素的表达式或代码段中才可使用(&lt;%=使用内置对象%&gt;或&lt;%使用内置对象%&gt;)而不能在JSP声明中使用，因为内置对象都是_jspService()方法的局部变量。</font></li>
+</ul>
+
+<hr />
+
+<p>　　　　　　　　　　　　　　　　　　　　　　　　　　　　　<strong>表1. JSP 九大内置对象</strong></p>
+
+<table>
+    <tbody><tr>
+        <th>内置对象</th>
+        <th>说明</th>
+        <th>类型</th>
+        <th>作用域</th>
+    </tr>
+     <tr>
+        <td align="center">pageContext</td>
+        <td align="center">页面上下文对象</td>
+        <td align="center">javax.servlet.jsp.PageContext</td>
+        <td align="center">Page</td>
+    </tr>
+    <tr>
+        <td align="center"> request</td>
+        <td align="center">请求对象</td>
+        <td align="center">javax.servlet.ServletRequest</td>
+        <td align="center">Request</td>
+    </tr>
+    <tr>
+        <td align="center">session</td>
+        <td align="center">会话对象</td>
+        <td align="center">javax.servlet.http.HttpSession</td>
+        <td align="center">Session</td>
+    </tr>
+    <tr>
+        <td align="center">application</td>
+        <td align="center">应用程序对象</td>
+        <td align="center">javax.servlet.ServletContext</td>
+        <td align="center">Application</td>
+    </tr>
+    <tr>
+        <td align="center">response</td>
+        <td align="center">响应对象</td>
+        <td align="center">javax.servlet.SrvletResponse</td>
+        <td align="center">Page</td>
+    </tr>
+    <tr>
+        <td align="center">out</td>
+        <td align="center">页面输出对象</td>
+        <td align="center">javax.servlet.jsp.JspWriter</td>
+        <td align="center">Page</td>
+    </tr>
+    <tr>
+        <td align="center">config</td>
+        <td align="center">配置对象</td>
+        <td align="center">javax.servlet.ServletConfig</td>
+        <td align="center">Page</td>
+    </tr>
+    <tr>
+        <td align="center">exception</td>
+        <td align="center">异常对象 </td>
+        <td align="center">javax.lang.Throwable</td>
+        <td align="center">Page</td>
+    </tr>
+    <tr>
+        <td align="center">page</td>
+        <td align="center">页面对象</td>
+        <td align="center">java.lang.Object</td>
+        <td align="center">Page</td>
+    </tr>
+</tbody></table>
+
+<hr />
+
+<p><strong>1、JSP内置对象的实质</strong></p>
+
+<p>　　我们通过一个JSP实例来认识JSP内置对象的实质，其JSP代码片段和转译后的Java代码片段分别如下：</p>
+
+<p><strong>JSP代码片段</strong><font color="blue"><b>（isErrorPage=”true”表明这是一个异常处理页面，因为只有异常处理页面才有exception对象）</b></font></p>
+
+
+
+<pre class="prettyprint"><code class="language-jsp hljs xml"><span class="vbscript">&lt;%@ page language=<span class="hljs-string">"java"</span> import=<span class="hljs-string">"java.util.*"</span> pageEncoding=<span class="hljs-string">"UTF-8"</span> isErrorPage=<span class="hljs-string">"true"</span>%&gt;</span>
+
+<span class="hljs-doctype">&lt;!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN"&gt;</span>
+<span class="hljs-tag">&lt;<span class="hljs-title">html</span>&gt;</span>
+...
+<span class="hljs-tag">&lt;/<span class="hljs-title">html</span>&gt;</span></code></pre>
+
+<hr />
+
+<p><strong>对应转译后的Java代码片段：</strong></p>
+
+
+
+<pre class="prettyprint"><code class="language-java hljs "><span class="hljs-keyword">public</span> <span class="hljs-keyword">final</span> <span class="hljs-class"><span class="hljs-keyword">class</span> <span class="hljs-title">exception_jsp</span> <span class="hljs-keyword">extends</span> <span class="hljs-title">org</span>.<span class="hljs-title">apache</span>.<span class="hljs-title">jasper</span>.<span class="hljs-title">runtime</span>.<span class="hljs-title">HttpJspBase</span>
+    <span class="hljs-keyword">implements</span> <span class="hljs-title">org</span>.<span class="hljs-title">apache</span>.<span class="hljs-title">jasper</span>.<span class="hljs-title">runtime</span>.<span class="hljs-title">JspSourceDependent</span> {</span>
+
+    ...
+
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">void</span> <span class="hljs-title">_jspService</span>(HttpServletRequest request, HttpServletResponse response)
+        <span class="hljs-keyword">throws</span> java.io.IOException, ServletException {
+
+        PageContext pageContext = <span class="hljs-keyword">null</span>;
+        HttpSession session = <span class="hljs-keyword">null</span>;
+        Throwable exception = org.apache.jasper.runtime.JspRuntimeLibrary.getThrowable(request);
+        <span class="hljs-keyword">if</span> (exception != <span class="hljs-keyword">null</span>) {
+            response.setStatus(HttpServletResponse.SC_INTERNAL_SERVER_ERROR);
+        }
+        ServletContext application = <span class="hljs-keyword">null</span>;
+        ServletConfig config = <span class="hljs-keyword">null</span>;
+        JspWriter out = <span class="hljs-keyword">null</span>;
+        Object page = <span class="hljs-keyword">this</span>;
+
+        <span class="hljs-keyword">try</span> {
+                _jspxFactory = JspFactory.getDefaultFactory();
+                response.setContentType(<span class="hljs-string">"text/html;charset=UTF-8"</span>);
+                pageContext = _jspxFactory.getPageContext(<span class="hljs-keyword">this</span>, request, response,<span class="hljs-keyword">null</span>, <span class="hljs-keyword">true</span>, <span class="hljs-number">8192</span>, <span class="hljs-keyword">true</span>);
+                _jspx_page_context = pageContext;
+                application = pageContext.getServletContext();
+                config = pageContext.getServletConfig();
+                session = pageContext.getSession();
+                out = pageContext.getOut();
+                ......
+        }
+    }
+}</code></pre>
+
+<p>　　我们可以从上述JSP代码片段转译后的Java代码片段看出，request、response、session、application、out、pagecontext、config、page、exception 这九个内置对象都是_jspService()方法的<font color="red"><b> 局部变量<font color="blue">（request 和 response 两个内置对象是该方法的形参，实质上也是它的局部变量）</font> </b></font>，根据JSP转译规则 <font color="blue">(具体详见我的另一篇博文<a href="http://blog.csdn.net/justloveyou_/article/details/55824500">《Java Web基础 — Jsp 综述(上)》</a>)</font>，我们可以直接在JSP脚本（只有在脚本元素的表达式或代码段中才可使用，不能在JSP声明中使用）中使用这些对象，而无须创建它们。 <br />
+　　 <br />
+　　特别地，<font color="blue"><b>只有设置isErrorPage=”true”的页面才是异常处理页面，而且只有异常处理页面对应的Servlet才会初始化 exception 对象。</b></font></p>
+
+<hr />
+
+<p><strong>2、请求/响应架构</strong></p>
+
+<p>　　一般地，<font color="DarkGreen"><b>我们称基于 Web 的应用为 B/S 应用，这些应用一般都是 请求/响应 架构的，即总是先由客户端发送请求，服务器接收到请求并返回响应数据。</b></font>现在，我们概述一下基于 请求/响应 架构的应用的运行机制，以及在其中扮演重要角色的 浏览器 和 Web服务器 各自的作用，其示意图如下：</p>
+
+<p>　　　　　　　　　　　　　　<img src="http://static.zybuluo.com/Rico123/mlb5mgcjsolr8h24e5q346jw/%E8%AF%B7%E6%B1%82%E5%93%8D%E5%BA%94%E6%9E%B6%E6%9E%84.png" alt="请求响应架构.png-41.9kB" title="" /></p>
+
+<hr />
+
+<p><strong>1). 浏览器的作用</strong></p>
+
+<p><font color="blue">(1). 向远程服务器发送请求；</font> <br />
+<font color="blue">(2). 读取远程服务器返回的字符串数据；</font> <br />
+<font color="blue">(3). 负责根据返回的字符串数据渲染出一个丰富多彩的页面。</font></p>
+
+<hr />
+
+<p><strong>2). Web服务器的作用</strong></p>
+
+<p>　　Web服务器负责接收客户端请求，每当接收到客户端连接请求之后，Web服务器就会单独开启一个线程为该客户端提供服务。对于每次客户端的请求而言，Web 服务器大致需要完成如下几个步骤：</p>
+
+<p><font color="blue">(1). 为客户端请求启动单独的线程；</font> <br />
+<font color="blue">(2). 使用 I/O 流读取用户请求的二进制流数据；</font> <br />
+<font color="red">(3). 从请求数据中解析请求参数；</font> <br />
+<font color="red">(4). 处理请求；</font> <br />
+<font color="red">(5). 生成响应数据；</font> <br />
+<font color="blue">(6). 使用 I/O 流向客户端发送请求数据；</font></p>
+
+<p>　　上面六个步骤中，第1、2和6步是通用的，由 Web服务器来完成，但第3、4和5步则存在差异。因为不同请求的请求参数不同，处理请求的方式也不同，所生成的响应自然也不同，那么Web服务器如何执行这些步骤呢？</p>
+
+<p>　　实际上，<font color="blue"><b>Web服务器会调用Servlet的 _jspService() 方法来处理这些事情。</b></font>我们知道，<font color="red">在转译时期，JSP中的静态页面和java脚本都会转换为_jspService()方法的执行代码，这些执行代码就负责完成解析请求参数、处理请求、生成响应等功能，而Web服务器则负责完成多线程、网络通信等底层实现。</font></p>
+
+<p>　　<font color="blue"><b>Web 服务器执行到第三步得到请求参数后，会根据这些请求参数来创建 HttpServletRequest、HttpServletResponse 等对象，作为调用 _jspService()方法的参数。</b></font>由此可见，<font color="DarkGreen"><b>一个Web服务器必须实现Servlet API中绝大部分接口提供实现类(也就是说，Web服务器要实现J2EE中的Servlet、JSP等标准)。</b></font></p>
+
+<hr />
+
+<p><strong>3、JSP/Servlet的通信与内置对象的作用域</strong></p>
+
+<p>　　我们知道，Web应用中的 JSP、Servlet 等程序都是由Web服务器来调用的，JSP与Servlet之间通常不会相互调用，那么在它们之间<font color="DarkGreen"><b> 如何共享、交换数据以便相互通信就成为了一个极为关键的问题。</b></font> <br />
+　　<font color="red"><b>为了解决这个问题，几乎所有的Web服务器都会提供四个类似Map的结构，即page、request、session 和 application，并允许 JSP/Servlet 在这四个 <font color="DarkGreen"><b>类似Map的结构</b></font> 中存取数据，而这 <font color="DarkGreen"><b>四个Map结构 </b></font>的区别仅在于作用域不同。</b></font><font color="blue">特别地，JSP 中 pageContext、request、session 和 application 四个内置对象分别用于操作 page、request、session 和 application 范围内的数据。</font></p>
+
+<hr />
+
+<p>　　<font color="red"><b>作用域是指变量的有效范围。</b></font>我们通过一个例子进行简单说明，假设这样一个场景： <br />
+　　当我们访问 index.jsp 的时候，分别对 pageContext， request， session 和 application 四个作用域中的整型变量进行累加。然后，从 index.jsp forward 到 test.jsp，并在 test.jsp 里再进行一次累加，然后显示出这四个整数来。从显示的结果来看，我们可以直观的看到：</p>
+
+<ul>
+<li>page 范围里的变量无法从index.jsp传递到test.jsp，只要页面跳转了，它们就不见了；</li>
+<li>request 范围里的变量可以跨越forward的前后的两页，但是只要刷新页面，它们就重新计算了；</li>
+<li>session 范围里的变量一直在累加，开始还看不出区别，但只要关闭浏览器，再次重启浏览器访问这个页面，它们就重新计算了；</li>
+<li>application 范围里的变量一直在累加，除非你重启tomcat，否则它们会一直变大。</li>
+</ul>
+
+<hr />
+
+<p><strong>实际上,</strong></p>
+
+<p>　　(1) 如果我们把变量放到pageContext里，就说明这个变量的作用域是page，它的有效范围只在当前jsp页面里。也就是说，从把变量放到pageContext开始，到jsp页面结束，你都可以使用这个变量。 <br />
+　　(2) 如果把变量放到request里，就说明这个变量的作用域是request，它的有效范围是当前<font color="DarkGreen"><b> 请求周期</b></font>。<font color="blue">所谓请求周期，就是指从http请求发起，到服务器处理结束并返回响应的整个过程。</font>在这个过程中可能使用forward的方式跳转了多个jsp页面，但由于仍然是同一个请求，因此在这些页面里，我们都可以使用这个变量。 <br />
+　　(3) 如果把变量放到session里，就说明这个变量的作用域是session，它的有效范围是<font color="DarkGreen"><b> 当前会话</b></font>。<font color="blue">所谓当前会话，就是指从用户打开浏览器开始，到用户关闭浏览器这中间的过程，这个过程可能包含多个请求和响应</font>。也就是说，只要用户不关浏览器，服务器就有办法知道这些请求是一个人发起的，整个过程被称为一个会话（session），而放到会话中的变量，就可以在当前会话范围内使用。 <br />
+　　(4) 如果把变量放到application里，就说明这个变量的作用域是application，它的有效范围是<font color="DarkGreen"><b> 整个应用</b></font>。<font color="blue">所谓整个应用是指从应用启动，到应用结束。</font>特别地，我们没有说“从服务器启动，到服务器关闭”，这是因为一个服务器可以部署多个应用，只要你结束了当前应用，这个变量就失效了。</p>
+
+<hr />
+
+<p>　　与上述三个作用域不同的是，<font color="blue">application 作用域里的变量的存活时间是最长的，</font>如果不进行手工删除，它们就一直可以使用。此外，<font color="red"><b>application里的变量可以被所有用户共用</b></font>，也就是说，如果用户甲的操作修改了application中的变量，用户乙访问时得到的是修改后的值。这在其他作用域中是不会发生的，<font color="red"><b>page、 request 和 session 都是完全隔离的</b></font>，无论如何修改都不会影响其他用户。</p>
+
+<hr />
+
+
+
+<h2 id="二-application-对象">二. application 对象</h2>
+
+<p>　　<font color="DarkGreen"><b>application 对象代表 Web 应用本身，因此我们常常使用 application 来操作 Web 应用层面的相关数据。</b></font>我们其有如下两个作用：</p>
+
+<p><strong>1) 通过以下两个方法在整个Web应用的多个JSP、Servlet间共享Web应用状态层面的数据：</strong></p>
+
+<ul>
+<li>setAttribute(String attrName, Object value)</li>
+<li>getAttribute(String attrName)</li>
+</ul>
+
+<hr />
+
+<p><strong>2) 访问获取 Web 应用的配置参数:</strong></p>
+
+<p>　　使用 getInitParameter(String attrName) 方法获取 Web 应用的配置参数，这些参数应该在 web.xml 文件中使用 &lt;context-param&gt;&lt;/context-param&gt; 元素进行配置，每个元素配置一个参数，例如：</p>
+
+
+
+<pre class="prettyprint"><code class="language-xml hljs "><span class="hljs-pi">&lt;?xml version="1.0" encoding="UTF-8"?&gt;</span>
+<span class="hljs-tag">&lt;<span class="hljs-title">web-app</span> <span class="hljs-attribute">version</span>=<span class="hljs-value">"2.5"</span> 
+    <span class="hljs-attribute">xmlns</span>=<span class="hljs-value">"http://java.sun.com/xml/ns/javaee"</span> 
+    <span class="hljs-attribute">xmlns:xsi</span>=<span class="hljs-value">"http://www.w3.org/2001/XMLSchema-instance"</span> 
+    <span class="hljs-attribute">xsi:schemaLocation</span>=<span class="hljs-value">"http://java.sun.com/xml/ns/javaee 
+    http://java.sun.com/xml/ns/javaee/web-app_2_5.xsd"</span>&gt;</span>
+
+  <span class="hljs-comment">&lt;!-- Web 应用配置参数 --&gt;</span>
+  <span class="hljs-tag">&lt;<span class="hljs-title">context-param</span>&gt;</span>
+    <span class="hljs-tag">&lt;<span class="hljs-title">param-name</span>&gt;</span>admin<span class="hljs-tag">&lt;/<span class="hljs-title">param-name</span>&gt;</span>
+    <span class="hljs-tag">&lt;<span class="hljs-title">param-value</span>&gt;</span>Rico<span class="hljs-tag">&lt;/<span class="hljs-title">param-value</span>&gt;</span>
+  <span class="hljs-tag">&lt;/<span class="hljs-title">context-param</span>&gt;</span>
+  <span class="hljs-tag">&lt;<span class="hljs-title">context-param</span>&gt;</span>
+    <span class="hljs-tag">&lt;<span class="hljs-title">param-name</span>&gt;</span>campus<span class="hljs-tag">&lt;/<span class="hljs-title">param-name</span>&gt;</span>
+    <span class="hljs-tag">&lt;<span class="hljs-title">param-value</span>&gt;</span>NEU &amp; TJU<span class="hljs-tag">&lt;/<span class="hljs-title">param-value</span>&gt;</span>
+  <span class="hljs-tag">&lt;/<span class="hljs-title">context-param</span>&gt;</span>
+<span class="hljs-tag">&lt;/<span class="hljs-title">web-app</span>&gt;</span></code></pre>
+
+<p>　　<font color="DarkGreen"><b>通过这种方式可以将一些配置信息放在web.xml文件中配置，从而避免使用硬编码的方式写在代码中，从而更好地提高程序代码的可移植性。</b></font></p>
+
+<hr />
+
+
+
+<h2 id="三-pagecontext-对象">三. pageContext 对象</h2>
+
+<p>　　<font color="DarkGreen"><b>pageContext 对象代表 JSP 页面上下文，其主要用于访问JSP间的共享数据，其可以访问 page、request、session 和 application 范围内的变量。</b></font>其有如下两个作用：</p>
+
+<p><strong>1) 通过以下两个方法访问共享数据：</strong></p>
+
+<p>(1) get/setAttribute(String name)：取得取得/设置 page 范围内的 name 属性； <br />
+ (2) get/setAttribute(String name, int scope)：取得/设置指定范围内的 name 属性，其中 scope 可以是如下四个值；</p>
+
+<ul>
+<li>public static final int PAGE_SCOPE = 1;</li>
+<li>public static final int REQUEST_SCOPE = 2;</li>
+<li>public static final int SESSION_SCOPE = 3;</li>
+<li>public static final int APPLICATION_SCOPE = 4;</li>
+</ul>
+
+<hr />
+
+<p><strong>2) 访问获取其它内置对象</strong></p>
+
+<p>例如：</p>
+
+<ul>
+<li>HttpSession getSession();</li>
+<li>Object getPage();</li>
+<li>ServletRequest getRequest();</li>
+<li>ServletResponse getResponse();</li>
+<li>Exception getException();</li>
+<li>ServletConfig getServletConfig();</li>
+<li><p>ServletContext getServletContext();</p>
+
+<p>　　因此，<font color="DarkGreen"><b>我们一旦获得了 pageContext 对象，就可以通过它获取其他的内置对象。</b></font></p></li>
+</ul>
+
+<hr />
+
+
+
+<h2 id="四-request-对象">四. request 对象</h2>
+
+<p>　　<font color="DarkGreen"><b>request 对象是JSP中的重要对象，每个 request 对象封装一个用户请求，并且所有的请求参数都被封装到request 对象中，因此request对象是获取请求参数的重要途径。此外，request 可代表本次请求范围，用于操作 request范围的属性。</b></font>总的来说，该对象有如下两个作用：</p>
+
+<p><strong>1) 获取请求参数/请求头</strong></p>
+
+<p>　　<font color="blue">Web 应用是请求/响应架构的应用，浏览器发送请求时总会附带一些请求头，还可能包含一些请求参数发送给服务器。实际上，请求头和请求参数都是用户发送到服务器的数据，只不过前者通常由浏览器自动添加，而后者需要开发人员控制添加。</font><font color="DarkGreen"><b>服务器端负责解析请求头/请求参数的就是 JSP/Servlet，而 JSP/Servlet 获取请求参数的途径就是 request 对象，</b></font>其提供如下几个方法来获取请求参数：</p>
+
+<ul>
+<li>getParameter(String name) </li>
+<li>getParameterMap() </li>
+<li>getParameterNames() </li>
+<li>getParameterValues(String name) </li>
+</ul>
+
+<hr />
+
+<p>　　此外，客户端发送请求的方式一般有两种：</p>
+
+<ul>
+<li><p><strong>GET 方式的请求</strong>：<font color="red">直接在浏览器地址栏输入访问地址所发送的请求或提交表单的默认请求参数发送方式；</font></p></li>
+<li><p><strong>POST 方式的请求</strong>：<font color="red">以 post 方式提交表单，发送请求参数。该种方式一般将请求参数放在HTML HEADER 中传输，因此用户不能在地址栏看到请求参数值，安全性较高。</font></p></li>
+</ul>
+
+<hr />
+
+<p>　　因此，一般建议以POST的方式发送请求。特别地，<font color="blue"><b>对于通过提交提交表单发送请求参数而言，需要注意两点：</b></font></p>
+
+<ul>
+<li><font color="blue">只有具有name属性的表单域才生成请求参数；</font></li>
+<li><p><font color="blue">若多个表单域有相同的name属性，则这些表单域只生成一个请求参数，只是该参数具有多个值。</font></p>
+
+<p>　关于JSP中文乱码更多的介绍，包括 页面乱码、参数乱码、表单乱码、源文件乱码 等知识，见我的另一篇博客<a href="http://blog.csdn.net/justloveyou_/article/details/55827718">《JSP中文乱码问题终极解决方案》</a>。 </p></li>
+</ul>
+
+<hr />
+
+<p><strong>2) 操作 request范围的属性</strong></p>
+
+<p>　　<font color="blue">使用 request对象的如下两个方法可以设置/获取request范围的属性(特别注意的是，forward前后仍是同一个请求)：</font></p>
+
+<ul>
+<li>setAttribute(String name, Object o) </li>
+<li>getAttribute(String name) </li>
+</ul>
+
+<hr />
+
+<p><strong>3) 执行 forward/include 操作</strong></p>
+
+<p>　　<font color="DarkGreen"><b>HttpServletRequest 提供了 getRequestDispatcher(String path) 方法去执行 forward/include 操作，也就是代替JSP所提供的 forward/include 动作指令，其中参数path就是希望 forward/include 的路径。</b></font>具体方式如下：</p>
+
+
+
+<pre class="prettyprint"><code class="language-java hljs ">request.getRequestDispatcher(<span class="hljs-string">"目标路径"</span>).forward/include(request, response);</code></pre>
+
+<p>　　上述代码的语义就是将请求forward到了目标页面或将目标页面包含到了当前页面。需要注意的是，<font color="red"><b>以该种方式进行 forward/include 时，path参数必须以 “/” 开头。</b></font></p>
+
+<hr />
+
+
+
+<h2 id="五-session-对象">五. session 对象</h2>
+
+<p>　　<font color="DarkGreen"><b>session 对象代表一次用户会话，具体指从用户打开浏览器开始，到用户关闭浏览器，这个可能包含多个请求和响应的过程。</b></font>因此，我们常常使用 session 来跟踪用户的会话信息，如判断用户是否登录，或者在包含购物车的应用中用于追踪用户购买的商品等。我们可以通过以下两个方法进行存取session范围内的属性：</p>
+
+<ul>
+<li>setAttribute(String attrName, Object value)</li>
+<li><p>getAttribute(String attrName)</p>
+
+<p>　　<font color="blue">特别地，<font color="red"><b>通常只应该把与用户会话状态相关的信息放入session范围内</b></font>，而不应该仅仅为了两个页面间交换信息，就将该信息放入session范围内。</font></p>
+
+<p>　　<font color="darkgreen"><b>Session 的属性值可以是任何可序列化的 Java 对象。</b></font></p></li>
+</ul>
+
+<hr />
+
+<h2 id="六-response-对象">六. response 对象</h2>
+
+<p>　　<font color="DarkGreen"><b>response 对象代表服务器对客户端的响应。</b></font><font color="blue">但大部分情况下，程序无须使用 response 对象来响应客户端请求，因为有个更为简单的响应对象 —— out，它代表页面输出流，直接使用 out 生成响应更简单。</font>不过，out 是 JSPWriter 的实例，是字符流输出对象，无法输出非字符内容。因此，若需要在 JSP 页面动态生成一副位图或者输出一个PDF文档，则必须使用 response 作为响应输出，此不赘述。此外，response 对象还有两个重要作用，即重定向和操作Cookie。</p>
+
+<hr />
+
+<p><strong>1) 重定向</strong></p>
+
+<p>　　<font color="blue"><b>请求重定向与 forward 不同，重定向会丢失所有的请求参数 和 request范围内的属性。</b></font>因为重定向将生成一个全新的请求，与前一次请求不在同一个 request 范围内，所以会丢失原有请求的所有请求参数和request范围内的属性。我们通过以下方式进行重定向：</p>
+
+
+
+<pre class="prettyprint"><code class="language-java hljs ">response.sendRedirect(<span class="hljs-string">"request/MyJsp.jsp"</span>);  </code></pre>
+
+<p>　　特别需要注意的是，<font color="red"><b>请求重定向方法 sendRedirect() 的 path参数不必以 “/” 开头（若以 “/” 开头，其代表的是 “<a href="http://localhost:8080/">http://localhost:8080/</a>“）。</b></font></p>
+
+<hr />
+
+<p><strong>2) 操作 Cookie</strong></p>
+
+<p>　　<font color="blue"><b>Cookie 通常用于网站记录客户的某些信息，例如客户的用户名等。一旦用户下次登录，网站就可以获取到客户的相关信息，根据这些客户信息，网站可以对客户提供更为友好的服务。</b></font>Cookie 与 Session的最大不同在于：<font color="DarkGreen"><b>session会随着浏览器的关闭而失效，但Cookie会一直存放在客户端的机器上，除非超出Cookie的生命周期(Cookie的默认生命周期就是整个会话)。</b></font>通常，如下面的例子所示，在客户端增加一个 Cookie 分为如下三个步骤：</p>
+
+<ul>
+<li>创建Cookie实例，其构造器为 Cookie(String name, String value);</li>
+<li>设置Cookie的生命周期；</li>
+<li>向客户端增加Cookie。</li>
+</ul>
+
+
+
+<pre class="prettyprint"><code class="language-java hljs "><span class="hljs-comment">// 获取请求参数</span>
+String name = request.getParameter(<span class="hljs-string">"name"</span>);
+<span class="hljs-comment">// 以获取到的请求参数为值，创建一个Cookie对象</span>
+Cookie c = <span class="hljs-keyword">new</span> Cookie(<span class="hljs-string">"username"</span> , name);
+<span class="hljs-comment">// 设置Cookie对象的生存期限</span>
+c.setMaxAge(<span class="hljs-number">24</span> * <span class="hljs-number">3600</span>);
+<span class="hljs-comment">// 向客户端增加Cookie对象</span>
+response.addCookie(c);
+
+out.print(name);</code></pre>
+
+<p>　　<font color="DarkGreen"><b>访问客户端的Cookie时，需要使用request对象。</b></font>request对象提供了getCookies()方法，该方法将返回客户端机器上所有Cookie组成的数组，遍历该数组的每个元素，找到希望访问的Cookie即可，例如：</p>
+
+
+
+<pre class="prettyprint"><code class="language-java hljs ">Cookie[] cookies = request.getCookies();
+<span class="hljs-keyword">for</span>(Cookie cookie : cookies){
+    out.print(cookie.getName() + <span class="hljs-string">" : "</span> + cookie.getValue() + <span class="hljs-string">"&lt;/br&gt;"</span>);
+}</code></pre>
+
+<p>　　特别地，Cookie值不允许出现中文字符，如果需要值为中文内容的Cookie时，可以借助于 java.net.URLEncoder/URLDecoder 进行转换。更多关于 java.net.URLEncoder/URLDecoder的介绍见我的另一篇博文<a href="http://blog.csdn.net/justloveyou_/article/details/57156039">《使用URLDecoder和URLEncoder对中文进行处理》</a>。</p>
+
+<hr />
+
+
+
+<h2 id="七-config-对象">七. config 对象</h2>
+
+<p>　　<font color="blue">config 对象代表当前 JSP 配置信息，但 JSP 页面通常无需配置，因此也就不存在配置信息，所以在 JSP 页面较少使用这个对象。</font>但是，<font color="DarkGreen"><b>其在 Servlet 中经常使用（javax.servlet.ServletConfig 的实例）。因为Servlet需要在web.xml中进行配置，可以指定配置参数。因此，我们常常使用 getInitParameter(String paramName) 来获取Servlet的配置参数</b></font>，例如：</p>
+
+
+
+<pre class="prettyprint"><code class="language-xml hljs "><span class="hljs-pi">&lt;?xml version="1.0" encoding="UTF-8"?&gt;</span>
+<span class="hljs-tag">&lt;<span class="hljs-title">web-app</span> <span class="hljs-attribute">version</span>=<span class="hljs-value">"2.5"</span> 
+    <span class="hljs-attribute">xmlns</span>=<span class="hljs-value">"http://java.sun.com/xml/ns/javaee"</span> 
+    <span class="hljs-attribute">xmlns:xsi</span>=<span class="hljs-value">"http://www.w3.org/2001/XMLSchema-instance"</span> 
+    <span class="hljs-attribute">xsi:schemaLocation</span>=<span class="hljs-value">"http://java.sun.com/xml/ns/javaee 
+    http://java.sun.com/xml/ns/javaee/web-app_2_5.xsd"</span>&gt;</span>
+
+  <span class="hljs-comment">&lt;!-- Servlet 配置 --&gt;</span>
+  <span class="hljs-tag">&lt;<span class="hljs-title">servlet</span>&gt;</span>
+    <span class="hljs-tag">&lt;<span class="hljs-title">servlet-name</span>&gt;</span>config<span class="hljs-tag">&lt;/<span class="hljs-title">servlet-name</span>&gt;</span>
+    <span class="hljs-tag">&lt;<span class="hljs-title">servlet-class</span>&gt;</span>com.edu.tju.rico.servlet.configServlet<span class="hljs-tag">&lt;/<span class="hljs-title">servlet-class</span>&gt;</span>
+    <span class="hljs-tag">&lt;<span class="hljs-title">init-param</span>&gt;</span>
+        <span class="hljs-tag">&lt;<span class="hljs-title">param-name</span>&gt;</span>name<span class="hljs-tag">&lt;/<span class="hljs-title">param-name</span>&gt;</span>
+        <span class="hljs-tag">&lt;<span class="hljs-title">param-value</span>&gt;</span>Rico<span class="hljs-tag">&lt;/<span class="hljs-title">param-value</span>&gt;</span>
+    <span class="hljs-tag">&lt;/<span class="hljs-title">init-param</span>&gt;</span>
+    <span class="hljs-tag">&lt;<span class="hljs-title">init-param</span>&gt;</span>
+        <span class="hljs-tag">&lt;<span class="hljs-title">param-name</span>&gt;</span>age<span class="hljs-tag">&lt;/<span class="hljs-title">param-name</span>&gt;</span>
+        <span class="hljs-tag">&lt;<span class="hljs-title">param-value</span>&gt;</span>24<span class="hljs-tag">&lt;/<span class="hljs-title">param-value</span>&gt;</span>
+    <span class="hljs-tag">&lt;/<span class="hljs-title">init-param</span>&gt;</span>
+  <span class="hljs-tag">&lt;/<span class="hljs-title">servlet</span>&gt;</span>
+  <span class="hljs-tag">&lt;<span class="hljs-title">servlet-mapping</span>&gt;</span>
+    <span class="hljs-tag">&lt;<span class="hljs-title">servlet-name</span>&gt;</span>config<span class="hljs-tag">&lt;/<span class="hljs-title">servlet-name</span>&gt;</span>
+    <span class="hljs-tag">&lt;<span class="hljs-title">url-pattern</span>&gt;</span>/servlet/config<span class="hljs-tag">&lt;/<span class="hljs-title">url-pattern</span>&gt;</span>
+  <span class="hljs-tag">&lt;/<span class="hljs-title">servlet-mapping</span>&gt;</span></code></pre>
+
+<hr />
+
+
+
+<h2 id="八-exception-对象">八. exception 对象</h2>
+
+<p>　　<font color="DarkGreen"><strong>exception 对象是Throwable的实例，代表JSP脚本中产生的异常和错误 ，是JSP页面异常机制的一部分，并且只有当isErrorPage属性设为true时才可以访问exception内置对象。</strong></font>我们知道，<font color="blue">在JSP脚本中通常无需处理异常，即使是checked异常。事实上，JSP脚本所有可能出现的异常都可以交给错误处理页面处理。</font>看下面非异常处理页面转译成Servlet后的例子(片段)：</p>
+
+
+
+<pre class="prettyprint"><code class="language-java hljs "><span class="hljs-keyword">public</span> <span class="hljs-keyword">void</span> <span class="hljs-title">_jspService</span>(HttpServletRequest request, HttpServletResponse response)
+        <span class="hljs-keyword">throws</span> java.io.IOException, ServletException {
+
+    <span class="hljs-comment">// 内置对象的声明</span>
+
+    <span class="hljs-keyword">try</span> {
+
+      <span class="hljs-comment">// 内置对象的初始化</span>
+
+      out.write(<span class="hljs-string">"&lt;!DOCTYPE HTML PUBLIC \"-//W3C//DTD HTML 4.01 Transitional//EN\"&gt;\r\n"</span>);
+      out.write(<span class="hljs-string">"&lt;html&gt;\r\n"</span>);
+
+      <span class="hljs-comment">//... ...</span>
+
+      out.write(<span class="hljs-string">"  &lt;/body&gt;\r\n"</span>);
+      out.write(<span class="hljs-string">"&lt;/html&gt;\r\n"</span>);
+    } <span class="hljs-keyword">catch</span> (Throwable t) {
+      <span class="hljs-keyword">if</span> (!(t <span class="hljs-keyword">instanceof</span> SkipPageException)){
+        out = _jspx_out;
+        <span class="hljs-keyword">if</span> (out != <span class="hljs-keyword">null</span> &amp;&amp; out.getBufferSize() != <span class="hljs-number">0</span>)
+          out.clearBuffer();
+        <span class="hljs-keyword">if</span> (_jspx_page_context != <span class="hljs-keyword">null</span>) _jspx_page_context.handlePageException(t);
+      }
+    } <span class="hljs-keyword">finally</span> {
+      <span class="hljs-keyword">if</span> (_jspxFactory != <span class="hljs-keyword">null</span>) 
+        _jspxFactory.releasePageContext(_jspx_page_context);
+    }</code></pre>
+
+<p>　　我们可以看到，<font color="red">之所以在JSP脚本中通常无需处理异常，包括checked异常，是因为当JSP转译成Servlet后，其静态HTML和动态java脚本都将置于 try 语句块中。</font>特别地，<font color="DarkGreen"><b> exception 对象只有在异常处理页面中才有效</b></font>。看下面异常处理页面转译成Servlet后的例子（片段）：</p>
+
+
+
+<pre class="prettyprint"><code class="language-java hljs "><span class="hljs-keyword">public</span> <span class="hljs-keyword">void</span> <span class="hljs-title">_jspService</span>(HttpServletRequest request, HttpServletResponse response)
+        <span class="hljs-keyword">throws</span> java.io.IOException, ServletException {
+
+    <span class="hljs-comment">// 内置对象的声明</span>
+    PageContext pageContext = <span class="hljs-keyword">null</span>;
+    <span class="hljs-comment">//...</span>
+    PageContext _jspx_page_context = <span class="hljs-keyword">null</span>;
+    Throwable exception = org.apache.jasper.runtime.JspRuntimeLibrary.getThrowable(request);
+    <span class="hljs-keyword">if</span> (exception != <span class="hljs-keyword">null</span>) {
+      response.setStatus(HttpServletResponse.SC_INTERNAL_SERVER_ERROR);
+    }
+
+    <span class="hljs-keyword">try</span> {
+
+      <span class="hljs-comment">// 内置对象的初始化</span>
+      pageContext = _jspxFactory.getPageContext(<span class="hljs-keyword">this</span>, request, response,
+                <span class="hljs-keyword">null</span>, <span class="hljs-keyword">true</span>, <span class="hljs-number">8192</span>, <span class="hljs-keyword">true</span>);
+      <span class="hljs-comment">//...</span>
+      <span class="hljs-comment">//使用内置对象pageContext给_jspx_page_context赋值</span>
+      _jspx_page_context = pageContext;
+
+      out.write(<span class="hljs-string">"&lt;!DOCTYPE HTML PUBLIC \"-//W3C//DTD HTML 4.01 Transitional//EN\"&gt;\r\n"</span>);
+      out.write(<span class="hljs-string">"&lt;html&gt;\r\n"</span>);
+      ... ...
+      out.write(<span class="hljs-string">"&lt;/html&gt;\r\n"</span>);
+    } <span class="hljs-keyword">catch</span> (Throwable t) {
+      <span class="hljs-keyword">if</span> (!(t <span class="hljs-keyword">instanceof</span> SkipPageException)){
+        out = _jspx_out;
+        <span class="hljs-keyword">if</span> (out != <span class="hljs-keyword">null</span> &amp;&amp; out.getBufferSize() != <span class="hljs-number">0</span>)
+          out.clearBuffer();
+        <span class="hljs-keyword">if</span> (_jspx_page_context != <span class="hljs-keyword">null</span>) _jspx_page_context.handlePageException(t);
+      }
+    } <span class="hljs-keyword">finally</span> {
+      <span class="hljs-keyword">if</span> (_jspxFactory != <span class="hljs-keyword">null</span>) _jspxFactory.releasePageContext(_jspx_page_context);
+    }
+  }</code></pre>
+
+<p>　　如上面代码片段所示，<font color="red">一旦 try 语句块 捕获到JSP脚本的异常，并且 _jspx_page_context 不为 null，就会由该对象来处理异常。实际上，该对象的处理逻辑也很简单：如果该页面的page指令指定了errorPage属性，则将请求forward到errorPage属性所指定的页面，否则使用系统页面来输出异常信息即可。</font>特别地，<font color="DarkGreen"><b>JSP声明部分仍然需要处理checked异常</b></font>。</p>
+
+<hr />
+
+
+
+<h2 id="九-out-对象">九. out 对象</h2>
+
+<p>　　<font color="DarkGreen"><strong>out 对象代表JSP页面输出流 ，通常用于在页面上输出变量值及常量。</strong></font>实际上，<font color="blue">输出表达式(&lt;%= %&gt;)的本质就是out.write(…)，因此二者作用等价，在使用上可以互换。</font> <br />
+　　 <br />
+　　此外，page 对象代表页面本身，也就是Servlet类中的this，也就是说，能用page的地方就能用 this。</p>
+
+<hr />
+
+<p>　　关于JSP的原理、执行过程、脚本元素、编译指令和动作指令的介绍见我的上一篇博客<a href="http://blog.csdn.net/justloveyou_/article/details/55824500">《 Java Web基础 — Jsp 综述(上)》</a>。</p>
+
+<p>　　关于JSP中文乱码更多的介绍，包括 页面乱码、参数乱码、表单乱码、源文件乱码 等知识，见我的另外两篇博客：<a href="http://blog.csdn.net/justloveyou_/article/details/58048879">《JSP中文乱码问题终极解决方案(上)》</a> 和 <a href="http://blog.csdn.net/justloveyou_/article/details/55827718">《JSP中文乱码问题终极解决方案(下)》</a>。 </p>
+
+<hr />
+
+<blockquote>
+  <h2 id="引用">引用</h2>
+  
+  <p>《轻量级 JavaEE 企业应用实战(第四版)》 <br />
+  <a href="http://blog.csdn.net/zhangzeyuaaa/article/details/44560921">JSP九大内置对象及四个作用域</a></p>
+</blockquote></div>&#13;
+        <script type="text/javascript">&#13;
+            $(function () {&#13;
+                $('pre.prettyprint code').each(function () {&#13;
+                    var lines = $(this).text().split('\n').length;&#13;
+                    var $numbering = $('&lt;ul/&gt;').addClass('pre-numbering').hide();&#13;
+                    $(this).addClass('has-numbering').parent().append($numbering);&#13;
+                    for (i = 1; i &lt;= lines; i++) {&#13;
+                        $numbering.append($('&lt;li/&gt;').text(i));&#13;
+                    };&#13;
+                    $numbering.fadeIn(1700);&#13;
+                });&#13;
+            });&#13;
+        </script>&#13;
+   &#13;

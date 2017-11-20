@@ -1,0 +1,254 @@
+
+        <div class="markdown_views"><p><font color="brown">介绍：</font>用一个中介对象来封装对象的交互，中介者使各对象不需要显示地引用，从而使其耦合松散，而且可以独立地改变他们的交互。</p>
+
+<p><font color="green">场景：</font>举个生活中的例子，如果我们去租房子，我们会将各个房源的价格留下来，等每次价格变动的时候，房东通知下面的各个有意向的房客，而我们又需要对每个房东进行反馈。这样，一个房客和每个房东，以及一个房东和每个房客的关系都紧密相连。如果我们通过中介，中介会帮我们处理这些事情，就显得相对简单。</p>
+
+<h1 id="一角色及作用">一、角色及作用</h1>
+
+<table>
+<thead>
+<tr>
+  <th>角色</th>
+  <th>作用</th>
+</tr>
+</thead>
+<tbody><tr>
+  <td>抽象同事</td>
+  <td>同事是指一些内部属性紧密相关的对象，当一个属性改变时，会尝试改变关联对象的相关内容，它们在定义时关联中介者</td>
+</tr>
+<tr>
+  <td>同事</td>
+  <td>实现具体的内容，以及和中介者的交互</td>
+</tr>
+<tr>
+  <td>抽象中介者</td>
+  <td>定义了改变时的方法</td>
+</tr>
+<tr>
+  <td>中介者</td>
+  <td>实现一个同事改变时所需要实现的业务</td>
+</tr>
+</tbody></table>
+
+
+
+
+<h1 id="二房东和房客">二、房东和房客</h1>
+
+<p><font color="brown">说明：</font>针对上面场景的情况，为了方便房东和房客，我们引入中介者。这里实现同事和中介者之间的关联。</p>
+
+<p><strong>抽象同事类,关联中介</strong></p>
+
+<pre class="prettyprint"><code class=" hljs cs"><span class="hljs-keyword">public</span> <span class="hljs-keyword">abstract</span> <span class="hljs-keyword">class</span> Colleague {
+    <span class="hljs-keyword">protected</span> Mediator mediator; <span class="hljs-comment">// 绑定中介，不满意，随时可以更换</span>
+
+    <span class="hljs-keyword">public</span> <span class="hljs-title">Colleague</span>(Mediator mediator) {
+        <span class="hljs-keyword">this</span>.mediator = mediator;
+        mediator.addColleague(<span class="hljs-keyword">this</span> );
+    }
+
+    <span class="hljs-keyword">public</span> Mediator <span class="hljs-title">getMediator</span>() {
+        <span class="hljs-keyword">return</span> mediator;
+    }
+
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">void</span> <span class="hljs-title">setMediator</span>(Mediator mediator) {
+        <span class="hljs-keyword">this</span>.mediator = mediator;
+    }
+
+}</code></pre>
+
+<p><strong>房子</strong></p>
+
+
+
+<pre class="prettyprint"><code class=" hljs java"><span class="hljs-keyword">public</span> <span class="hljs-class"><span class="hljs-keyword">class</span> <span class="hljs-title">House</span> <span class="hljs-keyword">extends</span> <span class="hljs-title">Colleague</span> {</span>
+    <span class="hljs-keyword">private</span> <span class="hljs-keyword">boolean</span> flag = <span class="hljs-keyword">false</span>; <span class="hljs-comment">// 是否已经出租</span>
+    <span class="hljs-keyword">private</span> String name; <span class="hljs-comment">// 房子名字</span>
+    <span class="hljs-keyword">private</span> <span class="hljs-keyword">int</span> price; <span class="hljs-comment">// 价格</span>
+
+    <span class="hljs-keyword">public</span> <span class="hljs-title">House</span>(Mediator mediator, String name) { <span class="hljs-comment">// 绑定中介和房屋名字</span>
+        <span class="hljs-keyword">super</span>(mediator);
+        <span class="hljs-keyword">this</span>.name = name;
+    }
+
+    <span class="hljs-comment">// 改变房价</span>
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">void</span> <span class="hljs-title">changePrice</span>(<span class="hljs-keyword">int</span> price) {
+        <span class="hljs-keyword">this</span>.price = price;
+        mediator.changed(<span class="hljs-keyword">this</span>);
+    }
+
+    <span class="hljs-comment">// 租房子</span>
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">boolean</span> <span class="hljs-title">rentHouse</span>(String name) {
+        <span class="hljs-keyword">if</span> (flag) {
+            System.out.println(<span class="hljs-keyword">this</span>.name + <span class="hljs-string">"已经出租"</span>);
+            <span class="hljs-keyword">return</span> <span class="hljs-keyword">false</span>;
+        } <span class="hljs-keyword">else</span> {
+            System.out.println(<span class="hljs-string">"房客"</span> + name + <span class="hljs-string">"用"</span> + <span class="hljs-keyword">this</span>.price + <span class="hljs-string">"租下了"</span> + <span class="hljs-keyword">this</span>.name);
+            <span class="hljs-keyword">return</span> <span class="hljs-keyword">true</span>;
+        }
+    }
+
+    <span class="hljs-comment">// getter and setter</span>
+
+}</code></pre>
+
+<p><strong>房客</strong></p>
+
+
+
+<pre class="prettyprint"><code class=" hljs java"><span class="hljs-keyword">public</span> <span class="hljs-class"><span class="hljs-keyword">class</span> <span class="hljs-title">Lodger</span> <span class="hljs-keyword">extends</span> <span class="hljs-title">Colleague</span> {</span>
+    <span class="hljs-keyword">private</span> String house; <span class="hljs-comment">// 租的房子</span>
+    <span class="hljs-keyword">private</span> <span class="hljs-keyword">int</span> staPrice; <span class="hljs-comment">// 满意的价格</span>
+    <span class="hljs-keyword">private</span> String name; <span class="hljs-comment">// 房客名字</span>
+
+    <span class="hljs-comment">// 绑定中介和房客名字及满意的价格</span>
+    <span class="hljs-keyword">public</span> <span class="hljs-title">Lodger</span>(Mediator mediator, String name, <span class="hljs-keyword">int</span> staPrice) {
+        <span class="hljs-keyword">super</span>(mediator);
+        <span class="hljs-keyword">this</span>.name = name;
+        <span class="hljs-keyword">this</span>.staPrice = staPrice;
+    }
+
+    <span class="hljs-comment">// 收到房子价格的信息</span>
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">void</span> <span class="hljs-title">message</span>(String house, <span class="hljs-keyword">int</span> price) {
+        System.out.println(<span class="hljs-keyword">this</span>.name + <span class="hljs-string">"收到中介信息---房子:"</span> + house + <span class="hljs-string">",租金:"</span> + price);
+        <span class="hljs-keyword">if</span> (<span class="hljs-keyword">this</span>.staPrice == price) {
+            <span class="hljs-comment">// 满意，租房子</span>
+            <span class="hljs-keyword">this</span>.house = house;
+            mediator.changed(<span class="hljs-keyword">this</span>);
+        }
+    }
+
+    <span class="hljs-comment">// getter and setter</span>
+}
+</code></pre>
+
+
+
+<h1 id="三中介出马">三、中介出马</h1>
+
+<p><font color="brown">说明：</font>中介主要的工作就是管理手头的房东和房客信息，当房价变更或者房客要买房的时候，就通知对应的房客和房东。</p>
+
+<p><strong>抽象中介者</strong></p>
+
+<pre class="prettyprint"><code class=" hljs java"><span class="hljs-keyword">public</span> <span class="hljs-keyword">abstract</span> <span class="hljs-class"><span class="hljs-keyword">class</span> <span class="hljs-title">Mediator</span> {</span>
+    <span class="hljs-javadoc">/**
+     * 同事对象有改变时，通知中介者的方法 在同事改变时，通过中介者，通知其他同事对象
+     */</span>
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">abstract</span> <span class="hljs-keyword">void</span> <span class="hljs-title">changed</span>(Colleague c);
+
+    <span class="hljs-javadoc">/**
+     * 向中介者添加对象
+     */</span>
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">abstract</span> <span class="hljs-keyword">void</span> <span class="hljs-title">addColleague</span>(Colleague c);
+}</code></pre>
+
+<p><strong>房子中介</strong></p>
+
+
+
+<pre class="prettyprint"><code class=" hljs java"><span class="hljs-keyword">public</span> <span class="hljs-class"><span class="hljs-keyword">class</span> <span class="hljs-title">HouseMediator</span> <span class="hljs-keyword">extends</span> <span class="hljs-title">Mediator</span> {</span>
+    <span class="hljs-comment">// 管理房子和房客信息</span>
+    <span class="hljs-keyword">private</span> List&lt;Colleague&gt; houses = <span class="hljs-keyword">new</span> ArrayList&lt;Colleague&gt;();
+    <span class="hljs-keyword">private</span> List&lt;Colleague&gt; lodgers = <span class="hljs-keyword">new</span> ArrayList&lt;Colleague&gt;();
+
+    <span class="hljs-annotation">@Override</span>
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">void</span> <span class="hljs-title">changed</span>(Colleague c) {
+        <span class="hljs-keyword">if</span> (c <span class="hljs-keyword">instanceof</span> House) {
+            <span class="hljs-keyword">for</span> (Colleague lodger : lodgers) {
+                message((House) c, (Lodger) lodger);
+            }
+        }
+        <span class="hljs-keyword">if</span> (c <span class="hljs-keyword">instanceof</span> Lodger) {
+            <span class="hljs-keyword">for</span> (Colleague house : houses) {
+                House house2 = (House) house;
+                Lodger lodger = (Lodger) c;
+                <span class="hljs-keyword">if</span> (house2.getName().equals(lodger.getHouse())) {
+                    rentHouse((House) house, (Lodger) c);
+                }
+            }
+        }
+    }
+
+    <span class="hljs-annotation">@Override</span>
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">void</span> <span class="hljs-title">addColleague</span>(Colleague c) {
+        <span class="hljs-keyword">if</span> (c <span class="hljs-keyword">instanceof</span> House) {
+            houses.add(c);
+        }
+        <span class="hljs-keyword">if</span> (c <span class="hljs-keyword">instanceof</span> Lodger) {
+            lodgers.add(c);
+        }
+    }
+
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">void</span> <span class="hljs-title">message</span>(House house, Lodger lodger) {
+        lodger.message(house.getName(), house.getPrice());
+    }
+
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">void</span> <span class="hljs-title">rentHouse</span>(House house, Lodger lodger) {
+        house.rentHouse(lodger.getName());
+    }
+
+}
+</code></pre>
+
+
+
+<h1 id="四开始工作">四、开始工作</h1>
+
+
+
+<pre class="prettyprint"><code class=" hljs cs"><span class="hljs-keyword">public</span> <span class="hljs-keyword">static</span> <span class="hljs-keyword">void</span> <span class="hljs-title">main</span>(String[] args) {
+    Mediator mediator = <span class="hljs-keyword">new</span> HouseMediator();
+    House house1 = <span class="hljs-keyword">new</span> House(mediator, <span class="hljs-string">"海边别墅"</span>);
+    House house2 = <span class="hljs-keyword">new</span> House(mediator, <span class="hljs-string">"山中别墅"</span>);
+    Lodger lodger1 = <span class="hljs-keyword">new</span> Lodger(mediator, <span class="hljs-string">"张三"</span>, <span class="hljs-number">500</span>);
+    Lodger lodger2 = <span class="hljs-keyword">new</span> Lodger(mediator, <span class="hljs-string">"李四"</span>, <span class="hljs-number">1000</span>);
+
+    house1.changePrice(<span class="hljs-number">400</span>);
+    System.<span class="hljs-keyword">out</span>.println(<span class="hljs-string">"======="</span>);
+    house1.changePrice(<span class="hljs-number">500</span>);
+    System.<span class="hljs-keyword">out</span>.println(<span class="hljs-string">"======="</span>);
+    house2.changePrice(<span class="hljs-number">500</span>);
+    System.<span class="hljs-keyword">out</span>.println(<span class="hljs-string">"======="</span>);
+    house2.changePrice(<span class="hljs-number">1000</span>);
+}</code></pre>
+
+<p>输出</p>
+
+
+
+<pre class="prettyprint"><code class=" hljs asciidoc">张三收到中介信息---房子:海边别墅,租金:400
+<span class="hljs-header">李四收到中介信息---房子:海边别墅,租金:400
+=======</span>
+张三收到中介信息---房子:海边别墅,租金:500
+房客张三用500租下了海边别墅
+<span class="hljs-header">李四收到中介信息---房子:海边别墅,租金:500
+=======</span>
+张三收到中介信息---房子:山中别墅,租金:500
+房客张三用500租下了山中别墅
+<span class="hljs-header">李四收到中介信息---房子:山中别墅,租金:500
+=======</span>
+张三收到中介信息---房子:山中别墅,租金:1000
+李四收到中介信息---房子:山中别墅,租金:1000
+房客李四用1000租下了山中别墅</code></pre>
+
+<p><font color="red">总结：</font>中介真的是帮了大忙，上边例子还可以为中介增加删除同事的方法，因为有些房客在租下房子后就不再需要接收信息。当对象间交互频繁，而且操作都彼此依赖，为防止在修改一个对象的行为时，同时涉及修改多个其他对象的行为，可用中介者模式来解决耦合问题。</p>
+
+<hr />
+
+<p><strong><em>更多模式：</em></strong><a href="http://blog.csdn.net/odeviloo/article/details/52382338">一天一个设计模式—分类与六大原则</a></p>
+
+<p><strong><em>更多源码：</em></strong> <a href="https://github.com/oDevilo/Java-Base">https://github.com/oDevilo/Java-Base</a></p></div>&#13;
+        <script type="text/javascript">&#13;
+            $(function () {&#13;
+                $('pre.prettyprint code').each(function () {&#13;
+                    var lines = $(this).text().split('\n').length;&#13;
+                    var $numbering = $('&lt;ul/&gt;').addClass('pre-numbering').hide();&#13;
+                    $(this).addClass('has-numbering').parent().append($numbering);&#13;
+                    for (i = 1; i &lt;= lines; i++) {&#13;
+                        $numbering.append($('&lt;li/&gt;').text(i));&#13;
+                    };&#13;
+                    $numbering.fadeIn(1700);&#13;
+                });&#13;
+            });&#13;
+        </script>&#13;
+   &#13;

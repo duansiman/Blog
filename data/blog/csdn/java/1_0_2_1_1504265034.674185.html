@@ -1,0 +1,161 @@
+
+        <div class="markdown_views"><p><strong>★ 场景和问题</strong> <br />
+Java程序开发讲究面向接口编程，隐藏具体的实现类，可是如何得到接口呢？</p>
+
+<p>工厂类的命名规范：***Factory <br />
+单例工厂方法的命名规范：getInstance()</p>
+
+<p><strong>工厂的本质是“选择实现”</strong></p>
+
+<p>工厂、接口和实现类之间的技术边界：工厂只负责选择实现，实现类才做真正的实现，而接口是限定到底实现什么东西和返回什么东西，三者之间分工明确、各负其责。</p>
+
+<p>下面为简单的工厂方法介绍和源代码： <br />
+接口DepApi ：</p>
+
+<pre class="prettyprint"><code class=" hljs cs">package cn.hncu.pattern.factory.dep;
+<span class="hljs-comment">//接口</span>
+<span class="hljs-keyword">public</span> <span class="hljs-keyword">interface</span> DepApi {
+    <span class="hljs-keyword">public</span> String <span class="hljs-title">t1</span>();
+}
+</code></pre>
+
+<p>实例1 Deplmpl1 ：</p>
+
+<pre class="prettyprint"><code class=" hljs java"><span class="hljs-keyword">package</span> cn.hncu.pattern.factory.dep;
+
+<span class="hljs-keyword">public</span> <span class="hljs-class"><span class="hljs-keyword">class</span> <span class="hljs-title">Deplmpl1</span> <span class="hljs-keyword">implements</span> <span class="hljs-title">DepApi</span>{</span>
+
+    <span class="hljs-annotation">@Override</span>
+    <span class="hljs-keyword">public</span> String <span class="hljs-title">t1</span>() {
+        System.out.println(<span class="hljs-string">"DepApi--Deplmpl1.t1()..."</span>);
+        <span class="hljs-keyword">return</span> <span class="hljs-string">"Deplmpl1_t1()"</span>;
+    }
+
+    <span class="hljs-comment">//下面这个方法在外面访问不到，因为被接口隔离了</span>
+    <span class="hljs-keyword">public</span> String <span class="hljs-title">t2</span>() {
+        System.out.println(<span class="hljs-string">"DepApi--Deplmpl1.t2()..."</span>);
+        <span class="hljs-keyword">return</span> <span class="hljs-string">"Deplmpl1_t2()"</span>;
+    }
+
+
+
+}
+</code></pre>
+
+<p>实例2 Deplmpl2 ：</p>
+
+<pre class="prettyprint"><code class=" hljs java"><span class="hljs-keyword">package</span> cn.hncu.pattern.factory.dep;
+
+<span class="hljs-keyword">public</span> <span class="hljs-class"><span class="hljs-keyword">class</span> <span class="hljs-title">Deplmpl2</span> <span class="hljs-keyword">implements</span> <span class="hljs-title">DepApi</span>{</span>
+
+    <span class="hljs-annotation">@Override</span>
+    <span class="hljs-keyword">public</span> String <span class="hljs-title">t1</span>() {
+        System.out.println(<span class="hljs-string">"DepApi--Deplmpl2.t1()..."</span>);
+        <span class="hljs-keyword">return</span> <span class="hljs-string">"Deplmpl2_t1()"</span>;
+    }
+
+    <span class="hljs-comment">//下面这个方法在外面访问不到，因为被接口隔离了</span>
+    <span class="hljs-keyword">public</span> String <span class="hljs-title">t2</span>() {
+        System.out.println(<span class="hljs-string">"DepApi--Deplmpl2.t2()..."</span>);
+        <span class="hljs-keyword">return</span> <span class="hljs-string">"Deplmpl2_t2()"</span>;
+    }
+
+
+
+}
+</code></pre>
+
+<p>工厂类 DepFactory ：</p>
+
+<pre class="prettyprint"><code class=" hljs java"><span class="hljs-keyword">package</span> cn.hncu.pattern.factory.dep;
+
+<span class="hljs-keyword">import</span> java.io.FileInputStream;
+<span class="hljs-keyword">import</span> java.io.IOException;
+<span class="hljs-keyword">import</span> java.io.InputStream;
+<span class="hljs-keyword">import</span> java.util.Properties;
+
+<span class="hljs-comment">//工厂真正的作用是：选择实现</span>
+<span class="hljs-keyword">public</span> <span class="hljs-class"><span class="hljs-keyword">class</span> <span class="hljs-title">DepFactory</span> {</span>
+
+    <span class="hljs-comment">// 工厂方法,命名规范：createDepApi,getDepApi,getDepInstance</span>
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">static</span> DepApi <span class="hljs-title">getDepApi</span>(){
+        Properties p = <span class="hljs-keyword">new</span> Properties();
+        <span class="hljs-keyword">int</span> type=<span class="hljs-number">1</span>;
+        InputStream inStream;
+        <span class="hljs-keyword">try</span> {
+            inStream = <span class="hljs-keyword">new</span> FileInputStream(<span class="hljs-string">"a.properties"</span>);
+            p.load(inStream);
+            type = Integer.parseInt(p.getProperty(<span class="hljs-string">"type"</span>));
+        } <span class="hljs-keyword">catch</span> (IOException e) {
+            e.printStackTrace();
+        }
+
+        <span class="hljs-keyword">if</span>(type==<span class="hljs-number">1</span>){
+            <span class="hljs-keyword">return</span> <span class="hljs-keyword">new</span> Deplmpl1();
+        }
+        <span class="hljs-keyword">if</span>(type==<span class="hljs-number">2</span>){
+            <span class="hljs-keyword">return</span> <span class="hljs-keyword">new</span> Deplmpl2();
+        }
+        <span class="hljs-keyword">return</span> <span class="hljs-keyword">null</span>;
+    }
+
+}
+</code></pre>
+
+<p>测试 Client ：</p>
+
+<pre class="prettyprint"><code class=" hljs avrasm">package cn<span class="hljs-preprocessor">.hncu</span><span class="hljs-preprocessor">.pattern</span><span class="hljs-preprocessor">.factory</span><span class="hljs-comment">;</span>
+
+import cn<span class="hljs-preprocessor">.hncu</span><span class="hljs-preprocessor">.pattern</span><span class="hljs-preprocessor">.factory</span><span class="hljs-preprocessor">.dep</span><span class="hljs-preprocessor">.DepApi</span><span class="hljs-comment">;</span>
+import cn<span class="hljs-preprocessor">.hncu</span><span class="hljs-preprocessor">.pattern</span><span class="hljs-preprocessor">.factory</span><span class="hljs-preprocessor">.dep</span><span class="hljs-preprocessor">.DepFactory</span><span class="hljs-comment">;</span>
+
+public class Client {
+    public static void main(String[] args) {
+
+        DepApi da = DepFactory<span class="hljs-preprocessor">.getDepApi</span>()<span class="hljs-comment">;</span>
+        da<span class="hljs-preprocessor">.t</span>1()<span class="hljs-comment">;//修改配置文件a.properties就可达到修改调用方法的目的，而不用修改源代码</span>
+        //da<span class="hljs-preprocessor">.t</span>2()<span class="hljs-comment">; //实现类当中的t2()方法已经被接口封装隔离了，访问不了</span>
+    }
+
+}
+</code></pre>
+
+<p>a.properties文件里面的内容： <br />
+此为配置文件，修改配置文件不叫修改源代码的。</p>
+
+<pre class="prettyprint"><code class=" hljs rust"><span class="hljs-keyword">type</span>=<span class="hljs-number">1</span>
+</code></pre>
+
+<p>此时的输出结果为;</p>
+
+
+
+<pre class="prettyprint"><code class=" hljs r">DepApi--Deplmpl1.t1()<span class="hljs-keyword">...</span>
+</code></pre>
+
+<p>只修改配置文件：</p>
+
+
+
+<pre class="prettyprint"><code class=" hljs rust"><span class="hljs-keyword">type</span>=<span class="hljs-number">2</span></code></pre>
+
+<p>此时的输出结果为：</p>
+
+
+
+<pre class="prettyprint"><code class=" hljs r">DepApi--Deplmpl2.t1()<span class="hljs-keyword">...</span>
+</code></pre></div>&#13;
+        <script type="text/javascript">&#13;
+            $(function () {&#13;
+                $('pre.prettyprint code').each(function () {&#13;
+                    var lines = $(this).text().split('\n').length;&#13;
+                    var $numbering = $('&lt;ul/&gt;').addClass('pre-numbering').hide();&#13;
+                    $(this).addClass('has-numbering').parent().append($numbering);&#13;
+                    for (i = 1; i &lt;= lines; i++) {&#13;
+                        $numbering.append($('&lt;li/&gt;').text(i));&#13;
+                    };&#13;
+                    $numbering.fadeIn(1700);&#13;
+                });&#13;
+            });&#13;
+        </script>&#13;
+   &#13;

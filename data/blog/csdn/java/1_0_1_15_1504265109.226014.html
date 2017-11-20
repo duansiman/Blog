@@ -1,0 +1,148 @@
+
+<p>类图</p><p><img src="http://img.blog.csdn.net/20141011121707562?watermark/2/text/aHR0cDovL2Jsb2cuY3Nkbi5uZXQvamp3d21scDQ1Ng==/font/5a6L5L2T/fontsize/400/fill/I0JBQkFCMA==/dissolve/70/gravity/SouthEast" width="377" height="374" alt="" /><span style="font-size:14px;">(MyIterator实际依赖的是MyCollection)</span><br /></p><p></p><pre code_snippet_id="482249" snippet_file_name="blog_20141011_1_9554390" name="code" class="java">/**
+ * 自定义集合接口, 类似java.util.Collection
+ * 用于数据存储
+ * @author stone
+ *
+ */
+public interface ICollection&lt;T&gt; {
+	
+	IIterator&lt;T&gt; iterator(); //返回迭代器
+	void add(T t);
+	T get(int index);
+}</pre><br /><pre code_snippet_id="482249" snippet_file_name="blog_20141011_2_4680367" name="code" class="java">/**
+ * 自定义迭代器接口 类似于java.util.Iterator
+ * 用于遍历集合类ICollection的数据
+ * @author stone
+ *
+ */
+public interface IIterator&lt;T&gt; {
+	boolean hasNext();
+	boolean hasPrevious();
+	T next();
+	T previous();
+}</pre><p><br /></p><p></p><pre code_snippet_id="482249" snippet_file_name="blog_20170629_3_1521207" name="code" class="java">import java.util.Arrays;
+
+/**
+ * 集合类， 依赖于MyIterator 
+ * @author stone 
+ */  
+public class MyCollection&lt;T&gt; implements ICollection&lt;T&gt; {
+  
+    private T[] arys;  
+    private int index = -1;  
+    private int capacity = 5;
+    private int realCapacity;
+      
+    public MyCollection() {  
+        this.arys = (T[]) new Object[capacity];  
+    }  
+      
+    @Override  
+    public IIterator&lt;T&gt; iterator() {  
+        return new MyIterator&lt;T&gt;(this);
+    }  
+      
+    @Override  
+    public void add(T t) {  
+        index++;  
+        if (index == capacity) {  
+            capacity *= 2;  
+            this.arys = Arrays.copyOf(arys, capacity);
+              
+        }  
+        this.arys[index] = t;
+        realCapacity++;
+    }  
+      
+    @Override  
+    public T get(int index) {  
+        return this.arys[index];  
+    }
+
+    private int getCount() {
+        return realCapacity;
+    }
+
+    private static class MyIterator&lt;T&gt; implements IIterator&lt;T&gt; {
+
+        private MyCollection&lt;T&gt; collection;
+        private int cursor = 0;
+        MyIterator(MyCollection&lt;T&gt; collection) {
+            this.collection = collection;
+        }
+
+        @Override
+        public boolean hasNext() {
+            if (cursor &lt; collection.getCount()) {
+                return true;
+            }
+            return false;
+        }
+
+        @Override
+        public boolean hasPrevious() {
+            if (cursor &gt; 0) {
+                return true;
+            }
+            return false;
+        }
+
+        @Override
+        public T next() {
+            return collection.get(cursor++);
+        }
+
+        @Override
+        public T previous() {
+            return collection.get(cursor--);
+        }
+    }
+}  </pre><br /><p></p><p></p><pre code_snippet_id="482249" snippet_file_name="blog_20141011_4_853120" name="code" class="java">/*
+ * 迭代器(Iterator)模式 又叫做游标（Cursor）模式
+ * 提供一种方法访问一个容器（container）对象中各个元素，而又不需暴露该对象的内部细节。
+ * Iterator模式就是分离了集合对象的遍历行为，抽象出一个迭代器类来负责，这样既可以做到不暴露集合的内部结构，又可让外部代码透明的访问集合内部的数据
+ * 
+ * 若有新的存储结构，可new 一个ICollection， 对应的 new 一个IIterator来实现它的遍历
+ */
+@SuppressWarnings({"rawtypes", "unchecked"})
+public class Test {
+	public static void main(String[] args) {
+		ICollection&lt;Integer&gt; collection = new MyCollection&lt;Integer&gt;();
+		add(collection, 3, 5, 8, 12, 3, 3, 5);
+		for (IIterator&lt;Integer&gt; iterator = collection.iterator(); iterator.hasNext();) {
+			System.out.println(iterator.next());
+		}
+		
+		System.out.println("-------------");
+		
+		ICollection collection2 = new MyCollection();
+		add(collection2, "a", "b", "c", 3, 8, 12, 3, 5);
+		for (IIterator iterator = collection2.iterator(); iterator.hasNext();) {
+			System.out.println(iterator.next());
+		}
+		
+	}
+	
+	static &lt;T&gt; void  add(ICollection&lt;T&gt; c, T ...a) {
+		for (T i : a) {
+			c.add(i);
+		}
+	}
+}</pre><p></p>打印<p></p><pre code_snippet_id="482249" snippet_file_name="blog_20141011_5_2598007" name="code" class="plain">3
+5
+8
+12
+3
+3
+5
+-------------
+a
+b
+c
+3
+8
+12
+3
+5
+</pre><br /><p></p><p><br /></p>   &#13;

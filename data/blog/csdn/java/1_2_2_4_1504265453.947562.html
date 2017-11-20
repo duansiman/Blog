@@ -1,0 +1,725 @@
+
+                <div class="markdown_views"><p>本博客介绍基于html5的Websocket网页即时通讯技术，前端开发采用ExtJS前端框架 <br/>
+JavaEE框架：Mybatis、SpringMVC <br/>
+先去官网下载ExtJS框架的资料文件： <br/>
+<a href="https://www.sencha.com/products/extjs/evaluate/">https://www.sencha.com/products/extjs/evaluate/</a> <br/>
+可以参考中文翻译过来的官网查看API： <br/>
+<a href="http://extjs-doc-cn.github.io/ext4api/">http://extjs-doc-cn.github.io/ext4api/</a> <br/>
+下载集成的jar： <br/>
+<img src="http://img.blog.csdn.net/20170105144116967?watermark/2/text/aHR0cDovL2Jsb2cuY3Nkbi5uZXQvdTAxNDQyNzM5MQ==/font/5a6L5L2T/fontsize/400/fill/I0JBQkFCMA==/dissolve/70/gravity/SouthEast" alt="这里写图片描述" title=""/></p>
+
+<p><img src="http://img.blog.csdn.net/20170105143015309?watermark/2/text/aHR0cDovL2Jsb2cuY3Nkbi5uZXQvdTAxNDQyNzM5MQ==/font/5a6L5L2T/fontsize/400/fill/I0JBQkFCMA==/dissolve/70/gravity/SouthEast" alt="这里写图片描述" title=""/></p>
+
+<p>websocket.css:</p>
+
+<pre class="prettyprint"><code class=" hljs css"><span class="hljs-at_rule">@<span class="hljs-keyword">CHARSET</span> <span class="hljs-string">"UTF-8"</span></span>;
+<span class="hljs-class">.l-im-message-warn</span> <span class="hljs-rules">{
+    <span class="hljs-rule"><span class="hljs-attribute">font-family</span>:<span class="hljs-value"> <span class="hljs-string">"微软雅黑"</span></span></span>;
+    <span class="hljs-rule"><span class="hljs-attribute">cursor</span>:<span class="hljs-value"> default</span></span>;
+    <span class="hljs-rule"><span class="hljs-attribute">width</span>:<span class="hljs-value"> <span class="hljs-number">100</span>%</span></span>;
+    <span class="hljs-rule"><span class="hljs-attribute">padding</span>:<span class="hljs-value"> <span class="hljs-number">5</span>px <span class="hljs-number">0</span>px <span class="hljs-number">5</span>px <span class="hljs-number">25</span>px</span></span>;
+    <span class="hljs-rule"><span class="hljs-attribute">-webkit-user-select </span>:<span class="hljs-value"> none</span></span>;
+    <span class="hljs-rule"><span class="hljs-attribute">background</span>:<span class="hljs-value"> <span class="hljs-function">url(<span class="hljs-string">"../images/information.png"</span>)</span> no-repeat <span class="hljs-number">5</span></span></span>;
+<span class="hljs-rule">}</span></span>
+
+<span class="hljs-class">.l-im-message</span> <span class="hljs-rules">{
+    <span class="hljs-rule"><span class="hljs-attribute">font-family</span>:<span class="hljs-value"> <span class="hljs-string">"微软雅黑"</span></span></span>;
+    <span class="hljs-rule"><span class="hljs-attribute">cursor</span>:<span class="hljs-value"> default</span></span>;
+    <span class="hljs-rule"><span class="hljs-attribute">width</span>:<span class="hljs-value"> <span class="hljs-number">100</span>%</span></span>;
+<span class="hljs-rule">}</span></span>
+
+<span class="hljs-class">.l-im-message-over</span> <span class="hljs-rules">{
+    <span class="hljs-rule"><span class="hljs-attribute">background-color</span>:<span class="hljs-value"> <span class="hljs-function">rgba(<span class="hljs-number">233</span>, <span class="hljs-number">233</span>, <span class="hljs-number">233</span>, <span class="hljs-number">0.5</span>)</span></span></span>;
+<span class="hljs-rule">}</span></span>
+
+<span class="hljs-class">.l-im-message-selected</span> <span class="hljs-rules">{
+    <span class="hljs-rule"><span class="hljs-attribute">background-color</span>:<span class="hljs-value"> <span class="hljs-function">rgba(<span class="hljs-number">250</span>, <span class="hljs-number">218</span>, <span class="hljs-number">90</span>, <span class="hljs-number">0.5</span>)</span></span></span>;
+<span class="hljs-rule">}</span></span>
+
+<span class="hljs-class">.l-im-message-header</span> <span class="hljs-rules">{
+    <span class="hljs-rule"><span class="hljs-attribute">font-size</span>:<span class="hljs-value"> <span class="hljs-number">12</span>px</span></span>;
+    <span class="hljs-rule"><span class="hljs-attribute">padding</span>:<span class="hljs-value"> <span class="hljs-number">5</span>px <span class="hljs-number">0</span>px <span class="hljs-number">5</span>px <span class="hljs-number">10</span>px</span></span>;
+<span class="hljs-rule">}</span></span>
+
+<span class="hljs-class">.l-im-message-header-self</span> <span class="hljs-rules">{
+    <span class="hljs-rule"><span class="hljs-attribute">color</span>:<span class="hljs-value"> green</span></span>;
+<span class="hljs-rule">}</span></span>
+<span class="hljs-class">.l-im-message-header-remote</span> <span class="hljs-rules">{
+    <span class="hljs-rule"><span class="hljs-attribute">color</span>:<span class="hljs-value"> blue</span></span>;
+<span class="hljs-rule">}</span></span>
+
+<span class="hljs-class">.l-im-message-body</span> <span class="hljs-rules">{
+    <span class="hljs-rule"><span class="hljs-attribute">font-size</span>:<span class="hljs-value"> <span class="hljs-number">12</span>px</span></span>;
+    <span class="hljs-rule"><span class="hljs-attribute">padding</span>:<span class="hljs-value"> <span class="hljs-number">2</span>px <span class="hljs-number">0</span>px <span class="hljs-number">2</span>px <span class="hljs-number">20</span>px</span></span>;
+<span class="hljs-rule">}</span></span>
+
+<span class="hljs-class">.user-win</span> <span class="hljs-rules">{
+    <span class="hljs-rule"><span class="hljs-attribute">background-image</span>:<span class="hljs-value"> <span class="hljs-function">url( ../images/user_win.png )</span>
+        <span class="hljs-important">!important</span></span></span>;
+<span class="hljs-rule">}</span></span>
+
+<span class="hljs-class">.user-online</span> <span class="hljs-rules">{
+    <span class="hljs-rule"><span class="hljs-attribute">background-image</span>:<span class="hljs-value"> <span class="hljs-function">url( ../images/group.png )</span>
+        <span class="hljs-important">!important</span></span></span>;
+<span class="hljs-rule">}</span></span>
+
+<span class="hljs-class">.user</span> <span class="hljs-rules">{
+    <span class="hljs-rule"><span class="hljs-attribute">background-image</span>:<span class="hljs-value"> <span class="hljs-function">url( ../images/user.gif )</span>
+        <span class="hljs-important">!important</span></span></span>;
+<span class="hljs-rule">}</span></span>
+</code></pre>
+
+<p>websocket.js:</p>
+
+
+
+<pre class="prettyprint"><code class=" hljs javascript">
+<span class="hljs-keyword">var</span> websocket;
+<span class="hljs-keyword">var</span> isCreatw = <span class="hljs-literal">false</span>;
+<span class="hljs-keyword">var</span> title=<span class="hljs-string">""</span>;
+<span class="hljs-keyword">var</span> win;
+<span class="hljs-keyword">var</span> input;
+<span class="hljs-keyword">var</span> isQj = <span class="hljs-literal">true</span>;
+<span class="hljs-keyword">var</span> toUser=<span class="hljs-string">""</span>;
+<span class="hljs-function"><span class="hljs-keyword">function</span> <span class="hljs-title">toUserMsg</span><span class="hljs-params">(toU)</span>{</span>
+    <span class="hljs-keyword">if</span>((!isQj &amp;&amp; toUser == toU) || toU == user){
+        win.setTitle(title + <span class="hljs-string">"&amp;nbsp;&amp;nbsp;(已连接)   【现在全局对话】"</span>);
+        isQj = <span class="hljs-literal">true</span>;
+        toUser = <span class="hljs-string">""</span>;
+    }<span class="hljs-keyword">else</span>{
+        win.setTitle(title + <span class="hljs-string">"&amp;nbsp;&amp;nbsp;(已连接)   【现在单独与"</span>+toU+<span class="hljs-string">"对话】"</span>);
+        isQj = <span class="hljs-literal">false</span>;
+        toUser = toU;
+    }
+}
+ <span class="hljs-function"><span class="hljs-keyword">function</span> <span class="hljs-title">creatw</span><span class="hljs-params">()</span> {</span>
+            <span class="hljs-keyword">if</span>(isCreatw){
+                alert(<span class="hljs-string">"已经启动"</span>);
+                <span class="hljs-keyword">return</span>;
+            }<span class="hljs-keyword">else</span>{
+                isCreatw = <span class="hljs-literal">true</span>;
+            }
+            <span class="hljs-comment">//创建用户输入框</span>
+            input = Ext.create(<span class="hljs-string">'Ext.form.field.HtmlEditor'</span>, {
+                        region : <span class="hljs-string">'south'</span>,
+                        height : <span class="hljs-number">120</span>,
+                        enableFont : <span class="hljs-literal">false</span>,
+                        enableSourceEdit : <span class="hljs-literal">false</span>,
+                        enableAlignments : <span class="hljs-literal">false</span>,
+                        listeners : {
+                            initialize : <span class="hljs-function"><span class="hljs-keyword">function</span><span class="hljs-params">()</span> {</span>
+                                Ext.EventManager.on(me.input.getDoc(), {
+                                            keyup : <span class="hljs-function"><span class="hljs-keyword">function</span><span class="hljs-params">(e)</span> {</span>
+                                                <span class="hljs-keyword">if</span> (e.ctrlKey === <span class="hljs-literal">true</span>
+                                                        &amp;&amp; e.keyCode == <span class="hljs-number">13</span>) {
+                                                    e.preventDefault();
+                                                    e.stopPropagation();
+                                                    send();
+                                                }
+                                            }
+                                        });
+                            }
+                        }
+                    });
+
+            <span class="hljs-comment">//创建消息展示容器</span>
+            <span class="hljs-keyword">var</span> output = Ext.create(<span class="hljs-string">'MessageContainer'</span>, {
+                        region : <span class="hljs-string">'center'</span>
+                    });
+
+            <span class="hljs-keyword">var</span> dialog = Ext.create(<span class="hljs-string">'Ext.panel.Panel'</span>, {
+                        region : <span class="hljs-string">'center'</span>,
+                        layout : <span class="hljs-string">'border'</span>,
+                        items : [input, output],
+                        buttons : [{
+                                    text : <span class="hljs-string">'发送'</span>,
+                                    handler : send
+                                }]
+                    });
+
+            <span class="hljs-comment">//初始话WebSocket</span>
+            <span class="hljs-function"><span class="hljs-keyword">function</span> <span class="hljs-title">initWebSocket</span><span class="hljs-params">()</span> {</span>
+                <span class="hljs-keyword">if</span> (window.WebSocket) {
+                    websocket = <span class="hljs-keyword">new</span> WebSocket(<span class="hljs-built_in">encodeURI</span>(<span class="hljs-string">'ws://'</span>+wimadress));
+
+                    websocket.onopen = <span class="hljs-function"><span class="hljs-keyword">function</span><span class="hljs-params">()</span> {</span>
+                        <span class="hljs-comment">//连接成功</span>
+                        win.setTitle(title + <span class="hljs-string">'&amp;nbsp;&amp;nbsp;(已连接)   【现在全局对话】'</span>);
+                        websocket.send(<span class="hljs-string">'admin'</span>+user);
+                    }
+                    websocket.onerror = <span class="hljs-function"><span class="hljs-keyword">function</span><span class="hljs-params">()</span> {</span>
+                        <span class="hljs-comment">//连接失败</span>
+                        win.setTitle(title + <span class="hljs-string">'&amp;nbsp;&amp;nbsp;(连接发生错误)'</span>);
+                    }
+                    websocket.onclose = <span class="hljs-function"><span class="hljs-keyword">function</span><span class="hljs-params">()</span> {</span>
+                        <span class="hljs-comment">//连接断开</span>
+                        win.setTitle(title + <span class="hljs-string">'&amp;nbsp;&amp;nbsp;(已经断开连接)'</span>);
+                    }
+                    <span class="hljs-comment">//消息接收</span>
+                    websocket.onmessage = <span class="hljs-function"><span class="hljs-keyword">function</span><span class="hljs-params">(message)</span> {</span>
+                        <span class="hljs-keyword">var</span> message = <span class="hljs-built_in">JSON</span>.parse(message.data);
+                        <span class="hljs-comment">//接收用户发送的消息</span>
+                        <span class="hljs-keyword">if</span> (message.type == <span class="hljs-string">'message'</span>) {
+                            output.receive(message);
+                        } <span class="hljs-keyword">else</span> <span class="hljs-keyword">if</span> (message.type == <span class="hljs-string">'get_online_user'</span>) {
+                            <span class="hljs-comment">//获取在线用户列表</span>
+                            <span class="hljs-keyword">var</span> root = onlineUser.getRootNode();
+                            Ext.each(message.list,<span class="hljs-function"><span class="hljs-keyword">function</span><span class="hljs-params">(user)</span>{</span>
+                                <span class="hljs-keyword">var</span> node = root.createNode({
+                                    id : user,
+                                    text : user,
+                                    iconCls : <span class="hljs-string">'user'</span>,
+                                    leaf : <span class="hljs-literal">true</span>
+                                });
+                                root.appendChild(node);
+                            });
+                        } <span class="hljs-keyword">else</span> <span class="hljs-keyword">if</span> (message.type == <span class="hljs-string">'user_join'</span>) {
+                            <span class="hljs-comment">//用户上线</span>
+                                <span class="hljs-keyword">var</span> root = onlineUser.getRootNode();
+                                <span class="hljs-keyword">var</span> user = message.user;
+                                <span class="hljs-keyword">var</span> node = root.createNode({
+                                    id : user,
+                                    text : user,
+                                    iconCls : <span class="hljs-string">'user'</span>,
+                                    leaf : <span class="hljs-literal">true</span>
+                                });
+                                root.appendChild(node);
+                        } <span class="hljs-keyword">else</span> <span class="hljs-keyword">if</span> (message.type == <span class="hljs-string">'user_leave'</span>) {
+                                <span class="hljs-comment">//用户下线</span>
+                                <span class="hljs-keyword">var</span> root = onlineUser.getRootNode();
+                                <span class="hljs-keyword">var</span> user = message.user;
+                                <span class="hljs-keyword">var</span> node = root.findChild(<span class="hljs-string">'id'</span>,user);
+                                root.removeChild(node);
+                        }
+                    }
+                }
+            };
+
+            <span class="hljs-comment">//在线用户树</span>
+            <span class="hljs-keyword">var</span> onlineUser = Ext.create(<span class="hljs-string">'Ext.tree.Panel'</span>, {
+                        title : <span class="hljs-string">'在线用户'</span>,
+                        rootVisible : <span class="hljs-literal">false</span>,
+                        region : <span class="hljs-string">'east'</span>,
+                        width : <span class="hljs-number">150</span>,
+                        lines : <span class="hljs-literal">false</span>,
+                        useArrows : <span class="hljs-literal">true</span>,
+                        autoScroll : <span class="hljs-literal">true</span>,
+                        split : <span class="hljs-literal">true</span>,
+                        iconCls : <span class="hljs-string">'user-online'</span>,
+                        store : Ext.create(<span class="hljs-string">'Ext.data.TreeStore'</span>, {
+                                    root : {
+                                        text : <span class="hljs-string">'在线用户'</span>,
+                                        expanded : <span class="hljs-literal">true</span>,
+                                        children : []
+                                    }
+                                })
+                    });
+
+            title = <span class="hljs-string">'欢迎您：'</span> + user;
+            <span class="hljs-comment">//展示窗口</span>
+            win = Ext.create(<span class="hljs-string">'Ext.window.Window'</span>, {
+                        title : title + <span class="hljs-string">'&amp;nbsp;&amp;nbsp;(未连接)'</span>,
+                        layout : <span class="hljs-string">'border'</span>,
+                        iconCls : <span class="hljs-string">'user-win'</span>,
+                        minWidth : <span class="hljs-number">650</span>,
+                        minHeight : <span class="hljs-number">460</span>,
+                        width : <span class="hljs-number">650</span>,
+                        animateTarget : <span class="hljs-string">'websocket_button'</span>,
+                        height : <span class="hljs-number">460</span>,
+                        items : [dialog,onlineUser],
+                        border : <span class="hljs-literal">false</span>,
+                        listeners : {
+                            render : <span class="hljs-function"><span class="hljs-keyword">function</span><span class="hljs-params">()</span> {</span>
+                                initWebSocket();
+                            }
+                        }
+                    });
+
+            win.show();
+
+            win.on(<span class="hljs-string">"close"</span>,<span class="hljs-function"><span class="hljs-keyword">function</span><span class="hljs-params">()</span>{</span>
+                websocket.send(<span class="hljs-string">'LeaveAdmin'</span>);
+                isCreatw = <span class="hljs-literal">false</span>;
+             });
+
+            <span class="hljs-comment">//发送消息</span>
+            <span class="hljs-function"><span class="hljs-keyword">function</span> <span class="hljs-title">send</span><span class="hljs-params">()</span> {</span>
+                <span class="hljs-keyword">var</span> content = input.getValue();
+                <span class="hljs-keyword">if</span>(toUser != <span class="hljs-string">""</span>){content = <span class="hljs-string">"admin886"</span>+toUser+<span class="hljs-string">"admin888"</span> + content;}
+                <span class="hljs-keyword">var</span> message = {};
+                <span class="hljs-keyword">if</span> (websocket != <span class="hljs-literal">null</span>) {
+                    <span class="hljs-keyword">if</span> (input.getValue()) {
+                        Ext.apply(message, {
+                                    from : user,
+                                    content : content,
+                                    timestamp : <span class="hljs-keyword">new</span> <span class="hljs-built_in">Date</span>().getTime(),
+                                    type : <span class="hljs-string">'message'</span>
+                                });
+                        websocket.send(<span class="hljs-built_in">JSON</span>.stringify(message));
+                        <span class="hljs-comment">//output.receive(message);</span>
+                        input.setValue(<span class="hljs-string">''</span>);
+                    }
+                } <span class="hljs-keyword">else</span> {
+                    Ext.Msg.alert(<span class="hljs-string">'提示'</span>, <span class="hljs-string">'您已经掉线，无法发送消息!'</span>);
+                }
+            }
+};
+
+<span class="hljs-comment">//用于展示用户的聊天信息</span>
+Ext.define(<span class="hljs-string">'MessageContainer'</span>, {
+
+    extend : <span class="hljs-string">'Ext.view.View'</span>,
+
+    trackOver : <span class="hljs-literal">true</span>,
+
+    multiSelect : <span class="hljs-literal">false</span>,
+
+    itemCls : <span class="hljs-string">'l-im-message'</span>,
+
+    itemSelector : <span class="hljs-string">'div.l-im-message'</span>,
+
+    overItemCls : <span class="hljs-string">'l-im-message-over'</span>,
+
+    selectedItemCls : <span class="hljs-string">'l-im-message-selected'</span>,
+
+    style : {
+        overflow : <span class="hljs-string">'auto'</span>,
+        backgroundColor : <span class="hljs-string">'#fff'</span>
+    },
+
+    tpl : [
+            <span class="hljs-string">'&lt;div class="l-im-message-warn"&gt;​欢迎使用即时通讯系统。&lt;/div&gt;'</span>,
+            <span class="hljs-string">'&lt;tpl for="."&gt;'</span>,
+            <span class="hljs-string">'&lt;div class="l-im-message"&gt;'</span>,
+            <span class="hljs-string">'&lt;div class="l-im-message-header l-im-message-header-{source}"&gt;{from}  {timestamp}&lt;/div&gt;'</span>,
+            <span class="hljs-string">'&lt;div class="l-im-message-body"&gt;{content}&lt;/div&gt;'</span>, <span class="hljs-string">'&lt;/div&gt;'</span>,
+            <span class="hljs-string">'&lt;/tpl&gt;'</span>],
+
+    messages : [],
+
+    initComponent : <span class="hljs-function"><span class="hljs-keyword">function</span><span class="hljs-params">()</span> {</span>
+        <span class="hljs-keyword">var</span> me = <span class="hljs-keyword">this</span>;
+        me.messageModel = Ext.define(<span class="hljs-string">'Leetop.im.MessageModel'</span>, {
+                    extend : <span class="hljs-string">'Ext.data.Model'</span>,
+                    fields : [<span class="hljs-string">'from'</span>, <span class="hljs-string">'timestamp'</span>, <span class="hljs-string">'content'</span>, <span class="hljs-string">'source'</span>]
+                });
+        me.store = Ext.create(<span class="hljs-string">'Ext.data.Store'</span>, {
+                    model : <span class="hljs-string">'Leetop.im.MessageModel'</span>,
+                    data : me.messages
+                });
+        me.callParent();
+    },
+
+    <span class="hljs-comment">//将服务器推送的信息展示到页面中</span>
+    receive : <span class="hljs-function"><span class="hljs-keyword">function</span><span class="hljs-params">(message)</span> {</span>
+        <span class="hljs-keyword">var</span> me = <span class="hljs-keyword">this</span>;
+        message[<span class="hljs-string">'timestamp'</span>] = Ext.Date.format(<span class="hljs-keyword">new</span> <span class="hljs-built_in">Date</span>(message[<span class="hljs-string">'timestamp'</span>]),
+                <span class="hljs-string">'H:i:s'</span>);
+        <span class="hljs-keyword">if</span>(message.from == user){
+            message.source = <span class="hljs-string">'self'</span>;
+        }<span class="hljs-keyword">else</span>{
+            message.source = <span class="hljs-string">'remote'</span>;
+        }
+        me.store.add(message);
+        <span class="hljs-keyword">if</span> (me.el.dom) {
+            me.el.dom.scrollTop = me.el.dom.scrollHeight;
+        }
+    }
+});
+</code></pre>
+
+<p>业务代码编写： <br/>
+ChatServer.java</p>
+
+
+
+<pre class="prettyprint"><code class=" hljs java"><span class="hljs-keyword">package</span> com.appms.websocket;
+
+<span class="hljs-keyword">import</span> java.io.IOException;
+<span class="hljs-keyword">import</span> java.net.InetSocketAddress;
+<span class="hljs-keyword">import</span> java.net.UnknownHostException;
+<span class="hljs-keyword">import</span> java.util.Date;
+
+<span class="hljs-keyword">import</span> net.sf.json.JSONObject;
+
+<span class="hljs-keyword">import</span> org.java_websocket.WebSocket;
+<span class="hljs-keyword">import</span> org.java_websocket.WebSocketImpl;
+<span class="hljs-keyword">import</span> org.java_websocket.framing.Framedata;
+<span class="hljs-keyword">import</span> org.java_websocket.handshake.ClientHandshake;
+<span class="hljs-keyword">import</span> org.java_websocket.server.WebSocketServer;
+
+
+<span class="hljs-javadoc">/**
+ * 即时通讯
+ */</span>
+<span class="hljs-keyword">public</span> <span class="hljs-class"><span class="hljs-keyword">class</span> <span class="hljs-title">ChatServer</span> <span class="hljs-keyword">extends</span> <span class="hljs-title">WebSocketServer</span>{</span>
+
+    <span class="hljs-keyword">public</span> <span class="hljs-title">ChatServer</span>(<span class="hljs-keyword">int</span> port) <span class="hljs-keyword">throws</span> UnknownHostException {
+        <span class="hljs-keyword">super</span>(<span class="hljs-keyword">new</span> InetSocketAddress(port));
+    }
+
+    <span class="hljs-keyword">public</span> <span class="hljs-title">ChatServer</span>(InetSocketAddress address) {
+        <span class="hljs-keyword">super</span>(address);
+    }
+
+    <span class="hljs-javadoc">/**
+     * 触发连接事件
+     */</span>
+    <span class="hljs-annotation">@Override</span>
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">void</span> <span class="hljs-title">onOpen</span>( WebSocket conn, ClientHandshake handshake ) {
+    }
+
+    <span class="hljs-javadoc">/**
+     * 触发关闭事件
+     */</span>
+    <span class="hljs-annotation">@Override</span>
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">void</span> <span class="hljs-title">onClose</span>( WebSocket conn, <span class="hljs-keyword">int</span> code, String reason, <span class="hljs-keyword">boolean</span> remote ) {
+        userLeave(conn);
+    }
+
+    <span class="hljs-javadoc">/**
+     * 客户端发送消息到服务器时触发事件
+     */</span>
+    <span class="hljs-annotation">@Override</span>
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">void</span> <span class="hljs-title">onMessage</span>(WebSocket conn, String message){
+        message = message.toString();
+        <span class="hljs-keyword">if</span>(<span class="hljs-keyword">null</span> != message &amp;&amp; message.startsWith(<span class="hljs-string">"admin"</span>)){
+            <span class="hljs-keyword">this</span>.userjoin(message.replaceFirst(<span class="hljs-string">"admin"</span>, <span class="hljs-string">""</span>),conn);
+        }<span class="hljs-keyword">if</span>(<span class="hljs-keyword">null</span> != message &amp;&amp; message.startsWith(<span class="hljs-string">"LeaveAdmin"</span>)){
+            <span class="hljs-keyword">this</span>.userLeave(conn);
+        }<span class="hljs-keyword">if</span>(<span class="hljs-keyword">null</span> != message &amp;&amp; message.contains(<span class="hljs-string">"admin886"</span>)){
+            String toUser = message.substring(message.indexOf(<span class="hljs-string">"admin886"</span>)+<span class="hljs-number">8</span>, message.indexOf(<span class="hljs-string">"admin888"</span>));
+            message = message.substring(<span class="hljs-number">0</span>, message.indexOf(<span class="hljs-string">"admin886"</span>)) +<span class="hljs-string">"[私信]  "</span>+ message.substring(message.indexOf(<span class="hljs-string">"admin888"</span>)+<span class="hljs-number">8</span>, message.length());
+            ChatServerPool.sendMessageToUser(ChatServerPool.getWebSocketByUser(toUser),message);<span class="hljs-comment">//向所某用户发送消息</span>
+            ChatServerPool.sendMessageToUser(conn, message);<span class="hljs-comment">//同时向本人发送消息</span>
+        }<span class="hljs-keyword">else</span>{
+            ChatServerPool.sendMessage(message.toString());<span class="hljs-comment">//向所有在线用户发送消息</span>
+        }
+    }
+
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">void</span> <span class="hljs-title">onFragment</span>( WebSocket conn, Framedata fragment ) {
+    }
+
+    <span class="hljs-javadoc">/**
+     * 触发异常事件
+     */</span>
+    <span class="hljs-annotation">@Override</span>
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">void</span> <span class="hljs-title">onError</span>( WebSocket conn, Exception ex ) {
+        ex.printStackTrace();
+        <span class="hljs-keyword">if</span>( conn != <span class="hljs-keyword">null</span> ) {
+            <span class="hljs-comment">//some errors like port binding failed may not be assignable to a specific websocket</span>
+        }
+    }
+
+
+    <span class="hljs-javadoc">/**
+     * 用户加入处理
+     *<span class="hljs-javadoctag"> @param</span> user
+     */</span>
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">void</span> <span class="hljs-title">userjoin</span>(String user, WebSocket conn){
+        JSONObject result = <span class="hljs-keyword">new</span> JSONObject();
+        result.element(<span class="hljs-string">"type"</span>, <span class="hljs-string">"user_join"</span>);
+        result.element(<span class="hljs-string">"user"</span>, <span class="hljs-string">"&lt;a onclick=\"toUserMsg('"</span>+user+<span class="hljs-string">"');\"&gt;"</span>+user+<span class="hljs-string">"&lt;/a&gt;"</span>);
+        ChatServerPool.sendMessage(result.toString());              <span class="hljs-comment">//把当前用户加入到所有在线用户列表中</span>
+        String joinMsg = <span class="hljs-string">"{\"from\":\"[系统]\",\"content\":\""</span>+user+<span class="hljs-string">"上线了\",\"timestamp\":"</span>+<span class="hljs-keyword">new</span> Date().getTime()+<span class="hljs-string">",\"type\":\"message\"}"</span>;
+        ChatServerPool.sendMessage(joinMsg);                        <span class="hljs-comment">//向所有在线用户推送当前用户上线的消息</span>
+        result = <span class="hljs-keyword">new</span> JSONObject();
+        result.element(<span class="hljs-string">"type"</span>, <span class="hljs-string">"get_online_user"</span>);
+        ChatServerPool.addUser(user,conn);                          <span class="hljs-comment">//向连接池添加当前的连接对象</span>
+        result.element(<span class="hljs-string">"list"</span>, ChatServerPool.getOnlineUser());
+        ChatServerPool.sendMessageToUser(conn, result.toString());  <span class="hljs-comment">//向当前连接发送当前在线用户的列表</span>
+    }
+
+    <span class="hljs-javadoc">/**
+     * 用户下线处理
+     *<span class="hljs-javadoctag"> @param</span> user
+     */</span>
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">void</span> <span class="hljs-title">userLeave</span>(WebSocket conn){
+        String user = ChatServerPool.getUserByKey(conn);
+        <span class="hljs-keyword">boolean</span> b = ChatServerPool.removeUser(conn);                <span class="hljs-comment">//在连接池中移除连接</span>
+        <span class="hljs-keyword">if</span>(b){
+            JSONObject result = <span class="hljs-keyword">new</span> JSONObject();
+            result.element(<span class="hljs-string">"type"</span>, <span class="hljs-string">"user_leave"</span>);
+            result.element(<span class="hljs-string">"user"</span>, <span class="hljs-string">"&lt;a onclick=\"toUserMsg('"</span>+user+<span class="hljs-string">"');\"&gt;"</span>+user+<span class="hljs-string">"&lt;/a&gt;"</span>);
+            ChatServerPool.sendMessage(result.toString());          <span class="hljs-comment">//把当前用户从所有在线用户列表中删除</span>
+            String joinMsg = <span class="hljs-string">"{\"from\":\"[系统]\",\"content\":\""</span>+user+<span class="hljs-string">"下线了\",\"timestamp\":"</span>+<span class="hljs-keyword">new</span> Date().getTime()+<span class="hljs-string">",\"type\":\"message\"}"</span>;
+            ChatServerPool.sendMessage(joinMsg);                    <span class="hljs-comment">//向在线用户发送当前用户退出的消息</span>
+        }
+    }
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">static</span> <span class="hljs-keyword">void</span> <span class="hljs-title">main</span>( String[] args ) <span class="hljs-keyword">throws</span> InterruptedException , IOException {
+        WebSocketImpl.DEBUG = <span class="hljs-keyword">false</span>;
+        <span class="hljs-keyword">int</span> port = <span class="hljs-number">8887</span>; <span class="hljs-comment">//端口</span>
+        ChatServer s = <span class="hljs-keyword">new</span> ChatServer(port);
+        s.start();
+        System.out.println( <span class="hljs-string">"服务器的端口"</span> + s.getPort() );
+    }
+
+}
+
+</code></pre>
+
+<p>ChatServerPool.java:</p>
+
+
+
+<pre class="prettyprint"><code class=" hljs java"><span class="hljs-keyword">package</span> com.appms.websocket;
+
+<span class="hljs-keyword">import</span> java.util.ArrayList;
+<span class="hljs-keyword">import</span> java.util.Collection;
+<span class="hljs-keyword">import</span> java.util.HashMap;
+<span class="hljs-keyword">import</span> java.util.List;
+<span class="hljs-keyword">import</span> java.util.Map;
+<span class="hljs-keyword">import</span> java.util.Set;
+
+<span class="hljs-keyword">import</span> org.java_websocket.WebSocket;
+
+<span class="hljs-javadoc">/**
+ * 即时通讯
+ */</span>
+<span class="hljs-keyword">public</span> <span class="hljs-class"><span class="hljs-keyword">class</span> <span class="hljs-title">ChatServerPool</span> {</span>
+
+    <span class="hljs-keyword">private</span> <span class="hljs-keyword">static</span> <span class="hljs-keyword">final</span> Map&lt;WebSocket,String&gt; userconnections = <span class="hljs-keyword">new</span> HashMap&lt;WebSocket,String&gt;();
+
+    <span class="hljs-javadoc">/**
+     * 获取用户名
+     *<span class="hljs-javadoctag"> @param</span> session
+     */</span>
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">static</span> String <span class="hljs-title">getUserByKey</span>(WebSocket conn){
+        <span class="hljs-keyword">return</span> userconnections.get(conn);
+    }
+
+    <span class="hljs-javadoc">/**
+     * 获取WebSocket
+     *<span class="hljs-javadoctag"> @param</span> user
+     */</span>
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">static</span> WebSocket <span class="hljs-title">getWebSocketByUser</span>(String user){
+        Set&lt;WebSocket&gt; keySet = userconnections.keySet();
+        <span class="hljs-keyword">synchronized</span> (keySet) {
+            <span class="hljs-keyword">for</span> (WebSocket conn : keySet) {
+                String cuser = userconnections.get(conn);
+                <span class="hljs-keyword">if</span>(cuser.equals(user)){
+                    <span class="hljs-keyword">return</span> conn;
+                }
+            }
+        }
+        <span class="hljs-keyword">return</span> <span class="hljs-keyword">null</span>;
+    }
+
+    <span class="hljs-javadoc">/**
+     * 向连接池中添加连接
+     *<span class="hljs-javadoctag"> @param</span> inbound
+     */</span>
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">static</span> <span class="hljs-keyword">void</span> <span class="hljs-title">addUser</span>(String user, WebSocket conn){
+        userconnections.put(conn,user); <span class="hljs-comment">//添加连接</span>
+    }
+
+    <span class="hljs-javadoc">/**
+     * 获取所有的在线用户
+     *<span class="hljs-javadoctag"> @return</span>
+     */</span>
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">static</span> Collection&lt;String&gt; <span class="hljs-title">getOnlineUser</span>(){
+        List&lt;String&gt; setUsers = <span class="hljs-keyword">new</span> ArrayList&lt;String&gt;();
+        Collection&lt;String&gt; setUser = userconnections.values();
+        <span class="hljs-keyword">for</span>(String u:setUser){
+            setUsers.add(<span class="hljs-string">"&lt;a onclick=\"toUserMsg('"</span>+u+<span class="hljs-string">"');\"&gt;"</span>+u+<span class="hljs-string">"&lt;/a&gt;"</span>);
+        }
+        <span class="hljs-keyword">return</span> setUsers;
+    }
+
+    <span class="hljs-javadoc">/**
+     * 移除连接池中的连接
+     *<span class="hljs-javadoctag"> @param</span> inbound
+     */</span>
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">static</span> <span class="hljs-keyword">boolean</span> <span class="hljs-title">removeUser</span>(WebSocket conn){
+        <span class="hljs-keyword">if</span>(userconnections.containsKey(conn)){
+            userconnections.remove(conn);   <span class="hljs-comment">//移除连接</span>
+            <span class="hljs-keyword">return</span> <span class="hljs-keyword">true</span>;
+        }<span class="hljs-keyword">else</span>{
+            <span class="hljs-keyword">return</span> <span class="hljs-keyword">false</span>;
+        }
+    }
+
+    <span class="hljs-javadoc">/**
+     * 向特定的用户发送数据
+     *<span class="hljs-javadoctag"> @param</span> user
+     *<span class="hljs-javadoctag"> @param</span> message
+     */</span>
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">static</span> <span class="hljs-keyword">void</span> <span class="hljs-title">sendMessageToUser</span>(WebSocket conn,String message){
+        <span class="hljs-keyword">if</span>(<span class="hljs-keyword">null</span> != conn &amp;&amp; <span class="hljs-keyword">null</span> != userconnections.get(conn)){
+            conn.send(message);
+        }
+    }
+
+    <span class="hljs-javadoc">/**
+     * 向所有的用户发送消息
+     *<span class="hljs-javadoctag"> @param</span> message
+     */</span>
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">static</span> <span class="hljs-keyword">void</span> <span class="hljs-title">sendMessage</span>(String message){
+        Set&lt;WebSocket&gt; keySet = userconnections.keySet();
+        <span class="hljs-keyword">synchronized</span> (keySet) {
+            <span class="hljs-keyword">for</span> (WebSocket conn : keySet) {
+                String user = userconnections.get(conn);
+                <span class="hljs-keyword">if</span>(user != <span class="hljs-keyword">null</span>){
+                    conn.send(message);
+                }
+            }
+        }
+    }
+}
+</code></pre>
+
+<p>写个过滤器，在项目执行时启动：</p>
+
+
+
+<pre class="prettyprint"><code class=" hljs java"><span class="hljs-keyword">package</span> com.appms.filter;
+
+<span class="hljs-keyword">import</span> java.io.IOException;
+<span class="hljs-keyword">import</span> java.net.UnknownHostException;
+<span class="hljs-keyword">import</span> java.util.Calendar;
+<span class="hljs-keyword">import</span> java.util.Date;
+<span class="hljs-keyword">import</span> java.util.Timer;
+<span class="hljs-keyword">import</span> java.util.TimerTask;
+
+<span class="hljs-keyword">import</span> javax.servlet.Filter;
+<span class="hljs-keyword">import</span> javax.servlet.FilterChain;
+<span class="hljs-keyword">import</span> javax.servlet.FilterConfig;
+<span class="hljs-keyword">import</span> javax.servlet.ServletException;
+<span class="hljs-keyword">import</span> javax.servlet.ServletRequest;
+<span class="hljs-keyword">import</span> javax.servlet.ServletResponse;
+
+<span class="hljs-keyword">import</span> org.java_websocket.WebSocketImpl;
+
+<span class="hljs-keyword">import</span> com.appms.base.BaseController;
+<span class="hljs-keyword">import</span> com.appms.base.Const;
+<span class="hljs-keyword">import</span> com.appms.utils.Tools;
+<span class="hljs-keyword">import</span> com.appms.websocket.ChatServer;
+<span class="hljs-keyword">import</span> com.appms.websocket.OnlineChatServer;
+
+<span class="hljs-keyword">public</span> <span class="hljs-class"><span class="hljs-keyword">class</span> <span class="hljs-title">StartFilter</span> <span class="hljs-keyword">extends</span> <span class="hljs-title">BaseController</span> <span class="hljs-keyword">implements</span> <span class="hljs-title">Filter</span>{</span>
+
+    <span class="hljs-javadoc">/**
+     * 初始化
+     */</span>
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">void</span> <span class="hljs-title">init</span>(FilterConfig fc) <span class="hljs-keyword">throws</span> ServletException {
+        <span class="hljs-keyword">this</span>.startWebsocketInstantMsg();
+        <span class="hljs-keyword">this</span>.startWebsocketOnline();
+    }
+
+    <span class="hljs-javadoc">/**
+     * 启动即时聊天服务
+     */</span>
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">void</span> <span class="hljs-title">startWebsocketInstantMsg</span>(){
+        WebSocketImpl.DEBUG = <span class="hljs-keyword">false</span>;
+        ChatServer s = <span class="hljs-keyword">null</span>;
+        <span class="hljs-keyword">try</span> {
+            String strWEBSOCKET = Tools.readTxtFile(Const.WEBSOCKET);<span class="hljs-comment">//读取WEBSOCKET配置,获取端口配置</span>
+            <span class="hljs-keyword">if</span>(<span class="hljs-keyword">null</span> != strWEBSOCKET &amp;&amp; !<span class="hljs-string">""</span>.equals(strWEBSOCKET)){
+                String strIW[] = strWEBSOCKET.split(<span class="hljs-string">",fh,"</span>);
+                <span class="hljs-keyword">if</span>(strIW.length == <span class="hljs-number">4</span>){
+                    s = <span class="hljs-keyword">new</span> ChatServer(Integer.parseInt(strIW[<span class="hljs-number">1</span>]));
+                    s.start();
+                }
+            }
+            System.out.println( <span class="hljs-string">"websocket服务器启动,端口"</span> + s.getPort() );
+        } <span class="hljs-keyword">catch</span> (UnknownHostException e) {
+            e.printStackTrace();
+        }
+    }
+
+    <span class="hljs-javadoc">/**
+     * 启动在线管理服务
+     */</span>
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">void</span> <span class="hljs-title">startWebsocketOnline</span>(){
+        WebSocketImpl.DEBUG = <span class="hljs-keyword">false</span>;
+        OnlineChatServer s = <span class="hljs-keyword">null</span>;
+        <span class="hljs-keyword">try</span> {
+            String strWEBSOCKET = Tools.readTxtFile(Const.WEBSOCKET);<span class="hljs-comment">//读取WEBSOCKET配置,获取端口配置</span>
+            <span class="hljs-keyword">if</span>(<span class="hljs-keyword">null</span> != strWEBSOCKET &amp;&amp; !<span class="hljs-string">""</span>.equals(strWEBSOCKET)){
+                String strIW[] = strWEBSOCKET.split(<span class="hljs-string">",fh,"</span>);
+                <span class="hljs-keyword">if</span>(strIW.length == <span class="hljs-number">4</span>){
+                    s = <span class="hljs-keyword">new</span> OnlineChatServer(Integer.parseInt(strIW[<span class="hljs-number">3</span>]));
+                    s.start();
+                }
+            }
+            System.out.println( <span class="hljs-string">"websocket服务器启动,端口"</span> + s.getPort() );
+        } <span class="hljs-keyword">catch</span> (UnknownHostException e) {
+            e.printStackTrace();
+        }
+    }
+
+
+    <span class="hljs-comment">//计时器</span>
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">void</span> <span class="hljs-title">timer</span>() {
+        Calendar calendar = Calendar.getInstance();
+        calendar.set(Calendar.HOUR_OF_DAY, <span class="hljs-number">9</span>); <span class="hljs-comment">// 控制时</span>
+        calendar.set(Calendar.MINUTE, <span class="hljs-number">0</span>);       <span class="hljs-comment">// 控制分</span>
+        calendar.set(Calendar.SECOND, <span class="hljs-number">0</span>);       <span class="hljs-comment">// 控制秒</span>
+
+        Date time = calendar.getTime();         <span class="hljs-comment">// 得出执行任务的时间</span>
+
+        Timer timer = <span class="hljs-keyword">new</span> Timer();
+        timer.scheduleAtFixedRate(<span class="hljs-keyword">new</span> TimerTask() {
+            <span class="hljs-keyword">public</span> <span class="hljs-keyword">void</span> <span class="hljs-title">run</span>() {
+                <span class="hljs-comment">//PersonService personService = (PersonService)ApplicationContext.getBean("personService");</span>
+            }
+        }, time, <span class="hljs-number">1000</span>*<span class="hljs-number">60</span>*<span class="hljs-number">60</span>*<span class="hljs-number">24</span>);<span class="hljs-comment">// 这里设定将延时每天固定执行</span>
+    }
+
+
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">void</span> <span class="hljs-title">destroy</span>() {
+        <span class="hljs-comment">// TODO Auto-generated method stub</span>
+
+    }
+
+
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">void</span> <span class="hljs-title">doFilter</span>(ServletRequest arg0, ServletResponse arg1,
+            FilterChain arg2) <span class="hljs-keyword">throws</span> IOException, ServletException {
+        <span class="hljs-comment">// TODO Auto-generated method stub</span>
+
+    }
+
+}
+</code></pre>
+
+<p>在web.xml里配置：</p>
+
+
+
+<pre class="prettyprint"><code class=" hljs vbscript"> &lt;<span class="hljs-built_in">filter</span>&gt;
+    &lt;<span class="hljs-built_in">filter</span>-name&gt;startFilter&lt;/<span class="hljs-built_in">filter</span>-name&gt;
+    &lt;<span class="hljs-built_in">filter</span>-<span class="hljs-keyword">class</span>&gt;com.appms.<span class="hljs-built_in">filter</span>.StartFilter&lt;/<span class="hljs-built_in">filter</span>-<span class="hljs-keyword">class</span>&gt;
+  &lt;/<span class="hljs-built_in">filter</span>&gt;</code></pre>
+
+<p>在jsp页面进行调用：</p>
+
+
+
+<pre class="prettyprint"><code class=" hljs xml">    <span class="hljs-tag">&lt;<span class="hljs-title">script</span> <span class="hljs-attribute">type</span>=<span class="hljs-value">"text/javascript"</span>&gt;</span><span class="javascript"><span class="hljs-keyword">var</span> wimadress=<span class="hljs-string">"127.0.0.1:8887"</span>;</span><span class="hljs-tag">&lt;/<span class="hljs-title">script</span>&gt;</span>
+    <span class="hljs-tag">&lt;<span class="hljs-title">script</span> <span class="hljs-attribute">type</span>=<span class="hljs-value">"text/javascript"</span>&gt;</span><span class="javascript"><span class="hljs-keyword">var</span> oladress=<span class="hljs-string">"127.0.0.1:8889"</span>;</span><span class="hljs-tag">&lt;/<span class="hljs-title">script</span>&gt;</span>
+    <span class="hljs-tag">&lt;<span class="hljs-title">link</span> <span class="hljs-attribute">rel</span>=<span class="hljs-value">"stylesheet"</span> <span class="hljs-attribute">type</span>=<span class="hljs-value">"text/css"</span> <span class="hljs-attribute">href</span>=<span class="hljs-value">"plugins/websocket/ext4/resources/css/ext-all.css"</span>&gt;</span>
+    <span class="hljs-tag">&lt;<span class="hljs-title">link</span> <span class="hljs-attribute">rel</span>=<span class="hljs-value">"stylesheet"</span> <span class="hljs-attribute">type</span>=<span class="hljs-value">"text/css"</span> <span class="hljs-attribute">href</span>=<span class="hljs-value">"plugins/websocket/css/websocket.css"</span> /&gt;</span>
+    <span class="hljs-tag">&lt;<span class="hljs-title">script</span> <span class="hljs-attribute">type</span>=<span class="hljs-value">"text/javascript"</span> <span class="hljs-attribute">src</span>=<span class="hljs-value">"plugins/websocket/ext4/ext-all-debug.js"</span>&gt;</span><span class="javascript"/><span class="hljs-tag">&lt;/<span class="hljs-title">script</span>&gt;</span>
+    <span class="hljs-tag">&lt;<span class="hljs-title">script</span> <span class="hljs-attribute">type</span>=<span class="hljs-value">"text/javascript"</span> <span class="hljs-attribute">src</span>=<span class="hljs-value">"plugins/websocket/websocket.js"</span>&gt;</span><span class="javascript"/><span class="hljs-tag">&lt;/<span class="hljs-title">script</span>&gt;</span>
+        <span class="hljs-comment">&lt;!--引入属于此页面的js --&gt;</span>
+    <span class="hljs-tag">&lt;<span class="hljs-title">script</span> <span class="hljs-attribute">type</span>=<span class="hljs-value">"text/javascript"</span> <span class="hljs-attribute">src</span>=<span class="hljs-value">"source/js/jquery-1.8.3.js"</span>&gt;</span><span class="javascript"/><span class="hljs-tag">&lt;/<span class="hljs-title">script</span>&gt;</span>
+</code></pre>
+
+<p>点击li标签跳出聊天页面</p>
+
+
+
+<pre class="prettyprint"><code class=" hljs xml">ul class="am-avg-sm-1 am-avg-md-4 am-margin am-padding am-text-center admin-content-list "&gt;
+      <span class="hljs-tag">&lt;<span class="hljs-title">li</span> <span class="hljs-attribute">onclick</span>=<span class="hljs-value">"creatw();"</span>&gt;</span><span class="hljs-tag">&lt;<span class="hljs-title">a</span> <span class="hljs-attribute">href</span>=<span class="hljs-value">"javascript:;"</span>&gt;</span><span class="hljs-tag">&lt;<span class="hljs-title">span</span> <span class="hljs-attribute">class</span>=<span class="hljs-value">"am-icon-btn am-icon-file-text"</span>&gt;</span><span class="hljs-tag">&lt;/<span class="hljs-title">span</span>&gt;</span><span class="hljs-tag">&lt;<span class="hljs-title">br</span>/&gt;</span>即时通讯<span class="hljs-tag">&lt;<span class="hljs-title">br</span>/&gt;</span><span class="hljs-tag">&lt;/<span class="hljs-title">a</span>&gt;</span><span class="hljs-tag">&lt;/<span class="hljs-title">li</span>&gt;</span>
+      <span class="hljs-tag">&lt;<span class="hljs-title">li</span>&gt;</span><span class="hljs-tag">&lt;<span class="hljs-title">a</span> <span class="hljs-attribute">href</span>=<span class="hljs-value">"fusioncharts/index.do"</span> <span class="hljs-attribute">class</span>=<span class="hljs-value">"am-text-warning"</span>&gt;</span><span class="hljs-tag">&lt;<span class="hljs-title">span</span> <span class="hljs-attribute">class</span>=<span class="hljs-value">"am-icon-btn am-icon-briefcase"</span>&gt;</span><span class="hljs-tag">&lt;/<span class="hljs-title">span</span>&gt;</span><span class="hljs-tag">&lt;<span class="hljs-title">br</span>/&gt;</span>图表统计<span class="hljs-tag">&lt;<span class="hljs-title">br</span>/&gt;</span><span class="hljs-tag">&lt;/<span class="hljs-title">a</span>&gt;</span><span class="hljs-tag">&lt;/<span class="hljs-title">li</span>&gt;</span>
+      <span class="hljs-tag">&lt;<span class="hljs-title">li</span>&gt;</span><span class="hljs-tag">&lt;<span class="hljs-title">a</span> <span class="hljs-attribute">href</span>=<span class="hljs-value">"#"</span> <span class="hljs-attribute">class</span>=<span class="hljs-value">"am-text-danger"</span>&gt;</span><span class="hljs-tag">&lt;<span class="hljs-title">span</span> <span class="hljs-attribute">class</span>=<span class="hljs-value">"am-icon-btn am-icon-recycle"</span>&gt;</span><span class="hljs-tag">&lt;/<span class="hljs-title">span</span>&gt;</span><span class="hljs-tag">&lt;<span class="hljs-title">br</span>/&gt;</span>昨日访问<span class="hljs-tag">&lt;<span class="hljs-title">br</span>/&gt;</span>80082<span class="hljs-tag">&lt;/<span class="hljs-title">a</span>&gt;</span><span class="hljs-tag">&lt;/<span class="hljs-title">li</span>&gt;</span>
+      <span class="hljs-tag">&lt;<span class="hljs-title">li</span>&gt;</span><span class="hljs-tag">&lt;<span class="hljs-title">a</span> <span class="hljs-attribute">href</span>=<span class="hljs-value">"#"</span> <span class="hljs-attribute">class</span>=<span class="hljs-value">"am-text-secondary"</span>&gt;</span><span class="hljs-tag">&lt;<span class="hljs-title">span</span> <span class="hljs-attribute">class</span>=<span class="hljs-value">"am-icon-btn am-icon-user-md"</span>&gt;</span><span class="hljs-tag">&lt;/<span class="hljs-title">span</span>&gt;</span><span class="hljs-tag">&lt;<span class="hljs-title">br</span>/&gt;</span>在线用户<span class="hljs-tag">&lt;<span class="hljs-title">br</span>/&gt;</span>3000<span class="hljs-tag">&lt;/<span class="hljs-title">a</span>&gt;</span><span class="hljs-tag">&lt;/<span class="hljs-title">li</span>&gt;</span>
+    <span class="hljs-tag">&lt;/<span class="hljs-title">ul</span>&gt;</span></code></pre>
+
+<p>私聊： <br/>
+<img src="http://img.blog.csdn.net/20170105142419057?watermark/2/text/aHR0cDovL2Jsb2cuY3Nkbi5uZXQvdTAxNDQyNzM5MQ==/font/5a6L5L2T/fontsize/400/fill/I0JBQkFCMA==/dissolve/70/gravity/SouthEast" alt="这里写图片描述" title=""/> <br/>
+群聊： <br/>
+<img src="http://img.blog.csdn.net/20170105142403432?watermark/2/text/aHR0cDovL2Jsb2cuY3Nkbi5uZXQvdTAxNDQyNzM5MQ==/font/5a6L5L2T/fontsize/400/fill/I0JBQkFCMA==/dissolve/70/gravity/SouthEast" alt="这里写图片描述" title=""/> <br/>
+基于ExtJS前端框架的Websocket即时通讯系统 <br/>
+<img src="http://img.blog.csdn.net/20170105142348791?watermark/2/text/aHR0cDovL2Jsb2cuY3Nkbi5uZXQvdTAxNDQyNzM5MQ==/font/5a6L5L2T/fontsize/400/fill/I0JBQkFCMA==/dissolve/70/gravity/SouthEast" alt="这里写图片描述" title=""/></p><link rel="stylesheet" href="http://static.blog.csdn.net/public/res-min/markdown_views.css?v=1.0"/></div><link rel="stylesheet" href="http://static.blog.csdn.net/public/res-min/markdown_views.css?v=1.0"/>&#13;
+            

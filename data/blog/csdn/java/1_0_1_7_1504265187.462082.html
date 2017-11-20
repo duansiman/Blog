@@ -1,0 +1,229 @@
+
+        <div class="markdown_views"><p><strong>摘要：</strong></p>
+
+<p>　　事务是最小的逻辑执行单元，也是数据库并发控制的基本单位，其执行的结果必须使数据库从一种一致性状态变到另一种一致性状态。事务具有四个重要特性，即原子性（Atomicity）、一致性（Consistency）、隔离性 (Isolation)和持久性 (Durability)。本文首先叙述了数据库中事务的本质及其四大特性（ACID）的内涵，然后重点介绍了事务隔离性的动机和内涵，并介绍了数据库为此所提供的事务隔离级别以及这些事务隔离级别能解决的事务并发问题。介于并发安全与并发效率的平衡，我们一般不会一味地提高事务隔离级别来保证事务并发安全性，而是通过结合其他机制(包括笔者提到的乐观锁和悲观锁机制)来解决数据库事务并发问题。</p>
+
+<hr />
+
+<p><strong>版权声明与致谢：</strong></p>
+
+<p>　　本文原创作者：<a href="http://my.csdn.net/justloveyou_">书呆子Rico</a> <br />
+　　作者博客地址：<a href="http://blog.csdn.net/justloveyou_/">http://blog.csdn.net/justloveyou_/</a></p>
+
+<p>　　本文关于脏读、不可重复读和幻读的解释举例来源于博文<a href="http://blog.csdn.net/fg2006/article/details/6937413">《数据库事务隔离级别》</a>。</p>
+
+<hr />
+
+
+
+<h2 id="一-事务概述">一. 事务概述</h2>
+
+<p>　　一般而言，用户的每次请求都对应一个业务逻辑方法，并且每个业务逻辑方法往往具有逻辑上的原子性。此外，一个业务逻辑方法往往包括一系列数据库原子访问操作，并且这些数据库原子访问操作应该绑定成一个整体，即要么全部执行，要么全部不执行，通过这种方式我们可以保证数据库的完整性。也就是说，事务是最小的逻辑执行单元，是数据库维护数据一致性的基本单位。</p>
+
+<p>　　总的来说，<font color="DarkGreen"><b>事务是一个不可分割操作序列，也是数据库并发控制的基本单位，其执行的结果必须使数据库从一种一致性状态变到另一种一致性状态。</b></font>事务具有四个重要特征，即原子性（Atomicity）、一致性（Consistency）、隔离性 (Isolation)和持久性 (Durability)。</p>
+
+<hr />
+
+<p>(1). <font color="DarkGreen"><b>原子性（Atomicity）</b></font></p>
+
+<p>　　<font color="blue">原子性是指事务包含的所有操作要么全部成功，要么全部失败回滚。</font>  因此，事务的操作如果成功就必须要完全应用到数据库，如果操作失败则不会对数据库有任何影响，也就是说，事务是应用中不可再分的最小逻辑执行体。</p>
+
+<hr />
+
+<p>(2). <font color="DarkGreen"><b>一致性（Consistency）</b></font></p>
+
+<p>　　<font color="blue">一致性是指事务执行的结果必须使数据库从一种一致性状态变到另一种一致性状态，</font>也就是说，一个事务执行之前和执行之后数据库都必须处于一致性状态。拿转账来说，假设用户A和用户B两者的钱加起来一共是5000，那么不管A和B之间如何转账，转几次账，事务结束后两个用户的钱相加起来应该还得是5000，这就是事务的一致性。</p>
+
+<hr />
+
+<p>(3). <font color="DarkGreen"><b>隔离性 (Isolation)</b></font><font color="red"><b> — 与事务并发直接相关</b></font></p>
+
+<p>　　<font color="red"><b>隔离性是指并发执行的事务之间不能相互影响。</b></font>也就是说，对于任意两个并发的事务 T1 和 T2，在事务 T1 看来，T2 要么在 T1 开始之前就已经结束，要么在 T1 结束之后才开始，这样每个事务都感觉不到有其他事务在并发地执行。关于事务的隔离性下文会重点探讨。</p>
+
+<hr />
+
+<p>(4). <font color="DarkGreen"><b>持久性 (Durability)</b></font></p>
+
+<p>　　<font color="blue">持久性是指一个事务一旦被提交了，那么对数据库中的数据的改变就是永久性的</font>，即便是在数据库系统遇到故障的情况下也不会丢失提交事务的操作。换句换说，事务一旦提交，对数据库所做的任何改变都要记录到永久的存储器中(通常就是保存到物理数据库)。</p>
+
+<hr />
+
+
+
+<h2 id="二-事务隔离性的内涵">二. 事务隔离性的内涵</h2>
+
+<p>　　以上介绍完了事务的基本概念及其四大特性(简称ACID)，现在重点来说明下事务的隔离性。我们知道，当多个线程都开启事务操作数据库中的数据时，数据库系统要能进行隔离操作以保证各个线程获取数据的准确性。也就是说，<font color="red"><b>事务的隔离性主要用于解决事务的并发安全问题，</b></font>那么事务的隔离性解决了哪些具体问题呢？</p>
+
+<hr />
+
+<p>1、事务并发带来的问题</p>
+
+<p>(1). <font color="blue"><b>脏读</b></font></p>
+
+<p>　　<font color="blue"><b>脏读是指在一个事务处理过程中读取了另一个事务未提交的数据。</b></font>比如，当一个事务正在多次修改某个数据，而当这个事务对数据的修改还未提交时，这时一个并发的事务来访问该数据，就会造成数据的脏读。看下面的例子:</p>
+
+<p>　　公司发工资了，领导把5000元打到singo的账号上，但是该事务并未提交，而singo正好去查看账户，发现工资已经到账，是5000元整，非常高兴。可是不幸的是，领导发现发给singo的工资金额不对，是2000元，于是迅速回滚了事务，修改金额后，将事务提交，最后singo实际的工资只有2000元，singo空欢喜一场。</p>
+
+<p>　　出现的上述情况就是我们所说的脏读，即对于两个并发的事务(事务A：领导给singo发工资、事务B：singo查询工资账户)，事务B读取了事务A尚未提交的数据。特别地，<font color="red">当隔离级别设置为 Read Committed 时，就可以避免脏读，但是仍可能会造成不可重复读。</font>特别地，大多数数据库的默认级别就是Read committed，比如Sql Server , Oracle。</p>
+
+<hr />
+
+<p>(2). <font color="blue"><b>不可重复读</b></font></p>
+
+<p>　　不可重复读是指：<font color="blue"><b>对于数据库中的某个数据，一个事务范围内多次查询却返回了不同的数据值，</b></font>这是由于在查询间隔该数据被另一个事务修改并提交了。例如，事务 T1 在读取某一数据，而事务 T2 立马修改了这个数据并且提交事务，当事务T1再次读取该数据就得到了不同的结果，即发生了不可重复读。<font color="red"><b>不可重复读和脏读的区别是，脏读是某一事务读取了另一个事务未提交的脏数据，而不可重复读则是读取了前一事务提交的数据。</b></font>看下面的例子:</p>
+
+<p>　　singo拿着工资卡去消费，系统读取到卡里确实有2000元，而此时她的老婆也正好在网上转账，把singo工资卡的2000元转到另一账户，并在singo之前提交了事务，当singo扣款时，系统检查到singo的工资卡已经没有钱，扣款失败，singo十分纳闷，明明卡里有钱，为何……</p>
+
+<p>　　上述情况就是我们所说的不可重复读，即两个并发的事务(事务A：singo消费、事务B：singo的老婆网上转账)，事务A事先读取了数据，事务B紧接着更新了数据并提交了事务，而事务A再次读取该数据时，数据已经发生了改变。<font color="red">当隔离级别设置为Repeatable read时，可以避免不可重复读。</font>这时，当singo拿着工资卡去消费时，一旦系统开始读取工资卡信息（即事务开始），singo的老婆就不可能对该记录进行修改，也就是singo的老婆不能在此时转账。特别地，MySQL的默认隔离级别就是 Repeatable read。</p>
+
+<hr />
+
+<p>(3). <font color="blue"><b>幻读</b></font></p>
+
+<p>　　<font color="blue"><b>幻读是事务非独立执行时发生的一种现象，即在一个事务读的过程中，另外一个事务可能插入了新数据记录，影响了该事务读的结果。</b></font>例如，事务 T1 对一个表中所有的行的某个数据项执行了从“1”修改为“2”的操作，这时事务T2又对这个表中插入了一行数据项，而这个数据项的数值还是为“1”并且提交给数据库。这时，操作事务 T1 的用户如果再查看刚刚修改的数据，会发现还有一行没有修改，其实这行是从事务T2中添加的，就好像产生幻觉一样，这就是发生了幻读。<font color="red"><b>幻读和不可重复读都是读取了另一条已经提交的事务（这点与脏读不同），所不同的是不可重复读查询的都是同一个数据项，而幻读针对的是数据记录插入/删除问题，二者关注的问题点不太相同。</b></font>看下面的例子:</p>
+
+<p>　　singo的老婆工作在银行部门，她时常通过银行内部系统查看singo的信用卡消费记录。有一天，她正在查询到singo当月信用卡的总消费金额为80元，而singo此时正好在外面胡吃海塞后在收银台买单，消费1000元，即新增了一条1000元的消费记录并提交了事务，随后singo的老婆将singo当月信用卡消费的明细打印到A4纸上，却发现消费总额为1080元，singo的老婆很诧异，以为出现了幻觉，幻读就这样产生了。<font color="red">当隔离级别设置为Serializable(最高的事务隔离级别)时，不仅可以避免脏读、不可重复读，还可以避免幻读。但同时代价也花费最高，性能很低，一般很少使用，因为在该级别下并发事务将串行执行。</font></p>
+
+<hr />
+
+<p>2、小结</p>
+
+<p>　　总的来说，事务的隔离性主要用于解决事务并发安全问题。上面提到的脏读、不可重复读和幻读三个典型问题都是在事务并发的前提下发生的，不同的是三者的问题关注点略有不同。脏读关注的是事务读取了另一个事务未提交的数据；不可重复读关注的是同一事务中对同一个数据项多次读取的结果互不相同；幻读更侧重于数据记录的插入/删除问题，比如同一事务中对符合同一条件的数据记录的多次查询的结果互不相同。更进一步地说，<font color="red"><b>不可重复读关注的是数据的更新带来的问题，幻读关注的是数据的增删带来的问题。</b></font></p>
+
+<hr />
+
+
+
+<h2 id="三-数据库的事务隔离级别">三. 数据库的事务隔离级别</h2>
+
+<p>　　<font color="blue">不同数据库的事务隔离级别不尽相同。</font>比如我们在上一节提到，MySQL数据库支持下面的四种隔离级别，并且默认为 Repeatable read 级别；而在Oracle数据库中，只支持Serializable 级别和 Read committed 这两种级别，并且默认为 Read committed 级别。MySQL数据库为我们提供了四种隔离级别，分别为：</p>
+
+<ul>
+<li>Serializable (串行化)：最高级别，可避免脏读、不可重复读、幻读的发生；</li>
+<li>Repeatable read (可重复读)：可避免脏读、不可重复读的发生；</li>
+<li>Read committed (读已提交)：可避免脏读的发生；</li>
+<li><p>Read uncommitted (读未提交)：最低级别，任何情况都无法保证。</p>
+
+<p>　　　　　　　　<img src="http://static.zybuluo.com/Rico123/8z31yi3vzipdao5fjkdla94r/%E6%95%B0%E6%8D%AE%E5%BA%93%E4%BA%8B%E5%8A%A1%E7%9A%84%E9%9A%94%E7%A6%BB%E7%BA%A7%E5%88%AB.png" alt="数据库事务的隔离级别.png-11.4kB" title="" /></p>
+
+<p>　　　　　　　　　　　<img src="http://img.blog.csdn.net/20170421152820219?watermark/2/text/aHR0cDovL2Jsb2cuY3Nkbi5uZXQvanVzdGxvdmV5b3Vf/font/5a6L5L2T/fontsize/400/fill/I0JBQkFCMA==/dissolve/70/gravity/SouthEast" alt="这里写图片描述" title="" /></p>
+
+<p>　　从上图中可以看出，以上四种隔离级别中最高的是 Serializable级别，最低的是 Read uncommitted级别。当然，隔离级别越高，事务并发就越安全，但执行效率也就越低。比如，Serializable 这样的级别就是以锁表的方式(类似于Java多线程中的锁)保证并发事务的串行执行，但这时执行效率也降到了最低，所以，<font color="red"><b>选用何种隔离级别实质上是一种并发安全与并发效率的平衡</b></font>，应该根据实际情况而定。特别地，在MySQL数据库中，默认的事务隔离级别为 Repeatable read(可重复读)，下面我们看看如何在MySQL数据库中操作事务的隔离级别。</p></li>
+</ul>
+
+<hr />
+
+<p>1). MySQL默认事务隔离级别查看</p>
+
+<p>　　在MySQL数据库中，我们可以通过以下方式查看当前事务的隔离级别:</p>
+
+<pre class="prettyprint"><code class="language-sql hljs ">    <span class="hljs-operator"><span class="hljs-keyword">select</span> @@tx_isolation;</span></code></pre>
+
+<p>　　　　　　　　　　　　　　　　　　　　<img src="http://static.zybuluo.com/Rico123/1774klai494k3s976tawsz9h/MySQL%E7%9A%84%E9%9A%94%E7%A6%BB%E7%BA%A7%E5%88%AB.png" alt="MySQL的隔离级别.png-1.4kB" title="" /></p>
+
+<hr />
+
+<p>2). MySQL事务隔离级别修改</p>
+
+<p>　　在MySQL数据库中，我们可以分别通过以下两种方式设置事务的隔离级别，分别为：</p>
+
+
+
+<pre class="prettyprint"><code class="language-sql hljs ">    <span class="hljs-operator"><span class="hljs-keyword">set</span>  [glogal | <span class="hljs-keyword">session</span>]  <span class="hljs-keyword">transaction</span> <span class="hljs-keyword">isolation</span> <span class="hljs-keyword">level</span> 隔离级别名称;</span>
+或
+    <span class="hljs-operator"><span class="hljs-keyword">set</span> tx_isolation=<span class="hljs-string">'隔离级别名称'</span>;</span></code></pre>
+
+<p>　　　　　　　　　　　　　　　　　　<img src="http://static.zybuluo.com/Rico123/lqms8ew2hx9fcaq6thbmz962/%E4%BA%8B%E5%8A%A1%E7%9A%84%E9%9A%94%E7%A6%BB%E7%BA%A7%E5%88%AB%E8%AE%BE%E7%BD%AE2.png" alt="事务的隔离级别设置2.png-2.6kB" title="" /></p>
+
+<hr />
+
+<p>3). 使用JDBC对设置数据库事务的隔离级别</p>
+
+<p>　　设置数据库的隔离级别一定要是在开启事务之前。特别地，使用JDBC对数据库的事务设置隔离级别时，我们应该在调用Connection对象的setAutoCommit(false)方法之前调用Connection对象的setTransactionIsolation(level)去设置当前链接的隔离级别如下所示：</p>
+
+<p>　　　　　　　　　　　　<img src="http://static.zybuluo.com/Rico123/349able5oqnyf0mf84dvyzyb/%E6%95%B0%E6%8D%AE%E5%BA%93%E8%BF%9E%E6%8E%A5%E8%AE%BE%E7%BD%AE%E4%BA%8B%E5%8A%A1%E9%9A%94%E7%A6%BB%E7%BA%A7%E5%88%AB.png" alt="数据库连接设置事务隔离级别.png-6.2kB" title="" /></p>
+
+<p>　　至于参数level，可以使用Connection接口的字段，如以下代码所示：</p>
+
+<p>　　　　　　　　　　　　　　　<img src="http://static.zybuluo.com/Rico123/f5x04tkq6ocobjf3qdcsfonx/Connection%E4%BA%8B%E5%8A%A1%E8%AE%BE%E7%BD%AE.png" alt="Connection事务设置.png-7.8kB" title="" /></p>
+
+<p>　　特别地，通过这种方式设置事务隔离级别只对当前链接有效。对于使用MySQL命令窗口而言，一个窗口就相当于一个链接，当前窗口设置的隔离级别只对当前窗口中的事务有效；对于JDBC操作数据库来说，一个Connection对象相当于一个链接，而对于Connection对象设置的隔离级别只对该Connection对象有效，与其他链接Connection对象无关。</p>
+
+<hr />
+
+
+
+<h2 id="四-数据库并发控制">四. 数据库并发控制</h2>
+
+<p>　　也许大家已经听说过，锁分两种，一个叫 <font color="red"><b>悲观锁</b></font>，一种称之为 <font color="red"><b>乐观锁</b></font>。事实上，<font color="red"><b>无论是悲观锁还是乐观锁，都是人们定义出来的概念，是一种解决问题的思想。</b></font>因此，不仅仅在数据库系统中有乐观锁和悲观锁的概念，像memcache、hibernate、tair等都有类似的概念。比如，在线程并发处理中，<font color="blue"><b> Synchronized内置锁 </b></font>就是悲观锁的一种，也称之为 <font color="DarkGreen"><b>独占锁</b></font>，加了synchronized关键字的代码基本上就只能以单线程的形式去执行了，它会导致其他需要该资源的线程挂起，直到前面的线程执行完毕释放所资源；而 <font color="red"><b>乐观锁是一种更高效的机制，它的原理就是每次不加锁去执行某项操作，如果发生冲突则失败并重试，直到成功为止，其实本质上不算锁，所以很多地方也称之为</b></font> <font color="DarkGreen"><b>自旋</b></font>。</p>
+
+<p>　　<font color="blue">在解决数据库的事务并发访问问题时，虽然将事务串形化可以保证数据在多事务并发处理下不存在数据不一致的问题，但串行执行使得数据库的处理性能大幅度地下降，常常是我们接受不了的。所以，一般来说，我们常常结合事务隔离级别和其它并发机制来保证事务的并发，以此来兼顾事务并发的效率与安全性。</font>事实上，大多数数据库的隔离级别都会设置为 Read Committed（只能读取其他事务已提交的数据），然后由应用程序使用乐观锁/悲观锁机制来解决其他事务并发问题，比如不可重复读问题。<font color="red"><b>特别地，乐观并发控制(乐观锁)和悲观并发控制（悲观锁）是并发控制主要采用的技术手段。</b></font></p>
+
+<p>　　特别地，<font color="DarkGreen"><b>乐观锁的理念是：假设不会发生并发冲突，只在提交操作时检查是否违反数据完整性；而悲观锁的理念是假定会发生并发冲突，屏蔽一切可能违反数据完整性的操作。</b></font>针对于不同的业务场景，应该选用不同的并发控制方式。所以，不要把乐观并发控制和悲观并发控制狭义的理解为DBMS中的概念，更不要把他们和数据中提供的锁机制（行锁、表锁、排他锁、共享锁）混为一谈。需要指出的是，在DBMS中，悲观锁正是利用数据库本身提供的锁机制来实现的。</p>
+
+<p>　　<font color="blue"><b>Ps:更多关于<font color="red"><b> synchronized 关键字 </b></font>的介绍， 请移步我的博文<a href="http://blog.csdn.net/justloveyou_/article/details/54381099">《Java 并发：内置锁 Synchronized》</a>。</b></font></p>
+
+<hr />
+
+<p><strong>1、乐观锁</strong></p>
+
+<p>　　<font color="red"><b>乐观锁，虽然名字中带“锁”，但是乐观锁并不锁住任何东西，而是在提交事务时检查这条记录是否被其他事务进行了修改：如果没有，则提交；否则，进行回滚。</b></font>相对于悲观锁，在对数据库进行处理的时候，乐观锁并不会使用数据库提供的锁机制。如果并发的可能性并不大，那么乐观锁定策略带来的性能消耗是非常小的。<font color="blue"><b>乐观锁采用的实现方式一般是记录数据版本。</b></font></p>
+
+<p>　　数据版本是为数据增加的一个版本标识。当读取数据时，将版本标识的值一同读出，数据每更新一次同时对版本标识进行更新。当我们提交更新的时候，判断数据库表对应记录的当前版本信息与第一次取出来的版本标识进行比对，如果数据库表当前版本号与第一次取出来的版本标识值相等，则予以更新，否则认为是过期数据。一般地，实现数据版本有两种方式，一种是使用版本号，另一种是使用时间戳。</p>
+
+<hr />
+
+<p><strong>2、悲观锁</strong></p>
+
+<p>　　悲观锁，正如其名，它指的是对数据被外界修改持保守(悲观)态度，因此，在整个数据处理过程中，将数据处于锁定状态。<font color="blue"><b>悲观锁的实现往往依靠数据库提供的锁机制，也只有数据库层提供的锁机制才能真正保证数据访问的排他性，否则即使在本系统中实现了加锁机制，也无法保证外部系统不会修改数据。</b></font>悲观并发控制主要用于数据争用激烈的环境，以及发生并发冲突时使用锁保护数据的成本要低于回滚事务的成本的环境中。和乐观锁相比，悲观锁则是一把真正的锁了，它通过SQL语句“select for update”锁住select出的那批数据，这时如果其他事务来更新这批数据时会等待。</p>
+
+<p>　　<font color="red"><b>悲观并发控制实际上是“先取锁再访问”的保守策略，为数据处理的安全提供了保证。</b></font>但是在效率方面，处理加锁的机制会让数据库产生额外的开销，还有增加产生死锁的机会；另外，在只读型事务处理中由于不会产生冲突，也没必要使用锁，这样做只能增加系统负载；还有会降低了并行性，一个事务如果锁定了某行数据，其他事务就必须等待该事务处理完才可以处理那行数据。</p>
+
+<hr />
+
+<p>3、小结</p>
+
+<p>　　<font color="DarkGreen"><b>悲观锁和乐观锁都是一种解决并发控制问题的思想。</b></font>特别地，在数据库并发控制方面，悲观锁与乐观锁有以下几点区别：</p>
+
+<ul>
+<li><p><font color="red"><b><strong>思想：</strong></b></font>在事务并发环境中，乐观锁假设不会发生并发冲突，因此只在提交操作时检查是否违反数据完整性；而悲观锁假定会发生并发冲突，会屏蔽一切可能违反数据完整性的操作。</p></li>
+<li><p><font color="red"><b><strong>实现：</strong></b></font>悲观锁是利用数据库本身提供的锁机制来实现的；而乐观锁则是通过记录数据版本实现的；</p></li>
+<li><p><font color="red"><b><strong>应用场景：</strong></b></font>悲观锁主要用于数据争用激烈的环境或者发生并发冲突时使用锁保护数据的成本要低于回滚事务的成本的环境中；而乐观锁主要应用于并发可能性并不太大、数据竞争不激烈的环境中，这时乐观锁带来的性能消耗是非常小的；</p></li>
+<li><p><font color="red"><b><strong>脏读：</strong> </b></font>乐观锁不能解决脏读问题，而悲观锁则可以。</p>
+
+<p>　　总的来说，悲观锁相对乐观锁更安全一些，但是开销也更大，甚至可能出现数据库死锁的情况，建议只在乐观锁无法工作时才使用。</p></li>
+</ul>
+
+<hr />
+
+
+
+<h2 id="五-更多">五. 更多</h2>
+
+<p>　　更多关于<font color="red"><b> synchronized 关键字 </b></font>的介绍， 请移步我的博文<a href="http://blog.csdn.net/justloveyou_/article/details/54381099">《Java 并发：内置锁 Synchronized》</a>。</p>
+
+<p>　　更多关于 Java 并发编程 方面的内容，请关注我的专栏 <a href="http://blog.csdn.net/column/details/14542.html">《Java 并发编程学习笔记》</a>。本专栏全面记录了Java并发编程的相关知识，并结合操作系统、Java内存模型和相关源码对并发编程的原理、技术、设计、底层实现进行深入分析和总结，并持续跟进并发相关技术。</p>
+
+<hr />
+
+<blockquote>
+  <h2 id="引用">引用</h2>
+  
+  <p><a href="http://www.cnblogs.com/fjdingsd/p/5273008.html">数据库事务的四大特性以及事务的隔离级别</a> <br />
+  <a href="http://blog.csdn.net/fg2006/article/details/6937413">数据库事务隔离级别</a> <br />
+  <a href="http://www.open-open.com/lib/view/open1452046967245.html">深入理解乐观锁与悲观锁</a></p>
+</blockquote></div>&#13;
+        <script type="text/javascript">&#13;
+            $(function () {&#13;
+                $('pre.prettyprint code').each(function () {&#13;
+                    var lines = $(this).text().split('\n').length;&#13;
+                    var $numbering = $('&lt;ul/&gt;').addClass('pre-numbering').hide();&#13;
+                    $(this).addClass('has-numbering').parent().append($numbering);&#13;
+                    for (i = 1; i &lt;= lines; i++) {&#13;
+                        $numbering.append($('&lt;li/&gt;').text(i));&#13;
+                    };&#13;
+                    $numbering.fadeIn(1700);&#13;
+                });&#13;
+            });&#13;
+        </script>&#13;
+   &#13;

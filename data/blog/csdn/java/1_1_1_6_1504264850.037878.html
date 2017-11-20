@@ -1,0 +1,198 @@
+
+        <div class="markdown_views"><h2 id="一场景">一、场景</h2>
+
+<hr />
+
+<p>商城系统中常见的商品分类，以电脑为例，如何良好的处理商品分类销售的问题？</p>
+
+<ul>
+<li>我们可以用<strong>多层继承</strong>实现下图的关系：</li>
+</ul>
+
+<p><img src="http://img.blog.csdn.net/20161101200051140" alt="这里写图片描述" title="" /></p>
+
+<p><strong><em>实现代码如下</em></strong>：</p>
+
+
+
+<pre class="prettyprint"><code class=" hljs axapta"><span class="hljs-keyword">public</span> <span class="hljs-class"><span class="hljs-keyword">interface</span> <span class="hljs-title">Computer</span> {</span>
+    <span class="hljs-keyword">void</span> sale();
+}
+
+<span class="hljs-class"><span class="hljs-keyword">class</span> <span class="hljs-title">Desktop</span> <span class="hljs-inheritance"><span class="hljs-keyword">implements</span></span> <span class="hljs-title">Computer</span>{</span>
+
+    @Override
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">void</span> sale() {
+        System.out.println(<span class="hljs-string">"销售台式电脑"</span>);
+    }
+}
+<span class="hljs-class"><span class="hljs-keyword">class</span> <span class="hljs-title">Laptop</span> <span class="hljs-inheritance"><span class="hljs-keyword">implements</span></span> <span class="hljs-title">Computer</span>{</span>
+
+    @Override
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">void</span> sale() {
+        System.out.println(<span class="hljs-string">"销售笔记本电脑"</span>);
+    }
+}
+
+<span class="hljs-class"><span class="hljs-keyword">class</span> <span class="hljs-title">LenovoDesktop</span> <span class="hljs-inheritance"><span class="hljs-keyword">extends</span></span> <span class="hljs-title">Desktop</span>{</span>
+    @Override
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">void</span> sale() {
+        System.out.println(<span class="hljs-string">"销售联想台式电脑"</span>);
+    }
+}
+<span class="hljs-class"><span class="hljs-keyword">class</span> <span class="hljs-title">LenovoLaptop</span> <span class="hljs-inheritance"><span class="hljs-keyword">extends</span></span> <span class="hljs-title">Laptop</span>{</span>
+    @Override
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">void</span> sale() {
+        System.out.println(<span class="hljs-string">"销售联想笔记本电脑"</span>);
+    }
+}
+
+<span class="hljs-class"><span class="hljs-keyword">class</span> <span class="hljs-title">DellDesktop</span> <span class="hljs-inheritance"><span class="hljs-keyword">extends</span></span> <span class="hljs-title">Desktop</span>{</span>
+    @Override
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">void</span> sale() {
+        System.out.println(<span class="hljs-string">"销售戴尔台式电脑"</span>);
+    }
+}
+<span class="hljs-class"><span class="hljs-keyword">class</span> <span class="hljs-title">DellLaptop</span> <span class="hljs-inheritance"><span class="hljs-keyword">extends</span></span> <span class="hljs-title">Laptop</span>{</span>
+    @Override
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">void</span> sale() {
+        System.out.println(<span class="hljs-string">"销售戴尔笔记本电脑"</span>);
+    }
+}
+</code></pre>
+
+<ul>
+<li>这样实现的问题： <br />
+<ul><li>拓展性问题： <br />
+1.如果要增加新的电脑类型：如平板电脑，则要增加各个品牌下面的类。 <br />
+2.如果要新增品牌，也要新增各个电脑下的类。</li>
+<li>违反单一职责原则： <br />
+一个类：如联想笔记本电脑，有两个引起这个类变化的原因：品牌及电脑类型。</li></ul></li>
+</ul>
+
+<p>所以，某些类型由于自身的逻辑，它具有两个或多个维度的变化，为了应对这种“多维度的变化“，并且利用面向对象的技术来使得该类型能够轻松的沿着多个方向进行变化，而又不引入额外的复杂度。这就要使用Bridge模式。</p>
+
+
+
+<h2 id="二桥接模式">二、桥接模式</h2>
+
+<hr />
+
+<ul>
+<li>意图： 把抽象（abstraction）与行为实现（implementation）分离开来，从而可以保持各部分的独立性以及应对它们的功能扩展。</li>
+<li>结构图：</li>
+</ul>
+
+<p><img src="http://img.blog.csdn.net/20161101200457351" alt="这里写图片描述" title="" /></p>
+
+<ul>
+<li>上面场景中有两个变化的维度：电脑类型、电脑品牌。将上面代码通过桥接模式实现：</li>
+</ul>
+
+
+
+<pre class="prettyprint"><code class=" hljs axapta"><span class="hljs-comment">/**
+ * 电脑品牌维度接口
+ */</span>
+<span class="hljs-keyword">public</span> <span class="hljs-class"><span class="hljs-keyword">interface</span> <span class="hljs-title">Brand</span> {</span>
+    <span class="hljs-keyword">void</span> nane();
+}
+
+<span class="hljs-class"><span class="hljs-keyword">class</span> <span class="hljs-title">Lenovo</span> <span class="hljs-inheritance"><span class="hljs-keyword">implements</span></span> <span class="hljs-title">Brand</span>{</span>
+    @Override
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">void</span> nane() {
+        System.out.println(<span class="hljs-string">"联想电脑"</span>);
+    }
+}
+
+<span class="hljs-class"><span class="hljs-keyword">class</span> <span class="hljs-title">Dell</span> <span class="hljs-inheritance"><span class="hljs-keyword">implements</span></span> <span class="hljs-title">Brand</span>{</span>
+    @Override
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">void</span> nane() {
+        System.out.println(<span class="hljs-string">"戴尔电脑"</span>);
+    }
+}</code></pre>
+
+
+
+<pre class="prettyprint"><code class=" hljs scala"><span class="hljs-javadoc">/**
+ * 电脑类型维度
+ */</span>
+public <span class="hljs-class"><span class="hljs-keyword">class</span> <span class="hljs-title">Computer</span>{</span>
+    <span class="hljs-keyword">protected</span> Brand brand;
+    public Computer(Brand brand){
+        <span class="hljs-keyword">this</span>.brand=brand;
+    }
+    public void sale(){
+        brand.nane();
+    }
+}
+<span class="hljs-class"><span class="hljs-keyword">class</span> <span class="hljs-title">Desktop</span> <span class="hljs-keyword">extends</span> <span class="hljs-title">Computer</span>{</span>
+
+    public Desktop(Brand brand) {
+        <span class="hljs-keyword">super</span>(brand);
+    }
+    <span class="hljs-annotation">@Override</span>
+    public void sale() {
+        <span class="hljs-keyword">super</span>.sale();
+        System.out.println(<span class="hljs-string">"销售台式机"</span>);
+    }
+}
+
+<span class="hljs-class"><span class="hljs-keyword">class</span> <span class="hljs-title">Laptop</span> <span class="hljs-keyword">extends</span> <span class="hljs-title">Computer</span>{</span>
+
+    public Laptop(Brand brand) {
+        <span class="hljs-keyword">super</span>(brand);
+    }
+    <span class="hljs-annotation">@Override</span>
+    public void sale() {
+        <span class="hljs-keyword">super</span>.sale();
+        System.out.println(<span class="hljs-string">"销售笔记本"</span>);
+    }
+
+}
+</code></pre>
+
+
+
+<pre class="prettyprint"><code class=" hljs java"><span class="hljs-javadoc">/**
+ * 客户端
+ */</span>
+<span class="hljs-keyword">public</span> <span class="hljs-class"><span class="hljs-keyword">class</span> <span class="hljs-title">Client</span> {</span>
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">static</span> <span class="hljs-keyword">void</span> <span class="hljs-title">main</span>(String[] args) {
+        Computer len=<span class="hljs-keyword">new</span> Desktop(<span class="hljs-keyword">new</span> Lenovo());
+        len.sale();
+    }
+}
+
+<span class="hljs-comment">//输出结果</span>
+联想电脑
+销售台式机</code></pre>
+
+<p>这样就很好的将<strong>电脑品牌</strong>和<strong>电脑类型</strong>两个维度分离开并且组合使用，这样在增加品牌或类型都更加简单。</p>
+
+<ul>
+<li><p>设计要点：</p>
+
+<ul><li>处理多层继承结构，处理多维度变化的场景，将各个维度设计成独立的继承模块，使各个维度可以独立的拓展在抽象层。</li></ul></li>
+<li><p>适用性： <br />
+在以下的情况下应当使用桥梁模式：</p>
+
+<ul><li>1．如果一个系统需要在构件的抽象化角色和具体化角色之间增加更多的灵活性，避免在两个层次之间建立静态的联系。 </li>
+<li>2．设计要求实现化角色的任何改变不应当影响客户端，或者说实现化角色的改变对客户端是完全透明的。</li>
+<li>3．一个构件有多于一个的抽象化角色和实现化角色，系统需要它们之间进行动态耦合。 </li>
+<li>4．虽然在系统中使用继承是没有问题的，但是由于抽象化角色和具体化角色需要独立变化，设计要求需要独立管理这两者</li></ul></li>
+</ul></div>&#13;
+        <script type="text/javascript">&#13;
+            $(function () {&#13;
+                $('pre.prettyprint code').each(function () {&#13;
+                    var lines = $(this).text().split('\n').length;&#13;
+                    var $numbering = $('&lt;ul/&gt;').addClass('pre-numbering').hide();&#13;
+                    $(this).addClass('has-numbering').parent().append($numbering);&#13;
+                    for (i = 1; i &lt;= lines; i++) {&#13;
+                        $numbering.append($('&lt;li/&gt;').text(i));&#13;
+                    };&#13;
+                    $numbering.fadeIn(1700);&#13;
+                });&#13;
+            });&#13;
+        </script>&#13;
+   &#13;

@@ -1,0 +1,230 @@
+
+
+<div id="cnblogs_post_body" style="margin:0px 0px 20px; padding:0px; word-break:break-word; font-family:Verdana,Arial,Helvetica,sans-serif; font-size:13px; line-height:19.5px; background-color:rgb(254,254,242)">&#13;
+<div class="Section0" style="margin:0px; padding:0px">&#13;
+<p style="margin:10px auto; padding-top:0px; padding-bottom:0px; line-height:1.5">&#13;
+意图：将一个请求封装为一个对象，从而可用不同的请求对客户进行参数化；对请求排队或记录日志，以及支持可撤销的操作<br style="margin:0px; padding:0px" />&#13;
+动机：将”发出请求的对象”和”接收与执行这些请求的对象”分隔开来。<br style="margin:0px; padding:0px" />&#13;
+效果：<br style="margin:0px; padding:0px" />&#13;
+1)、command模式将调用操作的对象和实现该操作的对象解耦<br style="margin:0px; padding:0px" />&#13;
+2)、可以将多个命令装配成一个复合命令，复合命令是Composite模式的一个实例<br style="margin:0px; padding:0px" />&#13;
+3)、增加新的command很容易，无需改变已有的类<br style="margin:0px; padding:0px" />&#13;
+适用性：<br style="margin:0px; padding:0px" />&#13;
+1)、抽象出待执行的动作以参数化某对象<br style="margin:0px; padding:0px" />&#13;
+2)、在不同的时刻指定、排列和执行请求。如请求队列<br style="margin:0px; padding:0px" />&#13;
+3)、支持取消操作<br style="margin:0px; padding:0px" />&#13;
+4)、支持修改日志<br style="margin:0px; padding:0px" />&#13;
+5)、用构建在原语操作上的高层操作构造一个系统。支持事物<br style="margin:0px; padding:0px" />&#13;
+参与者：<br style="margin:0px; padding:0px" />&#13;
+1)、Command<br style="margin:0px; padding:0px" />&#13;
+　　声明执行操作的接口<br style="margin:0px; padding:0px" />&#13;
+2)、ConcreteCommand<br style="margin:0px; padding:0px" />&#13;
+　　将一个接收者对象绑定于一个动作<br style="margin:0px; padding:0px" />&#13;
+　　调用接收者相应的操作，以实现execute<br style="margin:0px; padding:0px" />&#13;
+3)、Client<br style="margin:0px; padding:0px" />&#13;
+　　创建一个具体命令对象并设定它的接收者<br style="margin:0px; padding:0px" />&#13;
+4)、Invoker<br style="margin:0px; padding:0px" />&#13;
+　　要求该命令执行这个请求<br style="margin:0px; padding:0px" />&#13;
+5)、Receiver<br style="margin:0px; padding:0px" />&#13;
+　　知道如何实施与执行一个请求相关的操作。任何类都可能作为一个接收者<br style="margin:0px; padding:0px" />&#13;
+<span style="margin:0px; padding:0px; line-height:1.5">结构图：</span></p>&#13;
+<p class="p0" style="margin:10px auto; padding-top:0px; padding-bottom:0px; line-height:1.5">&#13;
+<span style="margin:0px; padding:0px; line-height:1.5; font-family:宋体"><img src="http://images.cnitblog.com/blog/296990/201308/02170345-520b1b5fa14449fe8bab4aef6939b312.png" alt="" style="margin:0px; padding:0px; border:0px; max-width:900px" /></span></p>&#13;
+<p class="p0" style="margin:10px auto; padding-top:0px; padding-bottom:0px; line-height:1.5">&#13;
+协作：<br style="margin:0px; padding:0px" />&#13;
+1)、client创建一个ConcreteCommand对象并指定它的Receiver对象<br style="margin:0px; padding:0px" />&#13;
+2)、某Invoker对象存储该ConcreteCommand对象<br style="margin:0px; padding:0px" />&#13;
+3)、该Invoker通过调用Command对象的execute操作来提交一个请求。若该命令是可撤销的，ConcreteCommand在执行execute操作前存储当前状态以用于取消该命令<br style="margin:0px; padding:0px" />&#13;
+4)、ConcreteCommand对象调用它的Receiver的操作以执行该请求<br style="margin:0px; padding:0px" />&#13;
+命令对象将动作和接受者包进对象中，这个对象只暴露出一个execute()方法，当此方法被调用的时候，接收者就会进行这些动作。从外面来看，其他对象不知道究竟哪个接收者进行了哪些动作，只知道如果调用execute()方法，请求的目的就能达到。 </p>&#13;
+<p class="p0" style="margin:10px auto; padding-top:0px; padding-bottom:0px; line-height:1.5">&#13;
+实例：</p>&#13;
+<div class="cnblogs_code" style="margin:5px 0px; padding:5px; border:1px solid rgb(204,204,204); overflow:auto; font-family:'Courier New'!important; font-size:12px!important; background-color:rgb(245,245,245)">&#13;
+<div class="cnblogs_code_toolbar" style="margin:5px 0px 0px; padding:0px"><span class="cnblogs_code_copy" style="margin:0px; padding:0px 5px 0px 0px; line-height:1.5"><a target="_blank" title="复制代码" style="margin:0px; padding:0px; color:rgb(7,93,179); text-decoration:underline; border:none!important"><img src="http://common.cnblogs.com/images/copycode.gif" alt="复制代码" style="margin:0px; padding:0px; max-width:900px; border:none!important" /></a></span></div>&#13;
+<pre style="margin-top:0px; margin-bottom:0px; padding:0px; white-space:pre-wrap; word-wrap:break-word; font-family:'Courier New'!important"><span style="margin:0px; padding:0px; line-height:1.5; color:rgb(0,128,128)"> 1</span> <span style="margin:0px; padding:0px; line-height:1.5; color:rgb(0,0,255)">package</span><span style="margin:0px; padding:0px; line-height:1.5"> com.test.patten.command;
+</span><span style="margin:0px; padding:0px; line-height:1.5; color:rgb(0,128,128)"> 2</span> 
+<span style="margin:0px; padding:0px; line-height:1.5; color:rgb(0,128,128)"> 3</span> <span style="margin:0px; padding:0px; line-height:1.5; color:rgb(0,128,0)">/**</span>
+<span style="margin:0px; padding:0px; line-height:1.5; color:rgb(0,128,128)"> 4</span> <span style="margin:0px; padding:0px; line-height:1.5; color:rgb(0,128,0)"> * 命令接口
+</span><span style="margin:0px; padding:0px; line-height:1.5; color:rgb(0,128,128)"> 5</span>  <span style="margin:0px; padding:0px; line-height:1.5; color:rgb(0,128,0)">*/</span>
+<span style="margin:0px; padding:0px; line-height:1.5; color:rgb(0,128,128)"> 6</span> <span style="margin:0px; padding:0px; line-height:1.5; color:rgb(0,0,255)">public</span> <span style="margin:0px; padding:0px; line-height:1.5; color:rgb(0,0,255)">interface</span><span style="margin:0px; padding:0px; line-height:1.5"> Command {
+</span><span style="margin:0px; padding:0px; line-height:1.5; color:rgb(0,128,128)"> 7</span>     <span style="margin:0px; padding:0px; line-height:1.5; color:rgb(0,128,0)">/**</span>
+<span style="margin:0px; padding:0px; line-height:1.5; color:rgb(0,128,128)"> 8</span> <span style="margin:0px; padding:0px; line-height:1.5; color:rgb(0,128,0)">     * 执行命令
+</span><span style="margin:0px; padding:0px; line-height:1.5; color:rgb(0,128,128)"> 9</span>      <span style="margin:0px; padding:0px; line-height:1.5; color:rgb(0,128,0)">*/</span>
+<span style="margin:0px; padding:0px; line-height:1.5; color:rgb(0,128,128)">10</span>     <span style="margin:0px; padding:0px; line-height:1.5; color:rgb(0,0,255)">public</span> <span style="margin:0px; padding:0px; line-height:1.5; color:rgb(0,0,255)">void</span><span style="margin:0px; padding:0px; line-height:1.5"> execute();
+</span><span style="margin:0px; padding:0px; line-height:1.5; color:rgb(0,128,128)">11</span>     <span style="margin:0px; padding:0px; line-height:1.5; color:rgb(0,128,0)">/**</span>
+<span style="margin:0px; padding:0px; line-height:1.5; color:rgb(0,128,128)">12</span> <span style="margin:0px; padding:0px; line-height:1.5; color:rgb(0,128,0)">     * 撤销命令
+</span><span style="margin:0px; padding:0px; line-height:1.5; color:rgb(0,128,128)">13</span>      <span style="margin:0px; padding:0px; line-height:1.5; color:rgb(0,128,0)">*/</span>
+<span style="margin:0px; padding:0px; line-height:1.5; color:rgb(0,128,128)">14</span>     <span style="margin:0px; padding:0px; line-height:1.5; color:rgb(0,0,255)">public</span> <span style="margin:0px; padding:0px; line-height:1.5; color:rgb(0,0,255)">void</span><span style="margin:0px; padding:0px; line-height:1.5"> undo();
+</span><span style="margin:0px; padding:0px; line-height:1.5; color:rgb(0,128,128)">15</span> }</pre>&#13;
+<div class="cnblogs_code_toolbar" style="margin:5px 0px 0px; padding:0px"><span class="cnblogs_code_copy" style="margin:0px; padding:0px 5px 0px 0px; line-height:1.5"><a target="_blank" title="复制代码" style="margin:0px; padding:0px; color:rgb(7,93,179); text-decoration:underline; border:none!important"><img src="http://common.cnblogs.com/images/copycode.gif" alt="复制代码" style="margin:0px; padding:0px; max-width:900px; border:none!important" /></a></span></div>&#13;
+</div>&#13;
+<div class="cnblogs_code" style="margin:5px 0px; padding:5px; border:1px solid rgb(204,204,204); overflow:auto; font-family:'Courier New'!important; font-size:12px!important; background-color:rgb(245,245,245)">&#13;
+<div class="cnblogs_code_toolbar" style="margin:5px 0px 0px; padding:0px"><span class="cnblogs_code_copy" style="margin:0px; padding:0px 5px 0px 0px; line-height:1.5"><a target="_blank" title="复制代码" style="margin:0px; padding:0px; color:rgb(7,93,179); text-decoration:underline; border:none!important"><img src="http://common.cnblogs.com/images/copycode.gif" alt="复制代码" style="margin:0px; padding:0px; max-width:900px; border:none!important" /></a></span></div>&#13;
+<pre style="margin-top:0px; margin-bottom:0px; padding:0px; white-space:pre-wrap; word-wrap:break-word; font-family:'Courier New'!important"><span style="margin:0px; padding:0px; line-height:1.5; color:rgb(0,128,128)"> 1</span> <span style="margin:0px; padding:0px; line-height:1.5; color:rgb(0,0,255)">package</span><span style="margin:0px; padding:0px; line-height:1.5"> com.test.patten.command;
+</span><span style="margin:0px; padding:0px; line-height:1.5; color:rgb(0,128,128)"> 2</span> 
+<span style="margin:0px; padding:0px; line-height:1.5; color:rgb(0,128,128)"> 3</span> <span style="margin:0px; padding:0px; line-height:1.5; color:rgb(0,128,0)">/**</span>
+<span style="margin:0px; padding:0px; line-height:1.5; color:rgb(0,128,128)"> 4</span> <span style="margin:0px; padding:0px; line-height:1.5; color:rgb(0,128,0)"> * 命令
+</span><span style="margin:0px; padding:0px; line-height:1.5; color:rgb(0,128,128)"> 5</span>  <span style="margin:0px; padding:0px; line-height:1.5; color:rgb(0,128,0)">*/</span>
+<span style="margin:0px; padding:0px; line-height:1.5; color:rgb(0,128,128)"> 6</span> <span style="margin:0px; padding:0px; line-height:1.5; color:rgb(0,0,255)">public</span> <span style="margin:0px; padding:0px; line-height:1.5; color:rgb(0,0,255)">class</span> CreateCommand <span style="margin:0px; padding:0px; line-height:1.5; color:rgb(0,0,255)">implements</span><span style="margin:0px; padding:0px; line-height:1.5"> Command{
+</span><span style="margin:0px; padding:0px; line-height:1.5; color:rgb(0,128,128)"> 7</span>     <span style="margin:0px; padding:0px; line-height:1.5; color:rgb(0,0,255)">private</span><span style="margin:0px; padding:0px; line-height:1.5"> Receiver receiver;
+</span><span style="margin:0px; padding:0px; line-height:1.5; color:rgb(0,128,128)"> 8</span>     <span style="margin:0px; padding:0px; line-height:1.5; color:rgb(0,0,255)">private</span><span style="margin:0px; padding:0px; line-height:1.5"> String state;
+</span><span style="margin:0px; padding:0px; line-height:1.5; color:rgb(0,128,128)"> 9</span>     
+<span style="margin:0px; padding:0px; line-height:1.5; color:rgb(0,128,128)">10</span>     <span style="margin:0px; padding:0px; line-height:1.5; color:rgb(0,0,255)">public</span><span style="margin:0px; padding:0px; line-height:1.5"> CreateCommand(Receiver receiver){
+</span><span style="margin:0px; padding:0px; line-height:1.5; color:rgb(0,128,128)">11</span>         <span style="margin:0px; padding:0px; line-height:1.5; color:rgb(0,0,255)">this</span>.receiver =<span style="margin:0px; padding:0px; line-height:1.5"> receiver;
+</span><span style="margin:0px; padding:0px; line-height:1.5; color:rgb(0,128,128)">12</span> <span style="margin:0px; padding:0px; line-height:1.5">    }
+</span><span style="margin:0px; padding:0px; line-height:1.5; color:rgb(0,128,128)">13</span> 
+<span style="margin:0px; padding:0px; line-height:1.5; color:rgb(0,128,128)">14</span> <span style="margin:0px; padding:0px; line-height:1.5">    @Override
+</span><span style="margin:0px; padding:0px; line-height:1.5; color:rgb(0,128,128)">15</span>     <span style="margin:0px; padding:0px; line-height:1.5; color:rgb(0,0,255)">public</span> <span style="margin:0px; padding:0px; line-height:1.5; color:rgb(0,0,255)">void</span><span style="margin:0px; padding:0px; line-height:1.5"> execute() {
+</span><span style="margin:0px; padding:0px; line-height:1.5; color:rgb(0,128,128)">16</span> <span style="margin:0px; padding:0px; line-height:1.5">        receiver.action();
+</span><span style="margin:0px; padding:0px; line-height:1.5; color:rgb(0,128,128)">17</span> <span style="margin:0px; padding:0px; line-height:1.5">    }
+</span><span style="margin:0px; padding:0px; line-height:1.5; color:rgb(0,128,128)">18</span> 
+<span style="margin:0px; padding:0px; line-height:1.5; color:rgb(0,128,128)">19</span> <span style="margin:0px; padding:0px; line-height:1.5">    @Override
+</span><span style="margin:0px; padding:0px; line-height:1.5; color:rgb(0,128,128)">20</span>     <span style="margin:0px; padding:0px; line-height:1.5; color:rgb(0,0,255)">public</span> <span style="margin:0px; padding:0px; line-height:1.5; color:rgb(0,0,255)">void</span><span style="margin:0px; padding:0px; line-height:1.5"> undo() {
+</span><span style="margin:0px; padding:0px; line-height:1.5; color:rgb(0,128,128)">21</span> <span style="margin:0px; padding:0px; line-height:1.5">        receiver.unAction();
+</span><span style="margin:0px; padding:0px; line-height:1.5; color:rgb(0,128,128)">22</span> <span style="margin:0px; padding:0px; line-height:1.5">    }
+</span><span style="margin:0px; padding:0px; line-height:1.5; color:rgb(0,128,128)">23</span>     
+<span style="margin:0px; padding:0px; line-height:1.5; color:rgb(0,128,128)">24</span> }</pre>&#13;
+<div class="cnblogs_code_toolbar" style="margin:5px 0px 0px; padding:0px"><span class="cnblogs_code_copy" style="margin:0px; padding:0px 5px 0px 0px; line-height:1.5"><a target="_blank" title="复制代码" style="margin:0px; padding:0px; color:rgb(7,93,179); text-decoration:underline; border:none!important"><img src="http://common.cnblogs.com/images/copycode.gif" alt="复制代码" style="margin:0px; padding:0px; max-width:900px; border:none!important" /></a></span></div>&#13;
+</div>&#13;
+<div class="cnblogs_code" style="margin:5px 0px; padding:5px; border:1px solid rgb(204,204,204); overflow:auto; font-family:'Courier New'!important; font-size:12px!important; background-color:rgb(245,245,245)">&#13;
+<div class="cnblogs_code_toolbar" style="margin:5px 0px 0px; padding:0px"><span class="cnblogs_code_copy" style="margin:0px; padding:0px 5px 0px 0px; line-height:1.5"><a target="_blank" title="复制代码" style="margin:0px; padding:0px; color:rgb(7,93,179); text-decoration:underline; border:none!important"><img src="http://common.cnblogs.com/images/copycode.gif" alt="复制代码" style="margin:0px; padding:0px; max-width:900px; border:none!important" /></a></span></div>&#13;
+<pre style="margin-top:0px; margin-bottom:0px; padding:0px; white-space:pre-wrap; word-wrap:break-word; font-family:'Courier New'!important"><span style="margin:0px; padding:0px; line-height:1.5; color:rgb(0,128,128)"> 1</span> <span style="margin:0px; padding:0px; line-height:1.5; color:rgb(0,0,255)">package</span><span style="margin:0px; padding:0px; line-height:1.5"> com.test.patten.command;
+</span><span style="margin:0px; padding:0px; line-height:1.5; color:rgb(0,128,128)"> 2</span> 
+<span style="margin:0px; padding:0px; line-height:1.5; color:rgb(0,128,128)"> 3</span> <span style="margin:0px; padding:0px; line-height:1.5; color:rgb(0,128,0)">/**</span>
+<span style="margin:0px; padding:0px; line-height:1.5; color:rgb(0,128,128)"> 4</span> <span style="margin:0px; padding:0px; line-height:1.5; color:rgb(0,128,0)"> * 命令接收者,命令真正执行人
+</span><span style="margin:0px; padding:0px; line-height:1.5; color:rgb(0,128,128)"> 5</span>  <span style="margin:0px; padding:0px; line-height:1.5; color:rgb(0,128,0)">*/</span>
+<span style="margin:0px; padding:0px; line-height:1.5; color:rgb(0,128,128)"> 6</span> <span style="margin:0px; padding:0px; line-height:1.5; color:rgb(0,0,255)">public</span> <span style="margin:0px; padding:0px; line-height:1.5; color:rgb(0,0,255)">class</span><span style="margin:0px; padding:0px; line-height:1.5"> Receiver {
+</span><span style="margin:0px; padding:0px; line-height:1.5; color:rgb(0,128,128)"> 7</span>     <span style="margin:0px; padding:0px; line-height:1.5; color:rgb(0,0,255)">public</span> <span style="margin:0px; padding:0px; line-height:1.5; color:rgb(0,0,255)">void</span><span style="margin:0px; padding:0px; line-height:1.5"> action(){
+</span><span style="margin:0px; padding:0px; line-height:1.5; color:rgb(0,128,128)"> 8</span>         System.out.println("执行命令..."<span style="margin:0px; padding:0px; line-height:1.5">);
+</span><span style="margin:0px; padding:0px; line-height:1.5; color:rgb(0,128,128)"> 9</span> <span style="margin:0px; padding:0px; line-height:1.5">    }
+</span><span style="margin:0px; padding:0px; line-height:1.5; color:rgb(0,128,128)">10</span>     
+<span style="margin:0px; padding:0px; line-height:1.5; color:rgb(0,128,128)">11</span>     <span style="margin:0px; padding:0px; line-height:1.5; color:rgb(0,0,255)">public</span> <span style="margin:0px; padding:0px; line-height:1.5; color:rgb(0,0,255)">void</span><span style="margin:0px; padding:0px; line-height:1.5"> unAction(){
+</span><span style="margin:0px; padding:0px; line-height:1.5; color:rgb(0,128,128)">12</span>         System.out.println("撤销命令..."<span style="margin:0px; padding:0px; line-height:1.5">);
+</span><span style="margin:0px; padding:0px; line-height:1.5; color:rgb(0,128,128)">13</span> <span style="margin:0px; padding:0px; line-height:1.5">    }
+</span><span style="margin:0px; padding:0px; line-height:1.5; color:rgb(0,128,128)">14</span> }</pre>&#13;
+<div class="cnblogs_code_toolbar" style="margin:5px 0px 0px; padding:0px"><span class="cnblogs_code_copy" style="margin:0px; padding:0px 5px 0px 0px; line-height:1.5"><a target="_blank" title="复制代码" style="margin:0px; padding:0px; color:rgb(7,93,179); text-decoration:underline; border:none!important"><img src="http://common.cnblogs.com/images/copycode.gif" alt="复制代码" style="margin:0px; padding:0px; max-width:900px; border:none!important" /></a></span></div>&#13;
+</div>&#13;
+<div class="cnblogs_code" style="margin:5px 0px; padding:5px; border:1px solid rgb(204,204,204); overflow:auto; font-family:'Courier New'!important; font-size:12px!important; background-color:rgb(245,245,245)">&#13;
+<div class="cnblogs_code_toolbar" style="margin:5px 0px 0px; padding:0px"><span class="cnblogs_code_copy" style="margin:0px; padding:0px 5px 0px 0px; line-height:1.5"><a target="_blank" title="复制代码" style="margin:0px; padding:0px; color:rgb(7,93,179); text-decoration:underline; border:none!important"><img src="http://common.cnblogs.com/images/copycode.gif" alt="复制代码" style="margin:0px; padding:0px; max-width:900px; border:none!important" /></a></span></div>&#13;
+<pre style="margin-top:0px; margin-bottom:0px; padding:0px; white-space:pre-wrap; word-wrap:break-word; font-family:'Courier New'!important"><span style="margin:0px; padding:0px; line-height:1.5; color:rgb(0,128,128)"> 1</span> <span style="margin:0px; padding:0px; line-height:1.5; color:rgb(0,0,255)">package</span><span style="margin:0px; padding:0px; line-height:1.5"> com.test.patten.command;
+</span><span style="margin:0px; padding:0px; line-height:1.5; color:rgb(0,128,128)"> 2</span> 
+<span style="margin:0px; padding:0px; line-height:1.5; color:rgb(0,128,128)"> 3</span> <span style="margin:0px; padding:0px; line-height:1.5; color:rgb(0,0,255)">public</span> <span style="margin:0px; padding:0px; line-height:1.5; color:rgb(0,0,255)">class</span><span style="margin:0px; padding:0px; line-height:1.5"> Invoker {
+</span><span style="margin:0px; padding:0px; line-height:1.5; color:rgb(0,128,128)"> 4</span>     <span style="margin:0px; padding:0px; line-height:1.5; color:rgb(0,128,0)">/**</span>
+<span style="margin:0px; padding:0px; line-height:1.5; color:rgb(0,128,128)"> 5</span> <span style="margin:0px; padding:0px; line-height:1.5; color:rgb(0,128,0)">     * 调用者持有命令对象
+</span><span style="margin:0px; padding:0px; line-height:1.5; color:rgb(0,128,128)"> 6</span>      <span style="margin:0px; padding:0px; line-height:1.5; color:rgb(0,128,0)">*/</span>
+<span style="margin:0px; padding:0px; line-height:1.5; color:rgb(0,128,128)"> 7</span>     <span style="margin:0px; padding:0px; line-height:1.5; color:rgb(0,0,255)">private</span><span style="margin:0px; padding:0px; line-height:1.5"> Command command;
+</span><span style="margin:0px; padding:0px; line-height:1.5; color:rgb(0,128,128)"> 8</span> 
+<span style="margin:0px; padding:0px; line-height:1.5; color:rgb(0,128,128)"> 9</span>     <span style="margin:0px; padding:0px; line-height:1.5; color:rgb(0,128,0)">/**</span>
+<span style="margin:0px; padding:0px; line-height:1.5; color:rgb(0,128,128)">10</span> <span style="margin:0px; padding:0px; line-height:1.5; color:rgb(0,128,0)">     * 设置命令对象
+</span><span style="margin:0px; padding:0px; line-height:1.5; color:rgb(0,128,128)">11</span> <span style="margin:0px; padding:0px; line-height:1.5; color:rgb(0,128,0)">     * </span><span style="margin:0px; padding:0px; line-height:1.5; color:rgb(128,128,128)">@param</span><span style="margin:0px; padding:0px; line-height:1.5; color:rgb(0,128,0)"> command
+</span><span style="margin:0px; padding:0px; line-height:1.5; color:rgb(0,128,128)">12</span>      <span style="margin:0px; padding:0px; line-height:1.5; color:rgb(0,128,0)">*/</span>
+<span style="margin:0px; padding:0px; line-height:1.5; color:rgb(0,128,128)">13</span>     <span style="margin:0px; padding:0px; line-height:1.5; color:rgb(0,0,255)">public</span> <span style="margin:0px; padding:0px; line-height:1.5; color:rgb(0,0,255)">void</span><span style="margin:0px; padding:0px; line-height:1.5"> setCommand(Command command) {
+</span><span style="margin:0px; padding:0px; line-height:1.5; color:rgb(0,128,128)">14</span>         <span style="margin:0px; padding:0px; line-height:1.5; color:rgb(0,0,255)">this</span>.command =<span style="margin:0px; padding:0px; line-height:1.5"> command;
+</span><span style="margin:0px; padding:0px; line-height:1.5; color:rgb(0,128,128)">15</span> <span style="margin:0px; padding:0px; line-height:1.5">    }
+</span><span style="margin:0px; padding:0px; line-height:1.5; color:rgb(0,128,128)">16</span>     <span style="margin:0px; padding:0px; line-height:1.5; color:rgb(0,0,255)">public</span><span style="margin:0px; padding:0px; line-height:1.5"> Command getCommand() {
+</span><span style="margin:0px; padding:0px; line-height:1.5; color:rgb(0,128,128)">17</span>         <span style="margin:0px; padding:0px; line-height:1.5; color:rgb(0,0,255)">return</span><span style="margin:0px; padding:0px; line-height:1.5"> command;
+</span><span style="margin:0px; padding:0px; line-height:1.5; color:rgb(0,128,128)">18</span> <span style="margin:0px; padding:0px; line-height:1.5">    }
+</span><span style="margin:0px; padding:0px; line-height:1.5; color:rgb(0,128,128)">19</span> 
+<span style="margin:0px; padding:0px; line-height:1.5; color:rgb(0,128,128)">20</span>     <span style="margin:0px; padding:0px; line-height:1.5; color:rgb(0,128,0)">/**</span>
+<span style="margin:0px; padding:0px; line-height:1.5; color:rgb(0,128,128)">21</span> <span style="margin:0px; padding:0px; line-height:1.5; color:rgb(0,128,0)">     * 执行命令
+</span><span style="margin:0px; padding:0px; line-height:1.5; color:rgb(0,128,128)">22</span>      <span style="margin:0px; padding:0px; line-height:1.5; color:rgb(0,128,0)">*/</span>
+<span style="margin:0px; padding:0px; line-height:1.5; color:rgb(0,128,128)">23</span>     <span style="margin:0px; padding:0px; line-height:1.5; color:rgb(0,0,255)">public</span> <span style="margin:0px; padding:0px; line-height:1.5; color:rgb(0,0,255)">void</span><span style="margin:0px; padding:0px; line-height:1.5"> runCommand(){
+</span><span style="margin:0px; padding:0px; line-height:1.5; color:rgb(0,128,128)">24</span> <span style="margin:0px; padding:0px; line-height:1.5">        command.execute();
+</span><span style="margin:0px; padding:0px; line-height:1.5; color:rgb(0,128,128)">25</span> <span style="margin:0px; padding:0px; line-height:1.5">    }
+</span><span style="margin:0px; padding:0px; line-height:1.5; color:rgb(0,128,128)">26</span>     <span style="margin:0px; padding:0px; line-height:1.5; color:rgb(0,128,0)">/**</span>
+<span style="margin:0px; padding:0px; line-height:1.5; color:rgb(0,128,128)">27</span> <span style="margin:0px; padding:0px; line-height:1.5; color:rgb(0,128,0)">     * 撤销命令
+</span><span style="margin:0px; padding:0px; line-height:1.5; color:rgb(0,128,128)">28</span>      <span style="margin:0px; padding:0px; line-height:1.5; color:rgb(0,128,0)">*/</span>
+<span style="margin:0px; padding:0px; line-height:1.5; color:rgb(0,128,128)">29</span>     <span style="margin:0px; padding:0px; line-height:1.5; color:rgb(0,0,255)">public</span> <span style="margin:0px; padding:0px; line-height:1.5; color:rgb(0,0,255)">void</span><span style="margin:0px; padding:0px; line-height:1.5"> unDoCommand(){
+</span><span style="margin:0px; padding:0px; line-height:1.5; color:rgb(0,128,128)">30</span> <span style="margin:0px; padding:0px; line-height:1.5">        command.undo();
+</span><span style="margin:0px; padding:0px; line-height:1.5; color:rgb(0,128,128)">31</span> <span style="margin:0px; padding:0px; line-height:1.5">    }
+</span><span style="margin:0px; padding:0px; line-height:1.5; color:rgb(0,128,128)">32</span> }</pre>&#13;
+<div class="cnblogs_code_toolbar" style="margin:5px 0px 0px; padding:0px"><span class="cnblogs_code_copy" style="margin:0px; padding:0px 5px 0px 0px; line-height:1.5"><a target="_blank" title="复制代码" style="margin:0px; padding:0px; color:rgb(7,93,179); text-decoration:underline; border:none!important"><img src="http://common.cnblogs.com/images/copycode.gif" alt="复制代码" style="margin:0px; padding:0px; max-width:900px; border:none!important" /></a></span></div>&#13;
+</div>&#13;
+<div class="cnblogs_code" style="margin:5px 0px; padding:5px; border:1px solid rgb(204,204,204); overflow:auto; font-family:'Courier New'!important; font-size:12px!important; background-color:rgb(245,245,245)">&#13;
+<div class="cnblogs_code_toolbar" style="margin:5px 0px 0px; padding:0px"><span class="cnblogs_code_copy" style="margin:0px; padding:0px 5px 0px 0px; line-height:1.5"><a target="_blank" title="复制代码" style="margin:0px; padding:0px; color:rgb(7,93,179); text-decoration:underline; border:none!important"><img src="http://common.cnblogs.com/images/copycode.gif" alt="复制代码" style="margin:0px; padding:0px; max-width:900px; border:none!important" /></a></span></div>&#13;
+<pre style="margin-top:0px; margin-bottom:0px; padding:0px; white-space:pre-wrap; word-wrap:break-word; font-family:'Courier New'!important"><span style="margin:0px; padding:0px; line-height:1.5; color:rgb(0,128,128)"> 1</span> <span style="margin:0px; padding:0px; line-height:1.5; color:rgb(0,0,255)">package</span><span style="margin:0px; padding:0px; line-height:1.5"> com.test.patten.command;
+</span><span style="margin:0px; padding:0px; line-height:1.5; color:rgb(0,128,128)"> 2</span> 
+<span style="margin:0px; padding:0px; line-height:1.5; color:rgb(0,128,128)"> 3</span> <span style="margin:0px; padding:0px; line-height:1.5; color:rgb(0,0,255)">public</span> <span style="margin:0px; padding:0px; line-height:1.5; color:rgb(0,0,255)">class</span><span style="margin:0px; padding:0px; line-height:1.5"> Client {
+</span><span style="margin:0px; padding:0px; line-height:1.5; color:rgb(0,128,128)"> 4</span>     <span style="margin:0px; padding:0px; line-height:1.5; color:rgb(0,0,255)">public</span> <span style="margin:0px; padding:0px; line-height:1.5; color:rgb(0,0,255)">static</span> <span style="margin:0px; padding:0px; line-height:1.5; color:rgb(0,0,255)">void</span><span style="margin:0px; padding:0px; line-height:1.5"> main(String[] args){
+</span><span style="margin:0px; padding:0px; line-height:1.5; color:rgb(0,128,128)"> 5</span>         <span style="margin:0px; padding:0px; line-height:1.5; color:rgb(0,128,0)">//</span><span style="margin:0px; padding:0px; line-height:1.5; color:rgb(0,128,0)">创建接受者</span>
+<span style="margin:0px; padding:0px; line-height:1.5; color:rgb(0,128,128)"> 6</span>         Receiver receiver = <span style="margin:0px; padding:0px; line-height:1.5; color:rgb(0,0,255)">new</span><span style="margin:0px; padding:0px; line-height:1.5"> Receiver();
+</span><span style="margin:0px; padding:0px; line-height:1.5; color:rgb(0,128,128)"> 7</span>         <span style="margin:0px; padding:0px; line-height:1.5; color:rgb(0,128,0)">//</span><span style="margin:0px; padding:0px; line-height:1.5; color:rgb(0,128,0)">创建命令对象，并设置它的接受者</span>
+<span style="margin:0px; padding:0px; line-height:1.5; color:rgb(0,128,128)"> 8</span>         Command command = <span style="margin:0px; padding:0px; line-height:1.5; color:rgb(0,0,255)">new</span><span style="margin:0px; padding:0px; line-height:1.5"> CreateCommand(receiver);
+</span><span style="margin:0px; padding:0px; line-height:1.5; color:rgb(0,128,128)"> 9</span>         
+<span style="margin:0px; padding:0px; line-height:1.5; color:rgb(0,128,128)">10</span>         <span style="margin:0px; padding:0px; line-height:1.5; color:rgb(0,128,0)">//</span><span style="margin:0px; padding:0px; line-height:1.5; color:rgb(0,128,0)">创建调用者，将命令对象设置进去</span>
+<span style="margin:0px; padding:0px; line-height:1.5; color:rgb(0,128,128)">11</span>         Invoker invoker = <span style="margin:0px; padding:0px; line-height:1.5; color:rgb(0,0,255)">new</span><span style="margin:0px; padding:0px; line-height:1.5"> Invoker();
+</span><span style="margin:0px; padding:0px; line-height:1.5; color:rgb(0,128,128)">12</span> <span style="margin:0px; padding:0px; line-height:1.5">        invoker.setCommand(command);
+</span><span style="margin:0px; padding:0px; line-height:1.5; color:rgb(0,128,128)">13</span>         
+<span style="margin:0px; padding:0px; line-height:1.5; color:rgb(0,128,128)">14</span>         <span style="margin:0px; padding:0px; line-height:1.5; color:rgb(0,128,0)">//</span><span style="margin:0px; padding:0px; line-height:1.5; color:rgb(0,128,0)">这里可以测试一下</span>
+<span style="margin:0px; padding:0px; line-height:1.5; color:rgb(0,128,128)">15</span> <span style="margin:0px; padding:0px; line-height:1.5">        invoker.runCommand();
+</span><span style="margin:0px; padding:0px; line-height:1.5; color:rgb(0,128,128)">16</span> <span style="margin:0px; padding:0px; line-height:1.5">        invoker.unDoCommand();
+</span><span style="margin:0px; padding:0px; line-height:1.5; color:rgb(0,128,128)">17</span> <span style="margin:0px; padding:0px; line-height:1.5">    }
+</span><span style="margin:0px; padding:0px; line-height:1.5; color:rgb(0,128,128)">18</span> }</pre>&#13;
+<div class="cnblogs_code_toolbar" style="margin:5px 0px 0px; padding:0px"><span class="cnblogs_code_copy" style="margin:0px; padding:0px 5px 0px 0px; line-height:1.5"><a target="_blank" title="复制代码" style="margin:0px; padding:0px; color:rgb(7,93,179); text-decoration:underline; border:none!important"><img src="http://common.cnblogs.com/images/copycode.gif" alt="复制代码" style="margin:0px; padding:0px; max-width:900px; border:none!important" /></a></span></div>&#13;
+</div>&#13;
+<p style="margin:10px auto; padding-top:0px; padding-bottom:0px; line-height:1.5">&#13;
+常见应用：<br style="margin:0px; padding:0px" />&#13;
+1、工作队列，线程池，日程安排<br style="margin:0px; padding:0px" />&#13;
+2、日志请求(系统恢复)<br style="margin:0px; padding:0px" />&#13;
+要点：<br style="margin:0px; padding:0px" />&#13;
+1、命令模式将发出请求的对象和执行请求的对象解耦<br style="margin:0px; padding:0px" />&#13;
+2、在被解耦的两者之间是通过命令对象进行沟通的。命令对象封装了接收者和一个或一组动作<br style="margin:0px; padding:0px" />&#13;
+3、调用者通过调用命令对象的execute()发出请求，这会使得接收者的动作被调用<br style="margin:0px; padding:0px" />&#13;
+4、调用者可以接受命令当作参数，甚至在运行时动态的进行<br style="margin:0px; padding:0px" />&#13;
+5、命令可以支持撤销，做法是实现一个undo()方法来回到execute()被执行前的状态<br style="margin:0px; padding:0px" />&#13;
+6、宏命令是命令的一种简单的延伸，允许调用多个命令。宏方法也可以支持撤销<br style="margin:0px; padding:0px" />&#13;
+7、实际操作时，很常见使用"聪明"命令对象，也就是直接实现了请求，而不是将工作委托给接受者(弊端？)<br style="margin:0px; padding:0px" />&#13;
+8、命令也可以用来实现日志和事物系统</p>&#13;
+<p><br />&#13;
+</p>&#13;
+<p><br />&#13;
+</p>&#13;
+<p><br />&#13;
+</p>&#13;
+<p></p>&#13;
+<p style="margin:10px auto; padding-top:0px; padding-bottom:0px; line-height:19.5px; font-size:13px; font-family:Verdana,Arial,Helvetica,sans-serif; background-color:rgb(254,254,242)">&#13;
+<span style="margin:0px; padding:0px">命令模式属于对象的行为模式。命令模式又称为行动(Action)模式或交易(Transaction)模式。</span></p>&#13;
+<p style="margin:10px auto; padding-top:0px; padding-bottom:0px; line-height:19.5px; font-size:13px; font-family:Verdana,Arial,Helvetica,sans-serif; background-color:rgb(254,254,242)">&#13;
+<span style="margin:0px; padding:0px">　　命令模式把一个请求或者操作封装到一个对象中。命令模式允许系统使用不同的请求把客户端参数化，对请求排队或者记录请求日志，可以提供命令的撤销和恢复功能。</span></p>&#13;
+<h1 style="margin:10px 0px; padding:0px; font-size:28px; line-height:1.5; font-family:Verdana,Arial,Helvetica,sans-serif; background-color:rgb(254,254,242)">&#13;
+命令模式的结构<span style="margin:0px; padding:0px"><br style="margin:0px; padding:0px" />&#13;
+</span></h1>&#13;
+<p style="margin:10px auto; padding-top:0px; padding-bottom:0px; line-height:19.5px; font-size:13px; font-family:Verdana,Arial,Helvetica,sans-serif; background-color:rgb(254,254,242)">&#13;
+<span style="margin:0px; padding:0px">　　</span>命令模式是对命令的封装。命令模式把发出命令的责任和执行命令的责任分割开，委派给不同的对象。</p>&#13;
+<p style="margin:10px auto; padding-top:0px; padding-bottom:0px; line-height:19.5px; font-size:13px; font-family:Verdana,Arial,Helvetica,sans-serif; background-color:rgb(254,254,242)">&#13;
+　　每一个命令都是一个操作：请求的一方发出请求要求执行一个操作；接收的一方收到请求，并执行操作。命令模式允许请求的一方和接收的一方独立开来，使得请求的一方不必知道接收请求的一方的接口，更不必知道请求是怎么被接收，以及操作是否被执行、何时被执行，以及是怎么被执行的。</p>&#13;
+<p style="margin:10px auto; padding-top:0px; padding-bottom:0px; line-height:19.5px; font-size:13px; font-family:Verdana,Arial,Helvetica,sans-serif; background-color:rgb(254,254,242)">&#13;
+　　命令允许请求的一方和接收请求的一方能够独立演化，从而具有以下的优点：</p>&#13;
+<p style="margin:10px auto; padding-top:0px; padding-bottom:0px; line-height:19.5px; font-size:13px; font-family:Verdana,Arial,Helvetica,sans-serif; background-color:rgb(254,254,242)">&#13;
+　　（1）命令模式使新的命令很容易地被加入到系统里。</p>&#13;
+<p style="margin:10px auto; padding-top:0px; padding-bottom:0px; line-height:19.5px; font-size:13px; font-family:Verdana,Arial,Helvetica,sans-serif; background-color:rgb(254,254,242)">&#13;
+　　（2）允许接收请求的一方决定是否要否决请求。</p>&#13;
+<p style="margin:10px auto; padding-top:0px; padding-bottom:0px; line-height:19.5px; font-size:13px; font-family:Verdana,Arial,Helvetica,sans-serif; background-color:rgb(254,254,242)">&#13;
+　　（3）能较容易地设计一个命令队列。</p>&#13;
+<p style="margin:10px auto; padding-top:0px; padding-bottom:0px; line-height:19.5px; font-size:13px; font-family:Verdana,Arial,Helvetica,sans-serif; background-color:rgb(254,254,242)">&#13;
+　　（4）可以容易地实现对请求的撤销和恢复。</p>&#13;
+<p style="margin:10px auto; padding-top:0px; padding-bottom:0px; line-height:19.5px; font-size:13px; font-family:Verdana,Arial,Helvetica,sans-serif; background-color:rgb(254,254,242)">&#13;
+　　（5）在需要的情况下，可以较容易地将命令记入日志。</p>&#13;
+<p style="margin:10px auto; padding-top:0px; padding-bottom:0px; line-height:19.5px; font-size:13px; font-family:Verdana,Arial,Helvetica,sans-serif; background-color:rgb(254,254,242)">&#13;
+ </p>&#13;
+<h1 style="margin:10px 0px; padding:0px; font-size:28px; line-height:1.5; font-family:Verdana,Arial,Helvetica,sans-serif; background-color:rgb(254,254,242)">&#13;
+命令模式的优点</h1>&#13;
+<p style="margin:10px auto; padding-top:0px; padding-bottom:0px; line-height:19.5px; font-size:13px; font-family:Verdana,Arial,Helvetica,sans-serif; background-color:rgb(254,254,242)">&#13;
+　　●　　<span style="margin:0px; padding:0px">更松散的耦合</span></p>&#13;
+<p style="margin:10px auto; padding-top:0px; padding-bottom:0px; line-height:19.5px; font-size:13px; font-family:Verdana,Arial,Helvetica,sans-serif; background-color:rgb(254,254,242)">&#13;
+<span style="margin:0px; padding:0px">　　</span>命令模式使得发起命令的对象——客户端，和具体实现命令的对象——接收者对象完全解耦，也就是说发起命令的对象完全不知道具体实现对象是谁，也不知道如何实现。</p>&#13;
+<p style="margin:10px auto; padding-top:0px; padding-bottom:0px; line-height:19.5px; font-size:13px; font-family:Verdana,Arial,Helvetica,sans-serif; background-color:rgb(254,254,242)">&#13;
+　　●　　<span style="margin:0px; padding:0px">更动态的控制</span></p>&#13;
+<p style="margin:10px auto; padding-top:0px; padding-bottom:0px; line-height:19.5px; font-size:13px; font-family:Verdana,Arial,Helvetica,sans-serif; background-color:rgb(254,254,242)">&#13;
+<span style="margin:0px; padding:0px">　　</span>命令模式把请求封装起来，可以动态地对它进行参数化、队列化和日志化等操作，从而使得系统更灵活。</p>&#13;
+<p style="margin:10px auto; padding-top:0px; padding-bottom:0px; line-height:19.5px; font-size:13px; font-family:Verdana,Arial,Helvetica,sans-serif; background-color:rgb(254,254,242)">&#13;
+　　●　　<span style="margin:0px; padding:0px">很自然的复合命令</span></p>&#13;
+<p style="margin:10px auto; padding-top:0px; padding-bottom:0px; line-height:19.5px; font-size:13px; font-family:Verdana,Arial,Helvetica,sans-serif; background-color:rgb(254,254,242)">&#13;
+　　命令模式中的命令对象能够很容易地组合成复合命令，也就是宏命令，从而使系统操作更简单，功能更强大。</p>&#13;
+<p style="margin:10px auto; padding-top:0px; padding-bottom:0px; line-height:19.5px; font-size:13px; font-family:Verdana,Arial,Helvetica,sans-serif; background-color:rgb(254,254,242)">&#13;
+　　●　　<span style="margin:0px; padding:0px">更好的扩展性</span></p>&#13;
+<p style="margin:10px auto; padding-top:0px; padding-bottom:0px; line-height:19.5px; font-size:13px; font-family:Verdana,Arial,Helvetica,sans-serif; background-color:rgb(254,254,242)">&#13;
+　　由于发起命令的对象和具体的实现完全解耦，因此扩展新的命令就很容易，只需要实现新的命令对象，然后在装配的时候，把具体的实现对象设置到命令对象中，然后就可以使用这个命令对象，已有的实现完全不用变化。</p>&#13;
+</div>&#13;
+</div>&#13;
+   &#13;

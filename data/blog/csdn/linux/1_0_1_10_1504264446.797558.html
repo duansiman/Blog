@@ -1,0 +1,41 @@
+
+
+<p>        先来回忆下C语言中宏是怎么定义的，最基本的是定义常量：#define MAX_LEN 1024  这是最简单的常数宏定义，其中宏名按规定是要大写的，宏名在预编译时会由后面的值替代掉（预编译四大步骤：1、用宏名后面的值替换宏名；2、加载包含的头文件内容；3、判断逻辑假，并且去掉逻辑假代码；4、删除注释）。</p>&#13;
+<p>        C语言中宏函数定义格式：#define  FUN_NAME(a, b, c)   (函数体)   值得一提的是参数中最后一个是返回值；函数体中所有的代码都必须在一行上显示，所以需要续航符（反斜线\）并且续航符后面必须跟着回车键，否则续航符没有用；       </p>&#13;
+<p>        下面来看下这个宏函数的例子，这是紧接着上一篇blog跳转问题：如果重复加载同一个函数，并且该函数中包含了asm汇编以及使用了标签位置跳转，那么程序就会报错。现在就和宏函数一起来做这个例子：</p>&#13;
+<p></p>&#13;
+<pre name="code" class="cpp">  #define GREATER(a, b, result) ({\
+         asm("cmp %1, %2\n\t"\
+             "jge ff\n\t"\      // 如果报错，用ff替换成0f
+             "movl %1, %0\n\t"\
+             "jmp ef\n"\        // 如果报错，用ef替换成1f
+             "ff:\n\t"\         // 如果报错，把ff替换成0
+             "movl %2, %0\n"\
+             "ef:"\             // 如果报错，把ef替换成1
+             :"=r"(result)\
+             :"r"(a), "r"(b));})
+ 
+ void fun1()
+ {
+     int a = 2;
+     int b = 88; 
+     int ret = 0;
+     GREATER(a, b, ret);
+     printf("greater result is :%d\n", ret);
+ }
+ 
+ int main()
+ {
+     fun1();
+ 
+     int i = 1;
+     int j = 99; 
+     int result = 0;
+ 
+     GREATER(i,j,result);
+     printf("greater result is :%d\n", result);
+     return 0;
+ }</pre><br />&#13;
+<br />&#13;
+<p></p>&#13;
+   &#13;

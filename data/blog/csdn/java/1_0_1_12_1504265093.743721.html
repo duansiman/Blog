@@ -1,0 +1,134 @@
+
+
+<p><span style="font-size:14px; color:#ff6600">策略模式：行为型模式</span></p>&#13;
+<p><span style="color:#009900">将同一行为，不同的处理算法分别封装起来。让它们之间可以互相替换</span></p>&#13;
+<p><span style="color:#009900">1. 定义一个超类型接口，及 行为方法</span></p>&#13;
+<p><span style="color:#009900">2. 定义不同的实现类，实现该行为的 不同的算法</span></p>&#13;
+<p><br />&#13;
+</p>&#13;
+<pre code_snippet_id="481771" snippet_file_name="blog_20141010_1_6475596" name="code" class="java">/**
+ * 策略模式：针对同一命令(或行为),不同的策略做不同的动作
+ *  商品促销
+ *  本类为：收取现金的类
+ *  
+ *  @author stone
+ */
+public interface ICashSuper {
+	 double acceptCash(double money);
+}</pre>&#13;
+<p></p>&#13;
+<p></p>&#13;
+<pre code_snippet_id="481771" snippet_file_name="blog_20141010_2_1045165" name="code" class="java">/**
+ * 正常收取现金
+ * @author stone
+ *
+ */
+public class CashNormal implements ICashSuper {
+
+	@Override
+	public double acceptCash(double money) {
+		return money;
+	}
+
+}</pre><br />&#13;
+<pre code_snippet_id="481771" snippet_file_name="blog_20141010_3_6378102" name="code" class="java">/**
+ * 打折收取现金 
+ * @author stone
+ *
+ */
+public class CashRebate implements ICashSuper {
+	private double rebate; //折扣
+	public CashRebate (double rebate) {
+		this.rebate = rebate;
+	}
+
+	@Override
+	public double acceptCash(double money) {
+		return new BigDecimal(money * rebate / 10).setScale(2, BigDecimal.ROUND_HALF_UP).doubleValue();
+	}
+	
+	
+}</pre><br />&#13;
+<pre code_snippet_id="481771" snippet_file_name="blog_20141010_4_5647754" name="code" class="java">/**
+ * 让利返现  收取现金
+ * @author stone
+ *
+ */
+public class CashReturn implements ICashSuper {
+	private double moneyCondition; //返现底限金额
+	private double returnMoney; //返还金额
+	public CashReturn(double moneyCondition, double returnMoney) {
+		this.moneyCondition = moneyCondition;
+		this.returnMoney = returnMoney;
+	}
+
+	@Override
+	public double acceptCash(double money) {//多重返利
+		if (money &gt;= moneyCondition) {
+			return money - Math.floor(money / moneyCondition) * returnMoney;
+		} else {
+			return money;
+		}
+	}
+	
+	
+}</pre><br />&#13;
+<pre code_snippet_id="481771" snippet_file_name="blog_20141010_5_8297712" name="code" class="java">/**
+ * 根据传递的的策略类，执行相应的行为
+ * @author stone
+ *
+ */
+public class CashContext {
+	private ICashSuper casher;
+	
+	public CashContext() {
+		
+	}
+	
+	public CashContext(ICashSuper casher) {
+		this.casher = casher;
+	}
+	
+	public void setCasher(ICashSuper casher) {
+		this.casher = casher;
+	}
+	
+	//根据具体的策略对象，调用它的算法行为
+	public double acceptCash(double money) {
+		return this.casher.acceptCash(money);
+	}
+	
+}</pre><br />&#13;
+<pre code_snippet_id="481771" snippet_file_name="blog_20141010_6_7010957" name="code" class="java">/*
+ * 策略(Strategy)模式 关注：行为的选择
+ * 封装了一系列策略对象，用户来选择使用哪种策略对象
+ * 与简单工厂的区别：
+ * 		策略模式，传入策略对象给Context，由Context封装策略对象的方法调用，对外公开Context的方法接口
+ * 		简单工厂模式，传入一个简单参数，创建对象，然后调用出厂对象的方法
+ * 与装饰模式的区别：
+ * 		很明显，Context无需实现(implements)业务接口,不需要增强已有的策略对象的功能
+ * 策略模式多用在算法决策系统中, 比如工资结算
+ */
+public class Test {
+	public static void main(String[] args) {
+		double money = 998; //原价
+		CashContext cashContext = new CashContext(new CashNormal());
+		System.out.println("原价：" + cashContext.acceptCash(money)); //通常  策略
+		
+		cashContext.setCasher(new CashRebate(8.5));
+		System.out.println("打85折：" + cashContext.acceptCash(money)); //折扣   策略   85折
+		
+		cashContext.setCasher(new CashReturn(300, 50));
+		System.out.println("满300 返50：" + cashContext.acceptCash(money)); //返现  策略    满300 返50
+		
+	}
+}</pre><br />&#13;
+打印&#13;
+<p></p>&#13;
+<p></p>&#13;
+<pre code_snippet_id="481771" snippet_file_name="blog_20141010_7_740711" name="code" class="plain">原价：998.0
+打85折：848.3
+满300 返50：848.0</pre><br />&#13;
+<br />&#13;
+<p></p>&#13;
+   &#13;

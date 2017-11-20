@@ -1,0 +1,330 @@
+
+        <div class="markdown_views"><p><strong>本篇文章已授权微信公众号 guolin_blog （郭霖）独家发布</strong></p>
+
+<h1 id="java学习记录threadlocal使用案例">java学习记录–ThreadLocal使用案例</h1>
+
+<p>标签（空格分隔）： java</p>
+
+<hr />
+
+<p>最近整理公司项目,发现不少写的比较糟糕的地方,比如下面这个:</p>
+
+<pre class="prettyprint"><code class=" hljs java"><span class="hljs-keyword">public</span> <span class="hljs-class"><span class="hljs-keyword">class</span> <span class="hljs-title">DateUtil</span> {</span>
+
+    <span class="hljs-keyword">private</span> <span class="hljs-keyword">final</span> <span class="hljs-keyword">static</span> SimpleDateFormat sdfyhm = <span class="hljs-keyword">new</span> SimpleDateFormat(
+            <span class="hljs-string">"yyyyMMdd"</span>);
+
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">synchronized</span> <span class="hljs-keyword">static</span> Date <span class="hljs-title">parseymdhms</span>(String source) {
+        <span class="hljs-keyword">try</span> {
+            <span class="hljs-keyword">return</span> sdfyhm.parse(source);
+        } <span class="hljs-keyword">catch</span> (ParseException e) {
+            e.printStackTrace();
+            <span class="hljs-keyword">return</span> <span class="hljs-keyword">new</span> Date();
+        }
+    }
+
+}</code></pre>
+
+<p>首先分析下: <br />
+该处的函数parseymdhms()使用了synchronized修饰,意味着该操作是线程不安全的,所以需要同步,线程不安全也只能是SimpleDateFormat的parse()方法,查看下源码,在SimpleDateFormat里面有一个局部变量</p>
+
+
+
+<pre class="prettyprint"><code class=" hljs r">protected Calendar calendar;
+
+Date parse() {
+
+    calendar.clear();
+
+  <span class="hljs-keyword">...</span> // 执行一些操作, 设置 calendar 的日期什么的
+
+  calendar.getTime(); // 获取calendar的时间
+
+}</code></pre>
+
+<p>该clear()操作会造成线程不安全.</p>
+
+<hr />
+
+
+
+<h3 id="改进方法">改进方法</h3>
+
+<p>线程不安全是源于多线程使用了共享变量造成,所以这里使用ThreadLocal来给每个线程单独创建副本变量,先给出代码,再分析这样的解决问题的原因.</p>
+
+
+
+<pre class="prettyprint"><code class=" hljs java"><span class="hljs-javadoc">/**
+ * 日期工具类(使用了ThreadLocal获取SimpleDateFormat,其他方法可以直接拷贝common-lang)
+ *<span class="hljs-javadoctag"> @author</span> Niu Li
+ *<span class="hljs-javadoctag"> @date</span> 2016/11/19
+ */</span>
+<span class="hljs-keyword">public</span> <span class="hljs-class"><span class="hljs-keyword">class</span> <span class="hljs-title">DateUtil</span> {</span>
+
+    <span class="hljs-keyword">private</span> <span class="hljs-keyword">static</span> Map&lt;String,ThreadLocal&lt;SimpleDateFormat&gt;&gt; sdfMap = <span class="hljs-keyword">new</span> HashMap&lt;String, ThreadLocal&lt;SimpleDateFormat&gt;&gt;();
+
+    <span class="hljs-keyword">private</span> <span class="hljs-keyword">static</span> Logger logger = LoggerFactory.getLogger(DateUtil.class);
+
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">final</span> <span class="hljs-keyword">static</span> String MDHMSS = <span class="hljs-string">"MMddHHmmssSSS"</span>;
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">final</span> <span class="hljs-keyword">static</span> String YMDHMS = <span class="hljs-string">"yyyyMMddHHmmss"</span>;
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">final</span> <span class="hljs-keyword">static</span> String YMDHMS_ = <span class="hljs-string">"yyyy-MM-dd HH:mm:ss"</span>;
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">final</span> <span class="hljs-keyword">static</span> String YMD = <span class="hljs-string">"yyyyMMdd"</span>;
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">final</span> <span class="hljs-keyword">static</span> String YMD_ = <span class="hljs-string">"yyyy-MM-dd"</span>;
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">final</span> <span class="hljs-keyword">static</span> String HMS = <span class="hljs-string">"HHmmss"</span>;
+
+    <span class="hljs-javadoc">/**
+     * 根据map中的key得到对应线程的sdf实例
+     *<span class="hljs-javadoctag"> @param</span> pattern map中的key
+     *<span class="hljs-javadoctag"> @return</span> 该实例
+     */</span>
+    <span class="hljs-keyword">private</span> <span class="hljs-keyword">static</span> SimpleDateFormat <span class="hljs-title">getSdf</span>(<span class="hljs-keyword">final</span> String pattern){
+        ThreadLocal&lt;SimpleDateFormat&gt; sdfThread = sdfMap.get(pattern);
+        <span class="hljs-keyword">if</span> (sdfThread == <span class="hljs-keyword">null</span>){
+            <span class="hljs-comment">//双重检验,防止sdfMap被多次put进去值</span>
+            <span class="hljs-keyword">synchronized</span> (DateUtil.class){
+                sdfThread = sdfMap.get(pattern);
+                <span class="hljs-keyword">if</span> (sdfThread == <span class="hljs-keyword">null</span>){
+                    logger.debug(<span class="hljs-string">"put new sdf of pattern "</span> + pattern + <span class="hljs-string">" to map"</span>);
+                    sdfThread = <span class="hljs-keyword">new</span> ThreadLocal&lt;SimpleDateFormat&gt;(){
+                        <span class="hljs-annotation">@Override</span>
+                        <span class="hljs-keyword">protected</span> SimpleDateFormat <span class="hljs-title">initialValue</span>() {
+                            logger.debug(<span class="hljs-string">"thread: "</span> + Thread.currentThread() + <span class="hljs-string">" init pattern: "</span> + pattern);
+                            <span class="hljs-keyword">return</span> <span class="hljs-keyword">new</span> SimpleDateFormat(pattern);
+                        }
+                    };
+                    sdfMap.put(pattern,sdfThread);
+                }
+            }
+        }
+        <span class="hljs-keyword">return</span> sdfThread.get();
+    }
+
+    <span class="hljs-javadoc">/**
+     * 按照指定pattern解析日期
+     *<span class="hljs-javadoctag"> @param</span> date 要解析的date
+     *<span class="hljs-javadoctag"> @param</span> pattern 指定格式
+     *<span class="hljs-javadoctag"> @return</span> 解析后date实例
+     */</span>
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">static</span> Date <span class="hljs-title">parseDate</span>(String date,String pattern){
+        <span class="hljs-keyword">if</span>(date == <span class="hljs-keyword">null</span>) {
+            <span class="hljs-keyword">throw</span> <span class="hljs-keyword">new</span> IllegalArgumentException(<span class="hljs-string">"The date must not be null"</span>);
+        }
+        <span class="hljs-keyword">try</span> {
+            <span class="hljs-keyword">return</span>  getSdf(pattern).parse(date);
+        } <span class="hljs-keyword">catch</span> (ParseException e) {
+            e.printStackTrace();
+            logger.error(<span class="hljs-string">"解析的格式不支持:"</span>+pattern);
+        }
+        <span class="hljs-keyword">return</span> <span class="hljs-keyword">null</span>;
+    }
+    <span class="hljs-javadoc">/**
+     * 按照指定pattern格式化日期
+     *<span class="hljs-javadoctag"> @param</span> date 要格式化的date
+     *<span class="hljs-javadoctag"> @param</span> pattern 指定格式
+     *<span class="hljs-javadoctag"> @return</span> 解析后格式
+     */</span>
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">static</span> String <span class="hljs-title">formatDate</span>(Date date,String pattern){
+        <span class="hljs-keyword">if</span> (date == <span class="hljs-keyword">null</span>){
+            <span class="hljs-keyword">throw</span> <span class="hljs-keyword">new</span> IllegalArgumentException(<span class="hljs-string">"The date must not be null"</span>);
+        }<span class="hljs-keyword">else</span> {
+            <span class="hljs-keyword">return</span> getSdf(pattern).format(date);
+        }
+    }
+}</code></pre>
+
+
+
+<h3 id="测试">测试</h3>
+
+<p>在主线程中执行一个,另外两个在子线程执行,使用的都是同一个pattern</p>
+
+
+
+<pre class="prettyprint"><code class=" hljs coffeescript">    public static <span class="hljs-reserved">void</span> main(String[] args) {
+        DateUtil.formatDate(<span class="hljs-keyword">new</span> Date(),MDHMSS);
+        <span class="hljs-keyword">new</span> Thread<span class="hljs-function"><span class="hljs-params">(()-&gt;{
+            DateUtil.formatDate(<span class="hljs-keyword">new</span> Date(),MDHMSS);
+        })</span>.<span class="hljs-title">start</span><span class="hljs-params">()</span>;
+        <span class="hljs-title">new</span> <span class="hljs-title">Thread</span><span class="hljs-params">(()-&gt;{
+            DateUtil.formatDate(<span class="hljs-keyword">new</span> Date(),MDHMSS);
+        })</span>.<span class="hljs-title">start</span><span class="hljs-params">()</span>;
+    }</span></code></pre>
+
+<p>日志分析</p>
+
+
+
+<pre class="prettyprint"><code class=" hljs lasso">put <span class="hljs-literal">new</span> sdf of pattern MMddHHmmssSSS <span class="hljs-keyword">to</span> <span class="hljs-built_in">map</span>
+<span class="hljs-keyword">thread</span>: <span class="hljs-keyword">Thread</span><span class="hljs-preprocessor">[</span>main,<span class="hljs-number">5</span>,main<span class="hljs-preprocessor">]</span><span class="hljs-markup"> init pattern: MMddHHmmssSSS
+thread: Thread</span><span class="hljs-preprocessor">[</span><span class="hljs-keyword">Thread</span><span class="hljs-subst">-</span><span class="hljs-number">0</span>,<span class="hljs-number">5</span>,main<span class="hljs-preprocessor">]</span><span class="hljs-markup"> init pattern: MMddHHmmssSSS
+thread: Thread</span><span class="hljs-preprocessor">[</span><span class="hljs-keyword">Thread</span><span class="hljs-subst">-</span><span class="hljs-number">1</span>,<span class="hljs-number">5</span>,main<span class="hljs-preprocessor">]</span><span class="hljs-markup"> init pattern: MMddHHmmssSSS</span></code></pre>
+
+
+
+<h3 id="分析">分析</h3>
+
+<p>可以看出来sdfMap put进去了一次,而SimpleDateFormat被new了三次,因为代码中有三个线程.那么这是为什么呢?</p>
+
+<p>对于每一个线程Thread,其内部有一个<code>ThreadLocal.ThreadLocalMap threadLocals</code>的全局变量引用,ThreadLocal.ThreadLocalMap里面有一个保存该ThreadLocal和对应value,一图胜千言,结构图如下:</p>
+
+<p><img src="http://img.blog.csdn.net/20161119160421833" alt="这里写图片描述" title="" /></p>
+
+<p>那么对于sdfMap的话,结构图就变更了下</p>
+
+<p><img src="http://img.blog.csdn.net/20161119160815822" alt="这里写图片描述" title="" /></p>
+
+<p>那么日志为什么是这样的?分析下:</p>
+
+
+
+<h4 id="1首先第一次执行dateutilformatdatenew-datemdhmss">1.首先第一次执行<code>DateUtil.formatDate(new Date(),MDHMSS);</code></h4>
+
+
+
+<pre class="prettyprint"><code class=" hljs cs"><span class="hljs-comment">//第一次执行DateUtil.formatDate(new Date(),MDHMSS)分析</span>
+    <span class="hljs-keyword">private</span> <span class="hljs-keyword">static</span> SimpleDateFormat <span class="hljs-title">getSdf</span>(final String pattern){
+        ThreadLocal&lt;SimpleDateFormat&gt; sdfThread = sdfMap.<span class="hljs-keyword">get</span>(pattern);
+        <span class="hljs-comment">//得到的sdfThread为null,进入if语句</span>
+        <span class="hljs-keyword">if</span> (sdfThread == <span class="hljs-keyword">null</span>){
+            synchronized (DateUtil.class){
+                sdfThread = sdfMap.<span class="hljs-keyword">get</span>(pattern);
+                <span class="hljs-comment">//sdfThread仍然为null,进入if语句</span>
+                <span class="hljs-keyword">if</span> (sdfThread == <span class="hljs-keyword">null</span>){
+                    <span class="hljs-comment">//打印日志</span>
+                    logger.debug(<span class="hljs-string">"put new sdf of pattern "</span> + pattern + <span class="hljs-string">" to map"</span>);
+                    <span class="hljs-comment">//创建ThreadLocal实例,并覆盖initialValue方法</span>
+                    sdfThread = <span class="hljs-keyword">new</span> ThreadLocal&lt;SimpleDateFormat&gt;(){
+                        @Override
+                        <span class="hljs-keyword">protected</span> SimpleDateFormat <span class="hljs-title">initialValue</span>() {
+                            logger.debug(<span class="hljs-string">"thread: "</span> + Thread.currentThread() + <span class="hljs-string">" init pattern: "</span> + pattern);
+                            <span class="hljs-keyword">return</span> <span class="hljs-keyword">new</span> SimpleDateFormat(pattern);
+                        }
+                    };
+                    <span class="hljs-comment">//设置进如sdfMap</span>
+                    sdfMap.put(pattern,sdfThread);
+                }
+            }
+        }
+        <span class="hljs-keyword">return</span> sdfThread.<span class="hljs-keyword">get</span>();
+    }</code></pre>
+
+<p>这个时候可能有人会问,这里并没有调用ThreadLocal的set方法,那么值是怎么设置进入的呢? <br />
+这就需要看sdfThread.get()的实现:</p>
+
+
+
+<pre class="prettyprint"><code class=" hljs lasso">    <span class="hljs-keyword">public</span> T get() {
+        <span class="hljs-keyword">Thread</span> t <span class="hljs-subst">=</span> <span class="hljs-keyword">Thread</span><span class="hljs-built_in">.</span>currentThread();
+        ThreadLocalMap <span class="hljs-built_in">map</span> <span class="hljs-subst">=</span> getMap(t);
+        <span class="hljs-keyword">if</span> (<span class="hljs-built_in">map</span> <span class="hljs-subst">!=</span> <span class="hljs-built_in">null</span>) {
+            ThreadLocalMap<span class="hljs-built_in">.</span>Entry e <span class="hljs-subst">=</span> <span class="hljs-built_in">map</span><span class="hljs-built_in">.</span>getEntry(this);
+            <span class="hljs-keyword">if</span> (e <span class="hljs-subst">!=</span> <span class="hljs-built_in">null</span>) {
+                @SuppressWarnings(<span class="hljs-string">"unchecked"</span>)
+                T result <span class="hljs-subst">=</span> (T)e<span class="hljs-built_in">.</span>value;
+                <span class="hljs-keyword">return</span> result;
+            }
+        }
+        <span class="hljs-keyword">return</span> setInitialValue();
+    }</code></pre>
+
+<p>也就是说当值不存在的时候会调用setInitialValue()方法,该方法会调用initialValue()方法,也就是我们覆盖的方法.</p>
+
+<p>对应日志打印.</p>
+
+
+
+<pre class="prettyprint"><code class=" hljs lasso">put <span class="hljs-literal">new</span> sdf of pattern MMddHHmmssSSS <span class="hljs-keyword">to</span> <span class="hljs-built_in">map</span>
+<span class="hljs-keyword">thread</span>: <span class="hljs-keyword">Thread</span><span class="hljs-preprocessor">[</span>main,<span class="hljs-number">5</span>,main<span class="hljs-preprocessor">]</span><span class="hljs-markup"> init pattern: MMddHHmmssSSS</span></code></pre>
+
+
+
+<h4 id="2第二次在子线程执行dateutilformatdatenew-datemdhmss">2.第二次在子线程执行<code>DateUtil.formatDate(new Date(),MDHMSS);</code></h4>
+
+
+
+<pre class="prettyprint"><code class=" hljs cs"><span class="hljs-comment">//第二次在子线程执行`DateUtil.formatDate(new Date(),MDHMSS);`</span>
+    <span class="hljs-keyword">private</span> <span class="hljs-keyword">static</span> SimpleDateFormat <span class="hljs-title">getSdf</span>(final String pattern){
+        ThreadLocal&lt;SimpleDateFormat&gt; sdfThread = sdfMap.<span class="hljs-keyword">get</span>(pattern);
+        <span class="hljs-comment">//这里得到的sdfThread不为null,跳过if块</span>
+        <span class="hljs-keyword">if</span> (sdfThread == <span class="hljs-keyword">null</span>){
+            synchronized (DateUtil.class){
+                sdfThread = sdfMap.<span class="hljs-keyword">get</span>(pattern);
+                <span class="hljs-keyword">if</span> (sdfThread == <span class="hljs-keyword">null</span>){
+                    logger.debug(<span class="hljs-string">"put new sdf of pattern "</span> + pattern + <span class="hljs-string">" to map"</span>);
+                    sdfThread = <span class="hljs-keyword">new</span> ThreadLocal&lt;SimpleDateFormat&gt;(){
+                        @Override
+                        <span class="hljs-keyword">protected</span> SimpleDateFormat <span class="hljs-title">initialValue</span>() {
+                            logger.debug(<span class="hljs-string">"thread: "</span> + Thread.currentThread() + <span class="hljs-string">" init pattern: "</span> + pattern);
+                            <span class="hljs-keyword">return</span> <span class="hljs-keyword">new</span> SimpleDateFormat(pattern);
+                        }
+                    };
+                    sdfMap.put(pattern,sdfThread);
+                }
+            }
+        }
+        <span class="hljs-comment">//直接调用sdfThread.get()返回</span>
+        <span class="hljs-keyword">return</span> sdfThread.<span class="hljs-keyword">get</span>();
+    }</code></pre>
+
+<p>分析sdfThread.get()</p>
+
+
+
+<pre class="prettyprint"><code class=" hljs lasso"><span class="hljs-comment">//第二次在子线程执行`DateUtil.formatDate(new Date(),MDHMSS);`</span>
+    <span class="hljs-keyword">public</span> T get() {
+        <span class="hljs-keyword">Thread</span> t <span class="hljs-subst">=</span> <span class="hljs-keyword">Thread</span><span class="hljs-built_in">.</span>currentThread();<span class="hljs-comment">//得到当前子线程</span>
+        ThreadLocalMap <span class="hljs-built_in">map</span> <span class="hljs-subst">=</span> getMap(t);
+        <span class="hljs-comment">//子线程中得到的map为null,跳过if块</span>
+        <span class="hljs-keyword">if</span> (<span class="hljs-built_in">map</span> <span class="hljs-subst">!=</span> <span class="hljs-built_in">null</span>) {
+            ThreadLocalMap<span class="hljs-built_in">.</span>Entry e <span class="hljs-subst">=</span> <span class="hljs-built_in">map</span><span class="hljs-built_in">.</span>getEntry(this);
+            <span class="hljs-keyword">if</span> (e <span class="hljs-subst">!=</span> <span class="hljs-built_in">null</span>) {
+                @SuppressWarnings(<span class="hljs-string">"unchecked"</span>)
+                T result <span class="hljs-subst">=</span> (T)e<span class="hljs-built_in">.</span>value;
+                <span class="hljs-keyword">return</span> result;
+            }
+        }
+        <span class="hljs-comment">//直接执行初始化,也就是调用我们覆盖的initialValue()方法</span>
+        <span class="hljs-keyword">return</span> setInitialValue();
+    }</code></pre>
+
+<p>对应日志:</p>
+
+
+
+<pre class="prettyprint"><code class=" hljs mathematica"><span class="hljs-keyword">Thread</span>[<span class="hljs-keyword">Thread</span>-<span class="hljs-number">0</span>,<span class="hljs-number">5</span>,main] init pattern: MMddHHmmssSSS</code></pre>
+
+<p>同理第三次执行和第二次类似.直接调用sdfThread.get(),然后调用initialValue()方法,对应日志</p>
+
+
+
+<pre class="prettyprint"><code class=" hljs mathematica"><span class="hljs-keyword">Thread</span>[<span class="hljs-keyword">Thread</span>-<span class="hljs-number">1</span>,<span class="hljs-number">5</span>,main] init pattern: MMddHHmmssSSS</code></pre>
+
+<hr />
+
+
+
+<h3 id="总结">总结</h3>
+
+<blockquote>
+  <p>在什么场景下比较适合使用ThreadLocal？stackoverflow上有人给出了还不错的回答。 <br />
+  When and how should I use a ThreadLocal variable? <br />
+  One possible (and common) use is when you have some object that is not thread-safe, but you want to avoid synchronizing access to that object (I’m looking at you, SimpleDateFormat). Instead, give each thread its own instance of the object.</p>
+</blockquote>
+
+<p>参考资料: <br />
+<a href="http://www.importnew.com/21479.html">http://www.importnew.com/21479.html</a> <br />
+<a href="http://www.cnblogs.com/zemliu/archive/2013/08/29/3290585.html">http://www.cnblogs.com/zemliu/archive/2013/08/29/3290585.html</a></p></div>&#13;
+        <script type="text/javascript">&#13;
+            $(function () {&#13;
+                $('pre.prettyprint code').each(function () {&#13;
+                    var lines = $(this).text().split('\n').length;&#13;
+                    var $numbering = $('&lt;ul/&gt;').addClass('pre-numbering').hide();&#13;
+                    $(this).addClass('has-numbering').parent().append($numbering);&#13;
+                    for (i = 1; i &lt;= lines; i++) {&#13;
+                        $numbering.append($('&lt;li/&gt;').text(i));&#13;
+                    };&#13;
+                    $numbering.fadeIn(1700);&#13;
+                });&#13;
+            });&#13;
+        </script>&#13;
+   &#13;

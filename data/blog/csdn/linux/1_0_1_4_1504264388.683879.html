@@ -1,0 +1,275 @@
+
+        <div class="markdown_views"><p>接着上一节我们继续学习进程ID。 <br />
+在上一节中我们提到了node是一个散列表元素，对于这个散列表并未做过多解释，在这里我们给出更加详细的描述。</p>
+
+<p>这个散列表是为了在给定的命名空间中查找对应与指定PID数值的pid数组的pid结构实例。 <br />
+static struct hlist_head *pid_hash; <br />
+上面的hlist_head是一个内核的标准数据结构，用于建立双向散列表。 <br />
+pid_hash是一个hlist_head数组，全局pid哈希表，桶数目介于16-4096之间，由系统可用内存决定 ，pidhash_init（）用于计算并分配合适的所需内存。</p>
+
+<p>假如我们已经分配了一个新pid实例，并设置ID类型，可使用下面的函数将其和进程关联起来。</p>
+
+<pre class="prettyprint"><code class=" hljs ocaml"><span class="hljs-built_in">int</span> fastcall attach_pid(<span class="hljs-keyword">struct</span> task_struct *task, enum pid_type <span class="hljs-class"><span class="hljs-keyword">type</span>,</span>
+        <span class="hljs-keyword">struct</span> pid *pid)
+{
+    <span class="hljs-keyword">struct</span> pid_link *link;
+
+    <span class="hljs-comment">/* 建立task_struct与pid的关联 */</span>
+    link = &amp;task-&gt;pids[<span class="hljs-class"><span class="hljs-keyword">type</span>];</span>
+    link-&gt;pid = pid;
+    <span class="hljs-comment">/* 建立pid与task_struct的关联 */</span>
+    hlist_add_head_rcu(&amp;link-&gt;node, &amp;pid-&gt;tasks[<span class="hljs-class"><span class="hljs-keyword">type</span>]);</span>
+
+    return <span class="hljs-number">0</span>;
+}</code></pre>
+
+<p>下面我们将关注如何通过上节的数据结构来获取局部的id,如task_pid，task_tgid等，以及命名空间局部数字ID和task_struct的相互转换过程。</p>
+
+
+
+<pre class="prettyprint"><code class=" hljs fsharp"><span class="hljs-keyword">struct</span> task_struct *find_task_by_pid_type_ns(int <span class="hljs-class"><span class="hljs-keyword">type</span>, <span class="hljs-title">int</span> <span class="hljs-title">nr</span>,</span>
+        <span class="hljs-keyword">struct</span> pid_namespace *ns)
+{
+    <span class="hljs-keyword">return</span> pid_task(find_pid_ns(nr, ns), <span class="hljs-class"><span class="hljs-keyword">type</span>);</span>
+}
+
+EXPORT_SYMBOL(find_task_by_pid_type_ns);
+
+/**
+ * 通过全局pid查找任务
+ */
+<span class="hljs-keyword">struct</span> task_struct *find_task_by_pid(pid_t nr)
+{
+    <span class="hljs-keyword">return</span> find_task_by_pid_type_ns(PIDTYPE_PID, nr, &amp;init_pid_ns);
+}
+EXPORT_SYMBOL(find_task_by_pid);
+
+/**
+ * 在当前进程的命名空间中，查找特定进程号的进程
+ */
+<span class="hljs-keyword">struct</span> task_struct *find_task_by_vpid(pid_t vnr)
+{
+    <span class="hljs-keyword">return</span> find_task_by_pid_type_ns(PIDTYPE_PID, vnr,
+            current-&gt;nsproxy-&gt;pid_ns);
+}
+EXPORT_SYMBOL(find_task_by_vpid);
+
+/**
+ * 根据id在命名空间中查找进程
+ */
+<span class="hljs-keyword">struct</span> task_struct *find_task_by_pid_ns(pid_t nr, <span class="hljs-keyword">struct</span> pid_namespace *ns)
+{
+    <span class="hljs-keyword">return</span> find_task_by_pid_type_ns(PIDTYPE_PID, nr, ns);
+}
+EXPORT_SYMBOL(find_task_by_pid_ns);
+
+<span class="hljs-keyword">struct</span> pid *get_task_pid(<span class="hljs-keyword">struct</span> task_struct *task, enum pid_type <span class="hljs-class"><span class="hljs-keyword">type</span>)</span>
+{
+    <span class="hljs-keyword">struct</span> pid *pid;
+    rcu_read_lock();
+    pid = get_pid(task-&gt;pids[<span class="hljs-class"><span class="hljs-keyword">type</span>].<span class="hljs-title">pid</span>);</span>
+    rcu_read_unlock();
+    <span class="hljs-keyword">return</span> pid;
+}
+pid_t task_pid_nr_ns(<span class="hljs-keyword">struct</span> task_struct *tsk, <span class="hljs-keyword">struct</span> pid_namespace *ns)
+{
+    <span class="hljs-keyword">return</span> pid_nr_ns(task_pid(tsk), ns);
+}
+EXPORT_SYMBOL(task_pid_nr_ns);
+
+pid_t task_tgid_nr_ns(<span class="hljs-keyword">struct</span> task_struct *tsk, <span class="hljs-keyword">struct</span> pid_namespace *ns)
+{
+    <span class="hljs-keyword">return</span> pid_nr_ns(task_tgid(tsk), ns);
+}
+EXPORT_SYMBOL(task_tgid_nr_ns);
+
+pid_t task_pgrp_nr_ns(<span class="hljs-keyword">struct</span> task_struct *tsk, <span class="hljs-keyword">struct</span> pid_namespace *ns)
+{
+    <span class="hljs-keyword">return</span> pid_nr_ns(task_pgrp(tsk), ns);
+}
+EXPORT_SYMBOL(task_pgrp_nr_ns);
+
+pid_t task_session_nr_ns(<span class="hljs-keyword">struct</span> task_struct *tsk, <span class="hljs-keyword">struct</span> pid_namespace *ns)
+{
+    <span class="hljs-keyword">return</span> pid_nr_ns(task_session(tsk), ns);
+}
+EXPORT_SYMBOL(task_session_nr_ns);
+<span class="hljs-keyword">struct</span> pid *get_task_pid(<span class="hljs-keyword">struct</span> task_struct *task, enum pid_type <span class="hljs-class"><span class="hljs-keyword">type</span>)</span>
+{
+    <span class="hljs-keyword">struct</span> pid *pid;
+    rcu_read_lock();
+    pid = get_pid(task-&gt;pids[<span class="hljs-class"><span class="hljs-keyword">type</span>].<span class="hljs-title">pid</span>);</span>
+    rcu_read_unlock();
+    <span class="hljs-keyword">return</span> pid;
+}
+
+<span class="hljs-keyword">struct</span> task_struct *fastcall get_pid_task(<span class="hljs-keyword">struct</span> pid *pid, enum pid_type <span class="hljs-class"><span class="hljs-keyword">type</span>)</span>
+{
+    <span class="hljs-keyword">struct</span> task_struct *result;
+    rcu_read_lock();
+    result = pid_task(pid, <span class="hljs-class"><span class="hljs-keyword">type</span>);</span>
+    <span class="hljs-keyword">if</span> (result)
+        get_task_struct(result);
+    rcu_read_unlock();
+    <span class="hljs-keyword">return</span> result;
+}</code></pre>
+
+<p><strong>下面将介绍如何生成唯一的PID。</strong> <br />
+内核采用了一个大的位图来对PID进行管理和跟踪，每个PID用一个比特来标识，空闲置0，反之置1即可。</p>
+
+<p>在这里需要注意在进行pid分配建立一个新进程时，由于进程可能在多明敏空间中可见，则必须生成局部PID，这个需先在alloc_pid()中处理，然后才能调用alloc_pidmap()去分配pid，释放的时候同样。</p>
+
+<pre class="prettyprint"><code class=" hljs perl">struct pid <span class="hljs-variable">*alloc_pid</span>(struct pid_namespace <span class="hljs-variable">*ns</span>)
+{
+    struct pid <span class="hljs-variable">*pid</span>;
+    enum pid_type type;
+    <span class="hljs-keyword">int</span> i, nr;
+    struct pid_namespace <span class="hljs-variable">*tmp</span>;
+    struct upid <span class="hljs-variable">*upid</span>;
+
+    pid = kmem_cache_alloc(ns-&gt;pid_cachep, GFP_KERNEL);
+    <span class="hljs-keyword">if</span> (!pid)
+        <span class="hljs-keyword">goto</span> out;
+
+    tmp = ns;
+    <span class="hljs-keyword">for</span> (i = ns-&gt;level; i &gt;= <span class="hljs-number">0</span>; i--) {
+        nr = alloc_pidmap(tmp);
+        <span class="hljs-keyword">if</span> (nr &lt; <span class="hljs-number">0</span>)
+            <span class="hljs-keyword">goto</span> out_free;
+
+        pid-&gt;numbers[i].nr = nr;
+        pid-&gt;numbers[i].ns = tmp;
+        tmp = tmp-&gt;parent;
+    }
+
+    get_pid_ns(ns);
+    pid-&gt;level = ns-&gt;level;
+    atomic_set(&amp;pid-&gt;count, <span class="hljs-number">1</span>);
+    <span class="hljs-keyword">for</span> (type = <span class="hljs-number">0</span>; type &lt; PIDTYPE_MAX; ++type)
+        INIT_HLIST_HEAD(&amp;pid-&gt;tasks[type]);
+
+    spin_lock_ir<span class="hljs-string">q(&amp;pidmap_lock)</span>;
+    <span class="hljs-keyword">for</span> (i = ns-&gt;level; i &gt;= <span class="hljs-number">0</span>; i--) {
+        upid = &amp;pid-&gt;numbers[i];
+        hlist_add_head_rcu(&amp;upid-&gt;pid_chain,
+                &amp;pid_hash[pid_hashfn(upid-&gt;nr, upid-&gt;ns)]);
+    }
+    spin_unlock_ir<span class="hljs-string">q(&amp;pidmap_lock)</span>;
+
+out:
+    <span class="hljs-keyword">return</span> pid;
+
+out_free:
+    <span class="hljs-keyword">for</span> (i++; i &lt;= ns-&gt;level; i++)
+        free_pidmap(pid-&gt;numbers[i].ns, pid-&gt;numbers[i].nr);
+
+    kmem_cache_free(ns-&gt;pid_cachep, pid);
+    pid = NULL;
+    <span class="hljs-keyword">goto</span> out;
+}
+/<span class="hljs-variable">**</span>
+ * 在命名空间中，查找并分配一个可用的pid号
+ <span class="hljs-variable">*/</span>
+static <span class="hljs-keyword">int</span> alloc_pidmap(struct pid_namespace <span class="hljs-variable">*pid_ns</span>)
+{
+    <span class="hljs-keyword">int</span> i, offset, max_scan, pid, <span class="hljs-keyword">last</span> = pid_ns-&gt;last_pid;
+    struct pidmap <span class="hljs-variable">*map</span>;
+
+    pid = <span class="hljs-keyword">last</span> + <span class="hljs-number">1</span>;
+    <span class="hljs-keyword">if</span> (pid &gt;= pid_max)
+        pid = RESERVED_PIDS;
+    offset = pid &amp; BITS_PER_PAGE_MASK;
+    <span class="hljs-keyword">map</span> = &amp;pid_ns-&gt;pidmap[pid/BITS_PER_PAGE];
+    max_scan = (pid_max + BITS_PER_PAGE - <span class="hljs-number">1</span>)/BITS_PER_PAGE - !offset;
+    <span class="hljs-keyword">for</span> (i = <span class="hljs-number">0</span>; i &lt;= max_scan; ++i) {
+        <span class="hljs-keyword">if</span> (unlikely(!<span class="hljs-keyword">map</span>-&gt;page)) {
+            void <span class="hljs-variable">*page</span> = kzalloc(PAGE_SIZE, GFP_KERNEL);
+            <span class="hljs-regexp">/*
+             * Free the page if someone raced with us
+             * installing it:
+             */</span>
+            spin_lock_ir<span class="hljs-string">q(&amp;pidmap_lock)</span>;
+            <span class="hljs-keyword">if</span> (<span class="hljs-keyword">map</span>-&gt;page)
+                kfree(page);
+            <span class="hljs-keyword">else</span>
+                <span class="hljs-keyword">map</span>-&gt;page = page;
+            spin_unlock_ir<span class="hljs-string">q(&amp;pidmap_lock)</span>;
+            <span class="hljs-keyword">if</span> (unlikely(!<span class="hljs-keyword">map</span>-&gt;page))
+                <span class="hljs-keyword">break</span>;
+        }
+        <span class="hljs-keyword">if</span> (likely(atomic_read(&amp;<span class="hljs-keyword">map</span>-&gt;nr_free))) {
+            <span class="hljs-keyword">do</span> {
+                <span class="hljs-keyword">if</span> (!test_and_set_bit(offset, <span class="hljs-keyword">map</span>-&gt;page)) {
+                    atomic_dec(&amp;<span class="hljs-keyword">map</span>-&gt;nr_free);
+                    pid_ns-&gt;last_pid = pid;
+                    <span class="hljs-keyword">return</span> pid;
+                }
+                offset = find_next_offset(<span class="hljs-keyword">map</span>, offset);
+                pid = mk_pid(pid_ns, <span class="hljs-keyword">map</span>, offset);
+            <span class="hljs-regexp">/*
+             * find_next_offset() found a bit, the pid from it
+             * is in-bounds, and if we fell back to the last
+             * bitmap block and the final block was the same
+             * as the starting point, pid is before last_pid.
+             */</span>
+            } <span class="hljs-keyword">while</span> (offset &lt; BITS_PER_PAGE &amp;&amp; pid &lt; pid_max &amp;&amp;
+                    (i != max_scan || pid &lt; <span class="hljs-keyword">last</span> ||
+                        !((<span class="hljs-keyword">last</span>+<span class="hljs-number">1</span>) &amp; BITS_PER_PAGE_MASK)));
+        }
+        <span class="hljs-keyword">if</span> (<span class="hljs-keyword">map</span> &lt; &amp;pid_ns-&gt;pidmap[(pid_max-<span class="hljs-number">1</span>)/BITS_PER_PAGE]) {
+            ++<span class="hljs-keyword">map</span>;
+            offset = <span class="hljs-number">0</span>;
+        } <span class="hljs-keyword">else</span> {
+            <span class="hljs-keyword">map</span> = &amp;pid_ns-&gt;pidmap[<span class="hljs-number">0</span>];
+            offset = RESERVED_PIDS;
+            <span class="hljs-keyword">if</span> (unlikely(<span class="hljs-keyword">last</span> == offset))
+                <span class="hljs-keyword">break</span>;
+        }
+        pid = mk_pid(pid_ns, <span class="hljs-keyword">map</span>, offset);
+    }
+    <span class="hljs-keyword">return</span> -<span class="hljs-number">1</span>;
+}</code></pre>
+
+<pre class="prettyprint"><code class=" hljs java">
+fastcall <span class="hljs-keyword">void</span> free_pid(struct pid *pid)
+{
+    <span class="hljs-comment">/* We can be called with write_lock_irq(&amp;tasklist_lock) held */</span>
+    <span class="hljs-keyword">int</span> i;
+    unsigned <span class="hljs-keyword">long</span> flags;
+
+    spin_lock_irqsave(&amp;pidmap_lock, flags);
+    <span class="hljs-keyword">for</span> (i = <span class="hljs-number">0</span>; i &lt;= pid-&gt;level; i++)
+        hlist_del_rcu(&amp;pid-&gt;numbers[i].pid_chain);
+    spin_unlock_irqrestore(&amp;pidmap_lock, flags);
+
+    <span class="hljs-keyword">for</span> (i = <span class="hljs-number">0</span>; i &lt;= pid-&gt;level; i++)
+        free_pidmap(pid-&gt;numbers[i].ns, pid-&gt;numbers[i].nr);
+
+    call_rcu(&amp;pid-&gt;rcu, delayed_put_pid);
+}
+<span class="hljs-javadoc">/**
+ * 在命名空间中，释放一个可用的pid号
+ */</span>
+<span class="hljs-keyword">static</span> fastcall <span class="hljs-keyword">void</span> free_pidmap(struct pid_namespace *pid_ns, <span class="hljs-keyword">int</span> pid)
+{
+    struct pidmap *map = pid_ns-&gt;pidmap + pid / BITS_PER_PAGE;
+    <span class="hljs-keyword">int</span> offset = pid &amp; BITS_PER_PAGE_MASK;
+
+    clear_bit(offset, map-&gt;page);
+    atomic_inc(&amp;map-&gt;nr_free);
+}
+</code></pre></div>&#13;
+        <script type="text/javascript">&#13;
+            $(function () {&#13;
+                $('pre.prettyprint code').each(function () {&#13;
+                    var lines = $(this).text().split('\n').length;&#13;
+                    var $numbering = $('&lt;ul/&gt;').addClass('pre-numbering').hide();&#13;
+                    $(this).addClass('has-numbering').parent().append($numbering);&#13;
+                    for (i = 1; i &lt;= lines; i++) {&#13;
+                        $numbering.append($('&lt;li/&gt;').text(i));&#13;
+                    };&#13;
+                    $numbering.fadeIn(1700);&#13;
+                });&#13;
+            });&#13;
+        </script>&#13;
+   &#13;

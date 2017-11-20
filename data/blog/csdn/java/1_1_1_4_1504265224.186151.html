@@ -1,0 +1,458 @@
+
+
+<h1>mybatis实现的对数据的增删查改</h1>&#13;
+<h2>前期准备</h2>&#13;
+<div><span style="font-size:14px">新建java工程或java wweb工程，</span></div>&#13;
+<div><span style="font-size:14px">需要导入以下的包，</span></div>&#13;
+<div><span style="font-size:14px"><img src="http://img.blog.csdn.net/20160725113912605?watermark/2/text/aHR0cDovL2Jsb2cuY3Nkbi5uZXQv/font/5a6L5L2T/fontsize/400/fill/I0JBQkFCMA==/dissolve/70/gravity/Center" alt="" /><br />&#13;
+</span></div>&#13;
+<div><br />&#13;
+</div>&#13;
+<div><span style="font-size:14px">基本工作已经完成，接下来开始进入正题。</span></div>&#13;
+<h2><span style="font-size:14px">新建实体类</span></h2>&#13;
+<div><span style="font-size:14px">新建与数据库表对应的实体类</span></div>&#13;
+<div><span style="font-size:14px"></span><pre code_snippet_id="1782440" snippet_file_name="blog_20160725_1_6152365" name="code" class="java">package com.edu.hpu.domain;
+
+/**
+ * @author Administrator
+ *user表所对应的实体类
+ */
+public class User {
+      //实体类的属性和表的字段名称一一对应
+	  private int id;
+	  private String name;
+	  private int age;
+     //对属性进行封装	  
+	public int getId() {
+		return id;
+	}
+	public void setId(int id) {
+		this.id = id;
+	}
+	public String getName() {
+		return name;
+	}
+	public void setName(String name) {
+		this.name = name;
+	}
+	public int getAge() {
+		return age;
+	}
+	public void setAge(int age) {
+		this.age = age;
+	}
+	  //添加toString方法
+	  @Override
+	public String toString() {
+		return "User [id=" + id + ",name=" + name + ",age=" + age + "]";
+	}
+}
+</pre>&#13;
+<h2><span style="font-size:14px">添加Mybatis工具类</span></h2>&#13;
+<div><span style="font-size:14px">添加用到的工具类，如下所示，</span></div>&#13;
+<div><span style="font-size:14px"></span><pre code_snippet_id="1782440" snippet_file_name="blog_20160725_2_5694234" name="code" class="java">package com.edu.hpu.util;
+
+import java.io.InputStream;
+
+import org.apache.ibatis.session.SqlSession;
+import org.apache.ibatis.session.SqlSessionFactory;
+import org.apache.ibatis.session.SqlSessionFactoryBuilder;
+
+public class MyBatisUtil {
+
+    /**
+     * 获取SqlSessionFactory
+     * @return SqlSessionFactory
+     */
+    public static SqlSessionFactory getSqlSessionFactory() {
+        String resource = "conf.xml";//调取配置文件
+        InputStream is = MyBatisUtil.class.getClassLoader().getResourceAsStream(resource);
+        SqlSessionFactory factory = new SqlSessionFactoryBuilder().build(is);
+        return factory;
+    }
+    
+    /**
+     * 获取SqlSession
+     * @return SqlSession
+     */
+    public static SqlSession getSqlSession() {
+        return getSqlSessionFactory().openSession();
+    }
+    
+    /**
+     * 获取SqlSession
+     * @param isAutoCommit 
+     *         true 表示创建的SqlSession对象在执行完SQL之后会自动提交事务
+     *         false 表示创建的SqlSession对象在执行完SQL之后不会自动提交事务，这时就需要我们手动调用sqlSession.commit()提交事务
+     * @return SqlSession
+     */
+    public static SqlSession getSqlSession(boolean isAutoCommit) {
+        return getSqlSessionFactory().openSession(isAutoCommit);
+    }
+}</pre><br />&#13;
+使用mybatis对数据进行增删查改操作有两种方法，分别为配置文件操作和注解操作。</div>&#13;
+<h2>通过配置文件进行操作</h2>&#13;
+<span style="font-size:14px">数据库配置文件如下所示，对数据库信息进行配置，</span></div>&#13;
+<div><span style="font-size:14px"></span><pre code_snippet_id="1782440" snippet_file_name="blog_20160725_3_2520888" name="code" class="html">&lt;?xml version="1.0" encoding="UTF-8"?&gt;
+&lt;!DOCTYPE configuration PUBLIC "-//mybatis.org//DTD Config 3.0//EN" "http://mybatis.org/dtd/mybatis-3-config.dtd"&gt;
+&lt;configuration&gt;
+    &lt;environments default="development"&gt;
+        &lt;environment id="development"&gt;
+            &lt;transactionManager type="JDBC" /&gt;
+            &lt;!-- 配置数据库连接信息 --&gt;
+            &lt;dataSource type="POOLED"&gt;
+                &lt;property name="driver" value="com.mysql.jdbc.Driver" /&gt;
+                &lt;property name="url" value="jdbc:mysql://localhost:3306/test?useUnicode=true&amp;characterEncoding=UTF-8&amp;zeroDateTimeBehavior=convertToNull" /&gt;
+                &lt;property name="username" value="root" /&gt;
+                &lt;property name="password" value="admin" /&gt;
+            &lt;/dataSource&gt;
+        &lt;/environment&gt;
+    &lt;/environments&gt;
+      &lt;mappers&gt;
+        &lt;!-- 注册userMapper.xml文件， 
+         userMapper.xml位于com.edu.hpu.mapping这个包下，所以resource写成com/edu/hpu/mapping/userMapper.xml--&gt;
+          &lt;mapper resource="com/edu/hpu/mapping/userMapper.xml"/&gt; 
+         &lt;!-- &lt;mapper class="com.edu.hpu.mapping.UserMapper_11"/&gt; --&gt;
+     &lt;/mappers&gt;
+&lt;/configuration&gt;</pre><br />&#13;
+配置操作数据库语句文件，如下所示，</div>&#13;
+<div><span style="font-size:14px"></span><pre code_snippet_id="1782440" snippet_file_name="blog_20160725_4_3807643" name="code" class="html">&lt;?xml version="1.0" encoding="UTF-8" ?&gt;
+&lt;!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd"&gt;
+
+&lt;mapper namespace="com.edu.hpu.mapping.userMapper"&gt;
+    &lt;!-- 在select标签中编写查询的SQL语句， 设置select标签的id属性为getUser，id属性值必须是唯一的，不能够重复
+    使用parameterType属性指明查询时使用的参数类型，resultType属性指明查询返回的结果集类型
+    resultType="com.edu.hpu.domain.User"就表示将查询结果封装成一个User类的对象返回
+    User类就是users表所对应的实体类
+    --&gt;
+    &lt;!-- 
+        根据id查询得到一个user对象
+     --&gt;
+    &lt;select id="getUser" parameterType="int" 
+        resultType="com.edu.hpu.domain.User"&gt;
+        select * from users where id=#{id}
+    &lt;/select&gt;
+&lt;!-- 创建用户(Create) --&gt;
+    &lt;insert id="addUser" parameterType="com.edu.hpu.domain.User"&gt;
+        insert into users(name,age) values(#{name},#{age})
+    &lt;/insert&gt;
+    
+    &lt;!-- 删除用户(Remove) --&gt;
+    &lt;delete id="deleteUser" parameterType="int"&gt;
+        delete from users where id=#{id}
+    &lt;/delete&gt;
+    
+    &lt;!-- 修改用户(Update) --&gt;
+    &lt;update id="updateUser" parameterType="com.edu.hpu.domain.User"&gt;
+        update users set name=#{name},age=#{age} where id=#{id}
+    &lt;/update&gt;
+    
+    &lt;!-- 查询全部用户--&gt;
+    &lt;select id="getAllUsers" resultType="com.edu.hpu.domain.User"&gt;
+        select * from users
+    &lt;/select&gt;
+    
+&lt;/mapper&gt;</pre>通过配置文件实现对数据库的增删查改基本上已经完成，接下来给出测试类，</div>&#13;
+<div><span style="font-size:14px">可以进行测试，如下所示，</span></div>&#13;
+<div><span style="font-size:14px"></span><pre code_snippet_id="1782440" snippet_file_name="blog_20160725_5_4537992" name="code" class="java">package com.edu.hpu.test;
+
+import java.util.List;
+import com.edu.hpu.domain.User;
+import com.edu.hpu.util.MyBatisUtil;
+import org.junit.Test;
+import org.apache.ibatis.session.SqlSession;
+
+public class Test2 {
+
+    @Test
+    public void testAdd(){
+        //SqlSession sqlSession = MyBatisUtil.getSqlSession(false);
+        SqlSession sqlSession = MyBatisUtil.getSqlSession(true);
+        /**
+         * 映射sql的标识字符串，
+         * com.edu.hpu.mapping.userMapper是userMapper.xml文件中mapper标签的namespace属性的值，
+         * addUser是insert标签的id属性值，通过insert标签的id属性值就可以找到要执行的SQL
+         */
+        String statement = "com.edu.hpu.mapping.userMapper.addUser";//映射sql的标识字符串
+        User user = new User();
+        user.setName("新增用户小黄");
+        user.setAge(20);
+        //执行插入操作
+        int retResult = sqlSession.insert(statement,user);
+        //手动提交事务
+        //sqlSession.commit();
+        //使用SqlSession执行完SQL之后需要关闭SqlSession
+        sqlSession.close();
+        System.out.println(retResult);
+    }
+    
+    @Test
+    public void testUpdate(){
+        SqlSession sqlSession = MyBatisUtil.getSqlSession(true);
+        /**
+         * 映射sql的标识字符串，
+         * com.edu.hpu.mapping.userMapper是userMapper.xml文件中mapper标签的namespace属性的值，
+         * updateUser是update标签的id属性值，通过update标签的id属性值就可以找到要执行的SQL
+         */
+        String statement = "com.edu.hpu.mapping.userMapper.updateUser";//映射sql的标识字符串
+        User user = new User();
+        user.setId(3);
+        user.setName("hello world");
+        user.setAge(25);
+        //执行修改操作
+        int retResult = sqlSession.update(statement,user);
+        //使用SqlSession执行完SQL之后需要关闭SqlSession
+        sqlSession.close();
+        System.out.println(retResult);
+    }
+    
+    @Test
+    public void testDelete(){
+        SqlSession sqlSession = MyBatisUtil.getSqlSession(true);
+        /**
+         * 映射sql的标识字符串，
+         * com.edu.hpu.mapping.userMapper是userMapper.xml文件中mapper标签的namespace属性的值，
+         * deleteUser是delete标签的id属性值，通过delete标签的id属性值就可以找到要执行的SQL
+         */
+        String statement = "com.edu.hpu.mapping.userMapper.deleteUser";//映射sql的标识字符串
+        //执行删除操作
+        int retResult = sqlSession.delete(statement,4);
+        //使用SqlSession执行完SQL之后需要关闭SqlSession
+        sqlSession.close();
+        System.out.println(retResult);
+    }
+    
+    @Test
+    public void testGetAll(){
+        SqlSession sqlSession = MyBatisUtil.getSqlSession();
+        /**
+         * 映射sql的标识字符串，
+         * com.edu.hpu.mapping.userMapper是userMapper.xml文件中mapper标签的namespace属性的值，
+         * getAllUsers是select标签的id属性值，通过select标签的id属性值就可以找到要执行的SQL
+         */
+        String statement = "com.edu.hpu.mapping.userMapper.getAllUsers";//映射sql的标识字符串
+        //执行查询操作，将查询结果自动封装成List&lt;User&gt;返回
+        List&lt;User&gt; lstUsers = sqlSession.selectList(statement);
+        //使用SqlSession执行完SQL之后需要关闭SqlSession
+        sqlSession.close();
+        System.out.println(lstUsers);
+    }
+}
+</pre><br />&#13;
+<h2><span style="font-size:14px">通过注解进行操作</span></h2>&#13;
+</div>&#13;
+<div><span style="font-size:14px">通过注解进行操作需要写一个接口，但是不必实现，如下所示，</span></div>&#13;
+<div><span style="font-size:14px"></span><pre code_snippet_id="1782440" snippet_file_name="blog_20160725_6_7776594" name="code" class="java">package com.edu.hpu.mapping;
+
+import java.util.List;
+import com.edu.hpu.domain.User;
+import org.apache.ibatis.annotations.Delete;
+import org.apache.ibatis.annotations.Insert;
+import org.apache.ibatis.annotations.Select;
+import org.apache.ibatis.annotations.Update;
+/**
+ * @author gacl
+ * 定义sql映射的接口，使用注解指明方法要执行的SQL
+ */
+public interface UserMapper_11 {
+	//使用@Insert注解指明add方法要执行的SQL
+	@Insert("insert into users(name, age) values(#{name}, #{age})")
+	public int add(User user);
+	
+	//使用@Delete注解指明deleteById方法要执行的SQL
+	@Delete("delete from users where id=#{id}")
+	public int deleteById(int id);
+	
+	//使用@Update注解指明update方法要执行的SQL
+	@Update("update users set name=#{name},age=#{age} where id=#{id}")
+	public int update(User user);
+	
+	//使用@Select注解指明getById方法要执行的SQL
+	@Select("select * from users where id=#{id}")
+	public User getById(int id);
+	
+	//使用@Select注解指明getAll方法要执行的SQL
+	@Select("select * from users")
+	public List&lt;User&gt; getAll();
+}
+</pre><br />&#13;
+同时，需要在数据库配置文件中添加所写的接口，在conf.xml中添加如下语句，</div>&#13;
+<div><span style="font-size:14px">&lt;mapper class="com.edu.hpu.mapping.UserMapper_11"/&gt;，<br />&#13;
+</span></div>&#13;
+<div><span style="font-size:14px"><br />&#13;
+</span></div>&#13;
+<div><span style="font-size:14px">OK，基本上已经完成，这里给出测试类可以进行测试，</span></div>&#13;
+<div><span style="font-size:14px"></span><pre code_snippet_id="1782440" snippet_file_name="blog_20160725_7_8506943" name="code" class="java">package com.edu.hpu.test;
+
+import java.util.List;
+import com.edu.hpu.domain.User;
+import com.edu.hpu.mapping.UserMapper_11;
+import com.edu.hpu.util.MyBatisUtil;
+import org.apache.ibatis.session.SqlSession;
+import org.junit.Test;
+
+/**
+ * @author Administrator
+ *对注解进行测试
+ */
+public class Test3 {
+     
+	@Test
+	public void testAdd(){
+		SqlSession sqlSession = MyBatisUtil.getSqlSession(true);
+		//得到UserMapper接口的实现类对象，UserMapper接口的实现类对象由sqlSession.getMapper(UserMapper.class)动态构建出来
+		UserMapper_11 mapper = sqlSession.getMapper(UserMapper_11.class);
+		User user = new User();
+		user.setName("大智若愚");
+		user.setAge(20);
+		int add = mapper.add(user);
+		//使用SqlSession执行完SQL之后需要关闭SqlSession
+		sqlSession.close();
+		System.out.println(add);
+	}
+	
+	@Test
+	public void testUpdate(){
+		SqlSession sqlSession = MyBatisUtil.getSqlSession(true);
+		//得到UserMapper接口的实现类对象，UserMapper接口的实现类对象由sqlSession.getMapper(UserMapper.class)动态构建出来
+		UserMapper_11 mapper = sqlSession.getMapper(UserMapper_11.class);
+		User user = new User();
+		user.setId(3);
+		user.setName("大音希声");
+		user.setAge(26);
+		//执行修改操作
+		int retResult = mapper.update(user);
+		//使用SqlSession执行完SQL之后需要关闭SqlSession
+		sqlSession.close();
+		System.out.println(retResult);
+	}
+	
+	@Test
+	public void testDelete(){
+		SqlSession sqlSession = MyBatisUtil.getSqlSession(true);
+		//得到UserMapper接口的实现类对象，UserMapper接口的实现类对象由sqlSession.getMapper(UserMapper.class)动态构建出来
+		UserMapper_11 mapper = sqlSession.getMapper(UserMapper_11.class);
+		//执行删除操作
+		int retResult = mapper.deleteById(7);
+		//使用SqlSession执行完SQL之后需要关闭SqlSession
+		sqlSession.close();
+		System.out.println(retResult);
+	}
+	
+	@Test
+	public void testGetUser(){
+		SqlSession sqlSession = MyBatisUtil.getSqlSession();
+		//得到UserMapper接口的实现类对象，UserMapperI接口的实现类对象由sqlSession.getMapper(UserMapper.class)动态构建出来
+		UserMapper_11 mapper = sqlSession.getMapper(UserMapper_11.class);
+		//执行查询操作，将查询结果自动封装成User返回
+		User user = mapper.getById(1);
+		//使用SqlSession执行完SQL之后需要关闭SqlSession
+		sqlSession.close();
+		System.out.println(user);
+	}
+	
+	@Test
+	public void testGetAll(){
+		SqlSession sqlSession = MyBatisUtil.getSqlSession();
+		//得到UserMapper接口的实现类对象，UserMapper接口的实现类对象由sqlSession.getMapper(UserMapper.class)动态构建出来
+		UserMapper_11 mapper = sqlSession.getMapper(UserMapper_11.class);
+		//执行查询操作，将查询结果自动封装成List&lt;User&gt;返回
+		List&lt;User&gt; lstUsers = mapper.getAll();
+		//使用SqlSession执行完SQL之后需要关闭SqlSession
+		sqlSession.close();
+		System.out.println(lstUsers);
+	}
+}
+
+
+</pre>&#13;
+<h2><br />&#13;
+在Spring MVC + Mybatis中的使用方式</h2>&#13;
+</div>&#13;
+<div>最近在一个公司实习，发现公司使用的方法还是比较正规的，公司使用的是Mapper的方法。的方法如下所示：</div>&#13;
+<div>首先，新建一个接口类，将所要使用的方法写出来但不实现，如下</div>&#13;
+<div><pre code_snippet_id="1782440" snippet_file_name="blog_20160808_8_6705384" name="code" class="java">public interface InstallStationInfoMapper {
+
+    int insertSelective(InstallStationInfo record);
+
+    InstallStationInfo selectByPrimaryKey(Long id);
+    
+    public List&lt;InstallStationInfo&gt; selectBySelective(Map&lt;String, Object&gt; map);
+    
+    int updateByPrimaryKeySelective(InstallStationInfo record);
+
+}</pre><br />&#13;
+然后在配置文件mapper.xml中对接口中的方法进行实现，<span style="color:#ff0000">注意mapper.xml中的实现的方法要与mapper接口类中的方法名一一对应，如下：</span></div>&#13;
+<div><span style="color:#ff0000"><br />&#13;
+</span></div>&#13;
+<div><pre code_snippet_id="1782440" snippet_file_name="blog_20160808_9_7120088" name="code" class="html">&lt;?xml version="1.0" encoding="UTF-8" ?&gt;
+&lt;!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd" &gt;
+&lt;mapper namespace="com.elushunfeng.mapper.InstallStationInfoMapper" &gt;
+
+  &lt;resultMap id="BaseResultMap" type="com.elushunfeng.model.InstallStationInfo" &gt;
+    &lt;id column="id" property="id" jdbcType="BIGINT" /&gt;
+    &lt;result column="station_name" property="stationName" jdbcType="VARCHAR" /&gt;
+    &lt;result column="is_valid" property="isValid" jdbcType="INTEGER" /&gt;
+  &lt;/resultMap&gt;
+  
+  &lt;sql id="Base_Column_List" &gt;
+    id, station_name,is_valid
+  &lt;/sql&gt;
+  
+  &lt;select id="selectByPrimaryKey" resultMap="BaseResultMap" parameterType="java.lang.Long" &gt;
+    select 
+    &lt;include refid="Base_Column_List" /&gt;
+    from install_station_info
+    where id = #{id,jdbcType=BIGINT} and is_valid = 1
+  &lt;/select&gt;
+  &lt;select id="selectBySelective" resultMap="BaseResultMap" parameterType="map" &gt;
+    select 
+    &lt;include refid="Base_Column_List" /&gt;
+    from install_station_info
+    where is_valid = 1
+  &lt;/select&gt;
+  &lt;insert id="insertSelective" parameterType="com.elushunfeng.model.InstallStationInfo" &gt;
+    insert into install_station_info
+    &lt;trim prefix="(" suffix=")" suffixOverrides="," &gt;
+       &lt;if test="id != null" &gt;
+        id,
+      &lt;/if&gt; 
+      &lt;if test="stationName != null" &gt;
+        station_name,
+      &lt;/if&gt;
+      &lt;if test="isValid != null" &gt;
+    	is_valid,
+      &lt;/if&gt;
+    &lt;/trim&gt;
+    &lt;trim prefix="values (" suffix=")" suffixOverrides="," &gt;
+      &lt;if test="id != null" &gt;
+        #{id,jdbcType=BIGINT},
+      &lt;/if&gt; 
+      &lt;if test="stationName != null" &gt;
+        #{stationName,jdbcType=VARCHAR},
+      &lt;/if&gt;
+      &lt;if test="isValid != null" &gt;
+    	#{isValid,jdbcType=INTEGER},
+      &lt;/if&gt;
+    &lt;/trim&gt;
+  &lt;/insert&gt;
+  
+  &lt;update id="updateByPrimaryKeySelective" parameterType="com.elushunfeng.model.InstallStationInfo" &gt;
+    update install_station_info
+    &lt;set &gt;
+      &lt;if test="stationName != null" &gt;
+        station_name = #{stationName,jdbcType=VARCHAR},
+      &lt;/if&gt;
+      &lt;if test="isValid != null" &gt;
+    	is_valid = #{isValid,jdbcType=INTEGER},
+      &lt;/if&gt;
+    &lt;/set&gt;
+    where id = #{id,jdbcType=BIGINT}
+  &lt;/update&gt;
+&lt;/mapper&gt;</pre><br />&#13;
+个人觉得这样写的话比较方便管理，代码也比较清晰易懂</div>&#13;
+<div>本博客参考自：http://www.cnblogs.com/xdp-gacl/p/4262895.html</div>&#13;
+<div><span style="font-size:14px"><br />&#13;
+<br />&#13;
+</span></div>&#13;
+   &#13;

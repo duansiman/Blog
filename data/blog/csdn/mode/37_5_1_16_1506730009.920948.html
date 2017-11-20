@@ -1,0 +1,535 @@
+
+                <div class="markdown_views"><h3 id="定义枚举类型包含已经集成的加密算法">定义枚举类型，包含已经集成的加密算法</h3>
+
+
+
+<pre class="prettyprint"><code class="language-java hljs "><span class="hljs-keyword">package</span> com.sunld.manager_core.tools.encipher.enums;
+<span class="hljs-javadoc">/** 
+ *<span class="hljs-javadoctag"> @author</span> 孙辽东
+ * &lt;p&gt;createDate:2014年3月7日 上午11:30:44&lt;/p&gt; 
+ *<span class="hljs-javadoctag"> @version</span> V1.0 
+ */</span>
+<span class="hljs-keyword">public</span> <span class="hljs-keyword">enum</span> EncipherEnum {
+    BASE64, 
+    MD5, 
+    SHA, 
+    HMAC, 
+    DES
+}
+</code></pre>
+
+
+
+<h3 id="设计工厂模式定义了加密和解密抽象方法并且使用反射实例化具体的factory">设计工厂模式,定义了加密和解密抽象方法，并且使用反射实例化具体的Factory</h3>
+
+
+
+<pre class="prettyprint"><code class="language-java hljs "><span class="hljs-keyword">package</span> com.sunld.manager_core.tools.encipher.factory;
+
+<span class="hljs-keyword">import</span> com.sunld.manager_core.exception.BusinessException;
+<span class="hljs-keyword">import</span> com.sunld.manager_core.factory.FactoryInterface;
+<span class="hljs-keyword">import</span> com.sunld.manager_core.file.property.PropertyUtil;
+<span class="hljs-keyword">import</span> com.sunld.manager_core.tools.encipher.enums.EncipherEnum;
+<span class="hljs-keyword">import</span> com.sunld.manager_core.util.rtti.ClassUtils;
+
+
+<span class="hljs-javadoc">/** 
+ * &lt;p&gt;加密工厂类&lt;/p&gt;
+ *<span class="hljs-javadoctag"> @author</span> 孙辽东
+ * &lt;p&gt;createDate:2014年3月7日 上午11:27:08&lt;/p&gt; 
+ *<span class="hljs-javadoctag"> @version</span> V1.0 
+ */</span>
+<span class="hljs-keyword">public</span> <span class="hljs-keyword">abstract</span> <span class="hljs-class"><span class="hljs-keyword">class</span> <span class="hljs-title">EncipherFactory</span> <span class="hljs-keyword">implements</span> <span class="hljs-title">FactoryInterface</span>{</span>
+    <span class="hljs-keyword">protected</span> <span class="hljs-keyword">static</span> <span class="hljs-keyword">final</span> String ENCIPHERKEY = PropertyUtil.getPropertyValue(<span class="hljs-string">"SYSTEM.ENCIPHERKEY"</span>);
+    <span class="hljs-javadoc">/**
+     * &lt;p&gt;Protected constructor to prevent instantiation.
+     * Use {@link #newInstance}&lt;/p&gt;
+     * &lt;p&gt;createDate:2014年3月7日 上午11:29:35&lt;/p&gt;
+     */</span>
+    <span class="hljs-keyword">protected</span> <span class="hljs-title">EncipherFactory</span>(){}
+
+    <span class="hljs-javadoc">/**
+     * 
+     *<span class="hljs-javadoctag"> @param</span> encipherEnum {@link EncipherEnum}
+     *<span class="hljs-javadoctag"> @return</span> EncipherFactory
+     * &lt;p&gt;createDate:2014年3月7日 上午11:30:59&lt;/p&gt;
+     */</span>
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">static</span> EncipherFactory <span class="hljs-title">newInstance</span>(EncipherEnum encipherEnum){
+        <span class="hljs-keyword">try</span> {
+            <span class="hljs-keyword">return</span> (EncipherFactory) ClassUtils.forName(PropertyUtil.getPropertyValue(<span class="hljs-string">"SYSTEM."</span>+encipherEnum)).newInstance();
+        } <span class="hljs-keyword">catch</span> (InstantiationException | IllegalAccessException | ClassNotFoundException e) {
+            <span class="hljs-keyword">throw</span> <span class="hljs-keyword">new</span> BusinessException(<span class="hljs-string">"很抱歉，名称为"</span>+encipherEnum+<span class="hljs-string">"的获取加密算法的具体工厂还没创建！"</span>,e);
+        } 
+    }
+
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">abstract</span> String <span class="hljs-title">encrypt</span>(String str);
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">abstract</span> String <span class="hljs-title">decrypt</span>(String str);
+}
+</code></pre>
+
+
+
+<h3 id="具体实现">具体实现</h3>
+
+
+
+<h4 id="base64encipher">BASE64Encipher</h4>
+
+
+
+<pre class="prettyprint"><code class="language-java hljs "><span class="hljs-keyword">package</span> com.sunld.manager_core.tools.encipher.encipherstrategy;
+<span class="hljs-keyword">import</span> java.io.IOException;
+<span class="hljs-keyword">import</span> java.io.UnsupportedEncodingException;
+
+<span class="hljs-keyword">import</span> com.sunld.manager_core.exception.BusinessException;
+<span class="hljs-keyword">import</span> com.sunld.manager_core.exception.ExceptionUtil;
+<span class="hljs-keyword">import</span> com.sunld.manager_core.tools.encipher.factory.EncipherFactory;
+<span class="hljs-keyword">import</span> com.sunld.manager_core.util.other.StringUtil;
+
+<span class="hljs-keyword">import</span> sun.misc.BASE64Decoder;
+<span class="hljs-keyword">import</span> sun.misc.BASE64Encoder;
+
+
+<span class="hljs-javadoc">/** 
+ * &lt;p&gt;BASE64的加密解密是双向的，可以求反解。&lt;/p&gt;
+ *<span class="hljs-javadoctag"> @author</span> 孙辽东
+ * &lt;p&gt;createDate:2014年3月7日 上午11:40:59&lt;/p&gt; 
+ *<span class="hljs-javadoctag"> @version</span> V1.0 
+ */</span>
+<span class="hljs-keyword">public</span> <span class="hljs-class"><span class="hljs-keyword">class</span> <span class="hljs-title">BASE64Encipher</span> <span class="hljs-keyword">extends</span> <span class="hljs-title">EncipherFactory</span>{</span>
+
+    <span class="hljs-keyword">public</span> String <span class="hljs-title">encrypt</span>(String str) {
+        <span class="hljs-keyword">if</span>(StringUtil.isNotNull(str)){
+            <span class="hljs-keyword">byte</span>[] b = <span class="hljs-keyword">null</span>;
+            <span class="hljs-keyword">try</span> {
+                b = (str+ENCIPHERKEY).getBytes(<span class="hljs-string">"utf-8"</span>);<span class="hljs-comment">//防止中文乱码utf-8,并且转换成对应的编码</span>
+            } <span class="hljs-keyword">catch</span> (UnsupportedEncodingException e) {
+                <span class="hljs-keyword">throw</span> <span class="hljs-keyword">new</span> BusinessException(<span class="hljs-string">"采用BASE64算法加密失败："</span>+ExceptionUtil.formatException(e),e);
+            }
+            <span class="hljs-keyword">return</span> (<span class="hljs-keyword">new</span> BASE64Encoder()).encodeBuffer(b);
+        }<span class="hljs-keyword">else</span>{
+            <span class="hljs-keyword">return</span> <span class="hljs-string">""</span>;
+        }
+    }
+
+    <span class="hljs-keyword">public</span> String <span class="hljs-title">decrypt</span>(String str) {
+        <span class="hljs-keyword">if</span>(StringUtil.isNotNull(str)){
+            String result = <span class="hljs-string">""</span>;
+            <span class="hljs-keyword">try</span> {
+                <span class="hljs-keyword">byte</span>[] b = (<span class="hljs-keyword">new</span> BASE64Decoder()).decodeBuffer(str);
+                result = <span class="hljs-keyword">new</span> String(b,<span class="hljs-string">"utf-8"</span>);
+                result = result.substring(<span class="hljs-number">0</span>,result.indexOf(ENCIPHERKEY));
+            } <span class="hljs-keyword">catch</span> (IOException e) {
+                <span class="hljs-keyword">throw</span> <span class="hljs-keyword">new</span> BusinessException(<span class="hljs-string">"采用BASE64算法解密失败："</span>+ExceptionUtil.formatException(e),e);
+            }
+            <span class="hljs-keyword">return</span> result;
+        }<span class="hljs-keyword">else</span>{
+            <span class="hljs-keyword">return</span> <span class="hljs-string">""</span>;
+        }
+    }
+
+}
+</code></pre>
+
+<h4 id="desplusencipher">DESPlusEncipher</h4>
+
+
+
+<pre class="prettyprint"><code class="language-java hljs "><span class="hljs-keyword">package</span> com.sunld.manager_core.tools.encipher.encipherstrategy;
+<span class="hljs-keyword">import</span> java.security.Key;
+<span class="hljs-keyword">import</span> java.security.Security;
+
+<span class="hljs-keyword">import</span> javax.crypto.BadPaddingException;
+<span class="hljs-keyword">import</span> javax.crypto.Cipher;
+<span class="hljs-keyword">import</span> javax.crypto.IllegalBlockSizeException;
+
+<span class="hljs-keyword">import</span> com.sunld.manager_core.exception.BusinessException;
+<span class="hljs-keyword">import</span> com.sunld.manager_core.exception.ExceptionUtil;
+<span class="hljs-keyword">import</span> com.sunld.manager_core.tools.encipher.factory.EncipherFactory;
+<span class="hljs-keyword">import</span> com.sunld.manager_core.util.other.StringUtil;
+
+<span class="hljs-javadoc">/** 
+ * &lt;p&gt;DES DES-Data Encryption Standard,即数据加密算法。DES算法的入口参数有三个:Key、Data、Mode。&lt;/p&gt;
+ * &lt;p&gt;Key:8个字节共64位,是DES算法的工作密钥;&lt;/p&gt;
+ * &lt;p&gt;Data:8个字节64位,是要被加密或被解密的数据;&lt;/p&gt;
+ * &lt;p&gt;Mode:DES的工作方式,有两种:加密或解密。&lt;/p&gt;
+ *<span class="hljs-javadoctag"> @author</span> 孙辽东
+ * &lt;p&gt;createDate:2014年3月7日 下午1:35:34&lt;/p&gt; 
+ *<span class="hljs-javadoctag"> @version</span> V1.0 
+ */</span>
+<span class="hljs-keyword">public</span> <span class="hljs-class"><span class="hljs-keyword">class</span> <span class="hljs-title">DESPlusEncipher</span> <span class="hljs-keyword">extends</span> <span class="hljs-title">EncipherFactory</span>{</span>
+    <span class="hljs-keyword">private</span> Cipher encryptCipher = <span class="hljs-keyword">null</span>;
+
+    <span class="hljs-keyword">private</span> Cipher decryptCipher = <span class="hljs-keyword">null</span>;
+    <span class="hljs-javadoc">/**
+     * 完成信息初始化
+     * &lt;p&gt;createDate:2014年3月7日 下午1:57:34&lt;/p&gt;
+     */</span>
+    <span class="hljs-keyword">public</span> <span class="hljs-title">DESPlusEncipher</span>(){
+        Security.addProvider(<span class="hljs-keyword">new</span> com.sun.crypto.provider.SunJCE());
+        Key key = getKey(ENCIPHERKEY.getBytes());
+
+        <span class="hljs-keyword">try</span>{
+            encryptCipher = Cipher.getInstance(<span class="hljs-string">"DES"</span>);
+            encryptCipher.init(Cipher.ENCRYPT_MODE, key);
+
+            decryptCipher = Cipher.getInstance(<span class="hljs-string">"DES"</span>);
+            decryptCipher.init(Cipher.DECRYPT_MODE, key);
+        }<span class="hljs-keyword">catch</span>(Exception e){
+            <span class="hljs-keyword">throw</span> <span class="hljs-keyword">new</span> BusinessException(<span class="hljs-string">"构造DES加密器时出错！"</span>,e);
+        }
+
+    }
+    <span class="hljs-keyword">public</span> String <span class="hljs-title">encrypt</span>(String str) {
+        <span class="hljs-keyword">try</span> {
+            <span class="hljs-keyword">return</span> StringUtil.byteArray2HexStr(encryptCipher.doFinal(str.getBytes()));
+        } <span class="hljs-keyword">catch</span> (IllegalBlockSizeException | BadPaddingException e) {
+            <span class="hljs-keyword">throw</span> <span class="hljs-keyword">new</span> BusinessException(<span class="hljs-string">"采用DES算法加密失败："</span>+ExceptionUtil.formatException(e),e);
+        } 
+    }
+
+    <span class="hljs-keyword">public</span> String <span class="hljs-title">decrypt</span>(String str) {
+        <span class="hljs-keyword">try</span> {
+            <span class="hljs-keyword">return</span> <span class="hljs-keyword">new</span> String(decryptCipher.doFinal(StringUtil.hexStr2ByteArray(str)));
+        } <span class="hljs-keyword">catch</span> (IllegalBlockSizeException | BadPaddingException e) {
+            <span class="hljs-keyword">throw</span> <span class="hljs-keyword">new</span> BusinessException(<span class="hljs-string">"采用DES算法解密失败："</span>+ExceptionUtil.formatException(e),e);
+        }
+    }
+    <span class="hljs-javadoc">/**
+     * &lt;p&gt;从指定字符串生成密钥，密钥所需的字节数组长度为8位 不足8位时后面补0，超出8位只取前8位&lt;/p&gt;
+     *<span class="hljs-javadoctag"> @param</span> arrBTmp
+     *<span class="hljs-javadoctag"> @return</span> Key
+     * &lt;p&gt;createDate:2014年3月7日 下午1:59:01&lt;/p&gt;
+     */</span>
+    <span class="hljs-keyword">private</span> Key <span class="hljs-title">getKey</span>(<span class="hljs-keyword">byte</span>[] arrBTmp){
+        <span class="hljs-comment">// 创建一个空的8位字节数组（默认值为0）</span>
+        <span class="hljs-keyword">byte</span>[] arrB = <span class="hljs-keyword">new</span> <span class="hljs-keyword">byte</span>[<span class="hljs-number">8</span>];
+        <span class="hljs-comment">// 将原始字节数组转换为8位</span>
+        <span class="hljs-keyword">for</span> (<span class="hljs-keyword">int</span> i = <span class="hljs-number">0</span>; i &lt; arrBTmp.length &amp;&amp; i &lt; arrB.length; i++) {
+            arrB[i] = arrBTmp[i];
+        }
+        <span class="hljs-comment">// 生成密钥</span>
+        Key key = <span class="hljs-keyword">new</span> javax.crypto.spec.SecretKeySpec(arrB, <span class="hljs-string">"DES"</span>);
+        <span class="hljs-keyword">return</span> key;
+    }
+
+}
+</code></pre>
+
+<h4 id="hmacencipher">HMACEncipher</h4>
+
+
+
+<pre class="prettyprint"><code class="language-java hljs "><span class="hljs-keyword">package</span> com.sunld.manager_core.tools.encipher.encipherstrategy;
+<span class="hljs-keyword">import</span> java.math.BigInteger;
+
+<span class="hljs-keyword">import</span> javax.crypto.KeyGenerator;
+<span class="hljs-keyword">import</span> javax.crypto.Mac;
+<span class="hljs-keyword">import</span> javax.crypto.SecretKey;
+<span class="hljs-keyword">import</span> javax.crypto.spec.SecretKeySpec;
+
+<span class="hljs-keyword">import</span> com.sunld.manager_core.exception.BusinessException;
+<span class="hljs-keyword">import</span> com.sunld.manager_core.exception.ExceptionUtil;
+<span class="hljs-keyword">import</span> com.sunld.manager_core.tools.encipher.factory.EncipherFactory;
+<span class="hljs-keyword">import</span> com.sunld.manager_core.util.other.StringUtil;
+
+<span class="hljs-javadoc">/** 
+ * &lt;p&gt;HMAC是单向加密，任何数据加密后只会产生唯一的一个加密串，通常用来校验数据在传输过程中是否被修改。&lt;/p&gt;
+ * &lt;p&gt;HMAC算法有一个密钥，增强了数据传输过程中的安全性，强化了算法外的不可控因素。&lt;/p&gt;
+ *<span class="hljs-javadoctag"> @author</span> 孙辽东
+ * &lt;p&gt;createDate:2014年3月7日 下午1:21:57&lt;/p&gt; 
+ *<span class="hljs-javadoctag"> @version</span> V1.0 
+ */</span>
+<span class="hljs-keyword">public</span> <span class="hljs-class"><span class="hljs-keyword">class</span> <span class="hljs-title">HMACEncipher</span> <span class="hljs-keyword">extends</span> <span class="hljs-title">EncipherFactory</span>{</span>
+
+    <span class="hljs-keyword">private</span> <span class="hljs-keyword">static</span> <span class="hljs-keyword">final</span> String MACKEY = <span class="hljs-string">"HmacMD5"</span>;
+
+    <span class="hljs-keyword">public</span> String <span class="hljs-title">encrypt</span>(String str) {
+        <span class="hljs-keyword">if</span>(StringUtil.isNotNull(str)){
+            String result = <span class="hljs-string">""</span>;
+            <span class="hljs-keyword">try</span>{
+                SecretKey secretKey = <span class="hljs-keyword">new</span> SecretKeySpec(ENCIPHERKEY.getBytes(), MACKEY);
+                Mac mac = Mac.getInstance(secretKey.getAlgorithm());
+                mac.init(secretKey);
+                <span class="hljs-keyword">byte</span>[] b = mac.doFinal((str+ENCIPHERKEY).getBytes());
+                result = (<span class="hljs-keyword">new</span> BigInteger(b)).toString(<span class="hljs-number">16</span>);
+            }<span class="hljs-keyword">catch</span>(Exception e){
+                <span class="hljs-keyword">throw</span> <span class="hljs-keyword">new</span> BusinessException(<span class="hljs-string">"采用HMAC算法加密失败："</span>+ExceptionUtil.formatException(e),e);
+            }
+            <span class="hljs-keyword">return</span> result;
+        }<span class="hljs-keyword">else</span>{
+            <span class="hljs-keyword">return</span> <span class="hljs-string">""</span>;
+        }
+    }
+
+    <span class="hljs-keyword">public</span> String <span class="hljs-title">decrypt</span>(String str) {
+        <span class="hljs-keyword">throw</span> <span class="hljs-keyword">new</span> BusinessException(<span class="hljs-string">"HMAC加密算法是单项的，不能进行反向解密"</span>);
+    }
+
+    <span class="hljs-javadoc">/**
+     * 签名工具
+     *<span class="hljs-javadoctag"> @return</span> String
+     * &lt;p&gt;createDate:2014年3月7日 下午1:25:53&lt;/p&gt;
+     */</span>
+    <span class="hljs-keyword">public</span>  String <span class="hljs-title">initMacKey</span>(){
+        String key = <span class="hljs-string">""</span>;
+        <span class="hljs-keyword">try</span>{
+            KeyGenerator keyGenerator = KeyGenerator.getInstance(MACKEY);
+            SecretKey secretKey = keyGenerator.generateKey();
+            <span class="hljs-keyword">byte</span>[] b = secretKey.getEncoded();
+            String str = <span class="hljs-keyword">new</span> String(b);
+            key =  str;
+        }<span class="hljs-keyword">catch</span>(Exception e){
+            <span class="hljs-keyword">throw</span> <span class="hljs-keyword">new</span> BusinessException(<span class="hljs-string">"在使用HMAC加密算法获取密钥时出错："</span>+ExceptionUtil.formatException(e),e);
+        }
+        <span class="hljs-keyword">return</span> key;
+    }
+
+}
+</code></pre>
+
+<h4 id="md5encipher">MD5Encipher</h4>
+
+
+
+<pre class="prettyprint"><code class="language-java hljs "><span class="hljs-keyword">package</span> com.sunld.manager_core.tools.encipher.encipherstrategy;
+<span class="hljs-keyword">import</span> java.security.MessageDigest;
+<span class="hljs-keyword">import</span> java.security.NoSuchAlgorithmException;
+
+<span class="hljs-keyword">import</span> com.sunld.manager_core.exception.BusinessException;
+<span class="hljs-keyword">import</span> com.sunld.manager_core.exception.ExceptionUtil;
+<span class="hljs-keyword">import</span> com.sunld.manager_core.tools.encipher.factory.EncipherFactory;
+<span class="hljs-keyword">import</span> com.sunld.manager_core.util.other.StringUtil;
+
+<span class="hljs-javadoc">/** 
+ * &lt;p&gt;MD5是单向加密，任何数据加密后只会产生唯一的一个加密串，通常用来校验数据在传输过程中是否被修改。&lt;/p&gt;
+ *<span class="hljs-javadoctag"> @author</span> 孙辽东
+ * &lt;p&gt;createDate:2014年3月7日 下午1:05:16&lt;/p&gt; 
+ *<span class="hljs-javadoctag"> @version</span> V1.0 
+ */</span>
+<span class="hljs-keyword">public</span> <span class="hljs-class"><span class="hljs-keyword">class</span> <span class="hljs-title">MD5Encipher</span> <span class="hljs-keyword">extends</span> <span class="hljs-title">EncipherFactory</span>{</span>
+
+    <span class="hljs-keyword">public</span> String <span class="hljs-title">encrypt</span>(String str) {
+        <span class="hljs-keyword">if</span>(StringUtil.isNotNull(str)){
+            String result = <span class="hljs-string">""</span>;
+            MessageDigest md;
+            <span class="hljs-keyword">try</span> {
+                md = MessageDigest.getInstance(<span class="hljs-string">"MD5"</span>);
+                md.update((str+ENCIPHERKEY).getBytes());
+                <span class="hljs-keyword">byte</span>[] b = md.digest();
+                result = StringUtil.byteArray2HexStr(b);
+            } <span class="hljs-keyword">catch</span> (NoSuchAlgorithmException e) {
+                <span class="hljs-keyword">throw</span> <span class="hljs-keyword">new</span> BusinessException(<span class="hljs-string">"采用MD5算法加密失败："</span>+ExceptionUtil.formatException(e),e);
+            }
+            <span class="hljs-keyword">return</span> result;
+        }<span class="hljs-keyword">else</span>{
+            <span class="hljs-keyword">return</span> <span class="hljs-string">""</span>;
+        }
+    }
+    <span class="hljs-keyword">public</span> String <span class="hljs-title">decrypt</span>(String str) {
+        <span class="hljs-keyword">throw</span> <span class="hljs-keyword">new</span> BusinessException(<span class="hljs-string">"MD5加密算法是单项的，不能进行反向解密"</span>);
+    }
+
+}
+</code></pre>
+
+<h4 id="shaencipher">SHAEncipher</h4>
+
+
+
+<pre class="prettyprint"><code class="language-java hljs "><span class="hljs-keyword">package</span> com.sunld.manager_core.tools.encipher.encipherstrategy;
+<span class="hljs-keyword">import</span> java.security.MessageDigest;
+<span class="hljs-keyword">import</span> java.security.NoSuchAlgorithmException;
+
+<span class="hljs-keyword">import</span> com.sunld.manager_core.exception.BusinessException;
+<span class="hljs-keyword">import</span> com.sunld.manager_core.exception.ExceptionUtil;
+<span class="hljs-keyword">import</span> com.sunld.manager_core.tools.encipher.factory.EncipherFactory;
+<span class="hljs-keyword">import</span> com.sunld.manager_core.util.other.StringUtil;
+
+<span class="hljs-javadoc">/** 
+ * &lt;p&gt;SHA是单向加密，任何数据加密后只会产生唯一的一个加密串，通常用来校验数据在传输过程中是否被修改。&lt;/p&gt;
+ *<span class="hljs-javadoctag"> @author</span> 孙辽东
+ * &lt;p&gt;createDate:2014年3月7日 下午1:18:48&lt;/p&gt; 
+ *<span class="hljs-javadoctag"> @version</span> V1.0 
+ */</span>
+<span class="hljs-keyword">public</span> <span class="hljs-class"><span class="hljs-keyword">class</span> <span class="hljs-title">SHAEncipher</span> <span class="hljs-keyword">extends</span> <span class="hljs-title">EncipherFactory</span>{</span>
+
+    <span class="hljs-keyword">public</span> String <span class="hljs-title">encrypt</span>(String str) {
+        <span class="hljs-keyword">if</span>(StringUtil.isNotNull(str)){
+            String result = <span class="hljs-string">""</span>;
+            MessageDigest md;
+            <span class="hljs-keyword">try</span> {
+                md = MessageDigest.getInstance(<span class="hljs-string">"SHA"</span>);
+                md.update((str+ENCIPHERKEY).getBytes());
+                <span class="hljs-keyword">byte</span>[] b = md.digest();
+                result = StringUtil.byteArray2HexStr(b);
+            } <span class="hljs-keyword">catch</span> (NoSuchAlgorithmException e) {
+                <span class="hljs-keyword">throw</span> <span class="hljs-keyword">new</span> BusinessException(<span class="hljs-string">"采用SHA算法加密失败："</span>+ExceptionUtil.formatException(e),e);
+            }
+            <span class="hljs-keyword">return</span> result;
+        }<span class="hljs-keyword">else</span>{
+            <span class="hljs-keyword">return</span> <span class="hljs-string">""</span>;
+        }
+    }
+
+    <span class="hljs-keyword">public</span> String <span class="hljs-title">decrypt</span>(String str) {
+        <span class="hljs-keyword">throw</span> <span class="hljs-keyword">new</span> BusinessException(<span class="hljs-string">"SHA加密算法是单项的，不能进行反向解密"</span>);
+    }
+
+}
+</code></pre>
+
+<h3 id="根据不同的加密算法生成相关的key">根据不同的加密算法生成相关的key</h3>
+
+<h4 id="keystrategy">KeyStrategy</h4>
+
+
+
+<pre class="prettyprint"><code class="language-java hljs "><span class="hljs-keyword">package</span> com.sunld.manager_core.tools.encipher.keystrategy;
+<span class="hljs-keyword">import</span> com.sunld.manager_core.factory.LogDefinitionFactory;
+
+<span class="hljs-javadoc">/** 
+ *<span class="hljs-javadoctag"> @author</span> 孙辽东
+ * &lt;p&gt;createDate:2014年5月29日 上午11:37:18&lt;/p&gt; 
+ *<span class="hljs-javadoctag"> @version</span> V1.0 
+ */</span>
+<span class="hljs-keyword">public</span> <span class="hljs-class"><span class="hljs-keyword">interface</span> <span class="hljs-title">KeyStrategy</span> <span class="hljs-keyword">extends</span> <span class="hljs-title">LogDefinitionFactory</span>{</span>
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">abstract</span> String <span class="hljs-title">toKey</span>(String paramString, Object paramObject);
+}</code></pre>
+
+<h4 id="abstractkeystrategy">AbstractKeyStrategy</h4>
+
+
+
+<pre class="prettyprint"><code class="language-java hljs "><span class="hljs-keyword">package</span> com.sunld.manager_core.tools.encipher.keystrategy;
+<span class="hljs-keyword">import</span> java.util.regex.Pattern;
+
+<span class="hljs-keyword">import</span> com.sunld.manager_core.tools.encipher.enums.EncipherEnum;
+<span class="hljs-keyword">import</span> com.sunld.manager_core.tools.encipher.factory.EncipherFactory;
+<span class="hljs-javadoc">/** 
+ *<span class="hljs-javadoctag"> @author</span> 孙辽东
+ * &lt;p&gt;createDate:2014年5月29日 上午11:41:04&lt;/p&gt; 
+ *<span class="hljs-javadoctag"> @version</span> V1.0 
+ */</span>
+<span class="hljs-keyword">public</span> <span class="hljs-keyword">abstract</span> <span class="hljs-class"><span class="hljs-keyword">class</span> <span class="hljs-title">AbstractKeyStrategy</span> <span class="hljs-keyword">implements</span> <span class="hljs-title">KeyStrategy</span>{</span>
+    <span class="hljs-keyword">private</span> <span class="hljs-keyword">static</span> <span class="hljs-keyword">final</span> <span class="hljs-keyword">int</span> DEFAULT_MAX_KEY_LENGTH = <span class="hljs-number">250</span>;
+    <span class="hljs-keyword">private</span> <span class="hljs-keyword">static</span> <span class="hljs-keyword">final</span> Pattern CLEAN_PATTERN = Pattern.compile(<span class="hljs-string">"\\s"</span>);
+    <span class="hljs-keyword">private</span> <span class="hljs-keyword">int</span> maxKeyLength;
+    <span class="hljs-keyword">public</span> <span class="hljs-title">AbstractKeyStrategy</span>(){
+        <span class="hljs-keyword">this</span>.maxKeyLength = DEFAULT_MAX_KEY_LENGTH; 
+    }
+    <span class="hljs-keyword">public</span> String <span class="hljs-title">toKey</span>(String regionName, Object key) {
+        <span class="hljs-keyword">if</span> (key == <span class="hljs-keyword">null</span>) {
+            <span class="hljs-keyword">throw</span> <span class="hljs-keyword">new</span> IllegalArgumentException(<span class="hljs-string">"key must not be null"</span>);
+        }
+        String keyString = concatenateKey(regionName, transformKeyObject(key));
+        <span class="hljs-keyword">if</span> (keyString.length() &gt; <span class="hljs-keyword">this</span>.maxKeyLength) {
+            <span class="hljs-keyword">return</span> truncateKey(keyString);
+        }
+        String finalKey = CLEAN_PATTERN.matcher(keyString).replaceAll(<span class="hljs-string">""</span>);
+        LOGGER.debug(<span class="hljs-string">"Final cache key: [{"</span> + finalKey + <span class="hljs-string">"}]"</span>);
+        <span class="hljs-keyword">return</span> finalKey;
+    }
+    <span class="hljs-keyword">protected</span> <span class="hljs-keyword">abstract</span> String <span class="hljs-title">transformKeyObject</span>(Object paramObject);
+    <span class="hljs-keyword">protected</span> String <span class="hljs-title">truncateKey</span>(String key){
+        String keyHashCode = EncipherFactory.newInstance(EncipherEnum.MD5).encrypt(key);
+        LOGGER.warn(<span class="hljs-string">"Encoded key [{"</span> + key + <span class="hljs-string">"}] to md5 hash [{"</span> + keyHashCode + <span class="hljs-string">"}]. "</span> + <span class="hljs-string">"Be sure to set cache region names whenever possible as the names Hibernate generates are really long."</span>);
+        <span class="hljs-keyword">return</span> keyHashCode;
+    }
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">int</span> <span class="hljs-title">getMaxKeyLength</span>() {
+        <span class="hljs-keyword">return</span> <span class="hljs-keyword">this</span>.maxKeyLength;
+    }
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">void</span> <span class="hljs-title">setMaxKeyLength</span>(<span class="hljs-keyword">int</span> maxKeyLength) {
+        <span class="hljs-keyword">this</span>.maxKeyLength = maxKeyLength;
+    }
+    <span class="hljs-keyword">protected</span> String <span class="hljs-title">concatenateKey</span>(String regionName, Object key) {
+        <span class="hljs-keyword">return</span> regionName + <span class="hljs-string">":"</span> + String.valueOf(key);
+    }
+}
+</code></pre>
+
+<h4 id="hashcodekeystrategy">HashCodeKeyStrategy</h4>
+
+
+
+<pre class="prettyprint"><code class="language-java hljs "><span class="hljs-keyword">package</span> com.sunld.manager_core.tools.encipher.keystrategy;
+<span class="hljs-javadoc">/** 
+ *<span class="hljs-javadoctag"> @author</span> 孙辽东
+ * &lt;p&gt;createDate:2014年5月29日 上午11:40:28&lt;/p&gt; 
+ *<span class="hljs-javadoctag"> @version</span> V1.0 
+ */</span>
+<span class="hljs-keyword">public</span> <span class="hljs-class"><span class="hljs-keyword">class</span> <span class="hljs-title">HashCodeKeyStrategy</span> <span class="hljs-keyword">extends</span> <span class="hljs-title">AbstractKeyStrategy</span>{</span>
+    <span class="hljs-keyword">protected</span> String <span class="hljs-title">transformKeyObject</span>(Object key){
+        <span class="hljs-keyword">int</span> hashCode = key.hashCode();
+        <span class="hljs-keyword">if</span> (LOGGER.isInfoEnabled())
+            LOGGER.info(<span class="hljs-string">"Transformed key [{"</span> + key + <span class="hljs-string">"}] to hashCode [{"</span> + hashCode + <span class="hljs-string">"}]"</span>);
+        <span class="hljs-keyword">return</span> String.valueOf(hashCode);
+    }
+}
+</code></pre>
+
+<h4 id="md5keystrategy">Md5KeyStrategy</h4>
+
+
+
+<pre class="prettyprint"><code class="language-java hljs "><span class="hljs-keyword">package</span> com.sunld.manager_core.tools.encipher.keystrategy;
+<span class="hljs-keyword">import</span> com.sunld.manager_core.tools.encipher.enums.EncipherEnum;
+<span class="hljs-keyword">import</span> com.sunld.manager_core.tools.encipher.factory.EncipherFactory;
+
+
+
+<span class="hljs-javadoc">/** 
+ *<span class="hljs-javadoctag"> @author</span> 孙辽东
+ * &lt;p&gt;createDate:2014年5月29日 上午11:49:13&lt;/p&gt; 
+ *<span class="hljs-javadoctag"> @version</span> V1.0 
+ */</span>
+<span class="hljs-keyword">public</span> <span class="hljs-class"><span class="hljs-keyword">class</span> <span class="hljs-title">Md5KeyStrategy</span> <span class="hljs-keyword">extends</span> <span class="hljs-title">HashCodeKeyStrategy</span>{</span>
+     <span class="hljs-keyword">protected</span> String <span class="hljs-title">concatenateKey</span>(String regionName, Object key){
+        String longKey = <span class="hljs-keyword">super</span>.concatenateKey(regionName, key);
+        <span class="hljs-keyword">return</span> EncipherFactory.newInstance(EncipherEnum.MD5).encrypt(longKey);
+     }
+}
+</code></pre>
+
+<h4 id="sha1keystrategy">Sha1KeyStrategy</h4>
+
+
+
+<pre class="prettyprint"><code class="language-java hljs "><span class="hljs-keyword">package</span> com.sunld.manager_core.tools.encipher.keystrategy;
+<span class="hljs-keyword">import</span> com.sunld.manager_core.tools.encipher.enums.EncipherEnum;
+<span class="hljs-keyword">import</span> com.sunld.manager_core.tools.encipher.factory.EncipherFactory;
+
+
+
+<span class="hljs-javadoc">/** 
+ *<span class="hljs-javadoctag"> @author</span> 孙辽东
+ * &lt;p&gt;createDate:2014年5月29日 上午11:51:22&lt;/p&gt; 
+ *<span class="hljs-javadoctag"> @version</span> V1.0 
+ */</span>
+<span class="hljs-keyword">public</span> <span class="hljs-class"><span class="hljs-keyword">class</span> <span class="hljs-title">Sha1KeyStrategy</span> <span class="hljs-keyword">extends</span> <span class="hljs-title">HashCodeKeyStrategy</span>{</span>
+    <span class="hljs-keyword">protected</span> String <span class="hljs-title">concatenateKey</span>(String regionName, Object key){
+        String longKey = <span class="hljs-keyword">super</span>.concatenateKey(regionName, key);
+        <span class="hljs-keyword">return</span> EncipherFactory.newInstance(EncipherEnum.SHA).encrypt(longKey);
+    }
+}
+</code></pre>
+
+<h4 id="stringkeystrategy">StringKeyStrategy</h4>
+
+
+
+<pre class="prettyprint"><code class="language-java hljs "><span class="hljs-keyword">package</span> com.sunld.manager_core.tools.encipher.keystrategy;
+<span class="hljs-javadoc">/** 
+ *<span class="hljs-javadoctag"> @author</span> 孙辽东
+ * &lt;p&gt;createDate:2014年5月29日 上午11:52:38&lt;/p&gt; 
+ *<span class="hljs-javadoctag"> @version</span> V1.0 
+ */</span>
+<span class="hljs-keyword">public</span> <span class="hljs-class"><span class="hljs-keyword">class</span> <span class="hljs-title">StringKeyStrategy</span> <span class="hljs-keyword">extends</span> <span class="hljs-title">AbstractKeyStrategy</span>{</span>
+    <span class="hljs-keyword">protected</span> String <span class="hljs-title">transformKeyObject</span>(Object key){
+        String stringKey = String.valueOf(key);
+        <span class="hljs-keyword">if</span> (LOGGER.isInfoEnabled())
+            LOGGER.info(<span class="hljs-string">"Transformed key [{"</span> + key + <span class="hljs-string">"}] to string [{"</span> + stringKey + <span class="hljs-string">"}]"</span>);
+        <span class="hljs-keyword">return</span> stringKey;
+    }
+}</code></pre><link rel="stylesheet" href="http://static.blog.csdn.net/public/res-min/markdown_views.css?v=2.0"/></div><link rel="stylesheet" href="http://static.blog.csdn.net/public/res-min/markdown_views.css?v=2.0"/>&#13;
+            

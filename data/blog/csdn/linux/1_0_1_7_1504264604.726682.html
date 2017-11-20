@@ -1,0 +1,53 @@
+
+                
+<p><span style="font-size:18px">如果让内核定期对设备进行轮询，以便处理设备，那会做很多无用功，如果能让设备在需要内核时主动通知内核，会是一个聪明的方式，这便是中断。</span></p>&#13;
+<p><span style="font-size:18px">在响应一个特定中断时，内核会执行一个函数——中断处理程序。中断处理程序与其他内核函数的区别在于，中断处理程序是被内核调用来响应中断的，而它们运行于我们称之为中断上下文的特殊上下文中。</span></p>&#13;
+<p><span style="font-size:18px">我们期望让中断处理程序运行得快，并想让它完成的工作量多，这两个目标相互制约，如何解决——<strong><span style="font-family:Microsoft YaHei">上下半部机制</span></strong>。</span></p>&#13;
+<p><span style="font-size:18px">我们把中断处理切为两半。我们用网卡来解释一下这两半。当网卡接受到数据包时，通知内核，触发中断，所谓的上半部就是，及时读取数据包到内存，防止因为延迟导致丢失，这是很急迫的工作。读到内存后，对这些数据的处理不再紧迫，此时内核可以去执行中断前运行的程序，而对网络数据包的处理则交给下半部处理。</span></p>&#13;
+<p><span style="font-size:18px"><u>我们先来看一下<strong><span style="font-family:Microsoft YaHei">上半部</span></strong>的处理过程。</u></span></p>&#13;
+<p><span style="font-size:18px"><strong><span style="font-family:Microsoft YaHei">中断处理程序的注册与注销</span></strong></span></p>&#13;
+<p><span style="font-size:18px">设备驱动程序利用request_irq()注册中断处理程序，并激活给定的中断线。</span></p>&#13;
+<p><span style="font-size:18px"/></p>&#13;
+<pre code_snippet_id="382046" snippet_file_name="blog_20140608_1_7275260" name="code" class="cpp">int request_irq(unsigned int irq,
+                         irq_handler_t handler,
+                         unsigned long flags,
+                         const char *name,
+                         void *dev)</pre><br/>&#13;
+<p><span style="font-size:18px">irq表示中断号，handler是指向中断处理程序的指针。request_irq()成功执行返回0，当返回非0值时，表示有错误发生，中断处理程序不会被注册。</span></p>&#13;
+<p><span style="font-size:18px">卸载设备驱动程序时，需要注销相应的中断处理程序，并释放中断线，这时需要调用free_irq——如果在给定的中断线上没有中断处理程序，则注销响应的处理程序，并</span><span style="font-size:18px">禁用其中断线。</span></p>&#13;
+<p><span style="font-size:18px"><span style="font-family:Microsoft YaHei"><strong>中断处理机制</strong></span></span></p>&#13;
+<p style="text-align:center"><span style="font-size:18px"><img src="http://img.blog.csdn.net/20140607144219890?watermark/2/text/aHR0cDovL2Jsb2cuY3Nkbi5uZXQvQmx1ZUNsb3VkTWF0cml4/font/5a6L5L2T/fontsize/400/fill/I0JBQkFCMA==/dissolve/70/gravity/SouthEast" alt=""/><br/>&#13;
+</span></p>&#13;
+<p><span style="font-size:18px"><u><span style="font-family:Microsoft YaHei"><strong>下半部</strong></span>严格来说不属于中断处理程序（因为中断返回后再执行下半部），它是中断处理程序用来缩减自身工作的分担者。</u></span></p>&#13;
+<p><span style="font-size:18px"><strong><span style="font-family:Microsoft YaHei">上下半部划分原则</span></strong></span></p>&#13;
+<p><span style="font-size:18px">（1）如果一个任务对时间非常敏感，将其放在中断处理程序中执行；</span></p>&#13;
+<p><span style="font-size:18px">（2）如果一个任务和硬件有关，将其放在中断处理程序中执行；</span></p>&#13;
+<p><span style="font-size:18px">（3）如果一个任务要保证不被其他中断打断，将其放在中断处理程序中执行；</span></p>&#13;
+<p><span style="font-size:18px">（4）其他所有任务，考虑放置在下半部执行。</span></p>&#13;
+<p><span style="font-size:18px"><strong><span style="font-family:Microsoft YaHei">上下半部的意义</span></strong></span></p>&#13;
+<p><span style="font-size:18px">上半部简单快速，执行时禁止一些或者全部中断。下半部稍后执行，而且执行期间可以响应所有的中断。这种设计可以使系统处于中断屏蔽状态的时间尽可能的短，以此来提高系统的响应能力。</span></p>&#13;
+<p><span style="font-family:Microsoft YaHei; font-size:18px"><strong>下半部实现机制之软中断</strong></span></p>&#13;
+<p><span style="font-size:18px">在中断处理程序中触发软中断是最常见的形式。在这种情况下，中断处理程序执行硬件设备的相关操作，然后触发相应的软中断，最后退出。内核在执行完中断处理程序后，马上就会调用do_softirq()函数，于是软中断开始执行中断处理程序留给它去完成的剩余任务。</span></p>&#13;
+<p><span style="font-size:18px">软中断注册方式如下：</span></p>&#13;
+<p><span style="font-size:18px">open_softirq(NET_TX_SOFTIRQ, net_tx_action);</span></p>&#13;
+<p><span style="font-size:18px">前面的参数是软中断的索引号，后面的是处理函数。软中断处理程序执行时，允许响应中断，但它自己不能休眠。</span></p>&#13;
+<p><span style="font-family:Microsoft YaHei; font-size:18px"><strong>下半部实现机制之tasklet</strong></span></p>&#13;
+<p><span style="font-size:18px">tasklet是通过软中断实现的，所以它本身也是软中断。</span></p>&#13;
+<p><span style="font-size:18px">首先声明自己的tasklet，DECLARE_TASKLET(name, func, data)，当该tasklet被调度后，给定的函数func会被执行，它的参数由data给出。接下来定义tasklet处理程序void tasklet_handler(unsigned long data)，然后开始调度。</span><span style="font-size:18px">tasklet由tasklet_schedule()和tasklet_hi_schedule()进行调度。</span></p>&#13;
+<p><span style="font-size:18px">tasklet_schedule()的执行步骤：</span></p>&#13;
+<p><span style="font-size:18px">（1）检查tasklet的状态是否为TASKLET_STATE_SCHED。如果是，说明tasklet已经被调度过了，函数立即返回。</span></p>&#13;
+<p><span style="font-size:18px">（2）调用_tasklet_schedule()。</span></p>&#13;
+<p><span style="font-size:18px">（3）保存中断状态，然后禁止本地中断。在我们执行tasklet代码时，这么做能够保证当tasklet_schedule()处理这些tasklet时，处理器上的数据不会弄乱。</span></p>&#13;
+<p><span style="font-size:18px">（4）把需要调度的tasklet加到每个处理器一个的tasklet_vec链表或tasklet_hi_vec链表的表头上。</span></p>&#13;
+<p><span style="font-size:18px">（5）唤醒TASKLET_SOFTIRQ或HI_SOFTIRQ软中断，这样在下一次调用do_softirq()时就会执行该tasklet。</span></p>&#13;
+<p><span style="font-size:18px">（6）恢复中断到原状态并返回。</span></p>&#13;
+<p><span style="font-family:Microsoft YaHei; font-size:18px"><strong>下半部实现机制之工作队列（work queue）</strong></span></p>&#13;
+<p><span style="font-size:18px">如果推后执行的任务需要睡眠，那么就选择工作队列，如果不需要睡眠，那么就选择软中断或tasklet。工作队列能运行在进程上下文，它将工作托付给一个内核线程。我们用结构体workqueue_struct表示工作者线程，工作者线程是用内核线程实现的。而工作者线程是如何执行被推后的工作——有这样一个链表，它由结构体work_struct组成，而这个work_struct则描述了一个工作，一旦这个工作被执行完，相应的work_struct对象就从链表上移去，当链表上不再有对象时，工作者线程就会继续休眠。这些逻辑是通过函数worker_thread()实现的：</span></p>&#13;
+<p><span style="font-size:18px">（1）线程将自己设置为休眠状态，并把自己加入到等待队列中。</span></p>&#13;
+<p><span style="font-size:18px">（2）如果工作链表是空的，线程调用schedule()函数进入休眠状态。</span></p>&#13;
+<p><span style="font-size:18px">（3）如果链表中有对象，线程不会休眠。相反，它会脱离等待队列。</span></p>&#13;
+<p><span style="font-size:18px">（4）如果链表非空，调用run_workqueue()执行被推后的工作。</span></p>&#13;
+<p><span style="font-size:18px">另外，cpu_workqueue_struct表示一个工作者线程，而workqueue_struct表示一类工作者线程。</span></p>&#13;
+<p><span style="font-size:18px">创建工作者线程，DECLARE_WORK(name, void (*func) (void *), void *data)或INIT_WORK(struct work_struct *work, void (*func) (void *), void *data)，前者是静态创建，后者在运行时通过指针创建。工作者线程创建了，接下来应该定义它要执行的函数work_handler。之后就是用schedule_work(&amp;work)来调度工作线程的唤醒与休眠。</span></p>&#13;
+<link rel="stylesheet" href="http://static.blog.csdn.net/public/res-min/markdown_views.css?v=1.0"/>&#13;
+            

@@ -1,0 +1,135 @@
+
+
+<span style="font-size:18px">        在最近的研究中，发现aspectj 的拦截非常实用，也封装了N多方法方便我们调用，正好我们在对工作流的业务进行封装，发现虽然有些需求没有实现但是和我们的封装已经可以在很高的层面上吻合，给大家分享<br />&#13;
+<br />&#13;
+<br />&#13;
+</span>&#13;
+<h1><span style="font-size:18px">获取目标方法的信息</span></h1>&#13;
+<p><span style="font-size:18px">    </span></p>&#13;
+<p><span style="font-size:18px">访问目标方法最简单的做法是定义增强处理方法时，将第一个参数定义为JoinPoint类型，JoinPoint是SpringAoP中，只支持Method Execution （方法执行）的Joinpoint,对于类型中的属性，我们可以通过对setter，getter方法的拦截从而达到相同的效果。</span></p>&#13;
+<p><span style="font-size:18px"><br />&#13;
+</span></p>&#13;
+<p><span style="font-size:18px">JoinPoint里包含了如下几个常用的方法：</span></p>&#13;
+<span style="font-size:18px">Object[] getArgs：返回目标方法的参数<br />&#13;
+Signature getSignature：返回目标方法的签名<br />&#13;
+Object getTarget：返回被织入增强处理的目标对象<br />&#13;
+Object getThis：返回AOP框架为目标对象生成的代理对象<br />&#13;
+注意：当使用@Around处理时，我们需要将第一个参数定义为ProceedingJoinPoint类型，该类是JoinPoint的子类。<br />&#13;
+<br />&#13;
+        下面的切面类（依然放在com.abc.advice包中）中定义了Before、Around、AfterReturning和After 4中增强处理，并分别在4种增强处理中访问被织入增强处理的目标方法、目标方法的参数和被织入增强处理的目标对象等：<br />&#13;
+<br />&#13;
+<br />&#13;
+</span><pre code_snippet_id="647057" snippet_file_name="blog_20150418_1_4635080" name="code" class="java">&lt;span style="font-size:18px;"&gt;package com.abc.advice;
+ 
+import java.util.Arrays;
+ 
+import org.aspectj.lang.JoinPoint;
+import org.aspectj.lang.ProceedingJoinPoint;
+import org.aspectj.lang.annotation.After;
+import org.aspectj.lang.annotation.AfterReturning;
+import org.aspectj.lang.annotation.Around;
+import org.aspectj.lang.annotation.Aspect;
+import org.aspectj.lang.annotation.Before;
+ 
+@Aspect
+public class AdviceTest {
+    @Around("execution(* com.abc.service.*.many*(..))")
+    public Object process(ProceedingJoinPoint point) throws Throwable {
+        System.out.println("@Around：执行目标方法之前...");
+        //访问目标方法的参数：
+        Object[] args = point.getArgs();
+        if (args != null &amp;&amp; args.length &gt; 0 &amp;&amp; args[0].getClass() == String.class) {
+            args[0] = "改变后的参数1";
+        }
+        //用改变后的参数执行目标方法
+        Object returnValue = point.proceed(args);
+        System.out.println("@Around：执行目标方法之后...");
+        System.out.println("@Around：被织入的目标对象为：" + point.getTarget());
+        return "原返回值：" + returnValue + "，这是返回结果的后缀";
+    }
+     
+    @Before("execution(* com.abc.service.*.many*(..))")
+    public void permissionCheck(JoinPoint point) {
+        System.out.println("@Before：模拟权限检查...");
+        System.out.println("@Before：目标方法为：" + 
+                point.getSignature().getDeclaringTypeName() + 
+                "." + point.getSignature().getName());
+        System.out.println("@Before：参数为：" + Arrays.toString(point.getArgs()));
+        System.out.println("@Before：被织入的目标对象为：" + point.getTarget());
+    }
+     
+    @AfterReturning(pointcut="execution(* com.abc.service.*.many*(..))", 
+        returning="returnValue")
+    public void log(JoinPoint point, Object returnValue) {
+        System.out.println("@AfterReturning：模拟日志记录功能...");
+        System.out.println("@AfterReturning：目标方法为：" + 
+                point.getSignature().getDeclaringTypeName() + 
+                "." + point.getSignature().getName());
+        System.out.println("@AfterReturning：参数为：" + 
+                Arrays.toString(point.getArgs()));
+        System.out.println("@AfterReturning：返回值为：" + returnValue);
+        System.out.println("@AfterReturning：被织入的目标对象为：" + point.getTarget());
+         
+    }
+     
+    @After("execution(* com.abc.service.*.many*(..))")
+    public void releaseResource(JoinPoint point) {
+        System.out.println("@After：模拟释放资源...");
+        System.out.println("@After：目标方法为：" + 
+                point.getSignature().getDeclaringTypeName() + 
+                "." + point.getSignature().getName());
+        System.out.println("@After：参数为：" + Arrays.toString(point.getArgs()));
+        System.out.println("@After：被织入的目标对象为：" + point.getTarget());
+    }
+}&lt;/span&gt;</pre><span style="font-size:18px"><br />&#13;
+在AdviceManager类中增加以下内容：<br />&#13;
+<br />&#13;
+</span>&#13;
+<p></p><pre code_snippet_id="647057" snippet_file_name="blog_20150418_2_5742967" name="code" class="java">&lt;span style="font-size:18px;"&gt;//将被AdviceTest的各种方法匹配
+public String manyAdvices(String param1, String param2) {
+    System.out.println("方法：manyAdvices");
+    return param1 + " 、" + param2;
+}
+&lt;/span&gt;</pre><span style="font-size:18px"><br />&#13;
+<br />&#13;
+</span>&#13;
+<p><span style="font-size:18px"> 在com.abc.main.AOPTest中加入方法的调用，触发切点：</span></p>&#13;
+<p><span style="font-size:18px"><br />&#13;
+</span></p>&#13;
+<pre code_snippet_id="647057" snippet_file_name="blog_20150418_3_7331597" name="code" class="java">&lt;span style="font-size:18px;"&gt;String result = manager.manyAdvices("aa", "bb");
+System.out.println("Test方法中调用切点方法的返回值：" + result);&lt;/span&gt;</pre><span style="font-size:18px"><br />&#13;
+<br />&#13;
+    下面是执行结果：<br />&#13;
+<br />&#13;
+</span>&#13;
+<p></p><pre code_snippet_id="647057" snippet_file_name="blog_20150418_4_5332177" name="code" class="plain">&lt;span style="font-size:18px;"&gt;@Around：执行目标方法之前...
+@Before：模拟权限检查...
+@Before：目标方法为：com.abc.service.AdviceManager.manyAdvices
+@Before：参数为：[改变后的参数1, bb]
+@Before：被织入的目标对象为：com.abc.service.AdviceManager@1dfc617e
+方法：manyAdvices
+@Around：执行目标方法之后...
+@Around：被织入的目标对象为：com.abc.service.AdviceManager@1dfc617e
+@After：模拟释放资源...
+@After：目标方法为：com.abc.service.AdviceManager.manyAdvices
+@After：参数为：[改变后的参数1, bb]
+@After：被织入的目标对象为：com.abc.service.AdviceManager@1dfc617e
+@AfterReturning：模拟日志记录功能...
+@AfterReturning：目标方法为：com.abc.service.AdviceManager.manyAdvices
+@AfterReturning：参数为：[改变后的参数1, bb]
+@AfterReturning：返回值为：原返回值：改变后的参数1 、 bb，这是返回结果的后缀
+@AfterReturning：被织入的目标对象为：com.abc.service.AdviceManager@1dfc617e&lt;/span&gt;</pre><span style="font-size:18px"><br />&#13;
+ 从结果中可以看出：在任何一个织入的增强处理中，都可以获取目标方法的信息。</span>&#13;
+<p><span style="font-size:18px"><br />&#13;
+</span></p>&#13;
+<p><span style="font-size:18px">缺憾：不能获取到方法体中的局部变量！</span></p>&#13;
+<span style="font-size:18px"><br />&#13;
+</span>&#13;
+<h1><span style="font-size:18px">总结：</span></h1>&#13;
+<p><span style="font-size:18px">世上无难事，只怕有心人！在学习和提升的过程中，我们对于事情的认识往往取决于我们对事物的第一印象！所以我们在想问题的时候，是不是可以换一个角度考虑问题呢？</span></p>&#13;
+<p><span style="font-size:18px">以前的角度：这个问题能不能解决？不能解决怎门办？我改怎么处理？</span></p>&#13;
+<p><span style="font-size:18px">现在的角度：这个问题肯定能解决？怎么去解决？该借助哪方的力量呢？</span></p>&#13;
+<p><span style="font-size:18px">这两种不同的角度，形成不同的两种循环：第一种是，担心，解决，侥幸，担心，不能解决，放弃，放弃！第二种是信心，解决，挑战，信息，解决，成功！对比下，发现，我们是不是都应该进入正能量的循环！</span></p>&#13;
+<span style="font-size:18px"><br />&#13;
+</span><br />&#13;
+   &#13;

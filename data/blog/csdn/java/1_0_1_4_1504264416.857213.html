@@ -1,0 +1,270 @@
+
+        <div class="markdown_views"><h1 id="状态模式"><center> 状态模式</center></h1>
+
+<p>标签 ： Java与设计模式</p>
+
+<hr />
+
+<blockquote>
+  <p>状态模式: 允许一个对象在其<strong>内部状态改变时</strong>改变其<strong>行为</strong>, <strong>其对象看起来像是改变了其类</strong>. <br />
+  <img src="http://7xrgh9.com1.z0.glb.clouddn.com/16-8-31/14869259.jpg" alt="" title="" /> <br />
+  (图片来源: <a href="https://book.douban.com/subject/1052241/">设计模式:可复用面向对象软件的基础</a>) <br />
+  其目的是: 解决系统中复杂对象的<strong>状态流转</strong>以及<strong>不同状态下的行为封装</strong>问题.</p>
+</blockquote>
+
+<hr />
+
+
+
+<h2 id="模式实现">模式实现</h2>
+
+<blockquote>
+  <p>案例: 问题跟踪(Bug状态流转): <br />
+  有过<a href="http://kelude.aliyun.com/">Kelude</a>、<a href="https://www.atlassian.com/software/jira">Jira</a>使用经验的同学都知道一个Bug由测试同学提出, 一直到被开发同学解决会经过一系列状态的流转: <br />
+  <strong>新建(New)</strong> -&gt; <strong>打开(Open)</strong> -&gt; <strong>解决(Fixed)</strong> -&gt; <strong>关闭(Closed)</strong> … <br />
+  <img src="http://7xrgh9.com1.z0.glb.clouddn.com/16-8-31/37217135.jpg" alt="" title="" /> <br />
+  且每种状态都会对应复杂业务的处理逻辑(如通知相应开发/测试人员、邮件/短信提醒、报表记录等等), 下面我们就以这个场景来讨论状态模式的实现:</p>
+</blockquote>
+
+<ul>
+<li>状态模式-Bug流转: <br />
+<img src="http://7xrgh9.com1.z0.glb.clouddn.com/16-8-31/56507173.jpg" alt="" title="" /></li>
+</ul>
+
+<hr />
+
+
+
+<h3 id="state">State</h3>
+
+<p><strong>抽象状态</strong>: 定义一个接口封装与 <strong>Context的一个特定状态</strong> 相关的行为:</p>
+
+
+
+<pre class="prettyprint"><code class=" hljs java"><span class="hljs-javadoc">/**
+ *<span class="hljs-javadoctag"> @author</span> jifang
+ *<span class="hljs-javadoctag"> @since</span> 16/8/28 下午6:06.
+ */</span>
+<span class="hljs-keyword">public</span> <span class="hljs-class"><span class="hljs-keyword">interface</span> <span class="hljs-title">State</span> {</span>
+    <span class="hljs-keyword">void</span> handle(Context context);
+}</code></pre>
+
+<hr />
+
+
+
+<h3 id="concretestate">ConcreteState</h3>
+
+<p><strong>具体状态</strong>: 每一个子类实现一个与 <strong>Context的某一个特定状态相关的具体行为</strong> :</p>
+
+
+
+<pre class="prettyprint"><code class=" hljs axapta"><span class="hljs-class"><span class="hljs-keyword">class</span> <span class="hljs-title">NewState</span> <span class="hljs-inheritance"><span class="hljs-keyword">implements</span></span> <span class="hljs-title">State</span> {</span>
+
+    <span class="hljs-keyword">static</span> <span class="hljs-keyword">final</span> NewState instance = <span class="hljs-keyword">new</span> NewState();
+
+    <span class="hljs-comment">// 单例 or 享元</span>
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">static</span> State instance() {
+        <span class="hljs-keyword">return</span> instance;
+    }
+
+    @Override
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">void</span> handle(Context context) {
+        <span class="hljs-keyword">if</span> (context.getCurrent() == <span class="hljs-keyword">this</span>) {
+            <span class="hljs-comment">// 本状态下的核心业务处理</span>
+            System.out.println(<span class="hljs-string">"测试: 发现了Bug, 开发同学赶紧处理"</span>);
+            <span class="hljs-comment">// 状态流转</span>
+            context.setCurrent(OpenState.instance());
+        }
+    }
+}
+
+<span class="hljs-class"><span class="hljs-keyword">class</span> <span class="hljs-title">OpenState</span> <span class="hljs-inheritance"><span class="hljs-keyword">implements</span></span> <span class="hljs-title">State</span> {</span>
+
+    <span class="hljs-keyword">static</span> <span class="hljs-keyword">final</span> OpenState instance = <span class="hljs-keyword">new</span> OpenState();
+
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">static</span> State instance() {
+        <span class="hljs-keyword">return</span> instance;
+    }
+
+    @Override
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">void</span> handle(Context context) {
+        <span class="hljs-keyword">if</span> (context.getCurrent() == <span class="hljs-keyword">this</span>) {
+            System.out.println(<span class="hljs-string">"开发: Bug已经看到, 正在处理"</span>);
+            context.setCurrent(FixedState.instance());
+        }
+    }
+}
+
+<span class="hljs-class"><span class="hljs-keyword">class</span> <span class="hljs-title">FixedState</span> <span class="hljs-inheritance"><span class="hljs-keyword">implements</span></span> <span class="hljs-title">State</span> {</span>
+
+    <span class="hljs-keyword">static</span> <span class="hljs-keyword">final</span> FixedState instance = <span class="hljs-keyword">new</span> FixedState();
+
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">static</span> State instance() {
+        <span class="hljs-keyword">return</span> instance;
+    }
+
+    @Override
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">void</span> handle(Context context) {
+        <span class="hljs-keyword">if</span> (context.getCurrent() == <span class="hljs-keyword">this</span>) {
+            System.out.println(<span class="hljs-string">"开发: Bug已经修复, 测试同学看一下"</span>);
+            context.setCurrent(ClosedState.instance());
+        }
+    }
+}
+
+<span class="hljs-class"><span class="hljs-keyword">class</span> <span class="hljs-title">ClosedState</span> <span class="hljs-inheritance"><span class="hljs-keyword">implements</span></span> <span class="hljs-title">State</span> {</span>
+
+    <span class="hljs-keyword">static</span> <span class="hljs-keyword">final</span> ClosedState instance = <span class="hljs-keyword">new</span> ClosedState();
+
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">static</span> State instance() {
+        <span class="hljs-keyword">return</span> instance;
+    }
+
+    @Override
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">void</span> handle(Context context) {
+        <span class="hljs-keyword">if</span> (context.getCurrent() == <span class="hljs-keyword">this</span>) {
+            System.out.println(<span class="hljs-string">"测试: Bug验证通过, 已关闭"</span>);
+            context.setCurrent(<span class="hljs-keyword">null</span>);
+        }
+    }
+}</code></pre>
+
+<hr />
+
+
+
+<h3 id="context">Context</h3>
+
+<ul>
+<li>定义客户感兴趣的接口</li>
+<li>维护一个<strong>ConcreteState</strong>子类实例 -当前状态.</li>
+</ul>
+
+
+
+<pre class="prettyprint"><code class=" hljs cs"><span class="hljs-keyword">public</span> <span class="hljs-keyword">class</span> Context {
+
+    <span class="hljs-keyword">private</span> State current;
+
+    <span class="hljs-keyword">public</span> <span class="hljs-title">Context</span>(State current) {
+        <span class="hljs-keyword">this</span>.current = current;
+    }
+
+    <span class="hljs-keyword">public</span> State <span class="hljs-title">getCurrent</span>() {
+        <span class="hljs-keyword">return</span> current;
+    }
+
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">void</span> <span class="hljs-title">setCurrent</span>(State current) {
+        <span class="hljs-keyword">this</span>.current = current;
+    }
+
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">void</span> <span class="hljs-title">request</span>() {
+        <span class="hljs-keyword">if</span> (current != <span class="hljs-keyword">null</span>) {
+            current.handle(<span class="hljs-keyword">this</span>);
+        }
+    }
+}</code></pre>
+
+<ul>
+<li>Client</li>
+</ul>
+
+
+
+<pre class="prettyprint"><code class=" hljs cs"><span class="hljs-keyword">public</span> <span class="hljs-keyword">class</span> Client {
+
+    @Test
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">void</span> <span class="hljs-title">client</span>() {
+        Context context = <span class="hljs-keyword">new</span> Context(NewState.instance());
+        context.request();
+        context.request();
+        context.request();
+        context.request();
+        context.request();
+    }
+}</code></pre>
+
+<hr />
+
+
+
+<h2 id="状态推动">状态推动</h2>
+
+<blockquote>
+  <p>前面介绍的状态流转需要由<strong>Client</strong>推动(<strong>Client</strong>调用<strong>Context</strong>的<code>request()</code>), 还有其他几种推动方式. 如<code>State</code>自动流转: 每个<code>State</code>处理结束, 自动进入下一状态的处理环节(在<strong>State</strong>内部调用<strong>Context</strong>的<code>request()</code>):</p>
+</blockquote>
+
+
+
+<pre class="prettyprint"><code class=" hljs axapta"><span class="hljs-class"><span class="hljs-keyword">class</span> <span class="hljs-title">NewState</span> <span class="hljs-inheritance"><span class="hljs-keyword">implements</span></span> <span class="hljs-title">State</span> {</span>
+
+    @Override
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">void</span> handle(Context context) {
+        <span class="hljs-keyword">if</span> (context.getCurrent() == <span class="hljs-keyword">this</span>) {
+            System.out.println(<span class="hljs-string">"测试: 发现了Bug, 开发同学赶紧处理"</span>);
+            context.setCurrent(<span class="hljs-keyword">new</span> OpenState());
+        }
+        context.request();
+    }
+}</code></pre>
+
+<blockquote>
+  <p>另外还有一种<strong>基于表驱动的状态机实现</strong>, 实现细节参考 <a href="https://book.douban.com/subject/1052241/">设计模式:可复用面向对象软件的基础</a> P204.</p>
+</blockquote>
+
+<hr />
+
+
+
+<h2 id="小结">小结</h2>
+
+<blockquote>
+  <ul>
+  <li>将<strong>与特定状态相关的行为</strong>局部化, 并将不同状态的行为分隔开: <br />
+  <ul><li>将特定的状态相关的行为都放入一个<strong>对象</strong>中: 由于所有与状态相关的代码都存在于某<strong>ConcreteState</strong>中, 所以通过定义新的子类可以很容易地<strong>增加新的状态和转换</strong>.</li>
+  <li>可以将状态转移逻辑分布到<strong>State</strong>之间, 将每一个状态转换和动作封装到一个类中, 就把着眼点从执行状态提高到整个对象的状态, 这将使<strong>代码结构化</strong>并使<strong>意图更加清晰</strong>,消除庞大的条件分支语句.</li></ul></li>
+  <li>状态转换显式化:  <br />
+  当一个对象仅以内部数据值来定义当前状态时, 其状态仅表现为一些变量的赋值, 这不够明确. 为不同的状态引入独立的对象使得转换变得更加明确(类<strong>原子化</strong>).</li>
+  </ul>
+</blockquote>
+
+<ul>
+<li>场景: <br />
+<ul><li>当一个对象的行为取决于它的状态, 并且它必须在运行时刻根据状态改变它的行为;</li>
+<li>一个操作中含有庞大的条件分支语句, 且这些分支依赖于该对象的状态, 这个状态通常用一个/多个枚举常量表示: <br />
+<ul><li>OA系统请求状态流转</li>
+<li>银行系统资金状态流转</li>
+<li>线程对象状态切换</li>
+<li>TCP连接状态流转 <br />
+State模式将每一个条件分支放入一个独立的类中. 这使得可以根据对象自身的情况将对象的状态作为一个对象, 这一对象可以不依赖于其他对象而独立变化.</li></ul></li></ul></li>
+</ul>
+
+<hr />
+
+<dl>
+<dt>参考:</dt>
+<dd><a href="https://book.douban.com/subject/2334288/">大话设计模式</a></dd>
+
+<dd><a href="https://book.douban.com/subject/1052241/">设计模式:可复用面向对象软件的基础</a></dd>
+
+<dd><a href="http://www.bjsxt.com/2014/down_0425/34.html">高淇讲设计模式</a></dd>
+
+<dd><a href="http://kelude.aliyun.com/admin/login?spm=0.0.0.0.A0iMjJ">Kelude</a>、<a href="https://zh.wikipedia.org/wiki/JIRA">JIRA</a></dd>
+</dl>
+
+<hr /></div>&#13;
+        <script type="text/javascript">&#13;
+            $(function () {&#13;
+                $('pre.prettyprint code').each(function () {&#13;
+                    var lines = $(this).text().split('\n').length;&#13;
+                    var $numbering = $('&lt;ul/&gt;').addClass('pre-numbering').hide();&#13;
+                    $(this).addClass('has-numbering').parent().append($numbering);&#13;
+                    for (i = 1; i &lt;= lines; i++) {&#13;
+                        $numbering.append($('&lt;li/&gt;').text(i));&#13;
+                    };&#13;
+                    $numbering.fadeIn(1700);&#13;
+                });&#13;
+            });&#13;
+        </script>&#13;
+   &#13;

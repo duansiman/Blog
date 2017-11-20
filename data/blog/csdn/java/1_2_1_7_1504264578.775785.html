@@ -1,0 +1,168 @@
+
+        <div class="markdown_views"><h2 id="code-address">code address:</h2>
+
+<p><a href="http://download.csdn.net/detail/kaikai_sk/9872762">http://download.csdn.net/detail/kaikai_sk/9872762</a></p>
+
+
+
+<h2 id="单例模式的意义">单例模式的意义</h2>
+
+<p>有些对象我们只需要一个：线程池、缓存、硬件设备等 <br />
+如果多个实例会有造成冲突、结果的不一致性等问题 <br />
+是否可以用静态变量方式来实现？ <br />
+或者程序员之间协商个全局变量？ <br />
+单例模式：确保一个类最多只有一个实例，并提供一个全局访问点</p>
+
+
+
+<h2 id="类图">类图</h2>
+
+<p><img src="http://img.blog.csdn.net/20170616172306448?watermark/2/text/aHR0cDovL2Jsb2cuY3Nkbi5uZXQva2Fpa2FpX3Nr/font/5a6L5L2T/fontsize/400/fill/I0JBQkFCMA==/dissolve/70/gravity/SouthEast" alt="这里写图片描述" title="" /></p>
+
+
+
+<h2 id="实现">实现</h2>
+
+
+
+<pre class="prettyprint"><code class=" hljs cs">package simple;
+
+<span class="hljs-keyword">public</span> <span class="hljs-keyword">class</span> Singleton
+{
+    <span class="hljs-keyword">private</span> <span class="hljs-keyword">static</span> Singleton uniqueInstance;
+
+    <span class="hljs-keyword">private</span> <span class="hljs-title">Singleton</span>()
+    {
+    }
+
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">static</span> Singleton <span class="hljs-title">getInstance</span>()
+    {
+        <span class="hljs-keyword">if</span>(uniqueInstance==<span class="hljs-keyword">null</span>)
+        {
+            uniqueInstance=<span class="hljs-keyword">new</span> Singleton();
+        }
+        <span class="hljs-keyword">return</span> uniqueInstance;
+    }
+}</code></pre>
+
+
+
+<h2 id="一个巧克力工厂的例子">一个巧克力工厂的例子</h2>
+
+
+
+<pre class="prettyprint"><code class=" hljs java"><span class="hljs-keyword">package</span> Factory;
+
+<span class="hljs-keyword">import</span> simple.Singleton;
+
+<span class="hljs-keyword">public</span> <span class="hljs-class"><span class="hljs-keyword">class</span> <span class="hljs-title">ChocolateFactory</span>
+{</span>
+    <span class="hljs-keyword">private</span> <span class="hljs-keyword">boolean</span> empty;
+    <span class="hljs-keyword">private</span> <span class="hljs-keyword">boolean</span> boiled;
+
+    <span class="hljs-keyword">private</span> <span class="hljs-keyword">static</span> ChocolateFactory uniqueInstance;
+
+    <span class="hljs-keyword">private</span> <span class="hljs-title">ChocolateFactory</span>()
+    {
+
+    }
+
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">static</span> ChocolateFactory <span class="hljs-title">getInstance</span>()
+    {
+        <span class="hljs-keyword">if</span>(uniqueInstance==<span class="hljs-keyword">null</span>)
+        {
+            uniqueInstance=<span class="hljs-keyword">new</span> ChocolateFactory();
+        }
+        <span class="hljs-keyword">return</span> uniqueInstance;
+    }
+
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">void</span> <span class="hljs-title">fill</span>()
+    {
+        <span class="hljs-keyword">if</span>(empty)
+        {
+            <span class="hljs-comment">//添加原料动作</span>
+            empty=<span class="hljs-keyword">false</span>;
+            boiled=<span class="hljs-keyword">false</span>;
+        }
+    }
+
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">void</span> <span class="hljs-title">boil</span>()
+    {
+        <span class="hljs-keyword">if</span>(!empty &amp;&amp; !boiled)
+        {
+            <span class="hljs-comment">//煮沸</span>
+            boiled =<span class="hljs-keyword">true</span>;
+        }
+    }
+
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">void</span> <span class="hljs-title">drain</span>()
+    {
+        <span class="hljs-keyword">if</span>(!empty &amp;&amp; boiled)
+        {
+            <span class="hljs-comment">//倒出巧克力</span>
+            empty=<span class="hljs-keyword">true</span>;
+        }
+    }
+}
+</code></pre>
+
+
+
+<h2 id="经典单例模式的优化">经典单例模式的优化</h2>
+
+<ol>
+<li>多线程问题 <br />
+优化： <br />
+同步（synchronized）getInstance方法</li>
+</ol>
+
+
+
+<pre class="prettyprint"><code class=" hljs java">    <span class="hljs-keyword">public</span> <span class="hljs-keyword">static</span> <span class="hljs-keyword">synchronized</span> ChocolateFactory <span class="hljs-title">getInstance</span>()
+     {
+
+        <span class="hljs-keyword">if</span> (uniqueInstance == <span class="hljs-keyword">null</span>) 
+        {
+                    uniqueInstance = <span class="hljs-keyword">new</span> ChocolateFactory();
+
+            }
+        }
+
+        <span class="hljs-keyword">return</span> uniqueInstance;
+
+    }</code></pre>
+
+<p>“急切”创建实例</p>
+
+<pre class="prettyprint"><code class=" hljs cs"><span class="hljs-keyword">public</span> <span class="hljs-keyword">static</span> ChocolateFactory uniqueInstance = <span class="hljs-keyword">new</span> ChocolateFactory ();</code></pre>
+
+<p>双重检查加锁</p>
+
+<pre class="prettyprint"><code class=" hljs java"><span class="hljs-keyword">public</span> <span class="hljs-keyword">volatile</span> <span class="hljs-keyword">static</span> ChocolateFactory uniqueInstance = <span class="hljs-keyword">null</span>;
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">static</span> ChocolateFactory <span class="hljs-title">getInstance</span>() {
+
+        <span class="hljs-keyword">if</span> (uniqueInstance == <span class="hljs-keyword">null</span>) {
+            <span class="hljs-keyword">synchronized</span> (ChocolateFactory.class) {
+                <span class="hljs-keyword">if</span> (uniqueInstance == <span class="hljs-keyword">null</span>) {
+                    uniqueInstance = <span class="hljs-keyword">new</span> ChocolateFactory();
+                }
+            }
+        }
+
+        <span class="hljs-keyword">return</span> uniqueInstance;
+
+    }</code></pre></div>&#13;
+        <script type="text/javascript">&#13;
+            $(function () {&#13;
+                $('pre.prettyprint code').each(function () {&#13;
+                    var lines = $(this).text().split('\n').length;&#13;
+                    var $numbering = $('&lt;ul/&gt;').addClass('pre-numbering').hide();&#13;
+                    $(this).addClass('has-numbering').parent().append($numbering);&#13;
+                    for (i = 1; i &lt;= lines; i++) {&#13;
+                        $numbering.append($('&lt;li/&gt;').text(i));&#13;
+                    };&#13;
+                    $numbering.fadeIn(1700);&#13;
+                });&#13;
+            });&#13;
+        </script>&#13;
+   &#13;

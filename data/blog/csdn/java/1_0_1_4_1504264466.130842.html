@@ -1,0 +1,195 @@
+
+        <div class="markdown_views"><ul>
+<li>GZIP压缩：将压缩后的文本文件，发送给浏览器，减少流量。</li>
+<li>全站压缩：将一个项目（网站内）的所有响应（数据）进行gzip压缩，减少流量。</li>
+<li>压缩目的：减少流量，提高运行速度，贴吧是在手机客户端是，减少流量会获得用户的青睐。</li>
+<li>压缩技术：通过GzipOutputStream和ByteArrayOutputStream对所有要精过滤器的数据进行压缩。</li>
+<li>核心代码：</li>
+</ul>
+
+
+
+<pre class="prettyprint"><code class=" hljs avrasm">response<span class="hljs-preprocessor">.setContentType</span>(<span class="hljs-string">"text/html;charset=utf-8"</span>)<span class="hljs-comment">;</span>
+        String str=<span class="hljs-string">"我不知道是什么原因sdasdasdas实打实大师/"</span> +
+                <span class="hljs-string">"把字节数组str中的数据 压缩到  bos内存流当中/"</span> +
+                <span class="hljs-string">"把字节数组str中的数据 压缩到  bos内存流当中/"</span> +
+                <span class="hljs-string">"把字节数组str中的数据 压缩到  bos内存流当中"</span> +
+                <span class="hljs-string">""</span><span class="hljs-comment">;</span>
+        System<span class="hljs-preprocessor">.out</span><span class="hljs-preprocessor">.println</span>(<span class="hljs-string">"原大小:"</span>+ str<span class="hljs-preprocessor">.getBytes</span>(<span class="hljs-string">"utf-8"</span>)<span class="hljs-preprocessor">.length</span>)<span class="hljs-comment">;</span>
+        ByteArrayOutputStream baout=new ByteArrayOutputStream()<span class="hljs-comment">;</span>
+        GZIPOutputStream gout=new GZIPOutputStream(baout)<span class="hljs-comment">;</span>
+        gout<span class="hljs-preprocessor">.write</span>(str<span class="hljs-preprocessor">.getBytes</span>(<span class="hljs-string">"utf-8"</span>))<span class="hljs-comment">;</span>
+        gout<span class="hljs-preprocessor">.close</span>()<span class="hljs-comment">;</span>
+        byte[] buf=baout<span class="hljs-preprocessor">.toByteArray</span>()<span class="hljs-comment">;</span>
+        response<span class="hljs-preprocessor">.setHeader</span>(<span class="hljs-string">"Content-Encoding"</span>, <span class="hljs-string">"gzip"</span>)<span class="hljs-comment">;</span>
+        response<span class="hljs-preprocessor">.setContentLength</span>(buf<span class="hljs-preprocessor">.length</span>)<span class="hljs-comment">;</span>
+        OutputStream <span class="hljs-keyword">out</span>=response<span class="hljs-preprocessor">.getOutputStream</span>()<span class="hljs-comment">;</span>
+        System<span class="hljs-preprocessor">.out</span><span class="hljs-preprocessor">.println</span>(<span class="hljs-string">"压缩大小:"</span>+ buf<span class="hljs-preprocessor">.length</span>)<span class="hljs-comment">;</span>
+        <span class="hljs-keyword">out</span><span class="hljs-preprocessor">.write</span>(buf)<span class="hljs-comment">;</span>
+        <span class="hljs-keyword">out</span><span class="hljs-preprocessor">.close</span>()<span class="hljs-comment">;</span></code></pre>
+
+<p>下面是全站压缩的GzipFilter.java过滤器</p>
+
+
+
+<pre class="prettyprint"><code class=" hljs java"><span class="hljs-keyword">package</span> cn.hncu.filter;
+
+<span class="hljs-keyword">import</span> java.io.ByteArrayOutputStream;
+<span class="hljs-keyword">import</span> java.io.IOException;
+<span class="hljs-keyword">import</span> java.io.OutputStream;
+<span class="hljs-keyword">import</span> java.io.OutputStreamWriter;
+<span class="hljs-keyword">import</span> java.io.PrintWriter;
+<span class="hljs-keyword">import</span> java.util.zip.GZIPOutputStream;
+
+<span class="hljs-keyword">import</span> javax.servlet.Filter;
+<span class="hljs-keyword">import</span> javax.servlet.FilterChain;
+<span class="hljs-keyword">import</span> javax.servlet.FilterConfig;
+<span class="hljs-keyword">import</span> javax.servlet.ServletException;
+<span class="hljs-keyword">import</span> javax.servlet.ServletOutputStream;
+<span class="hljs-keyword">import</span> javax.servlet.ServletRequest;
+<span class="hljs-keyword">import</span> javax.servlet.ServletResponse;
+<span class="hljs-keyword">import</span> javax.servlet.http.HttpServletResponse;
+<span class="hljs-keyword">import</span> javax.servlet.http.HttpServletResponseWrapper;
+
+<span class="hljs-keyword">public</span> <span class="hljs-class"><span class="hljs-keyword">class</span> <span class="hljs-title">GzipFilter</span> <span class="hljs-keyword">implements</span> <span class="hljs-title">Filter</span> {</span>
+
+    <span class="hljs-annotation">@Override</span>
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">void</span> <span class="hljs-title">init</span>(FilterConfig filterConfig) <span class="hljs-keyword">throws</span> ServletException {
+
+    }
+
+    <span class="hljs-annotation">@Override</span>
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">void</span> <span class="hljs-title">doFilter</span>(ServletRequest request, ServletResponse response,
+            FilterChain chain) <span class="hljs-keyword">throws</span> IOException, ServletException {
+        MyResponse resp=<span class="hljs-keyword">new</span> MyResponse((HttpServletResponse) response);
+        <span class="hljs-comment">//用增强版的resp放行到servlet中去用(让后台把数据 写到  bout中 )</span>
+        chain.doFilter(request, resp);<span class="hljs-comment">//放行</span>
+        <span class="hljs-comment">//从增强版的resp的baout中(存放的是源字节数据)，把数据取出来进行压缩，</span>
+        <span class="hljs-comment">//然后再压缩后的数据用原生的response输出到客户端</span>
+        ByteArrayOutputStream bout=resp.getBout();
+        <span class="hljs-keyword">byte</span>[] srcBytes=bout.toByteArray();<span class="hljs-comment">//这是源数据</span>
+        <span class="hljs-comment">//下面进行压缩：</span>
+        ByteArrayOutputStream bout2=<span class="hljs-keyword">new</span> ByteArrayOutputStream();
+        GZIPOutputStream gout=<span class="hljs-keyword">new</span> GZIPOutputStream(bout2);
+        gout.write(srcBytes);<span class="hljs-comment">//把原数据写入gout---bout2</span>
+        gout.close();
+        <span class="hljs-keyword">byte</span>[] descBytes=bout2.toByteArray();
+        <span class="hljs-comment">//输出之前告诉客户端:我们的数据是gzip格式，然后输出</span>
+        HttpServletResponse httpResp=(HttpServletResponse) response;
+        httpResp.setHeader(<span class="hljs-string">"Content-Encoding"</span>, <span class="hljs-string">"gzip"</span>);
+        httpResp.setContentLength(descBytes.length);
+        httpResp.setContentType(<span class="hljs-string">"text/html;charset=utf-8"</span>);
+        OutputStream out=httpResp.getOutputStream();<span class="hljs-comment">//拿到字节流，必须是字节流</span>
+        out.write(descBytes);
+    }
+
+    <span class="hljs-annotation">@Override</span>
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">void</span> <span class="hljs-title">destroy</span>() {
+    }
+}
+class MyResponse extends HttpServletResponseWrapper{
+    <span class="hljs-keyword">private</span> ByteArrayOutputStream bout;
+    PrintWriter pw = <span class="hljs-keyword">null</span>;
+    <span class="hljs-keyword">public</span> <span class="hljs-title">MyResponse</span>(HttpServletResponse response) {
+        <span class="hljs-keyword">super</span>(response);
+        bout=<span class="hljs-keyword">new</span> ByteArrayOutputStream();
+    }
+    <span class="hljs-keyword">public</span> ByteArrayOutputStream <span class="hljs-title">getBout</span>() {
+        <span class="hljs-keyword">if</span>(pw!=<span class="hljs-keyword">null</span>){
+            pw.close();<span class="hljs-comment">//要关流刷新</span>
+        }
+        <span class="hljs-keyword">return</span> bout;
+    }
+    <span class="hljs-annotation">@Override</span><span class="hljs-comment">//在这里重写getOutputStream和getWriter方法</span>
+    <span class="hljs-keyword">public</span> ServletOutputStream <span class="hljs-title">getOutputStream</span>() <span class="hljs-keyword">throws</span> IOException {
+        <span class="hljs-keyword">return</span> <span class="hljs-keyword">new</span> MyOutputStream(bout);
+    }
+    <span class="hljs-annotation">@Override</span>
+    <span class="hljs-keyword">public</span> PrintWriter <span class="hljs-title">getWriter</span>() <span class="hljs-keyword">throws</span> IOException {
+        pw=<span class="hljs-keyword">new</span> PrintWriter(<span class="hljs-keyword">new</span> OutputStreamWriter(bout,<span class="hljs-string">"utf-8"</span>));<span class="hljs-comment">//用套接流来进行套接</span>
+        <span class="hljs-keyword">return</span> pw;
+    }
+
+}
+class MyOutputStream extends ServletOutputStream{
+    <span class="hljs-keyword">private</span> ByteArrayOutputStream bout;
+
+    <span class="hljs-keyword">public</span> <span class="hljs-title">MyOutputStream</span>(ByteArrayOutputStream bout) {
+        <span class="hljs-keyword">this</span>.bout = bout;
+    }
+
+    <span class="hljs-annotation">@Override</span>
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">void</span> <span class="hljs-title">write</span>(<span class="hljs-keyword">int</span> b) <span class="hljs-keyword">throws</span> IOException {
+        bout.write(b);<span class="hljs-comment">//把数据写入bou字节流里面</span>
+    }
+
+}
+</code></pre>
+
+<p>在web.xml进行filter设置</p>
+
+
+
+<pre class="prettyprint"><code class=" hljs xml"><span class="hljs-pi">&lt;?xml version="1.0" encoding="UTF-8"?&gt;</span>
+<span class="hljs-tag">&lt;<span class="hljs-title">web-app</span> <span class="hljs-attribute">xmlns:xsi</span>=<span class="hljs-value">"http://www.w3.org/2001/XMLSchema-instance"</span> <span class="hljs-attribute">xmlns</span>=<span class="hljs-value">"http://java.sun.com/xml/ns/javaee"</span> <span class="hljs-attribute">xmlns:web</span>=<span class="hljs-value">"http://java.sun.com/xml/ns/javaee/web-app_2_5.xsd"</span> <span class="hljs-attribute">xsi:schemaLocation</span>=<span class="hljs-value">"http://java.sun.com/xml/ns/javaee http://java.sun.com/xml/ns/javaee/web-app_3_0.xsd"</span> <span class="hljs-attribute">version</span>=<span class="hljs-value">"3.0"</span>&gt;</span>
+  <span class="hljs-tag">&lt;<span class="hljs-title">display-name</span>&gt;</span><span class="hljs-tag">&lt;/<span class="hljs-title">display-name</span>&gt;</span>
+  <span class="hljs-tag">&lt;<span class="hljs-title">filter</span>&gt;</span>
+    <span class="hljs-tag">&lt;<span class="hljs-title">filter-name</span>&gt;</span>gzip<span class="hljs-tag">&lt;/<span class="hljs-title">filter-name</span>&gt;</span>
+    <span class="hljs-tag">&lt;<span class="hljs-title">filter-class</span>&gt;</span>cn.hncu.filter.GzipFilter<span class="hljs-tag">&lt;/<span class="hljs-title">filter-class</span>&gt;</span>
+  <span class="hljs-tag">&lt;/<span class="hljs-title">filter</span>&gt;</span>
+
+  <span class="hljs-tag">&lt;<span class="hljs-title">filter-mapping</span>&gt;</span>
+    <span class="hljs-tag">&lt;<span class="hljs-title">filter-name</span>&gt;</span>gzip<span class="hljs-tag">&lt;/<span class="hljs-title">filter-name</span>&gt;</span>
+    <span class="hljs-tag">&lt;<span class="hljs-title">url-pattern</span>&gt;</span>/*<span class="hljs-tag">&lt;/<span class="hljs-title">url-pattern</span>&gt;</span>
+     <span class="hljs-tag">&lt;<span class="hljs-title">dispatcher</span>&gt;</span>REQUEST<span class="hljs-tag">&lt;/<span class="hljs-title">dispatcher</span>&gt;</span>//如果不学，默认是request压缩，但是写了了dispatcher就必须加上
+    <span class="hljs-tag">&lt;<span class="hljs-title">dispatcher</span>&gt;</span>FORWARD<span class="hljs-tag">&lt;/<span class="hljs-title">dispatcher</span>&gt;</span>//对forward页面进行压缩
+    <span class="hljs-tag">&lt;<span class="hljs-title">dispatcher</span>&gt;</span>INCLUDE<span class="hljs-tag">&lt;/<span class="hljs-title">dispatcher</span>&gt;</span>//对include页面进行压缩
+  <span class="hljs-tag">&lt;/<span class="hljs-title">filter-mapping</span>&gt;</span>
+  <span class="hljs-tag">&lt;<span class="hljs-title">servlet</span>&gt;</span>
+    <span class="hljs-tag">&lt;<span class="hljs-title">description</span>&gt;</span>This is the description of my J2EE component<span class="hljs-tag">&lt;/<span class="hljs-title">description</span>&gt;</span>
+    <span class="hljs-tag">&lt;<span class="hljs-title">display-name</span>&gt;</span>This is the display name of my J2EE component<span class="hljs-tag">&lt;/<span class="hljs-title">display-name</span>&gt;</span>
+    <span class="hljs-tag">&lt;<span class="hljs-title">servlet-name</span>&gt;</span>FirstServlet<span class="hljs-tag">&lt;/<span class="hljs-title">servlet-name</span>&gt;</span>
+    <span class="hljs-tag">&lt;<span class="hljs-title">servlet-class</span>&gt;</span>cn.hncu.servlet.FirstServlet<span class="hljs-tag">&lt;/<span class="hljs-title">servlet-class</span>&gt;</span>
+  <span class="hljs-tag">&lt;/<span class="hljs-title">servlet</span>&gt;</span>
+  <span class="hljs-tag">&lt;<span class="hljs-title">servlet</span>&gt;</span>
+    <span class="hljs-tag">&lt;<span class="hljs-title">servlet-name</span>&gt;</span>SecondServlet<span class="hljs-tag">&lt;/<span class="hljs-title">servlet-name</span>&gt;</span>
+    <span class="hljs-tag">&lt;<span class="hljs-title">servlet-class</span>&gt;</span>cn.hncu.servlet.SecondServlet<span class="hljs-tag">&lt;/<span class="hljs-title">servlet-class</span>&gt;</span>
+  <span class="hljs-tag">&lt;/<span class="hljs-title">servlet</span>&gt;</span>
+  <span class="hljs-tag">&lt;<span class="hljs-title">servlet</span>&gt;</span>
+    <span class="hljs-tag">&lt;<span class="hljs-title">servlet-name</span>&gt;</span>ThridServlet<span class="hljs-tag">&lt;/<span class="hljs-title">servlet-name</span>&gt;</span>
+    <span class="hljs-tag">&lt;<span class="hljs-title">servlet-class</span>&gt;</span>cn.hncu.servlet.ThridServlet<span class="hljs-tag">&lt;/<span class="hljs-title">servlet-class</span>&gt;</span>
+  <span class="hljs-tag">&lt;/<span class="hljs-title">servlet</span>&gt;</span>
+  <span class="hljs-tag">&lt;<span class="hljs-title">servlet-mapping</span>&gt;</span>
+    <span class="hljs-tag">&lt;<span class="hljs-title">servlet-name</span>&gt;</span>FirstServlet<span class="hljs-tag">&lt;/<span class="hljs-title">servlet-name</span>&gt;</span>
+    <span class="hljs-tag">&lt;<span class="hljs-title">url-pattern</span>&gt;</span>/FirstServlet<span class="hljs-tag">&lt;/<span class="hljs-title">url-pattern</span>&gt;</span>
+  <span class="hljs-tag">&lt;/<span class="hljs-title">servlet-mapping</span>&gt;</span>
+  <span class="hljs-tag">&lt;<span class="hljs-title">servlet-mapping</span>&gt;</span>
+    <span class="hljs-tag">&lt;<span class="hljs-title">servlet-name</span>&gt;</span>SecondServlet<span class="hljs-tag">&lt;/<span class="hljs-title">servlet-name</span>&gt;</span>
+    <span class="hljs-tag">&lt;<span class="hljs-title">url-pattern</span>&gt;</span>/servlet/SecondServlet<span class="hljs-tag">&lt;/<span class="hljs-title">url-pattern</span>&gt;</span>
+  <span class="hljs-tag">&lt;/<span class="hljs-title">servlet-mapping</span>&gt;</span>
+   <span class="hljs-tag">&lt;<span class="hljs-title">servlet-mapping</span>&gt;</span>
+    <span class="hljs-tag">&lt;<span class="hljs-title">servlet-name</span>&gt;</span>ThridServlet<span class="hljs-tag">&lt;/<span class="hljs-title">servlet-name</span>&gt;</span>
+    <span class="hljs-tag">&lt;<span class="hljs-title">url-pattern</span>&gt;</span>/servlet/ThridServlet<span class="hljs-tag">&lt;/<span class="hljs-title">url-pattern</span>&gt;</span>
+  <span class="hljs-tag">&lt;/<span class="hljs-title">servlet-mapping</span>&gt;</span>
+  <span class="hljs-tag">&lt;<span class="hljs-title">welcome-file-list</span>&gt;</span>
+    <span class="hljs-tag">&lt;<span class="hljs-title">welcome-file</span>&gt;</span>index.jsp<span class="hljs-tag">&lt;/<span class="hljs-title">welcome-file</span>&gt;</span>
+  <span class="hljs-tag">&lt;/<span class="hljs-title">welcome-file-list</span>&gt;</span>
+<span class="hljs-tag">&lt;/<span class="hljs-title">web-app</span>&gt;</span></code></pre>
+
+<ul>
+<li><a href="http://blog.csdn.net/wangjian_an/article/details/51932039">Gzip相关知识参考博客</a></li>
+</ul></div>&#13;
+        <script type="text/javascript">&#13;
+            $(function () {&#13;
+                $('pre.prettyprint code').each(function () {&#13;
+                    var lines = $(this).text().split('\n').length;&#13;
+                    var $numbering = $('&lt;ul/&gt;').addClass('pre-numbering').hide();&#13;
+                    $(this).addClass('has-numbering').parent().append($numbering);&#13;
+                    for (i = 1; i &lt;= lines; i++) {&#13;
+                        $numbering.append($('&lt;li/&gt;').text(i));&#13;
+                    };&#13;
+                    $numbering.fadeIn(1700);&#13;
+                });&#13;
+            });&#13;
+        </script>&#13;
+   &#13;

@@ -1,0 +1,478 @@
+
+                <div class="markdown_views"><h3 id="目录">目录</h3>
+
+<p/><div class="toc"><div class="toc">
+<ul>
+<li><ul>
+<li><ul>
+<li><a href="http://blog.csdn.net/u014427391/article/details/68958115#目录">目录</a></li>
+<li><a href="http://blog.csdn.net/u014427391/article/details/68958115#前言">前言</a></li>
+<li><a href="http://blog.csdn.net/u014427391/article/details/68958115#文章信息设计">文章信息设计</a></li>
+<li><a href="http://blog.csdn.net/u014427391/article/details/68958115#代码实现步骤">代码实现步骤</a></li>
+<li><a href="http://blog.csdn.net/u014427391/article/details/68958115#文档归档信息查询">文档归档信息查询</a></li>
+<li><a href="http://blog.csdn.net/u014427391/article/details/68958115#附录工具类公共类代码">附录工具类公共类代码</a></li>
+</ul>
+</li>
+</ul>
+</li>
+</ul>
+</div>
+</div>
+
+
+
+
+<h3 id="前言">前言</h3>
+
+<p>最近在写自己的个人博客系统，框架采用SpringMVC、Spring4.0、Spring Data/JPA组合，本博客就文档归档功能在Spring Data JPA框架下是如何实现的进行记录。 <br/>
+现在可以star(收藏)，watch(关注)，但是还在开发中，所以还是还在先别下载 <br/>
+项目github：<a href="https://github.com/u014427391/myblog">https://github.com/u014427391/myblog</a></p>
+
+<h3 id="文章信息设计">文章信息设计</h3>
+
+<p>数据暂时这样设计，仅供学习参考，对于文章评论回复，栏目之间的关联还没设计，不过本博客的目的是记录文档归档功能的实现，这个并不会影响 <br/>
+<img src="http://img.blog.csdn.net/20170403114527194?watermark/2/text/aHR0cDovL2Jsb2cuY3Nkbi5uZXQvdTAxNDQyNzM5MQ==/font/5a6L5L2T/fontsize/400/fill/I0JBQkFCMA==/dissolve/70/gravity/SouthEast" alt="这里写图片描述" title=""/></p>
+
+<p>VO类：全部采用注解，注意因为我数据库表名为article，所以不需要写@Table注解，表名为其它的话，就需要自己添加@Table注解了</p>
+
+
+
+<pre class="prettyprint"><code class=" hljs java"><span class="hljs-keyword">package</span> net.myblog.entity;
+
+<span class="hljs-keyword">import</span> java.util.Date;
+
+<span class="hljs-keyword">import</span> javax.persistence.Column;
+<span class="hljs-keyword">import</span> javax.persistence.Entity;
+<span class="hljs-keyword">import</span> javax.persistence.GeneratedValue;
+<span class="hljs-keyword">import</span> javax.persistence.Id;
+<span class="hljs-keyword">import</span> javax.persistence.Temporal;
+<span class="hljs-keyword">import</span> javax.persistence.TemporalType;
+
+<span class="hljs-javadoc">/**
+ * 博客系统文章信息的实体类
+ *<span class="hljs-javadoctag"> @author</span> Nicky
+ */</span>
+<span class="hljs-annotation">@Entity</span>
+<span class="hljs-keyword">public</span> <span class="hljs-class"><span class="hljs-keyword">class</span> <span class="hljs-title">Article</span> {</span>
+
+    <span class="hljs-javadoc">/** 文章Id，自增**/</span>
+    <span class="hljs-keyword">private</span> <span class="hljs-keyword">int</span> articleId;
+
+    <span class="hljs-javadoc">/** 文章名称**/</span>
+    <span class="hljs-keyword">private</span> String articleName;
+
+    <span class="hljs-javadoc">/** 文章发布时间**/</span>
+    <span class="hljs-keyword">private</span> Date articleTime;
+
+    <span class="hljs-javadoc">/** 图片路径，测试**/</span>
+    <span class="hljs-keyword">private</span> String imgPath;
+
+    <span class="hljs-javadoc">/** 文章内容**/</span>
+    <span class="hljs-keyword">private</span> String articleContent;
+
+    <span class="hljs-javadoc">/** 查看人数**/</span>
+    <span class="hljs-keyword">private</span> <span class="hljs-keyword">int</span> articleClick;
+
+    <span class="hljs-javadoc">/** 是否博主推荐。0为否；1为是**/</span>
+    <span class="hljs-keyword">private</span> <span class="hljs-keyword">int</span> articleSupport;
+
+    <span class="hljs-javadoc">/** 是否置顶。0为；1为是**/</span>
+    <span class="hljs-keyword">private</span> <span class="hljs-keyword">int</span> articleUp;
+
+    <span class="hljs-javadoc">/** 文章类别。0为私有，1为公开，2为仅好友查看**/</span>
+    <span class="hljs-keyword">private</span> <span class="hljs-keyword">int</span> articleType;
+
+    <span class="hljs-annotation">@GeneratedValue</span>
+    <span class="hljs-annotation">@Id</span>
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">int</span> <span class="hljs-title">getArticleId</span>() {
+        <span class="hljs-keyword">return</span> articleId;
+    }
+
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">void</span> <span class="hljs-title">setArticleId</span>(<span class="hljs-keyword">int</span> articleId) {
+        <span class="hljs-keyword">this</span>.articleId = articleId;
+    }
+
+    <span class="hljs-annotation">@Column</span>(length=<span class="hljs-number">100</span>, nullable=<span class="hljs-keyword">false</span>)
+    <span class="hljs-keyword">public</span> String <span class="hljs-title">getArticleName</span>() {
+        <span class="hljs-keyword">return</span> articleName;
+    }
+
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">void</span> <span class="hljs-title">setArticleName</span>(String articleName) {
+        <span class="hljs-keyword">this</span>.articleName = articleName;
+    }
+
+    <span class="hljs-annotation">@Temporal</span>(TemporalType.DATE)
+    <span class="hljs-annotation">@Column</span>(nullable=<span class="hljs-keyword">false</span>, updatable=<span class="hljs-keyword">false</span>)
+    <span class="hljs-keyword">public</span> Date <span class="hljs-title">getArticleTime</span>() {
+        <span class="hljs-keyword">return</span> articleTime;
+    }
+
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">void</span> <span class="hljs-title">setArticleTime</span>(Date articleTime) {
+        <span class="hljs-keyword">this</span>.articleTime = articleTime;
+    }
+
+    <span class="hljs-annotation">@Column</span>(length=<span class="hljs-number">100</span>)
+    <span class="hljs-keyword">public</span> String <span class="hljs-title">getImgPath</span>() {
+        <span class="hljs-keyword">return</span> imgPath;
+    }
+
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">void</span> <span class="hljs-title">setImgPath</span>(String imgPath) {
+        <span class="hljs-keyword">this</span>.imgPath = imgPath;
+    }
+
+    <span class="hljs-annotation">@Column</span>(nullable=<span class="hljs-keyword">false</span>)
+    <span class="hljs-keyword">public</span> String <span class="hljs-title">getArticleContent</span>() {
+        <span class="hljs-keyword">return</span> articleContent;
+    }
+
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">void</span> <span class="hljs-title">setArticleContent</span>(String articleContent) {
+        <span class="hljs-keyword">this</span>.articleContent = articleContent;
+    }
+
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">int</span> <span class="hljs-title">getArticleClick</span>() {
+        <span class="hljs-keyword">return</span> articleClick;
+    }
+
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">void</span> <span class="hljs-title">setArticleClick</span>(<span class="hljs-keyword">int</span> articleClick) {
+        <span class="hljs-keyword">this</span>.articleClick = articleClick;
+    }
+
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">int</span> <span class="hljs-title">getArticleSupport</span>() {
+        <span class="hljs-keyword">return</span> articleSupport;
+    }
+
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">void</span> <span class="hljs-title">setArticleSupport</span>(<span class="hljs-keyword">int</span> articleSupport) {
+        <span class="hljs-keyword">this</span>.articleSupport = articleSupport;
+    }
+
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">int</span> <span class="hljs-title">getArticleUp</span>() {
+        <span class="hljs-keyword">return</span> articleUp;
+    }
+
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">void</span> <span class="hljs-title">setArticleUp</span>(<span class="hljs-keyword">int</span> articleUp) {
+        <span class="hljs-keyword">this</span>.articleUp = articleUp;
+    }
+
+    <span class="hljs-annotation">@Column</span>(nullable=<span class="hljs-keyword">false</span>)
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">int</span> <span class="hljs-title">getArticleType</span>() {
+        <span class="hljs-keyword">return</span> articleType;
+    }
+
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">void</span> <span class="hljs-title">setArticleType</span>(<span class="hljs-keyword">int</span> articleType) {
+        <span class="hljs-keyword">this</span>.articleType = articleType;
+    }
+}
+</code></pre>
+
+
+
+<h3 id="代码实现步骤">代码实现步骤</h3>
+
+<p>文章表里有很多数据，要按照年月获取文章进行归档的话，我们可以使用如下SQL对数据进行分组</p>
+
+
+
+<pre class="prettyprint"><code class=" hljs sql"><span class="hljs-operator"><span class="hljs-keyword">SELECT</span> <span class="hljs-keyword">YEAR</span>(articleTime) <span class="hljs-keyword">AS</span> <span class="hljs-string">'year'</span>,<span class="hljs-keyword">MONTH</span>(articleTime) <span class="hljs-keyword">AS</span> <span class="hljs-string">'month'</span>,<span class="hljs-aggregate">COUNT</span>(*) <span class="hljs-keyword">AS</span> <span class="hljs-string">'count'</span> <span class="hljs-keyword">FROM</span> article 
+    <span class="hljs-keyword">GROUP</span> <span class="hljs-keyword">BY</span> <span class="hljs-keyword">YEAR</span>(articleTime) <span class="hljs-keyword">DESC</span>,<span class="hljs-keyword">MONTH</span>(articleTime);</span></code></pre>
+
+<p>然后编写数据库层的Repository类，类实现Spring Data JPA提供的接口</p>
+
+
+
+<pre class="prettyprint"><code class=" hljs avrasm">package net<span class="hljs-preprocessor">.myblog</span><span class="hljs-preprocessor">.repository</span><span class="hljs-comment">;</span>
+
+import java<span class="hljs-preprocessor">.util</span><span class="hljs-preprocessor">.Date</span><span class="hljs-comment">;</span>
+import java<span class="hljs-preprocessor">.util</span><span class="hljs-preprocessor">.List</span><span class="hljs-comment">;</span>
+
+import net<span class="hljs-preprocessor">.myblog</span><span class="hljs-preprocessor">.entity</span><span class="hljs-preprocessor">.Article</span><span class="hljs-comment">;</span>
+
+import org<span class="hljs-preprocessor">.springframework</span><span class="hljs-preprocessor">.data</span><span class="hljs-preprocessor">.jpa</span><span class="hljs-preprocessor">.repository</span><span class="hljs-preprocessor">.Query</span><span class="hljs-comment">;</span>
+import org<span class="hljs-preprocessor">.springframework</span><span class="hljs-preprocessor">.data</span><span class="hljs-preprocessor">.repository</span><span class="hljs-preprocessor">.PagingAndSortingRepository</span><span class="hljs-comment">;</span>
+import org<span class="hljs-preprocessor">.springframework</span><span class="hljs-preprocessor">.data</span><span class="hljs-preprocessor">.repository</span><span class="hljs-preprocessor">.query</span><span class="hljs-preprocessor">.Param</span><span class="hljs-comment">;</span>
+
+public interface ArticleRepository extends PagingAndSortingRepository&lt;Article,Integer&gt;{
+    <span class="hljs-comment">/**
+     * 文章归档信息获取
+     * @return
+     */</span>
+    @Query(value=<span class="hljs-string">"select year(a.articleTime) as year,month(a.articleTime) as month,"</span>
+            + <span class="hljs-string">"count(a) as count from Article a group by year(a.articleTime),month(a.articleTime)"</span>,
+            countQuery=<span class="hljs-string">"select count(1) from (select count(1) from Article a group by year(a.articleTime),month(a.articleTime))"</span>)
+    public List&lt;Object[]&gt; findArticleGroupByTime()<span class="hljs-comment">;</span>
+
+}</code></pre>
+
+<p>然后在Service类，用@Autowired注解调用</p>
+
+
+
+<pre class="prettyprint"><code class=" hljs avrasm">package net<span class="hljs-preprocessor">.myblog</span><span class="hljs-preprocessor">.service</span><span class="hljs-comment">;</span>
+
+import java<span class="hljs-preprocessor">.util</span><span class="hljs-preprocessor">.Date</span><span class="hljs-comment">;</span>
+import java<span class="hljs-preprocessor">.util</span><span class="hljs-preprocessor">.List</span><span class="hljs-comment">;</span>
+
+import net<span class="hljs-preprocessor">.myblog</span><span class="hljs-preprocessor">.entity</span><span class="hljs-preprocessor">.Article</span><span class="hljs-comment">;</span>
+import net<span class="hljs-preprocessor">.myblog</span><span class="hljs-preprocessor">.repository</span><span class="hljs-preprocessor">.ArticleRepository</span><span class="hljs-comment">;</span>
+
+import org<span class="hljs-preprocessor">.springframework</span><span class="hljs-preprocessor">.beans</span><span class="hljs-preprocessor">.factory</span><span class="hljs-preprocessor">.annotation</span><span class="hljs-preprocessor">.Autowired</span><span class="hljs-comment">;</span>
+import org<span class="hljs-preprocessor">.springframework</span><span class="hljs-preprocessor">.data</span><span class="hljs-preprocessor">.domain</span><span class="hljs-preprocessor">.Page</span><span class="hljs-comment">;</span>
+import org<span class="hljs-preprocessor">.springframework</span><span class="hljs-preprocessor">.data</span><span class="hljs-preprocessor">.domain</span><span class="hljs-preprocessor">.PageRequest</span><span class="hljs-comment">;</span>
+import org<span class="hljs-preprocessor">.springframework</span><span class="hljs-preprocessor">.data</span><span class="hljs-preprocessor">.domain</span><span class="hljs-preprocessor">.Sort</span><span class="hljs-preprocessor">.Direction</span><span class="hljs-comment">;</span>
+import org<span class="hljs-preprocessor">.springframework</span><span class="hljs-preprocessor">.stereotype</span><span class="hljs-preprocessor">.Service</span><span class="hljs-comment">;</span>
+import org<span class="hljs-preprocessor">.springframework</span><span class="hljs-preprocessor">.transaction</span><span class="hljs-preprocessor">.annotation</span><span class="hljs-preprocessor">.Transactional</span><span class="hljs-comment">;</span>
+
+@Service
+public class ArticleService {
+
+    @Autowired ArticleRepository articleRepository<span class="hljs-comment">;</span>
+    <span class="hljs-comment">/**
+     * 文章归档信息获取
+     * @return
+     */</span>
+    @Transactional
+    public List&lt;Object[]&gt; findArticleGroupByTime(){
+        return articleRepository<span class="hljs-preprocessor">.findArticleGroupByTime</span>()<span class="hljs-comment">;</span>
+    }
+
+}
+</code></pre>
+
+<p>然后在Controller里调用，用的是SpringMVC框架</p>
+
+
+
+<pre class="prettyprint"><code class=" hljs avrasm">package net<span class="hljs-preprocessor">.myblog</span><span class="hljs-preprocessor">.web</span><span class="hljs-preprocessor">.controller</span><span class="hljs-comment">;</span>
+
+import java<span class="hljs-preprocessor">.util</span><span class="hljs-preprocessor">.ArrayList</span><span class="hljs-comment">;</span>
+import java<span class="hljs-preprocessor">.util</span><span class="hljs-preprocessor">.List</span><span class="hljs-comment">;</span>
+import java<span class="hljs-preprocessor">.util</span><span class="hljs-preprocessor">.Vector</span><span class="hljs-comment">;</span>
+
+import javax<span class="hljs-preprocessor">.servlet</span><span class="hljs-preprocessor">.http</span><span class="hljs-preprocessor">.HttpServletRequest</span><span class="hljs-comment">;</span>
+import javax<span class="hljs-preprocessor">.servlet</span><span class="hljs-preprocessor">.http</span><span class="hljs-preprocessor">.HttpServletResponse</span><span class="hljs-comment">;</span>
+
+import net<span class="hljs-preprocessor">.myblog</span><span class="hljs-preprocessor">.service</span><span class="hljs-preprocessor">.ArticleService</span><span class="hljs-comment">;</span>
+import net<span class="hljs-preprocessor">.sf</span><span class="hljs-preprocessor">.json</span><span class="hljs-preprocessor">.JSONArray</span><span class="hljs-comment">;</span>
+
+import org<span class="hljs-preprocessor">.springframework</span><span class="hljs-preprocessor">.beans</span><span class="hljs-preprocessor">.factory</span><span class="hljs-preprocessor">.annotation</span><span class="hljs-preprocessor">.Autowired</span><span class="hljs-comment">;</span>
+import org<span class="hljs-preprocessor">.springframework</span><span class="hljs-preprocessor">.data</span><span class="hljs-preprocessor">.domain</span><span class="hljs-preprocessor">.Page</span><span class="hljs-comment">;</span>
+import org<span class="hljs-preprocessor">.springframework</span><span class="hljs-preprocessor">.data</span><span class="hljs-preprocessor">.domain</span><span class="hljs-preprocessor">.Sort</span><span class="hljs-preprocessor">.Direction</span><span class="hljs-comment">;</span>
+import org<span class="hljs-preprocessor">.springframework</span><span class="hljs-preprocessor">.stereotype</span><span class="hljs-preprocessor">.Controller</span><span class="hljs-comment">;</span>
+import org<span class="hljs-preprocessor">.springframework</span><span class="hljs-preprocessor">.ui</span><span class="hljs-preprocessor">.Model</span><span class="hljs-comment">;</span>
+import org<span class="hljs-preprocessor">.springframework</span><span class="hljs-preprocessor">.web</span><span class="hljs-preprocessor">.bind</span><span class="hljs-preprocessor">.annotation</span><span class="hljs-preprocessor">.RequestMapping</span><span class="hljs-comment">;</span>
+import org<span class="hljs-preprocessor">.springframework</span><span class="hljs-preprocessor">.web</span><span class="hljs-preprocessor">.servlet</span><span class="hljs-preprocessor">.ModelAndView</span><span class="hljs-comment">;</span>
+
+@Controller
+public class BlogIndexController extends BaseController{
+
+    @Autowired
+    ArticleService articleService<span class="hljs-comment">;</span>
+
+    <span class="hljs-comment">/**
+     * 访问博客主页
+     * @return
+     */</span>
+    @RequestMapping(value=<span class="hljs-string">"/toblog"</span>,produces=<span class="hljs-string">"text/html;charset=UTF-8"</span>)
+    public ModelAndView toBlog(HttpServletRequest request, HttpServletResponse response, Model model)throws ClassNotFoundException{
+
+        //获取归档文章信息
+        List&lt;Object[]&gt; archiveArticles = articleService<span class="hljs-preprocessor">.findArticleGroupByTime</span>()<span class="hljs-comment">;</span>
+
+        model<span class="hljs-preprocessor">.addAttribute</span>(<span class="hljs-string">"archiveArticles"</span>, archiveArticles)<span class="hljs-comment">;</span>
+        mv<span class="hljs-preprocessor">.setViewName</span>(<span class="hljs-string">"myblog/frame/index"</span>)<span class="hljs-comment">;</span>
+        return mv<span class="hljs-comment">;</span>
+    }
+
+}
+</code></pre>
+
+<p>在JSP页面调用显示：</p>
+
+
+
+<pre class="prettyprint"><code class=" hljs xml"><span class="hljs-tag">&lt;<span class="hljs-title">h2</span>&gt;</span><span class="hljs-tag">&lt;<span class="hljs-title">p</span>&gt;</span>文章归档<span class="hljs-tag">&lt;/<span class="hljs-title">p</span>&gt;</span><span class="hljs-tag">&lt;/<span class="hljs-title">h2</span>&gt;</span>
+<span class="hljs-tag">&lt;<span class="hljs-title">ul</span> <span class="hljs-attribute">class</span>=<span class="hljs-value">"news"</span>&gt;</span>
+  <span class="hljs-tag">&lt;<span class="hljs-title">c:choose</span>&gt;</span>
+    <span class="hljs-tag">&lt;<span class="hljs-title">c:when</span> <span class="hljs-attribute">test</span>=<span class="hljs-value">"${not empty archiveArticles }"</span>&gt;</span>
+        <span class="hljs-tag">&lt;<span class="hljs-title">c:forEach</span> <span class="hljs-attribute">items</span>=<span class="hljs-value">"${archiveArticles }"</span> <span class="hljs-attribute">var</span>=<span class="hljs-value">"ac"</span>&gt;</span>
+        <span class="hljs-tag">&lt;<span class="hljs-title">li</span>&gt;</span><span class="hljs-tag">&lt;<span class="hljs-title">a</span> <span class="hljs-attribute">href</span>=<span class="hljs-value">"getArchiveArticles.do?yearmonth=${ac[0]}-${ac[1]}"</span>&gt;</span>
+        ${ac[0]}年${ac[1]}月(${ac[2] })<span class="hljs-tag">&lt;/<span class="hljs-title">a</span>&gt;</span><span class="hljs-tag">&lt;/<span class="hljs-title">li</span>&gt;</span>
+        <span class="hljs-tag">&lt;/<span class="hljs-title">c:forEach</span>&gt;</span>
+    <span class="hljs-tag">&lt;/<span class="hljs-title">c:when</span>&gt;</span>
+    <span class="hljs-tag">&lt;<span class="hljs-title">c:otherwise</span>&gt;</span>
+        <span class="hljs-tag">&lt;<span class="hljs-title">li</span>&gt;</span><span class="hljs-tag">&lt;<span class="hljs-title">a</span> <span class="hljs-attribute">href</span>=<span class="hljs-value">"#"</span>&gt;</span>没有相关数据<span class="hljs-tag">&lt;/<span class="hljs-title">a</span>&gt;</span><span class="hljs-tag">&lt;/<span class="hljs-title">li</span>&gt;</span>
+    <span class="hljs-tag">&lt;/<span class="hljs-title">c:otherwise</span>&gt;</span>  
+  <span class="hljs-tag">&lt;/<span class="hljs-title">c:choose</span>&gt;</span>
+<span class="hljs-tag">&lt;/<span class="hljs-title">ul</span>&gt;</span></code></pre>
+
+<p>效果如图所示： <br/>
+<img src="http://img.blog.csdn.net/20170403120245873?watermark/2/text/aHR0cDovL2Jsb2cuY3Nkbi5uZXQvdTAxNDQyNzM5MQ==/font/5a6L5L2T/fontsize/400/fill/I0JBQkFCMA==/dissolve/70/gravity/SouthEast" alt="这里写图片描述" title=""/></p>
+
+
+
+<h3 id="文档归档信息查询">文档归档信息查询</h3>
+
+<p>然后介绍点击文档归档信息后，获取文章信息的实现，其实也就是按年月查询文档信息</p>
+
+<p>在Repository类里添加方法：</p>
+
+
+
+<pre class="prettyprint"><code class=" hljs java"><span class="hljs-javadoc">/**
+     * 按月份获取文章信息
+     *<span class="hljs-javadoctag"> @param</span> month
+     *          月份数
+     *<span class="hljs-javadoctag"> @return</span>
+     */</span>
+    <span class="hljs-annotation">@Query</span>(<span class="hljs-string">"from Article a where date_format(a.articleTime,'%Y%m')=date_format((:yearmonth),'%Y%m') "</span>
+            + <span class="hljs-string">"order by articleTime desc"</span>)
+    <span class="hljs-keyword">public</span> List&lt;Article&gt; <span class="hljs-title">findArticleByMonth</span>(@<span class="hljs-title">Param</span>("yearmonth")Date yearmonth);
+</code></pre>
+
+<p>Service类里调用：</p>
+
+
+
+<pre class="prettyprint"><code class=" hljs java">    <span class="hljs-javadoc">/**
+     * 按月份获取文章信息
+     *<span class="hljs-javadoctag"> @param</span> month
+     *<span class="hljs-javadoctag"> @return</span>
+     */</span>
+    <span class="hljs-annotation">@Transactional</span>
+    <span class="hljs-keyword">public</span> List&lt;Article&gt; <span class="hljs-title">findArticleByMonth</span>(Date month){
+        <span class="hljs-keyword">return</span> articleRepository.findArticleByMonth(month);
+    }</code></pre>
+
+<p>在JSP页面写入，getArchiveArticles.do就是要访问的url，传入yearmonth参数就可以</p>
+
+
+
+<pre class="prettyprint"><code class=" hljs xml"><span class="hljs-tag">&lt;<span class="hljs-title">h2</span>&gt;</span><span class="hljs-tag">&lt;<span class="hljs-title">p</span>&gt;</span>文章归档<span class="hljs-tag">&lt;/<span class="hljs-title">p</span>&gt;</span><span class="hljs-tag">&lt;/<span class="hljs-title">h2</span>&gt;</span>
+<span class="hljs-tag">&lt;<span class="hljs-title">ul</span> <span class="hljs-attribute">class</span>=<span class="hljs-value">"news"</span>&gt;</span>
+  <span class="hljs-tag">&lt;<span class="hljs-title">c:choose</span>&gt;</span>
+    <span class="hljs-tag">&lt;<span class="hljs-title">c:when</span> <span class="hljs-attribute">test</span>=<span class="hljs-value">"${not empty archiveArticles }"</span>&gt;</span>
+        <span class="hljs-tag">&lt;<span class="hljs-title">c:forEach</span> <span class="hljs-attribute">items</span>=<span class="hljs-value">"${archiveArticles }"</span> <span class="hljs-attribute">var</span>=<span class="hljs-value">"ac"</span>&gt;</span>
+        <span class="hljs-tag">&lt;<span class="hljs-title">li</span>&gt;</span><span class="hljs-tag">&lt;<span class="hljs-title">a</span> <span class="hljs-attribute">href</span>=<span class="hljs-value">"getArchiveArticles.do?yearmonth=${ac[0]}-${ac[1]}"</span>&gt;</span>
+        ${ac[0]}年${ac[1]}月(${ac[2] })<span class="hljs-tag">&lt;/<span class="hljs-title">a</span>&gt;</span><span class="hljs-tag">&lt;/<span class="hljs-title">li</span>&gt;</span>
+        <span class="hljs-tag">&lt;/<span class="hljs-title">c:forEach</span>&gt;</span>
+    <span class="hljs-tag">&lt;/<span class="hljs-title">c:when</span>&gt;</span>
+    <span class="hljs-tag">&lt;<span class="hljs-title">c:otherwise</span>&gt;</span>
+        <span class="hljs-tag">&lt;<span class="hljs-title">li</span>&gt;</span><span class="hljs-tag">&lt;<span class="hljs-title">a</span> <span class="hljs-attribute">href</span>=<span class="hljs-value">"#"</span>&gt;</span>没有相关数据<span class="hljs-tag">&lt;/<span class="hljs-title">a</span>&gt;</span><span class="hljs-tag">&lt;/<span class="hljs-title">li</span>&gt;</span>
+    <span class="hljs-tag">&lt;/<span class="hljs-title">c:otherwise</span>&gt;</span>  
+  <span class="hljs-tag">&lt;/<span class="hljs-title">c:choose</span>&gt;</span>
+<span class="hljs-tag">&lt;/<span class="hljs-title">ul</span>&gt;</span></code></pre>
+
+<p>在Controller类里进行处理：</p>
+
+
+
+<pre class="prettyprint"><code class=" hljs avrasm">@RequestMapping(<span class="hljs-string">"/getArchiveArticles"</span>)
+    public ModelAndView getArticleByMonth(HttpServletRequest request){
+        String yearMonthString = request<span class="hljs-preprocessor">.getParameter</span>(<span class="hljs-string">"yearmonth"</span>)<span class="hljs-comment">;</span>
+        System<span class="hljs-preprocessor">.out</span><span class="hljs-preprocessor">.println</span>(<span class="hljs-string">"month:"</span>+yearMonthString)<span class="hljs-comment">;</span>
+        ModelAndView mv = this<span class="hljs-preprocessor">.getModelAndView</span>()<span class="hljs-comment">;</span>
+
+        Date yearmonth = DateUtils<span class="hljs-preprocessor">.parse</span>(<span class="hljs-string">"yyyy-MM"</span>, yearMonthString)<span class="hljs-comment">;</span>
+
+        List&lt;Article&gt; articles = articleService<span class="hljs-preprocessor">.findArticleByMonth</span>(yearmonth)<span class="hljs-comment">;</span>
+
+        mv<span class="hljs-preprocessor">.addObject</span>(<span class="hljs-string">"articles"</span>, articles)<span class="hljs-comment">;</span>
+        mv<span class="hljs-preprocessor">.setViewName</span>(<span class="hljs-string">"myblog/article/archive_articles"</span>)<span class="hljs-comment">;</span>
+        return mv<span class="hljs-comment">;</span>
+    }</code></pre>
+
+<p><img src="http://img.blog.csdn.net/20170403121235134?watermark/2/text/aHR0cDovL2Jsb2cuY3Nkbi5uZXQvdTAxNDQyNzM5MQ==/font/5a6L5L2T/fontsize/400/fill/I0JBQkFCMA==/dissolve/70/gravity/SouthEast" alt="这里写图片描述" title=""/></p>
+
+
+
+<h3 id="附录工具类公共类代码">附录(工具类、公共类代码)</h3>
+
+<p>DateUtils.java、BaseController.java类 <br/>
+DateUtil.java</p>
+
+
+
+<pre class="prettyprint"><code class=" hljs java"><span class="hljs-keyword">package</span> net.myblog.utils;
+
+<span class="hljs-keyword">import</span> java.text.ParseException;
+<span class="hljs-keyword">import</span> java.text.SimpleDateFormat;
+<span class="hljs-keyword">import</span> java.util.Date;
+<span class="hljs-keyword">import</span> java.util.Locale;
+
+<span class="hljs-keyword">import</span> net.myblog.core.Constants;
+
+<span class="hljs-keyword">public</span> <span class="hljs-class"><span class="hljs-keyword">class</span> <span class="hljs-title">DateUtils</span> {</span>
+
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">static</span> String <span class="hljs-title">formatDate</span>(Date date) <span class="hljs-keyword">throws</span> ParseException{
+        SimpleDateFormat dateFormat = <span class="hljs-keyword">new</span> SimpleDateFormat(<span class="hljs-string">"yyyy-MM-dd HH:mm:ss"</span>);
+        <span class="hljs-keyword">return</span> dateFormat.format(date);
+    }
+
+     <span class="hljs-javadoc">/**
+       * 解析日期，注:此处为严格模式解析，即20151809这样的日期会解析错误
+       * 
+       *<span class="hljs-javadoctag"> @param</span> pattern
+       *<span class="hljs-javadoctag"> @param</span> date
+       *<span class="hljs-javadoctag"> @return</span>
+       */</span>
+      <span class="hljs-keyword">public</span> <span class="hljs-keyword">static</span> Date <span class="hljs-title">parse</span>(String pattern, String date){
+        <span class="hljs-keyword">return</span> parse(pattern, date, Constants.LOCALE_CHINA);
+      }
+
+      <span class="hljs-javadoc">/**
+       * 解析日期，注:此处为严格模式解析，即20151809这样的日期会解析错误
+       * 
+       *<span class="hljs-javadoctag"> @param</span> pattern
+       *<span class="hljs-javadoctag"> @param</span> date
+       *<span class="hljs-javadoctag"> @param</span> locale
+       *<span class="hljs-javadoctag"> @return</span>
+       */</span>
+      <span class="hljs-keyword">public</span> <span class="hljs-keyword">static</span> Date <span class="hljs-title">parse</span>(String pattern, String date, Locale locale){
+        SimpleDateFormat format = <span class="hljs-keyword">new</span> SimpleDateFormat(pattern, locale);
+        format.setLenient(<span class="hljs-keyword">false</span>);
+        Date result = <span class="hljs-keyword">null</span>;
+        <span class="hljs-keyword">try</span>{
+          result = format.parse(date);
+        }<span class="hljs-keyword">catch</span>(Exception e){
+          e.printStackTrace();
+        }
+
+        <span class="hljs-keyword">return</span> result;
+      }
+
+}
+</code></pre>
+
+<p>BaseController.java:</p>
+
+
+
+<pre class="prettyprint"><code class=" hljs java"><span class="hljs-keyword">package</span> net.myblog.web.controller;
+
+<span class="hljs-keyword">import</span> javax.servlet.http.HttpServletRequest;
+
+<span class="hljs-keyword">import</span> org.springframework.web.context.request.RequestContextHolder;
+<span class="hljs-keyword">import</span> org.springframework.web.context.request.ServletRequestAttributes;
+<span class="hljs-keyword">import</span> org.springframework.web.servlet.ModelAndView;
+
+<span class="hljs-keyword">public</span> <span class="hljs-class"><span class="hljs-keyword">class</span> <span class="hljs-title">BaseController</span> {</span>
+
+    <span class="hljs-javadoc">/**
+     * 得到request对象
+     */</span>
+    <span class="hljs-keyword">public</span> HttpServletRequest <span class="hljs-title">getRequest</span>() {
+        HttpServletRequest request = ((ServletRequestAttributes)RequestContextHolder.getRequestAttributes()).getRequest();
+
+        <span class="hljs-keyword">return</span> request;
+    }
+
+    <span class="hljs-javadoc">/**
+     * 得到ModelAndView
+     */</span>
+    <span class="hljs-keyword">public</span> ModelAndView <span class="hljs-title">getModelAndView</span>(){
+        <span class="hljs-keyword">return</span> <span class="hljs-keyword">new</span> ModelAndView();
+    }
+
+
+}
+</code></pre><link rel="stylesheet" href="http://static.blog.csdn.net/public/res-min/markdown_views.css?v=1.0"/></div><link rel="stylesheet" href="http://static.blog.csdn.net/public/res-min/markdown_views.css?v=1.0"/>&#13;
+            

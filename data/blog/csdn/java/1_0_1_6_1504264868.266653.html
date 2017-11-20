@@ -1,0 +1,317 @@
+
+
+<p><span style="font-size:18px">下面以一个简单的计算器为例子来说明，怎么用工厂模式。</span></p>&#13;
+<p><span style="font-size:18px">如果你没有用任何设计模式，你可能会这样写：</span></p>&#13;
+<p><span style="font-size:18px"></span></p>&#13;
+<pre name="code" class="java">package com.meritit;
+
+import java.util.Scanner;
+
+public class MainClass {
+	public static void main(String[] args) {
+		double result = 0;
+		//1.接收控制台输入
+		System.out.println("-----计算器程序-----");
+		System.out.println("输入第一个操作数");
+		Scanner scan = new Scanner(System.in);
+		String strNum1 = scan.nextLine();
+		
+		System.out.println("输入运算符");
+		String oper = scan.nextLine();
+		
+		System.out.println("输入第二个操作数");
+		String strNum2 = scan.nextLine();
+		//2.进行运算
+		if("+".equals(oper)){
+			result = Double.parseDouble(strNum1) + Double.parseDouble(strNum2);
+		}else if("-".equals(oper)){
+			result = Double.parseDouble(strNum1) - Double.parseDouble(strNum2);
+		}else if("*".equals(oper)){
+			result = Double.parseDouble(strNum1) * Double.parseDouble(strNum2);
+		}else if("/".equals(oper)){
+			result = Double.parseDouble(strNum1) / Double.parseDouble(strNum2);
+		}
+		//3.返回结果
+		System.out.println(strNum1 + oper + strNum2 + "=" + result);
+	}
+}
+</pre><br />&#13;
+这样写在判断运算符处代码重复率太高&#13;
+<p></p>&#13;
+<p><span style="font-size:18px">我们可以这样写：</span></p>&#13;
+<p><span style="font-size:18px">（1）一个抽象的计算类</span></p>&#13;
+<p><span style="font-size:18px"></span></p>&#13;
+<pre name="code" class="java">package com.meritit;
+
+public abstract class Operation {
+	private double num1;
+	private double num2;
+	public double getNum1() {
+		return num1;
+	}
+	public void setNum1(double num1) {
+		this.num1 = num1;
+	}
+	public double getNum2() {
+		return num2;
+	}
+	public void setNum2(double num2) {
+		this.num2 = num2;
+	}
+	public abstract double getResult();
+}
+</pre>（2）具体的加法实现类&#13;
+<p></p>&#13;
+<p><span style="font-size:18px"></span></p>&#13;
+<pre name="code" class="java">package com.meritit;
+
+public class AddOperation extends Operation{
+
+	@Override
+	public double getResult() {
+		double result = this.getNum1() + this.getNum2();
+		return result;
+	}
+
+}
+</pre><br />&#13;
+（3）主函数现在可以写成这样&#13;
+<p></p>&#13;
+<p><span style="font-size:18px"></span></p>&#13;
+<pre name="code" class="java">package com.meritit;
+
+import java.util.Scanner;
+
+public class MainClass {
+	public static void main(String[] args) {
+		double result = 0;
+		//1.接收控制台输入
+		System.out.println("-----计算器程序-----");
+		System.out.println("输入第一个操作数");
+		Scanner scan = new Scanner(System.in);
+		String strNum1 = scan.nextLine();
+		
+		System.out.println("输入运算符");
+		String oper = scan.nextLine();
+		
+		System.out.println("输入第二个操作数");
+		String strNum2 = scan.nextLine();
+		double num1 = Double.parseDouble(strNum1);
+		double num2 = Double.parseDouble(strNum2);
+		//2.进行运算
+		if("+".equals(oper)){
+			Operation operation = new AddOperation();
+			operation.setNum1(num1);
+			operation.setNum2(num2);
+			result = operation.getResult();
+		}else if("-".equals(oper)){
+			result = Double.parseDouble(strNum1) - Double.parseDouble(strNum2);
+		}else if("*".equals(oper)){
+			result = Double.parseDouble(strNum1) * Double.parseDouble(strNum2);
+		}else if("/".equals(oper)){
+			result = Double.parseDouble(strNum1) / Double.parseDouble(strNum2);
+		}
+		//3.返回结果
+		System.out.println(strNum1 + oper + strNum2 + "=" + result);
+	}
+}
+</pre><br />&#13;
+但是上面的方法还是有问题，每次在运算的时候都要知道操作的类名，通过new对象来实例化。<br />&#13;
+现在我们来用简单工厂模式实现一下：&#13;
+<p></p>&#13;
+<p><span style="font-size:18px">（1）创建OperationFactory工厂类（先写一个“+”运算）</span></p>&#13;
+<p><span style="font-size:18px"></span></p>&#13;
+<pre name="code" class="java">package com.meritit;
+
+public class OperationFactory {
+	public static Operation getOperation(String oper){
+		if("+".equals(oper)){
+			return new AddOperation();
+		}else{
+			return null;
+		}
+	}
+}
+</pre>（2）现在的主函数中可以这样写&#13;
+<p></p>&#13;
+<p><span style="font-size:18px"></span></p>&#13;
+<pre name="code" class="java">package com.meritit;
+
+import java.util.Scanner;
+
+public class MainClass {
+	public static void main(String[] args) {
+		double result = 0;
+		//1.接收控制台输入
+		System.out.println("-----计算器程序-----");
+		System.out.println("输入第一个操作数");
+		Scanner scan = new Scanner(System.in);
+		String strNum1 = scan.nextLine();
+		
+		System.out.println("输入运算符");
+		String oper = scan.nextLine();
+		
+		System.out.println("输入第二个操作数");
+		String strNum2 = scan.nextLine();
+		double num1 = Double.parseDouble(strNum1);
+		double num2 = Double.parseDouble(strNum2);
+		//2.进行运算
+		Operation operation = OperationFactory.getOperation(oper);
+		operation.setNum1(num1);
+		operation.setNum2(num2);
+		result = operation.getResult();
+		//3.返回结果
+		System.out.println(strNum1 + oper + strNum2 + "=" + result);
+	}
+}
+</pre><br />&#13;
+这样虽然可以扩展运算，但是还是要改工厂方法中的内容，外部是开放的，但内部不是封闭的。&#13;
+<p></p>&#13;
+<p><span style="font-size:18px">我们现在用工厂方法模式来实现：</span></p>&#13;
+<p><span style="font-size:18px">（1）将建立抽象工厂方法</span></p>&#13;
+<p><span style="font-size:18px"></span></p>&#13;
+<pre name="code" class="java">package com.meritit;
+
+public interface OperationFactory {
+	public Operation getOperation();
+}
+</pre><br />&#13;
+（2）Add(加法）工厂方法实现抽象工厂方法接口&#13;
+<p></p>&#13;
+<p><span style="font-size:18px"></span></p>&#13;
+<pre name="code" class="java">package com.meritit;
+
+public class AddOperationFactory implements OperationFactory{
+
+	@Override
+	public Operation getOperation() {
+		return new AddOperation();
+	}
+
+}
+</pre><br />&#13;
+(3)MainClass中这样写<pre name="code" class="java">package com.meritit;
+
+import java.util.Scanner;
+
+public class MainClass {
+	public static void main(String[] args) {
+		double result = 0;
+		//1.接收控制台输入
+		System.out.println("-----计算器程序-----");
+		System.out.println("输入第一个操作数");
+		Scanner scan = new Scanner(System.in);
+		String strNum1 = scan.nextLine();
+		
+		System.out.println("输入运算符");
+		String oper = scan.nextLine();
+		
+		System.out.println("输入第二个操作数");
+		String strNum2 = scan.nextLine();
+		double num1 = Double.parseDouble(strNum1);
+		double num2 = Double.parseDouble(strNum2);
+		//2.进行运算
+		if("+".equals(oper)){
+			OperationFactory oFactory = new AddOperationFactory();
+			Operation operation = oFactory.getOperation();
+			operation.setNum1(num1);
+			operation.setNum2(num2);
+			result = operation.getResult();
+		}
+		//3.返回结果
+		System.out.println(strNum1 + oper + strNum2 + "=" + result);
+	}
+}
+</pre><br />&#13;
+这样写有个好处就是在增加运算（增加运算符号）时，不需要修改Operation和OperationFactory,只需要添加相应的&#13;
+<p></p>&#13;
+<p><span style="font-size:18px">XxxOperation和XxxOperationFactory就行，但是这样写的话在MainClass中又要进行运算符判读。</span></p>&#13;
+<p><span style="font-size:18px">现在我们使用反射技术封装一下：</span></p>&#13;
+<p><span style="font-size:18px">（1）写一个配置文件operation.properties</span></p>&#13;
+<p><span style="font-size:18px">          + = com.meritit.AddOperation<br />&#13;
+</span></p>&#13;
+<p><span style="font-size:18px">(2)写一个读取配置信息的工具类</span></p>&#13;
+<p><span style="font-size:18px"></span></p>&#13;
+<pre name="code" class="java">package com.meritit;
+
+import java.io.IOException;
+import java.io.InputStream;
+import java.util.Properties;
+
+public class ConfigUtil {
+	public static String getConfig(String style){
+		Properties pro = new Properties();
+		InputStream inStream = ConfigUtil.class.getClassLoader().getResourceAsStream("operation.properties");
+		try {
+			pro.load(inStream);
+		} catch (IOException e) {
+
+			e.printStackTrace();
+		}
+		return pro.getProperty(style);
+	}
+	
+	public static void main(String[] args) {
+		System.out.println(getConfig("+"));
+	}
+}
+</pre><br />&#13;
+（3）AddOperationFactory中这样写&#13;
+<p></p>&#13;
+<p><span style="font-size:18px"></span></p>&#13;
+<pre name="code" class="java">package com.meritit;
+
+public class AddOperationFactory implements OperationFactory{
+
+	@Override
+	public Operation getOperation(String oper)throws Exception{
+		String type = ConfigUtil.getConfig(oper);	
+		return (Operation)Class.forName(type).newInstance();
+	}
+
+}
+</pre><br />&#13;
+（4）MainClass不再需要判断运算符&#13;
+<p></p>&#13;
+<p><span style="font-size:18px"></span></p>&#13;
+<pre name="code" class="java">package com.meritit;
+
+import java.util.Scanner;
+
+public class MainClass {
+	public static void main(String[] args) {
+		double result = 0;
+		//1.接收控制台输入
+		System.out.println("-----计算器程序-----");
+		System.out.println("输入第一个操作数");
+		Scanner scan = new Scanner(System.in);
+		String strNum1 = scan.nextLine();
+		
+		System.out.println("输入运算符");
+		String oper = scan.nextLine();
+		
+		System.out.println("输入第二个操作数");
+		String strNum2 = scan.nextLine();
+		double num1 = Double.parseDouble(strNum1);
+		double num2 = Double.parseDouble(strNum2);
+		//2.进行运算
+		try {
+			OperationFactory oFactory = new AddOperationFactory();
+			Operation operation = oFactory.getOperation(oper);
+			operation.setNum1(num1);
+			operation.setNum2(num2);
+			result = operation.getResult();
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+
+		//3.返回结果
+		System.out.println(strNum1 + oper + strNum2 + "=" + result);
+	}
+}
+</pre><br />&#13;
+<p>这样就使用工厂方法模式完成了一个简单的计算器，如果有什么问题请指出。</p>&#13;
+<p><span style="font-size:18px"><a target="_blank" href="http://download.csdn.net/detail/lxq_xsyu/5907383">源代码下载：http://download.csdn.net/detail/lxq_xsyu/5907383</a></span></p>&#13;
+<p></p>&#13;
+<p><span style="font-size:18px"><span style="white-space:pre"></span></span></p>&#13;
+   &#13;

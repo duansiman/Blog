@@ -1,0 +1,103 @@
+
+                <p><span style="font-size:18px;">本博客介绍如何开发登录界面的验证码</span></p><p><span style="font-size:18px;"><br/></span></p><p><span style="font-size:18px;">先写个验证码生成的Controller类:</span></p><p><span style="font-size:18px;"/></p><pre code_snippet_id="1897873" snippet_file_name="blog_20160924_1_811883" name="code" class="java">package com.appweb.controller.login;
+
+import java.awt.Color;
+import java.awt.Font;
+import java.awt.Graphics2D;
+import java.awt.font.FontRenderContext;
+import java.awt.geom.Rectangle2D;
+import java.awt.image.BufferedImage;
+import java.io.ByteArrayOutputStream;
+import java.io.IOException;
+import java.util.Random;
+
+import javax.imageio.ImageIO;
+import javax.servlet.ServletOutputStream;
+import javax.servlet.http.HttpServletResponse;
+
+import org.apache.shiro.SecurityUtils;
+import org.apache.shiro.session.Session;
+import org.apache.shiro.subject.Subject;
+import org.springframework.stereotype.Controller;
+import org.springframework.web.bind.annotation.RequestMapping;
+
+import com.appweb.core.base.Const;
+
+
+@Controller
+@RequestMapping("/code")
+public class SecCodeController {
+
+	@RequestMapping
+	public void generate(HttpServletResponse response){
+		ByteArrayOutputStream output = new ByteArrayOutputStream();
+		String code = drawImg(output);
+		
+		Subject currentUser = SecurityUtils.getSubject();  
+		Session session = currentUser.getSession();
+		session.setAttribute(Const.SESSION_SECURITY_CODE, code);
+		
+		try {
+			ServletOutputStream out = response.getOutputStream();
+			output.writeTo(out);
+		} catch (IOException e) {
+			e.printStackTrace();
+		}
+	}
+	
+	/**
+	 * 绘画验证码
+	 * @param output
+	 * @return
+	 */
+	private String drawImg(ByteArrayOutputStream output){
+		String code = "";
+		//随机产生4个字符
+		for(int i=0; i&lt;4; i++){
+			code += randomChar();
+		}
+		int width = 70;
+		int height = 25;
+		BufferedImage bi = new BufferedImage(width,height,BufferedImage.TYPE_3BYTE_BGR);
+		Font font = new Font("Times New Roman",Font.PLAIN,20);
+		//调用Graphics2D绘画验证码
+		Graphics2D g = bi.createGraphics();
+		g.setFont(font);
+		Color color = new Color(66,2,82);
+		g.setColor(color);
+		g.setBackground(new Color(226,226,240));
+		g.clearRect(0, 0, width, height);
+		FontRenderContext context = g.getFontRenderContext();
+		Rectangle2D bounds = font.getStringBounds(code, context);
+		double x = (width - bounds.getWidth()) / 2;
+		double y = (height - bounds.getHeight()) / 2;
+		double ascent = bounds.getY();
+		double baseY = y - ascent;
+		g.drawString(code, (int)x, (int)baseY);
+		g.dispose();
+		try {
+			ImageIO.write(bi, "jpg", output);
+		} catch (IOException e) {
+			e.printStackTrace();
+		}
+		return code;
+	}
+	
+	/**
+	 * 随机参数一个字符
+	 * @return
+	 */
+	private char randomChar(){
+		Random r = new Random();
+		String s = "ABCDEFGHJKLMNPRSTUVWXYZ0123456789";
+		return s.charAt(r.nextInt(s.length()));
+	}
+}
+</pre><br/><br/><p><span style="font-size:18px;">引入jQuery.js:<br/></span></p><p><span style="font-size:18px;"/></p><pre code_snippet_id="1897873" snippet_file_name="blog_20160924_2_4813854" name="code" class="html">&lt;script type="text/javascript" src="source/js/jquery-1.9.0.min.js"&gt;&lt;/script&gt;  </pre><p><span style="font-size:18px;"><br/></span></p>用jquery写个函数：<p><span style="font-size:18px;"/></p><pre code_snippet_id="1897873" snippet_file_name="blog_20160924_3_352969" name="code" class="html">function genTimestamp() {  
+            var time = new Date();  
+            return time.getTime();  
+        }  </pre><br/><pre code_snippet_id="1897873" snippet_file_name="blog_20160924_4_1847468" name="code" class="html">function changeCode() {  
+            $("#Img").attr("src", "code.do?t=" + genTimestamp());  
+        }  </pre><br/>写个img标签调用函数：<p><span style="font-size:18px;"/></p><pre code_snippet_id="1897873" snippet_file_name="blog_20160924_5_6481511" name="code" class="html">&lt;img style="height:22px;" id="Img" alt="点击更换"  
+                                title="点击更换" src="" /&gt;</pre><p><span style="font-size:18px;"><br/></span></p><img src="http://img.blog.csdn.net/20160924122306555?watermark/2/text/aHR0cDovL2Jsb2cuY3Nkbi5uZXQv/font/5a6L5L2T/fontsize/400/fill/I0JBQkFCMA==/dissolve/70/gravity/Center" alt=""/><br/><br/><br/><br/><p><span style="font-size:18px;"><br/></span></p><p><span style="font-size:18px;"><br/></span></p><link rel="stylesheet" href="http://static.blog.csdn.net/public/res-min/markdown_views.css?v=1.0"/>&#13;
+            

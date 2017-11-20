@@ -1,0 +1,112 @@
+
+        <div class="markdown_views"><h2 id="介绍">介绍</h2>
+
+<p>享元模式简单的来说就是把一些重复的抽取出来提供给其他类使用。它使用共享物件，用来尽可能减少内存使用量以及分享资讯给尽可能多的相似物件；它适合用于当大量物件只是重复因而导致无法令人接受的使用大量内存。通常物件中的部分状态是可以分享。常见做法是把它们放在外部数据结构，当需要使用时再将它们传递给享元。 <br />
+享元模式(Flyweight Pattern)运用共享技术有效地支持大量细粒度对象的复用。系统只使用少量的对象，而这些对象都很相似，状态变化很小，可以实现对象的多次复用。由于享元模式要求能够共享的对象必须是细粒度对象，因此它又称为轻量级模式，它是一种对象结构型模式。</p>
+
+
+
+<h2 id="结构图">结构图</h2>
+
+<p><img src="http://img.blog.csdn.net/20170903190849438?watermark/2/text/aHR0cDovL2Jsb2cuY3Nkbi5uZXQvdTAxMzIzOTExMQ==/font/5a6L5L2T/fontsize/400/fill/I0JBQkFCMA==/dissolve/70/gravity/SouthEast" alt="来自大话设计模式" title="" /></p>
+
+<h2 id="优点">优点</h2>
+
+<ol>
+<li>减少对象的创建</li>
+<li>降低系统的内存</li>
+<li>效率提高</li>
+</ol>
+
+
+
+<h2 id="缺点">缺点</h2>
+
+<ol>
+<li>提高了系统的复杂度</li>
+<li>需要分离出外部状态和内部状态，而且外部状态具有固有化的性质，不应该随着内部状态的变化而变化，否则会造成系统的混乱。</li>
+</ol>
+
+
+
+<h2 id="使用场景">使用场景</h2>
+
+<ol>
+<li>系统有大量相似对象</li>
+<li>这些对象消耗大量内存</li>
+<li>系统不依赖于这些对象</li>
+<li>可以将他们缓存起来</li>
+</ol>
+
+<h2 id="案例">案例</h2>
+
+<p>JAVA 中的 String，如果有则返回，如果没有则创建一个字符串保存在字符串缓存池里面。</p>
+
+<p>Integer的常量池 <br />
+<strong>Integer的valueOf方法</strong></p>
+
+<pre class="prettyprint"><code class=" hljs java"><span class="hljs-comment">//Integer 缓存代码 ：</span>
+<span class="hljs-keyword">public</span> <span class="hljs-keyword">static</span> Integer <span class="hljs-title">valueOf</span>(<span class="hljs-keyword">int</span> i) {
+     <span class="hljs-keyword">assert</span> IntegerCache.high &gt;= <span class="hljs-number">127</span>;
+     <span class="hljs-keyword">if</span> (i &gt;= IntegerCache.low &amp;&amp; i &lt;= IntegerCache.high)
+         <span class="hljs-keyword">return</span> IntegerCache.cache[i + (-IntegerCache.low)];
+     <span class="hljs-keyword">return</span> <span class="hljs-keyword">new</span> Integer(i);
+ }</code></pre>
+
+<p><strong>Integer的静态内部类IntegerCache</strong> </p>
+
+<pre class="prettyprint"><code class=" hljs java"><span class="hljs-keyword">private</span> <span class="hljs-keyword">static</span> <span class="hljs-class"><span class="hljs-keyword">class</span> <span class="hljs-title">IntegerCache</span> {</span>
+        <span class="hljs-keyword">static</span> <span class="hljs-keyword">final</span> <span class="hljs-keyword">int</span> low = -<span class="hljs-number">128</span>;
+        <span class="hljs-keyword">static</span> <span class="hljs-keyword">final</span> <span class="hljs-keyword">int</span> high;
+        <span class="hljs-keyword">static</span> <span class="hljs-keyword">final</span> Integer cache[];
+
+        <span class="hljs-keyword">static</span> {
+            <span class="hljs-comment">// high value may be configured by property</span>
+            <span class="hljs-keyword">int</span> h = <span class="hljs-number">127</span>;
+            String integerCacheHighPropValue =
+                sun.misc.VM.getSavedProperty(<span class="hljs-string">"java.lang.Integer.IntegerCache.high"</span>);
+            <span class="hljs-keyword">if</span> (integerCacheHighPropValue != <span class="hljs-keyword">null</span>) {
+                <span class="hljs-keyword">try</span> {
+                    <span class="hljs-keyword">int</span> i = parseInt(integerCacheHighPropValue);
+                    i = Math.max(i, <span class="hljs-number">127</span>);
+                    <span class="hljs-comment">// Maximum array size is Integer.MAX_VALUE</span>
+                    h = Math.min(i, Integer.MAX_VALUE - (-low) -<span class="hljs-number">1</span>);
+                } <span class="hljs-keyword">catch</span>( NumberFormatException nfe) {
+                    <span class="hljs-comment">// If the property cannot be parsed into an int, ignore it.</span>
+                }
+            }
+            high = h;
+
+            cache = <span class="hljs-keyword">new</span> Integer[(high - low) + <span class="hljs-number">1</span>];
+            <span class="hljs-keyword">int</span> j = low;
+            <span class="hljs-keyword">for</span>(<span class="hljs-keyword">int</span> k = <span class="hljs-number">0</span>; k &lt; cache.length; k++)
+                cache[k] = <span class="hljs-keyword">new</span> Integer(j++);
+
+            <span class="hljs-comment">// range [-128, 127] must be interned (JLS7 5.1.7)</span>
+            <span class="hljs-keyword">assert</span> IntegerCache.high &gt;= <span class="hljs-number">127</span>;
+        }
+
+        <span class="hljs-keyword">private</span> <span class="hljs-title">IntegerCache</span>() {}
+    }</code></pre>
+
+
+
+<h2 id="总结">总结</h2>
+
+<p>设计模式只是一种思想，前人总结出来的经验，没必要死搬硬套，更多的是要根据实际需求去灵活应用。 <br />
+享元模式运用共享技术有效地支持大量细粒度对象的复用。系统只使用少量的对象，而这些对象都很相似，状态变化很小，可以实现对象的多次复用，它是一种对象结构型模式。 <br />
+模式之间都会有关联，例如可以用简单工厂模式来生成享元对象，而享元工厂类可以使用单例模式进行设计。所以，设计模式是思想，没有必要为了使用它而是用它，适合的才是最好的。</p></div>&#13;
+        <script type="text/javascript">&#13;
+            $(function () {&#13;
+                $('pre.prettyprint code').each(function () {&#13;
+                    var lines = $(this).text().split('\n').length;&#13;
+                    var $numbering = $('&lt;ul/&gt;').addClass('pre-numbering').hide();&#13;
+                    $(this).addClass('has-numbering').parent().append($numbering);&#13;
+                    for (i = 1; i &lt;= lines; i++) {&#13;
+                        $numbering.append($('&lt;li/&gt;').text(i));&#13;
+                    };&#13;
+                    $numbering.fadeIn(1700);&#13;
+                });&#13;
+            });&#13;
+        </script>&#13;
+   &#13;

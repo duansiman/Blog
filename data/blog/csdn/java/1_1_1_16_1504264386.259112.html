@@ -1,0 +1,204 @@
+
+        <div class="markdown_views"><p>下面小宝鸽将分享一篇Mybatis分页功能的博文,下面将给出详细的步骤，跟着博主的节奏肯定能实现。另外最后还会附上整个工程的源码。如果是没有使用过maven的猿友可自行下载相关的jar包即可。</p>
+
+<h2 id="一项目搭建">一、项目搭建</h2>
+
+<p>关于项目搭建，小宝鸽以前写过一篇<a href="http://blog.csdn.net/u013142781/article/details/50380920">Spirng+SpringMVC+Maven+Mybatis+MySQL项目搭建</a>，这篇文章提供了详细的搭建过程，而且提供了源码下载，接下来的将在这个源码的基础上继续开发。所以建议各位猿友可以把猿友下载一下。</p>
+
+<h2 id="二分页插件的介绍">二、分页插件的介绍</h2>
+
+<p>博主采用的插件是PageHelper这个插件，使用起来十分方便。该插件支持以下数据库：</p>
+
+
+
+<pre class="prettyprint"><code class=" hljs scss">Oracle
+Mysql
+MariaDB
+SQLite
+Hsqldb
+PostgreSQL
+DB2
+<span class="hljs-function">SqlServer(<span class="hljs-number">2005</span>+)</span>
+Informix
+<span class="hljs-tag">H2</span></code></pre>
+
+<p>对应于github的项目地址： <br />
+<a href="https://github.com/pagehelper/Mybatis-PageHelper">https://github.com/pagehelper/Mybatis-PageHelper</a>。 <br />
+关于使用建议猿友们可以详细阅读下这里的介绍： <br />
+<a href="http://git.oschina.net/free/Mybatis_PageHelper/blob/master/wikis/HowToUse.markdown">http://git.oschina.net/free/Mybatis_PageHelper/blob/master/wikis/HowToUse.markdown</a> <br />
+读一遍之后可能还不能完全懂怎么使用，可以先看完博主的这篇文章，然后慢慢再消化，但是上面的那篇文章还是需要从头到尾看一遍。</p>
+
+<h2 id="三pagehelper的使用">三、PageHelper的使用</h2>
+
+<p>在”一、项目搭建“里下载好了源码，下载的源码导入eclipse后的结构里面，有如下的文件：</p>
+
+<p><img src="http://img.blog.csdn.net/20151227233917264" alt="这里写图片描述" title="" /><img src="http://img.blog.csdn.net/20151227233931255" alt="这里写图片描述" title="" /></p>
+
+<p>接下来我们并不需要新增文件，直接在这些文件上修改就好了。</p>
+
+<p><strong>3.1、引入依赖</strong></p>
+
+<p>在pom.xml文件添加如下依赖：</p>
+
+
+
+<pre class="prettyprint"><code class=" hljs xml"><span class="hljs-comment">&lt;!-- mybatis分页插件依赖 --&gt;</span>
+<span class="hljs-tag">&lt;<span class="hljs-title">dependency</span>&gt;</span>
+    <span class="hljs-tag">&lt;<span class="hljs-title">groupId</span>&gt;</span>com.github.pagehelper<span class="hljs-tag">&lt;/<span class="hljs-title">groupId</span>&gt;</span>
+    <span class="hljs-tag">&lt;<span class="hljs-title">artifactId</span>&gt;</span>pagehelper<span class="hljs-tag">&lt;/<span class="hljs-title">artifactId</span>&gt;</span>
+    <span class="hljs-tag">&lt;<span class="hljs-title">version</span>&gt;</span>4.0.0<span class="hljs-tag">&lt;/<span class="hljs-title">version</span>&gt;</span>
+<span class="hljs-tag">&lt;/<span class="hljs-title">dependency</span>&gt;</span></code></pre>
+
+<p><strong>3.2、在Mybatis配置xml中配置拦截器插件</strong></p>
+
+<p>在mybatis-config.xml文件中添加插件后的内容如下：</p>
+
+
+
+<pre class="prettyprint"><code class=" hljs xml"><span class="hljs-pi">&lt;?xml version="1.0" encoding="UTF-8"?&gt;</span>  
+<span class="hljs-doctype">&lt;!DOCTYPE configuration PUBLIC "-//mybatis.org//DTD Config 3.0//EN"  
+"http://mybatis.org/dtd/mybatis-3-config.dtd"&gt;</span>  
+<span class="hljs-tag">&lt;<span class="hljs-title">configuration</span>&gt;</span>    
+<span class="hljs-tag">&lt;<span class="hljs-title">plugins</span>&gt;</span>
+    <span class="hljs-comment">&lt;!-- com.github.pagehelper为PageHelper类所在包名 --&gt;</span>
+    <span class="hljs-tag">&lt;<span class="hljs-title">plugin</span> <span class="hljs-attribute">interceptor</span>=<span class="hljs-value">"com.github.pagehelper.PageHelper"</span>&gt;</span>
+        <span class="hljs-tag">&lt;<span class="hljs-title">property</span> <span class="hljs-attribute">name</span>=<span class="hljs-value">"dialect"</span> <span class="hljs-attribute">value</span>=<span class="hljs-value">"mysql"</span>/&gt;</span>
+        <span class="hljs-comment">&lt;!-- 该参数默认为false --&gt;</span>
+        <span class="hljs-comment">&lt;!-- 设置为true时，会将RowBounds第一个参数offset当成pageNum页码使用 --&gt;</span>
+        <span class="hljs-comment">&lt;!-- 和startPage中的pageNum效果一样--&gt;</span>
+        <span class="hljs-tag">&lt;<span class="hljs-title">property</span> <span class="hljs-attribute">name</span>=<span class="hljs-value">"offsetAsPageNum"</span> <span class="hljs-attribute">value</span>=<span class="hljs-value">"true"</span>/&gt;</span>
+        <span class="hljs-comment">&lt;!-- 该参数默认为false --&gt;</span>
+        <span class="hljs-comment">&lt;!-- 设置为true时，使用RowBounds分页会进行count查询 --&gt;</span>
+        <span class="hljs-tag">&lt;<span class="hljs-title">property</span> <span class="hljs-attribute">name</span>=<span class="hljs-value">"rowBoundsWithCount"</span> <span class="hljs-attribute">value</span>=<span class="hljs-value">"true"</span>/&gt;</span>
+        <span class="hljs-comment">&lt;!-- 设置为true时，如果pageSize=0或者RowBounds.limit = 0就会查询出全部的结果 --&gt;</span>
+        <span class="hljs-comment">&lt;!-- （相当于没有执行分页查询，但是返回结果仍然是Page类型）--&gt;</span>
+        <span class="hljs-tag">&lt;<span class="hljs-title">property</span> <span class="hljs-attribute">name</span>=<span class="hljs-value">"pageSizeZero"</span> <span class="hljs-attribute">value</span>=<span class="hljs-value">"true"</span>/&gt;</span>
+        <span class="hljs-comment">&lt;!-- 3.3.0版本可用 - 分页参数合理化，默认false禁用 --&gt;</span>
+        <span class="hljs-comment">&lt;!-- 启用合理化时，如果pageNum&lt;1会查询第一页，如果pageNum&gt;pages会查询最后一页 --&gt;</span>
+        <span class="hljs-comment">&lt;!-- 禁用合理化时，如果pageNum&lt;1或pageNum&gt;pages会返回空数据 --&gt;</span>
+        <span class="hljs-tag">&lt;<span class="hljs-title">property</span> <span class="hljs-attribute">name</span>=<span class="hljs-value">"reasonable"</span> <span class="hljs-attribute">value</span>=<span class="hljs-value">"false"</span>/&gt;</span>
+        <span class="hljs-comment">&lt;!-- 3.5.0版本可用 - 为了支持startPage(Object params)方法 --&gt;</span>
+        <span class="hljs-comment">&lt;!-- 增加了一个`params`参数来配置参数映射，用于从Map或ServletRequest中取值 --&gt;</span>
+        <span class="hljs-comment">&lt;!-- 可以配置pageNum,pageSize,count,pageSizeZero,reasonable,不配置映射的用默认值 --&gt;</span>
+        <span class="hljs-comment">&lt;!-- 不理解该含义的前提下，不要随便复制该配置 --&gt;</span>
+        <span class="hljs-tag">&lt;<span class="hljs-title">property</span> <span class="hljs-attribute">name</span>=<span class="hljs-value">"params"</span> <span class="hljs-attribute">value</span>=<span class="hljs-value">"pageNum=start;pageSize=limit;"</span>/&gt;</span>
+        <span class="hljs-comment">&lt;!-- always总是返回PageInfo类型,check检查返回类型是否为PageInfo,none返回Page --&gt;</span>
+        <span class="hljs-tag">&lt;<span class="hljs-title">property</span> <span class="hljs-attribute">name</span>=<span class="hljs-value">"returnPageInfo"</span> <span class="hljs-attribute">value</span>=<span class="hljs-value">"check"</span>/&gt;</span>
+    <span class="hljs-tag">&lt;/<span class="hljs-title">plugin</span>&gt;</span>
+<span class="hljs-tag">&lt;/<span class="hljs-title">plugins</span>&gt;</span>
+<span class="hljs-tag">&lt;/<span class="hljs-title">configuration</span>&gt;</span></code></pre>
+
+<p><strong>3.3、mapper文件添加sql</strong></p>
+
+<p>在userMapper.xml文件里面添加sql：</p>
+
+<pre class="prettyprint"><code class=" hljs xml"><span class="hljs-comment">&lt;!-- 根据用户名查询 --&gt;</span>
+<span class="hljs-tag">&lt;<span class="hljs-title">select</span> <span class="hljs-attribute">id</span>=<span class="hljs-value">"selectUserByUserName"</span> <span class="hljs-attribute">parameterType</span>=<span class="hljs-value">"java.lang.String"</span> <span class="hljs-attribute">resultMap</span>=<span class="hljs-value">"BaseResultMap"</span>&gt;</span>
+    SELECT *
+    FROM t_user
+    WHERE 1 = 1
+    <span class="hljs-tag">&lt;<span class="hljs-title">if</span> <span class="hljs-attribute">test</span>=<span class="hljs-value">"userName != null and userName !=''"</span>&gt;</span>
+        AND USER_NAME = #{userName,jdbcType=VARCHAR}
+    <span class="hljs-tag">&lt;/<span class="hljs-title">if</span>&gt;</span>
+    ORDER BY USER_ID
+<span class="hljs-tag">&lt;/<span class="hljs-title">select</span>&gt;</span></code></pre>
+
+<p><strong>3.4、dao添加对用方法</strong></p>
+
+<p>UserDao.java添加如下方法：</p>
+
+<pre class="prettyprint"><code class=" hljs mathematica"><span class="hljs-keyword">List</span>&lt;User&gt; selectUserByUserName(@Param(<span class="hljs-string">"userName"</span>) <span class="hljs-keyword">String</span> userName);  </code></pre>
+
+<p>记得@Param必须有</p>
+
+<p><strong>3.5、service添加分页查询方法</strong></p>
+
+<p>UserService.java文件添加方法</p>
+
+<pre class="prettyprint"><code class=" hljs mathematica">PageInfo&lt;User&gt; queryByPage(<span class="hljs-keyword">String</span> userName,<span class="hljs-keyword">Integer</span> pageNo,<span class="hljs-keyword">Integer</span> pageSize);</code></pre>
+
+<p><strong>3.6、实现类添加对应实现</strong></p>
+
+<p>UserServiceImpl.java添加实现方法</p>
+
+
+
+<pre class="prettyprint"><code class=" hljs avrasm">@Override
+public PageInfo&lt;User&gt; queryByPage(String userName, Integer pageNo,Integer pageSize) {
+    pageNo = pageNo == null?<span class="hljs-number">1</span>:pageNo<span class="hljs-comment">;</span>
+    pageSize = pageSize == null?<span class="hljs-number">10</span>:pageSize<span class="hljs-comment">;</span>
+    PageHelper<span class="hljs-preprocessor">.startPage</span>(pageNo, pageSize)<span class="hljs-comment">;</span>
+    List&lt;User&gt; list = userDao<span class="hljs-preprocessor">.selectUserByUserName</span>(userName)<span class="hljs-comment">;</span>
+    //用PageInfo对结果进行包装
+    PageInfo&lt;User&gt; page = new PageInfo&lt;User&gt;(list)<span class="hljs-comment">;</span>
+    //测试PageInfo全部属性
+    System<span class="hljs-preprocessor">.out</span><span class="hljs-preprocessor">.println</span>(page<span class="hljs-preprocessor">.getPageNum</span>())<span class="hljs-comment">;</span>
+    System<span class="hljs-preprocessor">.out</span><span class="hljs-preprocessor">.println</span>(page<span class="hljs-preprocessor">.getPageSize</span>())<span class="hljs-comment">;</span>
+    System<span class="hljs-preprocessor">.out</span><span class="hljs-preprocessor">.println</span>(page<span class="hljs-preprocessor">.getStartRow</span>())<span class="hljs-comment">;</span>
+    System<span class="hljs-preprocessor">.out</span><span class="hljs-preprocessor">.println</span>(page<span class="hljs-preprocessor">.getEndRow</span>())<span class="hljs-comment">;</span>
+    System<span class="hljs-preprocessor">.out</span><span class="hljs-preprocessor">.println</span>(page<span class="hljs-preprocessor">.getTotal</span>())<span class="hljs-comment">;</span>
+    System<span class="hljs-preprocessor">.out</span><span class="hljs-preprocessor">.println</span>(page<span class="hljs-preprocessor">.getPages</span>())<span class="hljs-comment">;</span>
+    System<span class="hljs-preprocessor">.out</span><span class="hljs-preprocessor">.println</span>(page<span class="hljs-preprocessor">.getFirstPage</span>())<span class="hljs-comment">;</span>
+    System<span class="hljs-preprocessor">.out</span><span class="hljs-preprocessor">.println</span>(page<span class="hljs-preprocessor">.getLastPage</span>())<span class="hljs-comment">;</span>
+    System<span class="hljs-preprocessor">.out</span><span class="hljs-preprocessor">.println</span>(page<span class="hljs-preprocessor">.isHasPreviousPage</span>())<span class="hljs-comment">;</span>
+    System<span class="hljs-preprocessor">.out</span><span class="hljs-preprocessor">.println</span>(page<span class="hljs-preprocessor">.isHasNextPage</span>())<span class="hljs-comment">;</span>
+    return page<span class="hljs-comment">;</span>
+}  </code></pre>
+
+<p><strong>3.7、单元测试类添加分页查询测试方法</strong></p>
+
+<p>UserServiceTest.java文件添加方法：</p>
+
+<pre class="prettyprint"><code class=" hljs cs">@Test  
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">void</span> <span class="hljs-title">queryByPageTest</span>(){  
+        PageInfo&lt;User&gt; page =  userService.queryByPage(<span class="hljs-keyword">null</span>, <span class="hljs-number">1</span>, <span class="hljs-number">1</span>);
+        System.<span class="hljs-keyword">out</span>.println(page);
+    }</code></pre>
+
+<p><strong>3.8、运行</strong></p>
+
+<p><strong>在小宝鸽进行了上面的修改之后，第一运行报错了！！！！最后是pom.xml文件注释了下面两个包的依赖才运行成功了，注释的依赖如下：</strong></p>
+
+<p><img src="http://img.blog.csdn.net/20151227235827707" alt="这里写图片描述" title="" /></p>
+
+<p>具体原因现在小宝鸽也不知道，应该是包有冲突的原因吧，如果猿友们知道原因麻烦私信我或评论解释一下。</p>
+
+<p>然后运行单元测试类，结果如下：</p>
+
+<p><img src="http://img.blog.csdn.net/20151228000114743" alt="这里写图片描述" title="" /></p>
+
+<p><strong>3.9、补充说明</strong></p>
+
+<p>在3.8中，我注释了那两个包依赖是web项目相关的依赖，如果仍需要进行前端开发的猿友可以引入tomcat就好了，引入结果如下：</p>
+
+<p><img src="http://img.blog.csdn.net/20151228000314900" alt="这里写图片描述" title="" /></p>
+
+<p>引入过程：</p>
+
+<p>选中项目右键–&gt;build path，然后如下操作：</p>
+
+<p><img src="http://img.blog.csdn.net/20151228000640328" alt="这里写图片描述" title="" /></p>
+
+<p><img src="http://img.blog.csdn.net/20151228000709725" alt="这里写图片描述" title="" /></p>
+
+<p><img src="http://img.blog.csdn.net/20151228000750153" alt="这里写图片描述" title="" /></p>
+
+
+
+<h2 id="4源码下载">4、源码下载</h2>
+
+<p><a href="http://download.csdn.net/detail/u013142781/9379685">http://download.csdn.net/detail/u013142781/9379685</a></p></div>&#13;
+        <script type="text/javascript">&#13;
+            $(function () {&#13;
+                $('pre.prettyprint code').each(function () {&#13;
+                    var lines = $(this).text().split('\n').length;&#13;
+                    var $numbering = $('&lt;ul/&gt;').addClass('pre-numbering').hide();&#13;
+                    $(this).addClass('has-numbering').parent().append($numbering);&#13;
+                    for (i = 1; i &lt;= lines; i++) {&#13;
+                        $numbering.append($('&lt;li/&gt;').text(i));&#13;
+                    };&#13;
+                    $numbering.fadeIn(1700);&#13;
+                });&#13;
+            });&#13;
+        </script>&#13;
+   &#13;

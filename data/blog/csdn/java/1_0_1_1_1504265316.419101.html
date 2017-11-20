@@ -1,0 +1,362 @@
+
+        <div class="markdown_views"><p>推荐一篇博文,很好的介绍了Stream的原理.本文对其进行一些补充更加详细的讲解.</p>
+
+<blockquote>
+  <p>作者: 李豪 <br />
+  地址: <a href="https://github.com/CarpenterLee/JavaLambdaInternals/blob/master/6-Stream%20Pipelines.md" target="_blank">https://github.com/CarpenterLee/JavaLambdaInternals/blob/master/6-Stream%20Pipelines.md</a></p>
+</blockquote>
+
+<p>需求:</p>
+
+<blockquote>
+  <p>从<code>"张三","李四","王二","张四五"</code>中选出以<code>张</code>开头的名字,然后从再从中选出名字最长的一个,输出其长度.</p>
+</blockquote>
+
+
+
+<h3 id="1一种直白的实现">1.一种直白的实现</h3>
+
+<p><img src="http://oobu4m7ko.bkt.clouddn.com/1497141037.png?imageMogr2/thumbnail/!70p" alt="" title="" /></p>
+
+<p><strong>缺点</strong>: <br />
+1. 迭代次数过多 <br />
+2. 频繁产生中间结果,性能无法接受</p>
+
+<p><strong>实际想要的效果</strong>: <br />
+平常的写法:</p>
+
+
+
+<pre class="prettyprint"><code class="language-java hljs "><span class="hljs-keyword">int</span> longest = <span class="hljs-number">0</span>;
+<span class="hljs-keyword">for</span>(String str : strings){
+    <span class="hljs-keyword">if</span>(str.startsWith(<span class="hljs-string">"张"</span>)){<span class="hljs-comment">// 1. filter(), 保留以张开头的字符串</span>
+        <span class="hljs-keyword">int</span> len = str.length();<span class="hljs-comment">// 2. mapToInt(), 转换成长度</span>
+        longest = Math.max(len, longest);<span class="hljs-comment">// 3. max(), 保留最长的长度</span>
+    }
+}
+System.out.println(longest);</code></pre>
+
+<p>Stream的做法:</p>
+
+
+
+<pre class="prettyprint"><code class="language-java hljs ">  Stream.of(<span class="hljs-string">"张三"</span>,<span class="hljs-string">"李四"</span>,<span class="hljs-string">"王二"</span>,<span class="hljs-string">"张四五"</span>)
+        .filter(x -&gt; x.startsWith(<span class="hljs-string">"张"</span>))
+        .mapToInt(String::length)
+        .max()
+        .ifPresent(System.out::println);</code></pre>
+
+
+
+<h3 id="2stream是怎么做到的">2.Stream是怎么做到的?</h3>
+
+<p><strong>Stream的操作分类</strong>:</p>
+
+<p>中间操作:返回一个新的Stream <br />
+        - 有状态 sorted(),必须等上一步操作完拿到全部元素后才可操作 <br />
+        - 无状态 filter(),该操作的元素不受上一步操作的影响</p>
+
+
+
+<pre class="prettyprint"><code class="language-java hljs ">  list.stream().filter(x -&gt; x.startWith(<span class="hljs-string">"张"</span>).map(x -&gt; x.length())
+  list.stream().filter(x -&gt; x.startWith(<span class="hljs-string">"张"</span>).sorted().map(x -&gt; x.length())</code></pre>
+
+<p>终端操作:返回结果 <br />
+        - 短路操作findFirst(),找到一个则返回,也就是break当前的循环 <br />
+        - 非短路操作forEach(),遍历全部元素</p>
+
+<p>以上操作决定了Stream一定是先构建完毕再执行的特点,也就是延迟执行,当需要结果(终端操作时)开始执行流水线. <br />
+Stream做到的是对于多次调用合并到一次迭代中处理完所有的调用方式.换句话说就是解决了上述的两个缺点.大概思路是记录下每一步的操作,然后终端操作时对其迭代依次执行每一步的操作,最后再一次循环中处理.</p>
+
+<p><strong>问题</strong>: <br />
+1. 操作是如何记录下来的? <br />
+2. 操作是如何叠加的? <br />
+3. 叠加完如何执行的? <br />
+4. 执行完如何收集结果的?</p>
+
+<hr />
+
+<p>Stream结构示意图:</p>
+
+<p><img src="http://oobu4m7ko.bkt.clouddn.com/1497146463.png?imageMogr2/thumbnail/!70p" alt="" title="" /></p>
+
+<p>示例代码:</p>
+
+
+
+<pre class="prettyprint"><code class="language-java hljs ">    List&lt;String&gt; data = <span class="hljs-keyword">new</span> ArrayList&lt;&gt;();
+    data.add(<span class="hljs-string">"张三"</span>);
+    data.add(<span class="hljs-string">"李四"</span>);
+    data.add(<span class="hljs-string">"王三"</span>);
+    data.add(<span class="hljs-string">"马六"</span>);
+
+    data.stream()
+        .filter(x -&gt; x.length() == <span class="hljs-number">2</span>)
+        .map(x -&gt; x.replace(<span class="hljs-string">"三"</span>,<span class="hljs-string">"五"</span>))
+        .sorted()
+        .filter(x -&gt; x.contains(<span class="hljs-string">"五"</span>))
+        .forEach(System.out::println);</code></pre>
+
+
+
+<h4 id="1-操作是如何记录下来的">1. 操作是如何记录下来的?</h4>
+
+<ol>
+<li>Head记录Stream起始操作</li>
+<li>StatelessOp记录中间操作</li>
+<li>StatefulOp记录有状态的中间操作 <br />
+这三个操作实例化会指向其父类<code>AbstractPipeline</code>,也就是在<code>AbstractPipeline</code>中建立了双向链表</li>
+</ol>
+
+<p>对于Head</p>
+
+
+
+<pre class="prettyprint"><code class="language-java hljs ">    AbstractPipeline(Spliterator&lt;?&gt; source,
+                     <span class="hljs-keyword">int</span> sourceFlags, <span class="hljs-keyword">boolean</span> parallel) {
+        <span class="hljs-keyword">this</span>.previousStage = <span class="hljs-keyword">null</span>; <span class="hljs-comment">//首操作上一步为null    </span>
+        <span class="hljs-keyword">this</span>.sourceSpliterator = source; <span class="hljs-comment">//数据</span>
+        <span class="hljs-keyword">this</span>.sourceStage = <span class="hljs-keyword">this</span>; <span class="hljs-comment">//Head操作</span>
+        <span class="hljs-keyword">this</span>.sourceOrOpFlags = sourceFlags &amp; StreamOpFlag.STREAM_MASK;
+        <span class="hljs-keyword">this</span>.combinedFlags = (~(sourceOrOpFlags &lt;&lt; <span class="hljs-number">1</span>)) &amp; StreamOpFlag.INITIAL_OPS_VALUE;
+        <span class="hljs-keyword">this</span>.depth = <span class="hljs-number">0</span>;
+        <span class="hljs-keyword">this</span>.parallel = parallel;
+    }</code></pre>
+
+<p>对于其他Stage:</p>
+
+
+
+<pre class="prettyprint"><code class="language-java hljs ">    AbstractPipeline(AbstractPipeline&lt;?, E_IN, ?&gt; previousStage, <span class="hljs-keyword">int</span> opFlags) {
+        <span class="hljs-keyword">if</span> (previousStage.linkedOrConsumed)
+            <span class="hljs-keyword">throw</span> <span class="hljs-keyword">new</span> IllegalStateException(MSG_STREAM_LINKED);
+        previousStage.linkedOrConsumed = <span class="hljs-keyword">true</span>;
+        <span class="hljs-comment">//双向链表的建立</span>
+        previousStage.nextStage = <span class="hljs-keyword">this</span>;
+        <span class="hljs-keyword">this</span>.previousStage = previousStage;
+        <span class="hljs-keyword">this</span>.sourceStage = previousStage.sourceStage;        
+        <span class="hljs-keyword">this</span>.depth = previousStage.depth + <span class="hljs-number">1</span>;        
+
+        <span class="hljs-keyword">this</span>.sourceOrOpFlags = opFlags &amp; StreamOpFlag.OP_MASK;
+        <span class="hljs-keyword">this</span>.combinedFlags = StreamOpFlag.combineOpFlags(opFlags, previousStage.combinedFlags);
+        <span class="hljs-keyword">if</span> (opIsStateful())
+            sourceStage.sourceAnyStateful = <span class="hljs-keyword">true</span>;
+    }</code></pre>
+
+<p><img src="http://oobu4m7ko.bkt.clouddn.com/1499071580.png?imageMogr2/thumbnail/!60p" height="500" align="right" /> <br />
+调用过程如此用双向链表串联起来,每一步都得知其上一步与下一步的操作. <br />
+ data.stream() <br />
+ .filter(x -&gt; x.length() == 2) <br />
+ .map(x -&gt; x.replace(“三”,”五”)) <br />
+ .sorted() <br />
+ .filter(x -&gt; x.contains(“五”)) <br />
+ .forEach(System.out::println);</p>
+
+<hr />
+
+
+
+<h4 id="2操作是如何叠加的">2.操作是如何叠加的?</h4>
+
+<p><code>Sink&lt;T&gt;</code>接口: <br />
+1. void begin(long size),循环开始前调用,通知每个Stage做好准备 <br />
+2. void end(),循环结束时调用,依次调用每个Stage的end方法,处理结果 <br />
+3. boolean cancellationRequested(),判断是否可以提前结束循环 <br />
+4. void accept(T value),每一步的处理</p>
+
+<p>其子类之一ChainedReference:</p>
+
+
+
+<pre class="prettyprint"><code class="language-java hljs ">    <span class="hljs-keyword">static</span> <span class="hljs-keyword">abstract</span> class ChainedReference&lt;T, E_OUT&gt; implements Sink&lt;T&gt; {
+        <span class="hljs-keyword">protected</span> <span class="hljs-keyword">final</span> Sink&lt;? <span class="hljs-keyword">super</span> E_OUT&gt; downstream;
+
+        <span class="hljs-keyword">public</span> <span class="hljs-title">ChainedReference</span>(Sink&lt;? <span class="hljs-keyword">super</span> E_OUT&gt; downstream) {
+            <span class="hljs-keyword">this</span>.downstream = Objects.requireNonNull(downstream);
+        }
+        <span class="hljs-annotation">@Override</span>
+        <span class="hljs-keyword">public</span> <span class="hljs-keyword">void</span> <span class="hljs-title">begin</span>(<span class="hljs-keyword">long</span> size) {
+            downstream.begin(size);
+        }
+        <span class="hljs-annotation">@Override</span>
+        <span class="hljs-keyword">public</span> <span class="hljs-keyword">void</span> <span class="hljs-title">end</span>() {
+            downstream.end();
+        }
+        <span class="hljs-annotation">@Override</span>
+        <span class="hljs-keyword">public</span> <span class="hljs-keyword">boolean</span> <span class="hljs-title">cancellationRequested</span>() {
+            <span class="hljs-keyword">return</span> downstream.cancellationRequested();
+        }
+    }</code></pre>
+
+<p>例Filter:</p>
+
+
+
+<pre class="prettyprint"><code class="language-java hljs ">    <span class="hljs-annotation">@Override</span>
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">final</span> Stream&lt;P_OUT&gt; <span class="hljs-title">filter</span>(Predicate&lt;? <span class="hljs-keyword">super</span> P_OUT&gt; predicate) {
+        Objects.requireNonNull(predicate);
+        <span class="hljs-keyword">return</span> <span class="hljs-keyword">new</span> StatelessOp&lt;P_OUT, P_OUT&gt;(<span class="hljs-keyword">this</span>, StreamShape.REFERENCE,
+                                     StreamOpFlag.NOT_SIZED) {
+            <span class="hljs-annotation">@Override</span>
+            Sink&lt;P_OUT&gt; opWrapSink(<span class="hljs-keyword">int</span> flags, Sink&lt;P_OUT&gt; sink) {
+                <span class="hljs-keyword">return</span> <span class="hljs-keyword">new</span> Sink.ChainedReference&lt;P_OUT, P_OUT&gt;(sink) {
+                    <span class="hljs-annotation">@Override</span>
+                    <span class="hljs-keyword">public</span> <span class="hljs-keyword">void</span> <span class="hljs-title">begin</span>(<span class="hljs-keyword">long</span> size) {
+                        downstream.begin(-<span class="hljs-number">1</span>);
+                    }
+
+                    <span class="hljs-annotation">@Override</span>
+                    <span class="hljs-keyword">public</span> <span class="hljs-keyword">void</span> <span class="hljs-title">accept</span>(P_OUT u) {
+                        <span class="hljs-comment">//条件成立则传递给下一个操作,也因为如此所以有状态的操作必须放到</span>
+                        <span class="hljs-comment">//end方法里面</span>
+                        <span class="hljs-keyword">if</span> (predicate.test(u))
+                            downstream.accept(u);
+                    }
+                };
+            }
+        };
+    }</code></pre>
+
+<p>再例如sorted():</p>
+
+
+
+<pre class="prettyprint"><code class="language-java hljs ">        <span class="hljs-annotation">@Override</span>
+        <span class="hljs-keyword">public</span> <span class="hljs-keyword">void</span> <span class="hljs-title">begin</span>(<span class="hljs-keyword">long</span> size) {
+            <span class="hljs-keyword">if</span> (size &gt;= Nodes.MAX_ARRAY_SIZE)
+                <span class="hljs-keyword">throw</span> <span class="hljs-keyword">new</span> IllegalArgumentException(Nodes.BAD_SIZE);
+            list = (size &gt;= <span class="hljs-number">0</span>) ? <span class="hljs-keyword">new</span> ArrayList&lt;T&gt;((<span class="hljs-keyword">int</span>) size) : <span class="hljs-keyword">new</span> ArrayList&lt;T&gt;();
+        }
+        <span class="hljs-annotation">@Override</span>
+        <span class="hljs-keyword">public</span> <span class="hljs-keyword">void</span> <span class="hljs-title">end</span>() {
+            list.sort(comparator);
+            downstream.begin(list.size());
+            <span class="hljs-keyword">if</span> (!cancellationWasRequested) {
+                list.forEach(downstream::accept);
+            }
+            <span class="hljs-keyword">else</span> {
+                <span class="hljs-keyword">for</span> (T t : list) {
+                    <span class="hljs-keyword">if</span> (downstream.cancellationRequested()) <span class="hljs-keyword">break</span>;
+                    downstream.accept(t);
+                }
+            }
+            downstream.end();
+            list = <span class="hljs-keyword">null</span>;
+        }
+        <span class="hljs-annotation">@Override</span>
+        <span class="hljs-keyword">public</span> <span class="hljs-keyword">void</span> <span class="hljs-title">accept</span>(T t) {
+            list.add(t);
+        }</code></pre>
+
+<p><img src="http://oobu4m7ko.bkt.clouddn.com/1499071806.png?imageMogr2/thumbnail/!70p" alt="" title="" /></p>
+
+
+
+<h4 id="叠加后如何执行">叠加后如何执行?</h4>
+
+<p>执行操作是由终端操作来触发的,例如foreach操作</p>
+
+
+
+<pre class="prettyprint"><code class="language-java hljs ">    <span class="hljs-annotation">@Override</span>
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">void</span> <span class="hljs-title">forEach</span>(Consumer&lt;? <span class="hljs-keyword">super</span> P_OUT&gt; action) {
+        <span class="hljs-comment">//evaluate就是开关,一旦调用就立即执行整个Stream    </span>
+        evaluate(ForEachOps.makeRef(action, <span class="hljs-keyword">false</span>));
+    }</code></pre>
+
+<p>执行前会对操作从末尾到起始反向包裹起来,得到调用链</p>
+
+
+
+<pre class="prettyprint"><code class="language-java hljs ">Sink opWrapSink(<span class="hljs-keyword">int</span> flags, Sink&lt;P_OUT&gt; sink) ;</code></pre>
+
+
+
+<pre class="prettyprint"><code class="language-java hljs ">    <span class="hljs-comment">//这个Sink是终端操作所对应的Sink</span>
+    <span class="hljs-keyword">final</span> &lt;P_IN&gt; Sink&lt;P_IN&gt; wrapSink(Sink&lt;E_OUT&gt; sink) {
+        Objects.requireNonNull(sink);
+
+        <span class="hljs-keyword">for</span> ( AbstractPipeline p=AbstractPipeline.<span class="hljs-keyword">this</span>; p.depth &gt; <span class="hljs-number">0</span>; p=p.previousStage) {
+            sink = p.opWrapSink(p.previousStage.combinedFlags, sink);
+        }
+        <span class="hljs-keyword">return</span> (Sink&lt;P_IN&gt;) sink;
+    }</code></pre>
+
+<p><img src="http://oobu4m7ko.bkt.clouddn.com/1499071772.png?imageMogr2/thumbnail/!70p" alt="" title="" /></p>
+
+
+
+<pre class="prettyprint"><code class="language-java hljs ">    <span class="hljs-annotation">@Override</span>
+    <span class="hljs-keyword">final</span> &lt;P_IN&gt; <span class="hljs-keyword">void</span> copyInto(Sink&lt;P_IN&gt; wrappedSink, Spliterator&lt;P_IN&gt; spliterator) {
+        Objects.requireNonNull(wrappedSink);
+
+        <span class="hljs-keyword">if</span> (!StreamOpFlag.SHORT_CIRCUIT.isKnown(getStreamAndOpFlags())) {
+            <span class="hljs-comment">//依次执行调用链</span>
+            wrappedSink.begin(spliterator.getExactSizeIfKnown());
+            spliterator.forEachRemaining(wrappedSink);
+            wrappedSink.end();
+        }
+        <span class="hljs-keyword">else</span> {
+            copyIntoWithCancel(wrappedSink, spliterator);
+        }
+    }</code></pre>
+
+
+
+<h4 id="有状态的中间操作何时执行">有状态的中间操作何时执行?</h4>
+
+<p>例如sorted()操作,其依赖上一次操作的结果集,按照调用链来说结果集必须在accept()调用完才会产生.那也就说明sorted操作需要在end中,然后再重新开启调用链.</p>
+
+<p><strong>sorted的end方法</strong>:</p>
+
+
+
+<pre class="prettyprint"><code class="language-java hljs ">       <span class="hljs-annotation">@Override</span>
+        <span class="hljs-keyword">public</span> <span class="hljs-keyword">void</span> <span class="hljs-title">end</span>() {
+            list.sort(comparator);
+            downstream.begin(list.size());
+            <span class="hljs-keyword">if</span> (!cancellationWasRequested) {
+                list.forEach(downstream::accept);
+            }
+            <span class="hljs-keyword">else</span> {
+                <span class="hljs-keyword">for</span> (T t : list) {
+                    <span class="hljs-keyword">if</span> (downstream.cancellationRequested()) <span class="hljs-keyword">break</span>;
+                    downstream.accept(t);
+                }
+            }
+            downstream.end();
+            list = <span class="hljs-keyword">null</span>;
+        }</code></pre>
+
+<p>那么就相当于sorted给原有操作断路了一次,然后又重新接上,再次遍历. <br />
+<img src="http://oobu4m7ko.bkt.clouddn.com/1499071708.png?imageMogr2/thumbnail/!70p" alt="" title="" /></p>
+
+
+
+<h4 id="如何收集到结果">如何收集到结果?</h4>
+
+<p>foreach是不需要收集到结果的,但是对于collect这样的操作是需要拿到最终end产生的结果.end产生的结果在最后一个Sink中,这样的操作最终都会提供一个取出数据的get方法.</p>
+
+
+
+<pre class="prettyprint"><code class="language-java hljs ">       <span class="hljs-annotation">@Override</span>
+        <span class="hljs-keyword">public</span> &lt;P_IN&gt; R <span class="hljs-title">evaluateSequential</span>(PipelineHelper&lt;T&gt; helper,
+                                           Spliterator&lt;P_IN&gt; spliterator) {
+            <span class="hljs-keyword">return</span> helper.wrapAndCopyInto(makeSink(), spliterator).get();
+        }</code></pre>
+
+<p>如此拿到数据返回</p></div>&#13;
+        <script type="text/javascript">&#13;
+            $(function () {&#13;
+                $('pre.prettyprint code').each(function () {&#13;
+                    var lines = $(this).text().split('\n').length;&#13;
+                    var $numbering = $('&lt;ul/&gt;').addClass('pre-numbering').hide();&#13;
+                    $(this).addClass('has-numbering').parent().append($numbering);&#13;
+                    for (i = 1; i &lt;= lines; i++) {&#13;
+                        $numbering.append($('&lt;li/&gt;').text(i));&#13;
+                    };&#13;
+                    $numbering.fadeIn(1700);&#13;
+                });&#13;
+            });&#13;
+        </script>&#13;
+   &#13;

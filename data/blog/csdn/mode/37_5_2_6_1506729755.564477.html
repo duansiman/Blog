@@ -1,0 +1,227 @@
+
+                <div class="markdown_views"><h1 id="定义">定义</h1>
+
+<p>需要在创建 <br/>
+为其他对象提供一种代理以控制对这个对象的访问，一种中介作用，隐藏细节</p>
+
+
+
+<h1 id="适用性">适用性</h1>
+
+<p>在需要用比较通用和复杂的对象指针代替简单的指针的时候，使用Proxy模式。下面是一些可以使用Proxy模式常见的情况： <br/>
+1.  远程代理（Remote Proxy）为一个对象在不同的地址空间提供局部代表。 <br/>
+2.  虚拟代理（Virtual Proxy）根据需要创建开销很大的对象（需要时在创建）。 <br/>
+3.  保护代理（Protection Proxy）控制对原始对象的访问。保护代理用于对象应该有不同的访问权限的时候。 <br/>
+4.  智能指引（Smart Reference）取代了简单的指针，它在访问对象时执行一些附加操作。它的典型用途包括： <br/>
+a.对指向实际对象的引用计数，这样当该对象没有引用时，可以自动释放它 <br/>
+b.当第一次引用一个持久对象时，将它装入内存 <br/>
+c.在访问一个实际对象前，检查是否已经锁定了它，以确保其他对象不能改变它。</p>
+
+
+
+<h1 id="结构">结构</h1>
+
+<p><img title="" alt="这里写图片描述" src="http://img.blog.csdn.net/20170424083641950?watermark/2/text/aHR0cDovL2Jsb2cuY3Nkbi5uZXQvc2xkODgwMzEx/font/5a6L5L2T/fontsize/400/fill/I0JBQkFCMA==/dissolve/70/gravity/SouthEast"/></p>
+
+
+
+<h1 id="参与者">参与者</h1>
+
+
+
+<h2 id="proxy">Proxy</h2>
+
+<ol>
+<li>保存一个引用使得代理可以访问实体。若RealSubject和Subject的接口相同，Proxy会引用Subject</li>
+<li>提供一个与Subject的接口相同的接口，这样代理就可以用来替代实体</li>
+<li>控制对实体的存取，并可能负责创建和删除它</li>
+<li>其他功能依赖于代理的类型： <br/>
+Remote Proxy负责对请求及其参数进行编码，并向不同地址空间中的实体发送已编码的请求。 <br/>
+Virtual Proxy 可以缓存实体的附加信息，以便延迟对它的访问。 <br/>
+Protection Proxy检查调用者是否具有实现一个请求所必须的访问权限。</li>
+</ol>
+
+
+
+<h2 id="subject">Subject</h2>
+
+<p>定义RealSubject和Proxy的公用接口，这样就在任何用RealSubject的地方都可以使用Proxy。</p>
+
+
+
+<h2 id="realsubject">RealSubject</h2>
+
+<p>定义Proxy所代表的实体。</p>
+
+
+
+<h1 id="代码">代码</h1>
+
+
+
+<h2 id="简单实例">简单实例</h2>
+
+
+
+<pre class="prettyprint"><code class="language-java hljs "><span class="hljs-keyword">public</span> <span class="hljs-class"><span class="hljs-keyword">interface</span> <span class="hljs-title">Subject</span> {</span>
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">void</span> <span class="hljs-title">defaultMethod</span>();
+}
+<span class="hljs-keyword">public</span> <span class="hljs-class"><span class="hljs-keyword">class</span> <span class="hljs-title">RealSubject</span> <span class="hljs-keyword">implements</span> <span class="hljs-title">Subject</span>{</span>
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">void</span> <span class="hljs-title">defaultMethod</span>() {
+        System.out.println(<span class="hljs-string">"RealSubject defaultMethod()"</span>);
+    }
+}
+<span class="hljs-keyword">public</span> <span class="hljs-class"><span class="hljs-keyword">class</span> <span class="hljs-title">Proxy</span> <span class="hljs-keyword">implements</span> <span class="hljs-title">Subject</span>{</span>
+    <span class="hljs-keyword">private</span> Subject subject;
+    <span class="hljs-keyword">public</span> <span class="hljs-title">Proxy</span>(Subject subject){
+        <span class="hljs-keyword">this</span>.subject = subject;
+    }
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">void</span> <span class="hljs-title">defaultMethod</span>() {
+        anotherMethod(<span class="hljs-string">"before"</span>);
+        subject.defaultMethod();
+        anotherMethod(<span class="hljs-string">"after"</span>);
+    }
+    <span class="hljs-keyword">private</span> <span class="hljs-keyword">void</span> <span class="hljs-title">anotherMethod</span>(String type){
+        System.out.println(type+<span class="hljs-string">"====Proxy===anotherMethod="</span>);
+    }
+}
+<span class="hljs-keyword">public</span> <span class="hljs-class"><span class="hljs-keyword">class</span> <span class="hljs-title">Client</span> {</span>
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">static</span> <span class="hljs-keyword">void</span> <span class="hljs-title">main</span>(String[] args) {
+        Subject realSubject = <span class="hljs-keyword">new</span> RealSubject();
+        Subject proxy = <span class="hljs-keyword">new</span> Proxy(realSubject);
+        proxy.defaultMethod();
+    }
+}
+</code></pre>
+
+<h2 id="java内置proxy">Java内置Proxy</h2>
+
+
+
+<pre class="prettyprint"><code class="language-java hljs "><span class="hljs-keyword">package</span> com.sunld.rdp.core.aspect;
+
+<span class="hljs-keyword">import</span> java.lang.reflect.InvocationHandler;
+<span class="hljs-keyword">import</span> java.lang.reflect.Method;
+<span class="hljs-javadoc">/**
+ * &lt;p&gt;动态代理基础类&lt;/p&gt;
+ *<span class="hljs-javadoctag"> @author</span> 孙辽东
+ * &lt;p&gt;createDate:2014年3月4日 下午12:15:43 &lt;/p&gt;
+ *<span class="hljs-javadoctag"> @version</span> V1.0
+ */</span>
+<span class="hljs-keyword">public</span> <span class="hljs-class"><span class="hljs-keyword">class</span> <span class="hljs-title">BaseInvocationHandler</span> <span class="hljs-keyword">implements</span> <span class="hljs-title">InvocationHandler</span>,<span class="hljs-title">AspectInterface</span>{</span>
+    <span class="hljs-keyword">private</span> Object proxyObject;
+    <span class="hljs-keyword">public</span> <span class="hljs-title">BaseInvocationHandler</span>(Object proxyObject){
+        <span class="hljs-keyword">this</span>.proxyObject = proxyObject;
+    }
+    <span class="hljs-keyword">public</span> Object <span class="hljs-title">getProxyObject</span>() {
+        <span class="hljs-keyword">return</span> proxyObject;
+    }
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">void</span> <span class="hljs-title">setProxyObject</span>(Object proxyObject) {
+        <span class="hljs-keyword">this</span>.proxyObject = proxyObject;
+    }
+    <span class="hljs-keyword">public</span> Object <span class="hljs-title">invoke</span>(Object proxy, Method method, Object[] args)
+            <span class="hljs-keyword">throws</span> Throwable {
+        LOGGER.info(<span class="hljs-string">"记录日志信息--测试"</span>+proxy.getClass().getName());
+        <span class="hljs-keyword">return</span> method.invoke(proxyObject, args);
+    }
+}
+<span class="hljs-keyword">package</span> com.sunld.rdp.core.factory;
+<span class="hljs-keyword">import</span> java.lang.reflect.Proxy;
+<span class="hljs-keyword">import</span> com.sunld.rdp.core.aspect.BaseInvocationHandler;
+<span class="hljs-javadoc">/**
+ * &lt;p&gt;动态代理工厂类&lt;/p&gt;
+ *<span class="hljs-javadoctag"> @author</span> 孙辽东
+ * &lt;p&gt;createDate:2014年6月3日 上午10:05:01&lt;/p&gt; 
+ *<span class="hljs-javadoctag"> @version</span> V1.0
+ */</span>
+<span class="hljs-keyword">public</span> <span class="hljs-keyword">final</span> <span class="hljs-class"><span class="hljs-keyword">class</span> <span class="hljs-title">InvocationHandlerFactory</span>&lt;<span class="hljs-title">T</span>&gt; <span class="hljs-keyword">implements</span> <span class="hljs-title">FactoryInterface</span>{</span>
+    <span class="hljs-javadoc">/**
+     * &lt;p&gt;代理某个类实现的接口，如果指定泛型参数，则返回特定的接口信息&lt;/p&gt;
+     *<span class="hljs-javadoctag"> @param</span> obj 需要代理的对象
+     *<span class="hljs-javadoctag"> @param</span> handler 自定义的InvocationHandler {@link BaseInvocationHandler}
+     *<span class="hljs-javadoctag"> @return</span> T
+     * &lt;p&gt;createDate:2014年6月3日 上午10:05:35&lt;/p&gt;
+     */</span>
+    <span class="hljs-annotation">@SuppressWarnings</span>(<span class="hljs-string">"unchecked"</span>)
+    <span class="hljs-keyword">public</span> T <span class="hljs-title">getProxyObjectAllInterfaces</span>(<span class="hljs-keyword">final</span> Object obj,BaseInvocationHandler handler){
+        ClassLoader cl = obj.getClass().getClassLoader();
+        Class&lt;?&gt;[] interfaces = obj.getClass().getInterfaces();
+        <span class="hljs-keyword">return</span> (T)Proxy.newProxyInstance(cl, interfaces, handler);
+    }
+}</code></pre>
+
+<h1 id="java中的实现">Java中的实现</h1>
+
+<p>Proxy 提供用于创建动态代理类和实例的静态方法，它还是由这些方法创建的所有动态代理类的超类。  <br/>
+创建某一接口 Foo 的代理：  <br/>
+     InvocationHandler handler = new MyInvocationHandler(…); <br/>
+     Class proxyClass = Proxy.getProxyClass( <br/>
+         Foo.class.getClassLoader(), new Class[] { Foo.class }); <br/>
+     Foo f = (Foo) proxyClass. <br/>
+         getConstructor(new Class[] { InvocationHandler.class }). <br/>
+         newInstance(new Object[] { handler }); <br/>
+ 或使用以下更简单的方法：  <br/>
+     Foo f = (Foo) Proxy.newProxyInstance(Foo.class.getClassLoader(), <br/>
+                                          new Class[] { Foo.class }, <br/>
+                                          handler);</p>
+
+
+
+<h1 id="协作">协作</h1>
+
+<p>代理根据其种类，在适当的时候想RealSubject转发请求。</p>
+
+
+
+<h1 id="效果">效果</h1>
+
+<p>Proxy模式在访问对象时引入了一定程度的间接性。根据代理的类型，附加的间接性有多种途径。 <br/>
+1.  Remote Proxy可以隐藏一个对象存在于不同地址空间的事实 <br/>
+2.  Virtual Proxy可以进行最优化，例如根据要求创建对象 <br/>
+3.  Protection Proxies和Smart Reference都允许在访问一个对象时有一些附加的内务处理（Housekeeping task）</p>
+
+
+
+<h2 id="copy-on-write">Copy-on-write</h2>
+
+<p>Prory模式还可以对用户隐藏另一种称为copy-on-write的优化方式，该优化与根据需要创建对象有关。拷贝一个庞大而复杂的对象是一种开销很大的操作，如果这个拷贝根本没有被修改，那么这些开销就没有必要。用代理延迟这一拷贝过程，我们可以保证只有当这个对象被修改的时候才对它进行拷贝。 <br/>
+在实现copy-on-write时必须对实体进行引用计数。拷贝代理仅会增加引用计数。只有当用户请求一个修改参数的操作时，代理才会真正的拷贝它。在这种情况下，代理还必须减少实体的引用计数。当引用的数据为0时，这个实体将被删除。 <br/>
+Copy-on-write可以大幅度的降低拷贝庞大实体时的开销。</p>
+
+
+
+<h2 id="优点">优点</h2>
+
+<p>向客户端隐藏了访问某个对象的细节及复杂性；可以动态地调用一个对象中的方法，且无需实现固定的接口，代理模式能够协调调用者和被调用者，在一定程度上降低了系统的耦合度降低系统的耦合度</p>
+
+
+
+<h2 id="缺点">缺点</h2>
+
+<p>由于在客户端和真实主题之间增加了代理对象，因此有些类型的代理模式可能会造成请求的处理速度变慢。 实现代理模式需要额外的工作，有些代理模式的实现非常复杂</p>
+
+
+
+<h1 id="经典例子">经典例子</h1>
+
+<p>代练、Spring AOP的核心实现方式、代购、延迟加载监视状态变化</p>
+
+
+
+<h1 id="相关模式">相关模式</h1>
+
+
+
+<h2 id="adapter-pattern">Adapter Pattern</h2>
+
+<p>适配器Adapter为它所适配的对象提供了一个不同的接口。相反，代理提供了与它的实体相同的接口。然而，用于访问保护的代理可能会拒绝执行实体会执行的操作，因此，它的接口实际上可能只是实体接口的一个子集。Adapter Pattern的功能是连接两个相异接口的对象，而Proxy Pattern中的代理主题角色和真实主题角色被没有不一样。</p>
+
+
+
+<h2 id="decorator-pattern">Decorator Pattern</h2>
+
+<p>Decorator Pattern跟proxy pattern的实现很相似，但是目的不同，Decorator Pattern的目的是为了增加其他功能，而Proxy Pattern则比较重视在代替本人进行作业，以减少对本人的存取操作，新增功能反倒不重要（代理模式能够协调调用者和被调用者）。 <br/>
+代理的实现与decorator的实现类似，但是在相似的程度上有所区别。Protection Proxy的实现可能与decorator的实现差不多。另一方面，Remote Proxy不包含对实体的直接引用，而只是一个间接引用，如“主机ID，主机上的局部地址”。Virtual Proxy开始的时候使用一个间接引用，例如一个文件名，但是总将获取并使用一个直接引用。</p>
+
+<p><font color="#0099ff" face="黑体" size="3">敬请期待“装饰模式（Decorator Pattern、Wrapper Pattern，对象结构型模式）”</font></p><link rel="stylesheet" href="http://static.blog.csdn.net/public/res-min/markdown_views.css?v=2.0"/></div><link rel="stylesheet" href="http://static.blog.csdn.net/public/res-min/markdown_views.css?v=2.0"/>&#13;
+            

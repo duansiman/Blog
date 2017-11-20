@@ -1,0 +1,14 @@
+
+                <div class="markdown_views"><p>BIOS将bootsect这个引导程序载入内存后，接下来就要靠bootsect来加载第二批和第三批程序。</p>
+
+<p>bootsect首先要做的工作就是<strong>规划内存</strong>。 <br/>
+实模式下，寻址最大范围是1MB（0xFFFFF）。关于setup程序，在bootsect.s中要指定setup程序的扇区数和被加载到的位置（0x90200），此外还要指定启动扇区（也就是bootsect.s）被BIOS加载的位置（0x07c00）和将要移动到的新位置（0x90000），内核被加载的位置（0x10000）和内核的末尾位置，根文件系统设备号（ROOT_DEV=0x306，第二个硬盘第一个分区）。 <br/>
+这就是内存规划，可以确保互不重叠。</p>
+
+<p>bootsect的第一步是将自身从0x07c00的位置复制到0x90000的位置。 <br/>
+第二步就是将setup程序加载至内存中。</p>
+
+<p>加载bootsect，BIOS需要 int 0x19 这个中断向量。加载setup，则要借助BIOS提供的 int 0x13 中断向量所指向的中断服务程序——磁盘服务程序。二者不同的是， int 0x19指向的启动加载服务程序是BIOS执行的，而 int 0x13指向的磁盘服务程序是linux自身的启动代码bootsect执行的。前者只负责把第一扇区的代码加载到0x07C00位置，而后者的中断服务程序则根据设计者的意图，把指定扇区的代码加载到内存的指定位置。所以对于 int 0x13 来说，要事先将指定的扇区、加载的内存位置等信息传递给中断服务程序。</p>
+
+<p>复制后的bootsect的起始位置是0x90000，占用512B，因此，0x90200紧挨着bootsect的尾部，所以bootsect和setup是连在一起的。setup程序占据四个扇区，这样加上bootsect，一共加载了五个扇区。bootsect代码执行完毕后就开始执行setup。</p><link rel="stylesheet" href="http://static.blog.csdn.net/public/res-min/markdown_views.css?v=1.0"/></div><link rel="stylesheet" href="http://static.blog.csdn.net/public/res-min/markdown_views.css?v=1.0"/>&#13;
+            

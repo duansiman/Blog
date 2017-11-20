@@ -1,0 +1,79 @@
+
+                
+<p><span style="font-family:Comic Sans MS; font-size:14px"><span style="color:rgb(11,0,128)">一、Annotation</span></span></p>&#13;
+<p><span style="font-family:Comic Sans MS; font-size:14px">     在java发展到1.8的今天，开发人员对java注解应该都不陌生，无论是SSH框架还是其他java应用，注解的存在为开发人员提供了极大的便利。</span><span style="font-family:'Comic Sans MS'; font-size:14px">Java&#13;
+</span><span style="font-family:'Comic Sans MS'; font-size:14px">注解是</span><span style="font-family:'Comic Sans MS'; font-size:14px">J2SE5.0</span><span style="font-family:'Comic Sans MS'; font-size:14px">中提出的新特性，就相当于一个类，使用这个注解就相当于创建了这个类的实例对象，可以加在包、类、方法、参数、成员变量上，应用非常广泛。</span></p>&#13;
+<p><span style="font-family:Comic Sans MS; font-size:14px">     J2SE 5.0中提出了@SuppressWarnings(),@Deprecated@override 三个常用注解，分别用于为类或方法去除编译时警告，过时，覆盖父类方法。在java API的java.lang包下可见这些注解类型和具体使用场景。</span></p>&#13;
+<p><span style="color:rgb(11,0,128)"><span style="font-family:Comic Sans MS; font-size:14px">二、自定义注解</span></span></p>&#13;
+<p><span style="font-family:Comic Sans MS; font-size:14px"><span style="font-family:'Comic Sans MS'; font-size:14px">     </span>用了这么多注解，下面介绍如何自己定义注解并应用。</span></p>&#13;
+<p><span style="font-family:Comic Sans MS; font-size:14px">1、定义一个注解</span></p>&#13;
+<p><span style="font-family:Comic Sans MS; font-size:14px">在IDE中创建一个新的<span style="color:#0b0080">Annotation</span>类，形如：</span></p>&#13;
+<p><span style="font-family:Comic Sans MS; font-size:14px"/></p><pre code_snippet_id="1669161" snippet_file_name="blog_20160502_1_5050109" name="code" class="html">public @interface Annotation1 {
+
+}</pre>&#13;
+<p><span style="font-family:Comic Sans MS; font-size:14px">2、在其他类中引用该注解，并</span><span style="font-family:'Comic Sans MS'; font-size:14px">用反射进行测试，打印注解指向类</span><span style="font-family:'Comic Sans MS'; font-size:14px"> </span></p>&#13;
+<p align="justify"><span style="font-family:Comic Sans MS; font-size:14px"/></p><pre code_snippet_id="1669161" snippet_file_name="blog_20160502_2_7841771" name="code" class="html">@Annotation1
+public class AdviseImpl implements Advice {
+	
+	public static void main(String[] args) {
+		if(AdviseImpl.class.isAnnotationPresent(Annotation1.class))
+		{
+			Annotation1 annotation=(Annotation1)AdviseImpl.class.getAnnotation(Annotation1.class);
+			System.out.println(annotation);
+		}
+	}</pre>&#13;
+<p align="justify"><span style="font-family:Comic Sans MS; font-size:14px">测试发现并没有打印出@Annotation1对应的注解类，这就涉及到注解的生命周期。</span></p>&#13;
+<p><span style="color:rgb(11,0,128)"><span style="font-family:Comic Sans MS; font-size:14px">三、注解生命周期</span></span></p>&#13;
+<p align="justify"><span style="font-family:Comic Sans MS; font-size:14px">     Java注解有三个生命周期：<span style="background-color:rgb(255,204,153)">源文件阶段、class文件阶段、运行时阶段（已经把字节码放入java内存中），默认是class阶段。</span>之所以要批注注解生命周期，是因为源程序在编译成字节码时，或将字节码存入java 内存中，两个阶段均可能将源文件里的注解去掉，<span style="background-color:rgb(255,204,153)">规定注解的生命周期处于某个阶段用于确定该注解的保留阶段。</span></span></p>&#13;
+<p align="justify"><span style="font-family:Comic Sans MS; font-size:14px">上面例子之所以没有打印注解类，是因为默认生命周期为class，所以运行时并未打印。如果将注解加上@Retention 源注解，这是一个枚举类型，有三个值分别代表注解的三个生命周期：CLASS，SOURCE，RUNTIME;当将注解生命周期设置到运行期时，在执行上面代码可以获取到Annotation1注解的对应类为@it.webservice.mobile.Annotation1()</span></p>&#13;
+<p align="justify"><span style="font-family:Comic Sans MS; font-size:14px"/></p><pre code_snippet_id="1669161" snippet_file_name="blog_20160502_3_6588035" name="code" class="html">@Retention(RetentionPolicy.RUNTIME)
+public @interface Annotation1 {
+
+}</pre><span style="font-family:'Comic Sans MS'; font-size:14px; color:rgb(11,0,128)">四、注解的作用范围</span>&#13;
+<p align="justify"><span style="font-family:Comic Sans MS; font-size:14px">     在注解的应用中，我们知道有使用在类上的注解、方法上的注解、参数、字段的注解，这些就是注解的作用范围，java使用@Target 源注解来设置这一属性，同样<span style="font-family:'Comic Sans MS'; font-size:14px; text-align:justify">@Target 也是</span>枚举类型，.method表示该注解作用于方法之，放到非方法处编译就不会通过；Type&#13;
+ 表示可以放到类上，Field -字段；local_Varialble-变量；Parameter-方法的参数。从API中查找ElementType就可以得到这些信息。</span></p>&#13;
+<p align="justify"><span style="font-family:Comic Sans MS; font-size:14px"/></p><pre code_snippet_id="1669161" snippet_file_name="blog_20160502_4_3698097" name="code" class="html">@Retention(RetentionPolicy.RUNTIME)
+@Target({ElementType.METHOD,ElementType.TYPE,ElementType.FIELD})//表示该注解可用于方法、类、字段上
+public @interface Annotation1 {
+
+}</pre><span style="font-family:'Comic Sans MS'; font-size:14px; color:rgb(11,0,128)">五、注解的高级应用</span>&#13;
+<p><span style="font-family:Comic Sans MS; font-size:14px">     为注解设置属性，可能这个名次听起来很陌生，但是相信大家一定使用过这些有着丰富属性的注解。形如：name即为这个无状态注解的属性。</span></p>&#13;
+<p/><pre code_snippet_id="1669161" snippet_file_name="blog_20160502_5_2760005" name="code" class="html">@Stateless(name = "conventionBeanImpl")</pre><span style="font-family:'Comic Sans MS'; font-size:14px">     有了可配置的属性值大大提高了注解使用的灵活性，减少代码量。那么如何为注解添加属性？</span>&#13;
+<p><span style="font-family:'Comic Sans MS'; font-size:14px">1、为注解添加属性，可设置默认值</span></p>&#13;
+<p><span style="font-family:'Comic Sans MS'; font-size:14px"/></p><pre code_snippet_id="1669161" snippet_file_name="blog_20160502_6_7918218" name="code" class="html">@Retention(RetentionPolicy.RUNTIME)
+@Target({ElementType.METHOD,ElementType.TYPE,ElementType.FIELD})
+public @interface Annotation1 {
+	String color();
+	String value() default "dfda";
+}</pre><span style="font-family:'Comic Sans MS'; font-size:14px">2、在使用注解处，为注解传入该属性值，用于初始化注解实例，否则编译报错。注：有default默认值的注解可以不传入。</span>&#13;
+<p><span style="font-family:'Comic Sans MS'; font-size:14px"/></p><pre code_snippet_id="1669161" snippet_file_name="blog_20160502_7_9139717" name="code" class="html">@Annotation1(color="green")
+public class AdviseImpl implements Advice {	
+	public static void main(String[] args) {
+		if(AdviseImpl.class.isAnnotationPresent(Annotation1.class))
+		{
+			Annotation1 annotation=(Annotation1)AdviseImpl.class.getAnnotation(Annotation1.class);
+			System.out.println(annotation);
+			System.out.println(annotation.color());
+			System.out.println(annotation.value());
+		}
+	}</pre>     分别打印出green和dfda；&#13;
+<p><span style="font-family:'Comic Sans MS'; font-size:14px">3、添加属性值为注解的情况</span></p>&#13;
+<p><span style="font-family:'Comic Sans MS'; font-size:14px"><span style="white-space:pre"/>一般注解的属性值都为基本类型，当遇到属性值为注解时：</span></p>&#13;
+<p><span style="font-family:'Comic Sans MS'; font-size:14px"/></p><pre code_snippet_id="1669161" snippet_file_name="blog_20160502_8_5377727" name="code" class="html">@Retention(RetentionPolicy.RUNTIME)
+@Target({ElementType.METHOD,ElementType.TYPE,ElementType.FIELD})
+public @interface Annotation1 {
+	Annotation2 annotationAttr() default @Annotation2(value="dkdkkd"); //属性值为@Annotation2的注解，且Annotation2有个value属性
+}  </pre>      使用该注解时：&#13;
+<p><span style="font-family:'Comic Sans MS'; font-size:14px"/></p><pre code_snippet_id="1669161" snippet_file_name="blog_20160502_9_2139124" name="code" class="html">@Annotation1(color="green",annotationAttr=@Annotation2("max")) //为Annotation1传入annotationAttr属性，同时传入annotation2的value属性值max
+public class AdviseImpl implements Advice {
+	
+	public static void main(String[] args) {
+		if(AdviseImpl.class.isAnnotationPresent(Annotation1.class))
+		{
+			Annotation1 annotation=(Annotation1)AdviseImpl.class.getAnnotation(Annotation1.class);
+		}
+	}</pre>     这在EJB3.0中使用非常广泛，项目中多次使用到注解的属性仍是一个注解，通过介绍，现在应该明白原理了。这些特性我们平时都在用，搞明白它的原理，然后自己创建，很容易就能够联想起在项目中的具体应用。<br/>&#13;
+<br/>&#13;
+&#13;
+<link rel="stylesheet" href="http://static.blog.csdn.net/public/res-min/markdown_views.css?v=1.0"/>&#13;
+            

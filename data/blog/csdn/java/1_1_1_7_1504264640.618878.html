@@ -1,0 +1,99 @@
+
+
+<p>当一个类A的某个成员变量的值变化时，可能导致<span style="color:#ff0000"><strong>多个行为表现得不同</strong></span>。将该成员变量封装成类型的模式，即为<strong>状态模式（state pattern</strong>）。</p>&#13;
+<p><strong><span style="font-family:FangSong_GB2312">编程技巧：以多态来重构分支结构。</span></strong></p>&#13;
+<p><strong><span style="font-family:FangSong_GB2312">设计思路：解决状态添加、状态转换、状态对行为的影响问题。</span></strong></p>&#13;
+<p style="text-align:center"><img src="http://img.blog.csdn.net/20140917183544453?watermark/2/text/aHR0cDovL2Jsb2cuY3Nkbi5uZXQveXFqMjA2NQ==/font/5a6L5L2T/fontsize/400/fill/I0JBQkFCMA==/dissolve/70/gravity/SouthEast" alt="" align="middle" /><br />&#13;
+</p>&#13;
+<p></p>&#13;
+<hr />&#13;
+<p></p>&#13;
+<h3>状态决定行为</h3>&#13;
+<p>先<strong>不考虑</strong>状态转换，很容易看到状态决定行为的场景。“朋友来了有好酒，若是那豺狼来了，迎接它的有猎枪”。不在状态，该赢的比赛都会输。</p>&#13;
+<p></p>&#13;
+<pre name="code" class="java">例程 4-3 又见分支结构
+package property.state;
+public class Man{
+    private boolean isHappy;//典型的flag，两种状态
+    public String sayHello() {
+        String greeting="";
+        if(isHappy){
+            greeting ="你好，我的朋友";
+        }else{
+            greeting ="好";
+        }
+        return greeting;
+    }
+    public String sayGoodbye() {
+        return isHappy? "再抱抱！":"再见，再也不见";        
+    }
+    
+    public static void main(String[] args) {
+		Man one = new Man();
+		one.isHappy  =true;//false
+		System.out.println(one.sayHello());
+		System.out.println(one.sayGoodbye());
+	}
+}
+</pre>&#13;
+<p>这种Man没有城府，当成员变量isHappy取值不同时，Man的sayHello()和sayGoodbye()等多个行为表现得不同。</p>&#13;
+<p></p>&#13;
+<p></p>&#13;
+<p><strong><span style="color:#ff0000">在简单场景中，if-else更简洁</span></strong>。然而，关键成员变量可以是int或枚举类型表示的好感度，或某个类型如顾客(土豪、凡人、钓丝)。</p>&#13;
+<ul>&#13;
+<li>随着状态取值可能性的添加，分支块越来越大，sayHello()和sayGoodbye()代码都变得庞大。</li><li><span style="color:#ff0000"><strong>特别是增加新的状态值，在分支结构下违反OCP</strong></span>。</li></ul>&#13;
+<p>从编程技巧上看，<strong><span style="color:#006600">状态模式和策略模式、工厂方法模式一样，以多态来重构分支结构</span></strong>。</p>&#13;
+重构的要点：①以状态类State替代boolean、int、枚举类型或类型(注意这种情况)的分支判断参数，显然<span style="color:#ff0000">有多少分支，State将对应有多少子类</span>。②状态类State将所有具有上述分支判断的方法，提取为自己的接口，State的子类分别给出<strong><span style="color:#ff0000">配套的实现</span></strong>。&#13;
+<p></p>&#13;
+<pre name="code" class="java">例程 4-4 State的子类们
+package property.state;
+public interface State{
+    public String sayHello();
+    public String sayGoodbye();
+}
+package property.state;
+public class FriendState implements State{
+    @Override public String sayHello(){
+        return "你好，我的朋友";
+    }
+    @Override public String sayGoodbye(){
+        return "再抱抱！";
+    }
+}//OpposingState略
+package property.state;
+public class Man2{
+    private State state;
+    public String sayHello() {
+        return state.sayHello();       
+    }
+    public String sayGoodbye() {
+        return state.sayGoodbye();        
+    }
+    
+    public static void main(String[] args) {
+		Man2 one = new Man2();
+		one.state  =new FriendState();//isHappy = true
+		System.out.println(one.sayHello());
+		System.out.println(one.sayGoodbye());
+	}
+}
+</pre>&#13;
+<p></p>&#13;
+<p>在不考虑状态转换时，单纯从代码上看，<strong><span style="color:#ff0000">状态模式的State封装多个方法，而策略模式仅封装一个方法。</span></strong>此时，</p>&#13;
+<p><strong><span style="font-size:18px; color:#006600">状态模式与策略模式的关系，如同抽象工厂与工厂方法的关系。</span></strong></p>&#13;
+虽然状态模式封装多个方法，与抽象工厂一样，不会出现<a target="_blank" href="http://blog.csdn.net/yqj2065/article/details/39127231">[3.2.4方法类型化]</a>的例程3-5那样的组合爆炸，因为多个方法在一个状态下是配套的，而非任意的组合。&#13;
+<p><br />&#13;
+</p>&#13;
+<p>yqj2065在<a target="_blank" href="http://blog.csdn.net/yqj2065/article/details/39254507" style="list-style:none; word-break:break-all; word-wrap:break-word; color:rgb(59,89,152); font-family:Verdana,'Lucida Grande',Arial,Helvetica,sans-serif">设计模式学习难度系数排名</a>中，状态模式给的难度系数高达5分（10分制）。如果仅仅是策略模式基础上的一变多，难度系数应该是1.<img alt="难过" src="http://static.blog.csdn.net/xheditor/xheditor_emot/default/sad.gif" /></p>&#13;
+<p><br />&#13;
+在Man的代码中是通过<strong>设置isHappy的值</strong>改变其状态，在Man2中是<strong>通过设置State的对象类型</strong>改变其状态。状态之间的变换由外界控制，或者说，多种状态是分割的、无关的。这种情况下，学习状态模式的难度系数最多是1。</p>&#13;
+<p>但是，状态模式最有趣的地方正是其状态的变迁。将涉及一个比较高端的术语<strong><span style="color:#ff0000">Finite State Machine 有限状态机</span></strong>。</p>&#13;
+<p><img src="http://img.blog.csdn.net/20140917185536905?watermark/2/text/aHR0cDovL2Jsb2cuY3Nkbi5uZXQveXFqMjA2NQ==/font/5a6L5L2T/fontsize/400/fill/I0JBQkFCMA==/dissolve/70/gravity/SouthEast" alt="" /><br />&#13;
+</p>&#13;
+<p><br />&#13;
+</p>&#13;
+<h3>2.状态的变迁</h3>&#13;
+<p>.....</p>&#13;
+<p><a target="_blank" href="http://blog.csdn.net/yqj2065/article/details/8592375" style="text-align:center"><img src="http://img.blog.csdn.net/20140919170809965?watermark/2/text/aHR0cDovL2Jsb2cuY3Nkbi5uZXQveXFqMjA2NQ==/font/5a6L5L2T/fontsize/400/fill/I0JBQkFCMA==/dissolve/70/gravity/SouthEast" alt="" /></a><br />&#13;
+</p>&#13;
+   &#13;

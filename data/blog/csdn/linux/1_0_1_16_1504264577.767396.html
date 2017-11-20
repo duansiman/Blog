@@ -1,0 +1,96 @@
+
+
+<strong><u>字符设备</u></strong>（char device）<br />&#13;
+<p>        采用字节流方式访问的设备称为字符设备，通常智能采用顺序访问方式，也有极少数可以前后移动访问指针的设备（如：帧捕捉卡等设备）。系统标准字符设备，例如：字符中断、串口等设备。常见待开发设备驱动的字符设备，例如：触摸屏、键盘、视频捕捉设备、音频设备等。</p>&#13;
+<p><img src="http://img.blog.csdn.net/20131227143823031" alt="" /><br />&#13;
+</p>&#13;
+<p><strong><u>设备号</u></strong><br />&#13;
+主设备号<br />&#13;
+    用于标识设备类型，内核代码根据该号码对应设备文件和对应的设备驱动程序<br />&#13;
+次设备号<br />&#13;
+    用于标识通类型的不同设备个体，驱动程序根据该号码辨别具体操作的是哪个设备个体。<br />&#13;
+</p>&#13;
+<p>设备号数据类型<br />&#13;
+   dev_t 本质是一个unsigned int 数据类型， 高12位是主设备号，低20位是次设备号。&lt;linux/kdev_t.h&gt;<br />&#13;
+提取主设备号宏<br />&#13;
+    unsigned int MAJOR(dev_t dev);<br />&#13;
+提取次设备号宏<br />&#13;
+    unsigned int MINOR(dev_t dev);<br />&#13;
+合成设备号宏<br />&#13;
+   dev_t MKDEV(unsigned int ma, unsigned int mi);<br />&#13;
+</p>&#13;
+<p><strong><u>设备号的静态分配</u></strong><br />&#13;
+内核源代码Documentation/devices.txt文件<br />&#13;
+该文件列出本内核源代码发行包中已经被使用和可以使用的主设备号<br />&#13;
+在devices.txt中寻找可用的主设备号。<br />&#13;
+</p>&#13;
+<p>int register_chrdev_region(dev_t from, unsigned count, const char *name);<br />&#13;
+from:待申请的设备号<br />&#13;
+count:待申请的设备号数目<br />&#13;
+name:设备名称（出现在/proc/devices）<br />&#13;
+返回：成功返回0，失败返回负值。<br />&#13;
+向内核申请从from开始的count个设备号（数设备号不变，次设备号增加）<br />&#13;
+</p>&#13;
+<p></p><pre code_snippet_id="130579" snippet_file_name="blog_20131227_1_526693" name="code" class="objc">/**
+*Copyright (c) 2013.TianYuan
+*All rights reserved.
+*
+*文件名称: char_device_driver.c
+*文件标识: 字符设备驱动 ：静态分配设备号
+*
+*当前版本：1.0
+*作者：wuyq 
+*
+*取代版本：xxx
+*原作者：xxx
+*完成日期：2013-11-26
+*/
+#include &lt;linux/init.h&gt;
+#include &lt;linux/module.h&gt;
+#include &lt;linux/fs.h&gt;
+
+MODULE_LICENSE("GPL");
+#define  CDD_MAJOR	200//cat /proc/devices找一个尚未使用的
+#define  CDD_MINOR	0
+#define  CDD_COUNT	1
+dev_t dev = 0;
+
+int __init cdd_init(void)
+{
+	int ret = 0;
+	//dev = CDD_MAJOR&lt;&lt;20 + CDD_MINOR;
+	dev = MKDEV(CDD_MAJOR, CDD_MINOR);//生成设备号
+	//注册设备号;1、要注册的起始设备号2、连续注册的设备号个数3、名字
+	ret = register_chrdev_region(dev, CDD_COUNT, "cdd_demo");
+	if(ret &lt; 0){
+		printk("register_chrdev_region failed!\n");
+		goto failure_register_chrdev;
+	}
+	printk("register_chrdev_region successed! #cat /proc/devices\n");
+	return 0;
+failure_register_chrdev:
+	return ret;
+}
+
+void __exit cdd_exit(void)
+{
+	//注销设备号
+	unregister_chrdev_region(dev, CDD_COUNT);
+}	
+
+module_init(cdd_init);
+module_exit(cdd_exit);
+</pre><br />&#13;
+<pre code_snippet_id="130579" snippet_file_name="blog_20131227_2_6731682" name="code" class="plain">KERNELDIR ?=/root/Desktop/work/ldd3/linux-2.6.31_TX2440A
+PWD := $(shell pwd)
+obj-m += char_device_driver.o
+
+default:
+	$(MAKE) -C $(KERNELDIR) M=$(PWD) modules
+
+clean:
+	@rm -f *.o *.ord* *.sy* *.mod.* *.ko
+</pre><br />&#13;
+<br />&#13;
+&#13;
+   &#13;

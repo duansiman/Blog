@@ -1,0 +1,236 @@
+
+                
+<p><br/>&#13;
+</p>&#13;
+<p><span style="font-size:18px">MyBatis和Hibernate一样都是基于ORM的关系型数据库框架</span></p>&#13;
+<p><span style="font-size:18px">ORM工具的基本思想：</span></p>&#13;
+<p align="left" style="margin:0cm 0cm 0pt; text-align:left"><span style="font-size:18px"><span lang="EN-US" style="font-family:'Arial','sans-serif'; color:black; background:white">1.</span><span style="font-family:宋体; color:black; background:white">从配置文件</span><span lang="EN-US" style="font-family:'Arial','sans-serif'; color:black; background:white">(</span><span style="font-family:宋体; color:black; background:white">通常是</span><span lang="EN-US" style="font-family:'Arial','sans-serif'; color:black; background:white">XML</span><span style="font-family:宋体; color:black; background:white">配置文件中</span><span lang="EN-US" style="font-family:'Arial','sans-serif'; color:black; background:white">)</span><span style="font-family:宋体; color:black; background:white">得到</span></span><span style="font-size:18px"><span lang="EN-US" style="font-family:'Arial','sans-serif'; color:black; background:white">&#13;
+ sessionfactory.<br/>&#13;
+2. </span><span style="font-family:宋体; color:black; background:white">由</span><span lang="EN-US" style="font-family:'Arial','sans-serif'; color:black; background:white">sessionfactory </span><span style="font-family:宋体; color:black; background:white">产生</span></span><span style="font-size:18px"><span lang="EN-US" style="font-family:'Arial','sans-serif'; color:black; background:white">&#13;
+ session<br/>&#13;
+3. </span><span style="font-family:宋体; color:black; background:white">在</span><span lang="EN-US" style="font-family:'Arial','sans-serif'; color:black; background:white">session</span><span style="font-family:宋体; color:black; background:white">中完成对数据的增删改查和事务提交等</span></span><span style="font-size:18px"><span lang="EN-US" style="font-family:'Arial','sans-serif'; color:black; background:white">.<br/>&#13;
+4. </span><span style="font-family:宋体; color:black; background:white">在用完之后关闭</span><span lang="EN-US" style="font-family:'Arial','sans-serif'; color:black; background:white">session</span><span style="font-family:宋体; color:black; background:white">。</span></span></p>&#13;
+<p align="left" style="background:white; margin:0cm 0cm 0pt; text-align:left; line-height:19.5pt">&#13;
+<span style="font-size:14px"><span style="font-size:18px"><span lang="EN-US" style="font-family:'Arial','sans-serif'; color:black; background:white">5.</span><span style="font-family:宋体; color:black; background:white">在</span><span lang="EN-US" style="font-family:'Arial','sans-serif'; color:black; background:white">java</span><span style="font-family:宋体; color:black; background:white">对象和</span><span style="font-family:'Arial','sans-serif'; color:black; background:white"/><span style="font-family:宋体; color:black; background:white">数据库之间有做</span><span lang="EN-US" style="font-family:'Arial','sans-serif'; color:black; background:white">mapping</span><span style="font-family:宋体; color:black; background:white">的配置文件，也通常是</span><span lang="EN-US" style="font-family:'Arial','sans-serif'; color:black; background:white">xml</span><span style="font-family:宋体; color:black; background:white">文件。</span></span></span></p>&#13;
+<p><span style="font-family:宋体; font-size:14px"><br/>&#13;
+</span></p>&#13;
+<p><br/>&#13;
+</p>&#13;
+<p><span style="font-size:18px">MyBatis 是支持 普通 SQL 查询 ， 存储过程 和 高级映射 的优秀持久框架。MyBatis 消除了几乎所有的 JDBC 代码和参数的手工设置以及对结果集的检索封装。</span></p>&#13;
+<p><span style="font-size:18px"><br/>&#13;
+</span></p>&#13;
+<p><span style="font-size:18px">本文就一个demo的形式，讲诉MyBatis的数据库操作过程，新建一个web项目，项目结构如图：</span></p>&#13;
+<p><span style="font-size:18px">我们需要准备mybatis3.2.jar和mysql的jar，日志输出的jar根据自己项目的需要</span></p>&#13;
+<p><br/>&#13;
+</p>&#13;
+<p><img alt="" src="http://img.blog.csdn.net/20160430171239356?watermark/2/text/aHR0cDovL2Jsb2cuY3Nkbi5uZXQv/font/5a6L5L2T/fontsize/400/fill/I0JBQkFCMA==/dissolve/70/gravity/Center"/></p>&#13;
+<p><br/>&#13;
+</p>&#13;
+<p>新建数据库，数据表是users，设置id为主键，同时自动增长</p>&#13;
+<p><img width="908" height="472" alt="" src="http://img.blog.csdn.net/20160430171329838?watermark/2/text/aHR0cDovL2Jsb2cuY3Nkbi5uZXQv/font/5a6L5L2T/fontsize/400/fill/I0JBQkFCMA==/dissolve/70/gravity/Center" style="width:844px; height:475px"/></p>&#13;
+<p><br/>&#13;
+</p>&#13;
+<p><br/>&#13;
+</p>&#13;
+<p>新建一个资源文件config</p>&#13;
+<p>编写数据库配置信息文件db.properties:</p>&#13;
+<p/><pre code_snippet_id="1667718" snippet_file_name="blog_20160430_1_3156652" class="html" name="code">driver=com.mysql.jdbc.Driver
+url=jdbc\:mysql\://localhost\:3306/db_mysql?useUnicode\=true&amp;characterEncoding\=utf-8
+username=root
+password=111
+</pre><br/>&#13;
+&#13;
+<p/>&#13;
+<p><br/>&#13;
+</p>&#13;
+<p>编写pojo类：</p>&#13;
+<p/><pre code_snippet_id="1667718" snippet_file_name="blog_20160430_2_680635" class="java" name="code">package com.mybatis.entity;
+
+public class User {
+
+	/*
+	 * ID
+	 */
+	private int id;
+	
+	/*
+	 * 用户姓名 
+	 */
+	private String name;
+	
+	/*
+	 * age
+	 */
+	private int age;
+
+	public int getId() {
+		return id;
+	}
+
+	public void setId(int id) {
+		this.id = id;
+	}
+
+	public String getName() {
+		return name;
+	}
+
+	public void setName(String name) {
+		this.name = name;
+	}
+
+	public int getAge() {
+		return age;
+	}
+
+	public void setAge(int age) {
+		this.age = age;
+	}
+	
+	@Override
+	public String toString() {
+		return "User [id=" + id + ", name=" + name + ", age=" + age + "]";
+	}
+	
+}
+</pre><br/>&#13;
+&#13;
+<p/>&#13;
+<p><br/>&#13;
+</p>&#13;
+<p>编写pojo类对应的mapper文件：</p>&#13;
+<pre code_snippet_id="1667718" snippet_file_name="blog_20160430_3_8587083" class="html" name="code">&lt;?xml version="1.0" encoding="UTF-8" ?&gt;
+&lt;!DOCTYPE  mapper  PUBLIC  "-//mybatis.org//DTD  Mapper  3.0//EN"
+"http://mybatis.org/dtd/mybatis-3-mapper.dtd"&gt;
+&lt;!-- 
+	为这个mapper指定一个唯一的namespace，namespace的值习惯上设置成包名+sql映射文件名，这样就能够保证namespace的值是唯一的 
+--&gt;
+&lt;mapper namespace="com.mybatis.mapper.userMapper"&gt;
+
+&lt;!-- 
+	在select标签中编写查询的SQL语句， 设置select标签的id属性为findById，id属性值必须是唯一的，不能够重复
+    parameterType可以在MyBatis的配置文件里设置，也可以直接用包名+类名
+ --&gt;
+ 
+ 
+	&lt;insert id="save" parameterType="User"&gt;
+	insert into users(id,name,age) value(#{name},#{age})
+	&lt;/insert&gt;
+	&lt;update id="update" parameterType="User"&gt;
+	update users set name=#{name},age=#{age} where id=#{id}
+	&lt;/update&gt;
+	&lt;delete id="delete" parameterType="int"&gt;
+	delete from users where id=#{id}
+	&lt;/delete&gt;
+	&lt;select id="findById" parameterType="int" resultType="User"&gt;
+	select * from users where id=#{id}
+	&lt;/select&gt;
+	&lt;select id="findAll" resultType="User"&gt;
+	select * from users
+	&lt;/select&gt;
+&lt;/mapper&gt;</pre>&#13;
+<p><br/>&#13;
+</p>&#13;
+<p><br/>&#13;
+</p>&#13;
+<p>然后，在编写MyBatis的配置文件：</p>&#13;
+<p/><pre code_snippet_id="1667718" snippet_file_name="blog_20160430_4_3985277" class="html" name="code">&lt;?xml version="1.0" encoding="UTF-8"?&gt;
+&lt;!DOCTYPE configuration PUBLIC "-//mybatis.org//DTD Config 3.0//EN" 
+"http://mybatis.org/dtd/mybatis-3-config.dtd"&gt;
+&lt;configuration&gt;
+	
+	&lt;!-- 数据库配置文件  --&gt; 
+    &lt;properties resource="db.properties" /&gt;  
+     
+   &lt;!-- 实体类,简称 -设置别名 --&gt;
+	&lt;typeAliases&gt;
+		&lt;typeAlias alias="User" type="com.mybatis.entity.User" /&gt;
+	&lt;/typeAliases&gt;
+	
+	&lt;!-- 读取db.properties里的数据，进行数据库配置 --&gt;
+	&lt;environments default="development"&gt;
+		&lt;environment id="development"&gt;
+			&lt;transactionManager type="JDBC" /&gt;
+			&lt;dataSource type="POOLED"&gt;
+				&lt;property name="driver" value="${driver}"/&gt;
+	            &lt;property name="url" value="${url}" /&gt;
+	            &lt;property name="username" value="${username}"/&gt;
+	            &lt;property name="password" value="${password}"/&gt;
+			&lt;/dataSource&gt;
+		&lt;/environment&gt;
+	&lt;/environments&gt;
+	
+	&lt;!-- 注册userMapper.xml文件 --&gt;
+	&lt;mappers&gt;
+		&lt;mapper resource="com/mybatis/mapper/userMapper.xml"/&gt;
+	&lt;/mappers&gt;
+	
+&lt;/configuration&gt;
+</pre><br/>&#13;
+&#13;
+<p/>&#13;
+<p>测试类：</p>&#13;
+<pre code_snippet_id="1667718" snippet_file_name="blog_20160430_5_9142707" class="java" name="code">import java.io.Reader;
+
+import org.apache.ibatis.io.Resources;
+import org.apache.ibatis.session.SqlSession;
+import org.apache.ibatis.session.SqlSessionFactory;
+import org.apache.ibatis.session.SqlSessionFactoryBuilder;
+
+import com.mybatis.entity.User;
+
+
+public class Test {
+
+	public static void main(String[] args) {
+		String resource = "mybatis-config.xml";
+		try{
+			//加载Mybatis的配置文件
+			Reader reader = Resources.getResourceAsReader(resource);
+			//构建sqlSession的工厂
+	        SqlSessionFactory sessionFactory = new SqlSessionFactoryBuilder().build(reader);
+			//创建可以执行sql的SqlSession
+	        SqlSession session = sessionFactory.openSession();
+			//映射sql的标志字符串
+	        String statement = "com.mybatis.mapper.userMapper.findById";
+	        //执行查询返回id为1的User对象
+			User user = session.selectOne(statement,1);
+			System.out.println(user);
+			
+		}catch (Exception e) {
+			e.printStackTrace();
+		}
+	}
+}
+</pre>&#13;
+<p><br/>&#13;
+然后，可以编写日志文件，进行日志输出</p>&#13;
+<pre code_snippet_id="1667718" snippet_file_name="blog_20160430_6_1160595" class="html" name="code">log4j.properties\uFF0C
+log4j.rootLogger=DEBUG, Console
+#Console
+log4j.appender.Console=org.apache.log4j.ConsoleAppender
+log4j.appender.Console.layout=org.apache.log4j.PatternLayout
+log4j.appender.Console.layout.ConversionPattern=%d [%t] %-5p [%c] - %m%n
+log4j.logger.java.sql.ResultSet=INFO
+log4j.logger.org.apache=INFO
+log4j.logger.java.sql.Connection=DEBUG
+log4j.logger.java.sql.Statement=DEBUG
+log4j.logger.java.sql.PreparedStatement=DEBUG</pre>&#13;
+<p>运行测试类，可以输出，说明我们的mybatis搭建好了，可以进行数据库操作<br/>&#13;
+</p>&#13;
+<p><br/>&#13;
+</p>&#13;
+<p><img alt="" src="http://img.blog.csdn.net/20160430172859141?watermark/2/text/aHR0cDovL2Jsb2cuY3Nkbi5uZXQv/font/5a6L5L2T/fontsize/400/fill/I0JBQkFCMA==/dissolve/70/gravity/Center"/></p>&#13;
+<p><br/>&#13;
+</p>&#13;
+<p>需要注意的：</p>&#13;
+<p>为了统一编码，建议新建数据库时设置成utf-8的</p>&#13;
+<p>还有测试时，那个id一定要和userMapper.xml里的id对应，mybatis是根据这个id调用sql函数的哦</p>&#13;
+<p>配置mybatis文件时，一定要注意顺序，一般都是先配置别、数据库配置、然后mapper文件注册的</p>&#13;
+<p><br/>&#13;
+</p>&#13;
+<p><br/>&#13;
+</p>&#13;
+<div style="top:0px">﻿﻿</div>&#13;
+<link rel="stylesheet" href="http://static.blog.csdn.net/public/res-min/markdown_views.css?v=1.0"/>&#13;
+            

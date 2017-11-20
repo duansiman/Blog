@@ -1,0 +1,129 @@
+
+        <div class="markdown_views"><h1 id="子查询">子查询</h1>
+
+<p><strong>子查询</strong>：<code>sub query</code>，查询是在某个查询结果之上进行的，一条<code>select</code>语句内部包含了另外一条<code>select</code>语句。</p>
+
+
+
+<h2 id="行子查询">行子查询</h2>
+
+<p>行子查询，返回的结果可以使一行多列或者多行多列。</p>
+
+<p><strong>需求</strong>：查询学生表中，年龄最大且身高最高的学生。</p>
+
+<p><strong>思路</strong>：</p>
+
+<ul>
+<li>先确定数据源，学生表。 <br />
+<ul><li><code>select * from student where age = ? and height = ?;</code></li></ul></li>
+<li>然后确定最大年龄和最大身高。 <br />
+<ul><li><code>select max(age), max(height) from student;</code></li></ul></li>
+</ul>
+
+<p>执行如下 SQL 语句，进行测试：</p>
+
+
+
+<pre class="prettyprint"><code class=" hljs sql"><span class="hljs-comment">-- 列子查询</span>
+<span class="hljs-operator"><span class="hljs-keyword">select</span> * <span class="hljs-keyword">from</span> student <span class="hljs-keyword">where</span>
+-- 其中，(age, height) 称之为行元素
+(age, height) = (<span class="hljs-keyword">select</span> <span class="hljs-aggregate">max</span>(age), <span class="hljs-aggregate">max</span>(height) <span class="hljs-keyword">from</span> student);</span></code></pre>
+
+<p><img src="http://img.blog.csdn.net/20170827105939052" alt="row" title="" /></p>
+
+
+
+<h2 id="表子查询">表子查询</h2>
+
+<p>表子查询，返回的结果是多行多列二维表（将子查询的结果当做二维表来使用），实际上，任何查询返回的结果都可以称之为二维表。</p>
+
+<p><strong>需求</strong>：找出每个班身高最高的学生。</p>
+
+<p><strong>思路</strong>：</p>
+
+<ul>
+<li>先确定数据源，将学生按身高进行降序排序。 <br />
+<ul><li><code>select * from student order by height desc;</code></li></ul></li>
+<li>从每个班级选出第一个学生。 <br />
+<ul><li><code>select * from student group by c_id;</code></li></ul></li>
+</ul>
+
+<p>在这里，我们可能会有些疑问：为什么要将学生表降序排序？为什么从每个班级选出第一个学生就可以？这是因为<code>group by</code>（分组）只会取表中分组字段的第一条记录，而当我们将学生表按身高降序排序时，（每组）身高最高的学生就会出现在第一位。</p>
+
+<p>执行如下 SQL 语句，进行测试：</p>
+
+<pre class="prettyprint"><code class=" hljs sql"><span class="hljs-comment">-- 表子查询</span>
+<span class="hljs-operator"><span class="hljs-keyword">select</span> * <span class="hljs-keyword">from</span> 
+-- 关键字 <span class="hljs-keyword">from</span> 后面接表名
+(<span class="hljs-keyword">select</span> * <span class="hljs-keyword">from</span> student <span class="hljs-keyword">order</span> <span class="hljs-keyword">by</span> height <span class="hljs-keyword">desc</span>) <span class="hljs-keyword">as</span> student 
+-- 按 c_id 进行分组
+<span class="hljs-keyword">group</span> <span class="hljs-keyword">by</span> c_id;</span></code></pre>
+
+<p><img src="http://img.blog.csdn.net/20170827112336833" alt="table" title="" /></p>
+
+<p>由上面的 SQL 语句可知，表子查询也是<code>from</code>子查询，即有<code>select</code>语句位于<code>from</code>之后。</p>
+
+<h2 id="exists子查询"><code>exists</code>子查询</h2>
+
+<p><code>exists</code>：表示是否存在的意思，因此<code>exists</code>子查询就是用来判断某些条件是否满足（跨表），<code>exists</code>是接在<code>where</code>之后，其返回的结果为<code>1</code>或<code>0</code>，满足条件为<code>1</code>，反之为<code>0</code>.</p>
+
+<p><strong>需求</strong>：在班级存在的前提下，查询所有的学生。</p>
+
+<p><strong>思路</strong>：</p>
+
+<ul>
+<li>先确定数据源。 <br />
+<ul><li><code>select * from student where ?;</code></li></ul></li>
+<li>然后确定条件是否满足。 <br />
+<ul><li><code>exists(select * from class);</code></li></ul></li>
+</ul>
+
+<p>执行如下 SQL 语句，进行测试：</p>
+
+<pre class="prettyprint"><code class=" hljs sql"><span class="hljs-comment">-- exists 子查询</span>
+<span class="hljs-operator"><span class="hljs-keyword">select</span> * <span class="hljs-keyword">from</span> student <span class="hljs-keyword">where</span>
+<span class="hljs-keyword">exists</span>(<span class="hljs-keyword">select</span> * <span class="hljs-keyword">from</span> class);</span>
+
+<span class="hljs-comment">-- 添加限定条件，满足条件</span>
+<span class="hljs-operator"><span class="hljs-keyword">select</span> * <span class="hljs-keyword">from</span> student <span class="hljs-keyword">where</span>
+<span class="hljs-keyword">exists</span>(<span class="hljs-keyword">select</span> * <span class="hljs-keyword">from</span> class <span class="hljs-keyword">where</span> id = <span class="hljs-number">3</span>);</span>
+
+<span class="hljs-comment">-- 添加限定条件，不满足条件</span>
+<span class="hljs-operator"><span class="hljs-keyword">select</span> * <span class="hljs-keyword">from</span> student <span class="hljs-keyword">where</span>
+<span class="hljs-keyword">exists</span>(<span class="hljs-keyword">select</span> * <span class="hljs-keyword">from</span> class <span class="hljs-keyword">where</span> id = <span class="hljs-number">100</span>);</span></code></pre>
+
+<p><img src="http://img.blog.csdn.net/20170827120457531" alt="exists" title="" /></p>
+
+<p>至此，我们已经将子查询学习完啦！也许大家还会有些疑惑，那就是到底在什么时候用什么子查询？对于这个问题，我们不用过于纠结，因为这根本就是我们要用什么子查询的问题，而是根据实际需求，我们将查询返回的结果按形式命名的称呼而已。</p>
+
+<hr />
+
+<p><strong>查询<code>class</code>表</strong>：</p>
+
+<p><img src="http://img.blog.csdn.net/20170826223402050" alt="class" title="" /></p>
+
+<p><strong>查询<code>student</code>表</strong>：</p>
+
+<p><img src="http://img.blog.csdn.net/20170827105224514" alt="student" title="" /></p>
+
+<hr />
+
+<p><strong>温馨提示：</strong>符号<code>[]</code>括起来的内容，表示可选项；符号<code>+</code>，则表示连接的意思。</p>
+
+<hr />
+
+<p>———— ☆☆☆ —— <a href="http://blog.csdn.net/qq_35246620/article/details/70823903">返回 -&gt; 史上最简单的 MySQL 教程 &lt;- 目录</a> —— ☆☆☆ ————</p></div>&#13;
+        <script type="text/javascript">&#13;
+            $(function () {&#13;
+                $('pre.prettyprint code').each(function () {&#13;
+                    var lines = $(this).text().split('\n').length;&#13;
+                    var $numbering = $('&lt;ul/&gt;').addClass('pre-numbering').hide();&#13;
+                    $(this).addClass('has-numbering').parent().append($numbering);&#13;
+                    for (i = 1; i &lt;= lines; i++) {&#13;
+                        $numbering.append($('&lt;li/&gt;').text(i));&#13;
+                    };&#13;
+                    $numbering.fadeIn(1700);&#13;
+                });&#13;
+            });&#13;
+        </script>&#13;
+   &#13;

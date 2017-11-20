@@ -1,0 +1,228 @@
+
+
+<h3>命令模式</h3>&#13;
+<p>将一个请求封装为一个对象，从而使你可以用不同的请求对客户进行参数化，对请求排队和记录请求日志，以及支持可撤销的操作。</p>&#13;
+<p> </p>&#13;
+<p></p><pre code_snippet_id="152506" snippet_file_name="blog_20140111_1_1977934" name="code" class="java">package com.ruishenh.designPatter.action.command;
+ 
+public class CommandClient {
+   public static void main(String[] args) {
+      Lead lead=new Lead();
+      Staff staff=new Staff();
+      ConcreteCommand command =new ConcreteCommand(staff);
+      lead.setCommand(command);
+      lead.action();
+      //这一块来看的话，比如一些细节操作可能还需要变动暂时无法定下来，可以留着接口的回调函数最后来写。
+      lead.setCommand(new ICommand() {
+        @Override
+        public void execute() {
+        System.out.println("员工-有意见了，决定不干了。");
+        }
+      });
+      lead.action();
+     
+   }
+}
+interface ICommand{
+   public void execute(); 
+}
+class ConcreteCommand implements ICommand{
+  
+   Staff staff;
+  
+    public ConcreteCommand(Staff staff){ 
+           this.staff = staff; 
+       } 
+   @Override
+   public void execute() {
+      staff.doSomething();
+   }
+  
+}
+//命令发起者
+class Lead{
+  
+   private ICommand command; 
+  
+    public void setCommand(ICommand command) { 
+        this.command = command; 
+    } 
+    public void action(){
+        this.command.execute(); 
+    }
+}
+//命令操作者
+class Staff {
+   public void doSomething() {
+      System.out.println("员工-干活");
+   }
+}</pre><br />&#13;
+<br />&#13;
+&#13;
+<p> </p>&#13;
+<p>命令模式的核心任务把执行命令封装成一个对象传送给发送命令者，命令者直接执行操作。某种意义上解决了行为的操作和发起之间的解耦。</p>&#13;
+<p>在编码上边有时候感觉就是把一些命令或者是未知的命令留着开放下来，然后在后续去完成。</p>&#13;
+<p> </p>&#13;
+<h3>状态模式</h3>&#13;
+<p>允许对象在其内部状态改变时改变他的行为。对象看起来似乎改变了他的类。</p>&#13;
+<p></p><pre code_snippet_id="152506" snippet_file_name="blog_20140111_2_6405799" name="code" class="java">package com.ruishenh.designPatter.action.state;
+ 
+ 
+public class StateClient {
+   public static void main(String[] args) {
+      Washer washer =new Washer();
+     
+      washer.setState(new PowerWashState());
+      washer.action(null);
+     
+      //切换状态
+      washer.setState(new StartingWashState());
+      washer.action(null);
+   }
+ 
+}
+interface WashState{
+   void Handler(String clothes);
+}
+class PowerWashState implements WashState{
+   public void Handler(String clothes) {
+      System.out.println("洗衣机电源打开");
+   }
+}
+class StartingWashState implements WashState{
+   public void Handler(String clothes) {
+      System.out.println("洗衣机启动洗衣服");
+   }
+}
+class WaterInWashState implements WashState{
+   public void Handler(String clothes) {
+      System.out.println("洗衣机注水中...");
+   }
+}
+class WashingWashState implements WashState{
+   public void Handler(String clothes) {
+      System.out.println("洗衣机洗衣中...");
+   }
+}
+class WaterOutWashState implements WashState{
+   public void Handler(String clothes) {
+      System.out.println("洗衣机放水中...");
+   }
+}
+class DehydrationWashState implements WashState{
+   public void Handler(String clothes) {
+      System.out.println("洗衣机脱水中...");
+   }
+}
+class ClosedWashState implements WashState{
+   public void Handler(String clothes) {
+      System.out.println("洗衣机洗衣完毕..提示.");
+   }
+}
+//洗衣机
+class Washer{
+  
+   WashState state;
+  
+   public void setState(WashState state) {
+      this.state = state;
+   }
+   void action(String p1){
+      state.Handler(p1);
+   }
+}</pre><br />&#13;
+<br />&#13;
+&#13;
+<p>  </p>&#13;
+<p>状态模式的核心就是通过一个状态的改变，而随时改变对应的状态行为。个人理解对于扩展较多且每个状态处理的逻辑可能比较复杂的时候可以选择使用此模式。否则，可能会产生很对的状态子类。维护性变的复杂</p>&#13;
+<p> </p>&#13;
+<p> </p>&#13;
+<h3>策略模式</h3>&#13;
+<p>定义一系列的算法，把他们一个个封装起来，并使他们可以互相替换，本模式使得算法可以独立于使用它们的客户。</p>&#13;
+<p></p><pre code_snippet_id="152506" snippet_file_name="blog_20140111_3_2959453" name="code" class="java">package com.ruishenh.designPatter.action.strategy;
+ 
+import java.math.BigDecimal;
+ 
+public class StrategyClient {
+ 
+   public static void main(String[] args) {
+      DiscountContext context =new DiscountContext(null);
+      System.out.println("小明买了一件衣服原价:100元");
+      System.out.println("现价:"+context.getDiscountPrice(100));
+     
+      System.out.println("由于小明是会员打九五折,所以");
+      context.setStrategy(new VipDiscount(0.95));
+      System.out.println("现价:"+context.getDiscountPrice(100));
+     
+      System.out.println("由于小明是又买了一件衣服不能用会员,但是却参加了满100-20的活动所以");
+      context.setStrategy(new FullLessDiscount(100,20));
+      System.out.println("现价:"+context.getDiscountPrice(122));
+   }
+}
+ 
+ 
+interface DiscountStrategy{
+  
+   BigDecimal getDiscount(BigDecimal price);
+  
+}
+//会员
+class VipDiscount implements DiscountStrategy{
+  
+   public VipDiscount(double base) {
+      this.base=base;
+   }
+   //会员的基数
+   private double base;
+ 
+   public BigDecimal getDiscount(BigDecimal price) {
+      return price.multiply(new BigDecimal(base));
+   }
+  
+}
+//满减
+class FullLessDiscount implements DiscountStrategy{
+  
+   public FullLessDiscount(double full,double less) {
+      this.full=full;
+      this.less=less;
+   }
+   //会员的基数
+   private double full;
+   private double less;
+ 
+   public BigDecimal getDiscount(BigDecimal price) {
+      if (price.compareTo(new BigDecimal(full))&lt;0) {
+         return price;
+      }
+      return price.subtract(new BigDecimal(less));
+   }
+}
+class DiscountContext{
+  
+   DiscountStrategy strategy;
+  
+   public DiscountContext(DiscountStrategy strategy) {
+      this.strategy=strategy;
+   }
+ 
+   public DiscountStrategy getStrategy() {
+      return strategy;
+   }
+ 
+   public void setStrategy(DiscountStrategy strategy) {
+      this.strategy = strategy;
+   }
+  
+   public double getDiscountPrice(double price){
+      if (strategy==null) {
+         strategy=new VipDiscount(1);
+      }
+      return strategy.getDiscount(new BigDecimal(price)).doubleValue();
+   }
+}</pre><br />&#13;
+ &#13;
+<p><br />&#13;
+策略模式和状态模式很相似,但状态模式侧重状态方面,一般不会接受新的状态对象,即系统已经定义足够的状态 </p>&#13;
+<p>策略侧重不同的行为的改变在统一的接口下,强调多态下面行为的执行过程,处理过程,可以从用户那里接受参数,只要用户提供的策略符合接口</p>&#13;
+   &#13;

@@ -1,0 +1,27 @@
+
+
+<pre code_snippet_id="2570947" snippet_file_name="blog_20170909_1_8712805" name="code" class="cpp">static int get_master_version_and_clock(MYSQL* mysql, Master_info* mi)
+    version_number= atoi(mysql-&gt;server_version);//select version()的结果
+    if (!mysql_real_query(mysql, STRING_WITH_LEN("SELECT UNIX_TIMESTAMP()")) &amp;&amp;(master_res= mysql_store_result(mysql)) &amp;&amp; (master_row= mysql_fetch_row(master_res))){
+        mysql_mutex_lock(&amp;mi-&gt;data_lock);
+        mi-&gt;clock_diff_with_master=(long) (time((time_t*) 0) - strtoul(master_row[0], 0, 10));
+        mysql_mutex_unlock(&amp;mi-&gt;data_lock);
+	}
+    if (!mysql_real_query(mysql,STRING_WITH_LEN("SHOW VARIABLES LIKE 'SERVER_ID'")) &amp;&amp; (master_res= mysql_store_result(mysql)) &amp;&amp; (master_row= mysql_fetch_row(master_res))){
+        if ((::server_id == (mi-&gt;master_id= strtoul(master_row[1], 0, 10))) &amp;&amp;!mi-&gt;rli-&gt;replicate_same_server_id)
+	}
+    if (mi-&gt;heartbeat_period != 0.0){
+        const char query_format[]= "SET @master_heartbeat_period= %s";
+        char query[sizeof(query_format) - 2 + sizeof(llbuf)];
+        llstr((ulonglong) (mi-&gt;heartbeat_period*1000000000UL), llbuf);
+        sprintf(query, query_format, llbuf);
+        mysql_real_query(mysql, query, strlen(query))；
+	}
+    const char query[]= "SET @master_binlog_checksum= @@global.binlog_checksum";
+    rc= mysql_real_query(mysql, query, strlen(query));
+    io_thread_init_command(mi, "SELECT @@GLOBAL.GTID_MODE",ER_UNKNOWN_SYSTEM_VARIABLE, &amp;master_res, &amp;master_row);</pre><br />&#13;
+该函数获取主库的版本号、主库的系统时间以及分区信息，同时获取maser的server_id。获取了主库的系统时间后，就可以计算主库和从库的实际偏差，这对延迟复制很有用。<br />&#13;
+该函数调用在safe_connect之后，即所有内容都是在mysql入参的这个连接上从主库获取的。<br />&#13;
+通过mysql_real_query函数获取主库信息。主库上执行select unix_timestamp()；show variables like 'server_id';获取实际和server ID。<br />&#13;
+这里针对的是MySQL5.6&#13;
+   &#13;

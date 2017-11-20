@@ -1,0 +1,75 @@
+
+<span style="font-size:18px;"><strong><span style="padding: 0px; margin: 0px; line-height: 28px; font-family: Arial;"><span style="color:#ff0000;">魔数（magic number）</span>，即在编写程序时直接在程序中运用数字，而不是采用定义宏或是const变量的方式，图1是使用了魔数的一个示例程序。其中的64是指Msk的最大字节数。从这一程序中可以看出，Msk的最小字节数是MIN_MSK_LEN，即20。采用魔数的危害有：</span><br style="padding: 0px; margin: 0px; font-family: 宋体, 'Arial Narrow', arial, serif; line-height: 28px;" /><span style="padding: 0px; margin: 0px; line-height: 28px; font-family: Arial;">    1) 降低了程序的可读性。有人可能会提出，那加一些注释不就完了吗？如果真是采用加注释的方式，那为什么不将其定义成一个宏或是const常量呢？要知道查看注释的效率肯定没有直接看代码来得快和方便，也不存在不同步的问题（代码与注释有可能不同步）。</span><br style="padding: 0px; margin: 0px; font-family: 宋体, 'Arial Narrow', arial, serif; line-height: 28px;" /><span style="padding: 0px; margin: 0px; line-height: 28px; font-family: Arial;">    2) 如果下一次这个最大值要从64改为128，那得在adjustMask()中对每一处都进行更改。另外，当一个项目较大时，魔数的存在会使得程序维护非常、非常困难。</span><br style="padding: 0px; margin: 0px; font-family: 宋体, 'Arial Narrow', arial, serif; line-height: 28px;" /></strong></span><p><span style="padding: 0px; margin: 0px; line-height: 28px; font-family: Arial;"><span style="font-size:18px;"><strong>由此看来，这里的“魔”不应理解成象“魔法（magic）”那样神奇，而应理解为象“魔鬼（monster）”那样可怕。</strong></span></span></p><p><span style="padding: 0px; margin: 0px; color: rgb(44, 44, 44); line-height: 28px; font-family: Arial;"></span></p><pre name="code" class="cpp" style="font-size: 14px;">00290: #define MIN_MSK_LEN 20
+00291:
+00292: int adjustMsk (MskContext* Context)
+00293: {
+00294:     char temp [64] = {0};
+00295:
+00296:     if (Context-&gt;lenMsk &gt; 64) {
+00297:         memcpy (temp, Context-&gt;msk + (Context-&gt;lenMsk - 64),    64);
+00298:         ...
+00399:         memcpy (Context-&gt;msk, temp, 64);
+00300:     }
+00301:     else if (Context-&gt;lenMsk &lt; MIN_MSK_LEN) {
+00302:         return ERROR;
+00303:     }
+00304:     ...
+00305: }
+</pre><br /><span style="color: rgb(44, 44, 44); font-family: Arial; line-height: 28px;"><span style="font-size:18px;"><strong>采用宏之后的版本。其中定义了MAX_MSK_LEN的大小为64，如果其它函数中也需要用到Msk的最大值，那么也可以引用这一宏。如果下一次想将最大值从64改为128时，只要改MAX_MSK_LEN宏的定义就行了。另外，这种宏定义的存在有利于模块与模块之间共享，从而在一定程度上提高重用性。</strong></span></span><br /><p><span style="padding: 0px; margin: 0px; line-height: 28px; font-family: Arial;"><span style="font-family: Arial; line-height: 28px;"></span></span></p><pre name="code" class="cpp" style="color: rgb(44, 44, 44); font-size: 14px;">00289: #define MIN_MSK_LEN 20
+00290: #define MAX_MSK_LEN 64
+00291:
+00292: int adjustMsk (MskContext* Context)
+00293: {
+00294:     char temp [MAX_MSK_LEN] = {0};
+00295:
+00296:     if (Context-&gt;lenMsk &gt; MAX_MSK_LEN) {
+00297:         memcpy (temp, Context-&gt;msk + (Context-&gt;lenMsk - MAX_MSK_LEN),
+00298:             MAX_MSK_LEN);
+00399:         ...
+00300:         memcpy (Context-&gt;msk, temp, MAX_MSK_LEN);
+00301:     }
+00302:     else if (Context-&gt;lenMsk &lt; MIN_MSK_LEN) {
+00303:         return ERROR;
+00304:     }
+00305:     ...
+00306: }</pre><br /><pre name="code" class="cpp" style="color: rgb(44, 44, 44); font-size: 14px;">#include &lt;iostream&gt;
+using namespace std;
+
+int main( void )
+{
+    //我们经常会看到这样的程序： 本程序中有两个魔数0和10，
+
+    //它的意义在上下文中没有体现出来，好像这两个数是从魔术搬地从空中出现。
+
+    //当然程序小的时候没有这样的感觉，当程序变大之后，
+
+    //会发现这种行为严重影响程序的可读性（突然出现一个数字，让人难以理解）
+
+    //和可维护性（如：10在程序中多次出现时，维护过程中若要修改这个值时，
+
+    //所有出现10的地方都要被修改，增加了修改时出错的机会和工作量）。 
+
+ 	for (int i=0; i&lt;10; ++i)
+ 	{
+        cout &lt;&lt; i &lt;&lt; " ";
+    }
+    
+    //======================================================
+
+    //因此，可以参考这样写： 
+
+    const int LOOP_BEGIN = 0; //循环的初值 
+
+    const int LOOP_UPPER_BOUND = 10; //循环的上界
+
+    
+    for (int i=LOOP_BEGIN; i&lt;LOOP_UPPER_BOUND; ++i)
+    {
+        cout &lt;&lt; i &lt;&lt; " ";
+    }
+    //======================================================
+
+ 	
+ 	system( "PAUSE" );
+ 	return EXIT_SUCCESS;
+}</pre><br /><span style="font-size:18px;color:#ff0000;"><strong>本文转载自：http://yunli.blog.51cto.com/831344/265730/</strong></span>   &#13;

@@ -1,0 +1,59 @@
+
+
+<p>【这是针对<a target="_blank" href="http://blog.csdn.net/yqj2065/article/details/8560784" style="color:rgb(102,102,102); text-decoration:none; font-family:'Microsoft YaHei'; font-size:20px; line-height:30px">读这个《简单工厂设计模式》博文的感想</a> 而写的博客，告诉该同学什么是静态工厂】</p>&#13;
+<p>用手/Hand去开门/Door，现在抽象类Door有子类D1、D2。</p>&#13;
+<p>如果直接使用new表达式的方式创建对象，会使得Hand与D1、D2耦合。代码如下：</p>&#13;
+<pre class="java" name="code">package creational.factory;
+public class Hand{
+    Door d = null;
+    public Hand(String typeName){//int ID
+        if(typeName.equals("D1")){
+            d =  new D1();
+        }else if(typeName.equals("D2")){
+            d =  new D2();
+        }
+    }
+}
+
+</pre>&#13;
+<p><br />&#13;
+<strong><span style="color:#003300">要解决的问题</span></strong>：Hand与D1、D2耦合，请问如何解藕？</p>&#13;
+<p>为了避免Hand中出现硬编码的new表达式，<span style="color:rgb(153,0,0)">也不在Hand中使用Java反射机制</span>，可以设计一个类DoorFactory，<span style="color:#990000">将Hand构造器中的代码封装起来，使得Hand解除对那些具体类的依赖</span>。[<strong><span style="color:#006600">这就是解决方案</span></strong>] “显然，这是一种讨巧的技术，看似没有技术含量。然而，一旦打开一种新的思路，就可以创造出更精巧的技术”。</p>&#13;
+<pre class="java" name="code">package creational.factory;
+public class DoorFactory{
+    public static Door getObject(String typeName)	{//int ID
+        if(typeName.equals("D1")){
+            return new D1();
+        }else if(typeName.equals("D2")){
+            return new D2();
+        }else{
+            return null;
+        }
+    }
+}
+
+package creational.factory;
+public class Hand{
+    static Door d = null;    
+    public static void test(){
+        d = DoorFactory.getObject("D2")	;
+        d.m();
+    }
+}
+</pre>&#13;
+<p>通常，<span style="color:#990000">将创建对象的方法getObject ()设计成static方法，因而该方法被称为静态工厂方法。这一“看似没有技术含量”的模式即为简单工厂模式或静态工厂模式。</span> </p>&#13;
+<ul>&#13;
+<li>为什么需要这个“模式”？Hand与D1、D2耦合，解藕。</li><li>理解难度：0.</li><li>能否自己想出这个解决方案？可以。</li><li>前辈智慧的结晶？no，自己想出来的。</li><li>意图<span style="color:rgb(153,0,0)">：①创建对象时不需要将初始化逻辑曝露给客户类；②客户类通过公用(常常为静态)方法获得对象。</span></li><li><span style="color:#990000">UML图？略，太简单了</span></li></ul>&#13;
+<p>getObject ()方法使用if或switch语句与参数匹配而创建相应的对象，这一方式常被称为<span style="color:#990000">参数化工厂(parameterized factory</span>)，是一种<span style="color:#990000">菜鸟 (noob )实现</span>。</p>&#13;
+<p>静态工厂模式缺点：Door增添新的实现类如D3时，必将导致工厂的代码变化，违反OCP。静态工厂将创建对象的代码从客户类Hand中提取出来从而保证Hand类遵循OCP，但是它自己承担了违背OCP的恶名。</p>&#13;
+<p>替代方案：</p>&#13;
+<ul>&#13;
+<li>通用的实现，前面提到的tool.God，它本身就是一个典型的静态工厂。作为工具，利用反射机制+配置文件。</li><li>改进菜鸟实现的一种常用技术是注册。工厂通过一个HashMap在产品(如Door)的子类型和某个键(如String类型的类名或者int类型的产品ID等)进行映射，使得工厂与产品的子类型解藕。【同单例模式采用的技术】</li><li>工厂方法模式。【工厂方法模式已经被边缘化，但是它是学习抽象工厂模式的基础】</li></ul>&#13;
+<div><br />&#13;
+</div>&#13;
+<div>&#13;
+<p><a target="_blank" href="http://blog.csdn.net/yqj2065/article/details/8592375" style="text-align:center"><img src="http://img.blog.csdn.net/20140919170809965?watermark/2/text/aHR0cDovL2Jsb2cuY3Nkbi5uZXQveXFqMjA2NQ==/font/5a6L5L2T/fontsize/400/fill/I0JBQkFCMA==/dissolve/70/gravity/SouthEast" alt="" /></a><br />&#13;
+</p>&#13;
+<p><span style="color:rgb(51,51,51); font-family:Arial; font-size:14px; line-height:26px">最后编辑时间：2014.7.20</span></p>&#13;
+</div>&#13;
+   &#13;

@@ -1,0 +1,227 @@
+
+
+<p><span style="font-family:KaiTi_GB2312; font-size:18px">    上篇文章<a target="_blank" href="http://blog.csdn.net/lidatgb/article/details/38322921">《再说Java EE》</a>说明了一下什么是规范，有什么作用，这篇文章来细说一下JDBC。</span></p>&#13;
+<h1><span style="font-family:KaiTi_GB2312; font-size:18px">JDBC    </span></h1>&#13;
+<p><span style="font-family:KaiTi_GB2312; font-size:18px">    JDBC（Java Database Connection）也是Java EE中的一个规范，</span><span style="font-family:KaiTi_GB2312; font-size:18px">所谓规范是一组接口，如JDBC</span><span style="font-family:KaiTi_GB2312; font-size:18px">接口包含在java.sql及javax.sql包中，其中java.sql属于JavaSE，javax.sql属于JavaEE，部分如下图：</span></p>&#13;
+<p><span style="font-family:KaiTi_GB2312; font-size:18px">    <img src="http://img.blog.csdn.net/20140731214439488?watermark/2/text/aHR0cDovL2Jsb2cuY3Nkbi5uZXQvbGlkYXRnYg==/font/5a6L5L2T/fontsize/400/fill/I0JBQkFCMA==/dissolve/70/gravity/SouthEast" alt="" /><br />&#13;
+</span></p>&#13;
+<p><span style="font-family:KaiTi_GB2312; font-size:18px">    以上来自jdk中的src/java/sql。</span></p>&#13;
+<p><span style="font-family:KaiTi_GB2312; font-size:18px">    因为提倡面向接口编程，所以建议仅使用JDBC规范中的类，规范与实现的关系如下：</span></p>&#13;
+<p><span style="font-family:KaiTi_GB2312; font-size:18px">    <img src="http://img.blog.csdn.net/20140731214630311?watermark/2/text/aHR0cDovL2Jsb2cuY3Nkbi5uZXQvbGlkYXRnYg==/font/5a6L5L2T/fontsize/400/fill/I0JBQkFCMA==/dissolve/70/gravity/SouthEast" alt="" /></span></p>&#13;
+<h1><span style="font-family:KaiTi_GB2312; font-size:18px">使用</span></h1>&#13;
+<h2><span style="font-family:KaiTi_GB2312; font-size:18px">    核心API</span></h2>&#13;
+<div><span style="font-family:KaiTi_GB2312; font-size:18px">    JDBC中核心的API有：</span></div>&#13;
+<div>&#13;
+<ul>&#13;
+<li><span style="font-family:KaiTi_GB2312; font-size:18px">DriverManager：工厂类,用来生产Driver对象</span></li><li><span style="font-family:KaiTi_GB2312; font-size:18px">Driver：驱动程序对象的接口</span></li><li><span style="font-family:KaiTi_GB2312; font-size:18px">Connection：数据库连接对象</span></li><li><span style="font-family:KaiTi_GB2312; font-size:18px">Statement：执行静态的SQL语句的接口</span></li><li><span style="font-family:KaiTi_GB2312; font-size:18px">Resultset：结果集对象的接口</span></li></ul>&#13;
+</div>&#13;
+<h2><span style="font-family:KaiTi_GB2312; font-size:18px">    操作流程</span></h2>&#13;
+<p></p>&#13;
+<ul>&#13;
+<li><span style="font-family:KaiTi_GB2312; font-size:18px">加载数据库驱动</span></li><li><span style="font-family:KaiTi_GB2312; font-size:18px">创建数据库连接</span></li><li><span style="font-family:KaiTi_GB2312; font-size:18px">执行SQL语句，</span><span style="font-family:KaiTi_GB2312; font-size:18px">得到结果集</span></li><li><span style="font-family:KaiTi_GB2312; font-size:18px">对结果集进行CRUD处理</span></li><li><span style="font-family:KaiTi_GB2312; font-size:18px">释放资源</span></li></ul>&#13;
+<p></p>&#13;
+<p><span style="font-family:KaiTi_GB2312; font-size:18px">    如图：</span></p>&#13;
+<p><span style="font-family:KaiTi_GB2312; font-size:18px">    <img src="http://img.blog.csdn.net/20140731215433859?watermark/2/text/aHR0cDovL2Jsb2cuY3Nkbi5uZXQvbGlkYXRnYg==/font/5a6L5L2T/fontsize/400/fill/I0JBQkFCMA==/dissolve/70/gravity/SouthEast" alt="" /></span></p>&#13;
+<h1><span style="font-family:KaiTi_GB2312; font-size:18px">源码分析</span></h1>&#13;
+<p><span style="font-family:KaiTi_GB2312; font-size:18px">    java.sql下有48个类，javax.sql下有45个类，展开分析不太现实，本文仅分析两个类，DriverManager和Driver。</span><span style="font-family:KaiTi_GB2312; font-size:18px">不知大家注意过这个问题没有，JDBC是接口，数据库驱动是实现，那么你编写的项目是如何找到实现的呢？</span></p>&#13;
+<h2><span style="font-family:KaiTi_GB2312; font-size:18px">    控制台输出</span></h2>&#13;
+<p><span style="font-family:KaiTi_GB2312; font-size:18px">    为了可以看到驱动加载过程中输出的日志，在加载驱动Class.forName("com.mysql.jdbc.Driver")之前，加上一句：</span></p>&#13;
+<pre name="code" class="java">    DriverManager.setLogWriter(new java.io.PrintWriter(System.out));
+</pre><span style="font-family:KaiTi_GB2312; font-size:18px">    即可在控制台中看到输出。</span>&#13;
+<p></p>&#13;
+<h2><span style="font-family:KaiTi_GB2312; font-size:18px">    加载驱动</span></h2>&#13;
+<p><span style="font-family:KaiTi_GB2312; font-size:18px">    驱动使用很简单，将数据库驱动放到项目的lib中，在代码中写入：</span></p>&#13;
+<p><span style="font-family:KaiTi_GB2312; font-size:18px"></span></p>&#13;
+<pre name="code" class="java">    Class.forName("com.mysql.jdbc.Driver");</pre><span style="font-family:KaiTi_GB2312; font-size:18px">    如果使用框架，如Hebernate配置文件中写入：</span>&#13;
+<p></p>&#13;
+<p><span style="font-family:KaiTi_GB2312; font-size:18px"></span></p>&#13;
+<pre name="code" class="java">    &lt;property name="hibernate.connection.driver_class"&gt;com.mysql.jdbc.Driver&lt;/property&gt;</pre><br />&#13;
+<span style="font-family:KaiTi_GB2312; font-size:18px">    很明显，这两种方式都是使用反射加载驱动程序，我们来看一下驱动程序Driver的源代码，以mysql-connector-java-3.1.13为例：</span>&#13;
+<p></p>&#13;
+<p><span style="font-family:KaiTi_GB2312; font-size:18px"></span></p>&#13;
+<pre name="code" class="java">package com.mysql.jdbc;
+
+import java.sql.SQLException;
+
+public class Driver extends NonRegisteringDriver implements java.sql.Driver {
+	//
+	// Register ourselves with the DriverManager
+	//
+	static {
+		try {
+			java.sql.DriverManager.registerDriver(new Driver());
+		} catch (SQLException E) {
+			throw new RuntimeException("Can't register driver!");
+		}
+	}
+
+	/**
+	 * Construct a new driver and register it with DriverManager
+	 * @throws SQLException
+	 *             if a database error occurs.
+	 */
+	public Driver() throws SQLException {
+		// Required for Class.forName().newInstance()
+	}
+}
+</pre><span style="font-family:KaiTi_GB2312; font-size:18px">    核心代码就是那段静态代码块（static{}的意思是在类加载时执行一次，并且仅此一次），可以看到静态代码断的意思是将此Driver类实例化后注册到JDBC的java.sql.DriverManager类中，所以再来看一下JDBC的DriverManager.registerDriver:</span>&#13;
+<p></p>&#13;
+<p><span style="font-family:KaiTi_GB2312; font-size:18px"></span></p>&#13;
+<pre name="code" class="java">/**
+     * Registers the given driver with the &lt;code&gt;DriverManager&lt;/code&gt;.
+     * A newly-loaded driver class should call
+     * the method &lt;code&gt;registerDriver&lt;/code&gt; to make itself
+     * known to the &lt;code&gt;DriverManager&lt;/code&gt;.
+     *
+     * @param driver the new JDBC Driver that is to be registered with the
+     *               &lt;code&gt;DriverManager&lt;/code&gt;
+     * @exception SQLException if a database access error occurs
+     */
+    public static synchronized void registerDriver(java.sql.Driver driver)
+	throws SQLException {
+	if (!initialized) {
+	    initialize();
+	}
+      
+	DriverInfo di = new DriverInfo();
+
+	di.driver = driver;
+	di.driverClass = driver.getClass();
+	di.driverClassName = di.driverClass.getName();
+
+	// Not Required -- drivers.addElement(di);
+
+	writeDrivers.addElement(di); 
+	println("registerDriver: " + di);
+	
+	/* update the read copy of drivers vector */
+	readDrivers = (java.util.Vector) writeDrivers.clone();
+
+    }</pre><span style="font-family:KaiTi_GB2312; font-size:18px">    即可将com.mysql.jdbc.Driver添加到DriverManager的成员变量readDrivers中，以后获取数据库连接需要这个变量的帮助。</span>&#13;
+<p></p>&#13;
+<p><span style="font-family:KaiTi_GB2312; font-size:18px">    看上面的代码发现，还调用了initialize()，查看<span style="font-family:KaiTi_GB2312; font-size:18px">initialize()的源码看到它调用loadInitialDrivers()，这个函数的主要作用是加载JDBC默认驱动，registerDriver执行完，控制台的输出语句为：</span></span></p>&#13;
+<p><span style="font-family:KaiTi_GB2312; font-size:18px"><span style="font-family:KaiTi_GB2312; font-size:18px"></span></span></p>&#13;
+<pre name="code" class="html">JdbcOdbcDriver class loaded
+registerDriver: driver[className=sun.jdbc.odbc.JdbcOdbcDriver,sun.jdbc.odbc.JdbcOdbcDriver@134e4fb]
+DriverManager.initialize: jdbc.drivers = null
+JDBC DriverManager initialized
+registerDriver: driver[className=com.mysql.jdbc.Driver,com.mysql.jdbc.Driver@157c2bd]
+</pre><span style="font-family:KaiTi_GB2312; font-size:18px">    可以看到先加载JdbcOdbcDriver，再加载我们加入的MySQL的driver。</span>&#13;
+<p></p>&#13;
+<h2><span style="font-family:KaiTi_GB2312; font-size:18px"><span style="font-family:KaiTi_GB2312; font-size:18px">    获取链接</span></span></h2>&#13;
+<span style="font-family:KaiTi_GB2312; font-size:18px"><span style="font-family:KaiTi_GB2312; font-size:18px">    加载驱动完毕后，如何获取连接，继续看DriverManager的getConnection():</span></span>&#13;
+<p></p>&#13;
+<p><span style="font-family:KaiTi_GB2312; font-size:18px"><span style="font-family:KaiTi_GB2312; font-size:18px"></span></span></p>&#13;
+<pre name="code" class="java">    //  Worker method called by the public getConnection() methods.
+    private static Connection getConnection(
+	String url, java.util.Properties info, ClassLoader callerCL) throws SQLException {
+	java.util.Vector drivers = null;
+        /*
+	 * When callerCl is null, we should check the application's
+	 * (which is invoking this class indirectly)
+	 * classloader, so that the JDBC driver class outside rt.jar
+	 * can be loaded from here.
+	 */
+	synchronized(DriverManager.class) {	 
+	  // synchronize loading of the correct classloader.
+	  if(callerCL == null) {
+	      callerCL = Thread.currentThread().getContextClassLoader();
+	   }    
+	} 
+	 
+	if(url == null) {
+	    throw new SQLException("The url cannot be null", "08001");
+	}
+    
+	println("DriverManager.getConnection(\"" + url + "\")");
+    
+	if (!initialized) {
+	    initialize();
+	}
+
+	synchronized (DriverManager.class){ 
+            // use the readcopy of drivers
+	    drivers = readDrivers;  
+        }
+
+	// Walk through the loaded drivers attempting to make a connection.
+	// Remember the first exception that gets raised so we can reraise it.
+	SQLException reason = null;
+	for (int i = 0; i &lt; drivers.size(); i++) {
+	    DriverInfo di = (DriverInfo)drivers.elementAt(i);
+      
+	    // If the caller does not have permission to load the driver then 
+	    // skip it.
+	    if ( getCallerClass(callerCL, di.driverClassName ) != di.driverClass ) {
+		println("    skipping: " + di);
+		continue;
+	    }
+	    try {
+		println("    trying " + di);
+		Connection result = di.driver.connect(url, info);
+		if (result != null) {
+		    // Success!
+		    println("getConnection returning " + di);
+		    return (result);
+		}
+	    } catch (SQLException ex) {
+		if (reason == null) {
+		    reason = ex;
+		}
+	    }
+	}
+    
+	// if we got here nobody could connect.
+	if (reason != null)    {
+	    println("getConnection failed: " + reason);
+	    throw reason;
+	}
+    
+	println("getConnection: no suitable driver found for "+ url);
+	throw new SQLException("No suitable driver found for "+ url, "08001");
+    }</pre><span style="font-family:KaiTi_GB2312; font-size:18px">    这个函数代码比较多，但是我们关注的核心代码就一句：</span>&#13;
+<p><span style="font-family:KaiTi_GB2312; font-size:18px"><span style="font-family:KaiTi_GB2312; font-size:18px"></span></span></p>&#13;
+<pre name="code" class="java">    Connection result = di.driver.connect(url, info);</pre>&#13;
+<p><span style="font-family:KaiTi_GB2312; font-size:18px">    其中di就是我们前面加载驱动后DriverManager的成员变量readDrivers包含的一个对象，也就是调用com.mysql.jdbc.driver的connect函数，但是从上面该类代码可知，它只包含一个构造函数和静态代码段，connect函数从何而来？</span></p>&#13;
+<p><span style="font-family:KaiTi_GB2312; font-size:18px">    别忘了<span style="font-family:KaiTi_GB2312; font-size:18px">com.mysql.jdbc.driver继承自NonRegisteringDriver，这也是MySQL驱动下的一个类，进入该类，找到connect函数：</span></span></p>&#13;
+<p><span style="font-family:KaiTi_GB2312; font-size:18px"><span style="font-family:KaiTi_GB2312; font-size:18px"></span></span></p>&#13;
+<pre name="code" class="java">package com.mysql.jdbc;
+/***省略引用和注释***/
+public class NonRegisteringDriver implements java.sql.Driver {
+	
+	/***省略其他函数和注释***/
+	public java.sql.Connection connect(String url, Properties info)
+			throws SQLException {
+		Properties props = null;
+
+		if ((props = parseURL(url, info)) == null) {
+			return null;
+		}
+
+		try {
+			Connection newConn = new com.mysql.jdbc.Connection(host(props),
+					port(props), props, database(props), url, this);
+
+			return newConn;
+		} catch (SQLException sqlEx) {
+			// Don't wrap SQLExceptions, throw
+			// them un-changed.
+			throw sqlEx;
+		} catch (Exception ex) {
+			throw new SQLException(Messages
+					.getString("NonRegisteringDriver.17") //$NON-NLS-1$
+					+ ex.toString()
+					+ Messages.getString("NonRegisteringDriver.18"), //$NON-NLS-1$
+					SQLError.SQL_STATE_UNABLE_TO_CONNECT_TO_DATASOURCE);
+		}
+	}
+
+}</pre>&#13;
+<p><span style="font-family:KaiTi_GB2312; font-size:18px">    因为NonRegisteringDriver也是java.sql.Driver的实现，返回的也是JDBC中Connection的实现，所以如上面向接口编程，即可从DriverManager中得到MySQL的Connection。</span></p>&#13;
+<h1><span style="font-family:KaiTi_GB2312; font-size:18px">总结</span></h1>&#13;
+<p><span style="font-family:KaiTi_GB2312; font-size:18px">    JDBC的分析介绍到此结束，如果有兴趣大家可以看一下其他数据库驱动的源码，因为都是根据JDBC而来，所以大都大同小异。</span></p>&#13;
+<span style="font-family:KaiTi_GB2312; font-size:18px"><br />&#13;
+</span>&#13;
+<p><br />&#13;
+</p>&#13;
+   &#13;

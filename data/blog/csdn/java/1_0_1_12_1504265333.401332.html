@@ -1,0 +1,203 @@
+
+        <div class="markdown_views"><h1 id="javaweb学习记录jenkins自动部署maven项目">JavaWEB学习记录–Jenkins自动部署Maven项目</h1>
+
+<p>标签（空格分隔）： javaWEB</p>
+
+<hr />
+
+<p>最近在研究jenkins的自动部署方案,有一些心得,记录下来以帮助其他人.如果对你有帮助记得点下赞哈.</p>
+
+<hr />
+
+
+
+<h2 id="1部署方式的选择">1.部署方式的选择</h2>
+
+
+
+<h3 id="11-tomcat上传">1.1 tomcat上传</h3>
+
+<p>该方式网上很多教程都是这个,使用这个方式的话需要tomcat中有初始时Manage这个项目,本质上是通过<code>http://ip:port/manager/html</code>这个地址的上传接口进行上传,进行热部署.具体如下图:</p>
+
+<p><img src="http://img.blog.csdn.net/20161201124415691" alt="这里写图片描述" title="" /></p>
+
+<p><img src="http://img.blog.csdn.net/20161201123929148" alt="这里写图片描述" title="" /></p>
+
+<p>这样做有很多弊端:(个人观点,可能因为目前见识短而不够充分认识) <br />
+1. 这样做没法对之前的项目备份 <br />
+2. 这种部署方式会导致tomcat内原项目的很多资源释放不掉,部署多次后会报<code>OutOfMemoryError</code>这个错误. <br />
+3. 需要tomcat内有manage项目,安全性不够,容易被利用 <br />
+基于这些考虑,抛弃了这种方案.</p>
+
+
+
+<h3 id="12使用脚本部署">1.2使用脚本部署</h3>
+
+<p>该方案实际上使用jenkins把打包后的war包上传到服务器,上传成功后执行服务器的脚本,该脚本会备份,并强制kill tomcat进程,部署war包后再启动tomcat,具体流程图如下:</p>
+
+<p><img src="http://img.blog.csdn.net/20161201125156654" alt="这里写图片描述" title="" /></p>
+
+<p>最终采用了这种方案进行部署.</p>
+
+<hr />
+
+
+
+<h2 id="2具体部署">2.具体部署</h2>
+
+
+
+<h3 id="21安装jenkins配置">2.1安装jenkins,配置</h3>
+
+<p>安装这里就不详细讲述了,说下需要的插件 <br />
+Maven Integration plugin:是的jenkins支持maven任务构建 <br />
+Publish Over SSH:使得jenkins支持ssh连接上传,并执行对应命令</p>
+
+
+
+<h3 id="22配置publish-over-ssh插件">2.2配置Publish Over SSH插件</h3>
+
+<p>设置地址:系统管理/系统设置/Publish over SSH</p>
+
+<p><strong>公共配置：</strong> <br />
+Passphrase:密码（如果你设置了key,为key的密码,否则为username的密码） <br />
+Path to key:key文件（私钥）的路径 <br />
+Key:将私钥复制到这个框中 <br />
+Disable exec:禁止运行命令,这个不要勾选,否则没法执行命令 <br />
+<strong>私有配置：</strong> <br />
+SSH Server Name：标识的名字（随便你取什么） <br />
+Hostname：需要连接ssh的主机名或ip地址（建议ip） <br />
+Username：用户名 <br />
+Remote Directory：远程目录 <br />
+Use password authentication, or use a different key：可以替换公共配置（选中展开的就是公共配置的东西，这样做扩展性很好） <br />
+<strong>私有配置的高级：</strong> <br />
+Port：端口（默认22） <br />
+Timeout (ms)：超时时间（毫秒）默认即可 <br />
+Disable exec：禁止运行命令 <br />
+Test Configuration：测试连接 </p>
+
+<p>配置完成后测试下,提示success的话就没问题.</p>
+
+<p><img src="http://img.blog.csdn.net/20161201134200643" alt="这里写图片描述" title="" /></p>
+
+
+
+<h3 id="23脚本配置">2.3脚本配置</h3>
+
+<p>脚本的主要功能为备份,kill tomcat,部署war包,start tomcat,难点就是怎么kill tomcat,下面结合网上的脚本修改的</p>
+
+<p>使用<code>ps -ef | grep $TOMCAT_HOME | grep -v 'grep|tail|more|bash|less'| awk '{print $2}'</code>这个命令来查找指定tomcat的进程id的,解决了一台机器多个tomcat互相间有关联的问题.</p>
+
+
+
+<pre class="prettyprint"><code class=" hljs bash"><span class="hljs-shebang">#!/bin/bash</span>
+<span class="hljs-comment">#defined </span>
+<span class="hljs-keyword">export</span> JAVA_HOME=/usr/java/jdk1.<span class="hljs-number">7.0</span>_55
+TOMCAT_HOME=<span class="hljs-string">"/home/web_as/apache-tomcat-6.0.45"</span>
+TOMCAT_PORT=<span class="hljs-number">8090</span>
+PROJECT=<span class="hljs-string">"<span class="hljs-variable">$1</span>"</span>
+<span class="hljs-comment">#param validate</span>
+<span class="hljs-keyword">if</span> [ <span class="hljs-variable">$#</span> <span class="hljs-operator">-lt</span> <span class="hljs-number">1</span> ]; <span class="hljs-keyword">then</span>
+  <span class="hljs-built_in">echo</span> <span class="hljs-string">"you must use like this : ./deploy.sh &lt;projectname&gt; [tomcat port] [tomcat home dir]"</span>  
+  <span class="hljs-keyword">exit</span>
+<span class="hljs-keyword">fi</span>
+<span class="hljs-keyword">if</span> [ <span class="hljs-string">"<span class="hljs-variable">$2</span>"</span> != <span class="hljs-string">""</span> ]; <span class="hljs-keyword">then</span>
+   TOMCAT_PORT=<span class="hljs-variable">$2</span>
+<span class="hljs-keyword">fi</span>
+<span class="hljs-keyword">if</span> [ <span class="hljs-string">"<span class="hljs-variable">$3</span>"</span> != <span class="hljs-string">""</span> ]; <span class="hljs-keyword">then</span>
+   TOMCAT_HOME=<span class="hljs-string">"<span class="hljs-variable">$3</span>"</span>
+<span class="hljs-keyword">fi</span>
+<span class="hljs-comment">#shutdown tomcat</span>
+<span class="hljs-comment">#"$TOMCAT_HOME"/bin/shutdown.sh</span>
+<span class="hljs-comment">#echo "tomcat shutdown"</span>
+<span class="hljs-comment">#check tomcat process</span>
+
+<span class="hljs-comment">#tomcat_pid=`/usr/sbin/lsof -n -P -t -i :$TOMCAT_PORT`</span>
+tomcat_pid=`ps -ef | grep <span class="hljs-variable">$TOMCAT_HOME</span> | grep -v <span class="hljs-string">'grep\|tail\|more\|bash\|less'</span>| awk <span class="hljs-string">'{print $2}'</span>`
+<span class="hljs-built_in">echo</span> <span class="hljs-string">"current :"</span> <span class="hljs-variable">$tomcat_pid</span>
+<span class="hljs-keyword">while</span> [ -n <span class="hljs-string">"<span class="hljs-variable">$tomcat_pid</span>"</span> ]
+<span class="hljs-keyword">do</span>
+ sleep <span class="hljs-number">5</span>
+ tomcat_pid=`ps -ef | grep <span class="hljs-variable">$TOMCAT_HOME</span> | grep -v <span class="hljs-string">'grep\|tail\|more\|bash\|less'</span>| awk <span class="hljs-string">'{print $2}'</span>`
+ <span class="hljs-built_in">echo</span> <span class="hljs-string">"scan tomcat pid :"</span> <span class="hljs-variable">$tomcat_pid</span>
+ <span class="hljs-keyword">if</span> [ -n <span class="hljs-string">"<span class="hljs-variable">$tomcat_pid</span>"</span> ]; <span class="hljs-keyword">then</span>
+   <span class="hljs-built_in">echo</span> <span class="hljs-string">"kill tomcat :"</span> <span class="hljs-variable">$tomcat_pid</span>
+   kill -<span class="hljs-number">9</span> <span class="hljs-variable">$tomcat_pid</span>
+ <span class="hljs-keyword">fi</span>
+<span class="hljs-keyword">done</span>
+<span class="hljs-comment">#publish project</span>
+<span class="hljs-built_in">echo</span> <span class="hljs-string">"scan no tomcat pid,<span class="hljs-variable">$PROJECT</span> publishing"</span>
+rm -rf <span class="hljs-string">"<span class="hljs-variable">$TOMCAT_HOME</span>"</span>/webapps/<span class="hljs-variable">$PROJECT</span>
+cp /home/web_as/war/<span class="hljs-variable">$PROJECT</span>.war <span class="hljs-string">"<span class="hljs-variable">$TOMCAT_HOME</span>"</span>/webapps/<span class="hljs-variable">$PROJECT</span>.war
+<span class="hljs-comment">#bak project</span>
+BAK_DIR=/home/web_as/war/bak/<span class="hljs-variable">$PROJECT</span>/`date +%Y%m%d`
+mkdir -p <span class="hljs-string">"<span class="hljs-variable">$BAK_DIR</span>"</span>
+cp <span class="hljs-string">"<span class="hljs-variable">$TOMCAT_HOME</span>"</span>/webapps/<span class="hljs-variable">$PROJECT</span>.war <span class="hljs-string">"<span class="hljs-variable">$BAK_DIR</span>"</span>/<span class="hljs-string">"<span class="hljs-variable">$PROJECT</span>"</span>_`date +%H%M%S`.war
+<span class="hljs-comment">#remove tmp</span>
+rm -rf /home/web_as/war/<span class="hljs-variable">$PROJECT</span>.war
+<span class="hljs-comment">#start tomcat</span>
+<span class="hljs-string">"<span class="hljs-variable">$TOMCAT_HOME</span>"</span>/bin/startup.sh
+<span class="hljs-built_in">echo</span> <span class="hljs-string">"tomcat is starting,please try to access <span class="hljs-variable">$PROJECT</span> conslone url"</span></code></pre>
+
+<p><strong>注意:</strong> <br />
+脚本如果从win下直接拷贝到linux会出现格式错误,使用vi直接建立个脚本,复制进去即可. <br />
+脚本放置在SSH配置的Remote directory下,不然找不到,并且需要给其一定的执行权限,不然也是无法执行.</p>
+
+<p>使用方法:<code>./deploy.sh &lt;projectname&gt; [tomcat port] [tomcat home dir]</code></p>
+
+<hr />
+
+
+
+<h3 id="24任务配置">2.4任务配置</h3>
+
+<p>在构建完成后选择 Send build artifacts over SSH.</p>
+
+<p>Source files:部署的源文件,相对于jenkins的工作目录 <br />
+Remove prefix:war包对应的前面的路径,可以查看右边的小问号. <br />
+Remote directory:配置目录,这个目录会和全局目录叠加,比如我全局目录为/home/web_as + 当前目录/war,为上传目录 <br />
+Exec command:要执行的命令,也就是执行自定义脚本,这里需要以~/开始,不然没法执行,也不知道是不是只有我遇到了这个问题.</p>
+
+<p><img src="http://img.blog.csdn.net/20161201135356164" alt="这里写图片描述" title="" /></p>
+
+
+
+<h3 id="25-构建测试">2.5 构建测试</h3>
+
+<p>点击构建,在构建成功后jenkins控制台会打出下面的日志:</p>
+
+
+
+<pre class="prettyprint"><code class=" hljs r">.......
+SSH: Connecting from host [DESHOP01.chmpay.com]
+SSH: Connecting with configuration [<span class="hljs-number">30</span>] <span class="hljs-keyword">...</span>
+SSH: EXEC: STDOUT/STDERR from command [~/deploy.sh api <span class="hljs-number">8090</span> /home/web_as/api-tomcat] <span class="hljs-keyword">...</span>
+current : <span class="hljs-number">18748</span>
+scan tomcat pid : <span class="hljs-number">18748</span>
+kill tomcat : <span class="hljs-number">18748</span>
+scan tomcat pid :
+scan no tomcat pid,api publishing
+tomcat is starting,please <span class="hljs-keyword">try</span> to access api conslone url
+SSH: EXEC: completed after <span class="hljs-number">10</span>,<span class="hljs-number">611</span> ms
+SSH: Disconnecting configuration [<span class="hljs-number">30</span>] <span class="hljs-keyword">...</span>
+SSH: Transferred <span class="hljs-number">1</span> file(s)</code></pre>
+
+<p>如果出现错误可以通过日志来定位,解决.</p>
+
+<p>构建成功后查看tomcat日志,是关闭重启的话则证明构建有效.</p>
+
+<p>本文参考了一些搜索结果,因为时间久远,链接记不清了,特此对原作者抱歉.</p></div>&#13;
+        <script type="text/javascript">&#13;
+            $(function () {&#13;
+                $('pre.prettyprint code').each(function () {&#13;
+                    var lines = $(this).text().split('\n').length;&#13;
+                    var $numbering = $('&lt;ul/&gt;').addClass('pre-numbering').hide();&#13;
+                    $(this).addClass('has-numbering').parent().append($numbering);&#13;
+                    for (i = 1; i &lt;= lines; i++) {&#13;
+                        $numbering.append($('&lt;li/&gt;').text(i));&#13;
+                    };&#13;
+                    $numbering.fadeIn(1700);&#13;
+                });&#13;
+            });&#13;
+        </script>&#13;
+   &#13;

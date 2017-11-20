@@ -1,0 +1,124 @@
+
+
+<p><a target="_blank" href="http://blog.csdn.net/yqj2065/article/details/39304013" style="color:rgb(51,51,51); text-decoration:none; font-family:'Microsoft YaHei'; font-size:20px; line-height:30px">简明解释器模式(5.3)</a>续</p>&#13;
+<p></p>&#13;
+<p>本节介绍一门新的表达式语言。用户输入<strong><span style="color:#ff0000">代数表达式，如"(a*a+b)*(c-d)"</span></strong>，程序按照<a target="_blank" href="http://blog.csdn.net/yqj2065/article/details/39317377">优先级和括号</a>的使用情况计算正确的结果。</p>&#13;
+<h3>1</h3>&#13;
+<p>一门语言，按照严格定义的规则，可以产生无穷多样的句子。描述语言的规则称为<strong>文法/语法</strong>。文法由四个元素构成，表示为一个四元组：G = {ST，SN，S，P}。</p>&#13;
+<p>①终结符(terminal)的集合ST。终结符是语言的最小文法元素(<strong>token/语言符号</strong>)。前面一个例子中，终结符是(长度不限的)数字和操作符。本例，终结符是字母Alphabet(规定其字母表包含abcd)和操作符'*'，'+'，'-'。分隔符空格（' '）或括号不作为终结符。</p>&#13;
+<p>Alph =｛a|b|c|d｝注意ab+c不合法，因为没有ab这种字母</p>&#13;
+<p>Op=｛*|+|-｝</p>&#13;
+<p>②非终结符(nonterminal、语法变量)的集合SN。非终结符通常表示表达式、函数、语句等语法概念。本语言的非终结符仅仅有Exp，表示各种表达式(expression)。</p>&#13;
+<p>③产生式集合P。产生式定义什么是合法的非终结符，产生式格式为“α→β”。例如：</p>&#13;
+<p><strong><span style="color:#ff0000">Exp→Alph | Alph op Alph | Exp op Exp</span></strong></p>&#13;
+<p>即字母是表达式，用操作符连接两个字母是表达式，递归地，用操作符连接两个表达式是表达式。简化起见，本语言中不得使用空格。</p>&#13;
+<p>④开始符号S。S是每个合法句子的最开始处使用的非终结符，取Exp即可。</p>&#13;
+<h3>2</h3>&#13;
+<p>你可能注意到，计算的优先级和括号没有包含在上面的文法定义中，因为我们宁可程序处理用户的原始输入也不愿意将文法定义复杂化。</p>&#13;
+<p>这一文法定义，很容易按照乘除法解释器的模子，<strong>依葫芦画瓢写出Exp的类层次</strong>。唯一要注意的是，Exp定义的方法</p>&#13;
+<p><strong><span style="color:#ff0000">public int interpret(Context c);</span></strong></p>&#13;
+含有参数Context，<strong>Context如同一个布袋，Exp需要的数据或功能都放在其中</strong>。&#13;
+<p>Context存放Exp需要的数据或功能。例如用户输入代数表达式"a +b *c+d"，计算考试成绩+平时成绩+考勤成绩，而<strong>这些数据来自于数据库，我们可以用Context存放</strong>。</p>&#13;
+<p>而<strong>用户将输入的代数表达式，通常来自于图形界面，我们以配置文件模拟</strong>。</p>&#13;
+<p><img src="http://img.blog.csdn.net/20140916172301763?watermark/2/text/aHR0cDovL2Jsb2cuY3Nkbi5uZXQveXFqMjA2NQ==/font/5a6L5L2T/fontsize/400/fill/I0JBQkFCMA==/dissolve/70/gravity/SouthEast" alt="" /><br />&#13;
+</p>&#13;
+<p>Exp的类层次代码略。<br />&#13;
+</p>&#13;
+<p></p>&#13;
+<pre code_snippet_id="469808" snippet_file_name="blog_20140916_1_9361802" name="code" class="java">例程 7-4 Context如同一个布袋
+package intent.interpreter.calculator2;
+import java.util.HashMap;
+public class Context{
+    private HashMap&lt;Character ,Integer&gt; varList = new HashMap&lt;&gt;();
+    public void put(Character var, int value) {        varList.put(var, value);    }
+    public int get(Character var) {             return varList.get(var);    }
+
+    public Context() {        initialize();    }
+    //hardcoded
+    private void initialize() {
+        this.put('a', 5); put('b', 2);put('c', 7); put('d', 1);
+    }
+}
+</pre>&#13;
+<p></p>&#13;
+<p></p>&#13;
+<p>构建语法树是实现解释器模式的重点。[GoF]中并未解释如何创建一个抽象的语法树。因此，你学习解释器模式这一模式时，完全不需要知道这么多。</p>&#13;
+<p><br />&#13;
+</p>&#13;
+<h3>3</h3>&#13;
+<p>编程处理用户的原始输入，将带有计算的优先级和括号的中序表达式变成符合前述文法的后序表达式，而计算的优先级使用一个HashMap&lt;String,String&gt;保存，键为操作符，值为其优先级。代码见<span style="font-family:'Microsoft YaHei'; font-size:20px; line-height:30px"> </span></p>&#13;
+<h1 style="margin:0px; padding:0px; display:inline; font-weight:normal; font-size:20px; line-height:30px; font-family:'Microsoft YaHei'; vertical-align:middle">&#13;
+<span class="link_title"><a target="_blank" href="http://blog.csdn.net/yqj2065/article/details/39317377" style="color:rgb(51,51,51); text-decoration:none">中序表达式 to 后序表达式</a></span></h1>&#13;
+<h1 style="margin:0px; padding:0px; display:inline; font-weight:normal; font-size:20px; line-height:30px; font-family:'Microsoft YaHei'; vertical-align:middle">&#13;
+<span class="link_title"></span></h1>&#13;
+<p></p>&#13;
+<p>你可以将这些静态方法放在Context中或者某个工具包中。</p>&#13;
+<h3>4</h3>&#13;
+<p>最后构建语法树，编写一些测试代码。<br />&#13;
+</p>&#13;
+<p></p>&#13;
+<pre code_snippet_id="469808" snippet_file_name="blog_20140916_2_5522581" name="code" class="java">例程 7 6构建语法树
+package intent.interpreter.calculator2;
+import tool.God;
+import java.util.HashMap;
+import java.util.Stack;
+public class Calculator {
+    private String expression = (String)God.getValue("expression");   
+    private Context ctx;
+
+    public static void main(String[] args) {
+        Calculator calc = new Calculator();
+        Context ctx = new Context();
+        calc.setContext(ctx);
+        System.out.println("代数变量: " + "a=" + ctx.get('a')
+            + ", b=" + ctx.get('b') + ", c=" + ctx.get('c')
+            + ", d=" + ctx.get('d'));
+        System.out.println(" Expression = "+calc.expression);
+        System.out.println(" Result = " + calc.interpret());
+    }
+
+    public void setContext(Context c) {        ctx = c;    }
+
+    public int interpret() {
+        String pfExpr = Context.inToPost(expression);
+        Expr rootNode = buildTree(pfExpr);
+        return rootNode.interpret(ctx);
+    }
+
+    private NonTerminalExp getNonTerminalExp(char op,Expr l, Expr r) {
+        NonTerminalExp e = null;
+        if (op=='+') {
+            e=new AddExp(l, r);
+        }else if (op=='-') {
+            e=new SubtractExp(l, r);
+        }else if (op=='*') {
+            e=new MultiplyExp(l, r);
+        }
+        return e;
+    }
+
+    private Expr buildTree(String expr) {
+        Stack&lt;Expr&gt; s = new Stack&lt;&gt;();
+        char[]  cs = expr.trim().toCharArray();
+        for (char x :cs) {
+            if (!Context.isOperator(x)) {
+                s.push( new TerminalExp(x) );
+            } else {
+                Expr r = (Expr) s.pop();
+                Expr l = (Expr) s.pop();
+                Expr now = getNonTerminalExp(x, l, r);
+                s.push(now);
+            }
+        }//end for
+        return (Expr) s.pop();
+    }    
+}
+</pre>构建语法树的代码与前面一节的代码没有太大的差别。这里使用了一个简单工厂&#13;
+<p></p>&#13;
+<p>private /*static*/  NonTerminalExp getNonTerminalExp(char op,Expr l, Expr r)</p>&#13;
+<p>如果反感if-else，可以尝试使用工厂方法。另外，请添加除法的相关代码。</p>&#13;
+<p><br />&#13;
+</p>&#13;
+<p><a target="_blank" href="http://blog.csdn.net/yqj2065/article/details/8592375" style="text-align:center"><img src="http://img.blog.csdn.net/20140919170809965?watermark/2/text/aHR0cDovL2Jsb2cuY3Nkbi5uZXQveXFqMjA2NQ==/font/5a6L5L2T/fontsize/400/fill/I0JBQkFCMA==/dissolve/70/gravity/SouthEast" alt="" /></a><br />&#13;
+</p>&#13;
+   &#13;

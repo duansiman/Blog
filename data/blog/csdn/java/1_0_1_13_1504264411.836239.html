@@ -1,0 +1,247 @@
+
+        <div class="markdown_views"><h1 id="桥接模式"><center> 桥接模式</center></h1>
+
+<p>标签 ： Java与设计模式</p>
+
+<hr />
+
+
+
+<h2 id="场景">场景</h2>
+
+<p>在商城系统中商品是分类摆放的,以电脑为例我们有以下商品分类, 该如何良好的处理商品分类销售的问题:</p>
+
+<p><img src="http://7xrgh9.com1.z0.glb.clouddn.com/16-8-25/43217588.jpg" alt="" title="" /> <br />
+直观上我们会认为该商品分类以<code>继承</code>来实现:<em>电脑作为根类,台式机/笔记本/平板电脑作为其子类,联想台式机/…作为电脑的孙类.</em>(其继承结构可以从图上直观的看出),但是考虑以下需求:</p>
+
+<ol>
+<li>如果我们要增加一个品牌<em>三星</em>?</li>
+<li>如果我们要增加一个分类<em>智能手机</em>?</li>
+</ol>
+
+<p>问题1的解决方案是在<strong>台式机</strong> <strong>笔记本</strong> <strong>平板电脑</strong> 下面都添加相应的子类, <em>三星台式机</em> <em>三星笔记本</em> …. <br />
+问题2的解决方案是需在<em>电脑</em>下面添加子类<em>智能手机</em>并在<em>智能手机</em>下在添加三个品牌分类<strong>联想智能手机</strong> <strong>戴尔只能手机</strong> … 额,想想就够麻烦的,但是如果我们既要添加品牌又要添加分类呢? 要疯了… <br />
+这样下去导致的后果就是类的个数急速膨胀, 管理成本极高.</p>
+
+<p>我们马上就意识到仅用继承的是不行的了:</p>
+
+<blockquote>
+  <p>对象的继承关系是在<code>编译</code>时就确定好了的,所以无法在运行时改变从父类继承的实现.子类的实现与他的父类有非常紧密的依赖关系, 以至于父类实现中的任何变化必然会导致子类发生变化. 当你需要复用子类时,如果继承下来的实现不适合解决新的问题,则父类必须重写或被其他更适合的类替换.这种依赖关系限制了灵活性并最终限制了复用性.</p>
+</blockquote>
+
+<p>这个问题仅用继承是不能解决的,因为这样其实是违反了<code>单一职责原则</code>:一个类<code>联想笔记本</code>,却有两个引起这个类变化的原因-<code>类型维度</code>和<code>品牌维度</code>.我们把两个维度混合在一起考虑,必然会造成<strong>牵一发而动全身</strong>的效果.</p>
+
+<ul>
+<li>既然这样我们应该从两个维度来思考设计: <br />
+<img src="http://7xrgh9.com1.z0.glb.clouddn.com/16-8-25/46524543.jpg" alt="" title="" /> <br />
+<code>类型维度</code>有自己的一套继承结构,<code>品牌维度</code>也有自己的一套继承结构,然后中间有座<code>桥(Bridge)</code>把这两个类关联起来.这样在添加品牌时只需在类型维度做修改就好了, 不会影响到品牌维度;当在品牌维度搞活动时,类型维度也不受影响.桥一端的变化不会引起另一端的变化,这就是<code>桥接模式</code>:</li>
+</ul>
+
+<hr />
+
+
+
+<h2 id="桥接模式-1">桥接模式</h2>
+
+<blockquote>
+  <p>桥接模式: 将抽象部分与它的实现部分分离, 使他们都可以独立地变化. <br />
+  其实就是处理多层继承结构, 处理多维变化的场景, 将各个维度设计成独立地继承结构, 使得各个维度可以独立地扩展, 并在<code>抽象层</code>建立关联.</p>
+</blockquote>
+
+<p><img src="http://7xrgh9.com1.z0.glb.clouddn.com/16-8-25/84131431.jpg" alt="" title="" /></p>
+
+<p>注意, 这个结构的关键是: <code>Abstraction</code>里面持有<code>Implementor</code>对象. <br />
+这个反映到我们卖电脑的场景的类图关系如下: <br />
+<img src="http://7xrgh9.com1.z0.glb.clouddn.com/16-8-25/23961252.jpg" alt="" title="" /> <br />
+<code>Computer</code>的<code>brand</code>属性就是那座<code>桥</code>.</p>
+
+<ul>
+<li>品牌维度</li>
+</ul>
+
+
+
+<pre class="prettyprint"><code class=" hljs php"><span class="hljs-comment">/**
+ *<span class="hljs-phpdoc"> @author</span> jifang
+ *<span class="hljs-phpdoc"> @since</span> 16/1/3下午6:25.
+ */</span>
+<span class="hljs-keyword">public</span> <span class="hljs-class"><span class="hljs-keyword">interface</span> <span class="hljs-title">Brand</span> {</span>
+    String brand();
+}
+
+<span class="hljs-class"><span class="hljs-keyword">class</span> <span class="hljs-title">Lenovo</span> <span class="hljs-keyword">implements</span> <span class="hljs-title">Brand</span> {</span>
+
+    @Override
+    <span class="hljs-keyword">public</span> String brand() {
+        <span class="hljs-keyword">return</span> <span class="hljs-string">"联想"</span>;
+    }
+}
+
+<span class="hljs-class"><span class="hljs-keyword">class</span> <span class="hljs-title">Dell</span> <span class="hljs-keyword">implements</span> <span class="hljs-title">Brand</span> {</span>
+
+    @Override
+    <span class="hljs-keyword">public</span> String brand() {
+        <span class="hljs-keyword">return</span> <span class="hljs-string">"戴尔"</span>;
+    }
+}
+
+<span class="hljs-class"><span class="hljs-keyword">class</span> <span class="hljs-title">Hasee</span> <span class="hljs-keyword">implements</span> <span class="hljs-title">Brand</span> {</span>
+
+    @Override
+    <span class="hljs-keyword">public</span> String brand() {
+        <span class="hljs-keyword">return</span> <span class="hljs-string">"神州"</span>;
+    }
+}</code></pre>
+
+<ul>
+<li>类型维度</li>
+</ul>
+
+
+
+<pre class="prettyprint"><code class=" hljs scala"><span class="hljs-javadoc">/**
+ * <span class="hljs-javadoctag">@author</span> jifang
+ * <span class="hljs-javadoctag">@since</span> 16/1/3下午6:33.
+ */</span>
+public <span class="hljs-keyword">abstract</span> <span class="hljs-class"><span class="hljs-keyword">class</span> <span class="hljs-title">Computer</span> {</span>
+
+    <span class="hljs-keyword">private</span> Brand brand;
+
+    public Computer(Brand brand) {
+        <span class="hljs-keyword">this</span>.brand = brand;
+    }
+
+    public <span class="hljs-keyword">abstract</span> String <span class="hljs-keyword">type</span>();
+
+    public void sale() {
+        System.out.println(<span class="hljs-string">"我们卖的是&lt;"</span> + brand.brand() + <span class="hljs-keyword">this</span>.<span class="hljs-keyword">type</span>() + <span class="hljs-string">"&gt;电脑"</span>);
+    }
+}
+
+<span class="hljs-class"><span class="hljs-keyword">class</span> <span class="hljs-title">Desktop</span> <span class="hljs-keyword">extends</span> <span class="hljs-title">Computer</span> {</span>
+
+    public Desktop(Brand brand) {
+        <span class="hljs-keyword">super</span>(brand);
+    }
+
+    <span class="hljs-annotation">@Override</span>
+    public String <span class="hljs-keyword">type</span>() {
+        <span class="hljs-keyword">return</span> <span class="hljs-string">"台式"</span>;
+    }
+}
+
+<span class="hljs-class"><span class="hljs-keyword">class</span> <span class="hljs-title">Laptop</span> <span class="hljs-keyword">extends</span> <span class="hljs-title">Computer</span> {</span>
+
+    public Laptop(Brand brand) {
+        <span class="hljs-keyword">super</span>(brand);
+    }
+
+    <span class="hljs-annotation">@Override</span>
+    public String <span class="hljs-keyword">type</span>() {
+        <span class="hljs-keyword">return</span> <span class="hljs-string">"笔记本"</span>;
+    }
+}
+
+<span class="hljs-class"><span class="hljs-keyword">class</span> <span class="hljs-title">Pad</span> <span class="hljs-keyword">extends</span> <span class="hljs-title">Computer</span> {</span>
+    public Pad(Brand brand) {
+        <span class="hljs-keyword">super</span>(brand);
+    }
+
+    <span class="hljs-annotation">@Override</span>
+    public String <span class="hljs-keyword">type</span>() {
+        <span class="hljs-keyword">return</span> <span class="hljs-string">"平板"</span>;
+    }
+}</code></pre>
+
+<ul>
+<li>Client</li>
+</ul>
+
+
+
+<pre class="prettyprint"><code class=" hljs cs"><span class="hljs-keyword">public</span> <span class="hljs-keyword">class</span> Client {
+
+    @Test
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">void</span> <span class="hljs-title">test</span>() {
+        Computer computer = <span class="hljs-keyword">new</span> Desktop(<span class="hljs-keyword">new</span> Dell());
+        computer.sale();
+    }
+}</code></pre>
+
+<p>现在我要新加一个<em>智能手机</em>类型, 那么只需在<code>Computer</code>下面添加一个<code>Smartphone</code>就行了, 品牌维度不需要做任何的改动:</p>
+
+<p><img src="http://7xrgh9.com1.z0.glb.clouddn.com/16-8-25/23596442.jpg" alt="" title="" /></p>
+
+<pre class="prettyprint"><code class=" hljs axapta"><span class="hljs-class"><span class="hljs-keyword">class</span> <span class="hljs-title">Smartphone</span> <span class="hljs-inheritance"><span class="hljs-keyword">extends</span></span> <span class="hljs-title">Computer</span> {</span>
+
+    <span class="hljs-keyword">public</span> Smartphone(Brand brand) {
+        <span class="hljs-keyword">super</span>(brand);
+    }
+
+    @Override
+    <span class="hljs-keyword">public</span> String type() {
+        <span class="hljs-keyword">return</span> <span class="hljs-string">"智能手机"</span>;
+    }
+}</code></pre>
+
+<ul>
+<li>Client</li>
+</ul>
+
+
+
+<pre class="prettyprint"><code class=" hljs cs"><span class="hljs-keyword">public</span> <span class="hljs-keyword">class</span> Client {
+
+    @Test
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">void</span> <span class="hljs-title">test</span>() {
+        Computer computer = <span class="hljs-keyword">new</span> Smartphone(<span class="hljs-keyword">new</span> Lenovo());
+        computer.sale();
+    }
+}</code></pre>
+
+<hr />
+
+
+
+<h2 id="小结">小结</h2>
+
+<ul>
+<li>桥接模式可以取代多层继承的方案. 多层继承违背了<code>单一职责原则</code>, 复用性较差, 类的个数过多. 桥接模式可以极大的减少子类的个数, 从而降低管理和维护的成本.</li>
+<li>桥接模式极大的提高了系统的可扩展性, 在两个变化维度中任意扩展一个维度, 都不需要修改原有的系统, 符合<code>开放-封闭原则</code>.</li>
+</ul>
+
+
+
+<h3 id="桥接模式在实际开发中应用场景">桥接模式在实际开发中应用场景:</h3>
+
+<ul>
+<li>JDBC驱动程序</li>
+<li>AWT中的Peer架构</li>
+</ul>
+
+<p>其实只要发现<strong><em>需要从多个角度去分类实现对象</em></strong>, 而<strong><em>只用继承会造成大量类的增加</em></strong>,<strong><em>不能满足开放-封闭原则</em></strong>时,就应该考虑使用桥接模式.</p>
+
+<hr />
+
+<dl>
+<dt>参考;</dt>
+<dd><a href="http://blog.csdn.net/jason0539/article/details/22568865">JAVA设计模式初探之桥接模式</a></dd>
+
+<dd><a href="http://www.bjsxt.com/2014/down_0425/34.html">高琪讲设计模式</a></dd>
+
+<dd><a href="http://book.douban.com/subject/2334288/">大话设计模式</a></dd>
+</dl></div>&#13;
+        <script type="text/javascript">&#13;
+            $(function () {&#13;
+                $('pre.prettyprint code').each(function () {&#13;
+                    var lines = $(this).text().split('\n').length;&#13;
+                    var $numbering = $('&lt;ul/&gt;').addClass('pre-numbering').hide();&#13;
+                    $(this).addClass('has-numbering').parent().append($numbering);&#13;
+                    for (i = 1; i &lt;= lines; i++) {&#13;
+                        $numbering.append($('&lt;li/&gt;').text(i));&#13;
+                    };&#13;
+                    $numbering.fadeIn(1700);&#13;
+                });&#13;
+            });&#13;
+        </script>&#13;
+   &#13;

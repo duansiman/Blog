@@ -1,0 +1,635 @@
+
+        <div class="markdown_views"><h1 id="管道">管道</h1>
+
+<hr />
+
+<p class="cye-lm-tag">管道是一种两个进程间进行单向通信的机制。</p>
+
+<p class="cye-lm-tag">因为管道传递数据的单向性，管道又称为半双工管道。</p>
+
+<p class="cye-lm-tag">管道的这一特点决定了器使用的局限性。管道是Linux支持的最初Unix IPC形式之一，具有以下特点：</p>
+
+<ul>
+<li><p class="cye-lm-tag">数据只能由一个进程流向另一个进程（其中一个读管道，一个写管道）；如果要进行双工通信，需要建 立两个管道。</p></li>
+<li><p class="cye-lm-tag">管道只能用于父子进程或者兄弟进程间通信。，也就是说管道只能用于具有亲缘关系的进程间通信。</p>
+
+<p class="cye-lm-tag">除了以上局限性，管道还有其他一些不足，如管道没有名字（匿名管道），管道的缓冲区大小是受限制的。管道所传输的是无格式的字节流。这就需要管道输入方和输出方事先约定好数据格式。虽然有那么多不足，但对于一些简单的进程间通信，管道还是完全可以胜任的。</p></li>
+</ul>
+
+
+
+<h2 id="信号和消息的区别">信号和消息的区别</h2>
+
+<hr />
+
+<pre><code>我们知道，进程间的信号通信机制在传递信息时是以信号为载体的，但管道通信机制的信息载体是消息。那么信号和消息之间的区别在哪里呢？ 
+</code></pre>
+
+<p class="cye-lm-tag">首先，在数据内容方面，信号只是一些预定义的代码，用于表示系统发生的某一状况；消息则为一组连续语句或符号，不过量也不会太大。在作用方面，信号担任进程间少量信息的传送，一般为内核程序用来通知用户进程一些异常情况的发生；消息则用于进程间交换彼此的数据。 </p>
+
+<p class="cye-lm-tag">在发送时机方面，信号可以在任何时候发送；信息则不可以在任何时刻发送。在发送者方面，信号不能确定发送者是谁；信息则知道发送者是谁。在发送对象方面，信号是发给某个进程；消息则是发给消息队列。在处理方式上，信号可以不予理会；消息则是必须处理的。在数据传输效率方面，信号不适合进大量的信息传输，因为它的效率不高；消息虽然不适合大量的数据传送，但它的效率比信号强，因此适于中等数量的数据传送。 </p>
+
+
+
+<h2 id="管道-流管道-命名管道的区别">管道-流管道-命名管道的区别</h2>
+
+<hr />
+
+<p class="cye-lm-tag">我们知道，命名管道和管道都可以在进程间传送消息，但它们也是有区别的。 </p>
+
+<p class="cye-lm-tag">管道这种通讯方式有两种限制，</p>
+
+<ul>
+<li><p class="cye-lm-tag">一是半双工的通信，数据只能单向流动</p></li>
+<li><p class="cye-lm-tag">二是只能在具有亲缘关系的进程间使用。</p></li>
+</ul>
+
+<p class="cye-lm-tag">进程的亲缘关系通常是指父子进程关系。</p>
+
+<p class="cye-lm-tag">流管道<code>s_pipe</code>去除了第一种限制,可以双向传输。</p>
+
+<p class="cye-lm-tag">管道可用于具有亲缘关系进程间的通信，命名管道<code>name_pipe</code>克服了管道没有名字的限制，因此，除具有管道所具有的功能外，它还允许无亲缘关系进程间的通信；</p>
+
+<p class="cye-lm-tag">管道技术只能用于连接具有共同祖先的进程，例如父子进程间的通信，它无法实现不同用户的进程间的信息共享。再者，管道不能常设，当访问管道的进程终止时，管道也就撤销。这些限制给它的使用带来不少限制，但是命名管道却克服了这些限制。 </p>
+
+<p class="cye-lm-tag">命名管道也称为FIFO，是一种永久性的机构。FIFO文件也具有文件名、文件长度、访问许可权等属性，它也能像其它Linux文件那样被打开、关闭和删除，所以任何进程都能找到它。换句话说，即使是不同祖先的进程，也可以利用命名管道进行通信。 </p>
+
+<p class="cye-lm-tag">如果想要全双工通信，那最好使用Sockets API（linux并不支持s_pipe流管道）。下面我们分别介绍通过管道命令解析管道的技术模型，然后详细说明用来进行管道编程的编程接口和系统级命令。 </p>
+
+
+
+<h1 id="管道技术模型">管道技术模型</h1>
+
+<hr />
+
+<p class="cye-lm-tag">管道技术是Linux操作系统中历来已久的一种进程间通信机制。</p>
+
+<p class="cye-lm-tag">所有的管道技术，无论是半双工的匿名管道，还是命名管道，它们都是利用FIFO排队模型来指挥进程间的通信。</p>
+
+<p class="cye-lm-tag">对于管道，我们可以形象地把它们当作是连接两个实体的一个单向连接器。</p>
+
+<p class="cye-lm-tag">使用管道进行通信时，两端的进程向管道读写数据是通过创建管道时，系统设置的文件描述符进行的。从本质上说，管道也是一种文件，但它又和一般的文件有所不同，可以克服使用文件进行通信的两个问题，这个文件只存在内存中。</p>
+
+<p class="cye-lm-tag">通过管道通信的两个进程，一个进程向管道写数据，另外一个从中读数据。写入的数据每次都添加到管道缓冲区的末尾，读数据的时候都是从缓冲区的头部读出数据的。</p>
+
+
+
+<h2 id="管道命令详解">管道命令详解</h2>
+
+<hr />
+
+<blockquote>
+  <p class="cye-lm-tag">参见</p>
+  
+  <p class="cye-lm-tag"><a href="http://www.cnblogs.com/chengmo/archive/2010/10/21/1856577.html">linux shell 管道命令(pipe)使用及与shell重定向区别</a></p>
+</blockquote>
+
+<p class="cye-lm-tag">例如，请看下面的命令</p>
+
+<p class="cye-lm-tag">管道符号，是unix功能强大的一个地方,符号是一条竖线:”|”，</p>
+
+<blockquote>
+  <p class="cye-lm-tag">用法: command 1 | command 2 </p>
+</blockquote>
+
+<p class="cye-lm-tag">他的功能是把第一个命令<code>command 1</code>执行的结果作为<code>command 2</code>的输入传给<code>command 2</code></p>
+
+<blockquote>
+  <p class="cye-lm-tag">注意：</p>
+  
+  <ol>
+  <li><p class="cye-lm-tag">管道命令只处理前一个命令正确输出，不处理错误输出</p></li>
+  <li><p class="cye-lm-tag">管道命令右边命令，必须能够接收标准输入流命令才行。</p></li>
+  </ol>
+</blockquote>
+
+<p class="cye-lm-tag">例如: <br />
+ <code>ls -l | more</code></p>
+
+<p class="cye-lm-tag">该命令列出当前目录中的任何文档，并把输出送给more命令作为输入，more命令分页显示文件列表。</p>
+
+
+
+<h2 id="管道命令与重定向区别">管道命令与重定向区别</h2>
+
+<hr />
+
+<p class="cye-lm-tag">区别是：</p>
+
+<ul>
+<li><p class="cye-lm-tag">左边的命令应该有标准输出 | 右边的命令应该接受标准输入</p></li>
+<li><p class="cye-lm-tag">左边的命令应该有标准输出 &gt; 右边只能是文件</p></li>
+<li><p class="cye-lm-tag">左边的命令应该需要标准输入 &lt; 右边只能是文件</p></li>
+<li><p class="cye-lm-tag">管道触发两个子进程执行”|”两边的程序；而重定向是在一个进程内执行</p></li>
+</ul>
+
+<blockquote>
+  <p class="cye-lm-tag">重定向与管道在使用时候很多时候可以通用</p>
+  
+  <p class="cye-lm-tag">其实，在shell里面，经常是<strong>条条大路通罗马</strong>的。</p>
+  
+  <p class="cye-lm-tag">一般如果是命令间传递参数，还是管道的好，如果处理输出结果需要重定向到文件，还是用重定向输出比较好。</p>
+</blockquote>
+
+<p class="cye-lm-tag">前面的例子实际上就是在两个命令之间建立了一根管道（有时我们也将之称为命令的流水线操作）。</p>
+
+<p class="cye-lm-tag">第一个命令ls执行后产生的输出作为了第二个命令more的输入。</p>
+
+<p class="cye-lm-tag">这是一个半双工通信，因为通信是单向的。两个命令之间的连接的具体工作，是由内核来完成的。</p>
+
+<p class="cye-lm-tag">当然内核也为我们提供了一套接口（系统调用），除了命令之外，应用程序也可以使用管道进行连接。</p>
+
+
+
+<h1 id="管道编程技术">管道编程技术</h1>
+
+<hr />
+
+<blockquote>
+  <p class="cye-lm-tag">参考 <a href="http://www.cppblog.com/jackdongy/archive/2013/01/07/197055.html">http://www.cppblog.com/jackdongy/archive/2013/01/07/197055.html</a></p>
+  
+  <p class="cye-lm-tag"><a href="http://blog.chinaunix.net/uid-26495963-id-3066282.html">http://blog.chinaunix.net/uid-26495963-id-3066282.html</a></p>
+</blockquote>
+
+
+
+<h2 id="管道的接口">管道的接口</h2>
+
+<hr />
+
+
+
+<h3 id="无名管道pipe">无名管道pipe</h3>
+
+<hr />
+
+<p class="cye-lm-tag">创建管道pipe</p>
+
+<ol>
+<li><p class="cye-lm-tag">函数原型`int pipe(int filedes[2]);</p>
+
+<ul><li><p class="cye-lm-tag"><code>pipe()</code>会建立管道,并将文件描述词由参数 <code>filedes</code> 数组返回。</p></li>
+<li><p class="cye-lm-tag"><code>filedes[0]</code>为管道里的读取端，所以pipe用read调用的。</p></li>
+<li><p class="cye-lm-tag"><code>filedes[1]</code>则为管道的写入端。使用write进行写入操作。</p></li></ul></li>
+<li><p class="cye-lm-tag">返回值</p>
+
+<ul><li>若成功则返回零,否则返回-1,错误原因存于 errno 中。</li></ul></li>
+<li><p class="cye-lm-tag">错误代码</p>
+
+<ul><li><p class="cye-lm-tag">EMFILE 进程已用完文件描述词最大量</p></li>
+<li><p class="cye-lm-tag">ENFILE 系统已无文件描述词可用。</p></li>
+<li><p class="cye-lm-tag">EFAULT 参数 filedes 数组地址不合法。</p></li></ul></li>
+</ol>
+
+<blockquote>
+  <p class="cye-lm-tag">当调用成功时，函数pipe返回值为0，否则返回值为-1。成功返回时，数组fds被填入两个有效的文件描述符。数组的第一个元素中的文件描述符供应用程序读取之用，数组的第二个元素中的文件描述符可以用来供应用程序写入。 </p>
+</blockquote>
+
+<p class="cye-lm-tag">关闭管道close</p>
+
+<ul>
+<li>关闭管道只是将两个文件描述符关闭即可，可以使用普通的close函数逐个关闭。</li>
+</ul>
+
+<p class="cye-lm-tag">如果管道的写入端关闭，但是还有进程尝试从管道读取的话，将被返回0，用来指出管道已不可用，并且应当关闭它。如果管道的读出端关闭，但是还有进程尝试向管道写入的话，试图写入的进程将收到一个SIGPIPE信号，至于信号的具体处理则要视其信号处理程序而定了。</p>
+
+
+
+<h3 id="dup函数和dup2函数">dup函数和dup2函数</h3>
+
+<hr />
+
+<p class="cye-lm-tag">dup和dup2也是两个非常有用的调用，它们的作用都是用来复制一个文件的描述符。</p>
+
+<p class="cye-lm-tag">它们经常用来重定向进程的stdin、stdout和stderr。</p>
+
+<p class="cye-lm-tag">这两个函数的原型如下所示： </p>
+
+<pre class="prettyprint"><code class=" hljs vala"><span class="hljs-preprocessor cye-lm-tag">#include &lt;unistd.h&gt;</span>
+
+<span class="hljs-keyword cye-lm-tag">int</span> dup( <span class="hljs-keyword cye-lm-tag">int</span> oldfd );
+
+<span class="hljs-keyword cye-lm-tag">int</span> dup2( <span class="hljs-keyword cye-lm-tag">int</span> oldfd, <span class="hljs-keyword cye-lm-tag">int</span> targetfd )</code></pre>
+
+<p class="cye-lm-tag"><strong>dup函数</strong></p>
+
+<p class="cye-lm-tag">利用函数dup，我们可以复制一个描述符。传给该函数一个既有的描述符，它就会返回一个新的描述符，这个新的描述符是传给它的描述符的拷贝。这意味着，这两个描述符共享同一个数据结构。</p>
+
+<p class="cye-lm-tag">例如，如果我们对一个文件描述符执行lseek操作，得到的第一个文件的位置和第二个是一样的。下面是用来说明dup函数使用方法的代码片段：</p>
+
+<pre><code>int fd1, fd2;
+fd2 = dup( fd1 );
+</code></pre>
+
+<p class="cye-lm-tag">需要注意的是，我们可以在调用fork之前建立一个描述符，这与调用dup建立描述符的效果是一样的，子进程也同样会收到一个复制出来的描述符。 </p>
+
+<p class="cye-lm-tag"><strong>dup2函数</strong></p>
+
+<p class="cye-lm-tag">dup2函数跟dup函数相似，但dup2函数允许调用者规定一个有效描述符和目标描述符的id。</p>
+
+<p class="cye-lm-tag">dup2函数成功返回时，目标描述符（dup2函数的第二个参数）将变成源描述符（dup2函数的第一个参数）的复制品，换句话说，两个文件描述符现在都指向同一个文件，并且是函数第一个参数指向的文件。</p>
+
+<p class="cye-lm-tag">下面我们用一段代码加以说明：</p>
+
+<pre class="prettyprint"><code class=" hljs perl">
+<span class="hljs-keyword cye-lm-tag">int</span> oldfd;
+oldfd = <span class="hljs-keyword cye-lm-tag">open</span>(<span class="hljs-string cye-lm-tag">"app_log"</span>, (O_RDWR | O_CREATE), <span class="hljs-number cye-lm-tag">0644</span> );
+dup2( oldfd, <span class="hljs-number cye-lm-tag">1</span> );
+<span class="hljs-keyword cye-lm-tag">close</span>( oldfd );
+</code></pre>
+
+<p class="cye-lm-tag">我们打开了一个新文件，称为“app_log”，并收到一个文件描述符，该描述符叫做fd1。我们调用dup2函数，参数为oldfd和1，这会导致用我们新打开的文件描述符替换掉由1代表的文件描述符（即stdout，因为标准输出文件的id为1）。任何写到stdout的东西，现在都将改为写入名为“app_log”的文件中。需要注意的是，dup2函数在复制了oldfd之后，会立即将其关闭，但不会关掉新近打开的文件描述符，因为文件描述符1现在也指向它。 </p>
+
+
+
+<h3 id="命名管道mkfifo">命名管道mkfifo</h3>
+
+<hr />
+
+<p>mkfifo函数的作用是在文件系统中创建一个文件，该文件用于提供FIFO功能，即命名管道。前边讲的那些管道都没有名字，因此它们被称为匿名管道，或简称管道。对文件系统来说，匿名管道是不可见的，它的作用仅限于在父进程和子进程两个进程间进行通信。而命名管道是一个可见的文件，因此，它可以用于任何两个进程之间的通信，不管这两个进程是不是父子进程，也不管这两个进程之间有没有关系。Mkfifo函数的原型如下所示：</p>
+
+<pre class="prettyprint"><code class=" hljs vala"><span class="hljs-preprocessor cye-lm-tag">#include &lt;sys/types.h&gt;</span>
+<span class="hljs-preprocessor cye-lm-tag">#include &lt;sys/stat.h&gt;</span>
+<span class="hljs-keyword cye-lm-tag">int</span> mkfifo( <span class="hljs-keyword cye-lm-tag">const</span> <span class="hljs-keyword cye-lm-tag">char</span> *pathname, mode_t mode );</code></pre>
+
+<p class="cye-lm-tag">mkfifo函数需要两个参数，第一个参数（pathname）是将要在文件系统中创建的一个专用文件。第二个参数（mode）用来规定FIFO的读写权限。Mkfifo函数如果调用成功的话，返回值为0；如果调用失败返回值为-1。下面我们以一个实例来说明如何使用mkfifo函数建一个fifo，具体代码如下所示：</p>
+
+
+
+<pre class="prettyprint"><code class=" hljs cs">    <span class="hljs-keyword cye-lm-tag">int</span> ret;
+
+    ret = mkfifo( <span class="hljs-string cye-lm-tag">"/tmp/cmd_pipe"</span>, S_IFIFO | <span class="hljs-number cye-lm-tag">0666</span> );
+    <span class="hljs-keyword cye-lm-tag">if</span> (ret == <span class="hljs-number cye-lm-tag">0</span>)
+    {
+      <span class="hljs-comment cye-lm-tag">// 成功建立命名管道</span>
+    }
+    <span class="hljs-keyword cye-lm-tag">else</span>
+    {
+      <span class="hljs-comment cye-lm-tag">// 创建命名管道失败</span>
+    }</code></pre>
+
+<p class="cye-lm-tag">在这个例子中，利用/tmp目录中的cmd_pipe文件建立了一个命名管道（即fifo）。之后，就可以打开这个文件进行读写操作，并以此进行通信了。命名管道一旦打开，就可以利用典型的输入输出函数从中读取内容。举例来说，下面的代码段向我们展示了如何通过fgets函数来从管道中读取内容：</p>
+
+
+
+<pre class="prettyprint"><code class=" hljs avrasm">    pfp = fopen( <span class="hljs-string cye-lm-tag">"/tmp/cmd_pipe"</span>, <span class="hljs-string cye-lm-tag">"r"</span> )<span class="hljs-comment cye-lm-tag">;</span>
+    <span class="hljs-keyword cye-lm-tag">ret</span> = fgets( buffer, MAX_LINE, pfp )<span class="hljs-comment cye-lm-tag">;</span></code></pre>
+
+<p class="cye-lm-tag">我们还能向管道中写入内容，下面的代码段向我们展示了利用fprintf函数向管道写入的具体方法：</p>
+
+
+
+<pre class="prettyprint"><code class=" hljs 1c">    pfp = fopen( <span class="hljs-string cye-lm-tag">"/tmp/cmd_pipe"</span>, <span class="hljs-string cye-lm-tag">"w+ );</span>
+    ret = fprintf( pfp, <span class="hljs-string cye-lm-tag">"Here’s a test string!\n"</span> );</code></pre>
+
+<p class="cye-lm-tag">对命名管道来说，除非写入方主动打开管道的读取端，否则读取方是无法打开命名管道的。Open调用执行后，读取方将被锁住，直到写入方出现为止。尽管命名管道有这样的局限性，但它仍不失为一种有效的进程间通信工具。 </p>
+
+
+
+<h2 id="无名管道">无名管道</h2>
+
+<hr />
+
+<p class="cye-lm-tag">无名管道为建立管道的进程及其子孙提供一条以比特流方式传送消息的通信管道。</p>
+
+<p class="cye-lm-tag">该管道再逻辑上被看作管道文件，在物理上则由文件系统的高速缓冲区构成，而很少启动外设。</p>
+
+<p class="cye-lm-tag">发送进程利用文件系统的系统调用<code>write(fd[1],buf,size)</code>,把<code>buf</code> 中的长度为<code>size</code>字符的消息送入管道入口<code>fd[1]</code>，</p>
+
+<p class="cye-lm-tag">接收进程则使用系统调用<code>read(fd[0],buf,size)</code>从管道出口<code>fd[0]</code>出口读出<code>size</code>字符的消息置入<code>buf</code>中。</p>
+
+<p class="cye-lm-tag">这里，管道按FIFO（先进先出）方式传送消息，且只能单向传送消息（如图）。</p>
+
+<p class="cye-lm-tag"><img src="http://img.blog.csdn.net/20160317100812005" alt="这里写图片描述" title="" /></p>
+
+
+
+<h3 id="无名管道pipe读写">无名管道pipe读写</h3>
+
+<hr />
+
+<p class="cye-lm-tag">管道用于不同进程间通信。通常先创建一个管道，再通过fork函数创建一个子进程，该子进程会继承父进程创建的管道。注意事项：必须在系统调用fork（）前调用pipe（），否则子进程将不会继承文件描述符。否则，会创建两个管道，因为父子进程共享同一段代码段，都会各自调用pipe（），即建立两个管道，出现异常错误。</p>
+
+<p class="cye-lm-tag">无名管道读写过程如图所示</p>
+
+<p class="cye-lm-tag"><img src="http://img.blog.csdn.net/20160317101352996" alt="这里写图片描述" title="" /></p>
+
+
+
+<pre class="prettyprint"><code class=" hljs perl"><span class="hljs-comment cye-lm-tag">#include &lt;stdio.h&gt;</span>
+<span class="hljs-comment cye-lm-tag">#include &lt;stdlib.h&gt;</span>
+<span class="hljs-comment cye-lm-tag">#include &lt;string.h&gt;</span>
+<span class="hljs-comment cye-lm-tag">#include &lt;sys/types.h&gt;</span>
+<span class="hljs-comment cye-lm-tag">#include &lt;sys/wait.h&gt;</span>
+<span class="hljs-comment cye-lm-tag">#include &lt;unistd.h&gt;</span>
+
+<span class="hljs-comment cye-lm-tag">#define MAX_DATA_LEN 256</span>
+<span class="hljs-comment cye-lm-tag">#define DELAY_TIME 1</span>
+
+<span class="hljs-keyword cye-lm-tag">int</span> main(void)
+{
+    pid_t       pid;
+    char        buf[MAX_DATA_LEN];
+    const char  <span class="hljs-variable cye-lm-tag">*data</span>=<span class="hljs-string cye-lm-tag">"Pipe Test program"</span>;
+    <span class="hljs-keyword cye-lm-tag">int</span>         real_read, real_write;
+    <span class="hljs-keyword cye-lm-tag">int</span>         pipe_fd[<span class="hljs-number cye-lm-tag">2</span>];
+
+    memset((void<span class="hljs-variable cye-lm-tag">*)</span>buf, <span class="hljs-number cye-lm-tag">0</span>, sizeof(buf));
+
+    <span class="hljs-keyword cye-lm-tag">if</span>(<span class="hljs-keyword cye-lm-tag">pipe</span>(pipe_fd) &lt; <span class="hljs-number cye-lm-tag">0</span>)
+    {
+        perror(<span class="hljs-string cye-lm-tag">"Pipe create error...\n"</span>);
+        <span class="hljs-keyword cye-lm-tag">exit</span>(<span class="hljs-number cye-lm-tag">1</span>);
+    }
+    <span class="hljs-keyword cye-lm-tag">else</span>
+    {
+        <span class="hljs-keyword cye-lm-tag">printf</span>(<span class="hljs-string cye-lm-tag">"Pipe create success...\n"</span>);
+    }
+
+    <span class="hljs-keyword cye-lm-tag">if</span> ((pid = <span class="hljs-keyword cye-lm-tag">fork</span>()) &lt; <span class="hljs-number cye-lm-tag">0</span>)
+    {
+        perror(<span class="hljs-string cye-lm-tag">"Fork error!\n"</span>);
+
+        <span class="hljs-keyword cye-lm-tag">exit</span>(<span class="hljs-number cye-lm-tag">1</span>);
+    }
+    <span class="hljs-keyword cye-lm-tag">else</span> <span class="hljs-keyword cye-lm-tag">if</span> (pid == <span class="hljs-number cye-lm-tag">0</span>)
+    {
+        <span class="hljs-keyword cye-lm-tag">printf</span>(<span class="hljs-string cye-lm-tag">"I am the child process, PID = <span class="hljs-variable cye-lm-tag">%d</span>, PPID = <span class="hljs-variable cye-lm-tag">%d</span>"</span>, getpid(), getppid());
+
+        <span class="hljs-keyword cye-lm-tag">close</span>(pipe_fd[<span class="hljs-number cye-lm-tag">1</span>]);
+        <span class="hljs-keyword cye-lm-tag">sleep</span>(DELAY_TIME * <span class="hljs-number cye-lm-tag">3</span>);
+
+        <span class="hljs-keyword cye-lm-tag">if</span> ((real_read=<span class="hljs-keyword cye-lm-tag">read</span>(pipe_fd[<span class="hljs-number cye-lm-tag">0</span>],buf, MAX_DATA_LEN)) &gt; <span class="hljs-number cye-lm-tag">0</span>)
+        {
+            <span class="hljs-keyword cye-lm-tag">printf</span>(<span class="hljs-string cye-lm-tag">"Child receive <span class="hljs-variable cye-lm-tag">%d</span> bytes from pipe: '<span class="hljs-variable cye-lm-tag">%s</span>'.\n"</span>, real_read, buf);
+        }
+
+        <span class="hljs-keyword cye-lm-tag">close</span>(pipe_fd[<span class="hljs-number cye-lm-tag">0</span>]);
+
+        <span class="hljs-keyword cye-lm-tag">exit</span>(<span class="hljs-number cye-lm-tag">0</span>);
+    }
+    <span class="hljs-keyword cye-lm-tag">else</span>
+    {
+        <span class="hljs-keyword cye-lm-tag">printf</span>(<span class="hljs-string cye-lm-tag">"I am the parent process, PID = <span class="hljs-variable cye-lm-tag">%d</span>, PPID = <span class="hljs-variable cye-lm-tag">%d</span>"</span>, getpid(), getppid());
+
+        <span class="hljs-keyword cye-lm-tag">close</span>(pipe_fd[<span class="hljs-number cye-lm-tag">0</span>]);
+        <span class="hljs-keyword cye-lm-tag">sleep</span>(DELAY_TIME);
+
+        <span class="hljs-keyword cye-lm-tag">if</span> ((real_write = <span class="hljs-keyword cye-lm-tag">write</span>(pipe_fd[<span class="hljs-number cye-lm-tag">1</span>], data, strlen(data))) &gt; <span class="hljs-number cye-lm-tag">0</span>)
+        {
+            <span class="hljs-keyword cye-lm-tag">printf</span>(<span class="hljs-string cye-lm-tag">"Parent write <span class="hljs-variable cye-lm-tag">%d</span> bytes into pipe: '<span class="hljs-variable cye-lm-tag">%s</span>'.\n"</span>, real_write, data);
+        }
+
+        <span class="hljs-keyword cye-lm-tag">close</span>(pipe_fd[<span class="hljs-number cye-lm-tag">1</span>]);
+        <span class="hljs-keyword cye-lm-tag">waitpid</span>(pid,NULL,<span class="hljs-number cye-lm-tag">0</span>);
+
+        <span class="hljs-keyword cye-lm-tag">exit</span>(<span class="hljs-number cye-lm-tag">0</span>);
+    }
+
+    <span class="hljs-keyword cye-lm-tag">return</span> EXIT_SUCCESS;
+}
+</code></pre>
+
+
+
+<h3 id="多进程管道读写">多进程管道读写</h3>
+
+<hr />
+
+<p class="cye-lm-tag">建立一个管道。同时，父进程生成子进程P1，P2，这两个进程分别向管道中写入各自的字符串，父进程读出它们（如图）。</p>
+
+
+
+<pre class="prettyprint"><code class=" hljs perl"><span class="hljs-comment cye-lm-tag">#include &lt; stdio.h&gt;  </span>
+main( )  
+{  
+  <span class="hljs-keyword cye-lm-tag">int</span> I,r,p1,p2,fd[<span class="hljs-number cye-lm-tag">2</span>];  
+  char buf[<span class="hljs-number cye-lm-tag">50</span>],<span class="hljs-keyword cye-lm-tag">s</span>[<span class="hljs-number cye-lm-tag">50</span>];  
+  <span class="hljs-keyword cye-lm-tag">pipe</span>(fd); <span class="hljs-regexp cye-lm-tag">/*父进程建立管道*/</span>  
+  <span class="hljs-keyword cye-lm-tag">while</span>((p1=<span class="hljs-keyword cye-lm-tag">fork</span>()) = = -<span class="hljs-number cye-lm-tag">1</span>);  
+  <span class="hljs-keyword cye-lm-tag">if</span>(p1 = = <span class="hljs-number cye-lm-tag">0</span> )  
+  {  
+     lockf(fd[<span class="hljs-number cye-lm-tag">1</span>],<span class="hljs-number cye-lm-tag">1</span>,<span class="hljs-number cye-lm-tag">0</span>); <span class="hljs-regexp cye-lm-tag">/*加锁锁定写入端*/</span>  
+     sprinrf(buf, ”child process P1 is sending messages! \n”);  
+     <span class="hljs-keyword cye-lm-tag">printf</span>(“child process P1! \n”);  
+     <span class="hljs-keyword cye-lm-tag">write</span>(fd[<span class="hljs-number cye-lm-tag">1</span>],buf, <span class="hljs-number cye-lm-tag">50</span>); <span class="hljs-regexp cye-lm-tag">/*把buf中的50个字符写入管道*/</span>  
+     <span class="hljs-keyword cye-lm-tag">sleep</span>(<span class="hljs-number cye-lm-tag">5</span>);  
+     lockf(fd[<span class="hljs-number cye-lm-tag">1</span>],<span class="hljs-number cye-lm-tag">0</span>,<span class="hljs-number cye-lm-tag">0</span>); <span class="hljs-regexp cye-lm-tag">/*释放管道写入端*/</span>  
+     <span class="hljs-keyword cye-lm-tag">exit</span>(<span class="hljs-number cye-lm-tag">0</span>); <span class="hljs-regexp cye-lm-tag">/*关闭P1*/</span>  
+  }  
+  <span class="hljs-keyword cye-lm-tag">else</span> /<span class="hljs-variable cye-lm-tag">*从</span>父进程返回，执行父进程<span class="hljs-variable cye-lm-tag">*/</span>  
+{  
+    <span class="hljs-keyword cye-lm-tag">while</span>((p2=<span class="hljs-keyword cye-lm-tag">fork</span>()) = = -<span class="hljs-number cye-lm-tag">1</span>); <span class="hljs-regexp cye-lm-tag">/*创建子进程P2,失败时循环*/</span>  
+    <span class="hljs-keyword cye-lm-tag">if</span>(p2 = = <span class="hljs-number cye-lm-tag">0</span>) /<span class="hljs-variable cye-lm-tag">*从</span>子进程P2返回，执行P2<span class="hljs-variable cye-lm-tag">*/</span>  
+    {  
+       lockf(fd[<span class="hljs-number cye-lm-tag">1</span>],<span class="hljs-number cye-lm-tag">1</span>,<span class="hljs-number cye-lm-tag">0</span>); <span class="hljs-regexp cye-lm-tag">/ *锁定写入端*/</span>  
+       <span class="hljs-keyword cye-lm-tag">sprintf</span>(buf, ”child process P2 is sending messages \n”);  
+       <span class="hljs-keyword cye-lm-tag">printf</span>(“child process P2 ! \n”);  
+       <span class="hljs-keyword cye-lm-tag">write</span>(fd[<span class="hljs-number cye-lm-tag">1</span>],buf,<span class="hljs-number cye-lm-tag">50</span>); <span class="hljs-regexp cye-lm-tag">/*把buf中字符写入管道*/</span>  
+       <span class="hljs-keyword cye-lm-tag">sleep</span>(<span class="hljs-number cye-lm-tag">5</span>); <span class="hljs-regexp cye-lm-tag">/* 睡眠等待*/</span>  
+       lockf (fd[<span class="hljs-number cye-lm-tag">1</span>],<span class="hljs-number cye-lm-tag">0</span>,<span class="hljs-number cye-lm-tag">0</span>); <span class="hljs-regexp cye-lm-tag">/*释放管道写入端*/</span>  
+       <span class="hljs-keyword cye-lm-tag">exit</span>(<span class="hljs-number cye-lm-tag">0</span>); <span class="hljs-regexp cye-lm-tag">/*关闭P2*/</span>  
+     }  
+    <span class="hljs-keyword cye-lm-tag">wait</span>(<span class="hljs-number cye-lm-tag">0</span>);  
+    <span class="hljs-keyword cye-lm-tag">if</span> (r = <span class="hljs-keyword cye-lm-tag">read</span>(fd[<span class="hljs-number cye-lm-tag">0</span>],<span class="hljs-keyword cye-lm-tag">s</span> <span class="hljs-number cye-lm-tag">50</span>) = = -<span class="hljs-number cye-lm-tag">1</span>)  
+      <span class="hljs-keyword cye-lm-tag">printf</span>(“can’t <span class="hljs-keyword cye-lm-tag">read</span> <span class="hljs-keyword cye-lm-tag">pipe</span> \n”);  
+    <span class="hljs-keyword cye-lm-tag">else</span> <span class="hljs-keyword cye-lm-tag">printf</span>(“<span class="hljs-variable cye-lm-tag">%s</span>\n”,<span class="hljs-keyword cye-lm-tag">s</span>);  
+    <span class="hljs-keyword cye-lm-tag">wait</span>(<span class="hljs-number cye-lm-tag">0</span>);  
+    <span class="hljs-keyword cye-lm-tag">if</span>(r = <span class="hljs-keyword cye-lm-tag">read</span>(fd[<span class="hljs-number cye-lm-tag">0</span>],<span class="hljs-keyword cye-lm-tag">s</span>,<span class="hljs-number cye-lm-tag">50</span>)= = -<span class="hljs-number cye-lm-tag">1</span>)  
+      <span class="hljs-keyword cye-lm-tag">printf</span>(“can’t <span class="hljs-keyword cye-lm-tag">read</span> <span class="hljs-keyword cye-lm-tag">pipe</span> \n”);  
+    <span class="hljs-keyword cye-lm-tag">else</span> <span class="hljs-keyword cye-lm-tag">printf</span>((“<span class="hljs-variable cye-lm-tag">%s</span>\n”,<span class="hljs-keyword cye-lm-tag">s</span>);  
+    <span class="hljs-keyword cye-lm-tag">exit</span>(<span class="hljs-number cye-lm-tag">0</span>);  
+}  
+}  </code></pre>
+
+
+
+<h3 id="使用dup函数实现指令流水">使用dup函数实现指令流水</h3>
+
+<hr />
+
+<p class="cye-lm-tag">我们的子进程把它的输出重定向的管道的输入，然后，父进程将它的输入重定向到管道的输出。这在实际的应用程序开发中是非常有用的一种技术。</p>
+
+
+
+<pre class="prettyprint"><code class=" hljs perl"><span class="hljs-comment cye-lm-tag">#include &lt;stdio.h&gt;</span>
+<span class="hljs-comment cye-lm-tag">#include &lt;stdlib.h&gt;</span>
+<span class="hljs-comment cye-lm-tag">#include &lt;unistd.h&gt;</span>
+
+<span class="hljs-keyword cye-lm-tag">int</span> main()
+{
+    <span class="hljs-keyword cye-lm-tag">int</span> pfds[<span class="hljs-number cye-lm-tag">2</span>];
+    <span class="hljs-keyword cye-lm-tag">if</span> ( <span class="hljs-keyword cye-lm-tag">pipe</span>(pfds) == <span class="hljs-number cye-lm-tag">0</span> )
+    {
+
+        <span class="hljs-keyword cye-lm-tag">if</span> ( <span class="hljs-keyword cye-lm-tag">fork</span>() == <span class="hljs-number cye-lm-tag">0</span> )
+        {
+            <span class="hljs-keyword cye-lm-tag">close</span>(<span class="hljs-number cye-lm-tag">1</span>);
+            dup2( pfds[<span class="hljs-number cye-lm-tag">1</span>], <span class="hljs-number cye-lm-tag">1</span> );
+            <span class="hljs-keyword cye-lm-tag">close</span>( pfds[<span class="hljs-number cye-lm-tag">0</span>] );
+            execlp( <span class="hljs-string cye-lm-tag">"ls"</span>, <span class="hljs-string cye-lm-tag">"ls"</span>, <span class="hljs-string cye-lm-tag">"-1"</span>, NULL );
+
+        }
+        <span class="hljs-keyword cye-lm-tag">else</span>
+        {
+            <span class="hljs-keyword cye-lm-tag">close</span>(<span class="hljs-number cye-lm-tag">0</span>);
+            dup2( pfds[<span class="hljs-number cye-lm-tag">0</span>], <span class="hljs-number cye-lm-tag">0</span> );
+            <span class="hljs-keyword cye-lm-tag">close</span>( pfds[<span class="hljs-number cye-lm-tag">1</span>] );
+            execlp( <span class="hljs-string cye-lm-tag">"wc"</span>, <span class="hljs-string cye-lm-tag">"wc"</span>, <span class="hljs-string cye-lm-tag">"-l"</span>, NULL );
+        }
+    }
+
+    <span class="hljs-keyword cye-lm-tag">return</span> <span class="hljs-number cye-lm-tag">0</span>;
+}
+</code></pre>
+
+
+
+<h2 id="命名管道-1">命名管道</h2>
+
+<hr />
+
+
+
+<h3 id="write端">write端</h3>
+
+
+
+<pre class="prettyprint"><code class=" hljs cpp"><span class="hljs-preprocessor cye-lm-tag">#include &lt;stdio.h&gt;</span>
+<span class="hljs-preprocessor cye-lm-tag">#include &lt;stdlib.h&gt;</span>
+<span class="hljs-preprocessor cye-lm-tag">#include &lt;string.h&gt;</span>
+
+<span class="hljs-preprocessor cye-lm-tag">#include &lt;sys/types.h&gt;</span>
+<span class="hljs-preprocessor cye-lm-tag">#include &lt;sys/stat.h&gt;</span>
+<span class="hljs-preprocessor cye-lm-tag">#include &lt;errno.h&gt;</span>
+<span class="hljs-preprocessor cye-lm-tag">#include &lt;unistd.h&gt;</span>
+<span class="hljs-preprocessor cye-lm-tag">#include &lt;fcntl.h&gt;</span>
+
+<span class="hljs-preprocessor cye-lm-tag">#define FIFO        "myfifo"</span>
+<span class="hljs-preprocessor cye-lm-tag">#define BUFF_SIZE   1024</span>
+
+<span class="hljs-keyword cye-lm-tag">int</span> main(<span class="hljs-keyword cye-lm-tag">int</span> argc,<span class="hljs-keyword cye-lm-tag">char</span>* argv[])
+{
+    <span class="hljs-keyword cye-lm-tag">char</span>    buff[BUFF_SIZE];
+    <span class="hljs-keyword cye-lm-tag">int</span>     real_write;
+    <span class="hljs-keyword cye-lm-tag">int</span>     fd;
+
+    <span class="hljs-keyword cye-lm-tag">if</span>(argc &lt;= <span class="hljs-number cye-lm-tag">1</span>)
+    {
+        <span class="hljs-built_in cye-lm-tag">printf</span>(<span class="hljs-string cye-lm-tag">"Usage: %s string\n"</span>, argv[<span class="hljs-number cye-lm-tag">0</span>]);
+
+        <span class="hljs-built_in cye-lm-tag">exit</span>(<span class="hljs-number cye-lm-tag">1</span>);
+    }
+    <span class="hljs-keyword cye-lm-tag">else</span>
+    {
+        <span class="hljs-built_in cye-lm-tag">printf</span>(<span class="hljs-string cye-lm-tag">"%s at PID = %d\n"</span>, argv[<span class="hljs-number cye-lm-tag">0</span>], getpid());
+    }
+
+    <span class="hljs-built_in cye-lm-tag">sscanf</span>(argv[<span class="hljs-number cye-lm-tag">1</span>], <span class="hljs-string cye-lm-tag">"%s"</span>, buff);
+
+    <span class="hljs-comment cye-lm-tag">// 测试FIFO是否存在，若不存在，mkfifo一个FIFO</span>
+    <span class="hljs-keyword cye-lm-tag">if</span>(access(FIFO, F_OK) == -<span class="hljs-number cye-lm-tag">1</span>)
+    {
+        <span class="hljs-keyword cye-lm-tag">if</span>((mkfifo(FIFO, <span class="hljs-number cye-lm-tag">0666</span>) &lt; <span class="hljs-number cye-lm-tag">0</span>) &amp;&amp; (errno != EEXIST))
+        {
+            <span class="hljs-built_in cye-lm-tag">printf</span>(<span class="hljs-string cye-lm-tag">"Can NOT create fifo file!\n"</span>);
+
+            <span class="hljs-built_in cye-lm-tag">exit</span>(<span class="hljs-number cye-lm-tag">1</span>);
+        }
+    }
+
+    <span class="hljs-comment cye-lm-tag">//  调用open以只写方式打开FIFO，返回文件描述符fd</span>
+    <span class="hljs-keyword cye-lm-tag">if</span>((fd = open(FIFO, O_WRONLY)) == -<span class="hljs-number cye-lm-tag">1</span>)
+    {
+        <span class="hljs-built_in cye-lm-tag">printf</span>(<span class="hljs-string cye-lm-tag">"Open fifo error!\n"</span>);
+
+        <span class="hljs-built_in cye-lm-tag">exit</span>(<span class="hljs-number cye-lm-tag">1</span>);
+    }
+
+    <span class="hljs-comment cye-lm-tag">//  调用write将buff写到文件描述符fd指向的FIFO中</span>
+    <span class="hljs-keyword cye-lm-tag">if</span> ((real_write = write(fd, buff, BUFF_SIZE)) &gt; <span class="hljs-number cye-lm-tag">0</span>)
+    {
+        <span class="hljs-built_in cye-lm-tag">printf</span>(<span class="hljs-string cye-lm-tag">"Write into pipe: '%s'.\n"</span>, buff);
+        <span class="hljs-built_in cye-lm-tag">exit</span>(<span class="hljs-number cye-lm-tag">1</span>);
+    }
+
+    close(fd);
+    <span class="hljs-built_in cye-lm-tag">exit</span>(<span class="hljs-number cye-lm-tag">0</span>);
+
+}
+</code></pre>
+
+
+
+<h3 id="read端">read端</h3>
+
+
+
+<pre class="prettyprint"><code class=" hljs cpp"><span class="hljs-preprocessor cye-lm-tag">#include &lt;stdio.h&gt;</span>
+<span class="hljs-preprocessor cye-lm-tag">#include &lt;stdlib.h&gt;</span>
+<span class="hljs-preprocessor cye-lm-tag">#include &lt;string.h&gt;</span>
+<span class="hljs-preprocessor cye-lm-tag">#include &lt;sys/types.h&gt;</span>
+<span class="hljs-preprocessor cye-lm-tag">#include &lt;sys/stat.h&gt;</span>
+<span class="hljs-preprocessor cye-lm-tag">#include &lt;errno.h&gt;</span>
+<span class="hljs-preprocessor cye-lm-tag">#include &lt;unistd.h&gt;</span>
+<span class="hljs-preprocessor cye-lm-tag">#include &lt;fcntl.h&gt;</span>
+
+<span class="hljs-preprocessor cye-lm-tag">#define FIFO "myfifo"</span>
+<span class="hljs-preprocessor cye-lm-tag">#define BUFF_SIZE 1024</span>
+
+<span class="hljs-keyword cye-lm-tag">int</span> main(<span class="hljs-keyword cye-lm-tag">int</span> argc, <span class="hljs-keyword cye-lm-tag">char</span> *argv[])
+{
+    <span class="hljs-keyword cye-lm-tag">char</span>    buff[BUFF_SIZE];
+    <span class="hljs-keyword cye-lm-tag">int</span>     real_read;
+    <span class="hljs-keyword cye-lm-tag">int</span>     fd;
+
+    <span class="hljs-built_in cye-lm-tag">printf</span>(<span class="hljs-string cye-lm-tag">"%s at PID = %d  "</span>, argv[<span class="hljs-number cye-lm-tag">0</span>], getpid());
+
+    <span class="hljs-comment cye-lm-tag">//  access确定文件或文件夹的访问权限。即，检查某个文件的存取方式</span>
+    <span class="hljs-comment cye-lm-tag">//  如果指定的存取方式有效，则函数返回0，否则函数返回-1</span>
+    <span class="hljs-comment cye-lm-tag">//  若不存在FIFO，则创建一个</span>
+    <span class="hljs-keyword cye-lm-tag">if</span>(access(FIFO, F_OK) == -<span class="hljs-number cye-lm-tag">1</span>)
+    {
+        <span class="hljs-keyword cye-lm-tag">if</span>((mkfifo(FIFO, <span class="hljs-number cye-lm-tag">0666</span>) &lt; <span class="hljs-number cye-lm-tag">0</span>) &amp;&amp; (errno != EEXIST))
+        {
+            <span class="hljs-built_in cye-lm-tag">printf</span>(<span class="hljs-string cye-lm-tag">"Can NOT create fifo file!\n"</span>);
+            <span class="hljs-built_in cye-lm-tag">exit</span>(<span class="hljs-number cye-lm-tag">1</span>);
+        }
+    }
+
+    <span class="hljs-comment cye-lm-tag">//  以只读方式打开FIFO，返回文件描述符fd</span>
+    <span class="hljs-keyword cye-lm-tag">if</span>((fd = open(FIFO, O_RDONLY)) == -<span class="hljs-number cye-lm-tag">1</span>)
+    {
+        <span class="hljs-built_in cye-lm-tag">printf</span>(<span class="hljs-string cye-lm-tag">"Open fifo error!\n"</span>);
+        <span class="hljs-built_in cye-lm-tag">exit</span>(<span class="hljs-number cye-lm-tag">1</span>);
+    }
+
+    <span class="hljs-comment cye-lm-tag">//  调用read将fd指向的FIFO的内容，读到buff中，并打印</span>
+    <span class="hljs-keyword cye-lm-tag">while</span>(<span class="hljs-number cye-lm-tag">1</span>)
+    {
+        <span class="hljs-built_in cye-lm-tag">memset</span>(buff, <span class="hljs-number cye-lm-tag">0</span>, BUFF_SIZE);
+
+        <span class="hljs-keyword cye-lm-tag">if</span> ((real_read = read(fd, buff, BUFF_SIZE)) &gt; <span class="hljs-number cye-lm-tag">0</span>)
+        {
+            <span class="hljs-built_in cye-lm-tag">printf</span>(<span class="hljs-string cye-lm-tag">"Read from pipe: '%s'.\n"</span>,buff);
+        }
+    }
+
+    close(fd);
+    <span class="hljs-built_in cye-lm-tag">exit</span>(<span class="hljs-number cye-lm-tag">0</span>);
+}
+</code></pre></div>&#13;
+        <script type="text/javascript">&#13;
+            $(function () {&#13;
+                $('pre.prettyprint code').each(function () {&#13;
+                    var lines = $(this).text().split('\n').length;&#13;
+                    var $numbering = $('&lt;ul/&gt;').addClass('pre-numbering').hide();&#13;
+                    $(this).addClass('has-numbering').parent().append($numbering);&#13;
+                    for (i = 1; i &lt;= lines; i++) {&#13;
+                        $numbering.append($('&lt;li/&gt;').text(i));&#13;
+                    };&#13;
+                    $numbering.fadeIn(1700);&#13;
+                });&#13;
+            });&#13;
+        </script>&#13;
+   &#13;

@@ -1,0 +1,211 @@
+
+
+<p><span style="font-size:18px">         在上篇博客中，我们在宏观上介绍了AOP的底层实现，具体见博客<a target="_blank" href="http://blog.csdn.net/xvshu/article/details/44455655">java架构解密——Spring框架的AOP</a>，在博客中，我们讲述了Aop的一些设计上的思路，今天，咱们就具体的实现，和大家一起探讨，看看AOP是怎么一步一步走到今天，而且有些图，也要做些纠正！</span></p>&#13;
+<p><span style="font-size:18px"><br />&#13;
+</span></p>&#13;
+<h1><span style="font-size:18px">一，代码演变</span></h1>&#13;
+<h2><span style="font-size:18px">前提：最初要实现的功能（打招呼）</span></h2>&#13;
+<p><span style="font-size:18px"><img src="http://img.blog.csdn.net/20150531130045247?watermark/2/text/aHR0cDovL2Jsb2cuY3Nkbi5uZXQveHZzaHU=/font/5a6L5L2T/fontsize/400/fill/I0JBQkFCMA==/dissolve/70/gravity/Center" alt="" /><br />&#13;
+</span></p>&#13;
+<p><span style="font-size:18px">代码：</span></p>&#13;
+<p><span style="font-size:18px">接口：</span></p>&#13;
+<p></p>&#13;
+<pre name="code" class="java">&lt;span style="font-size:18px;"&gt;public interface Greeting {
+	 void sayHello(String name);  
+}&lt;/span&gt;</pre>&#13;
+<p></p>&#13;
+<p><span style="font-size:18px"><br />&#13;
+</span></p>&#13;
+<span style="font-size:18px">实现：</span>&#13;
+<p></p>&#13;
+<pre name="code" class="java">&lt;span style="font-size:18px;"&gt;public class GreetingImpl  implements Greeting {
+
+	@Override 
+    public void sayHello(String name) {  
+          
+        System.out.println("Hello! " + name);  
+         
+    }  
+ 
+}&lt;/span&gt;</pre><span style="font-size:18px"><br />&#13;
+</span>&#13;
+<p></p>&#13;
+<h2><span style="font-size:18px">1，要增加一个功能在打招呼前加入打印“befor”，在打招呼后打印“after”</span></h2>&#13;
+<p></p>&#13;
+<p><span style="font-size:18px"><img src="http://img.blog.csdn.net/20150531130203128?watermark/2/text/aHR0cDovL2Jsb2cuY3Nkbi5uZXQveHZzaHU=/font/5a6L5L2T/fontsize/400/fill/I0JBQkFCMA==/dissolve/70/gravity/Center" alt="" /></span></p>&#13;
+<p><span style="font-size:18px">修改后实现：</span></p>&#13;
+<p></p>&#13;
+<pre name="code" class="java">&lt;span style="font-size:18px;"&gt;public class GreetingImpl  implements Greeting {
+
+	@Override 
+    public void sayHello(String name) {  
+        before();  
+        System.out.println("Hello! " + name);  
+        after();  
+    }  
+ 
+    private void before() {  
+        System.out.println("Before");  
+    }  
+ 
+    private void after() {  
+        System.out.println("After");  
+    }  
+	
+}&lt;/span&gt;</pre>&#13;
+<p></p>&#13;
+<h2><span style="font-size:18px">2，我想统一管理这些</span></h2>&#13;
+<span style="font-size:18px">    如果有一天，图 1 中的深色代码段需要修改，那是不是要打开 3 个地方的代码进行修改？如果不是 3 个地方包含这段代码，而是 100 个地方，甚至是 1000 个地方包含这段代码段，那会是什么后果？<br />&#13;
+    为了解决这个问题，我们通常会采用将如图 1 所示的深色代码部分定义成一个方法，然后在 3 个代码段中分别调用该方法即可。<br />&#13;
+<img src="http://img.blog.csdn.net/20150531130530306?watermark/2/text/aHR0cDovL2Jsb2cuY3Nkbi5uZXQveHZzaHU=/font/5a6L5L2T/fontsize/400/fill/I0JBQkFCMA==/dissolve/70/gravity/Center" alt="" /></span>&#13;
+<p></p>&#13;
+<p><span style="font-size:18px">代理的实现：</span></p>&#13;
+<p></p>&#13;
+<pre name="code" class="java">&lt;span style="font-size:18px;"&gt;public class GreetingProxy implements Greeting {
+	private GreetingImpl greetingImpl;  
+	 
+    public GreetingProxy(GreetingImpl greetingImpl) {  
+        this.greetingImpl = greetingImpl;  
+    }  
+ 
+    @Override 
+    public void sayHello(String name) {  
+        before();  
+        greetingImpl.sayHello(name);  
+        after();  
+    }  
+ 
+    private void before() {  
+        System.out.println("Before");  
+    }  
+ 
+    private void after() {  
+        System.out.println("After");  
+    }  
+}&lt;/span&gt;</pre><span style="font-size:18px"><br />&#13;
+注意：这时候，GreetingImpl里没有befor和after方法！</span>&#13;
+<p></p>&#13;
+<p><span style="font-size:18px"><br />&#13;
+</span></p>&#13;
+<p></p>&#13;
+<h2><span style="font-size:18px">3，动态更换代理</span></h2>&#13;
+<span style="font-size:18px">    因为软件系统需求变更是很频繁的事情，系统前期设计方法 1、方法 2、方法 3 时只实现了核心业务功能，过了一段时间，我们需要为方法 1、方法 2、方法 3 都增加事务控制；又过了一段时间，客户提出方法 1、方法 2、方法 3 需要进行用户合法性验证，只有合法的用户才能执行这些方法；又过了一段时间，客户又提出方法 1、方法 2、方法 3 应该增加日志记录；又过了一段时间，客户又提出……面对这样的情况，我们怎么办？<br />&#13;
+</span>&#13;
+<p></p>&#13;
+<p><span style="font-size:18px">类设计：</span></p>&#13;
+<p><span style="font-size:18px"><img src="http://img.blog.csdn.net/20150531130944212?watermark/2/text/aHR0cDovL2Jsb2cuY3Nkbi5uZXQveHZzaHU=/font/5a6L5L2T/fontsize/400/fill/I0JBQkFCMA==/dissolve/70/gravity/Center" alt="" /><br />&#13;
+</span></p>&#13;
+<p><span style="font-size:18px">JDK代理实现：</span></p>&#13;
+<p></p>&#13;
+<pre name="code" class="java">&lt;span style="font-size:18px;"&gt;public class JDKDynamicProxy 
+	implements InvocationHandler {  
+		 
+	    private Object target;  
+	 
+	    public JDKDynamicProxy(Object target) {  
+	        this.target = target;  
+	    }  
+	 
+	    @SuppressWarnings("unchecked")  
+	    public &lt;T&gt; T getProxy() {  
+	        return (T) Proxy.newProxyInstance(  
+	            target.getClass().getClassLoader(),  
+	            target.getClass().getInterfaces(),  
+	            this 
+	        );  
+	    }  
+	 
+	    @Override 
+	    public Object invoke(Object proxy, Method method, Object[] args) throws Throwable {  
+	        before();  
+	        Object result = method.invoke(target, args);  
+	        after();  
+	        return result;  
+	    }  
+	 
+	    private void before() {  
+	        System.out.println("Before");  
+	    }  
+	 
+	    private void after() {  
+	        System.out.println("After");  
+	    }  
+}&lt;/span&gt;</pre><span style="font-size:18px"><br />&#13;
+客户端：</span>&#13;
+<p></p>&#13;
+<p></p>&#13;
+<pre name="code" class="java">&lt;span style="font-size:18px;"&gt;public class Client {
+	public static void main(String[] args) {  
+        Greeting greeting = new JDKDynamicProxy(new GreetingImpl()).getProxy();  
+        greeting.sayHello("Jack");     
+    }  
+}&lt;/span&gt;</pre><span style="font-size:18px"><br />&#13;
+运行时对象的关系：</span>&#13;
+<p></p>&#13;
+<p><span style="font-size:18px"><img src="http://img.blog.csdn.net/20150531131213957?watermark/2/text/aHR0cDovL2Jsb2cuY3Nkbi5uZXQveHZzaHU=/font/5a6L5L2T/fontsize/400/fill/I0JBQkFCMA==/dissolve/70/gravity/Center" alt="" /><br />&#13;
+</span></p>&#13;
+<p><span style="font-size:18px"><br />&#13;
+</span></p>&#13;
+<p><span style="font-size:18px"><br />&#13;
+</span></p>&#13;
+<h3><span style="font-size:18px">4.1改进</span></h3>&#13;
+<p><span style="font-size:18px">缺点：必须有接口<br />&#13;
+CGLib代理：<br />&#13;
+<img src="http://img.blog.csdn.net/20150531131337142?watermark/2/text/aHR0cDovL2Jsb2cuY3Nkbi5uZXQveHZzaHU=/font/5a6L5L2T/fontsize/400/fill/I0JBQkFCMA==/dissolve/70/gravity/Center" alt="" /></span></p>&#13;
+<p><span style="font-size:18px">CGLIB实现：</span></p>&#13;
+<p></p>&#13;
+<pre name="code" class="java">&lt;span style="font-size:18px;"&gt;public class CGLibDynamicProxy implements MethodInterceptor {  
+ 
+    private static CGLibDynamicProxy instance = new CGLibDynamicProxy();  
+ 
+    
+    private CGLibDynamicProxy() {  
+    }  
+ 
+    public static CGLibDynamicProxy getInstance() {  
+        return instance;  
+    }  
+ 
+    @SuppressWarnings("unchecked")  
+    public &lt;T&gt; T getProxy(Class&lt;T&gt; cls) {  
+        return (T) Enhancer.create(cls, this);  
+    }  
+ 
+    @Override 
+    public Object intercept(Object target, Method method, Object[] args, MethodProxy proxy) throws Throwable {  
+        before();  
+        Object result = proxy.invokeSuper(target, args);  
+        after();  
+        return result;  
+    }  
+ 
+    private void before() {  
+        System.out.println("Before");  
+    }  
+ 
+    private void after() {  
+        System.out.println("After");  
+    }  
+	
+	
+}&lt;/span&gt;</pre><span style="font-size:18px"><br />&#13;
+客户端：</span>&#13;
+<p></p>&#13;
+<p></p>&#13;
+<pre name="code" class="java">&lt;span style="font-size:18px;"&gt;public class Client {
+	public static void main(String[] args) {  
+        Greeting greeting = CGLibDynamicProxy.getInstance().getProxy(GreetingImpl.class);  
+        greeting.sayHello("Jack");  
+    } 
+}&lt;/span&gt;</pre><span style="font-size:18px"><br />&#13;
+运行时对象的关系：</span>&#13;
+<p></p>&#13;
+<p><span style="font-size:18px"><img src="http://img.blog.csdn.net/20150531131730575?watermark/2/text/aHR0cDovL2Jsb2cuY3Nkbi5uZXQveHZzaHU=/font/5a6L5L2T/fontsize/400/fill/I0JBQkFCMA==/dissolve/70/gravity/Center" alt="" /></span></p>&#13;
+<p><span style="font-size:18px"><br />&#13;
+</span></p>&#13;
+<h1><span style="font-size:18px">总结：</span></h1>&#13;
+<p><span style="font-size:18px">        进行到这里，一般的博客也许就会结束了，因为核心内容已经结束了，但是，咱们的征途是星辰和大海，咱们的征途才刚开始，这个AOP还很草率，还没有实现动态的组装，而且咱们的aop切面（公共服务）和代理类写在了一起，等等这些问题，解决这些问题，需要我们站在整个设计思路上下功夫，核心原理懂了，剩下的抽象和封装的工作，是考验一个人另一个能力的时候了，咱们，下节继续！<br />&#13;
+<br />&#13;
+</span><br />&#13;
+</p>&#13;
+   &#13;

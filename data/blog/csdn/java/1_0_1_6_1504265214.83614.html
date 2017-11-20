@@ -1,0 +1,136 @@
+
+<p style="margin: 0in; font-size: 14pt;"><span style="font-family:KaiTi_GB2312;"><br /></span></p><h1 style="margin: 0in; font-size: 14pt;"><span style="font-family:KaiTi_GB2312;">多线程共享数据的方式：</span></h1><p style="margin: 0in; font-size: 14pt;"><span style="font-family:KaiTi_GB2312;"> </span></p><p style="margin:0in;font-size:14.0pt"><span style="font-family:KaiTi_GB2312;"><span lang="en-US" xml:lang="en-US">1</span><span lang="zh-CN" xml:lang="zh-CN">，如果每个线程执行的代码相同，可以使用同一个</span><span lang="en-US" xml:lang="en-US">Runnable</span><span lang="zh-CN" xml:lang="zh-CN">对象，这个</span><span lang="en-US" xml:lang="en-US">Runnable</span><span lang="zh-CN" xml:lang="zh-CN">对象中有那个共享数据，例如，卖票系统就可以这么做。</span></span></p><p style="margin:0in;font-size:14.0pt"><span style="font-family:KaiTi_GB2312;"><span lang="en-US" xml:lang="en-US">2</span><span lang="zh-CN" xml:lang="zh-CN">，如果每个线程执行的代码不同，这时候需要用不同的</span><span lang="en-US" xml:lang="en-US">Runnable</span><span lang="zh-CN" xml:lang="zh-CN">对象，例如，设计4个线程。其中两个线程每次对j增加1，另外两个线程对j每次减1，银行存取款</span></span></p><p style="margin: 0in; font-size: 14pt;"><span style="font-family:KaiTi_GB2312;"> </span></p><p style="margin: 0in; font-size: 14pt;"><span style="font-family:KaiTi_GB2312;">有两种方法来解决此类问题：</span></p><p style="margin: 0in 0in 0in 0.375in; font-size: 14pt;"><span style="font-family:KaiTi_GB2312;">将共享数据封装成另外一个对象，然后将这个对象逐一传递给各个Runnable对象，每个线程对共享数据的操作方法也分配到那个对象身上完成，这样容易实现针对数据进行各个操作的互斥和通信</span></p><p style="margin: 0in 0in 0in 0.375in; font-size: 14pt;"><span style="font-family:KaiTi_GB2312;">将Runnable对象作为一个类的内部类，共享数据作为这个类的成员变量，每个线程对共享数据的操作方法也封装在外部类，以便实现对数据的各个操作的同步和互斥，作为内部类的各个Runnable对象调用外部类的这些方法。</span></p><p style="margin: 0in; font-size: 14pt;"><span style="font-family:KaiTi_GB2312;"> </span></p><p style="margin: 0in; font-size: 14pt;"><span style="font-family:KaiTi_GB2312;">下面逐一介绍</span></p><p style="margin: 0in; font-size: 14pt;"><span style="font-family:KaiTi_GB2312;"> </span></p><h2 style="margin:0in;font-size:14.0pt"><span style="font-family:KaiTi_GB2312;"><span lang="zh-CN" xml:lang="zh-CN">每个线程执行的代码相同，可以使用同一个</span><span lang="en-US" xml:lang="en-US">Runnable</span><span lang="zh-CN" xml:lang="zh-CN">对象</span></span></h2><p style="margin: 0in 0in 0in 0.375in; font-size: 14pt;"><span style="font-family:KaiTi_GB2312;"> </span></p><p style="margin:0in;font-size:14.0pt"><span style="font-family:KaiTi_GB2312;"><span lang="zh-CN" xml:lang="zh-CN">卖票系统</span><span lang="en-US" xml:lang="en-US">demo</span><span lang="zh-CN" xml:lang="zh-CN">：</span></span></p><p style="margin:0in;font-size:14.0pt"><span style="font-family:KaiTi_GB2312;"><span lang="zh-CN" xml:lang="zh-CN"><br /></span></span></p><p style="margin: 0in; font-size: 14pt;"><span style="font-family:KaiTi_GB2312;"></span></p><pre name="code" class="java">package com.tgb.hjy;
+/**
+ * 多线程共享数据-卖票系统
+ * @author hejingyuan
+ *
+ */
+public class SellTicket {
+
+	 /** 
+     * @param args 
+     */  
+    public static void main(String[] args) {  
+        Ticket t = new Ticket();  
+        new Thread(t).start();  
+        new Thread(t).start();  
+    }  
+}
+class Ticket implements Runnable{  
+	  
+    private int ticket = 10;  
+    public void run() {  
+        while(ticket&gt;0){  
+            ticket--;  
+            System.out.println("当前票数为："+ticket);  
+        }  
+          
+    }  
+  
+} 
+</pre><br /><img src="http://img.blog.csdn.net/20150725093804760?watermark/2/text/aHR0cDovL2Jsb2cuY3Nkbi5uZXQv/font/5a6L5L2T/fontsize/400/fill/I0JBQkFCMA==/dissolve/70/gravity/Center" alt="" /><br /><p></p><p style="margin: 0in; font-size: 14pt;"><span style="font-family:KaiTi_GB2312;"><br /></span></p><p style="margin: 0in; font-size: 14pt;"></p><h2 style="margin: 0in; font-size: 14pt;"><span style="font-family:KaiTi_GB2312;"><span lang="zh-CN" xml:lang="zh-CN">简单的多线程间数据共享，每个线程执行的代码不同，用不同的</span><span lang="en-US" xml:lang="en-US">Runnable</span><span lang="zh-CN" xml:lang="zh-CN">对象</span></span></h2><p style="margin: 0in; font-size: 14pt;"><span style="font-family:KaiTi_GB2312;"> </span></p><h3 style="margin: 0in; font-size: 14pt;"><span style="font-family:KaiTi_GB2312;">设计4个线程。</span></h3><p style="margin: 0in; font-size: 14pt;"><span style="font-family:KaiTi_GB2312;"><br /></span></p><p style="margin: 0in; font-size: 14pt;"><span style="font-family:KaiTi_GB2312;">其中两个线程每次对j增加1，另外两个线程对j每次减1</span></p><p style="margin: 0in; font-size: 14pt;"><span style="font-family:KaiTi_GB2312;"><br /></span></p><span style="font-family:KaiTi_GB2312;"></span><pre name="code" class="java">package com.tgb.hjy;
+
+public class TestThread {
+
+	 /** 
+     * @param args 
+     */  
+    public static void main(String[] args) {  
+        final MyData data = new MyData();  
+        for(int i=0;i&lt;2;i++){  
+            new Thread(new Runnable(){  
+  
+                public void run() {  
+                    data.add();  
+                  
+                }  
+              
+            }).start();  
+            new Thread(new Runnable(){  
+               
+                public void run() {  
+                    data.dec();  
+                  
+                }  
+              
+            }).start();  
+        }  
+    }  
+  
+}
+
+class MyData {  
+    private int j=0;  
+    public  synchronized void add(){  
+        j++;  
+        System.out.println("线程"+Thread.currentThread().getName()+"j为："+j);  
+    }  
+    public  synchronized void dec(){  
+        j--;  
+        System.out.println("线程"+Thread.currentThread().getName()+"j为："+j);  
+    }  
+
+}  
+</pre><br /><img src="http://img.blog.csdn.net/20150725093705070?watermark/2/text/aHR0cDovL2Jsb2cuY3Nkbi5uZXQv/font/5a6L5L2T/fontsize/400/fill/I0JBQkFCMA==/dissolve/70/gravity/Center" alt="" /><br /><p style="margin: 0in; font-size: 14pt;"><span style="font-family:KaiTi_GB2312;"><br /></span></p><p style="margin: 0in; font-size: 14pt;"></p><h3 style="margin: 0in; font-size: 14pt;"><span style="font-family:KaiTi_GB2312;">银行存取款实例：</span></h3><div><span style="font-family:KaiTi_GB2312;"><br /></span></div><p style="margin: 0in; font-size: 14pt;"></p><pre name="code" class="java">package com.tgb.hjy;
+
+public class Acount {
+
+	 private int money;
+	 public Acount(int money){
+	   this.money=money;
+	 }
+	 
+	 public synchronized void getMoney(int money){
+	  //注意这个地方必须用while循环，因为即便再存入钱也有可能比取的要少
+	  while(this.money&lt;money){		  
+		   System.out.println("取款："+money+" 余额："+this.money+" 余额不足，正在等待存款......");
+		   try{ wait();} catch(Exception e){}
+	  }
+	  this.money=this.money-money;
+	  System.out.println("取出："+money+" 还剩余："+this.money);
+	 
+	 }
+	 
+	 public synchronized void setMoney(int money){
+	 
+	  try{ Thread.sleep(10);}catch(Exception e){}
+	  this.money=this.money+money;
+	  System.out.println("新存入："+money+" 共计："+this.money);
+	  notify();
+	 }
+	 
+	 public static void main(String args[]){
+		  Acount Acount=new Acount(0);
+		  Bank b=new Bank(Acount);
+		  Consumer c=new Consumer(Acount);
+		  new Thread(b).start();
+		  new Thread(c).start();
+	 }
+}
+//存款类
+class Bank implements Runnable {
+		Acount Acount;
+		public Bank(Acount Acount){
+			this.Acount=Acount;
+		}
+		public void run(){
+			while(true){
+				 int temp=(int)(Math.random()*1000);
+				 Acount.setMoney(temp);	 
+	}
+}
+
+}
+//取款类
+class Consumer implements Runnable {
+		Acount Acount;
+		public Consumer(Acount Acount){
+			this.Acount=Acount;
+		}
+		public void run(){
+		while(true){		 
+			int temp=(int)(Math.random()*1000);
+			Acount.getMoney(temp);
+		}
+	}
+}</pre><br /><br /><img src="http://img.blog.csdn.net/20150725093837973?watermark/2/text/aHR0cDovL2Jsb2cuY3Nkbi5uZXQv/font/5a6L5L2T/fontsize/400/fill/I0JBQkFCMA==/dissolve/70/gravity/Center" alt="" /><br /><p style="margin: 0in; font-size: 14pt;"><span style="font-family:KaiTi_GB2312;"><br /></span></p><p style="margin: 0in; font-size: 14pt;"></p><h1 style="margin: 0in; font-size: 14pt;"><span style="font-family:KaiTi_GB2312;">总结：</span></h1><div><span style="font-family:KaiTi_GB2312;"><br /></span></div><p style="margin: 0in; font-size: 14pt;"><span style="font-family: KaiTi_GB2312; font-size: 14pt;">    其实多线程间的共享数据最主要的还是互斥，多个线程共享一个变量，针对变量的操作实现原子性即可。</span></p><p style="margin: 0in; font-size: 14pt;"><span style="font-family: KaiTi_GB2312; font-size: 14pt;"><br /></span></p><p style="margin: 0in; font-size: 14pt;"><span style="font-family: KaiTi_GB2312; font-size: 14pt;"><br /></span></p><br />   &#13;

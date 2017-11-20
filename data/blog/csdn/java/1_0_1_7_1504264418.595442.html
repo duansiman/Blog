@@ -1,0 +1,215 @@
+
+        <div class="markdown_views"><h1 id="享元模式"><center> 享元模式</center></h1>
+
+<p>标签 ： Java与设计模式</p>
+
+<hr />
+
+<blockquote>
+  <p>内存属于稀缺资源, 不能随便浪费. 如果有很多相同/相似的对象, 我们可以通过<strong>享元</strong>节省内存.</p>
+</blockquote>
+
+<hr />
+
+
+
+<h2 id="内部状态-vs-外部状态">内部状态 vs. 外部状态</h2>
+
+<blockquote>
+  <p><strong>享元模式(Flyweight)</strong>: 运用<strong>共享技术</strong>有效地重用大量细粒度的对象.</p>
+</blockquote>
+
+<ul>
+<li>享元对象能做到共享的关键是区分了<strong>内部状态</strong>和<strong>外部状态</strong>: <br />
+<img src="http://www.7xrgh9.com1.z0.glb.clouddn.com/%E4%BA%AB%E5%85%83%E6%A8%A1%E5%BC%8F.png" alt="此处输入图片的描述" title="" /> <br />
+<ul><li>在享元对象内部并且<strong>不会随环境改变而改变的共享部分</strong>, 可称之为享元对象的内部状态.</li>
+<li>而<strong>随环境改变而改变的、不可以共享的状态</strong>是外部状态. </li></ul></li>
+</ul>
+
+<p>在设计开发中,有时需要生产大量细粒度对象来表征数据, 如果这些对象除个别参数外基本相同,  此时如果能<strong>把那些参数移到类实例外面, 在方法调用时将其传入</strong>, 就可以通过共享大幅度减少类实例数目.</p>
+
+<hr />
+
+
+
+<h2 id="模式实现">模式实现</h2>
+
+<pre><code>案例: 围棋设计
+</code></pre>
+
+<p>有下棋经验的同学都知道一盘棋的棋子大小、材质、颜色(黑/白)往往都是确定的, 而围棋落子的位置却不一定(看水平高低了O(∩_∩)O！), 因此我们可以将棋子位置从棋子对象中剥离, 然后让棋子对象共享大小、材质、颜色属性, 并在调用时将位置传入, 就可大大减少棋子对象的数量: <br />
+<img src="http://www.7xrgh9.com1.z0.glb.clouddn.com/%E4%BA%AB%E5%85%83%E6%A8%A1%E5%BC%8F2.png" alt="此处输入图片的描述" title="" /></p>
+
+<hr />
+
+
+
+<h3 id="flyweight">Flyweight</h3>
+
+<p>所有具体享元类的超类或接口, 通过该接口, <strong>Flyweight</strong>可以接受并作用于外部状态:</p>
+
+
+
+<pre class="prettyprint"><code class=" hljs java"><span class="hljs-javadoc">/**
+ *<span class="hljs-javadoctag"> @author</span> jifang
+ *<span class="hljs-javadoctag"> @since</span> 16/8/26 上午10:27.
+ */</span>
+<span class="hljs-keyword">public</span> <span class="hljs-class"><span class="hljs-keyword">interface</span> <span class="hljs-title">Flyweight</span> {</span>
+    <span class="hljs-keyword">void</span> operation(Location location);
+}</code></pre>
+
+<hr />
+
+
+
+<h3 id="concreteflyweight">ConcreteFlyweight</h3>
+
+<p>实现<strong>Flyweight</strong>接口, 并为内部状态增加存储空间:</p>
+
+
+
+<pre class="prettyprint"><code class=" hljs cs">class GoFlyweight implements Flyweight {
+
+    <span class="hljs-keyword">private</span> String color;
+
+    <span class="hljs-keyword">private</span> <span class="hljs-keyword">double</span> radius;
+
+    <span class="hljs-keyword">private</span> String material;
+
+    <span class="hljs-keyword">public</span> <span class="hljs-title">GoFlyweight</span>(String color, <span class="hljs-keyword">double</span> radius, String material) {
+        <span class="hljs-keyword">this</span>.color = color;
+        <span class="hljs-keyword">this</span>.radius = radius;
+        <span class="hljs-keyword">this</span>.material = material;
+    }
+
+    <span class="hljs-keyword">public</span> String <span class="hljs-title">getColor</span>() {
+        <span class="hljs-keyword">return</span> color;
+    }
+
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">double</span> <span class="hljs-title">getRadius</span>() {
+        <span class="hljs-keyword">return</span> radius;
+    }
+
+    <span class="hljs-keyword">public</span> String <span class="hljs-title">getMaterial</span>() {
+        <span class="hljs-keyword">return</span> material;
+    }
+
+    @Override
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">void</span> <span class="hljs-title">operation</span>(Location location) {
+        System.<span class="hljs-keyword">out</span>.println(<span class="hljs-string">"["</span> + color + <span class="hljs-string">"]棋 ["</span> + material + <span class="hljs-string">"]材质 半径["</span> + radius + <span class="hljs-string">"]CM 落在"</span> + location);
+    }
+}</code></pre>
+
+<hr />
+
+
+
+<h3 id="unsharedconcreteflyweight">UnsharedConcreteFlyweight</h3>
+
+<p>指不需要共享的<strong>Flyweight</strong>子类, 因为<strong>Flyweight</strong>接口共享成为可能, 但它并不强制共享. <strong>UnsharedConcreteFlyweight</strong>用于解决那些不需要共享对象的问题:</p>
+
+
+
+<pre class="prettyprint"><code class=" hljs java">class Location {
+
+    <span class="hljs-keyword">private</span> <span class="hljs-keyword">int</span> locX;
+
+    <span class="hljs-keyword">private</span> <span class="hljs-keyword">int</span> locY;
+
+    <span class="hljs-keyword">public</span> <span class="hljs-title">Location</span>() {
+    }
+
+    <span class="hljs-keyword">public</span> <span class="hljs-title">Location</span>(<span class="hljs-keyword">int</span> locX, <span class="hljs-keyword">int</span> locY) {
+        <span class="hljs-keyword">this</span>.locX = locX;
+        <span class="hljs-keyword">this</span>.locY = locY;
+    }
+
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">int</span> <span class="hljs-title">getLocX</span>() {
+        <span class="hljs-keyword">return</span> locX;
+    }
+
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">void</span> <span class="hljs-title">setLocX</span>(<span class="hljs-keyword">int</span> locX) {
+        <span class="hljs-keyword">this</span>.locX = locX;
+    }
+
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">int</span> <span class="hljs-title">getLocY</span>() {
+        <span class="hljs-keyword">return</span> locY;
+    }
+
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">void</span> <span class="hljs-title">setLocY</span>(<span class="hljs-keyword">int</span> locY) {
+        <span class="hljs-keyword">this</span>.locY = locY;
+    }
+
+
+    <span class="hljs-annotation">@Override</span>
+    <span class="hljs-keyword">public</span> String <span class="hljs-title">toString</span>() {
+        <span class="hljs-keyword">return</span> <span class="hljs-string">"{"</span> +
+                <span class="hljs-string">"locX="</span> + locX +
+                <span class="hljs-string">", locY="</span> + locY +
+                <span class="hljs-string">'}'</span>;
+    }
+}</code></pre>
+
+<ul>
+<li>FlyweightFactory <br />
+享元工厂,用来创建并管理<strong>Flyweight</strong>对象,作用是确保合理地共享<strong>Flyweight</strong>, 当用户请求一个<strong>Flyweight</strong>时, <strong>FlyweightFactory</strong>提供一个共享实例:</li>
+</ul>
+
+
+
+<pre class="prettyprint"><code class=" hljs cs"><span class="hljs-keyword">public</span> <span class="hljs-keyword">class</span> FlyweightFactory {
+
+    <span class="hljs-keyword">private</span> <span class="hljs-keyword">static</span> Map&lt;String, GoFlyweight&gt; map = <span class="hljs-keyword">new</span> ConcurrentHashMap&lt;&gt;();
+
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">static</span> GoFlyweight <span class="hljs-title">getGoFlyweight</span>(String color) {
+        GoFlyweight flyweight = map.<span class="hljs-keyword">get</span>(color);
+        <span class="hljs-keyword">if</span> (flyweight == <span class="hljs-keyword">null</span>) {
+            flyweight = <span class="hljs-keyword">new</span> GoFlyweight(color, <span class="hljs-number">1.1</span>, <span class="hljs-string">"陶瓷"</span>);
+            map.put(color, flyweight);
+        }
+        <span class="hljs-keyword">return</span> flyweight;
+    }
+}</code></pre>
+
+<hr />
+
+
+
+<h2 id="小结">小结</h2>
+
+<blockquote>
+  <p>享元模式可以<strong>极大减少内存中对象的数量</strong>: 相同/相似对象只保留一份, 节约资源, 提高性能. 且将外部状态剥离, 使外部状态相对独立, 不影响内部状态. 但相比原先的设计, 增加了实现复杂度, 且读取外部状态使得运行时间变长(时间换空间).</p>
+</blockquote>
+
+<ul>
+<li>场景 <br />
+如果一个应用使用了大量对象从而造成很大的存储开销时; <br />
+如果对象的有大量外部状态, 且<strong>剥离</strong>外部状态就可用相对较少的共享对象取代很多实例时; <br />
+<ul><li><strong>‘池’化资源</strong>, 如: 线程池、数据库连接池.</li>
+<li><code>String</code>类设计.</li></ul></li>
+</ul>
+
+<hr />
+
+<dl>
+<dt>参考</dt>
+<dd><a href="http://www.cnblogs.com/java-my-life/archive/2012/04/26/2468499.html">《JAVA与模式》之享元模式</a></dd>
+
+<dd><a href="http://blog.jobbole.com/78083/">C#设计模式(12)——享元模式（Flyweight Pattern）</a></dd>
+</dl>
+
+<hr /></div>&#13;
+        <script type="text/javascript">&#13;
+            $(function () {&#13;
+                $('pre.prettyprint code').each(function () {&#13;
+                    var lines = $(this).text().split('\n').length;&#13;
+                    var $numbering = $('&lt;ul/&gt;').addClass('pre-numbering').hide();&#13;
+                    $(this).addClass('has-numbering').parent().append($numbering);&#13;
+                    for (i = 1; i &lt;= lines; i++) {&#13;
+                        $numbering.append($('&lt;li/&gt;').text(i));&#13;
+                    };&#13;
+                    $numbering.fadeIn(1700);&#13;
+                });&#13;
+            });&#13;
+        </script>&#13;
+   &#13;

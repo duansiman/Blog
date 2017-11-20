@@ -1,0 +1,275 @@
+
+
+<p><span style="font-size:14px">         拦截器是struts2框架的核心，struts2很多的功能都是构建在拦截器基础之上的，它是动态拦截Action调用的对象，提供了一种机制，使得开发者能够在一个Action前后执行需要的代码，可以在一个Action执行前组织他的执行，也能在Action执行后做一些相应的工作。同时他也提供了一种可以提取Action中可重用部分的方式。</span></p>&#13;
+<h2><span style="font-size:14px">拦截器</span></h2>&#13;
+<div><span style="font-size:14px">          struts2拦截器是在访问某个Action或它的某个方法 、字段之前或之后实施拦截，struts2拦截器是可插拔的，是AOP的一种实现（AOP是OOP（Object-Oriented Programming，面向对象程序设计）的一种完善和补充，是软件技术和设计思想发展到一定阶段的自然产物）</span></div>&#13;
+<div><span style="font-size:14px">       一般情况下，拦截器都是通过代理的方式进行调用，当请求到达Struts2的ServletDispatcher（Web HTTP请求的调度器，所有对Action的请求都将通过ServletDispatcher调用）时，struts2会查找配置文件，并且根据配置文件的配置实例化相对的拦截器对象，并形成一个列表。每个Action请求都包装在一系列的拦截器内部。拦截器可以在Action执行之前做准备操作。也可以在之后进行操作，每个Action即可以将操作转交给下面的拦截器，也可以直接退出操作。拦截器的执行过程是一个递归的过程</span></div>&#13;
+<h2><span style="font-size:14px">拦截器栈</span></h2>&#13;
+<div><span style="font-size:14px">   从结构上看，拦截器栈相当于多个拦截器的组合<br />&#13;
+     在功能上看，拦截器栈也是拦截器</span></div>&#13;
+<h2><span style="font-size:14px">自定义拦截器</span></h2>&#13;
+<div><span style="font-size:14px">        1 实现Interceptor接口<br />&#13;
+        void init（）：初始化拦截器所需资源<br />&#13;
+<span style="white-space:pre"></span>void destroy（）：释放在init（）中分配的资源<br />&#13;
+<span style="white-space:pre"></span>String intercept（ActionInvocation ai）throws Exception  <br />&#13;
+              实现拦截器功能<br />&#13;
+<span style="white-space:pre"></span>     利用ActionInvocation参数获取Action动态<br />&#13;
+<span style="white-space:pre"></span>     返回result字符串作为逻辑视图<br />&#13;
+     2 继承BSTRACTiNTERCEPTOR类<br />&#13;
+            提供了init（）和的destroy()方法的空实现<br />&#13;
+<span style="white-space:pre"></span>   只需要实现intercept方法即可</span></div>&#13;
+<div><span style="font-size:14px"> 实例：计算Action执行时间</span></div>&#13;
+<div><span style="font-size:14px">  </span><pre code_snippet_id="1692796" snippet_file_name="blog_20160625_1_135837" name="code" class="html">Action：
+	      public String execute() throws Exception {
+             for(int i = 0; i &lt; 10000; i++){
+            	 System.out.println("Hello World!");
+             }
+             return SUCCESS;
+       }
+       拦截器：
+       	@Override
+	public String intercept(ActionInvocation invocation) throws Exception {
+	    //执行Action之前
+		long start = System.currentTimeMillis();
+		//执行下一个拦截器，如果已经是最后一个拦截器，则执行目标Action
+		String result = invocation.invoke();
+		//执行Action之后
+		long end = System.currentTimeMillis();
+		System.out.println("执行Action花费的时间：" + (end - start) + "ms");
+		return result;
+	}
+	struts.xml配置：
+	    &lt;struts&gt;
+   &lt;constant name="struts.enable.DynamicMethodInvocation" value="false"/&gt;
+   &lt;constant name="struts.devMode" value="true"/&gt;
+	&lt;package name="default" namespace="/" extends="struts-default"&gt;
+	&lt;!-- 注册拦截器  --&gt;
+	&lt;interceptors&gt;
+	 &lt;interceptor name="mytimer" class="com.hpu.interceptor.TimerInterceptor"/&gt;
+	&lt;/interceptors&gt;
+	&lt;action name="timer" class="com.hpu.action.TimerAction"&gt;
+	    &lt;result&gt;/success.jsp&lt;/result&gt;
+	    &lt;!--为Action显示引用拦截器后，默认的拦截器defaultStack不再生效，需要手工引用  --&gt;
+	    &lt;interceptor-ref name="defaultStack"/&gt;
+	    &lt;!--引用拦截器  --&gt;
+	    &lt;interceptor-ref name="mytimer"/&gt;
+	&lt;/action&gt;
+	&lt;/package&gt;
+&lt;/struts&gt;</pre>前端页面比较简单，这里不再添加。<br />&#13;
+</div>&#13;
+<h2><span style="font-size:14px">内建拦截器</span></h2>&#13;
+<div><span style="font-size:14px">          params拦截器<br />&#13;
+<span style="white-space:pre"></span>          负责将请求参数设置为Action属性<br />&#13;
+<span style="white-space:pre"></span>    staticParams拦截器<br />&#13;
+<span style="white-space:pre"></span>          将配置文件中action元素的子元素param参数设置为Action属性<br />&#13;
+<span style="white-space:pre"></span>    servletConfig拦截器<br />&#13;
+<span style="white-space:pre"></span>          将源于Servlet API的各种对象注入到Action，必须实现对应接口<br />&#13;
+<span style="white-space:pre"></span>    fileUpload拦截器<br />&#13;
+<span style="white-space:pre"></span>          对文件上传提供支持，将文件和元数据设置到对应的Action属性<br />&#13;
+              exception拦截器<br />&#13;
+<span style="white-space:pre"></span>          捕获异常，并且将异常映射到用户自定义的错误页面<br />&#13;
+<span style="white-space:pre"></span>    validation拦截器<br />&#13;
+<span style="white-space:pre"></span>           调用验证框架进行数据验证</span></div>&#13;
+<h2><span style="font-size:14px">默认拦截器栈</span></h2>&#13;
+<div><span style="font-size:14px">              在Struts-default.xml中定义一个defaultStack拦截器栈，并将其指定为默认拦截器<br />&#13;
+<span style="white-space:pre"></span>只要在定义包的过程中继承Struts-default包，那么defaultStack将是默认的拦截器<br />&#13;
+<span style="white-space:pre"></span>当为包中的某个action显示指定了某个拦截器，则默认拦截器不会起作用。<br />&#13;
+<span style="white-space:pre"></span>拦截器栈中的各个拦截器的顺序很重要。</span></div>&#13;
+<h2><span style="font-size:14px">拦截器的配置</span></h2>&#13;
+<div><span style="font-size:14px">        在Web应用中引入拦截器机制之后，就能够实现对Action通用操作的可插拔管理方式，这样的可插拔管理是基于struts.xml文件的配置来实现的。</span></div>&#13;
+<div><span style="font-size:14px">  定义拦截器的语法格式如下：</span></div>&#13;
+<div><span style="font-size:14px">          &lt;interceptor name="拦截器名字" class="拦截器对应的java类型"/&gt;</span></div>&#13;
+<div><span style="font-size:14px">  拦截器栈的配置</span></div>&#13;
+<div><span style="font-size:14px">  &lt;interceptors&gt;</span></div>&#13;
+<div><span style="font-size:14px">        &lt;interceptor-stack name="拦截器栈的名字"&gt;</span></div>&#13;
+<div><span style="font-size:14px">                &lt;interceptor-ref name="拦截器的名字"/&gt;</span></div>&#13;
+<div><span style="font-size:14px">         &lt;/interceptor&gt;</span><span style="font-size:14px"></span></div>&#13;
+<div><span style="font-size:14px">&lt;/interceptors&gt;</span></div>&#13;
+<div><span style="font-size:14px">拦截器的实例：</span></div>&#13;
+<div><span style="font-size:14px">  能够实现文字过滤的拦截器</span></div>&#13;
+<div><span style="font-size:14px">   Action：</span></div>&#13;
+<div><span style="font-size:14px"></span><pre code_snippet_id="1692796" snippet_file_name="blog_20160522_1_645051" name="code" class="java">public class ContentAction extends ActionSupport{
+      private String name;//评论人
+      private String content;//评论内容
+      
+      public String getName() {
+		return name;
+	}
+
+	public void setName(String name) {
+		this.name = name;
+	}
+
+	public String getContent() {
+		return content;
+	}
+
+	public void setContent(String content) {
+		this.content = content;
+	}
+
+	@Override
+    public String execute() throws Exception {
+    	return SUCCESS;
+    }
+}</pre><br />&#13;
+拦截器类：</div>&#13;
+<div><span style="font-size:14px"></span><pre code_snippet_id="1692796" snippet_file_name="blog_20160522_2_9009630" name="code" class="java">public class ContentInterceptor extends AbstractInterceptor{
+
+	@Override
+	public String intercept(ActionInvocation arg0) throws Exception {
+        Object obj = arg0.getAction();//获取Action的实例
+        if(obj != null){
+        	if(obj instanceof ContentAction){
+        		ContentAction ca = (ContentAction)obj;//实例化ContentAction类
+        		String content = ca.getContent();//获得用户提交的评论信息
+        		int startIndex = content.indexOf('人');//检测字符人出现的位置
+        		//截取从人开始往后的三个字符串
+        		String str = content.substring(startIndex,startIndex + 3);
+        		//如果用户发表的评论中包含有要过滤的文字
+        		if(str.equals("人品差")){
+        			content = content.replaceAll("人品差", "*");//以*替换要过滤的文字
+        			ca.setContent(content);//将替换后的内容赋值给content属性
+        		}
+        		return arg0.invoke();
+        	}else{
+        		return Action.LOGIN;
+        	}
+        }
+		return Action.LOGIN;
+	}
+        
+}</pre><br />&#13;
+重要的一步，在struts.xml中的配置</div>&#13;
+<div><span style="font-size:14px"></span><pre code_snippet_id="1692796" snippet_file_name="blog_20160522_3_6676099" name="code" class="html">&lt;?xml version="1.0" encoding="UTF-8"?&gt;
+&lt;!DOCTYPE struts PUBLIC
+    "-//Apache Software Foundation//DTD Struts Configuration 2.0//EN"
+    "http://struts.apache.org/dtds/struts-2.0.dtd"&gt;
+&lt;struts&gt;
+&lt;constant name="struts.i18n.encoding" value="UTF-8"/&gt;
+   &lt;package name="default" extends="struts-default" namespace="/"&gt;
+&lt;interceptors&gt;
+     &lt;interceptor name="contentItp" class="com.mxl.interceptor.ContentInterceptor"/&gt;
+     &lt;/interceptors&gt;
+     &lt;action name="content" class="com.mxl.actions.ContentAction"&gt;
+      &lt;result&gt;/content_success.jsp&lt;/result&gt;
+      &lt;result name="login"&gt;/content_send.jsp&lt;/result&gt;
+      &lt;interceptor-ref name="defaultStack"/&gt;
+      &lt;interceptor-ref name="contentItp"/&gt;
+     &lt;/action&gt;
+&lt;/package&gt;
+&lt;/struts&gt;</pre>两个简单的页面：</div>&#13;
+<div><span style="font-size:14px">  content_send.xml:</span><pre code_snippet_id="1692796" snippet_file_name="blog_20160522_4_2706365" name="code" class="html"> &lt;s:form action="content.action" method="post"&gt;
+     &lt;s:textfield name="name" label="评论人" size="81"/&gt;
+     &lt;s:textfield name="content" label="评论正文" cols="180" rows="120"/&gt;
+     &lt;s:checkbox name="arr" label="我已阅读并同意当当网社区条款"/&gt;
+     &lt;s:submit type="button" align="center"/&gt;
+    &lt;/s:form&gt;</pre>content_success.jsp:</div>&#13;
+<div><span style="font-size:14px"></span><pre code_snippet_id="1692796" snippet_file_name="blog_20160522_5_372834" name="code" class="html">&lt;table cellpadding="0" cellspacing="0" border="0" align="left"&gt;
+      &lt;tr style="line-height:30px;"&gt;
+      &lt;td style="font-size:14px;font-weight:bold;" align="left"&gt;
+           对Spring入门经典的评论
+      &lt;/td&gt;&lt;/tr&gt;
+      &lt;tr&gt;
+       &lt;td style="font-size:12px;"&gt;
+         评论人：&lt;s:property value="name"/&gt;
+       &lt;/td&gt;
+      &lt;/tr&gt;
+      &lt;tr&gt;
+         &lt;td style="font-size:12px"&gt;
+           评论正文：&lt;s:property value="content"/&gt;
+         &lt;/td&gt;
+      &lt;/tr&gt;
+    &lt;/table&gt;</pre><span style="color:#ff0000">不要忘了在开头的地方加上，&lt;%@ taglib prefix="s" uri="/struts-tags" %&gt;，</span></div>&#13;
+<div><span style="font-size:14px"><span style="color:#ff0000"><br />&#13;
+</span></span></div>&#13;
+<div><span style="font-size:14px">拦截器的方法过滤实例：</span></div>&#13;
+<div><span style="font-size:14px">拦截器类：</span></div>&#13;
+<div><span style="font-size:14px"></span><pre code_snippet_id="1692796" snippet_file_name="blog_20160522_6_514538" name="code" class="java">public class LoginInterceptor extends MethodFilterInterceptor{
+      @Override
+    protected String doIntercept(ActionInvocation arg0) throws Exception {
+          Map session=arg0.getInvocationContext().getSession();//获取Session对象
+          String uname = (String)session.get("username");//获取session中的username对象，并赋值给uname变量
+          System.out.println(uname + "XXXXXXXXXXXXX");
+          if(uname != null &amp;&amp; !uname.equals("")){//检测uname变量的值，如果不为NULL或不为""，则进行后续操作
+        	  return arg0.invoke();
+          }else{//否则，重新登陆
+        	  session.put("errorMsg", "您还未登录，请登录！");
+        	  return Action.LOGIN;
+          }
+    }
+}</pre><br />&#13;
+Action类：</div>&#13;
+<div><span style="font-size:14px"></span><pre code_snippet_id="1692796" snippet_file_name="blog_20160522_7_8181006" name="code" class="java">public class UserAction extends ActionSupport{
+      private String username;
+      private String pwd;
+      
+      public String getUsername() {
+		return username;
+	}
+
+	public void setUsername(String username) {
+		this.username = username;
+	}
+
+	public String getPwd() {
+		return pwd;
+	}
+
+	public void setPwd(String pwd) {
+		this.pwd = pwd;
+	}
+
+	@Override
+    public String execute() throws Exception {
+    	  return SUCCESS;
+    }
+	public String login(){
+		if("admin".equals(username.trim())){
+			ActionContext ac = ActionContext.getContext();
+			ac.getSession().put("username", username);
+			return SUCCESS;
+		}else{
+			this.addFieldError("username", "用户名/密码错误");
+			return LOGIN;
+		}
+	}
+}
+</pre><br />&#13;
+struts.xml中的配置：</div>&#13;
+<div><span style="font-size:14px"></span><pre code_snippet_id="1692796" snippet_file_name="blog_20160522_8_5847474" name="code" class="html"> &lt;interceptors&gt;
+       &lt;interceptor name="myitp" class="com.mxl.interceptor.LoginInterceptor"/&gt;
+   &lt;/interceptors&gt;
+   &lt;action name="timer" class="com.mxl.actions.TimerAction"&gt;
+      &lt;result&gt;/index.jsp&lt;/result&gt;
+      &lt;interceptor-ref name="timer"/&gt;
+   &lt;/action&gt;
+   &lt;action name="login" class="com.mxl.actions.UserAction"&gt;
+   &lt;result&gt;/success.jsp&lt;/result&gt;
+   &lt;result name="login"&gt;/login.jsp&lt;/result&gt;
+   &lt;interceptor-ref name="defaultStack"/&gt;
+   &lt;interceptor-ref name="myitp"&gt;
+        &lt;param name="excludeMethods"&gt;login&lt;/param&gt;
+   &lt;/interceptor-ref&gt;
+   &lt;/action&gt;</pre>两个页面：</div>&#13;
+<div><span style="font-size:14px">login.jsp:</span></div>&#13;
+<div><span style="font-size:14px"></span><pre code_snippet_id="1692796" snippet_file_name="blog_20160522_9_9925892" name="code" class="html">&lt;font color="red" style="font-size:12px"&gt;&lt;s:property value="#session.errorMsg"/&gt;&lt;/font&gt;
+     &lt;s:form action="login!login.action" method="post"&gt;
+        &lt;s:textfield name="username" label="用户名" size="20"/&gt;
+        &lt;s:password name="pwd" label="密码" size="20"/&gt;
+        &lt;s:submit  type="button" value="登录"/&gt;
+     &lt;/s:form&gt;</pre>success.jsp:</div>&#13;
+<div><span style="font-size:14px"></span><pre code_snippet_id="1692796" snippet_file_name="blog_20160522_10_9544208" name="code" class="html">&lt;s:if test="#session.username==null"&gt;
+		&lt;font color="red"&gt;您还未登录，不能对本站进行任何操作，请&lt;s:a href="login.action"
+				namespace="/"&gt;登录&lt;/s:a&gt;！&lt;/font&gt;
+	&lt;/s:if&gt;
+	&lt;s:else&gt;
+	    欢迎您：&lt;s:property value="#session.username"/&gt;
+	&lt;/s:else&gt;</pre><br />&#13;
+<br />&#13;
+<br />&#13;
+<br />&#13;
+<br />&#13;
+<br />&#13;
+</div>&#13;
+   &#13;

@@ -1,0 +1,529 @@
+
+        <div class="markdown_views"><p><strong>Thread类与Runable接口区分</strong></p>
+
+<p>在Java中可有两种方式实现多线程，一种是继承Thread类，一种是实现Runnable接口；Thread类是在java.lang包中定义的。一个类只要继承了Thread类同时覆写了本类中的run()方法就可以实现多线程操作了，但是一个类只能继承一个父类，这是此方法的局限， <br />
+　　下面看例子： <br />
+　　package org.thread.demo; <br />
+　　class MyThread extends Thread{ <br />
+　　private String name; <br />
+　　public MyThread(String name) { <br />
+　　super(); <br />
+　　this.name = name; <br />
+　　} <br />
+　　public void run(){ <br />
+　　for(int i=0;i&lt;10;i++){ <br />
+　　System.out.println(“线程开始：”+this.name+”,i=”+i); <br />
+　　} <br />
+　　} <br />
+　　} <br />
+　　package org.thread.demo; <br />
+　　public class ThreadDemo01 { <br />
+　　public static void main(String[] args) { <br />
+　　MyThread mt1=new MyThread(“线程a”); <br />
+　　MyThread mt2=new MyThread(“线程b”); <br />
+　　mt1.run(); <br />
+　　mt2.run(); <br />
+　　} <br />
+　　} <br />
+　　但是，此时结果很有规律，先第一个对象执行，然后第二个对象执行，并没有相互运行。在JDK的文档中可以发现，一旦调用start()方法，则会通过JVM找到run()方法。下面启动 <br />
+　　start()方法启动线程： <br />
+　　package org.thread.demo; <br />
+　　public class ThreadDemo01 { <br />
+　　public static void main(String[] args) { <br />
+　　MyThread mt1=new MyThread(“线程a”); <br />
+　　MyThread mt2=new MyThread(“线程b”); <br />
+　　mt1.start(); <br />
+　　mt2.start(); <br />
+　　} <br />
+　　};这样程序可以正常完成交互式运行。那么为啥非要使用start();方法启动多线程呢？ <br />
+　　在JDK的安装路径下，src.zip是全部的java源程序，通过此代码找到Thread中的start()方法的定义，可以发现此方法中使用了private native void start0();其中native关键字表示可以调用操作系统的底层函数，那么这样的技术成为JNI技术（Java Native Interface） <br />
+　　·Runnable接口 <br />
+　　在实际开发中一个多线程的操作很少使用Thread类，而是通过Runnable接口完成。 <br />
+　　public interface Runnable{ <br />
+　　public void run(); <br />
+　　} <br />
+　　例子： <br />
+　　package org.runnable.demo; <br />
+　　class MyThread implements Runnable{ <br />
+　　private String name; <br />
+　　public MyThread(String name) { <br />
+　　this.name = name; <br />
+　　} <br />
+　　public void run(){ <br />
+　　for(int i=0;i&lt;100;i++){ <br />
+　　System.out.println(“线程开始：”+this.name+”,i=”+i); <br />
+　　} <br />
+　　} <br />
+　　};</p>
+
+<p>　　但是在使用Runnable定义的子类中没有start()方法，只有Thread类中才有。此时观察Thread类，有一个构造方法：public Thread(Runnable targer)此构造方法接受Runnable的子类实例，也就是说可以通过Thread类来启动Runnable实现的多线程。（start()可以协调系统的资源）: <br />
+　　package org.runnable.demo; <br />
+　　import org.runnable.demo.MyThread; <br />
+　　public class ThreadDemo01 { <br />
+　　public static void main(String[] args) { <br />
+　　MyThread mt1=new MyThread(“线程a”); <br />
+　　MyThread mt2=new MyThread(“线程b”); <br />
+　　new Thread(mt1).start(); <br />
+　　new Thread(mt2).start(); <br />
+　　} <br />
+　　} <br />
+　　· 两种实现方式的区别和联系： <br />
+　　在程序开发中只要是多线程肯定永远以实现Runnable接口为主，因为实现Runnable接口相比 <br />
+　　继承Thread类有如下好处： <br />
+　　-&gt;避免点继承的局限，一个类可以继承多个接口。 <br />
+　　-&gt;适合于资源的共享 <br />
+　　以卖票程序为例，通过Thread类完成： <br />
+　　package org.demo.dff; <br />
+　　class MyThread extends Thread{ <br />
+　　private int ticket=10; <br />
+　　public void run(){ <br />
+　　for(int i=0;i&lt;20;i++){ <br />
+　　if(this.ticket&gt;0){ <br />
+　　System.out.println(“卖票：ticket”+this.ticket–); <br />
+　　} <br />
+　　} <br />
+　　} <br />
+　　}; <br />
+　　下面通过三个线程对象，同时卖票： <br />
+　　package org.demo.dff; <br />
+　　public class ThreadTicket { <br />
+　　public static void main(String[] args) { <br />
+　　MyThread mt1=new MyThread(); <br />
+　　MyThread mt2=new MyThread(); <br />
+　　MyThread mt3=new MyThread(); <br />
+　　mt1.start();//每个线程都各卖了10张，共卖了30张票 <br />
+　　mt2.start();//但实际只有10张票，每个线程都卖自己的票 <br />
+　　mt3.start();//没有达到资源共享 <br />
+　　} <br />
+　　} <br />
+　　如果用Runnable就可以实现资源共享，下面看例子： <br />
+　　package org.demo.runnable; <br />
+　　class MyThread implements Runnable{ <br />
+　　private int ticket=10; <br />
+　　public void run(){ <br />
+　　for(int i=0;i&lt;20;i++){ <br />
+　　if(this.ticket&gt;0){ <br />
+　　System.out.println(“卖票：ticket”+this.ticket–); <br />
+　　} <br />
+　　} <br />
+　　} <br />
+　　} <br />
+　　package org.demo.runnable; <br />
+　　public class RunnableTicket { <br />
+　　public static void main(String[] args) { <br />
+　　MyThread mt=new MyThread(); <br />
+　　new Thread(mt).start();//同一个mt，但是在Thread中就不可以，如果用同一 <br />
+　　new Thread(mt).start();//个实例化对象mt，就会出现异常 <br />
+　　new Thread(mt).start(); <br />
+　　} <br />
+　　}; <br />
+　　虽然现在程序中有三个线程，但是一共卖了10张票，也就是说使用Runnable实现多线程可以达到资源共享目的。 <br />
+　　Runnable接口和Thread之间的联系： <br />
+　　public class Thread extends Object implements Runnable <br />
+　　发现Thread类也是Runnable接口的子类。</p>
+
+<p>这里要注意每个线程都是用同一个实例化对象，如果不是同一个，效果就和上面的一样了！ <br />
+总结：</p>
+
+<p>实现Runnable接口比继承Thread类所具有的优势：</p>
+
+<p>1）：适合多个相同的程序代码的线程去处理同一个资源</p>
+
+<p>2）：可以避免java中的单继承的限制</p>
+
+<p>3）：增加程序的健壮性，代码可以被多个线程共享，代码和数据独立</p>
+
+<p><strong>注意</strong></p>
+
+<p>提醒一下大家：main方法其实也是一个线程。在java中所以的线程都是同时启动的，至于什么时候，哪个先执行，完全看谁先得到CPU的资源。</p>
+
+<p>在java中，每次程序运行至少启动2个线程。一个是main线程，一个是垃圾收集线程。因为每当使用java命令执行一个类的时候，实际上都会启动一个ＪＶＭ，每一个ｊＶＭ实习在就是在操作系统中启动了一个进程。</p>
+
+<p><strong>线程状态</strong></p>
+
+<p>1、新建状态（New）：新创建了一个线程对象。 <br />
+2、就绪状态（Runnable）：线程对象创建后，其他线程调用了该对象的start()方法。该状态的线程位于可运行线程池中，变得可运行，等待获取CPU的使用权。 <br />
+3、运行状态（Running）：就绪状态的线程获取了CPU，执行程序代码。 <br />
+4、阻塞状态（Blocked）：阻塞状态是线程因为某种原因放弃CPU使用权，暂时停止运行。直到线程进入就绪状态，才有机会转到运行状态。阻塞的情况分三种： <br />
+（一）、等待阻塞：运行的线程执行wait()方法，JVM会把该线程放入等待池中。 <br />
+（二）、同步阻塞：运行的线程在获取对象的同步锁时，若该同步锁被别的线程占用，则JVM会把该线程放入锁池中。 <br />
+（三）、其他阻塞：运行的线程执行sleep()或join()方法，或者发出了I/O请求时，JVM会把该线程置为阻塞状态。当sleep()状态超时、join()等待线程终止或者超时、或者I/O处理完毕时，线程重新转入就绪状态。 <br />
+5、死亡状态（Dead）：线程执行完了或者因异常退出了run()方法，该线程结束生命周期。</p>
+
+<p><strong>线程调度</strong></p>
+
+<p>线程的调度</p>
+
+<p>1、调整线程优先级：Java线程有优先级，优先级高的线程会获得较多的运行机会。</p>
+
+<p>Java线程的优先级用整数表示，取值范围是1~10，Thread类有以下三个静态常量： <br />
+static int MAX_PRIORITY <br />
+          线程可以具有的最高优先级，取值为10。 <br />
+static int MIN_PRIORITY <br />
+          线程可以具有的最低优先级，取值为1。 <br />
+static int NORM_PRIORITY <br />
+          分配给线程的默认优先级，取值为5。</p>
+
+<p>Thread类的setPriority()和getPriority()方法分别用来设置和获取线程的优先级。</p>
+
+<p>每个线程都有默认的优先级。主线程的默认优先级为Thread.NORM_PRIORITY。 <br />
+线程的优先级有继承关系，比如A线程中创建了B线程，那么B将和A具有相同的优先级。 <br />
+JVM提供了10个线程优先级，但与常见的操作系统都不能很好的映射。如果希望程序能移植到各个操作系统中，应该仅仅使用Thread类有以下三个静态常量作为优先级，这样能保证同样的优先级采用了同样的调度方式。</p>
+
+<p>2、线程睡眠：Thread.sleep(long millis)方法，使线程转到阻塞状态。millis参数设定睡眠的时间，以毫秒为单位。当睡眠结束后，就转为就绪（Runnable）状态。sleep()平台移植性好。</p>
+
+<p>3、线程等待：Object类中的wait()方法，导致当前的线程等待，直到其他线程调用此对象的 notify() 方法或 notifyAll() 唤醒方法。这个两个唤醒方法也是Object类中的方法，行为等价于调用 wait(0) 一样。</p>
+
+<p>4、线程让步：Thread.yield() 方法，暂停当前正在执行的线程对象，把执行机会让给相同或者更高优先级的线程。</p>
+
+<p>5、线程加入：join()方法，等待其他线程终止。在当前线程中调用另一个线程的join()方法，则当前线程转入阻塞状态，直到另一个进程运行结束，当前线程再由阻塞转为就绪状态。</p>
+
+<p>6、线程唤醒：Object类中的notify()方法，唤醒在此对象监视器上等待的单个线程。如果所有线程都在此对象上等待，则会选择唤醒其中一个线程。选择是任意性的，并在对实现做出决定时发生。线程通过调用其中一个 wait 方法，在对象的监视器上等待。 直到当前的线程放弃此对象上的锁定，才能继续执行被唤醒的线程。被唤醒的线程将以常规方式与在该对象上主动同步的其他所有线程进行竞争；例如，唤醒的线程在作为锁定此对象的下一个线程方面没有可靠的特权或劣势。类似的方法还有一个notifyAll()，唤醒在此对象监视器上等待的所有线程。 <br />
+ 注意：Thread中suspend()和resume()两个方法在JDK1.5中已经废除，不再介绍。因为有死锁倾向。</p>
+
+<p><strong>常用方法</strong></p>
+
+<p>①sleep(long millis): 在指定的毫秒数内让当前正在执行的线程休眠（暂停执行）</p>
+
+<p>②join():指等待t线程终止。</p>
+
+<p>join是Thread类的一个方法，启动线程后直接调用，即join()的作用是：“等待该线程终止”，这里需要理解的就是该线程是指的主线程等待子线程的终止。也就是在子线程调用了join()方法后面的代码，只有等到子线程结束了才能执行。</p>
+
+<p>在很多情况下，主线程生成并起动了子线程，如果子线程里要进行大量的耗时的运算，主线程往往将于子线程之前结束，但是如果主线程处理完其他的事务后，需要用到子线程的处理结果，也就是主线程需要等待子线程执行完成之后再结束，这个时候就要用到join()方法了。</p>
+
+<p>③yield():暂停当前正在执行的线程对象，并执行其他线程。 <br />
+        Thread.yield()方法作用是：暂停当前正在执行的线程对象，并执行其他线程。 <br />
+         yield()应该做的是让当前运行线程回到可运行状态，以允许具有相同优先级的其他线程获得运行机会。因此，使用yield()的目的是让相同优先级的线程之间能适当的轮转执行。但是，实际中无法保证yield()达到让步目的，因为让步的线程还有可能被线程调度程序再次选中。</p>
+
+<p>结论：yield()从未导致线程转到等待/睡眠/阻塞状态。在大多数情况下，yield()将导致线程从运行状态转到可运行状态，但有可能没有效果。</p>
+
+<p>sleep()和yield()的区别：</p>
+
+<p>sleep()和yield()的区别):sleep()使当前线程进入停滞状态，所以执行sleep()的线程在指定的时间内肯定不会被执行；yield()只是使当前线程重新回到可执行状态，所以执行yield()的线程有可能在进入到可执行状态后马上又被执行。</p>
+
+<p>sleep 方法使当前运行中的线程睡眼一段时间，进入不可运行状态，这段时间的长短是由程序设定的，yield 方法使当前线程让出 CPU 占有权，但让出的时间是不可设定的。实际上，yield()方法对应了如下操作：先检测当前是否有相同优先级的线程处于同可运行状态，如有，则把 CPU  的占有权交给此线程，否则，继续运行原来的线程。所以yield()方法称为“退让”，它把运行机会让给了同等优先级的其他线程</p>
+
+<p>另外，sleep 方法允许较低优先级的线程获得运行机会，但 yield()  方法执行时，当前线程仍处在可运行状态，所以，不可能让出较低优先级的线程些时获得 CPU 占有权。在一个运行系统中，如果较高优先级的线程没有调用 sleep 方法，又没有受到 I\O 阻塞，那么，较低优先级线程只能等待所有较高优先级的线程运行结束，才有机会运行。 </p>
+
+<p>④setPriority(): 更改线程的优先级。</p>
+
+<p>用法：MAX_PRIORITY=10       NORM_PRIORITY = 5       MIN_PRIORITY=1             </p>
+
+
+
+<pre class="prettyprint"><code class=" hljs avrasm">Thread4 t1 = new Thread4(<span class="hljs-string">"t1"</span>)<span class="hljs-comment">;</span>
+Thread4 t2 = new Thread4(<span class="hljs-string">"t2"</span>)<span class="hljs-comment">;</span>
+t1<span class="hljs-preprocessor">.setPriority</span>(Thread<span class="hljs-preprocessor">.MAX</span>_PRIORITY)<span class="hljs-comment">;</span>
+t2<span class="hljs-preprocessor">.setPriority</span>(Thread<span class="hljs-preprocessor">.MIN</span>_PRIORITY)<span class="hljs-comment">;　</span>
+    　　　    </code></pre>
+
+<p>优先级总结：当线程跑的是同一个线程类时如上面的提，t1 t2都是Thread4的线程对象时，这时候设置优先级，谁的优先级高谁先跑完，但是如果t2是另外一个线程的线程对象时，这个时候就算你设置了优先级不能保证线程的有序执行。优先级高的线程获取CPU资源的概率较大，优先级低的并非没机会执行。</p>
+
+<p>⑤interrupt():中断某个线程，这种结束方式比较粗暴，如果t线程打开了某个资源还没来得及关闭也就是run方法还没有执行完就强制结束线程，会导致资源无法关闭 <br />
+　　要想结束进程最好的办法就是用sleep()函数的例子程序里那样，在线程类里面用以个boolean型变量来控制run()方法什么时候结束，run()方法一结束，该线程也就结束了。</p>
+
+<p>⑥wait()</p>
+
+<p>Obj.wait()，与Obj.notify()必须要与synchronized(Obj)一起使用，也就是wait,与notify是针对已经获取了Obj锁进行操作，从语法角度来说就是Obj.wait(),Obj.notify必须在synchronized(Obj){…}语句块内。从功能上来说wait就是说线程在获取对象锁后，主动释放对象锁，同时本线程休眠。直到有其它线程调用对象的notify()唤醒该线程，才能继续获取对象锁，并继续执行。相应的notify()就是对对象锁的唤醒操作。但有一点需要注意的是notify()调用后，并不是马上就释放对象锁的，而是在相应的synchronized(){}语句块执行结束，自动释放锁后，JVM会在wait()对象锁的线程中随机选取一线程，赋予其对象锁，唤醒线程，继续执行。这样就提供了在线程间同步、唤醒的操作。Thread.sleep()与Object.wait()二者都可以暂停当前线程，释放CPU控制权，主要的区别在于Object.wait()在释放CPU同时，释放了对象锁的控制。  </p>
+
+
+
+<h2 id="wait和sleep区别">wait和sleep区别</h2>
+
+<p>共同点：  <br />
+1. 他们都是在多线程的环境下，都可以在程序的调用处阻塞指定的毫秒数，并返回。  <br />
+2. wait()和sleep()都可以通过interrupt()方法 打断线程的暂停状态 ，从而使线程立刻抛出InterruptedException。  <br />
+   如果线程A希望立即结束线程B，则可以对线程B对应的Thread实例调用interrupt方法。如果此刻线程B正在wait/sleep /join，则线程B会立刻抛出InterruptedException，在catch() {} 中直接return即可安全地结束线程。  <br />
+   需要注意的是，InterruptedException是线程自己从内部抛出的，并不是interrupt()方法抛出的。对某一线程调用 interrupt()时，如果该线程正在执行普通的代码，那么该线程根本就不会抛出InterruptedException。但是，一旦该线程进入到 wait()/sleep()/join()后，就会立刻抛出InterruptedException 。  <br />
+不同点：  <br />
+1. Thread类的方法：sleep(),yield()等  <br />
+   Object的方法：wait()和notify()等  <br />
+2. 每个对象都有一个锁来控制同步访问。Synchronized关键字可以和对象的锁交互，来实现线程的同步。  <br />
+   sleep方法没有释放锁，而wait方法释放了锁，使得其他线程可以使用同步控制块或者方法。  <br />
+3. wait，notify和notifyAll只能在同步控制方法或者同步控制块里面使用，而sleep可以在任何地方使用  <br />
+4. sleep必须捕获异常，而wait，notify和notifyAll不需要捕获异常 <br />
+所以sleep()和wait()方法的最大区别是： <br />
+　　　　sleep()睡眠时，保持对象锁，仍然占有该锁； <br />
+　　　　而wait()睡眠时，释放对象锁。 <br />
+　　但是wait()和sleep()都可以通过interrupt()方法打断线程的暂停状态，从而使线程立刻抛出InterruptedException（但不建议使用该方法）。 <br />
+sleep（）方法 <br />
+sleep()使当前线程进入停滞状态（阻塞当前线程），让出CUP的使用、目的是不让当前线程独自霸占该进程所获的CPU资源，以留一定时间给其他线程执行的机会; <br />
+　　 sleep()是Thread类的Static(静态)的方法；因此他不能改变对象的机锁，所以当在一个Synchronized块中调用Sleep()方法是，线程虽然休眠了，但是对象的机锁并木有被释放，其他线程无法访问这个对象（即使睡着也持有对象锁）。 <br />
+　　在sleep()休眠时间期满后，该线程不一定会立即执行，这是因为其它线程可能正在运行而且没有被调度为放弃执行，除非此线程具有更高的优先级。  <br />
+wait（）方法 <br />
+wait()方法是Object类里的方法；当一个线程执行到wait()方法时，它就进入到一个和该对象相关的等待池中，同时失去（释放）了对象的机锁（暂时失去机锁，wait(long timeout)超时时间到后还需要返还对象锁）；其他线程可以访问； <br />
+　　wait()使用notify或者notifyAlll或者指定睡眠时间来唤醒当前等待池中的线程。 <br />
+　　wiat()必须放在synchronized block中，否则会在program runtime时扔出”java.lang.IllegalMonitorStateException“异常。 </p>
+
+<p><strong>线程名词</strong></p>
+
+<p>主线程：JVM调用程序main()所产生的线程。 <br />
+当前线程：这个是容易混淆的概念。一般指通过Thread.currentThread()来获取的进程。 <br />
+后台线程：指为其他线程提供服务的线程，也称为守护线程。JVM的垃圾回收线程就是一个后台线程。用户线程和守护线程的区别在于，是否等待主线程依赖于主线程结束而结束 <br />
+前台线程：是指接受后台线程服务的线程，其实前台后台线程是联系在一起，就像傀儡和幕后操纵者一样的关系。傀儡是前台线程、幕后操纵者是后台线程。由前台线程创建的线程默认也是前台线程。可以通过isDaemon()和setDaemon()方法来判断和设置一个线程是否为后台线程。</p>
+
+<p><strong>线程同步</strong>     </p>
+
+<p>1、synchronized关键字的作用域有二种：  <br />
+1）是某个对象实例内，synchronized aMethod(){}可以防止多个线程同时访问这个对象的synchronized方法（如果一个对象有多个synchronized方法，只要一个线程访问了其中的一个synchronized方法，其它线程不能同时访问这个对象中任何一个synchronized方法）。这时，不同的对象实例的synchronized方法是不相干扰的。也就是说，其它线程照样可以同时访问相同类的另一个对象实例中的synchronized方法；  <br />
+2）是某个类的范围，synchronized static aStaticMethod{}防止多个线程同时访问这个类中的synchronized static 方法。它可以对类的所有对象实例起作用。 </p>
+
+<p>2、除了方法前用synchronized关键字，synchronized关键字还可以用于方法中的某个区块中，表示只对这个区块的资源实行互斥访问。用法是: synchronized(this){/<em>区块</em>/}，它的作用域是当前对象； </p>
+
+<p>3、synchronized关键字是不能继承的，也就是说，基类的方法synchronized f(){} 在继承类中并不自动是synchronized f(){}，而是变成了f(){}。继承类需要你显式的指定它的某个方法为synchronized方法； </p>
+
+<p>Java对多线程的支持与同步机制深受大家的喜爱，似乎看起来使用了synchronized关键字就可以轻松地解决多线程共享数据同步问题。到底如何？――还得对synchronized关键字的作用进行深入了解才可定论。</p>
+
+<p>总的说来，synchronized关键字可以作为函数的修饰符，也可作为函数内的语句，也就是平时说的同步方法和同步语句块。如果再细的分类，synchronized可作用于instance变量、object reference（对象引用）、static函数和class literals(类名称字面常量)身上。</p>
+
+<p>在进一步阐述之前，我们需要明确几点：</p>
+
+<p>A．无论synchronized关键字加在方法上还是对象上，它取得的锁都是对象，而不是把一段代码或函数当作锁――而且同步方法很可能还会被其他线程的对象访问。</p>
+
+<p>B．每个对象只有一个锁（lock）与之相关联。</p>
+
+<p>C．实现同步是要很大的系统开销作为代价的，甚至可能造成死锁，所以尽量避免无谓的同步控制。</p>
+
+<p>接着来讨论synchronized用到不同地方对代码产生的影响：</p>
+
+<p>假设P1、P2是同一个类的不同对象，这个类中定义了以下几种情况的同步块或同步方法，P1、P2就都可以调用它们。</p>
+
+<p>1．  把synchronized当作函数修饰符时，示例代码如下：</p>
+
+<p>Public synchronized void methodAAA()</p>
+
+<p>{</p>
+
+<p>//….</p>
+
+<p>}</p>
+
+<p>这也就是同步方法，那这时synchronized锁定的是哪个对象呢？它锁定的是调用这个同步方法对象。也就是说，当一个对象P1在不同的线程中执行这个同步方法时，它们之间会形成互斥，达到同步的效果。但是这个对象所属的Class所产生的另一对象P2却可以任意调用这个被加了synchronized关键字的方法。</p>
+
+<p>上边的示例代码等同于如下代码：</p>
+
+<p>public void methodAAA()</p>
+
+<p>{</p>
+
+<p>synchronized (this)      //  (1)</p>
+
+<p>{</p>
+
+<pre><code>   //…..
+</code></pre>
+
+<p>}</p>
+
+<p>}</p>
+
+<p>(1)处的this指的是什么呢？它指的就是调用这个方法的对象，如P1。可见同步方法实质是将synchronized作用于object reference。――那个拿到了P1对象锁的线程，才可以调用P1的同步方法，而对P2而言，P1这个锁与它毫不相干，程序也可能在这种情形下摆脱同步机制的控制，造成数据混乱：（</p>
+
+<p>2．同步块，示例代码如下：</p>
+
+<pre><code>        public void method3(SomeObject so)
+
+          {
+
+                 synchronized(so)
+</code></pre>
+
+<p>{</p>
+
+<pre><code>   //…..
+</code></pre>
+
+<p>}</p>
+
+<p>}</p>
+
+<p>这时，锁就是so这个对象，谁拿到这个锁谁就可以运行它所控制的那段代码。当有一个明确的对象作为锁时，就可以这样写程序，但当没有明确的对象作为锁，只是想让一段代码同步时，可以创建一个特殊的instance变量（它得是一个对象）来充当锁：</p>
+
+<p>class Foo implements Runnable</p>
+
+<p>{</p>
+
+<pre><code>   private byte[] lock = new byte[0];  // 特殊的instance变量
+
+Public void methodA()
+</code></pre>
+
+<p>{</p>
+
+<pre><code>   synchronized(lock) { //… }
+</code></pre>
+
+<p>}</p>
+
+<p>//…..</p>
+
+<p>}</p>
+
+<p>注：零长度的byte数组对象创建起来将比任何对象都经济――查看编译后的字节码：生成零长度的byte[]对象只需3条操作码，而Object lock = new Object()则需要7行操作码。</p>
+
+<p>3．将synchronized作用于static 函数，示例代码如下：</p>
+
+<pre><code>  Class Foo
+</code></pre>
+
+<p>{</p>
+
+<p>public synchronized static void methodAAA()   // 同步的static 函数</p>
+
+<p>{</p>
+
+<p>//….</p>
+
+<p>}</p>
+
+<p>public void methodBBB()</p>
+
+<p>{</p>
+
+<pre><code>   synchronized(Foo.class)   //  class literal(类名称字面常量)
+</code></pre>
+
+<p>}</p>
+
+<pre><code>   }
+</code></pre>
+
+<p>代码中的methodBBB()方法是把class literal作为锁的情况，它和同步的static函数产生的效果是一样的，取得的锁很特别，是当前调用这个方法的对象所属的类（Class，而不再是由这个Class产生的某个具体对象了）。</p>
+
+<p>记得在《Effective Java》一书中看到过将 Foo.class和 P1.getClass()用于作同步锁还不一样，不能用P1.getClass()来达到锁这个Class的目的。P1指的是由Foo类产生的对象。</p>
+
+<p>可以推断：如果一个类中定义了一个synchronized的static函数A，也定义了一个synchronized 的instance函数B，那么这个类的同一对象Obj在多线程中分别访问A和B两个方法时，不会构成同步，因为它们的锁都不一样。A方法的锁是Obj这个对象，而B的锁是Obj所属的那个Class。</p>
+
+
+
+<pre class="prettyprint"><code class=" hljs php"><span class="hljs-number">1</span>、线程同步的目的是为了保护多个线程反问一个资源时对资源的破坏。
+
+<span class="hljs-number">2</span>、线程同步方法是通过锁来实现，每个对象都有切仅有一个锁，这个锁与一个特定的对象关联，线程一旦获取了对象锁，其他访问该对象的线程就无法再访问该对象的其他非同步方法。
+
+<span class="hljs-number">3</span>、对于静态同步方法，锁是针对这个类的，锁对象是该类的<span class="hljs-class"><span class="hljs-keyword">Class</span>对象。静态和非静态方法的锁互不干预。一个线程获得锁，当在一个同步方法中访问另外对象上的同步方法时，会获取这两个对象锁。
+
+4、对于同步，要时刻清醒在哪个对象上同步，这是关键。
+
+5、编写线程安全的类，需要时刻注意对多个线程竞争访问资源的逻辑和安全做出正确的判断，对“原子”操作做出分析，并保证原子操作期间别的线程无法访问竞争资源。
+
+6、当多个线程等待一个对象锁时，没有获取到锁的线程将发生阻塞。
+
+7、死锁是线程间相互等待锁锁造成的，在实际中发生的概率非常的小。真让你写个死锁程序，不一定好使，呵呵。但是，一旦程序发生死锁，程序将死掉。</span></code></pre>
+
+<p><strong>线程数据传递</strong></p>
+
+<p>在传统的同步开发模式下，当我们调用一个函数时，通过这个函数的参数将数据传入，并通过这个函数的返回值来返回最终的计算结果。但在多线程的异步开发模式下，数据的传递和返回和同步开发模式有很大的区别。由于线程的运行和结束是不可预料的，因此，在传递和返回数据时就无法象函数一样通过函数参数和return语句来返回数据。</p>
+
+<p>1、通过构造方法传递数据  <br />
+在创建线程时，必须要建立一个Thread类的或其子类的实例。因此，我们不难想到在调用start方法之前通过线程类的构造方法将数据传入线程。并将传入的数据使用类变量保存起来，以便线程使用(其实就是在run方法中使用)。下面的代码演示了如何通过构造方法来传递数据： </p>
+
+
+
+<pre class="prettyprint"><code class=" hljs java"><span class="hljs-keyword">package</span> mythread;   
+<span class="hljs-keyword">public</span> <span class="hljs-class"><span class="hljs-keyword">class</span> <span class="hljs-title">MyThread1</span> <span class="hljs-keyword">extends</span> <span class="hljs-title">Thread</span>   
+{</span>   
+<span class="hljs-keyword">private</span> String name;   
+<span class="hljs-keyword">public</span> <span class="hljs-title">MyThread1</span>(String name)   
+{   
+<span class="hljs-keyword">this</span>.name = name;   
+}   
+<span class="hljs-keyword">public</span> <span class="hljs-keyword">void</span> <span class="hljs-title">run</span>()   
+{   
+System.out.println(<span class="hljs-string">"hello "</span> + name);   
+}   
+<span class="hljs-keyword">public</span> <span class="hljs-keyword">static</span> <span class="hljs-keyword">void</span> <span class="hljs-title">main</span>(String[] args)   
+{   
+Thread thread = <span class="hljs-keyword">new</span> MyThread1(<span class="hljs-string">"world"</span>);   
+thread.start();   
+}   
+}   </code></pre>
+
+<p>由于这种方法是在创建线程对象的同时传递数据的，因此，在线程运行之前这些数据就就已经到位了，这样就不会造成数据在线程运行后才传入的现象。如果要传递更复杂的数据，可以使用集合、类等数据结构。使用构造方法来传递数据虽然比较安全，但如果要传递的数据比较多时，就会造成很多不便。由于Java没有默认参数，要想实现类似默认参数的效果，就得使用重载，这样不但使构造方法本身过于复杂，又会使构造方法在数量上大增。因此，要想避免这种情况，就得通过类方法或类变量来传递数据。</p>
+
+<p>2、通过变量和方法传递数据  <br />
+向对象中传入数据一般有两次机会，第一次机会是在建立对象时通过构造方法将数据传入，另外一次机会就是在类中定义一系列的public的方法或变量（也可称之为字段）。然后在建立完对象后，通过对象实例逐个赋值。下面的代码是对MyThread1类的改版，使用了一个setName方法来设置 name变量： </p>
+
+<p>[java] view plain copy 在CODE上查看代码片派生到我的代码片</p>
+
+
+
+<pre class="prettyprint"><code class=" hljs java"><span class="hljs-keyword">package</span> mythread;   
+<span class="hljs-keyword">public</span> <span class="hljs-class"><span class="hljs-keyword">class</span> <span class="hljs-title">MyThread2</span> <span class="hljs-keyword">implements</span> <span class="hljs-title">Runnable</span>   
+{</span>   
+<span class="hljs-keyword">private</span> String name;   
+<span class="hljs-keyword">public</span> <span class="hljs-keyword">void</span> <span class="hljs-title">setName</span>(String name)   
+{   
+<span class="hljs-keyword">this</span>.name = name;   
+}   
+<span class="hljs-keyword">public</span> <span class="hljs-keyword">void</span> <span class="hljs-title">run</span>()   
+{   
+System.out.println(<span class="hljs-string">"hello "</span> + name);   
+}   
+<span class="hljs-keyword">public</span> <span class="hljs-keyword">static</span> <span class="hljs-keyword">void</span> <span class="hljs-title">main</span>(String[] args)   
+{   
+MyThread2 myThread = <span class="hljs-keyword">new</span> MyThread2();   
+myThread.setName(<span class="hljs-string">"world"</span>);   
+Thread thread = <span class="hljs-keyword">new</span> Thread(myThread);   
+thread.start();   
+}   
+}   </code></pre>
+
+<p>3、通过回调函数传递数据 </p>
+
+<p>上面讨论的两种向线程中传递数据的方法是最常用的。但这两种方法都是main方法中主动将数据传入线程类的。这对于线程来说，是被动接收这些数据的。然而，在有些应用中需要在线程运行的过程中动态地获取数据，如在下面代码的run方法中产生了3个随机数，然后通过Work类的process方法求这三个随机数的和，并通过Data类的value将结果返回。从这个例子可以看出，在返回value之前，必须要得到三个随机数。也就是说，这个 value是无法事先就传入线程类的。 </p>
+
+
+
+<pre class="prettyprint"><code class=" hljs java"><span class="hljs-keyword">package</span> mythread;   
+class Data   
+{   
+<span class="hljs-keyword">public</span> <span class="hljs-keyword">int</span> value = <span class="hljs-number">0</span>;   
+}   
+class Work   
+{   
+<span class="hljs-keyword">public</span> <span class="hljs-keyword">void</span> <span class="hljs-title">process</span>(Data data, Integer numbers)   
+{   
+<span class="hljs-keyword">for</span> (<span class="hljs-keyword">int</span> n : numbers)   
+{   
+data.value += n;   
+}   
+}   
+}   
+<span class="hljs-keyword">public</span> <span class="hljs-class"><span class="hljs-keyword">class</span> <span class="hljs-title">MyThread3</span> <span class="hljs-keyword">extends</span> <span class="hljs-title">Thread</span>   
+{</span>   
+<span class="hljs-keyword">private</span> Work work;   
+<span class="hljs-keyword">public</span> <span class="hljs-title">MyThread3</span>(Work work)   
+{   
+<span class="hljs-keyword">this</span>.work = work;   
+}   
+<span class="hljs-keyword">public</span> <span class="hljs-keyword">void</span> <span class="hljs-title">run</span>()   
+{   
+java.util.Random random = <span class="hljs-keyword">new</span> java.util.Random();   
+Data data = <span class="hljs-keyword">new</span> Data();   
+<span class="hljs-keyword">int</span> n1 = random.nextInt(<span class="hljs-number">1000</span>);   
+<span class="hljs-keyword">int</span> n2 = random.nextInt(<span class="hljs-number">2000</span>);   
+<span class="hljs-keyword">int</span> n3 = random.nextInt(<span class="hljs-number">3000</span>);   
+work.process(data, n1, n2, n3); <span class="hljs-comment">// 使用回调函数   </span>
+System.out.println(String.valueOf(n1) + <span class="hljs-string">"+"</span> + String.valueOf(n2) + <span class="hljs-string">"+"</span>   
++ String.valueOf(n3) + <span class="hljs-string">"="</span> + data.value);   
+}   
+<span class="hljs-keyword">public</span> <span class="hljs-keyword">static</span> <span class="hljs-keyword">void</span> <span class="hljs-title">main</span>(String[] args)   
+{   
+Thread thread = <span class="hljs-keyword">new</span> MyThread3(<span class="hljs-keyword">new</span> Work());   
+thread.start();   
+}   
+}   </code></pre></div>&#13;
+        <script type="text/javascript">&#13;
+            $(function () {&#13;
+                $('pre.prettyprint code').each(function () {&#13;
+                    var lines = $(this).text().split('\n').length;&#13;
+                    var $numbering = $('&lt;ul/&gt;').addClass('pre-numbering').hide();&#13;
+                    $(this).addClass('has-numbering').parent().append($numbering);&#13;
+                    for (i = 1; i &lt;= lines; i++) {&#13;
+                        $numbering.append($('&lt;li/&gt;').text(i));&#13;
+                    };&#13;
+                    $numbering.fadeIn(1700);&#13;
+                });&#13;
+            });&#13;
+        </script>&#13;
+   &#13;

@@ -1,0 +1,533 @@
+
+        <div class="markdown_views"><p><strong>摘要：</strong></p>
+
+<p>　　AOP的理念可以很容易抽象出横切关注点，基于AOP理念我们可以将责任链模式中各具体处理角色中共同的实现责任链结构的行为抽象出来并将其模块化，以便进一步提高代码复用率和系统可维护性。实际上，无论是Java Web中的过滤器，还是Struts2中的Interceptor，它们都是责任链模式与AOP思想互相融合的巧妙实践。为了更进一步理解AOP (Aspect-Oriented Programming，AOP) 和 CoR (Chain of Responsibility)，本文还概述了Filter，并手动模拟了Java Web中的过滤器机制。最后，我们结合Struts2的源码和文档解释了拦截器的工作原理，更进一步剖析了AOP理念和CoR模式在Java中的应用，同时也有助于了解Struts2的原理。</p>
+
+<hr />
+
+<p><strong>版权声明：</strong></p>
+
+<p>本文原创作者：<a href="http://my.csdn.net/justloveyou_">书呆子Rico</a> <br />
+作者博客地址：<a href="http://blog.csdn.net/justloveyou_/">http://blog.csdn.net/justloveyou_/</a></p>
+
+<hr />
+
+<p><strong>友情提示：</strong></p>
+
+<p>　　关于责任链模式的介绍共分为两篇，上篇<a href="http://blog.csdn.net/justloveyou_/article/details/68489505">《责任链模式综述(基础篇)》</a>主要综述了责任链模式的提出动机、原理结构、典型实现和应用场景，并结合具体实例展现了其灵活性、可插拔性和松耦合性。本篇<a href="http://blog.csdn.net/justloveyou_/article/details/68491121">《责任链模式进阶：与AOP思想的融合与应用》</a>主要引入了AOP理念，并在此基础上进一步将责任链结构的实现用切面抽象出来，使得各个具体处理者只需关注自身必须实现的功能性需求。我们知道，无论是Java Web中的过滤器还是Struts2中的 Interceptor，它们都是责任链模式与AOP思想互相融合的巧妙实践。为了更进一步理解AOP和CoR，本篇概述了Filter的提出动机、工作原理和使用流程，并手动模拟了Java Web中的过滤器机制。此外，我们还结合Struts2的源码和文档解释了拦截器的工作原理，更进一步剖析了AOP理念和CoR模式在Java中的应用，同时也有助于了解Struts2的原理。</p>
+
+<p>　　为了更好地理解本篇内容，请各位看官先对责任链模式有一个基本的了解或者先阅读本篇的姊妹篇《<a href="http://blog.csdn.net/justloveyou_/article/details/68489505">《责任链模式综述(基础篇)》</a>。</p>
+
+<hr />
+
+
+
+<h2 id="一-aop理念与责任链模式的融合">一. AOP理念与责任链模式的融合</h2>
+
+<p><font color="blue">1、AOP理念概述</font>    </p>
+
+<p>　　我们知道，面向对象的三大特性是继承、多态和封装，而封装就要求我们将功能分散到不同的对象中去，这在软件设计中往往称为 <font color="DarkGreen"><b>职责分配</b></font>。从编程的角度上说，实质上也就是让不同的类设计不同的方法，这样代码就有组织地分散到一个个的类中去了。这样做的好处是降低了代码的复杂程度，增强代码可重用性。</p>
+
+<p>　　但是人们也发现，在分散代码的同时，也增加了代码的冗余性，或者说代码重用的还不够彻底，什么意思呢？比如说，我们需要在两个类中都需要做日志的功能，按面向对象的设计方法，我们就必须在两个类的方法中都加入日志功能的代码，也许二者对日志的处理是完全相同的，但就是因为面向对象的设计让类与类之间无法联系，而不能将这些重复的代码统一起来。</p>
+
+<p>　　也许有人会说，那好办啊，我们可以将这段代码写到一个独立的类的独立的方法里，然后在这两个类中分别调用相关方法。但是这样一来，这两个类跟我们上面提到的独立的类就有耦合了，它的改变会影响这两个类。那么，有没有什么办法，能让我们在需要的时候，随意地加入代码呢？这种在运行时，动态地将代码切入到类的指定方法、指定位置上的编程思想就是 <font color="DarkGreen"><b>面向切面的编程(Aspect-Oriented Programming，AOP)</b></font>。 </p>
+
+<p>　　一般而言，我们把切入到指定类指定方法的代码片段称为 <font color="DarkGreen"><b>切面</b></font>，而把切面切入的目的地(类或方法)叫 <font color="DarkGreen"><b>切入点</b></font>。其中，<font color="DarkGreen"><b>切面 </b></font>是在AOP思想中引入的一种<font color="DarkGreen"><b> 新的编程单位</b></font>，它使得 <font color="DarkGreen"><b>横切关注点模块化</b></font> ，这对现有的设计模式产生了非常重大的影响。<font color="red"><b>根据AOP的理念，我们就可以把多个类共有的代码，抽取到一个切片中，等到需要时再切入对象中去，从而改变其原有的行为。</b></font></p>
+
+<p>　　总的来说，AOP实质上只是OOP的补充而已。OOP 从横向上区分出一个个的类来，而 AOP 则从纵向上向对象中加入特定的代码，也就是说 AOP 的出现使得OOP变得立体了。<font color="blue"><b>从技术上来说，AOP 基本上是通过 <font color="DarkGreen"><b>代理机制</b></font> 实现的。</b></font><font color="red"><b>AOP在编程历史上可以说是里程碑式的，对OOP编程是一种十分有益的补充。</b></font></p>
+
+<hr />
+
+<p><font color="blue">2、AOP理念与CoR模式</font>   </p>
+
+<p>　　概括地说，<font color="DarkGreen"><b>面向对象(Object-Oriented)</b></font> 的分析和设计方法可以将真实世界的实体抽象成类和对象，从而实现了从问题域到软件的转换，这种方法能完美的抽象出问题域中的角色。但不同的角色可能有着共同的行为，这种共同的行为被称为 <font color="DarkGreen"><b>横切关注点</b></font>。利用面向对象的方法不能很好地抽象出 <font color="DarkGreen"><b>横切关注点</b></font>，从而导致了类间耦合度高、代码复用率低（冗余）等问题。<font color="DarkGreen"><b>而 AOP 的核心思想允许将分散在类中的共同逻辑(行为)分离出来，将OOP不能很好处理地横切关注点抽象在切面之中。</b></font></p>
+
+<p>　　用传统的面向对象方法实现责任链模式虽然能够满足责任链模式要求的一切特征，在应用上也有很多实例，但是仍然存在者一些明显的缺陷和不足。比如，各个请求处理者除了实现自身应当处理的逻辑外还要实现责任链的结构（即successor属性及其Setter），也就是说，<font color="red"><b>责任链的建立和指派包含在实现角色的类中，并没有抽象出来，这直接导致责任链的指派不够灵活。</b></font></p>
+
+<p>　　<font color="red"><b>AOP 思想的精髓能够将横向的关注点分离出来</b></font>，这大大提高了我们认识世界和抽象世界的能力。实际上，<font color="blue">责任链模式的缺陷主要在于具体实现角色的对象中存在着共同的行为——实现责任链结构的行为，而这些行为并没有被抽象出来，</font>而用 <font color="red">AOP 改进责任链模式的关键就是要将责任链结构的实现用切面抽象出来，使得各个对象只关注自身必须实现的功能性需求。</font>实际上，用AOP思想实现责任链模式时仍然保留了 Client，Handler 和 ConcreteHandler 三个角色，不同点是增加了实现责任链的切面，即 HandlerChain，下图反映了融合AOP思想后的责任链模式（以Filter为例）。<font color="red "><b>利用AOP理念来改进责任链模式可以准确地分离出责任链模式中不同角色的共同行为。</b></font></p>
+
+<p>　　　　　　　　　　　　<img src="http://static.zybuluo.com/Rico123/oo7p92xb7mufsfn91xiafm59/AOP%E4%B8%8E%E8%B4%A3%E4%BB%BB%E9%93%BE.png" alt="AOP与责任链.png-16.9kB" title="" /> <br />
+　　 <br />
+　　<font color="DarkGreen"><b>实际上，无论是 Java Web 中的 Filter，还是 Struts2 中的 Interceptor，它们都是 <font color="red"><b>责任链模式</b></font> 与 <font color="red"><b>AOP思想</b></font> 互相融合的巧妙实践。</b></font></p>
+
+<hr />
+
+
+
+<h2 id="二-filter-概述">二. Filter 概述</h2>
+
+<p>　　在我的专栏<a href="http://blog.csdn.net/column/details/14810.html">《Java Web 成神之路》</a>中，已经对 Java Web 基础内容 JSP/Servlet 内容进行了概述。事实上，Servlet API 还提供了一个重要接口 —— <font color="DarkGreen"><b>Filter</b></font>。在我们开发 Web 应用时，若编写的Java类实现了这个接口，那么我们就可以将这个 Java 类称为一个过滤器(Filter)。<font color="blue"><b>Filter 可以认为是 Servlet 的一种加强版，它主要用于 <font color="red"><b>对用户请求进行预处理</b></font> 以及<font color="red"><b> 对服务器响应进行后处理</b></font>，是个<font color="DarkGreen"><b> 典型的处理链</b></font>。</b></font>下面的图示形象地反映了 Filter 的工作流程。</p>
+
+<p>　　　　　　　　　　　<img src="http://img.blog.csdn.net/20170330211916015?watermark/2/text/aHR0cDovL2Jsb2cuY3Nkbi5uZXQvanVzdGxvdmV5b3Vf/font/5a6L5L2T/fontsize/400/fill/I0JBQkFCMA==/dissolve/70/gravity/SouthEast" alt="这里写图片描述" title="" /></p>
+
+<p>　　当客户端发出Web资源的请求时，Web服务器根据应用程序配置文件设置的过滤规则进行检查，若客户请求满足过滤规则，则对客户请求／响应进行过滤(拦截)，期间我们可以对请求信息 (请求头和请求数据)进行检查或改动，然后对请求放行以便由过滤链中的其他过滤器进行处理，最后把请求／响应交给请求的Web资源(Servlet)处理。同样地，在这个过程中我们可以修改响应信息，从而完成一定的任务，其工作原理如下图所示（本图来自于博文<a href="http://blog.csdn.net/hejingyuan6/article/details/36633631">《JAVA学习篇–javaweb之Filter详解》</a>）：</p>
+
+<p>　　　　　　　　　　　　<img src="http://static.zybuluo.com/Rico123/ww70gissw2i4qau22cx3gmqf/Filter%E5%B7%A5%E4%BD%9C%E5%8E%9F%E7%90%86.png" alt="Filter工作原理.png-14.3kB" title="" /></p>
+
+<p>　　<font color="blue"><b>过滤链的好处是，发出请求的客户端并不知道链上的哪一个过滤器将处理这个请求，这使得系统可以在不影响客户端的情况下 <font color="red"><b>动态地重新组织链和分配责任</b></font>，并且在执行过程中的任何时候都可以打断，只要不执行chain.doFilter()就不会再执行后面的过滤器和请求的内容，这显然可以看作是 <font color="red"><b>非纯责任链模式 </b></font>的一种典型实现。</b></font></p>
+
+<hr />
+
+<p>　　更多关于 Java Web 中 过滤器机制 的介绍，请移步我的博客 <a href="http://blog.csdn.net/justloveyou_/article/details/68922144">《Java Web 基础 — Filter 综述》</a>。</p>
+
+<hr />
+
+
+
+<h2 id="三-aop责任链模式与-javaweb-中的-filter">三. AOP、责任链模式与 JavaWeb 中的 Filter</h2>
+
+<p>　　<font color="DarkGreen"><b>实质上，Filter 的实现既体现了AOP的理念，也体现了责任链模式的精髓。</b></font><font color="red">AOP的主要的意图是将日志记录、性能统计、安全控制、事务处理、异常处理等代码从业务逻辑代码中划分出来，通过对这些行为的分离，我们希望可以将它们独立到非主导业务逻辑的方法中，进而改变这些行为的时候不影响业务逻辑的代码。</font>以处理中文字符乱码问题为例，它并非是业务逻辑的内容却又分布在各个请求处理器中，所以对于这些内容的处理，我们就可以基于AOP的思想将其提取出来（AOP中的切面），使用Filter进行整体设置。这种方式相当于对类中的内容做进一步的抽象，使我们的系统更加灵活，更加能应对变化，也进一步提高了代码复用。</p>
+
+<p>　　此外，Filter 的实现体现了责任链模式的精髓，即将请求的发送者与请求的处理者解耦，从而使得系统更灵活，也更容易扩展。就像Servlet规范对Filter描述的那样，过滤链是由Servlet容器提供给开发者的一种过滤器调用的视图，过滤器使用过滤链去调用链中的下一个过滤器去处理请求，特别地，如果当前过滤器时过滤链中的最后一个过滤器，过滤链将把它交给相应的资源处理器(Servlet)进行处理。更进一步地说，<font color="blue">使用过滤链对请求进行过滤的好处就是，发出请求的客户端并不知道链上的哪一个过滤器将处理这个请求，这使得系统可以在不影响客户端的情况下，<font color="red"><b>动态地重新组织链和分配责任</b></font>。并且，在执行过程中的任何时候都可以直接返回结果，也就是说，只要不执行 chain.doFilter() 就不会对请求放行，也就不会再执行后面的过滤器和请求的内容。这显然可以看作是 <font color="red"><b>非纯责任链模式 </b></font>的一种典型实现。</font></p>
+
+<p>　　显然，<font color="red"><b>FilterChain 本身就是对责任链切面的抽象，是对传统责任链模式的一个改进，整个 Filter 机制本身也是AOP思想与责任链模式的融合的最佳实践。</b></font></p>
+
+<hr />
+
+<p>　　特别地，为了大家更好地理解AOP理念和责任链模式在 JavaWeb 中的 Filter 中的应用，我们专门写了一个中文解码过滤器，其实现了对中文乱码的统一处理，无论请求方式是 GET 还是 POST。在这里，Filter 相当于责任链模式中的抽象处理者，而 DecodeFilter 实现了Filter接口，相当于责任链模式中的具体处理者，特别地，ServletAPI 对 FilterChain 的抽象则是 AOP 思想的重要体现，也就是将责任链结构的实现用切面(FilterChain)抽象出来了，准确地分离出责任链模式中不同角色的共同行为(责任链的构建与维护)。</p>
+
+
+
+<pre class="prettyprint"><code class="language-java hljs "><span class="hljs-javadoc">/**        
+ * Description: 使用 Filter 解决 GET/POST 提交的中文乱码
+ *<span class="hljs-javadoctag"> @author</span> rico       
+ *<span class="hljs-javadoctag"> @created</span> 2017-3-4 上午10:55:06    
+ */</span>   
+<span class="hljs-keyword">public</span> <span class="hljs-class"><span class="hljs-keyword">class</span> <span class="hljs-title">DecodeFilter</span> <span class="hljs-keyword">implements</span> <span class="hljs-title">Filter</span> {</span>
+
+    <span class="hljs-javadoc">/**  指定编码方式，默认 utf-8   (@author: rico) */</span>      
+    <span class="hljs-keyword">private</span> String encoding;    <span class="hljs-comment">// Filter 参数</span>
+
+    <span class="hljs-annotation">@Override</span>
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">void</span> <span class="hljs-title">destroy</span>() {
+        <span class="hljs-keyword">this</span>.encoding = <span class="hljs-keyword">null</span>;
+    }
+
+    <span class="hljs-annotation">@Override</span>
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">void</span> <span class="hljs-title">doFilter</span>(ServletRequest req, ServletResponse response,
+            FilterChain chain) <span class="hljs-keyword">throws</span> IOException, ServletException {
+
+        HttpServletRequest request = (HttpServletRequest) req;
+
+        <span class="hljs-comment">// 重新编码后的请求</span>
+        HttpServletRequest newReq = <span class="hljs-keyword">null</span>;
+
+        <span class="hljs-comment">// 获取请求方式</span>
+        String method = request.getMethod();
+
+        <span class="hljs-keyword">if</span> (<span class="hljs-string">"POST"</span>.equalsIgnoreCase(method)) {          <span class="hljs-comment">// POST请求的处理方式</span>
+            request.setCharacterEncoding(encoding);
+            newReq = request;
+        } <span class="hljs-keyword">else</span> {             <span class="hljs-comment">// GET请求的处理方式</span>
+            <span class="hljs-comment">//  匿名内部类：最终提供给我们的是一个匿名子类对象</span>
+            newReq = <span class="hljs-keyword">new</span> HttpServletRequestWrapper(request) {  <span class="hljs-comment">// HttpServletRequest 接口的实现类   </span>
+
+                <span class="hljs-comment">// 重写对请求参数所有可能的获取方式</span>
+                <span class="hljs-annotation">@Override</span>
+                <span class="hljs-keyword">public</span> String <span class="hljs-title">getParameter</span>(String name) {
+                    String value = <span class="hljs-keyword">super</span>.getParameter(name);
+                    <span class="hljs-keyword">if</span> (value != <span class="hljs-keyword">null</span>) {
+                        value = <span class="hljs-keyword">this</span>.transCoding(value);
+                    }
+                    <span class="hljs-keyword">return</span> value;
+                }
+
+                <span class="hljs-comment">// 重写对请求参数所有可能的获取方式</span>
+                <span class="hljs-annotation">@Override</span>
+                <span class="hljs-keyword">public</span> String[] <span class="hljs-title">getParameterValues</span>(String name) {
+                    String[] values = <span class="hljs-keyword">super</span>.getParameterValues(name);
+                    <span class="hljs-keyword">if</span> (values == <span class="hljs-keyword">null</span>) {
+                        <span class="hljs-keyword">return</span> values;
+                    }
+                    <span class="hljs-keyword">for</span> (<span class="hljs-keyword">int</span> i = <span class="hljs-number">0</span>; i &lt; values.length; i++) {
+                        values[i] = <span class="hljs-keyword">this</span>.transCoding(values[i]);
+                    }
+                    <span class="hljs-keyword">return</span> values;
+                }
+
+                <span class="hljs-comment">// 重写对请求参数所有可能的获取方式</span>
+                <span class="hljs-annotation">@Override</span>
+                <span class="hljs-keyword">public</span> Map&lt;String, String[]&gt; <span class="hljs-title">getParameterMap</span>() {
+                    Map&lt;String, String[]&gt; map = <span class="hljs-keyword">super</span>.getParameterMap();
+                    Map&lt;String, String[]&gt; result = <span class="hljs-keyword">new</span> HashMap&lt;String, String[]&gt;();
+                    Set&lt;Map.Entry&lt;String, String[]&gt;&gt; entrySet = map.entrySet();
+                    <span class="hljs-keyword">for</span> (Map.Entry&lt;String, String[]&gt; set : entrySet) {
+                        String name = set.getKey();
+                        String[] values = set.getValue();
+                        <span class="hljs-keyword">for</span> (<span class="hljs-keyword">int</span> i = <span class="hljs-number">0</span>; i &lt; values.length; i++) {
+                            values[i] = values[i];
+                        }
+                        result.put(name, values);
+                    }
+                    <span class="hljs-keyword">return</span> result;
+                }
+
+                <span class="hljs-comment">// 代码重用，对中文字符进行解码</span>
+                <span class="hljs-keyword">public</span> String <span class="hljs-title">transCoding</span>(String value) {
+                    <span class="hljs-keyword">try</span> {
+                        value = <span class="hljs-keyword">new</span> String(value.getBytes(<span class="hljs-string">"iso-8859-1"</span>),
+                                encoding);
+                    } <span class="hljs-keyword">catch</span> (UnsupportedEncodingException e) {
+                        System.out.println(<span class="hljs-keyword">this</span>.getClass().getName()
+                                + <span class="hljs-string">" 发生转码错误： 从 "</span> + <span class="hljs-string">"iso-8859-1"</span> + <span class="hljs-string">" 到 "</span>
+                                + encoding);
+                        e.printStackTrace();
+                    }
+                    <span class="hljs-keyword">return</span> value;
+                }
+            };
+        }
+
+        <span class="hljs-comment">// AOP 思想的重要体现，将请求交给其下家继续进行处理，不纯的责任链模式</span>
+        chain.doFilter(newReq, response);   
+    }
+
+    <span class="hljs-annotation">@Override</span>
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">void</span> <span class="hljs-title">init</span>(FilterConfig config) <span class="hljs-keyword">throws</span> ServletException {
+        <span class="hljs-comment">// 从配置文件获取编码参数</span>
+        encoding = config.getInitParameter(<span class="hljs-string">"encoding"</span>);
+        encoding = encoding == <span class="hljs-keyword">null</span> ? <span class="hljs-string">"utf-8"</span> : encoding;
+    }
+}</code></pre>
+
+<hr />
+
+<p>　　要想让该过滤器起作用，还必须将其配置到 Web 中，即需要在 web.xml 中添加如下描述片段。需要注意的是，当一个Web应用包含多个过滤器时，WEB容器会根据其注册顺序进行调用，也就是说，在web.xml文件中越靠前，越先被调用。因此，若想让该过滤器能够对Struts2应用起作用，则必须将其配置到Struts2过滤器前面。</p>
+
+
+
+<pre class="prettyprint"><code class="language-xml hljs "><span class="hljs-comment">&lt;!-- 当一个Web应用包含多个过滤器时，根据其注册顺序进行调用：在web.xml文件中越靠前，越先被调用 --&gt;</span>
+<span class="hljs-comment">&lt;!-- 因此，若想让该过滤器能够对Struts2应用起作用，则必须将其配置到Struts2过滤器前面 --&gt;</span>
+    <span class="hljs-tag">&lt;<span class="hljs-title">filter</span>&gt;</span>
+        <span class="hljs-tag">&lt;<span class="hljs-title">filter-name</span>&gt;</span>DecodeFilter<span class="hljs-tag">&lt;/<span class="hljs-title">filter-name</span>&gt;</span>
+        <span class="hljs-tag">&lt;<span class="hljs-title">filter-class</span>&gt;</span>cn.edu.tju.rico.filter.DecodeFilter<span class="hljs-tag">&lt;/<span class="hljs-title">filter-class</span>&gt;</span>
+        <span class="hljs-tag">&lt;<span class="hljs-title">init-param</span>&gt;</span>
+            <span class="hljs-tag">&lt;<span class="hljs-title">param-name</span>&gt;</span>encoding<span class="hljs-tag">&lt;/<span class="hljs-title">param-name</span>&gt;</span>
+            <span class="hljs-tag">&lt;<span class="hljs-title">param-value</span>&gt;</span>utf-8<span class="hljs-tag">&lt;/<span class="hljs-title">param-value</span>&gt;</span>
+        <span class="hljs-tag">&lt;/<span class="hljs-title">init-param</span>&gt;</span>
+    <span class="hljs-tag">&lt;/<span class="hljs-title">filter</span>&gt;</span>
+    <span class="hljs-tag">&lt;<span class="hljs-title">filter-mapping</span>&gt;</span>
+        <span class="hljs-tag">&lt;<span class="hljs-title">filter-name</span>&gt;</span>DecodeFilter<span class="hljs-tag">&lt;/<span class="hljs-title">filter-name</span>&gt;</span>
+        <span class="hljs-tag">&lt;<span class="hljs-title">url-pattern</span>&gt;</span>/*<span class="hljs-tag">&lt;/<span class="hljs-title">url-pattern</span>&gt;</span>
+    <span class="hljs-tag">&lt;/<span class="hljs-title">filter-mapping</span>&gt;</span></code></pre>
+
+<p>　　　这样，当客户端发出Web资源的请求时，Web容器就会根据应用程序配置文件设置的过滤规则进行检查，由于我们设置的是对所有请求进行过滤(/*)，因此我们可以对请求参数进行解码，然后依次通过过滤器链的其他过滤器，最后把请求交给请求的Web资源(Servlet)处理。需要注意的是，在本案例中，我们只对请求做了预处理，而没有对响应做后处理。这正好印证了J2EE中对FilterChain的描述：“ Filters use the FilterChain to invoke the next filter in the chain, or if the calling filter is the last filter in the chain, to invoke the resource at the end of the chain。”</p>
+
+<hr />
+
+
+
+<h2 id="四-手动模拟-java-web-中的过滤器-filter">四. 手动模拟 Java Web 中的过滤器 Filter</h2>
+
+<p>　　为了更好的体会AOP思想和责任链模式，我们下面手动模拟了 Java Web 中的过滤器 Filter 的实现，其所模拟的流程与Filter的作用流程相同，如下图所示。</p>
+
+<p>　　　　　　　　　　　<img src="http://img.blog.csdn.net/20170330211954828?watermark/2/text/aHR0cDovL2Jsb2cuY3Nkbi5uZXQvanVzdGxvdmV5b3Vf/font/5a6L5L2T/fontsize/400/fill/I0JBQkFCMA==/dissolve/70/gravity/SouthEast" alt="这里写图片描述" title="" /></p>
+
+<p>　　在本实现中，我们包含一个抽象 Filter，三个具体的 Filter，包括 HTMLFilter，SensitiveFilter 和 FaceFilter； FilterChain 用于对处理链(责任链切面)的抽象。此外，Request 和 Response 用于对请求消息和响应消息的抽象，Client 用于对客户端的抽象，其类图如下所示：</p>
+
+<p>　　　　　　　　　　　　<img src="http://static.zybuluo.com/Rico123/19zewe8xmnsu0ux8a9fhtk3m/%E6%A8%A1%E6%8B%9FFilter%E7%B1%BB%E5%9B%BE.png" alt="模拟Filter类图.png-21.3kB" title="" /></p>
+
+<p>　　下面给出各抽象模块的具体实现，需要指出的是，本示例参考于马士兵老师对责任链模式的讲解，但对其做了改进，尤其是关于 FilterChain 的设计改进（只需接收 Request 和 Response），使其与 Servlet API 中 FilterChain 相一致。</p>
+
+<hr />
+
+<p><font color="blue"> 1、抽象处理者：Filter</font></p>
+
+
+
+<pre class="prettyprint"><code class="language-java hljs "><span class="hljs-keyword">public</span> <span class="hljs-class"><span class="hljs-keyword">interface</span> <span class="hljs-title">Filter</span> {</span>
+
+    <span class="hljs-comment">//每个Filter均为FilterChain的成员, Filter持有FilterChain的引用，以便调用链条中的各处理者</span>
+    <span class="hljs-keyword">void</span> doFilter(Request request, Response response, FilterChain chain);
+}</code></pre>
+
+<hr />
+
+<p><font color="blue"> 2、具体处理者：HTMLFilter，SensitiveFilter 和 FaceFilter</font></p>
+
+
+
+<pre class="prettyprint"><code class="language-java hljs "><span class="hljs-comment">// 将请求消息中的"&lt;&gt;"替换成"[]"</span>
+<span class="hljs-keyword">public</span> <span class="hljs-class"><span class="hljs-keyword">class</span> <span class="hljs-title">HTMLFilter</span> <span class="hljs-keyword">implements</span> <span class="hljs-title">Filter</span> {</span>
+
+    <span class="hljs-annotation">@Override</span>
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">void</span> <span class="hljs-title">doFilter</span>(Request request, Response response, FilterChain chain) {
+        <span class="hljs-comment">// process HTML Tag</span>
+        String msg = request.getRequest().replace(<span class="hljs-string">"&lt;"</span>, <span class="hljs-string">"["</span>).replace(<span class="hljs-string">"&gt;"</span>, <span class="hljs-string">"]"</span>);
+        request.setRequest(msg);
+
+        chain.doFilter(request, response);
+
+        response.setResponse(response.getResponse() + <span class="hljs-string">"---&gt;HTMLFilter"</span>);
+    }
+}
+
+
+<span class="hljs-comment">//将请求消息中的"被就业"替换成"就业"</span>
+class SensitiveFilter implements Filter {
+
+    <span class="hljs-annotation">@Override</span>
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">void</span> <span class="hljs-title">doFilter</span>(Request request, Response response, FilterChain chain) {
+        String msg = request.getRequest().replace(<span class="hljs-string">"被就业"</span>, <span class="hljs-string">"就业"</span>);
+        request.setRequest(msg);
+
+        chain.doFilter(request, response);
+
+        response.setResponse(response.getResponse() + <span class="hljs-string">"---&gt;SensitiveFilter"</span>);
+    }
+}
+
+<span class="hljs-comment">// 将请求消息中的":)"替换成"笑脸"</span>
+class FaceFilter implements Filter {
+
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">void</span> <span class="hljs-title">doFilter</span>(Request request, Response response, FilterChain chain) {
+        String msg = request.getRequest().replace(<span class="hljs-string">":)"</span>, <span class="hljs-string">"笑脸"</span>);
+        request.setRequest(msg);
+
+        chain.doFilter(request, response);
+
+        response.setResponse(response.getResponse() + <span class="hljs-string">"---&gt;FaceFilter"</span>);
+    }
+}</code></pre>
+
+<hr />
+
+<p><font color="blue"> 3、过滤链的抽象：FilterChain</font></p>
+
+
+
+<pre class="prettyprint"><code class="language-java hljs ">
+<span class="hljs-comment">// 对过滤链的抽象（横切关注点），是多个过滤器的聚集，本质上，FilterChain 也可以看作是一个大的Filter</span>
+<span class="hljs-keyword">public</span> <span class="hljs-class"><span class="hljs-keyword">class</span> <span class="hljs-title">FilterChain</span> {</span>
+
+    List&lt;Filter&gt; filters = <span class="hljs-keyword">new</span> ArrayList&lt;Filter&gt;();
+    <span class="hljs-keyword">int</span> index = <span class="hljs-number">0</span>;
+
+    <span class="hljs-comment">// 链式编程</span>
+    <span class="hljs-keyword">public</span> FilterChain <span class="hljs-title">addFilter</span>(Filter filter){
+        filters.add(filter);
+        <span class="hljs-keyword">return</span> <span class="hljs-keyword">this</span>;    <span class="hljs-comment">// 返回自身</span>
+    }
+
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">void</span> <span class="hljs-title">doFilter</span>(Request request, Response response) {
+        <span class="hljs-keyword">if</span>(index == filters.size()) <span class="hljs-keyword">return</span>;
+        Filter filter = filters.get(index);
+        index++;
+        filter.doFilter(request, response, <span class="hljs-keyword">this</span>);
+    }
+}</code></pre>
+
+<hr />
+
+<p><font color="blue"> 4、请求和响应的抽象：Request 和 Response</font></p>
+
+
+
+<pre class="prettyprint"><code class="language-java hljs "><span class="hljs-comment">// 对请求消息的抽象</span>
+<span class="hljs-keyword">public</span> <span class="hljs-class"><span class="hljs-keyword">class</span> <span class="hljs-title">Request</span> {</span>
+
+    <span class="hljs-comment">// 请求消息</span>
+    <span class="hljs-keyword">private</span> String request;
+
+    <span class="hljs-keyword">public</span> String <span class="hljs-title">getRequest</span>() {
+        <span class="hljs-keyword">return</span> request;
+    }
+
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">void</span> <span class="hljs-title">setRequest</span>(String request) {
+        <span class="hljs-keyword">this</span>.request = request;
+    }
+
+}
+
+
+<span class="hljs-comment">// 对响应消息的抽象</span>
+class Response {
+
+    <span class="hljs-comment">// 响应消息</span>
+    <span class="hljs-keyword">private</span> String response;
+
+    <span class="hljs-keyword">public</span> String <span class="hljs-title">getResponse</span>() {
+        <span class="hljs-keyword">return</span> response;
+    }
+
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">void</span> <span class="hljs-title">setResponse</span>(String response) {
+        <span class="hljs-keyword">this</span>.response = response;
+    }
+
+}</code></pre>
+
+<p><font color="blue"> 5、客户端的抽象：Client</font></p>
+
+
+
+<pre class="prettyprint"><code class="language-java hljs "><span class="hljs-keyword">public</span> <span class="hljs-class"><span class="hljs-keyword">class</span> <span class="hljs-title">Client</span> {</span>
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">static</span> <span class="hljs-keyword">void</span> <span class="hljs-title">main</span>(String[] args) {
+        <span class="hljs-comment">// 待处理消息</span>
+        String msg = <span class="hljs-string">"大家好 :),&lt;script&gt;,敏感,被就业,网络授课没感觉..."</span>;
+
+        <span class="hljs-comment">// 设置请求消息</span>
+        Request request = <span class="hljs-keyword">new</span> Request();
+        request.setRequest(msg);
+
+        <span class="hljs-comment">// 设置响应消息</span>
+        Response response = <span class="hljs-keyword">new</span> Response();
+        response.setResponse(<span class="hljs-string">"Response"</span>);
+
+        <span class="hljs-comment">// 设置处理链</span>
+        FilterChain chain = <span class="hljs-keyword">new</span> FilterChain();
+        chain.addFilter(<span class="hljs-keyword">new</span> HTMLFilter()).addFilter(<span class="hljs-keyword">new</span> SensitiveFilter())
+                .addFilter(<span class="hljs-keyword">new</span> FaceFilter());
+
+        <span class="hljs-comment">// 开始处理</span>
+        chain.doFilter(request, response);
+
+        <span class="hljs-comment">// 消息的预处理结果</span>
+        System.out.println(request.getRequest());
+
+        <span class="hljs-comment">// 消息的后处理结果</span>
+        System.out.println(response.getResponse());
+    }
+}<span class="hljs-comment">/* Output(完全一致): 
+        大家好 笑脸,[script],敏感,就业,网络授课没感觉...
+        Response---&gt;FaceFilter---&gt;SensitiveFilter---&gt;HTMLFilter
+ */</span><span class="hljs-comment">//:~</span></code></pre>
+
+<hr />
+
+<p>　　<font color="red">实际上，本示例基本模拟了Java Web 中过滤器的工作流程，也反映了AOP思想和责任链模式的精髓。</font> 对于一个给定的请求消息，我们可以从下图中的方法调用栈中看出，将依次由 HTMLFilter，SensitiveFilter 和 FaceFilter 三者进行预处理，最后再依次由 FaceFilter，SensitiveFilter 和 HTMLFilter 处理（这个可以从输出中看出）。</p>
+
+<p>　　　　　　　　　　　　　　<img src="http://img.blog.csdn.net/20170330214231312?watermark/2/text/aHR0cDovL2Jsb2cuY3Nkbi5uZXQvanVzdGxvdmV5b3Vf/font/5a6L5L2T/fontsize/400/fill/I0JBQkFCMA==/dissolve/70/gravity/SouthEast" alt="这里写图片描述" title="" /></p>
+
+<p>　　实际上，FilterChain 本身也可以看作是一个大的Filter，更进步地说，FilterChain 本身也可以实现 Filter 接口，这样做的优点是，我们不但可以在客户端可以任意添加具体的过滤器，还可以添加过滤链；但带来的缺点是将 FilterChain 和 Filter 耦合在了一起，也就是说，FilterChain与Filter的doFilter方法必须一样，而实际上FilterChain的doFilter方法并不需要FilterChain参数。花开生两面，有利就有弊，读者可以尝试让FilterChain 本身实现 Filter 接口，体会一下这个思想。</p>
+
+<hr />
+
+
+
+<h2 id="五-struts2-中aop与cor模式的体现拦截器">五. Struts2 中AOP与COR模式的体现：拦截器</h2>
+
+<p>　　拦截器（Interceptor）是Struts2最强大的特性之一，是struts2的核心，实际上我们完全可以把Struts2看作是一个空的容器，而大量的內建拦截器（包括但不仅限于请求参数的解析、 类型转化、异常处理、数据校验，文件上传）完成了该框架的大部分工作。<font color="DarkGreen"><b>拦截器可以让我们在Action和Result被执行之前或之后进行一些处理(如下图所示)，同时它也可以让我们将通用的代码模块化并作为可重用的类，这正是AOP的精髓，也是AOP的一种实现策略。</b></font>此外，我们知道Struts2的拦截器是 <font color="DarkGreen"><b>可插拔式的设计</b></font>，也就是说，<font color="DarkGreen"><b>若我们需要使用某个拦截器，只需在配置文件中应用该拦截器即可；若我们不需要使用该拦截器，只需要在配置文件中取消该拦截器。最重要的是，无论我们是否应用该拦截器，其对我们的 Struts2 没有任何影响，这正是责任链模式的精髓所在。</b></font></p>
+
+<p>　　　　　　　　　　　　　　　　<img src="http://img.blog.csdn.net/20170330214259667?watermark/2/text/aHR0cDovL2Jsb2cuY3Nkbi5uZXQvanVzdGxvdmV5b3Vf/font/5a6L5L2T/fontsize/400/fill/I0JBQkFCMA==/dissolve/70/gravity/SouthEast" alt="这里写图片描述" title="" /></p>
+
+<hr />
+
+<p><font color="red"> 1、Struts2 对拦截器的介绍</font></p>
+
+<p>　　<font color="blue"><b>下面四段文字是Struts2官方对Interceptor的介绍，揭示了拦截器的提出动机、作用原理和配置流程，并折射出其对AOP理念和CoR模式的理解和使用，为保证原汁原味，本人不作进一步翻译，并将原文摘抄如下：</b></font></p>
+
+<p>　　Many Actions share common concerns. Some Actions need input validated. Other Actions may need a file upload to be pre-processed. Another Action might need protection from a double submit. Many Actions need drop-down lists and other controls pre-populated before the page displays.</p>
+
+<p>　　The framework makes it easy to share solutions to these concerns using an “Interceptor” strategy. When you request a resource that maps to an “action”, the framework invokes the Action object. But, before the Action is executed, the invocation can be intercepted by another object. After the Action executes, the invocation could be intercepted again. Unsurprisingly, we call these objects “Interceptors.”</p>
+
+<p>　　Interceptors can execute code before and after an Action is invoked. Most of the framework’s core functionality is implemented as Interceptors. Features like double-submit guards, type conversion, object population, validation, file upload, page preparation, and more, are all implemented with the help of Interceptors. Each and every Interceptor is <font color="red"><b>pluggable</b></font>, so you can decide exactly which features an Action needs to support.</p>
+
+<p>　　Interceptors can be configured on a per-action basis. Your own custom Interceptors can be mixed-and-matched with the Interceptors bundled with the framework. Interceptors “set the stage” for the Action classes, doing much of the “heavy lifting” before the Action executes. <br />
+　　 <br />
+　　这四段的介绍正是AOP理念的精髓，<font color="red"><b>也就是对横切关注点的抽象，将分散在类中的共同逻辑(行为)分离出来，将OOP理念不能很好处理地横切关注点抽象在“切面”之中，以增强代码复用和灵活性。</b></font>当然，这也是 Interceptor 的设计理念。此外，拦截器可插拔的设计背后正是CoR模式的应用。</p>
+
+<hr />
+
+<p><font color="blue"> 2、结合源码分析Struts2拦截器背后的原理</font></p>
+
+<p>　　我们知道，大部分时候拦截器方法都是通过代理的方式来调用的。当请求到达Struts2的ServletDispatcher时，Struts2会查找配置文件，并根据其配置实例化相对的拦截器对象，然后串成一个列表（list），以便最后由容器依次调用列表中的拦截器作对请求/响应做进一步处理。我们可以在 DefaultActionInvocation 类中找对应的Struts源码如下：</p>
+
+
+
+<pre class="prettyprint"><code class="language-java hljs "><span class="hljs-keyword">public</span> <span class="hljs-keyword">void</span> <span class="hljs-title">init</span>(ActionProxy proxy) {
+    ...
+    <span class="hljs-comment">// get a new List so we don't get problems with the iterator if someone changes the list</span>
+    <span class="hljs-comment">// 将所有拦截器对象串成一个列表，以便容器调用</span>
+    List&lt;InterceptorMapping&gt; interceptorList = <span class="hljs-keyword">new</span> ArrayList&lt;InterceptorMapping&gt;(proxy.getConfig().getInterceptors());
+    interceptors = interceptorList.iterator();
+}</code></pre>
+
+<p>　　同时，我们可以通过调试观察到上面所提到的拦截器列表，如下图所示：</p>
+
+<p>　　　　　　　　　　　　　　<img src="http://img.blog.csdn.net/20170330214509777?watermark/2/text/aHR0cDovL2Jsb2cuY3Nkbi5uZXQvanVzdGxvdmV5b3Vf/font/5a6L5L2T/fontsize/400/fill/I0JBQkFCMA==/dissolve/70/gravity/SouthEast" alt="这里写图片描述" title="" /></p>
+
+<hr />
+
+<p>　　事实上，我们之所以能够如此灵活地使用拦截器，完全归功于“动态代理”的使用。动态代理是代理对象根据客户的需求做出不同的处理。也就是说，对客户而言，其只要知道一个代理对象就行了。特别地，在 Struts2 中，当Action请求到来的时候，会由系统的代理生成一个Action的代理对象，由这个代理对象调用Action的execute()或指定的方法，并在struts.xml中查找与该Action对应的拦截器。如果有对应的拦截器，就在Action的方法执行前（后）调用这些拦截器；如果没有对应的拦截器，则直接执行Action的方法。其中Struts2 对拦截器的调用，是通过ActionInvocation来实现的，代码如下：</p>
+
+
+
+<pre class="prettyprint"><code class="language-java hljs "><span class="hljs-keyword">public</span> String <span class="hljs-title">invoke</span>() <span class="hljs-keyword">throws</span> Exception {
+    String profileKey = <span class="hljs-string">"invoke: "</span>;
+    <span class="hljs-keyword">try</span> {
+            UtilTimerStack.push(profileKey);
+
+            <span class="hljs-keyword">if</span> (executed) {
+                <span class="hljs-keyword">throw</span> <span class="hljs-keyword">new</span> IllegalStateException(<span class="hljs-string">"Action has already executed"</span>);
+            }
+
+            <span class="hljs-comment">// 由容器依次调用拦截器链中的各拦截器</span>
+            <span class="hljs-keyword">if</span> (interceptors.hasNext()) {
+                <span class="hljs-keyword">final</span> InterceptorMapping interceptor = (InterceptorMapping) interceptors.next();
+                String interceptorMsg = <span class="hljs-string">"interceptor: "</span> + interceptor.getName();
+                UtilTimerStack.push(interceptorMsg);
+                <span class="hljs-keyword">try</span> {
+                    <span class="hljs-comment">// 不断从拦截器栈中取出新的拦截器，并调用拦截器的intercept方法</span>
+                    resultCode = interceptor.getInterceptor().intercept(DefaultActionInvocation.<span class="hljs-keyword">this</span>);             
+                }<span class="hljs-keyword">finally</span> {
+                    UtilTimerStack.pop(interceptorMsg);
+                }
+            } <span class="hljs-keyword">else</span> {
+                <span class="hljs-comment">// 若拦截器栈中所有的拦截器都已调用，则开始调用Action的指定方法进行业务逻辑的处理 </span>
+                resultCode = invokeActionOnly();
+            }
+
+            <span class="hljs-comment">// 其余代码省略</span></code></pre>
+
+<p>　　 <br />
+　　同时，我们可以通过调试观察到方法调用栈(拦截器调用栈)，如下图所示：</p>
+
+<p>　　　　　　　　　　　　<img src="http://img.blog.csdn.net/20170330214531316?watermark/2/text/aHR0cDovL2Jsb2cuY3Nkbi5uZXQvanVzdGxvdmV5b3Vf/font/5a6L5L2T/fontsize/400/fill/I0JBQkFCMA==/dissolve/70/gravity/SouthEast" alt="这里写图片描述" title="" /></p>
+
+<hr />
+
+<p>　　<font color="DarkGreen"><b>总的来说，Struts2 的拦截器又是AOP理念和责任链模式融合的又一次成功实践。</b></font></p>
+
+<hr />
+
+
+
+<h2 id="六-总结">六. 总结</h2>
+
+<p>　　AOP的理念可以很容易抽象出横切关注点，基于AOP理念我们可以将责任链模式中各具体处理角色中共同的实现责任链结构的行为抽象出来并将其模块化，以便进一步提高代码复用率和系统可维护性。实际上，无论是Java Web中的过滤器，还是Struts2中的Interceptor，它们都是责任链模式与AOP思想互相融合的巧妙实践。为了更进一步理解AOP和CoR，本文还概述了Filter的提出动机、工作原理和使用流程，并手动模拟了Java Web中的过滤器机制。最后，我们结合Struts2的源码和文档解释了拦截器的工作原理，更进一步剖析了AOP理念和CoR模式在Java中的应用，同时也有助于了解Struts2的原理。</p>
+
+<hr />
+
+
+
+<h2 id="七-更多">七. 更多</h2>
+
+<p>　　更多关于<font color="red"><b> protected 关键字 </b></font>的介绍， 请移步我的博文<a href="http://static.zybuluo.com/Rico123/19zewe8xmnsu0ux8a9fhtk3m/%E6%A8%A1%E6%8B%9FFilter%E7%B1%BB%E5%9B%BE.png">《Java 访问权限控制：你真的了解 protected 关键字吗？》</a>。</p>
+
+<p>　　更多关于 Java Web 中 过滤器机制 的介绍，请移步我的博客 <a href="http://blog.csdn.net/justloveyou_/article/details/68922144">《Java Web 基础 — Filter 综述》</a>。</p>
+
+<p>　　更多对 <font color="red"><b>责任链模式的提出动机、原理结构、典型实现和应用场景等切面的介绍</b></font>， 请移步本文的姊妹篇<a href="http://blog.csdn.net/justloveyou_/article/details/68489505">《责任链模式综述(基础篇)》</a>。</p>
+
+<hr />
+
+<blockquote>
+  <h2 id="引用">引用</h2>
+  
+  <p><a href="http://xueshu.baidu.com/s?wd=paperuri:%28dbdc9c47e27de8d3957e190f4d612787%29&amp;filter=sc_long_sign&amp;sc_ks_para=q=%E5%9F%BA%E4%BA%8EAOP%E7%9A%84%E8%B4%A3%E4%BB%BB%E9%93%BE%E6%A8%A1%E5%BC%8F%E6%94%B9%E8%BF%9B%E7%A0%94%E7%A9%B6&amp;tn=SE_baiduxueshu_c1gjeupa&amp;ie=utf-8&amp;sc_us=8399901285699514">《基于AOP的责任链模式改进研究》</a> <br />
+  <a href="http://blog.csdn.net/csh624366188/article/details/7543342">Java程序员从笨鸟到菜鸟之（四十六）细谈struts2（八）拦截器的实现原理及源码剖析</a> <br />
+  <a href="http://www.cnblogs.com/joyang/p/4973435.html">过滤器与拦截器的区别</a></p>
+</blockquote></div>&#13;
+        <script type="text/javascript">&#13;
+            $(function () {&#13;
+                $('pre.prettyprint code').each(function () {&#13;
+                    var lines = $(this).text().split('\n').length;&#13;
+                    var $numbering = $('&lt;ul/&gt;').addClass('pre-numbering').hide();&#13;
+                    $(this).addClass('has-numbering').parent().append($numbering);&#13;
+                    for (i = 1; i &lt;= lines; i++) {&#13;
+                        $numbering.append($('&lt;li/&gt;').text(i));&#13;
+                    };&#13;
+                    $numbering.fadeIn(1700);&#13;
+                });&#13;
+            });&#13;
+        </script>&#13;
+   &#13;

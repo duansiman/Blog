@@ -1,0 +1,329 @@
+
+        <div class="markdown_views"><h1 id="json工具学习记录fastjson循环引用问题">JSON工具学习记录–FastJSON循环引用问题</h1>
+
+<p>标签（空格分隔）： fastjson</p>
+
+<hr />
+
+<p>最近基于他人项目做二次开发,遇到了循环引用的问题,简单来说A引用了B,B引用了C,C引用了A,那么转换json就会无休止的转换下去. <br />
+更复杂的情况,A中引用了B,B中引用了一个A的集合,比如广告引用了广告类型,广告类型里面又有该类型下的所属广告.</p>
+
+
+
+<h2 id="1构造情景">1.构造情景</h2>
+
+<p>这种又叫做双向引用,个人感觉这种设计本身就不是很合理,当然还要看具体使用场景了.</p>
+
+<p>广告类:</p>
+
+
+
+<pre class="prettyprint"><code class=" hljs java"><span class="hljs-javadoc">/**
+ *<span class="hljs-javadoctag"> @author</span> Niu Li
+ *<span class="hljs-javadoctag"> @date</span> 2016/8/12
+ */</span>
+<span class="hljs-keyword">public</span> <span class="hljs-class"><span class="hljs-keyword">class</span> <span class="hljs-title">ADEntity</span> {</span>
+    <span class="hljs-keyword">private</span> <span class="hljs-keyword">int</span> id;
+    <span class="hljs-keyword">private</span> String name;
+    <span class="hljs-comment">//引用了一个广告实体类</span>
+    <span class="hljs-keyword">private</span> ADTypeEntity adTypeEntity;
+
+    <span class="hljs-keyword">public</span> <span class="hljs-title">ADEntity</span>(<span class="hljs-keyword">int</span> id, String name, ADTypeEntity adTypeEntity) {
+        <span class="hljs-keyword">this</span>.id = id;
+        <span class="hljs-keyword">this</span>.name = name;
+        <span class="hljs-keyword">this</span>.adTypeEntity = adTypeEntity;
+    }
+<span class="hljs-comment">//省略get和set</span>
+}</code></pre>
+
+<p>广告实体类:</p>
+
+
+
+<pre class="prettyprint"><code class=" hljs java"><span class="hljs-keyword">import</span> java.util.List;
+
+<span class="hljs-javadoc">/**
+ *<span class="hljs-javadoctag"> @author</span> Niu Li
+ *<span class="hljs-javadoctag"> @date</span> 2016/8/12
+ */</span>
+<span class="hljs-keyword">public</span> <span class="hljs-class"><span class="hljs-keyword">class</span> <span class="hljs-title">ADTypeEntity</span> {</span>
+    <span class="hljs-keyword">private</span> <span class="hljs-keyword">int</span> id;
+    <span class="hljs-keyword">private</span> String name;
+    <span class="hljs-comment">//引用了其广告集合</span>
+    <span class="hljs-keyword">private</span> List&lt;ADEntity&gt; lists;
+    <span class="hljs-comment">//省略get和set</span>
+}</code></pre>
+
+<p>测试代码:</p>
+
+
+
+<pre class="prettyprint"><code class=" hljs cs"><span class="hljs-keyword">public</span> <span class="hljs-keyword">class</span> TestApp {
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">static</span> <span class="hljs-keyword">void</span> <span class="hljs-title">main</span>(String[] args) {
+        <span class="hljs-comment">//构造广告类型</span>
+        ADTypeEntity adTypeEntity = <span class="hljs-keyword">new</span> ADTypeEntity();
+        adTypeEntity.setId(<span class="hljs-number">1</span>);
+        adTypeEntity.setName(<span class="hljs-string">"轮播图"</span>);
+        <span class="hljs-comment">//构造广告</span>
+        ADEntity entity1 = <span class="hljs-keyword">new</span> ADEntity(<span class="hljs-number">1</span>,<span class="hljs-string">"图1"</span>,adTypeEntity);
+        ADEntity entity2 = <span class="hljs-keyword">new</span> ADEntity(<span class="hljs-number">2</span>,<span class="hljs-string">"图2"</span>,adTypeEntity);
+        ADEntity entity3 = <span class="hljs-keyword">new</span> ADEntity(<span class="hljs-number">3</span>,<span class="hljs-string">"图3"</span>,adTypeEntity);
+
+        List&lt;ADEntity&gt; lists = <span class="hljs-keyword">new</span> ArrayList&lt;ADEntity&gt;();
+        lists.add(entity1);
+        lists.add(entity2);
+        lists.add(entity3);
+        <span class="hljs-comment">//双向引用</span>
+        adTypeEntity.setLists(lists);
+
+        String result = JSON.toJSONString(entity1);
+        System.<span class="hljs-keyword">out</span>.println(result);
+    }
+}</code></pre>
+
+<p>结果可以看到双向引用被替换成<code>$ref</code>了:</p>
+
+
+
+<pre class="prettyprint"><code class=" hljs json">{
+  "<span class="hljs-attribute">adTypeEntity</span>": <span class="hljs-value">{
+    "<span class="hljs-attribute">id</span>": <span class="hljs-value"><span class="hljs-number">1</span></span>,
+    "<span class="hljs-attribute">lists</span>": <span class="hljs-value">[
+      {
+        "<span class="hljs-attribute">$ref</span>": <span class="hljs-value"><span class="hljs-string">"$"</span>
+      </span>},
+      {
+        "<span class="hljs-attribute">adTypeEntity</span>": <span class="hljs-value">{
+          "<span class="hljs-attribute">$ref</span>": <span class="hljs-value"><span class="hljs-string">"$.adTypeEntity"</span>
+        </span>}</span>,
+        "<span class="hljs-attribute">id</span>": <span class="hljs-value"><span class="hljs-number">2</span></span>,
+        "<span class="hljs-attribute">name</span>": <span class="hljs-value"><span class="hljs-string">"图2"</span>
+      </span>},
+      {
+        "<span class="hljs-attribute">adTypeEntity</span>": <span class="hljs-value">{
+          "<span class="hljs-attribute">$ref</span>": <span class="hljs-value"><span class="hljs-string">"$.adTypeEntity"</span>
+        </span>}</span>,
+        "<span class="hljs-attribute">id</span>": <span class="hljs-value"><span class="hljs-number">3</span></span>,
+        "<span class="hljs-attribute">name</span>": <span class="hljs-value"><span class="hljs-string">"图3"</span>
+      </span>}
+    ]</span>,
+    "<span class="hljs-attribute">name</span>": <span class="hljs-value"><span class="hljs-string">"轮播图"</span>
+  </span>}</span>,
+  "<span class="hljs-attribute">id</span>": <span class="hljs-value"><span class="hljs-number">1</span></span>,
+  "<span class="hljs-attribute">name</span>": <span class="hljs-value"><span class="hljs-string">"图1"</span>
+</span>}</code></pre>
+
+
+
+<h2 id="2解决办法">2.解决办法</h2>
+
+<p>两种解决办法就是哪里有循环引用,就过滤掉该字段.</p>
+
+
+
+<h3 id="1过滤的方式可以使用jsonfield注解声明该字段不被转换为json">1.过滤的方式可以使用JSONField注解声明该字段不被转换为json</h3>
+
+
+
+<pre class="prettyprint"><code class=" hljs java">    <span class="hljs-annotation">@JSONField</span>(serialize = <span class="hljs-keyword">false</span>)
+    <span class="hljs-keyword">private</span> List&lt;ADEntity&gt; lists;</code></pre>
+
+<p>得到结果</p>
+
+
+
+<pre class="prettyprint"><code class=" hljs json">{
+  "<span class="hljs-attribute">adTypeEntity</span>": <span class="hljs-value">{
+    "<span class="hljs-attribute">id</span>": <span class="hljs-value"><span class="hljs-number">1</span></span>,
+    "<span class="hljs-attribute">name</span>": <span class="hljs-value"><span class="hljs-string">"轮播图"</span>
+  </span>}</span>,
+  "<span class="hljs-attribute">id</span>": <span class="hljs-value"><span class="hljs-number">1</span></span>,
+  "<span class="hljs-attribute">name</span>": <span class="hljs-value"><span class="hljs-string">"图1"</span>
+</span>}</code></pre>
+
+
+
+<h3 id="2自定义转换字段">2.自定义转换字段</h3>
+
+
+
+<pre class="prettyprint"><code class=" hljs vbscript"> SimplePropertyPreFilter <span class="hljs-built_in">filter</span> = <span class="hljs-keyword">new</span> SimplePropertyPreFilter(ADTypeEntity.<span class="hljs-keyword">class</span>,<span class="hljs-string">"id"</span>,<span class="hljs-string">"name"</span>);
+        <span class="hljs-built_in">String</span> result = JSON.toJSONString(entity1,<span class="hljs-built_in">filter</span>);</code></pre>
+
+<p>这表明对于ADTypeEntity类只序列化id和name字段,这样的话就排除掉list集合引用了,得到的结果和上面一样.</p>
+
+<hr />
+
+
+
+<h2 id="3置顶转换规则多级过滤">3.置顶转换规则多级过滤</h2>
+
+<p>转载自:<a href="http://www.cnblogs.com/sandyfog/articles/3679804.html">http://www.cnblogs.com/sandyfog/articles/3679804.html</a></p>
+
+<p>fastjson可以实现一些接口指定过滤属性.过滤本质是fastjson每一次要序列化字段的时候都会经过Apply方法进行判断,只有Apply返回true的时候才会序列化,因此就可以根据属性名来进行自由过滤.</p>
+
+<p>以下实现PropertyPreFilter接口,根据name值来进行排除判定.</p>
+
+
+
+<pre class="prettyprint"><code class=" hljs java"><span class="hljs-keyword">import</span> com.alibaba.fastjson.JSON;
+<span class="hljs-keyword">import</span> com.alibaba.fastjson.serializer.JSONSerializer;
+<span class="hljs-keyword">import</span> com.alibaba.fastjson.serializer.PropertyPreFilter;
+<span class="hljs-keyword">import</span> com.alibaba.fastjson.serializer.SerializerFeature;
+
+<span class="hljs-keyword">import</span> java.util.HashMap;
+<span class="hljs-keyword">import</span> java.util.Map;
+
+<span class="hljs-javadoc">/**
+ *<span class="hljs-javadoctag"> @date</span> 2016/8/17
+ */</span>
+<span class="hljs-keyword">public</span> <span class="hljs-class"><span class="hljs-keyword">class</span> <span class="hljs-title">ComplexPropertyPreFilter</span> <span class="hljs-keyword">implements</span> <span class="hljs-title">PropertyPreFilter</span> {</span>
+    <span class="hljs-keyword">private</span> Map&lt;Class&lt;?&gt;, String[]&gt; includes = <span class="hljs-keyword">new</span> HashMap&lt;&gt;();
+    <span class="hljs-keyword">private</span> Map&lt;Class&lt;?&gt;, String[]&gt; excludes = <span class="hljs-keyword">new</span> HashMap&lt;&gt;();
+
+    <span class="hljs-keyword">static</span> {
+        <span class="hljs-comment">//全局配置关闭循环引用检测</span>
+        JSON.DEFAULT_GENERATE_FEATURE |= SerializerFeature.DisableCircularReferenceDetect.getMask();
+    }
+
+    <span class="hljs-keyword">public</span> <span class="hljs-title">ComplexPropertyPreFilter</span>() {
+
+    }
+
+    <span class="hljs-keyword">public</span> <span class="hljs-title">ComplexPropertyPreFilter</span>(Map&lt;Class&lt;?&gt;, String[]&gt; includes) {
+        <span class="hljs-keyword">super</span>();
+        <span class="hljs-keyword">this</span>.includes = includes;
+    }
+
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">boolean</span> <span class="hljs-title">apply</span>(JSONSerializer serializer, Object source, String name) {
+
+        <span class="hljs-comment">//对象为空。直接放行</span>
+        <span class="hljs-keyword">if</span> (source == <span class="hljs-keyword">null</span>) {
+            <span class="hljs-keyword">return</span> <span class="hljs-keyword">true</span>;
+        }
+
+        <span class="hljs-comment">// 获取当前需要序列化的对象的类对象</span>
+        Class&lt;?&gt; clazz = source.getClass();
+
+        <span class="hljs-comment">// 无需序列的对象、寻找需要过滤的对象，可以提高查找层级</span>
+        <span class="hljs-comment">// 找到不需要的序列化的类型</span>
+        <span class="hljs-keyword">for</span> (Map.Entry&lt;Class&lt;?&gt;, String[]&gt; item : <span class="hljs-keyword">this</span>.excludes.entrySet()) {
+            <span class="hljs-comment">// isAssignableFrom()，用来判断类型间是否有继承关系</span>
+            <span class="hljs-keyword">if</span> (item.getKey().isAssignableFrom(clazz)) {
+                String[] strs = item.getValue();
+
+                <span class="hljs-comment">// 该类型下 此 name 值无需序列化</span>
+                <span class="hljs-keyword">if</span> (isHave(strs, name)) {
+                    <span class="hljs-keyword">return</span> <span class="hljs-keyword">false</span>;
+                }
+            }
+        }
+
+        <span class="hljs-comment">// 需要序列的对象集合为空 表示 全部需要序列化</span>
+        <span class="hljs-keyword">if</span> (<span class="hljs-keyword">this</span>.includes.isEmpty()) {
+            <span class="hljs-keyword">return</span> <span class="hljs-keyword">true</span>;
+        }
+
+        <span class="hljs-comment">// 需要序列的对象</span>
+        <span class="hljs-comment">// 找到不需要的序列化的类型</span>
+        <span class="hljs-keyword">for</span> (Map.Entry&lt;Class&lt;?&gt;, String[]&gt; item : <span class="hljs-keyword">this</span>.includes.entrySet()) {
+            <span class="hljs-comment">// isAssignableFrom()，用来判断类型间是否有继承关系</span>
+            <span class="hljs-keyword">if</span> (item.getKey().isAssignableFrom(clazz)) {
+                String[] strs = item.getValue();
+                <span class="hljs-comment">// 该类型下 此 name 值无需序列化</span>
+                <span class="hljs-keyword">if</span> (isHave(strs, name)) {
+                    <span class="hljs-keyword">return</span> <span class="hljs-keyword">true</span>;
+                }
+            }
+        }
+
+        <span class="hljs-keyword">return</span> <span class="hljs-keyword">false</span>;
+    }
+
+    <span class="hljs-comment">/*
+     * 此方法有两个参数，第一个是要查找的字符串数组，第二个是要查找的字符或字符串
+     */</span>
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">static</span> <span class="hljs-keyword">boolean</span> <span class="hljs-title">isHave</span>(String[] strs, String s) {
+
+        <span class="hljs-keyword">for</span> (<span class="hljs-keyword">int</span> i = <span class="hljs-number">0</span>; i &lt; strs.length; i++) {
+            <span class="hljs-comment">// 循环查找字符串数组中的每个字符串中是否包含所有查找的内容</span>
+            <span class="hljs-keyword">if</span> (strs[i].equals(s)) {
+                <span class="hljs-comment">// 查找到了就返回真，不在继续查询</span>
+                <span class="hljs-keyword">return</span> <span class="hljs-keyword">true</span>;
+            }
+        }
+
+        <span class="hljs-comment">// 没找到返回false</span>
+        <span class="hljs-keyword">return</span> <span class="hljs-keyword">false</span>;
+    }
+
+    <span class="hljs-keyword">public</span> Map&lt;Class&lt;?&gt;, String[]&gt; <span class="hljs-title">getIncludes</span>() {
+        <span class="hljs-keyword">return</span> includes;
+    }
+
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">void</span> <span class="hljs-title">setIncludes</span>(Map&lt;Class&lt;?&gt;, String[]&gt; includes) {
+        <span class="hljs-keyword">this</span>.includes = includes;
+    }
+
+    <span class="hljs-keyword">public</span> Map&lt;Class&lt;?&gt;, String[]&gt; <span class="hljs-title">getExcludes</span>() {
+        <span class="hljs-keyword">return</span> excludes;
+    }
+
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">void</span> <span class="hljs-title">setExcludes</span>(Map&lt;Class&lt;?&gt;, String[]&gt; excludes) {
+        <span class="hljs-keyword">this</span>.excludes = excludes;
+    }
+}</code></pre>
+
+<p>自己代码中用到的过滤</p>
+
+
+
+<pre class="prettyprint"><code class=" hljs avrasm"> Pageable pageable = new Pageable(page,rows)<span class="hljs-comment">;</span>
+        Page&lt;Promotion&gt; promotionPages = promotionService<span class="hljs-preprocessor">.findPage</span>(pageable)<span class="hljs-comment">;</span>
+
+        String[] promotionFilters = {<span class="hljs-string">"id"</span>, <span class="hljs-string">"name"</span>,<span class="hljs-string">"title"</span>,<span class="hljs-string">"image"</span>,<span class="hljs-string">"endDate"</span>,<span class="hljs-string">"priceExpression"</span>,<span class="hljs-string">"memberRanks"</span>}<span class="hljs-comment">;</span>
+        String[] memberFilter = {<span class="hljs-string">"id"</span>,<span class="hljs-string">"name"</span>}<span class="hljs-comment">;</span>
+        String[] pageFilter = {<span class="hljs-string">"pageNumber"</span>,<span class="hljs-string">"pageSize"</span>,<span class="hljs-string">"content"</span>,<span class="hljs-string">"total"</span>,<span class="hljs-string">"totalPages"</span>}<span class="hljs-comment">;</span>
+        Map&lt;Class&lt;?&gt;,String[]&gt; mapFilter = new HashMap&lt;&gt;()<span class="hljs-comment">;</span>
+        mapFilter<span class="hljs-preprocessor">.put</span>(Promotion<span class="hljs-preprocessor">.class</span>,promotionFilters)<span class="hljs-comment">;</span>
+        mapFilter<span class="hljs-preprocessor">.put</span>(MemberRank<span class="hljs-preprocessor">.class</span>,memberFilter)<span class="hljs-comment">;</span>
+        mapFilter<span class="hljs-preprocessor">.put</span>(Page<span class="hljs-preprocessor">.class</span>,pageFilter)<span class="hljs-comment">;</span>
+
+        ResultData result = new ResultData<span class="hljs-preprocessor">.Builder</span>(ResultVo<span class="hljs-preprocessor">.OK</span>)
+                <span class="hljs-preprocessor">.setData</span>(APPJsonUtil<span class="hljs-preprocessor">.toJsonObject</span>(mapFilter,null,promotionPages))
+                <span class="hljs-preprocessor">.builder</span>()<span class="hljs-comment">;</span></code></pre>
+
+<p>json工具</p>
+
+
+
+<pre class="prettyprint"><code class=" hljs java"> <span class="hljs-javadoc">/**
+     * 按照指定序列转换为jsonObject,多级过滤
+     *<span class="hljs-javadoctag"> @param</span> object
+     *<span class="hljs-javadoctag"> @return</span>
+     */</span>
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">static</span> JSONObject <span class="hljs-title">toJsonObject</span>(Map&lt;Class&lt;?&gt;, String[]&gt; includes,Map&lt;Class&lt;?&gt;, String[]&gt; excludes, Object object){
+        ComplexPropertyPreFilter filter = <span class="hljs-keyword">new</span> ComplexPropertyPreFilter();
+        <span class="hljs-keyword">if</span> (excludes != <span class="hljs-keyword">null</span>) {
+            filter.setExcludes(excludes);
+        }
+        <span class="hljs-keyword">if</span> (includes != <span class="hljs-keyword">null</span>) {
+            filter.setIncludes(includes);
+        }
+        String result = JSON.toJSONString(object, filter);
+        <span class="hljs-keyword">return</span> JSON.parseObject(result);
+    }</code></pre></div>&#13;
+        <script type="text/javascript">&#13;
+            $(function () {&#13;
+                $('pre.prettyprint code').each(function () {&#13;
+                    var lines = $(this).text().split('\n').length;&#13;
+                    var $numbering = $('&lt;ul/&gt;').addClass('pre-numbering').hide();&#13;
+                    $(this).addClass('has-numbering').parent().append($numbering);&#13;
+                    for (i = 1; i &lt;= lines; i++) {&#13;
+                        $numbering.append($('&lt;li/&gt;').text(i));&#13;
+                    };&#13;
+                    $numbering.fadeIn(1700);&#13;
+                });&#13;
+            });&#13;
+        </script>&#13;
+   &#13;

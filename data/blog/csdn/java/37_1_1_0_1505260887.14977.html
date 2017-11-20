@@ -1,0 +1,200 @@
+
+
+<div style="text-align:center"><span style="font-size:24px">架构师入门笔记八 并发框架Disruptor场景应用</span></div>&#13;
+<div style="text-align:left"><span style="font-size:18px">今天用一个停车场问题来加深对Disruptor的理解。一个有关汽车进入停车场的问题。</span><span style="font-size:18px">当汽车进入停车场时，系统首先会记录汽车信息。同时也会发送消息到其他系统处理相关业务，最后发送短信通知车主收费开始。看了很多文章，里面的代码都是大同小异的，可能代码真的是很经典。以下代码也是来源网络，只是自己手动敲的，加了一些注释。</span></div>&#13;
+<div style="text-align:left"><span style="font-size:18px"><br />&#13;
+</span></div>&#13;
+<div style="text-align:left"><span style="font-size:18px">代码包含以下内容：</span></div>&#13;
+<div style="text-align:left"><span style="font-size:18px">1） 事件对象Event</span></div>&#13;
+<div style="text-align:left"><span style="font-size:18px">2）三个消费者Handler</span></div>&#13;
+<div style="text-align:left"><span style="font-size:18px">3）一个生产者Processer</span></div>&#13;
+<div style="text-align:left"><span style="font-size:18px">4）执行Main方法</span></div>&#13;
+<div style="text-align:left"><span style="font-size:18px">Event类：汽车信息</span></div>&#13;
+<div style="text-align:left"><span style="font-size:18px"></span><pre code_snippet_id="2570603" snippet_file_name="blog_20170909_1_6306357" name="code" class="java">public class MyInParkingDataEvent {
+
+	private String carLicense; // 车牌号
+
+	public String getCarLicense() {
+		return carLicense;
+	}
+
+	public void setCarLicense(String carLicense) {
+		this.carLicense = carLicense;
+	}
+
+}</pre><span style="font-size:18px">Handler类：一个负责存储汽车数据，一个负责发送kafka信息到其他系统中，最后一个负责给车主发短信通知</span></div>&#13;
+<div style="text-align:left"><span style="font-size:18px"></span><pre code_snippet_id="2570603" snippet_file_name="blog_20170909_2_4812641" name="code" class="java">import com.lmax.disruptor.EventHandler;
+import com.lmax.disruptor.WorkHandler;
+
+/**
+ * Handler 第一个消费者，负责保存进场汽车的信息
+ *
+ */
+public class MyParkingDataInDbHandler implements EventHandler&lt;MyInParkingDataEvent&gt; , WorkHandler&lt;MyInParkingDataEvent&gt;{
+
+	@Override
+	public void onEvent(MyInParkingDataEvent myInParkingDataEvent) throws Exception {
+		long threadId = Thread.currentThread().getId(); // 获取当前线程id
+		String carLicense = myInParkingDataEvent.getCarLicense(); // 获取车牌号
+		System.out.println(String.format("Thread Id %s 保存 %s 到数据库中 ....", threadId, carLicense));
+	}
+
+	@Override
+	public void onEvent(MyInParkingDataEvent myInParkingDataEvent, long sequence, boolean endOfBatch)
+			throws Exception {
+		this.onEvent(myInParkingDataEvent);
+	}
+
+}</pre><pre code_snippet_id="2570603" snippet_file_name="blog_20170909_3_178598" name="code" class="java">import com.lmax.disruptor.EventHandler;
+
+/**
+ * 第二个消费者，负责发送通知告知工作人员(Kafka是一种高吞吐量的分布式发布订阅消息系统)
+ */
+public class MyParkingDataToKafkaHandler implements EventHandler&lt;MyInParkingDataEvent&gt;{
+
+	@Override
+	public void onEvent(MyInParkingDataEvent myInParkingDataEvent, long sequence, boolean endOfBatch)
+			throws Exception {
+		long threadId = Thread.currentThread().getId(); // 获取当前线程id
+		String carLicense = myInParkingDataEvent.getCarLicense(); // 获取车牌号
+		System.out.println(String.format("Thread Id %s 发送 %s 进入停车场信息给 kafka系统...", threadId, carLicense));
+	}
+
+}</pre><pre code_snippet_id="2570603" snippet_file_name="blog_20170909_4_1715742" name="code" class="java">import com.lmax.disruptor.EventHandler;
+
+/**
+ * 第三个消费者，sms短信服务，告知司机你已经进入停车场，计费开始。
+ */
+public class MyParkingDataSmsHandler implements EventHandler&lt;MyInParkingDataEvent&gt;{
+
+	@Override
+	public void onEvent(MyInParkingDataEvent myInParkingDataEvent, long sequence, boolean endOfBatch)
+			throws Exception {
+		long threadId = Thread.currentThread().getId(); // 获取当前线程id
+		String carLicense = myInParkingDataEvent.getCarLicense(); // 获取车牌号
+		System.out.println(String.format("Thread Id %s 给  %s 的车主发送一条短信，并告知他计费开始了 ....", threadId, carLicense));
+	}
+
+}</pre><span style="font-family:&quot;microsoft yahei&quot;; font-size:18px">Producer类：负责<span style="font-family:&quot;microsoft yahei&quot;; font-size:18px">上报</span>停车数据</span><br />&#13;
+<pre code_snippet_id="2570603" snippet_file_name="blog_20170909_5_5653239" name="code" class="java">import java.util.concurrent.CountDownLatch;
+import com.lmax.disruptor.EventTranslator;
+import com.lmax.disruptor.dsl.Disruptor;
+
+/**
+ * 生产者，进入停车场的车辆
+ */
+public class MyInParkingDataEventPublisher implements Runnable{
+	
+	private CountDownLatch countDownLatch; // 用于监听初始化操作，等初始化执行完毕后，通知主线程继续工作
+	private Disruptor&lt;MyInParkingDataEvent&gt; disruptor;
+	private static final Integer NUM = 1; // 1,10,100,1000
+	
+	public MyInParkingDataEventPublisher(CountDownLatch countDownLatch,
+			Disruptor&lt;MyInParkingDataEvent&gt; disruptor) {
+		this.countDownLatch = countDownLatch;
+		this.disruptor = disruptor;
+	}
+	
+	@Override
+	public void run() {
+		MyInParkingDataEventTranslator eventTranslator = new MyInParkingDataEventTranslator();
+		try {
+			for(int i = 0; i &lt; NUM; i ++) {
+				disruptor.publishEvent(eventTranslator);
+				Thread.sleep(1000); // 假设一秒钟进一辆车
+			}
+		} catch (InterruptedException e) {
+			e.printStackTrace();
+		} finally {
+			countDownLatch.countDown(); // 执行完毕后通知 await()方法
+			System.out.println(NUM + "辆车已经全部进入进入停车场！");
+		}
+	}
+	
+}
+
+class MyInParkingDataEventTranslator implements EventTranslator&lt;MyInParkingDataEvent&gt; {
+
+	@Override
+	public void translateTo(MyInParkingDataEvent myInParkingDataEvent, long sequence) {
+		this.generateData(myInParkingDataEvent);
+	}
+	
+	private MyInParkingDataEvent generateData(MyInParkingDataEvent myInParkingDataEvent) {
+		myInParkingDataEvent.setCarLicense("车牌号： 鄂A-" + (int)(Math.random() * 100000)); // 随机生成一个车牌号
+		System.out.println("Thread Id " + Thread.currentThread().getId() + " 写完一个event");
+		return myInParkingDataEvent;
+	}
+	
+}</pre><span style="font-size:18px">执行的Main方法：</span></div>&#13;
+<div style="text-align:left"><span style="font-size:18px"></span><pre code_snippet_id="2570603" snippet_file_name="blog_20170909_6_255046" name="code" class="java">import com.lmax.disruptor.EventFactory;
+import com.lmax.disruptor.YieldingWaitStrategy;
+import com.lmax.disruptor.dsl.Disruptor;
+import com.lmax.disruptor.dsl.EventHandlerGroup;
+import com.lmax.disruptor.dsl.ProducerType;
+
+/**
+ * 执行的Main方法 ，
+ * 一个生产者（汽车进入停车场）；
+ * 三个消费者（一个记录汽车信息，一个发送消息给系统，一个发送消息告知司机）
+ * 前两个消费者同步执行，都有结果了再执行第三个消费者
+ */
+public class MyInParkingDataEventMain {
+	
+	public static void main(String[] args) {
+		long beginTime=System.currentTimeMillis();
+		int bufferSize = 2048; // 2的N次方
+		try {
+			// 创建线程池，负责处理Disruptor的四个消费者
+			ExecutorService executor = Executors.newFixedThreadPool(4);
+			
+			// 初始化一个 Disruptor
+			Disruptor&lt;MyInParkingDataEvent&gt; disruptor = new Disruptor&lt;MyInParkingDataEvent&gt;(new EventFactory&lt;MyInParkingDataEvent&gt;() {
+				@Override
+				public MyInParkingDataEvent newInstance() {
+					return new MyInParkingDataEvent(); // Event 初始化工厂
+				}
+			}, bufferSize, executor, ProducerType.SINGLE, new YieldingWaitStrategy());
+			
+			// 使用disruptor创建消费者组 MyParkingDataInDbHandler 和 MyParkingDataToKafkaHandler
+			EventHandlerGroup&lt;MyInParkingDataEvent&gt; handlerGroup = disruptor.handleEventsWith(
+					new MyParkingDataInDbHandler(), new MyParkingDataToKafkaHandler());
+			
+			// 当上面两个消费者处理结束后在消耗 smsHandler
+			MyParkingDataSmsHandler myParkingDataSmsHandler = new MyParkingDataSmsHandler();
+			handlerGroup.then(myParkingDataSmsHandler);
+			
+			// 启动Disruptor
+			disruptor.start();
+			
+			CountDownLatch countDownLatch = new CountDownLatch(1); // 一个生产者线程准备好了就可以通知主线程继续工作了
+			// 生产者生成数据
+			executor.submit(new MyInParkingDataEventPublisher(countDownLatch, disruptor));
+			countDownLatch.await(); // 等待生产者结束
+			
+			disruptor.shutdown();
+			executor.shutdown();
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+		
+		System.out.println("总耗时:"+(System.currentTimeMillis()-beginTime));
+	}
+	
+}</pre><br />&#13;
+<br />&#13;
+</div>&#13;
+<div style="text-align:left"><br />&#13;
+</div>&#13;
+<div style="text-align:left"><span style="font-size:18px"><br />&#13;
+</span></div>&#13;
+<div style="text-align:left"><span style="font-size:18px">用了两篇博客简单的介绍了Disruptor并发框架，如果想深入学习，可以到并发网里面找文章。下一章介绍BIO，NIO，AIO知识，为Netty5的入门打个基础。<br />&#13;
+<br />&#13;
+学习博客：</span></div>&#13;
+<div style="text-align:left"><span style="font-size:18px"><a target="_blank" href="http://ifeve.com/disruptor-dsl/">LMAX Disruptor——一个高性能、低延迟且简单的框架</a><br />&#13;
+<a target="_blank" href="http://ifeve.com/disruptor-info/">简单了解Disruptor</a><br />&#13;
+<br />&#13;
+</span></div>&#13;
+<div style="text-align:left"><span style="font-size:18px"><br />&#13;
+</span></div>&#13;
+   &#13;

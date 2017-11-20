@@ -1,0 +1,350 @@
+
+        <div class="markdown_views"><h1 id="模板方法模式"><center> 模板方法模式</center></h1>
+
+<p>标签 ： Java与设计模式</p>
+
+<hr />
+
+<blockquote>
+  <p>模板方法模式: 定义一个操作中的<strong>算法的骨架</strong>, 而将一些步骤延迟到子类中. 模板方法使得<strong><em>子类可以在不改变一个算法的结构的前提下重定义该算法的某些特定步骤</em></strong>. <br />
+  <img src="http://7xrgh9.com1.z0.glb.clouddn.com/16-10-16/9760866.jpg" alt="" title="" /> <br />
+  (图片来源: <a href="https://book.douban.com/subject/1052241/">设计模式:可复用面向对象软件的基础</a>)</p>
+</blockquote>
+
+<ul>
+<li>Tips <br />
+处理某个流程的骨架代码已经具备, 但其中某节点的具体实现暂不确定, 此时可采用模板方法, 将<strong>该节点的代码实现转移给子类完成</strong>. 即: <strong>处理步骤在父类中定义好, 具体实现延迟到子类中定义</strong>.</li>
+</ul>
+
+<hr />
+
+
+
+<h2 id="模式实现">模式实现</h2>
+
+<p>到<strong>ATM取款机</strong>办理业务, 都会经过<em>插卡</em>、<em>输密码</em>、<em>处理业务</em>、<em>取卡</em> 等几个过程, 而且这几个过程一定是顺序执行的, 且除了 <em>处理业务</em> (如取款、改密、查账) 可能会有所不同之外, 其他的过程完全相同. 因此我们就可以参考<strong>模板方法模式</strong>把<em>插卡</em>、<em>输密码</em>、<em>取卡</em> 3个过程放到父类中实现, 并定义一个流程骨架, 然后将 <em>处理业务的具体逻辑</em> 放到子类中: <br />
+<img src="http://7xrgh9.com1.z0.glb.clouddn.com/16-8-21/28207132.jpg" alt="" title="" /></p>
+
+<ul>
+<li>AbstractClass 抽象模板: <br />
+<ul><li>定义抽象的<strong>原语操作</strong>,具体的子类将重定义它们以实现一个算法的各步骤.</li>
+<li>实现一个模板方法,定义一个算法的骨架. 该模板方法不仅调用原语操作,也调用定义在<strong>AbstractClass</strong>或其他对象中的操作.</li></ul></li>
+</ul>
+
+
+
+<pre class="prettyprint"><code class=" hljs java"><span class="hljs-javadoc">/**
+ *<span class="hljs-javadoctag"> @author</span> jifang
+ *<span class="hljs-javadoctag"> @since</span> 16/8/21 上午10:35.
+ */</span>
+<span class="hljs-keyword">public</span> <span class="hljs-keyword">abstract</span> <span class="hljs-class"><span class="hljs-keyword">class</span> <span class="hljs-title">AbstractATMBusiness</span> {</span>
+
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">void</span> <span class="hljs-title">run</span>() {
+        System.out.println(<span class="hljs-string">"-&gt; 插卡"</span>);
+        System.out.println(<span class="hljs-string">"-&gt; 输入并校验密码"</span>);
+        <span class="hljs-keyword">if</span> (checkPassword()) {
+            onBusiness();
+        }
+
+        System.out.println(<span class="hljs-string">"-&gt; 取卡"</span>);
+    }
+
+    <span class="hljs-comment">// 具体业务处理延迟到子类实现</span>
+    <span class="hljs-keyword">protected</span> <span class="hljs-keyword">abstract</span> <span class="hljs-keyword">void</span> <span class="hljs-title">onBusiness</span>();
+
+    <span class="hljs-keyword">private</span> <span class="hljs-keyword">boolean</span> <span class="hljs-title">checkPassword</span>() {
+        <span class="hljs-comment">// TODO Encode Password, Select DB &amp; Comparison</span>
+        <span class="hljs-keyword">return</span> <span class="hljs-keyword">true</span>;
+    }
+}</code></pre>
+
+<p><code>AbstractATMBusiness</code>是一个模板方法, 它定义了ATM操作的一个主要步骤并确定他们的先后顺序, 但允许子类改变这些具体步骤以满足各自的需求.</p>
+
+<ul>
+<li>ConcreteClass <br />
+<strong>实现原语操作以完成算法中与特定子类相关的步骤</strong>;  每个<strong>AbstractClass</strong>都可有任意多个<strong>ConcreteClass</strong>, 而每个<strong>ConcreteClass</strong>都可以给出这些抽象方法的不同实现, 从而使得顶级逻辑的功能各不相同:</li>
+</ul>
+
+
+
+<pre class="prettyprint"><code class=" hljs axapta"><span class="hljs-class"><span class="hljs-keyword">class</span> <span class="hljs-title">CheckOutConcreteATMBusiness</span> <span class="hljs-inheritance"><span class="hljs-keyword">extends</span></span> <span class="hljs-title">AbstractATMBusiness</span> {</span>
+
+    @Override
+    <span class="hljs-keyword">protected</span> <span class="hljs-keyword">void</span> onBusiness() {
+        System.out.println(<span class="hljs-string">" ... 取款"</span>);
+    }
+}
+
+<span class="hljs-class"><span class="hljs-keyword">class</span> <span class="hljs-title">ChangePasswordConcreteATMBusiness</span> <span class="hljs-inheritance"><span class="hljs-keyword">extends</span></span> <span class="hljs-title">AbstractATMBusiness</span> {</span>
+
+    @Override
+    <span class="hljs-keyword">protected</span> <span class="hljs-keyword">void</span> onBusiness() {
+        System.out.println(<span class="hljs-string">" ... 修改密码"</span>);
+    }
+}</code></pre>
+
+<ul>
+<li>Client</li>
+</ul>
+
+
+
+<pre class="prettyprint"><code class=" hljs java"> <span class="hljs-javadoc">/**
+ * Created by jifang on 15/12/3.
+ */</span>
+<span class="hljs-keyword">public</span> <span class="hljs-class"><span class="hljs-keyword">class</span> <span class="hljs-title">Client</span> {</span>
+
+    <span class="hljs-annotation">@Test</span>
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">void</span> <span class="hljs-title">client</span>() {
+        AbstractATMBusiness changePassword = <span class="hljs-keyword">new</span> ChangePasswordConcreteATMBusiness();
+        changePassword.run();
+
+        AbstractATMBusiness checkOut = <span class="hljs-keyword">new</span> CheckOutConcreteATMBusiness();
+        checkOut.run();
+    }
+}</code></pre>
+
+
+
+<hr />
+
+
+
+<h2 id="实例">实例</h2>
+
+
+
+<h3 id="servlet">Servlet</h3>
+
+<p><code>HttpServlet</code>定义了<code>service()</code>方法<strong>固定下来HTTP请求的整体处理流程</strong>,使得开发<strong>Servlet</strong>只需继承<code>HttpServlet</code>并实现<code>doGet()</code>/<code>doPost()</code>等方法完成业务逻辑处理, 并不需要关心具体的<strong>HTTP</strong>响应流程:</p>
+
+
+
+<pre class="prettyprint"><code class=" hljs java"><span class="hljs-javadoc">/**
+ * HttpServlet中的service方法
+ */</span>
+<span class="hljs-keyword">protected</span> <span class="hljs-keyword">void</span> <span class="hljs-title">service</span>(HttpServletRequest req, HttpServletResponse resp)
+<span class="hljs-keyword">throws</span> ServletException, IOException{
+    String method = req.getMethod();
+
+    <span class="hljs-keyword">if</span> (method.equals(METHOD_GET)) {
+        <span class="hljs-keyword">long</span> lastModified = getLastModified(req);
+        <span class="hljs-keyword">if</span> (lastModified == -<span class="hljs-number">1</span>) {
+        <span class="hljs-comment">// servlet doesn't support if-modified-since, no reason</span>
+        <span class="hljs-comment">// to go through further expensive logic</span>
+        doGet(req, resp);
+        } <span class="hljs-keyword">else</span> {
+        <span class="hljs-keyword">long</span> ifModifiedSince = req.getDateHeader(HEADER_IFMODSINCE);
+        <span class="hljs-keyword">if</span> (ifModifiedSince &lt; (lastModified / <span class="hljs-number">1000</span> * <span class="hljs-number">1000</span>)) {
+            <span class="hljs-comment">// If the servlet mod time is later, call doGet()</span>
+                    <span class="hljs-comment">// Round down to the nearest second for a proper compare</span>
+                    <span class="hljs-comment">// A ifModifiedSince of -1 will always be less</span>
+            maybeSetLastModified(resp, lastModified);
+            doGet(req, resp);
+        } <span class="hljs-keyword">else</span> {
+            resp.setStatus(HttpServletResponse.SC_NOT_MODIFIED);
+        }
+        }
+
+    } <span class="hljs-keyword">else</span> <span class="hljs-keyword">if</span> (method.equals(METHOD_HEAD)) {
+        <span class="hljs-keyword">long</span> lastModified = getLastModified(req);
+        maybeSetLastModified(resp, lastModified);
+        doHead(req, resp);
+
+    } <span class="hljs-keyword">else</span> <span class="hljs-keyword">if</span> (method.equals(METHOD_POST)) {
+        doPost(req, resp);
+
+    } <span class="hljs-keyword">else</span> <span class="hljs-keyword">if</span> (method.equals(METHOD_PUT)) {
+        doPut(req, resp);   
+
+    } <span class="hljs-keyword">else</span> <span class="hljs-keyword">if</span> (method.equals(METHOD_DELETE)) {
+        doDelete(req, resp);
+
+    } <span class="hljs-keyword">else</span> <span class="hljs-keyword">if</span> (method.equals(METHOD_OPTIONS)) {
+        doOptions(req,resp);
+
+    } <span class="hljs-keyword">else</span> <span class="hljs-keyword">if</span> (method.equals(METHOD_TRACE)) {
+        doTrace(req,resp);
+
+    } <span class="hljs-keyword">else</span> {
+        <span class="hljs-comment">//</span>
+        <span class="hljs-comment">// Note that this means NO servlet supports whatever</span>
+        <span class="hljs-comment">// method was requested, anywhere on this server.</span>
+        <span class="hljs-comment">//</span>
+
+        String errMsg = lStrings.getString(<span class="hljs-string">"http.method_not_implemented"</span>);
+        Object[] errArgs = <span class="hljs-keyword">new</span> Object[<span class="hljs-number">1</span>];
+        errArgs[<span class="hljs-number">0</span>] = method;
+        errMsg = MessageFormat.format(errMsg, errArgs);
+
+        resp.sendError(HttpServletResponse.SC_NOT_IMPLEMENTED, errMsg);
+    }
+}</code></pre>
+
+<blockquote>
+  <p>详见: <a href="http://blog.csdn.net/zjf280441589/article/details/51247469">Servlet - 基础</a>.</p>
+</blockquote>
+
+<hr />
+
+
+
+<h3 id="统一定时调度">统一定时调度</h3>
+
+<p>将这个示例放在此处可能有些不大合适, 但它也体现了一些模板方法的<strong>思想</strong>:</p>
+
+<hr />
+
+
+
+<h4 id="1-实现">1. 实现</h4>
+
+<ul>
+<li>ScheduleTaskMonitor</li>
+</ul>
+
+
+
+<pre class="prettyprint"><code class=" hljs java"><span class="hljs-javadoc">/**
+ *<span class="hljs-javadoctag"> @author</span> jifang
+ *<span class="hljs-javadoctag"> @since</span> 16/8/23 下午3:35.
+ */</span>
+<span class="hljs-keyword">public</span> <span class="hljs-class"><span class="hljs-keyword">class</span> <span class="hljs-title">ScheduleTaskMonitor</span> <span class="hljs-keyword">implements</span> <span class="hljs-title">InitializingBean</span>, <span class="hljs-title">DisposableBean</span> {</span>
+
+    <span class="hljs-keyword">private</span> <span class="hljs-keyword">static</span> <span class="hljs-keyword">final</span> Logger LOGGER = LoggerFactory.getLogger(ScheduleTaskMonitor.class);
+
+    <span class="hljs-keyword">private</span> <span class="hljs-keyword">static</span> <span class="hljs-keyword">final</span> <span class="hljs-keyword">int</span> _10S = <span class="hljs-number">10</span>_000;
+
+    <span class="hljs-keyword">private</span> List&lt;ScheduleTask&gt; tasks = <span class="hljs-keyword">new</span> CopyOnWriteArrayList&lt;&gt;();
+
+    <span class="hljs-keyword">private</span> <span class="hljs-keyword">static</span> <span class="hljs-keyword">final</span> Timer timer = <span class="hljs-keyword">new</span> Timer(<span class="hljs-string">"ScheduleTaskMonitor"</span>);
+
+    <span class="hljs-keyword">private</span> <span class="hljs-keyword">void</span> <span class="hljs-title">start</span>() {
+        timer.schedule(<span class="hljs-keyword">new</span> TimerTask() {
+            <span class="hljs-annotation">@Override</span>
+            <span class="hljs-keyword">public</span> <span class="hljs-keyword">void</span> <span class="hljs-title">run</span>() {
+                <span class="hljs-keyword">for</span> (ScheduleTask task : tasks) {
+                    task.scheduleTask();
+                }
+            }
+        }, <span class="hljs-number">0</span>, _10S);
+    }
+
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">void</span> <span class="hljs-title">register</span>(ScheduleTask task) {
+        tasks.add(task);
+    }
+
+    <span class="hljs-annotation">@Override</span>
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">void</span> <span class="hljs-title">afterPropertiesSet</span>() <span class="hljs-keyword">throws</span> Exception {
+        <span class="hljs-keyword">this</span>.start();
+        LOGGER.info(<span class="hljs-string">"Start Monitor {}"</span>, <span class="hljs-keyword">this</span>.getClass());
+    }
+
+    <span class="hljs-annotation">@Override</span>
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">void</span> <span class="hljs-title">destroy</span>() <span class="hljs-keyword">throws</span> Exception {
+        timer.cancel();
+        LOGGER.info(<span class="hljs-string">"Stop Monitor {}"</span>, <span class="hljs-keyword">this</span>.getClass());
+    }
+}</code></pre>
+
+<ul>
+<li>ScheduleTask</li>
+</ul>
+
+
+
+<pre class="prettyprint"><code class=" hljs cs"><span class="hljs-keyword">public</span> <span class="hljs-keyword">interface</span> ScheduleTask {
+    <span class="hljs-keyword">void</span> scheduleTask();
+}</code></pre>
+
+<hr />
+
+
+
+<h4 id="2-使用">2. 使用</h4>
+
+<p>只需在Spring的配置文件中引入该Bean:</p>
+
+
+
+<pre class="prettyprint"><code class=" hljs applescript">&lt;bean <span class="hljs-property">id</span>=<span class="hljs-string">"monitor"</span> <span class="hljs-type">class</span>=<span class="hljs-string">"com.template.ScheduleTaskMonitor"</span>/&gt;</code></pre>
+
+<p><strong>需要统一定时的类实现<code>ScheduleTask</code>接口</strong>, 并将自己注册到<code>monitor</code>中:</p>
+
+
+
+<pre class="prettyprint"><code class=" hljs java"><span class="hljs-javadoc">/**
+ *<span class="hljs-javadoctag"> @author</span> jifang
+ *<span class="hljs-javadoctag"> @since</span> 16/3/16 上午9:59.
+ */</span>
+<span class="hljs-annotation">@Controller</span>
+<span class="hljs-keyword">public</span> <span class="hljs-class"><span class="hljs-keyword">class</span> <span class="hljs-title">LoginController</span> <span class="hljs-keyword">implements</span> <span class="hljs-title">ScheduleTask</span>, <span class="hljs-title">InitializingBean</span> {</span>
+
+    <span class="hljs-keyword">private</span> <span class="hljs-keyword">static</span> <span class="hljs-keyword">final</span> Logger LOGGER = LoggerFactory.getLogger(LoginController.class);
+
+    <span class="hljs-annotation">@Autowired</span>
+    <span class="hljs-keyword">private</span> ScheduleTaskMonitor monitor;
+
+    <span class="hljs-annotation">@Override</span>
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">void</span> <span class="hljs-title">scheduleTask</span>() {
+        LOGGER.error(<span class="hljs-string">"O(∩_∩)O 日志记录~"</span>);
+    }
+
+    <span class="hljs-annotation">@Override</span>
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">void</span> <span class="hljs-title">afterPropertiesSet</span>() <span class="hljs-keyword">throws</span> Exception {
+        monitor.register(<span class="hljs-keyword">this</span>);
+    }
+}</code></pre>
+
+<p>即可完成<code>scheduleTask()</code>方法的定时调度.</p>
+
+<hr />
+
+
+
+<h2 id="小结">小结</h2>
+
+<blockquote>
+  <p>模板方法模式提供了一个很好的代码复用平台, 他通过<strong>把不变行为搬移到父类</strong>, <strong>去除子类中重复代码</strong>来体现它的优势:  有时我们会遇到由一系列步骤构成的过程需要执行, 该过程从高层次上看是相同的, 但有某些细节的实现可能不同, 此时就可以考虑使用用模板方法了.</p>
+</blockquote>
+
+<ul>
+<li><p>适用</p>
+
+<ul><li>一次性实现算法的不变部分, 并将可变的行为留给子类来实现;</li>
+<li>各子类中公共的行为应该被提取出来并集中到一个公共父类中避免代码重复, 如: <strong>Servlet</strong> 的 <code>service()</code>方法.</li>
+<li>控制子类扩展, 模板方法只在特定点调用<strong>hook</strong>操作, 这样就只允许在这些点进行扩展, 如: Junit测试框架.</li></ul></li>
+<li><p>相关模式</p>
+
+<ul><li>Factory Method常被模板方法调用.</li>
+<li>Strategy: 模板方法使用继承来改变算法的一部分, Strategy使用委托来改变整个算法.</li></ul></li>
+</ul>
+
+
+
+<hr />
+
+<dl>
+<dt>参考 &amp; 扩展</dt>
+<dd><a href="https://book.douban.com/subject/1052241/">设计模式:可复用面向对象软件的基础</a></dd>
+
+<dd><a href="https://book.douban.com/subject/2334288/">大话设计模式</a></dd>
+
+<dd><a href="http://www.bjsxt.com/2014/down_0425/34.html">高淇将设计模式</a></dd>
+</dl>
+
+<hr /></div>&#13;
+        <script type="text/javascript">&#13;
+            $(function () {&#13;
+                $('pre.prettyprint code').each(function () {&#13;
+                    var lines = $(this).text().split('\n').length;&#13;
+                    var $numbering = $('&lt;ul/&gt;').addClass('pre-numbering').hide();&#13;
+                    $(this).addClass('has-numbering').parent().append($numbering);&#13;
+                    for (i = 1; i &lt;= lines; i++) {&#13;
+                        $numbering.append($('&lt;li/&gt;').text(i));&#13;
+                    };&#13;
+                    $numbering.fadeIn(1700);&#13;
+                });&#13;
+            });&#13;
+        </script>&#13;
+   &#13;

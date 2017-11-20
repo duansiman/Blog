@@ -1,0 +1,49 @@
+version: "3"
+
+services:
+    mysql:
+        image: mysql:5.7.20
+        expose:
+         - "3306"
+        container_name: blog_mysql
+        volumes:
+         - /root/blog/data/mysql:/var/lib/mysql
+         - /root/blog/log/mysql:/var/log/mysql
+         - /root/blog/conf/mysql:/etc/mysql/conf.d
+        environment:
+         MYSQL_ROOT_PASSWORD: 123456
+    redis:
+        image: redis
+        ports: 
+         - "6379:6379"
+        container_name: blog_redis
+        restart: always
+        volumes:
+         - /root/blog/data/redis:/data
+         - /root/blog/conf/redis/redis.conf:/usr/local/etc/redis/redis.conf
+        command: redis-server  /usr/local/etc/redis/redis.conf --appendonly yes
+    tomcat:
+        image: tomcat:8.5.23-jre8-alpine
+        ports:
+         - "8080:8080"
+        container_name: blog_tomcat
+        restart: always
+        volumes:
+         - /root/blog/log/tomact:/usr/local/tomcat/logs
+         - /root/blog/data/tomcat:/usr/local/tomcat/webapps
+         - /root/blog/log/blog:/root/blog/logs
+         - /root/blog/data/blog:/root/blog/article
+        links:
+         - mysql
+         - redis
+    nginx:
+        image: nginx
+        container_name: blog_nginx
+        ports: 
+         - "80:80"
+        links:
+         - tomcat
+        volumes:
+         - /root/blog/conf/nginx:/etc/nginx/conf.d/
+         - /root/blog/blog_front/blog-front/dist:/var/www/html:ro
+         - /root/blog/log/nginx:/var/log/nginx

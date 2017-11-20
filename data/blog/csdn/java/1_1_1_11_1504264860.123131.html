@@ -1,0 +1,230 @@
+
+        <div class="markdown_views"><h2 id="一定义">一、定义</h2>
+
+<hr />
+
+<p>　　将能够处理同一类请求的对象连成一条链，所提交的请求将沿着这条链传递，链上的对象逐个判断是否有能力处理该请求，如果有则处理，如果没有则将请求传递给下一个对象处理。</p>
+
+
+
+<h2 id="二场景举例">二、场景举例</h2>
+
+<hr />
+
+<p>1.生活中场景 <br />
+在学校时，请假条的审批过程：</p>
+
+<ul>
+<li>如果请假小于3天，辅导员直接批准。</li>
+<li>如果请假大于等于3天小于10天，需院长审批。</li>
+<li>如果请假大于等于10天小于30天，校长审批。</li>
+<li>请假被拒绝</li>
+</ul>
+
+<p>2.开发中场景 <br />
+　　Java中，<strong>异常机制</strong>就是一种责任链模式。一个try可以对应多个catch，当第一个catch不匹配时，则自动跳到第二个catch。</p>
+
+<p>上述就是一个责任链，各级对象都有处理请求能力但处理能力不同，请求一直沿着责任链传递下去。</p>
+
+
+
+<h2 id="三模式结构">三、模式结构</h2>
+
+<hr />
+
+<ul>
+<li><strong>Requester请求者</strong>:请求类。</li>
+<li><strong>AbstractHandler抽象处理者</strong>：由于各级对象都具有相同的处理能力，所以有一个公共的抽象父接口。</li>
+<li><strong>ConcreteHandler具体处理者</strong>：具有不同处理能力的处理类。</li>
+</ul>
+
+<p><strong><em>代码示例：</em></strong> <br />
+<font size="3" color="#00f"> Requester请求者：</font></p>
+
+
+
+<pre class="prettyprint"><code class=" hljs java"><span class="hljs-javadoc">/**
+ * 请求者发出请假：学生类
+ */</span>
+<span class="hljs-keyword">public</span> <span class="hljs-class"><span class="hljs-keyword">class</span> <span class="hljs-title">Student</span> {</span>
+    <span class="hljs-keyword">private</span> String name;
+    <span class="hljs-keyword">private</span> <span class="hljs-keyword">int</span> leaveDays;
+    <span class="hljs-keyword">private</span> String reason;
+    <span class="hljs-keyword">public</span> <span class="hljs-title">Student</span>(String name, <span class="hljs-keyword">int</span> leaveDays, String reason) {
+        <span class="hljs-keyword">super</span>();
+        <span class="hljs-keyword">this</span>.name = name;
+        <span class="hljs-keyword">this</span>.leaveDays = leaveDays;
+        <span class="hljs-keyword">this</span>.reason = reason;
+    }
+    <span class="hljs-keyword">public</span> String <span class="hljs-title">getName</span>() {
+        <span class="hljs-keyword">return</span> name;
+    }
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">void</span> <span class="hljs-title">setName</span>(String name) {
+        <span class="hljs-keyword">this</span>.name = name;
+    }
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">int</span> <span class="hljs-title">getLeaveDays</span>() {
+        <span class="hljs-keyword">return</span> leaveDays;
+    }
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">void</span> <span class="hljs-title">setLeaveDays</span>(<span class="hljs-keyword">int</span> leaveDays) {
+        <span class="hljs-keyword">this</span>.leaveDays = leaveDays;
+    }
+
+
+
+}</code></pre>
+
+<p><font size="3" color="#00f"> AbstractHandler抽象处理者： </font></p>
+
+
+
+<pre class="prettyprint"><code class=" hljs java"><span class="hljs-javadoc">/**
+ * 抽象处理者：领导类
+ */</span>
+<span class="hljs-keyword">public</span> <span class="hljs-keyword">abstract</span> <span class="hljs-class"><span class="hljs-keyword">class</span> <span class="hljs-title">Leader</span> {</span>
+    <span class="hljs-keyword">protected</span> String name;
+    <span class="hljs-keyword">protected</span> Leader nextHandler;<span class="hljs-comment">//责任链上的后继对象</span>
+    <span class="hljs-keyword">public</span> <span class="hljs-title">Leader</span>(String name) {
+        <span class="hljs-keyword">super</span>();
+        <span class="hljs-keyword">this</span>.name = name;
+    }
+
+    <span class="hljs-comment">//设定责任链上的后继对象</span>
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">void</span> <span class="hljs-title">setNextHandler</span>(Leader nextHandler) {
+        <span class="hljs-keyword">this</span>.nextHandler = nextHandler;
+    }
+
+    <span class="hljs-comment">// 处理请求的核心的业务方法</span>
+    <span class="hljs-keyword">protected</span> <span class="hljs-keyword">abstract</span> <span class="hljs-keyword">void</span> <span class="hljs-title">handleRequest</span>(Student student);
+
+
+}</code></pre>
+
+<p><font size="3" color="#00f">ConcreteHandler抽象处理者： </font></p>
+
+
+
+<pre class="prettyprint"><code class=" hljs java"><span class="hljs-javadoc">/**
+ * 具体处理者：辅导员类
+ */</span>
+<span class="hljs-keyword">public</span> <span class="hljs-class"><span class="hljs-keyword">class</span> <span class="hljs-title">Assistant</span> <span class="hljs-keyword">extends</span> <span class="hljs-title">Leader</span> {</span>
+
+    <span class="hljs-keyword">public</span> <span class="hljs-title">Assistant</span>(String name) {
+        <span class="hljs-keyword">super</span>(name);
+    }
+
+    <span class="hljs-annotation">@Override</span>
+    <span class="hljs-keyword">protected</span> <span class="hljs-keyword">void</span> <span class="hljs-title">handleRequest</span>(Student student) {
+        <span class="hljs-keyword">if</span>(student.getLeaveDays()&lt;<span class="hljs-number">3</span>){
+            System.out.println(<span class="hljs-string">"辅导员："</span>+<span class="hljs-keyword">this</span>.name+<span class="hljs-string">"批准"</span>+student.getName()+<span class="hljs-string">"的请假"</span>);
+        }<span class="hljs-keyword">else</span>{
+            <span class="hljs-keyword">if</span>(<span class="hljs-keyword">this</span>.nextHandler!=<span class="hljs-keyword">null</span>){
+                <span class="hljs-keyword">this</span>.nextHandler.handleRequest(student);
+            }
+        }
+    }
+}
+
+
+
+<span class="hljs-javadoc">/**
+ * 具体处理者：院长类
+ */</span>
+<span class="hljs-keyword">public</span> <span class="hljs-class"><span class="hljs-keyword">class</span> <span class="hljs-title">Dean</span> <span class="hljs-keyword">extends</span> <span class="hljs-title">Leader</span> {</span>
+
+    <span class="hljs-keyword">public</span> <span class="hljs-title">Dean</span>(String name) {
+        <span class="hljs-keyword">super</span>(name);
+    }
+
+    <span class="hljs-annotation">@Override</span>
+    <span class="hljs-keyword">protected</span> <span class="hljs-keyword">void</span> <span class="hljs-title">handleRequest</span>(Student student) {
+        <span class="hljs-keyword">if</span>(student.getLeaveDays()&lt;<span class="hljs-number">10</span>){
+            System.out.println(<span class="hljs-string">"院长："</span>+<span class="hljs-keyword">this</span>.name+<span class="hljs-string">"批准"</span>+student.getName()+<span class="hljs-string">"的请假"</span>);
+        }<span class="hljs-keyword">else</span>{
+            <span class="hljs-keyword">if</span>(<span class="hljs-keyword">this</span>.nextHandler!=<span class="hljs-keyword">null</span>){
+                <span class="hljs-keyword">this</span>.nextHandler.handleRequest(student);
+            }       
+        }
+    }
+}
+
+<span class="hljs-javadoc">/**
+ * 具体处理者：校长类
+ */</span>
+<span class="hljs-keyword">public</span> <span class="hljs-class"><span class="hljs-keyword">class</span> <span class="hljs-title">HeadMaster</span> <span class="hljs-keyword">extends</span> <span class="hljs-title">Leader</span> {</span>
+
+    <span class="hljs-keyword">public</span> <span class="hljs-title">HeadMaster</span>(String name) {
+        <span class="hljs-keyword">super</span>(name);
+    }
+
+    <span class="hljs-annotation">@Override</span>
+    <span class="hljs-keyword">protected</span> <span class="hljs-keyword">void</span> <span class="hljs-title">handleRequest</span>(Student student) {
+        <span class="hljs-keyword">if</span>(student.getLeaveDays()&lt;<span class="hljs-number">30</span>){
+            System.out.println(<span class="hljs-string">"校长："</span>+<span class="hljs-keyword">this</span>.name+<span class="hljs-string">"批准"</span>+student.getName()+<span class="hljs-string">"的请假"</span>);
+        }<span class="hljs-keyword">else</span>{
+            System.out.println(<span class="hljs-string">"请假被拒绝"</span>);    
+        }
+    }
+}</code></pre>
+
+<p><font size="3" color="#00f">客户端： </font></p>
+
+
+
+<pre class="prettyprint"><code class=" hljs cs"><span class="hljs-keyword">public</span> <span class="hljs-keyword">class</span> Client {
+
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">static</span> <span class="hljs-keyword">void</span> <span class="hljs-title">main</span>(String[] args) {
+        Leader assistant=<span class="hljs-keyword">new</span> Assistant(<span class="hljs-string">"张三"</span>);
+        Leader dean=<span class="hljs-keyword">new</span> Dean(<span class="hljs-string">"李四"</span>);
+        Leader headMaster=<span class="hljs-keyword">new</span> HeadMaster(<span class="hljs-string">"王五"</span>);
+        <span class="hljs-comment">//组织责任链对象的关系</span>
+        assistant.setNextHandler(dean);
+        dean.setNextHandler(headMaster);
+
+        <span class="hljs-comment">//开始请假操作</span>
+        Student student=<span class="hljs-keyword">new</span> Student(<span class="hljs-string">"赵六"</span>,<span class="hljs-number">15</span>,<span class="hljs-string">"回家探亲"</span>);
+        assistant.handleRequest(student);
+    }
+}
+</code></pre>
+
+<p>UML类图： <br />
+<img src="http://img.blog.csdn.net/20161107200650738" alt="这里写图片描述" title="" /></p>
+
+
+
+<h2 id="四非链表实现责任链">四、非链表实现责任链</h2>
+
+<hr />
+
+<p>上述代码通过链表的方式定义责任链，而往往通过集合、数组生成责任链更加实用。实际上，在很多项目中，每个具体的Handler并不是由开发团队定义的，而是项目上线后由外部单位追加的，所以使用链表方式定义COR链就很困难。</p>
+
+
+
+<h2 id="五总结">五、总结</h2>
+
+<hr />
+
+<ul>
+<li>使用场景要求： <br />
+<ul><li>有多个的对象可以处理一个请求，哪个对象处理该请求运行时刻自动确定；</li>
+<li>在不明确指定接收者的情况下，向多个对象中的一个提交一个请求；</li>
+<li>处理一个请求的对象集合应被动态指定。</li></ul></li>
+<li>缺点： <br />
+<ul><li>对于每一个请求都需要遍历职责链，性能是个问题。</li></ul></li>
+</ul>
+
+<p>职责链模式对于请求的处理是不知道最终处理者是谁，所以是运行动态寻找并指定；而命令模式中对于命令的处理时在创建命令是已经显式或隐式绑定了接收者。</p></div>&#13;
+        <script type="text/javascript">&#13;
+            $(function () {&#13;
+                $('pre.prettyprint code').each(function () {&#13;
+                    var lines = $(this).text().split('\n').length;&#13;
+                    var $numbering = $('&lt;ul/&gt;').addClass('pre-numbering').hide();&#13;
+                    $(this).addClass('has-numbering').parent().append($numbering);&#13;
+                    for (i = 1; i &lt;= lines; i++) {&#13;
+                        $numbering.append($('&lt;li/&gt;').text(i));&#13;
+                    };&#13;
+                    $numbering.fadeIn(1700);&#13;
+                });&#13;
+            });&#13;
+        </script>&#13;
+   &#13;

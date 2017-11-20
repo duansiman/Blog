@@ -1,0 +1,174 @@
+
+<div style="line-height: 25px; font-family: Arial, Helvetica, simsun, u5b8bu4f53;"><span style="line-height: 28px;"><span style=" background-color: rgb(255, 255, 255);"><strong><span style="font-size:24px;">一、概述</span></strong></span></span></div><div style="line-height: 25px; font-family: Arial, Helvetica, simsun, u5b8bu4f53;"><span style="background-color: rgb(255, 255, 255);"><span style="font-size: 14px;">       </span><span style="font-size:18px;"><strong>   内存映射，简而言之就是将用户空间的一段内存区域映射到内核空间，映射成功后，用户对这段内存区域的修改可以直接反映到内核空间，同样，内核空间对这段区域的修改也直接反映用户空间。那么对于内核空间&lt;----&gt;用户空间两者之间需要大量数据传输等操作的话效率是非常高的。</strong></span></span></div><div style="line-height: 25px; font-family: Arial, Helvetica, simsun, u5b8bu4f53;"><span style="background-color: rgb(255, 255, 255);"><span style="font-size:18px;"><strong>以下是一个把普遍文件映射到用户空间的内存区域的示意图。</strong></span></span></div><div style="line-height: 25px; font-family: Arial, Helvetica, simsun, u5b8bu4f53;"><span style="background-color: rgb(255, 255, 255);"><span style="font-size:18px;"><strong>图一：</strong></span></span></div><div style="text-align: center; line-height: 25px; font-family: Arial, Helvetica, simsun, u5b8bu4f53; font-size: 14px;"><span style="background-color: rgb(255, 255, 255);"><img src="http://img.blog.csdn.net/20130612185647406" alt="" /><br /></span></div><div style="line-height: 25px; font-family: Arial, Helvetica, simsun, u5b8bu4f53;"><div style="line-height: 25px; font-family: Arial, Helvetica, simsun, u5b8bu4f53;"><span style="line-height: 28px; background-color: rgb(255, 255, 255);"><strong><span style="font-size:24px;">二、基本函数</span></strong></span></div><div style="line-height: 25px; font-family: Arial, Helvetica, simsun, u5b8bu4f53;"><div><span style="background-color: rgb(255, 255, 255);"><span style="font-size:18px;"><strong>   <span style="color:#ff00ff;"> mmap</span>函数是unix/linux下的系统调用，详细内容可参考《Unix Netword programming》卷二12.2节。</strong></span></span></div><div><span style="background-color: rgb(255, 255, 255);"><span style="font-size:18px;"><strong><span style="color:#ff00ff;">mmap</span>系统调用并不是完全为了用于共享内存而设计的。它本身提供了不同于一般对普通文件的访问方式，进程可以像读写内存一样对普通文件的操作。而Posix或系统V的共享内存IPC则纯粹用于共享目的，当然<span style="color:#993300;">mmap()</span>实现共享内存也是其主要应用之一。</strong></span></span></div><div><span style="background-color: rgb(255, 255, 255);"><span style="font-size:18px;"><strong>          <span style="color: rgb(255, 0, 255);">mmap</span>系统调用使得进程之间通过映射同一个普通文件实现共享内存。普通文件被映射到进程地址空间后，进程可以像访问普通内存一样对文件进行访问，不必再调用read()，write（）等操作。mmap并不分配空间, 只是将文件映射到调用进程的地址空间里（但是会占掉你的 virutal memory）, 然后你就可以用memcpy等操作写文件, 而不用write()了.写完后，内存中的内容并不会立即更新到文件中，而是有一段时间的延迟，你可以调用<span style="color: rgb(255, 0, 255);">msync()</span>来显式同步一下, 这样你所写的内容就能立即保存到文件里了<span style="color: rgb(0, 0, 128);">.这点应该和驱动相关</span>。 不过通过<span style="color: rgb(153, 51, 0);">mmap</span>来写文件这种方式没办法增加文件的长度, 因为要映射的长度在调用<span style="color: rgb(128, 0, 0);">mmap()</span>的时候就决定了.如果想取消内存映射，可以调用<span style="color: rgb(255, 0, 255);">munmap()</span>来取消内存映射</strong></span></span></div></div><pre name="code" class="cpp" style="font-size: 14px;"><span style="background-color: rgb(255, 255, 255);">void * mmap(void *start, size_t length, int prot , int flags, int fd, off_t offset)</span></pre><span style="background-color: rgb(255, 255, 255);"><br /><span style="font-size:18px;"><strong><span style="line-height: 25px; font-family: Arial, Helvetica, simsun, u5b8bu4f53; color: rgb(255, 0, 255);">mmap</span><span style="font-family: Arial, Helvetica, simsun, u5b8bu4f53; line-height: 25px;">用于把文件映射到内存空间中，简单说</span><span style="line-height: 25px; font-family: Arial, Helvetica, simsun, u5b8bu4f53; color: rgb(255, 0, 255);">mmap</span><span style="font-family: Arial, Helvetica, simsun, u5b8bu4f53; line-height: 25px;">就是</span><span style="color: rgb(0, 0, 128); line-height: 25px; font-family: Arial, Helvetica, simsun, u5b8bu4f53;">把一个文件的内容在内存里面做一个映像</span><span style="font-family: Arial, Helvetica, simsun, u5b8bu4f53; line-height: 25px;">。映射成功后，用户对这段内存区域的修改可以直接反映到内核空间，同样，内核空间对这段区域的修改也直接反映用户空间。那么对于内核空间&lt;----&gt;用户空间两者之间需要大量数据传输等操作的话效率是非常高的。</span></strong></span><br /></span></div><div style="line-height: 25px; font-family: Arial, Helvetica, simsun, u5b8bu4f53;"><span style="font-family: Arial, Helvetica, simsun, u5b8bu4f53; line-height: 25px; background-color: rgb(255, 255, 255);"></span><pre name="code" class="cpp" style="font-size: 14px;">start：要映射到的内存区域的起始地址，通常都是用NULL（NULL即为0）。NULL表示由内核来指定该内存地址</pre><br /><pre name="code" class="cpp" style="font-size: 14px;">length：要映射的内存区域的大小</pre><br /><pre name="code" class="cpp" style="font-size: 14px;">prot：期望的内存保护标志，不能与文件的打开模式冲突。是以下的某个值，可以通过or运算合理地组合在一起
+PROT_EXEC //页内容可以被执行
+PROT_READ  //页内容可以被读取
+PROT_WRITE //页可以被写入
+PROT_NONE  //页不可访问</pre><br /><pre name="code" class="cpp" style="font-size: 14px;">flags：指定映射对象的类型，映射选项和映射页是否可以共享。它的值可以是一个或者多个以下位的组合体
+MAP_FIXED ：使用指定的映射起始地址，如果由start和len参数指定的内存区重叠于现存的映射空间，重叠部分将会被丢弃。如果指定的起始地址不可用，操作将会失败。并且起始地址必须落在页的边界上。
+MAP_SHARED ：对映射区域的写入数据会复制回文件内, 而且允许其他映射该文件的进程共享。
+MAP_PRIVATE ：建立一个写入时拷贝的私有映射。内存区域的写入不会影响到原文件。这个标志和以上标志是互斥的，只能使用其中一个。
+MAP_DENYWRITE ：这个标志被忽略。
+MAP_EXECUTABLE ：同上
+MAP_NORESERVE ：不要为这个映射保留交换空间。当交换空间被保留，对映射区修改的可能会得到保证。当交换空间不被保留，同时内存不足，对映射区的修改会引起段违例信号。
+MAP_LOCKED ：锁定映射区的页面，从而防止页面被交换出内存。
+MAP_GROWSDOWN ：用于堆栈，告诉内核VM系统，映射区可以向下扩展。
+MAP_ANONYMOUS ：匿名映射，映射区不与任何文件关联。
+MAP_ANON ：MAP_ANONYMOUS的别称，不再被使用。
+MAP_FILE ：兼容标志，被忽略。
+MAP_32BIT ：将映射区放在进程地址空间的低2GB，MAP_FIXED指定时会被忽略。当前这个标志只在x86-64平台上得到支持。
+MAP_POPULATE ：为文件映射通过预读的方式准备好页表。随后对映射区的访问不会被页违例阻塞。
+MAP_NONBLOCK ：仅和MAP_POPULATE一起使用时才有意义。不执行预读，只为已存在于内存中的页面建立页表入口。</pre><br /><pre name="code" class="cpp" style="font-size: 14px;">fd：文件描述符（由open函数返回）</pre><br /><pre name="code" class="cpp" style="font-size: 14px;">offset：表示被映射对象（即文件）从那里开始对映，通常都是用0。 该值应该为大小为PAGE_SIZE的整数倍</pre><br /><div style="line-height: 25px; font-family: Arial, Helvetica, simsun, u5b8bu4f53;"><span style="font-size:18px;"><strong><span style="color: rgb(153, 51, 0);">返回说明</span>  </strong></span></div><div style="line-height: 25px; font-family: Arial, Helvetica, simsun, u5b8bu4f53;"><span style="font-size:18px;"><strong><span style="color: rgb(0, 0, 128);">成功执行时，mmap()返回被映射区的指针，munmap()返回0。失败时，mmap()返回MAP_FAILED[其值为(void *)-1]，munmap返回-1。errno被设为以下的某个值  </span> </strong></span></div><pre name="code" class="cpp" style="font-size: 14px;">EACCES：访问出错
+EAGAIN：文件已被锁定，或者太多的内存已被锁定
+EBADF：fd不是有效的文件描述词
+EINVAL：一个或者多个参数无效
+ENFILE：已达到系统对打开文件的限制
+ENODEV：指定文件所在的文件系统不支持内存映射
+ENOMEM：内存不足，或者进程已超出最大内存映射数量
+EPERM：权能不足，操作不允许
+ETXTBSY：已写的方式打开文件，同时指定MAP_DENYWRITE标志
+SIGSEGV：试着向只读区写入
+SIGBUS：试着访问不属于进程的内存区</pre><br /><pre name="code" class="cpp" style="font-size: 14px;">int munmap(void *start, size_t length)</pre><br /><pre name="code" class="cpp" style="font-size: 14px;">start：要取消映射的内存区域的起始地址</pre><br /><pre name="code" class="cpp" style="font-size: 14px;">length：要取消映射的内存区域的大小。</pre><br /><div style="line-height: 22px; font-family: Arial, Helvetica, simsun, u5b8bu4f53;"><span style="font-size:18px;"><strong><span style="color: rgb(153, 51, 0);">返回说明</span>  </strong></span></div><div style="line-height: 22px; font-family: Arial, Helvetica, simsun, u5b8bu4f53;"><span style="color: rgb(0, 0, 128); line-height: 25px;"><span style="font-size:18px;"><strong>成功执行时munmap()返回0。失败时munmap返回-1.</strong></span></span></div><pre name="code" class="cpp" style="font-size: 14px;">int msync(const void *start, size_t length, int flags); </pre><br /><span style="font-size:18px;"><strong><span style="font-family: Arial, Helvetica, simsun, u5b8bu4f53; line-height: 25px;">对映射内存的内容的更改并不会立即更新到文件中，而是有一段时间的延迟，你可以调用</span><span style="color: rgb(255, 0, 255); line-height: 22px; font-family: Arial, Helvetica, simsun, u5b8bu4f53;">msync()</span><span style="font-family: Arial, Helvetica, simsun, u5b8bu4f53; line-height: 25px;">来显式同步一下, 这样你内存的更新就能立即保存到文件里</span></strong></span><br /></div><div style="line-height: 25px; font-family: Arial, Helvetica, simsun, u5b8bu4f53;"><span style="font-family: Arial, Helvetica, simsun, u5b8bu4f53; line-height: 25px;"><span style="font-family: Arial, Helvetica, simsun, u5b8bu4f53; line-height: 25px; background-color: rgb(255, 255, 255);"></span></span><pre name="code" class="cpp" style="font-size: 14px;">start：要进行同步的映射的内存区域的起始地址。
+length：要同步的内存区域的大小
+flag:flags可以为以下三个值之一： 
+MS_ASYNC : 请Kernel快将资料写入。 
+MS_SYNC : 在msync结束返回前，将资料写入。 
+MS_INVALIDATE : 让核心自行决定是否写入，仅在特殊状况下使用</pre><br /><div style="line-height: 25px; font-family: Arial, Helvetica, simsun, u5b8bu4f53;"><strong><span style="font-size:24px;"><span style="line-height: 28px;">三、</span>用户空间和驱动程序的内存映射</span></strong></div><div style="line-height: 25px; font-family: Arial, Helvetica, simsun, u5b8bu4f53;"><span style="font-size:18px;"><strong>3.1、基本过程</strong></span></div><div style="line-height: 25px; font-family: Arial, Helvetica, simsun, u5b8bu4f53;"><span style="font-size:18px;"><strong><span style="color:#000080;">  首先，驱动程序先分配好一段内存，接着用户进程通过库函数</span><span style="color:#ff00ff;">mmap()</span><span style="color:#000080;">来告诉内核要将多大的内存映射到内核空间，内核经过一系列函数调用后调用对应的驱动程序的</span><span style="color:#ff6600;">file_operation</span><span style="color:#000080;">中指定的</span><span style="color:#339966;">mmap</span><span style="color:#000080;">函数，在该函数中调用</span><span style="color:#ff9900;">remap_pfn_range()</span><span style="color:#000080;">来建立映射关系。</span></strong></span></div><div style="line-height: 25px; font-family: Arial, Helvetica, simsun, u5b8bu4f53;"><span style="font-size:18px;"><strong>3.2、映射的实现</strong></span></div><div style="line-height: 25px; font-family: Arial, Helvetica, simsun, u5b8bu4f53;"><div><span style="color:#000080;"><span style="font-size:18px;"><strong> 首先在驱动程序分配一页大小的内存，然后用户进程通过mmap()将用户空间中大小也为一页的内存映射到内核空间这页内存上。映射完成后，驱动程序往这段内存写10个字节数据，用户进程将这些数据显示出来。</strong></span></span></div><div><span style="font-size:18px;"><strong>驱动程序：</strong></span></div></div><pre name="code" class="cpp" style="font-size: 14px;">#include &lt;linux/miscdevice.h&gt;
+ #include &lt;linux/delay.h&gt;
+ #include &lt;linux/kernel.h&gt;
+ #include &lt;linux/module.h&gt;
+ #include &lt;linux/init.h&gt;
+ #include &lt;linux/mm.h&gt;
+ #include &lt;linux/fs.h&gt;
+ #include &lt;linux/types.h&gt;
+ #include &lt;linux/delay.h&gt;
+ #include &lt;linux/moduleparam.h&gt;
+ #include &lt;linux/slab.h&gt;
+ #include &lt;linux/errno.h&gt;
+ #include &lt;linux/ioctl.h&gt;
+ #include &lt;linux/cdev.h&gt;
+ #include &lt;linux/string.h&gt;
+ #include &lt;linux/list.h&gt;
+ #include &lt;linux/pci.h&gt;
+ #include &lt;linux/gpio.h&gt;
+ 
+ 
+ #define DEVICE_NAME "mymap"
+ 
+ 
+ static unsigned char array[10]={0,1,2,3,4,5,6,7,8,9};
+ static unsigned char *buffer;
+ 
+ 
+ static int my_open(struct inode *inode, struct file *file)
+ {
+     return 0;
+ }
+ 
+ 
+ static int my_map(struct file *filp, struct vm_area_struct *vma)
+ {    
+     unsigned long page;
+     unsigned char i;
+     unsigned long start = (unsigned long)vma-&gt;vm_start;
+     //unsigned long end =  (unsigned long)vma-&gt;vm_end;
+     unsigned long size = (unsigned long)(vma-&gt;vm_end - vma-&gt;vm_start);
+ 
+     //得到物理地址
+     page = virt_to_phys(buffer);    
+     //将用户空间的一个vma虚拟内存区映射到以page开始的一段连续物理页面上
+     if(remap_pfn_range(vma,start,page&gt;&gt;PAGE_SHIFT,size,PAGE_SHARED))//第三个参数是页帧号，由物理地址右移PAGE_SHIFT得到
+         return -1;
+ 
+     //往该内存写10字节数据
+     for(i=0;i&lt;10;i++)
+         buffer[i] = array[i];
+     
+     return 0;
+ }
+ 
+ 
+ static struct file_operations dev_fops = {
+     .owner    = THIS_MODULE,
+     .open    = my_open,
+     .mmap   = my_map,
+ };
+ 
+ static struct miscdevice misc = {
+     .minor = MISC_DYNAMIC_MINOR,
+     .name = DEVICE_NAME,
+     .fops = &amp;dev_fops,
+ };
+ 
+ 
+ static int __init dev_init(void)
+ {
+     int ret;    
+ 
+     //注册混杂设备
+     ret = misc_register(&amp;misc);
+     //内存分配
+     buffer = (unsigned char *)kmalloc(PAGE_SIZE,GFP_KERNEL);
+     //将该段内存设置为保留
+     SetPageReserved(virt_to_page(buffer));
+ 
+     return ret;
+ }
+ 
+ 
+ static void __exit dev_exit(void)
+ {
+     //注销设备
+     misc_deregister(&amp;misc);
+     //清除保留
+     ClearPageReserved(virt_to_page(buffer));
+     //释放内存
+     kfree(buffer);
+ }
+ 
+ 
+ module_init(dev_init);
+ module_exit(dev_exit);
+ MODULE_LICENSE("GPL");
+ MODULE_AUTHOR("LKN@SCUT");</pre><br /><span style="font-family: verdana, 'ms song', 宋体, Arial, 微软雅黑, Helvetica, sans-serif; line-height: 27px;"><span style="font-size:18px;"><strong>应用程序：</strong></span></span><br /></div><div style="line-height: 25px; font-family: Arial, Helvetica, simsun, u5b8bu4f53;"><span style="font-family: Arial, Helvetica, simsun, u5b8bu4f53; line-height: 25px;"><span style="font-family: Arial, Helvetica, simsun, u5b8bu4f53; line-height: 25px;"><span style="font-family: verdana, 'ms song', 宋体, Arial, 微软雅黑, Helvetica, sans-serif; line-height: 27px; background-color: rgb(255, 255, 255);"></span></span></span><pre name="code" class="cpp" style="font-size: 19px;">#include &lt;unistd.h&gt;
+ #include &lt;stdio.h&gt;
+ #include &lt;stdlib.h&gt;
+ #include &lt;string.h&gt;
+ #include &lt;fcntl.h&gt;
+ #include &lt;linux/fb.h&gt;
+ #include &lt;sys/mman.h&gt;
+ #include &lt;sys/ioctl.h&gt; 
+ 
+ #define PAGE_SIZE 4096
+ 
+ 
+ int main(int argc , char *argv[])
+ {
+     int fd;
+     int i;
+     unsigned char *p_map;
+     
+     //打开设备
+     fd = open("/dev/mymap",O_RDWR);
+     if(fd &lt; 0)
+     {
+         printf("open fail\n");
+         exit(1);
+     }
+ 
+     //内存映射
+     p_map = (unsigned char *)mmap(0, PAGE_SIZE, PROT_READ | PROT_WRITE, MAP_SHARED,fd, 0);
+     if(p_map == MAP_FAILED)
+     {
+         printf("mmap fail\n");
+         goto here;
+     }
+ 
+     //打印映射后的内存中的前10个字节内容
+     for(i=0;i&lt;10;i++)
+         printf("%d\n",p_map[i]);
+     
+ 
+ here:
+     munmap(p_map, PAGE_SIZE);
+     return 0;
+ }</pre><br /><span style="font-family: verdana, 'ms song', 宋体, Arial, 微软雅黑, Helvetica, sans-serif; line-height: 27px;"><span style="font-size:18px;"><strong>先加载驱动后执行应用程序，用户空间打印如下：</strong></span></span><br /></div><div style="line-height: 25px; font-family: Arial, Helvetica, simsun, u5b8bu4f53; font-size: 14px;"><span style="font-family: Arial, Helvetica, simsun, u5b8bu4f53; font-size: 14px; line-height: 25px;"><span style="font-family: Arial, Helvetica, simsun, u5b8bu4f53; font-size: 14px; line-height: 25px;"><span style="font-family: verdana, 'ms song', 宋体, Arial, 微软雅黑, Helvetica, sans-serif; font-size: 19px; line-height: 27px;"><span style="font-family: verdana, 'ms song', 宋体, Arial, 微软雅黑, Helvetica, sans-serif; font-size: 19px; line-height: 27px;"><span style="background-color: rgb(255, 255, 255);"><img src="http://img.blog.csdn.net/20130612190043953" alt="" /></span><br /></span></span></span></span></div>   &#13;

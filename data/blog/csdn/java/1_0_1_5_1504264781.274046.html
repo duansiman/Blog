@@ -1,0 +1,222 @@
+
+        <div class="markdown_views"><p><font color="brown">介绍：</font>使多个对象都有机会处理请求，避免请求者和发送者之间的耦合关系，将这些对象连成一条链，沿着链处理请求，知道有对象处理它为止。</p>
+
+<p><font color="green">场景：</font>当我第一眼看到责任链模式的时候，我就想到了J2EE中的拦截器/过滤器。后来，自行百度了一下，更加证明了我的想法。此模式通过一种链式结构来处理请求，当业务发生变动时，我们可以像配置web.xml中的拦截器一样，删除或者调整拦截器的位置，也就是责任链中处理者的位置，达到不同的处理结果。</p>
+
+
+
+<h1 id="一请求">一、请求</h1>
+
+<p><strong>请求者基类</strong></p>
+
+
+
+<pre class="prettyprint"><code class=" hljs java"><span class="hljs-keyword">public</span> <span class="hljs-keyword">abstract</span> <span class="hljs-class"><span class="hljs-keyword">class</span> <span class="hljs-title">BaseRequest</span> {</span>
+    <span class="hljs-keyword">private</span> Object obj;<span class="hljs-comment">// 处理对象</span>
+
+    <span class="hljs-keyword">public</span> <span class="hljs-title">BaseRequest</span>(Object obj) {
+        <span class="hljs-keyword">this</span>.obj = obj;
+    }
+
+    <span class="hljs-javadoc">/**
+     * 获取处理的内容对象
+     */</span>
+    <span class="hljs-keyword">public</span> Object <span class="hljs-title">getContent</span>() {
+        <span class="hljs-keyword">return</span> obj;
+    }
+
+    <span class="hljs-javadoc">/**
+     * 获取请求级别
+     */</span>
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">abstract</span> <span class="hljs-keyword">int</span> <span class="hljs-title">getRequestLevel</span>();
+}</code></pre>
+
+<p><strong>三个具体实现的请求</strong></p>
+
+
+
+<pre class="prettyprint"><code class=" hljs java"><span class="hljs-keyword">public</span> <span class="hljs-class"><span class="hljs-keyword">class</span> <span class="hljs-title">Request1</span> <span class="hljs-keyword">extends</span> <span class="hljs-title">BaseRequest</span> {</span>
+
+    <span class="hljs-keyword">public</span> <span class="hljs-title">Request1</span>(Object obj) {
+        <span class="hljs-keyword">super</span>(obj);
+    }
+
+    <span class="hljs-annotation">@Override</span>
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">int</span> <span class="hljs-title">getRequestLevel</span>() {
+        <span class="hljs-keyword">return</span> <span class="hljs-number">1</span>;
+    }
+
+}</code></pre>
+
+
+
+<pre class="prettyprint"><code class=" hljs java"><span class="hljs-keyword">public</span> <span class="hljs-class"><span class="hljs-keyword">class</span> <span class="hljs-title">Request2</span> <span class="hljs-keyword">extends</span> <span class="hljs-title">BaseRequest</span>{</span>
+
+    <span class="hljs-keyword">public</span> <span class="hljs-title">Request2</span>(Object obj) {
+        <span class="hljs-keyword">super</span>(obj);
+    }
+
+    <span class="hljs-annotation">@Override</span>
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">int</span> <span class="hljs-title">getRequestLevel</span>() {
+        <span class="hljs-keyword">return</span> <span class="hljs-number">2</span>;
+    }
+
+}</code></pre>
+
+
+
+<pre class="prettyprint"><code class=" hljs java"><span class="hljs-keyword">public</span> <span class="hljs-class"><span class="hljs-keyword">class</span> <span class="hljs-title">Request3</span> <span class="hljs-keyword">extends</span> <span class="hljs-title">BaseRequest</span> {</span>
+
+    <span class="hljs-keyword">public</span> <span class="hljs-title">Request3</span>(Object obj) {
+        <span class="hljs-keyword">super</span>(obj);
+    }
+
+    <span class="hljs-annotation">@Override</span>
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">int</span> <span class="hljs-title">getRequestLevel</span>() {
+        <span class="hljs-keyword">return</span> <span class="hljs-number">3</span>;
+    }
+
+}</code></pre>
+
+
+
+<h1 id="二处理者">二、处理者</h1>
+
+<p><strong>处理者基类</strong></p>
+
+
+
+<pre class="prettyprint"><code class=" hljs java"><span class="hljs-keyword">public</span> <span class="hljs-keyword">abstract</span> <span class="hljs-class"><span class="hljs-keyword">class</span> <span class="hljs-title">BaseHandler</span> {</span>
+    <span class="hljs-keyword">protected</span> BaseHandler nextHandler;<span class="hljs-comment">// 下一个处理者</span>
+
+    <span class="hljs-javadoc">/**
+     * 处理请求
+     */</span>
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">final</span> <span class="hljs-keyword">void</span> <span class="hljs-title">handleRequest</span>(BaseRequest request) {
+        <span class="hljs-comment">// 判断当前处理者对象的处理级别是否与请求者的处理级别一致</span>
+        <span class="hljs-keyword">if</span> (getHandleLevel() == request.getRequestLevel()) {
+            <span class="hljs-comment">// 如果等级一致，则处理请求</span>
+            handle(request);
+        } <span class="hljs-keyword">else</span> {
+            <span class="hljs-keyword">if</span> (nextHandler != <span class="hljs-keyword">null</span>) {
+                <span class="hljs-comment">// 如果等级不一致，且下面还有处理者，则交给下面处理者处理</span>
+                nextHandler.handleRequest(request);
+            } <span class="hljs-keyword">else</span> {
+                <span class="hljs-comment">// 当所有处理者都不能处理</span>
+                System.out.println(<span class="hljs-string">"All of handler can not do it"</span>);
+            }
+        }
+    }
+
+    <span class="hljs-javadoc">/**
+     * 获取处理者对象的处理级别
+     */</span>
+    <span class="hljs-keyword">protected</span> <span class="hljs-keyword">abstract</span> <span class="hljs-keyword">int</span> <span class="hljs-title">getHandleLevel</span>();
+
+    <span class="hljs-javadoc">/**
+     * 每个处理者对象的具体处理方式
+     */</span>
+    <span class="hljs-keyword">protected</span> <span class="hljs-keyword">abstract</span> <span class="hljs-keyword">void</span> <span class="hljs-title">handle</span>(BaseRequest request);
+}</code></pre>
+
+<p><strong>三个具体处理者</strong></p>
+
+
+
+<pre class="prettyprint"><code class=" hljs java"><span class="hljs-keyword">public</span> <span class="hljs-class"><span class="hljs-keyword">class</span> <span class="hljs-title">Handler1</span> <span class="hljs-keyword">extends</span> <span class="hljs-title">BaseHandler</span> {</span>
+    <span class="hljs-annotation">@Override</span>
+    <span class="hljs-keyword">protected</span> <span class="hljs-keyword">int</span> <span class="hljs-title">getHandleLevel</span>() {
+        <span class="hljs-keyword">return</span> <span class="hljs-number">1</span>;
+    }
+
+    <span class="hljs-annotation">@Override</span>
+    <span class="hljs-keyword">protected</span> <span class="hljs-keyword">void</span> <span class="hljs-title">handle</span>(BaseRequest request) {
+        System.out.println(<span class="hljs-string">"Handler1 handle request:"</span> + request.getRequestLevel());
+    }
+
+}</code></pre>
+
+
+
+<pre class="prettyprint"><code class=" hljs java"><span class="hljs-keyword">public</span> <span class="hljs-class"><span class="hljs-keyword">class</span> <span class="hljs-title">Handler2</span> <span class="hljs-keyword">extends</span> <span class="hljs-title">BaseHandler</span> {</span>
+    <span class="hljs-annotation">@Override</span>
+    <span class="hljs-keyword">protected</span> <span class="hljs-keyword">int</span> <span class="hljs-title">getHandleLevel</span>() {
+        <span class="hljs-keyword">return</span> <span class="hljs-number">2</span>;
+    }
+
+    <span class="hljs-annotation">@Override</span>
+    <span class="hljs-keyword">protected</span> <span class="hljs-keyword">void</span> <span class="hljs-title">handle</span>(BaseRequest request) {
+        System.out.println(<span class="hljs-string">"Handler2 handle request:"</span> + request.getRequestLevel());
+    }
+
+}</code></pre>
+
+
+
+<pre class="prettyprint"><code class=" hljs java"><span class="hljs-keyword">public</span> <span class="hljs-class"><span class="hljs-keyword">class</span> <span class="hljs-title">Handler3</span> <span class="hljs-keyword">extends</span> <span class="hljs-title">BaseHandler</span> {</span>
+    <span class="hljs-annotation">@Override</span>
+    <span class="hljs-keyword">protected</span> <span class="hljs-keyword">int</span> <span class="hljs-title">getHandleLevel</span>() {
+        <span class="hljs-keyword">return</span> <span class="hljs-number">3</span>;
+    }
+
+    <span class="hljs-annotation">@Override</span>
+    <span class="hljs-keyword">protected</span> <span class="hljs-keyword">void</span> <span class="hljs-title">handle</span>(BaseRequest request) {
+        System.out.println(<span class="hljs-string">"Handler3 handle request:"</span> + request.getRequestLevel());
+    }
+
+}</code></pre>
+
+
+
+<h1 id="三客户端调用">三、客户端调用</h1>
+
+
+
+<pre class="prettyprint"><code class=" hljs avrasm">// 构造<span class="hljs-number">3</span>个处理者
+BaseHandler h1 = new Handler1()<span class="hljs-comment">;</span>
+BaseHandler h2 = new Handler2()<span class="hljs-comment">;</span>
+BaseHandler h3 = new Handler3()<span class="hljs-comment">;</span>
+
+// 设置处理者之间的责任链关系
+h1<span class="hljs-preprocessor">.nextHandler</span> = h2<span class="hljs-comment">;</span>
+h2<span class="hljs-preprocessor">.nextHandler</span> = h3<span class="hljs-comment">;</span>
+
+// 构造<span class="hljs-number">3</span>个请求者
+BaseRequest <span class="hljs-built_in">r1</span> = new Request1(<span class="hljs-string">"obj1"</span>)<span class="hljs-comment">;</span>
+BaseRequest <span class="hljs-built_in">r2</span> = new Request2(<span class="hljs-string">"obj2"</span>)<span class="hljs-comment">;</span>
+BaseRequest <span class="hljs-built_in">r3</span> = new Request3(<span class="hljs-string">"obj3"</span>)<span class="hljs-comment">;</span>
+
+h1<span class="hljs-preprocessor">.handleRequest</span>(<span class="hljs-built_in">r1</span>)<span class="hljs-comment">;</span>
+h1<span class="hljs-preprocessor">.handleRequest</span>(<span class="hljs-built_in">r2</span>)<span class="hljs-comment">;</span>
+h1<span class="hljs-preprocessor">.handleRequest</span>(<span class="hljs-built_in">r3</span>)<span class="hljs-comment">;</span></code></pre>
+
+<p><strong>输出</strong></p>
+
+
+
+<pre class="prettyprint"><code class=" hljs css"><span class="hljs-tag">Handler1</span> <span class="hljs-tag">handle</span> <span class="hljs-tag">request</span><span class="hljs-pseudo">:1</span>
+<span class="hljs-tag">Handler2</span> <span class="hljs-tag">handle</span> <span class="hljs-tag">request</span><span class="hljs-pseudo">:2</span>
+<span class="hljs-tag">Handler3</span> <span class="hljs-tag">handle</span> <span class="hljs-tag">request</span><span class="hljs-pseudo">:3</span>
+</code></pre>
+
+<p><font color="red">总结：</font>可见，责任链中的3种处理者，通过根据请求的等级来决定自己是否处理。如果我们需要修改责任链中的结构，只需要将链条指向改变就行。</p>
+
+<hr />
+
+<p><strong><em>更多模式：</em></strong><a href="http://blog.csdn.net/odeviloo/article/details/52382338">一天一个设计模式—分类与六大原则</a></p>
+
+<p><strong><em>更多源码：</em></strong> <a href="https://github.com/oDevilo/Java-Base">https://github.com/oDevilo/Java-Base</a></p></div>&#13;
+        <script type="text/javascript">&#13;
+            $(function () {&#13;
+                $('pre.prettyprint code').each(function () {&#13;
+                    var lines = $(this).text().split('\n').length;&#13;
+                    var $numbering = $('&lt;ul/&gt;').addClass('pre-numbering').hide();&#13;
+                    $(this).addClass('has-numbering').parent().append($numbering);&#13;
+                    for (i = 1; i &lt;= lines; i++) {&#13;
+                        $numbering.append($('&lt;li/&gt;').text(i));&#13;
+                    };&#13;
+                    $numbering.fadeIn(1700);&#13;
+                });&#13;
+            });&#13;
+        </script>&#13;
+   &#13;

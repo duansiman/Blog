@@ -1,0 +1,953 @@
+
+                <div class="markdown_views"><p>本博客介绍基于Spring Data这款orm框架加上Jquery.pagination插件实现的分页功能。 <br/>
+介绍一下Spring Data框架 <br/>
+spring Data : Spring 的一个子项目。用于简化数据库访问，支持NoSQL 和 关系数据存储。  <br/>
+下面给出SpringData 项目所支持 NoSQL 存储：  <br/>
+ * MongoDB （文档数据库） <br/>
+ * Neo4j（图形数据库） <br/>
+ * Redis（键/值存储） <br/>
+ * Hbase（列族数据库）</p>
+
+<p>SpringData 项目所支持的关系数据存储技术：  <br/>
+* JDBC  <br/>
+* JPA</p>
+
+<p>JPA Spring Data : 致力于减少数据访问层 (DAO) 的开发量。开发者只要写好持久层接口就好，然后其它的框架会帮程序员实现。</p>
+
+<p>开发步骤： <br/>
+【Spring Data实现数据获取】 <br/>
+本项目是采用maven的，所以可以参考一下我的maven配置：</p>
+
+
+
+<pre class="prettyprint"><code class=" hljs xml"><span class="hljs-tag">&lt;<span class="hljs-title">project</span> <span class="hljs-attribute">xmlns</span>=<span class="hljs-value">"http://maven.apache.org/POM/4.0.0"</span> <span class="hljs-attribute">xmlns:xsi</span>=<span class="hljs-value">"http://www.w3.org/2001/XMLSchema-instance"</span>
+         <span class="hljs-attribute">xsi:schemaLocation</span>=<span class="hljs-value">"http://maven.apache.org/POM/4.0.0 http://maven.apache.org/maven-v4_0_0.xsd"</span>&gt;</span>
+    <span class="hljs-tag">&lt;<span class="hljs-title">parent</span>&gt;</span>
+        <span class="hljs-tag">&lt;<span class="hljs-title">artifactId</span>&gt;</span>muses<span class="hljs-tag">&lt;/<span class="hljs-title">artifactId</span>&gt;</span>
+        <span class="hljs-tag">&lt;<span class="hljs-title">groupId</span>&gt;</span>org.muses<span class="hljs-tag">&lt;/<span class="hljs-title">groupId</span>&gt;</span>
+        <span class="hljs-tag">&lt;<span class="hljs-title">version</span>&gt;</span>1.0-SNAPSHOT<span class="hljs-tag">&lt;/<span class="hljs-title">version</span>&gt;</span>
+    <span class="hljs-tag">&lt;/<span class="hljs-title">parent</span>&gt;</span>
+    <span class="hljs-tag">&lt;<span class="hljs-title">modelVersion</span>&gt;</span>4.0.0<span class="hljs-tag">&lt;/<span class="hljs-title">modelVersion</span>&gt;</span>
+    <span class="hljs-tag">&lt;<span class="hljs-title">artifactId</span>&gt;</span>jeeplatform-admin<span class="hljs-tag">&lt;/<span class="hljs-title">artifactId</span>&gt;</span>
+    <span class="hljs-tag">&lt;<span class="hljs-title">packaging</span>&gt;</span>war<span class="hljs-tag">&lt;/<span class="hljs-title">packaging</span>&gt;</span>
+    <span class="hljs-tag">&lt;<span class="hljs-title">name</span>&gt;</span>jeeplatform-admin Maven Webapp<span class="hljs-tag">&lt;/<span class="hljs-title">name</span>&gt;</span>
+    <span class="hljs-tag">&lt;<span class="hljs-title">url</span>&gt;</span>http://maven.apache.org<span class="hljs-tag">&lt;/<span class="hljs-title">url</span>&gt;</span>
+    <span class="hljs-tag">&lt;<span class="hljs-title">properties</span>&gt;</span>
+        <span class="hljs-tag">&lt;<span class="hljs-title">spring.version</span>&gt;</span>4.1.5.RELEASE<span class="hljs-tag">&lt;/<span class="hljs-title">spring.version</span>&gt;</span>
+        <span class="hljs-tag">&lt;<span class="hljs-title">spring-data-jpa.version</span>&gt;</span>1.4.2.RELEASE<span class="hljs-tag">&lt;/<span class="hljs-title">spring-data-jpa.version</span>&gt;</span>
+        <span class="hljs-tag">&lt;<span class="hljs-title">spring-data-commons.version</span>&gt;</span>1.6.2.RELEASE<span class="hljs-tag">&lt;/<span class="hljs-title">spring-data-commons.version</span>&gt;</span>
+        <span class="hljs-tag">&lt;<span class="hljs-title">hibernate.version</span>&gt;</span>4.3.8.Final<span class="hljs-tag">&lt;/<span class="hljs-title">hibernate.version</span>&gt;</span>
+        <span class="hljs-tag">&lt;<span class="hljs-title">shiro.version</span>&gt;</span>1.2.3<span class="hljs-tag">&lt;/<span class="hljs-title">shiro.version</span>&gt;</span>
+        <span class="hljs-tag">&lt;<span class="hljs-title">lucene.version</span>&gt;</span>4.7.2<span class="hljs-tag">&lt;/<span class="hljs-title">lucene.version</span>&gt;</span>
+        <span class="hljs-tag">&lt;<span class="hljs-title">druid.version</span>&gt;</span>1.0.9<span class="hljs-tag">&lt;/<span class="hljs-title">druid.version</span>&gt;</span>
+        <span class="hljs-tag">&lt;<span class="hljs-title">poi.version</span>&gt;</span>3.7<span class="hljs-tag">&lt;/<span class="hljs-title">poi.version</span>&gt;</span>
+    <span class="hljs-tag">&lt;/<span class="hljs-title">properties</span>&gt;</span>
+
+    <span class="hljs-tag">&lt;<span class="hljs-title">dependencies</span>&gt;</span>
+        <span class="hljs-comment">&lt;!-- module start --&gt;</span>
+        <span class="hljs-tag">&lt;<span class="hljs-title">dependency</span>&gt;</span>
+            <span class="hljs-tag">&lt;<span class="hljs-title">groupId</span>&gt;</span>org.muses<span class="hljs-tag">&lt;/<span class="hljs-title">groupId</span>&gt;</span>
+            <span class="hljs-tag">&lt;<span class="hljs-title">artifactId</span>&gt;</span>jeeplatform-core<span class="hljs-tag">&lt;/<span class="hljs-title">artifactId</span>&gt;</span>
+            <span class="hljs-tag">&lt;<span class="hljs-title">version</span>&gt;</span>${jeeplatform.core.version}<span class="hljs-tag">&lt;/<span class="hljs-title">version</span>&gt;</span>
+        <span class="hljs-tag">&lt;/<span class="hljs-title">dependency</span>&gt;</span>
+        <span class="hljs-tag">&lt;<span class="hljs-title">dependency</span>&gt;</span>
+            <span class="hljs-tag">&lt;<span class="hljs-title">groupId</span>&gt;</span>org.muses<span class="hljs-tag">&lt;/<span class="hljs-title">groupId</span>&gt;</span>
+            <span class="hljs-tag">&lt;<span class="hljs-title">artifactId</span>&gt;</span>jeeplatform-common<span class="hljs-tag">&lt;/<span class="hljs-title">artifactId</span>&gt;</span>
+            <span class="hljs-tag">&lt;<span class="hljs-title">version</span>&gt;</span>1.0-SNAPSHOT<span class="hljs-tag">&lt;/<span class="hljs-title">version</span>&gt;</span>
+        <span class="hljs-tag">&lt;/<span class="hljs-title">dependency</span>&gt;</span>
+        <span class="hljs-tag">&lt;<span class="hljs-title">dependency</span>&gt;</span>
+            <span class="hljs-tag">&lt;<span class="hljs-title">groupId</span>&gt;</span>org.muses<span class="hljs-tag">&lt;/<span class="hljs-title">groupId</span>&gt;</span>
+            <span class="hljs-tag">&lt;<span class="hljs-title">artifactId</span>&gt;</span>jeeplatform-oss<span class="hljs-tag">&lt;/<span class="hljs-title">artifactId</span>&gt;</span>
+            <span class="hljs-tag">&lt;<span class="hljs-title">version</span>&gt;</span>${jeeplatform.oss.version}<span class="hljs-tag">&lt;/<span class="hljs-title">version</span>&gt;</span>
+        <span class="hljs-tag">&lt;/<span class="hljs-title">dependency</span>&gt;</span>
+        <span class="hljs-tag">&lt;<span class="hljs-title">dependency</span>&gt;</span>
+            <span class="hljs-tag">&lt;<span class="hljs-title">groupId</span>&gt;</span>org.muses<span class="hljs-tag">&lt;/<span class="hljs-title">groupId</span>&gt;</span>
+            <span class="hljs-tag">&lt;<span class="hljs-title">artifactId</span>&gt;</span>jeeplatform-upms<span class="hljs-tag">&lt;/<span class="hljs-title">artifactId</span>&gt;</span>
+            <span class="hljs-tag">&lt;<span class="hljs-title">version</span>&gt;</span>1.0-SNAPSHOT<span class="hljs-tag">&lt;/<span class="hljs-title">version</span>&gt;</span>
+        <span class="hljs-tag">&lt;/<span class="hljs-title">dependency</span>&gt;</span>
+        <span class="hljs-comment">&lt;!-- moudle end--&gt;</span>
+        <span class="hljs-comment">&lt;!-- servlet start--&gt;</span>
+        <span class="hljs-tag">&lt;<span class="hljs-title">dependency</span>&gt;</span>
+            <span class="hljs-tag">&lt;<span class="hljs-title">groupId</span>&gt;</span>javax.servlet<span class="hljs-tag">&lt;/<span class="hljs-title">groupId</span>&gt;</span>
+            <span class="hljs-tag">&lt;<span class="hljs-title">artifactId</span>&gt;</span>servlet-api<span class="hljs-tag">&lt;/<span class="hljs-title">artifactId</span>&gt;</span>
+            <span class="hljs-tag">&lt;<span class="hljs-title">version</span>&gt;</span>2.5<span class="hljs-tag">&lt;/<span class="hljs-title">version</span>&gt;</span>
+            <span class="hljs-tag">&lt;<span class="hljs-title">scope</span>&gt;</span>provided<span class="hljs-tag">&lt;/<span class="hljs-title">scope</span>&gt;</span>
+        <span class="hljs-tag">&lt;/<span class="hljs-title">dependency</span>&gt;</span>
+        <span class="hljs-comment">&lt;!-- servlet end --&gt;</span>
+        <span class="hljs-comment">&lt;!-- jstl start--&gt;</span>
+        <span class="hljs-tag">&lt;<span class="hljs-title">dependency</span>&gt;</span>
+            <span class="hljs-tag">&lt;<span class="hljs-title">groupId</span>&gt;</span>jstl<span class="hljs-tag">&lt;/<span class="hljs-title">groupId</span>&gt;</span>
+            <span class="hljs-tag">&lt;<span class="hljs-title">artifactId</span>&gt;</span>jstl<span class="hljs-tag">&lt;/<span class="hljs-title">artifactId</span>&gt;</span>
+            <span class="hljs-tag">&lt;<span class="hljs-title">version</span>&gt;</span>1.2<span class="hljs-tag">&lt;/<span class="hljs-title">version</span>&gt;</span>
+        <span class="hljs-tag">&lt;/<span class="hljs-title">dependency</span>&gt;</span>
+        <span class="hljs-tag">&lt;<span class="hljs-title">dependency</span>&gt;</span>
+            <span class="hljs-tag">&lt;<span class="hljs-title">groupId</span>&gt;</span>taglibs<span class="hljs-tag">&lt;/<span class="hljs-title">groupId</span>&gt;</span>
+            <span class="hljs-tag">&lt;<span class="hljs-title">artifactId</span>&gt;</span>standard<span class="hljs-tag">&lt;/<span class="hljs-title">artifactId</span>&gt;</span>
+            <span class="hljs-tag">&lt;<span class="hljs-title">version</span>&gt;</span>1.1.2<span class="hljs-tag">&lt;/<span class="hljs-title">version</span>&gt;</span>
+        <span class="hljs-tag">&lt;/<span class="hljs-title">dependency</span>&gt;</span>
+        <span class="hljs-comment">&lt;!-- jstl end --&gt;</span>
+        <span class="hljs-comment">&lt;!-- log4j start--&gt;</span>
+        <span class="hljs-tag">&lt;<span class="hljs-title">dependency</span>&gt;</span>
+            <span class="hljs-tag">&lt;<span class="hljs-title">groupId</span>&gt;</span>log4j<span class="hljs-tag">&lt;/<span class="hljs-title">groupId</span>&gt;</span>
+            <span class="hljs-tag">&lt;<span class="hljs-title">artifactId</span>&gt;</span>log4j<span class="hljs-tag">&lt;/<span class="hljs-title">artifactId</span>&gt;</span>
+            <span class="hljs-tag">&lt;<span class="hljs-title">version</span>&gt;</span>${log4j.version}<span class="hljs-tag">&lt;/<span class="hljs-title">version</span>&gt;</span>
+        <span class="hljs-tag">&lt;/<span class="hljs-title">dependency</span>&gt;</span>
+        <span class="hljs-comment">&lt;!-- log4j end--&gt;</span>
+        <span class="hljs-comment">&lt;!-- json解析需要的jar start--&gt;</span>
+        <span class="hljs-tag">&lt;<span class="hljs-title">dependency</span>&gt;</span>
+            <span class="hljs-tag">&lt;<span class="hljs-title">groupId</span>&gt;</span>commons-beanutils<span class="hljs-tag">&lt;/<span class="hljs-title">groupId</span>&gt;</span>
+            <span class="hljs-tag">&lt;<span class="hljs-title">artifactId</span>&gt;</span>commons-beanutils<span class="hljs-tag">&lt;/<span class="hljs-title">artifactId</span>&gt;</span>
+            <span class="hljs-tag">&lt;<span class="hljs-title">version</span>&gt;</span>1.8.3<span class="hljs-tag">&lt;/<span class="hljs-title">version</span>&gt;</span>
+        <span class="hljs-tag">&lt;/<span class="hljs-title">dependency</span>&gt;</span>
+        <span class="hljs-tag">&lt;<span class="hljs-title">dependency</span>&gt;</span>
+            <span class="hljs-tag">&lt;<span class="hljs-title">groupId</span>&gt;</span>commons-collections<span class="hljs-tag">&lt;/<span class="hljs-title">groupId</span>&gt;</span>
+            <span class="hljs-tag">&lt;<span class="hljs-title">artifactId</span>&gt;</span>commons-collections<span class="hljs-tag">&lt;/<span class="hljs-title">artifactId</span>&gt;</span>
+            <span class="hljs-tag">&lt;<span class="hljs-title">version</span>&gt;</span>3.2.1<span class="hljs-tag">&lt;/<span class="hljs-title">version</span>&gt;</span>
+        <span class="hljs-tag">&lt;/<span class="hljs-title">dependency</span>&gt;</span>
+        <span class="hljs-tag">&lt;<span class="hljs-title">dependency</span>&gt;</span>
+            <span class="hljs-tag">&lt;<span class="hljs-title">groupId</span>&gt;</span>net.sf.ezmorph<span class="hljs-tag">&lt;/<span class="hljs-title">groupId</span>&gt;</span>
+            <span class="hljs-tag">&lt;<span class="hljs-title">artifactId</span>&gt;</span>ezmorph<span class="hljs-tag">&lt;/<span class="hljs-title">artifactId</span>&gt;</span>
+            <span class="hljs-tag">&lt;<span class="hljs-title">version</span>&gt;</span>1.0.6<span class="hljs-tag">&lt;/<span class="hljs-title">version</span>&gt;</span>
+        <span class="hljs-tag">&lt;/<span class="hljs-title">dependency</span>&gt;</span>
+        <span class="hljs-tag">&lt;<span class="hljs-title">dependency</span>&gt;</span>
+            <span class="hljs-tag">&lt;<span class="hljs-title">groupId</span>&gt;</span>commons-lang<span class="hljs-tag">&lt;/<span class="hljs-title">groupId</span>&gt;</span>
+            <span class="hljs-tag">&lt;<span class="hljs-title">artifactId</span>&gt;</span>commons-lang<span class="hljs-tag">&lt;/<span class="hljs-title">artifactId</span>&gt;</span>
+            <span class="hljs-tag">&lt;<span class="hljs-title">version</span>&gt;</span>2.5<span class="hljs-tag">&lt;/<span class="hljs-title">version</span>&gt;</span>
+        <span class="hljs-tag">&lt;/<span class="hljs-title">dependency</span>&gt;</span>
+        <span class="hljs-tag">&lt;<span class="hljs-title">dependency</span>&gt;</span>
+            <span class="hljs-tag">&lt;<span class="hljs-title">groupId</span>&gt;</span>commons-logging<span class="hljs-tag">&lt;/<span class="hljs-title">groupId</span>&gt;</span>
+            <span class="hljs-tag">&lt;<span class="hljs-title">artifactId</span>&gt;</span>commons-logging<span class="hljs-tag">&lt;/<span class="hljs-title">artifactId</span>&gt;</span>
+            <span class="hljs-tag">&lt;<span class="hljs-title">version</span>&gt;</span>1.2<span class="hljs-tag">&lt;/<span class="hljs-title">version</span>&gt;</span>
+        <span class="hljs-tag">&lt;/<span class="hljs-title">dependency</span>&gt;</span>
+        <span class="hljs-tag">&lt;<span class="hljs-title">dependency</span>&gt;</span>
+            <span class="hljs-tag">&lt;<span class="hljs-title">groupId</span>&gt;</span>net.sf.json-lib<span class="hljs-tag">&lt;/<span class="hljs-title">groupId</span>&gt;</span>
+            <span class="hljs-tag">&lt;<span class="hljs-title">artifactId</span>&gt;</span>json-lib<span class="hljs-tag">&lt;/<span class="hljs-title">artifactId</span>&gt;</span>
+            <span class="hljs-tag">&lt;<span class="hljs-title">version</span>&gt;</span>2.4<span class="hljs-tag">&lt;/<span class="hljs-title">version</span>&gt;</span>
+            <span class="hljs-tag">&lt;<span class="hljs-title">type</span>&gt;</span>jar<span class="hljs-tag">&lt;/<span class="hljs-title">type</span>&gt;</span>
+            <span class="hljs-tag">&lt;<span class="hljs-title">classifier</span>&gt;</span>jdk15<span class="hljs-tag">&lt;/<span class="hljs-title">classifier</span>&gt;</span>
+            <span class="hljs-tag">&lt;<span class="hljs-title">scope</span>&gt;</span>compile<span class="hljs-tag">&lt;/<span class="hljs-title">scope</span>&gt;</span>
+        <span class="hljs-tag">&lt;/<span class="hljs-title">dependency</span>&gt;</span>
+        <span class="hljs-comment">&lt;!-- json解析需要的jar end --&gt;</span>
+        <span class="hljs-comment">&lt;!-- mysql start--&gt;</span>
+        <span class="hljs-tag">&lt;<span class="hljs-title">dependency</span>&gt;</span>
+            <span class="hljs-tag">&lt;<span class="hljs-title">groupId</span>&gt;</span>mysql<span class="hljs-tag">&lt;/<span class="hljs-title">groupId</span>&gt;</span>
+            <span class="hljs-tag">&lt;<span class="hljs-title">artifactId</span>&gt;</span>mysql-connector-java<span class="hljs-tag">&lt;/<span class="hljs-title">artifactId</span>&gt;</span>
+            <span class="hljs-tag">&lt;<span class="hljs-title">version</span>&gt;</span>${mysql.version}<span class="hljs-tag">&lt;/<span class="hljs-title">version</span>&gt;</span>
+        <span class="hljs-tag">&lt;/<span class="hljs-title">dependency</span>&gt;</span>
+        <span class="hljs-comment">&lt;!-- mysql end--&gt;</span>
+        <span class="hljs-comment">&lt;!-- commons --&gt;</span>
+        <span class="hljs-tag">&lt;<span class="hljs-title">dependency</span>&gt;</span>
+            <span class="hljs-tag">&lt;<span class="hljs-title">groupId</span>&gt;</span>commons-io<span class="hljs-tag">&lt;/<span class="hljs-title">groupId</span>&gt;</span>
+            <span class="hljs-tag">&lt;<span class="hljs-title">artifactId</span>&gt;</span>commons-io<span class="hljs-tag">&lt;/<span class="hljs-title">artifactId</span>&gt;</span>
+            <span class="hljs-tag">&lt;<span class="hljs-title">version</span>&gt;</span>2.0.1<span class="hljs-tag">&lt;/<span class="hljs-title">version</span>&gt;</span>
+        <span class="hljs-tag">&lt;/<span class="hljs-title">dependency</span>&gt;</span>
+        <span class="hljs-tag">&lt;<span class="hljs-title">dependency</span>&gt;</span>
+            <span class="hljs-tag">&lt;<span class="hljs-title">groupId</span>&gt;</span>commons-fileupload<span class="hljs-tag">&lt;/<span class="hljs-title">groupId</span>&gt;</span>
+            <span class="hljs-tag">&lt;<span class="hljs-title">artifactId</span>&gt;</span>commons-fileupload<span class="hljs-tag">&lt;/<span class="hljs-title">artifactId</span>&gt;</span>
+            <span class="hljs-tag">&lt;<span class="hljs-title">version</span>&gt;</span>1.2.2<span class="hljs-tag">&lt;/<span class="hljs-title">version</span>&gt;</span>
+        <span class="hljs-tag">&lt;/<span class="hljs-title">dependency</span>&gt;</span>
+        <span class="hljs-comment">&lt;!-- commons --&gt;</span>
+        <span class="hljs-comment">&lt;!-- spring framework start--&gt;</span>
+        <span class="hljs-tag">&lt;<span class="hljs-title">dependency</span>&gt;</span>
+            <span class="hljs-tag">&lt;<span class="hljs-title">groupId</span>&gt;</span>org.springframework<span class="hljs-tag">&lt;/<span class="hljs-title">groupId</span>&gt;</span>
+            <span class="hljs-tag">&lt;<span class="hljs-title">artifactId</span>&gt;</span>spring-core<span class="hljs-tag">&lt;/<span class="hljs-title">artifactId</span>&gt;</span>
+            <span class="hljs-tag">&lt;<span class="hljs-title">version</span>&gt;</span>${spring.version}<span class="hljs-tag">&lt;/<span class="hljs-title">version</span>&gt;</span>
+        <span class="hljs-tag">&lt;/<span class="hljs-title">dependency</span>&gt;</span>
+        <span class="hljs-tag">&lt;<span class="hljs-title">dependency</span>&gt;</span>
+            <span class="hljs-tag">&lt;<span class="hljs-title">groupId</span>&gt;</span>org.springframework<span class="hljs-tag">&lt;/<span class="hljs-title">groupId</span>&gt;</span>
+            <span class="hljs-tag">&lt;<span class="hljs-title">artifactId</span>&gt;</span>spring-beans<span class="hljs-tag">&lt;/<span class="hljs-title">artifactId</span>&gt;</span>
+            <span class="hljs-tag">&lt;<span class="hljs-title">version</span>&gt;</span>${spring.version}<span class="hljs-tag">&lt;/<span class="hljs-title">version</span>&gt;</span>
+        <span class="hljs-tag">&lt;/<span class="hljs-title">dependency</span>&gt;</span>
+        <span class="hljs-tag">&lt;<span class="hljs-title">dependency</span>&gt;</span>
+            <span class="hljs-tag">&lt;<span class="hljs-title">groupId</span>&gt;</span>org.springframework<span class="hljs-tag">&lt;/<span class="hljs-title">groupId</span>&gt;</span>
+            <span class="hljs-tag">&lt;<span class="hljs-title">artifactId</span>&gt;</span>spring-context<span class="hljs-tag">&lt;/<span class="hljs-title">artifactId</span>&gt;</span>
+            <span class="hljs-tag">&lt;<span class="hljs-title">version</span>&gt;</span>${spring.version}<span class="hljs-tag">&lt;/<span class="hljs-title">version</span>&gt;</span>
+        <span class="hljs-tag">&lt;/<span class="hljs-title">dependency</span>&gt;</span>
+        <span class="hljs-tag">&lt;<span class="hljs-title">dependency</span>&gt;</span>
+            <span class="hljs-tag">&lt;<span class="hljs-title">groupId</span>&gt;</span>org.springframework<span class="hljs-tag">&lt;/<span class="hljs-title">groupId</span>&gt;</span>
+            <span class="hljs-tag">&lt;<span class="hljs-title">artifactId</span>&gt;</span>spring-context-support<span class="hljs-tag">&lt;/<span class="hljs-title">artifactId</span>&gt;</span>
+            <span class="hljs-tag">&lt;<span class="hljs-title">version</span>&gt;</span>${spring.version}<span class="hljs-tag">&lt;/<span class="hljs-title">version</span>&gt;</span>
+        <span class="hljs-tag">&lt;/<span class="hljs-title">dependency</span>&gt;</span>
+        <span class="hljs-tag">&lt;<span class="hljs-title">dependency</span>&gt;</span>
+            <span class="hljs-tag">&lt;<span class="hljs-title">groupId</span>&gt;</span>org.springframework<span class="hljs-tag">&lt;/<span class="hljs-title">groupId</span>&gt;</span>
+            <span class="hljs-tag">&lt;<span class="hljs-title">artifactId</span>&gt;</span>spring-jdbc<span class="hljs-tag">&lt;/<span class="hljs-title">artifactId</span>&gt;</span>
+            <span class="hljs-tag">&lt;<span class="hljs-title">version</span>&gt;</span>${spring.version}<span class="hljs-tag">&lt;/<span class="hljs-title">version</span>&gt;</span>
+        <span class="hljs-tag">&lt;/<span class="hljs-title">dependency</span>&gt;</span>
+        <span class="hljs-tag">&lt;<span class="hljs-title">dependency</span>&gt;</span>
+            <span class="hljs-tag">&lt;<span class="hljs-title">groupId</span>&gt;</span>org.springframework<span class="hljs-tag">&lt;/<span class="hljs-title">groupId</span>&gt;</span>
+            <span class="hljs-tag">&lt;<span class="hljs-title">artifactId</span>&gt;</span>spring-tx<span class="hljs-tag">&lt;/<span class="hljs-title">artifactId</span>&gt;</span>
+            <span class="hljs-tag">&lt;<span class="hljs-title">version</span>&gt;</span>${spring.version}<span class="hljs-tag">&lt;/<span class="hljs-title">version</span>&gt;</span>
+        <span class="hljs-tag">&lt;/<span class="hljs-title">dependency</span>&gt;</span>
+        <span class="hljs-tag">&lt;<span class="hljs-title">dependency</span>&gt;</span>
+            <span class="hljs-tag">&lt;<span class="hljs-title">groupId</span>&gt;</span>org.springframework<span class="hljs-tag">&lt;/<span class="hljs-title">groupId</span>&gt;</span>
+            <span class="hljs-tag">&lt;<span class="hljs-title">artifactId</span>&gt;</span>spring-test<span class="hljs-tag">&lt;/<span class="hljs-title">artifactId</span>&gt;</span>
+            <span class="hljs-tag">&lt;<span class="hljs-title">version</span>&gt;</span>${spring.version}<span class="hljs-tag">&lt;/<span class="hljs-title">version</span>&gt;</span>
+            <span class="hljs-tag">&lt;<span class="hljs-title">scope</span>&gt;</span>test<span class="hljs-tag">&lt;/<span class="hljs-title">scope</span>&gt;</span>
+        <span class="hljs-tag">&lt;/<span class="hljs-title">dependency</span>&gt;</span>
+        <span class="hljs-tag">&lt;<span class="hljs-title">dependency</span>&gt;</span>
+            <span class="hljs-tag">&lt;<span class="hljs-title">groupId</span>&gt;</span>org.springframework<span class="hljs-tag">&lt;/<span class="hljs-title">groupId</span>&gt;</span>
+            <span class="hljs-tag">&lt;<span class="hljs-title">artifactId</span>&gt;</span>spring-web<span class="hljs-tag">&lt;/<span class="hljs-title">artifactId</span>&gt;</span>
+            <span class="hljs-tag">&lt;<span class="hljs-title">version</span>&gt;</span>${spring.version}<span class="hljs-tag">&lt;/<span class="hljs-title">version</span>&gt;</span>
+        <span class="hljs-tag">&lt;/<span class="hljs-title">dependency</span>&gt;</span>
+        <span class="hljs-comment">&lt;!-- spring framework end --&gt;</span>
+        <span class="hljs-comment">&lt;!-- spring aop start--&gt;</span>
+        <span class="hljs-tag">&lt;<span class="hljs-title">dependency</span>&gt;</span>
+            <span class="hljs-tag">&lt;<span class="hljs-title">groupId</span>&gt;</span>org.springframework<span class="hljs-tag">&lt;/<span class="hljs-title">groupId</span>&gt;</span>
+            <span class="hljs-tag">&lt;<span class="hljs-title">artifactId</span>&gt;</span>spring-aop<span class="hljs-tag">&lt;/<span class="hljs-title">artifactId</span>&gt;</span>
+            <span class="hljs-tag">&lt;<span class="hljs-title">version</span>&gt;</span>${spring.version}<span class="hljs-tag">&lt;/<span class="hljs-title">version</span>&gt;</span>
+        <span class="hljs-tag">&lt;/<span class="hljs-title">dependency</span>&gt;</span>
+        <span class="hljs-tag">&lt;<span class="hljs-title">dependency</span>&gt;</span>
+            <span class="hljs-tag">&lt;<span class="hljs-title">groupId</span>&gt;</span>org.aspectj<span class="hljs-tag">&lt;/<span class="hljs-title">groupId</span>&gt;</span>
+            <span class="hljs-tag">&lt;<span class="hljs-title">artifactId</span>&gt;</span>aspectjweaver<span class="hljs-tag">&lt;/<span class="hljs-title">artifactId</span>&gt;</span>
+            <span class="hljs-tag">&lt;<span class="hljs-title">version</span>&gt;</span>1.6.10<span class="hljs-tag">&lt;/<span class="hljs-title">version</span>&gt;</span>
+        <span class="hljs-tag">&lt;/<span class="hljs-title">dependency</span>&gt;</span>
+        <span class="hljs-comment">&lt;!-- spring aop end --&gt;</span>
+        <span class="hljs-comment">&lt;!-- springMVC start--&gt;</span>
+        <span class="hljs-tag">&lt;<span class="hljs-title">dependency</span>&gt;</span>
+            <span class="hljs-tag">&lt;<span class="hljs-title">groupId</span>&gt;</span>org.springframework<span class="hljs-tag">&lt;/<span class="hljs-title">groupId</span>&gt;</span>
+            <span class="hljs-tag">&lt;<span class="hljs-title">artifactId</span>&gt;</span>spring-webmvc<span class="hljs-tag">&lt;/<span class="hljs-title">artifactId</span>&gt;</span>
+            <span class="hljs-tag">&lt;<span class="hljs-title">version</span>&gt;</span>${spring.version}<span class="hljs-tag">&lt;/<span class="hljs-title">version</span>&gt;</span>
+        <span class="hljs-tag">&lt;/<span class="hljs-title">dependency</span>&gt;</span>
+        <span class="hljs-comment">&lt;!-- springMVC end --&gt;</span>
+        <span class="hljs-comment">&lt;!-- spring data start--&gt;</span>
+        <span class="hljs-tag">&lt;<span class="hljs-title">dependency</span>&gt;</span>
+            <span class="hljs-tag">&lt;<span class="hljs-title">groupId</span>&gt;</span>org.springframework<span class="hljs-tag">&lt;/<span class="hljs-title">groupId</span>&gt;</span>
+            <span class="hljs-tag">&lt;<span class="hljs-title">artifactId</span>&gt;</span>spring-orm<span class="hljs-tag">&lt;/<span class="hljs-title">artifactId</span>&gt;</span>
+            <span class="hljs-tag">&lt;<span class="hljs-title">version</span>&gt;</span>${spring.version}<span class="hljs-tag">&lt;/<span class="hljs-title">version</span>&gt;</span>
+        <span class="hljs-tag">&lt;/<span class="hljs-title">dependency</span>&gt;</span>
+        <span class="hljs-tag">&lt;<span class="hljs-title">dependency</span>&gt;</span>
+            <span class="hljs-tag">&lt;<span class="hljs-title">groupId</span>&gt;</span>org.springframework.data<span class="hljs-tag">&lt;/<span class="hljs-title">groupId</span>&gt;</span>
+            <span class="hljs-tag">&lt;<span class="hljs-title">artifactId</span>&gt;</span>spring-data-jpa<span class="hljs-tag">&lt;/<span class="hljs-title">artifactId</span>&gt;</span>
+            <span class="hljs-tag">&lt;<span class="hljs-title">version</span>&gt;</span>${spring-data-jpa.version}<span class="hljs-tag">&lt;/<span class="hljs-title">version</span>&gt;</span>
+        <span class="hljs-tag">&lt;/<span class="hljs-title">dependency</span>&gt;</span>
+        <span class="hljs-tag">&lt;<span class="hljs-title">dependency</span>&gt;</span>
+            <span class="hljs-tag">&lt;<span class="hljs-title">groupId</span>&gt;</span>org.springframework.data<span class="hljs-tag">&lt;/<span class="hljs-title">groupId</span>&gt;</span>
+            <span class="hljs-tag">&lt;<span class="hljs-title">artifactId</span>&gt;</span>spring-data-commons<span class="hljs-tag">&lt;/<span class="hljs-title">artifactId</span>&gt;</span>
+            <span class="hljs-tag">&lt;<span class="hljs-title">version</span>&gt;</span>${spring-data-commons.version}<span class="hljs-tag">&lt;/<span class="hljs-title">version</span>&gt;</span>
+        <span class="hljs-tag">&lt;/<span class="hljs-title">dependency</span>&gt;</span>
+        <span class="hljs-comment">&lt;!-- spring data end --&gt;</span>
+        <span class="hljs-comment">&lt;!-- hibernate jpa start--&gt;</span>
+        <span class="hljs-tag">&lt;<span class="hljs-title">dependency</span>&gt;</span>
+            <span class="hljs-tag">&lt;<span class="hljs-title">groupId</span>&gt;</span>org.hibernate.javax.persistence<span class="hljs-tag">&lt;/<span class="hljs-title">groupId</span>&gt;</span>
+            <span class="hljs-tag">&lt;<span class="hljs-title">artifactId</span>&gt;</span>hibernate-jpa-2.1-api<span class="hljs-tag">&lt;/<span class="hljs-title">artifactId</span>&gt;</span>
+            <span class="hljs-tag">&lt;<span class="hljs-title">version</span>&gt;</span>1.0.0.Final<span class="hljs-tag">&lt;/<span class="hljs-title">version</span>&gt;</span>
+        <span class="hljs-tag">&lt;/<span class="hljs-title">dependency</span>&gt;</span>
+        <span class="hljs-tag">&lt;<span class="hljs-title">dependency</span>&gt;</span>
+            <span class="hljs-tag">&lt;<span class="hljs-title">groupId</span>&gt;</span>org.hibernate<span class="hljs-tag">&lt;/<span class="hljs-title">groupId</span>&gt;</span>
+            <span class="hljs-tag">&lt;<span class="hljs-title">artifactId</span>&gt;</span>hibernate-core<span class="hljs-tag">&lt;/<span class="hljs-title">artifactId</span>&gt;</span>
+            <span class="hljs-tag">&lt;<span class="hljs-title">version</span>&gt;</span>${hibernate.version}<span class="hljs-tag">&lt;/<span class="hljs-title">version</span>&gt;</span>
+        <span class="hljs-tag">&lt;/<span class="hljs-title">dependency</span>&gt;</span>
+        <span class="hljs-tag">&lt;<span class="hljs-title">dependency</span>&gt;</span>
+            <span class="hljs-tag">&lt;<span class="hljs-title">groupId</span>&gt;</span>org.hibernate<span class="hljs-tag">&lt;/<span class="hljs-title">groupId</span>&gt;</span>
+            <span class="hljs-tag">&lt;<span class="hljs-title">artifactId</span>&gt;</span>hibernate-entitymanager<span class="hljs-tag">&lt;/<span class="hljs-title">artifactId</span>&gt;</span>
+            <span class="hljs-tag">&lt;<span class="hljs-title">version</span>&gt;</span>${hibernate.version}<span class="hljs-tag">&lt;/<span class="hljs-title">version</span>&gt;</span>
+        <span class="hljs-tag">&lt;/<span class="hljs-title">dependency</span>&gt;</span>
+        <span class="hljs-comment">&lt;!-- hibernate jpa end --&gt;</span>
+        <span class="hljs-comment">&lt;!-- hibernate echache start--&gt;</span>
+        <span class="hljs-tag">&lt;<span class="hljs-title">dependency</span>&gt;</span>
+            <span class="hljs-tag">&lt;<span class="hljs-title">groupId</span>&gt;</span>org.slf4j<span class="hljs-tag">&lt;/<span class="hljs-title">groupId</span>&gt;</span>
+            <span class="hljs-tag">&lt;<span class="hljs-title">artifactId</span>&gt;</span>slf4j-api<span class="hljs-tag">&lt;/<span class="hljs-title">artifactId</span>&gt;</span>
+            <span class="hljs-tag">&lt;<span class="hljs-title">version</span>&gt;</span>1.6.1<span class="hljs-tag">&lt;/<span class="hljs-title">version</span>&gt;</span>
+        <span class="hljs-tag">&lt;/<span class="hljs-title">dependency</span>&gt;</span>
+        <span class="hljs-tag">&lt;<span class="hljs-title">dependency</span>&gt;</span>
+            <span class="hljs-tag">&lt;<span class="hljs-title">groupId</span>&gt;</span>net.sf.ehcache<span class="hljs-tag">&lt;/<span class="hljs-title">groupId</span>&gt;</span>
+            <span class="hljs-tag">&lt;<span class="hljs-title">artifactId</span>&gt;</span>ehcache-core<span class="hljs-tag">&lt;/<span class="hljs-title">artifactId</span>&gt;</span>
+            <span class="hljs-tag">&lt;<span class="hljs-title">version</span>&gt;</span>2.5.0<span class="hljs-tag">&lt;/<span class="hljs-title">version</span>&gt;</span>
+        <span class="hljs-tag">&lt;/<span class="hljs-title">dependency</span>&gt;</span>
+        <span class="hljs-tag">&lt;<span class="hljs-title">dependency</span>&gt;</span>
+            <span class="hljs-tag">&lt;<span class="hljs-title">groupId</span>&gt;</span>org.hibernate<span class="hljs-tag">&lt;/<span class="hljs-title">groupId</span>&gt;</span>
+            <span class="hljs-tag">&lt;<span class="hljs-title">artifactId</span>&gt;</span>hibernate-ehcache<span class="hljs-tag">&lt;/<span class="hljs-title">artifactId</span>&gt;</span>
+            <span class="hljs-tag">&lt;<span class="hljs-title">version</span>&gt;</span>${hibernate.version}<span class="hljs-tag">&lt;/<span class="hljs-title">version</span>&gt;</span>
+        <span class="hljs-tag">&lt;/<span class="hljs-title">dependency</span>&gt;</span>
+        <span class="hljs-comment">&lt;!-- hibernate echache end --&gt;</span>
+        <span class="hljs-comment">&lt;!-- 阿里的连接池druid start--&gt;</span>
+        <span class="hljs-tag">&lt;<span class="hljs-title">dependency</span>&gt;</span>
+            <span class="hljs-tag">&lt;<span class="hljs-title">groupId</span>&gt;</span>com.alibaba<span class="hljs-tag">&lt;/<span class="hljs-title">groupId</span>&gt;</span>
+            <span class="hljs-tag">&lt;<span class="hljs-title">artifactId</span>&gt;</span>druid<span class="hljs-tag">&lt;/<span class="hljs-title">artifactId</span>&gt;</span>
+            <span class="hljs-tag">&lt;<span class="hljs-title">version</span>&gt;</span>${druid.version}<span class="hljs-tag">&lt;/<span class="hljs-title">version</span>&gt;</span>
+        <span class="hljs-tag">&lt;/<span class="hljs-title">dependency</span>&gt;</span>
+        <span class="hljs-comment">&lt;!-- 阿里的连接池druid end--&gt;</span>
+        <span class="hljs-comment">&lt;!--shiro start--&gt;</span>
+        <span class="hljs-tag">&lt;<span class="hljs-title">dependency</span>&gt;</span>
+            <span class="hljs-tag">&lt;<span class="hljs-title">groupId</span>&gt;</span>org.apache.shiro<span class="hljs-tag">&lt;/<span class="hljs-title">groupId</span>&gt;</span>
+            <span class="hljs-tag">&lt;<span class="hljs-title">artifactId</span>&gt;</span>shiro-all<span class="hljs-tag">&lt;/<span class="hljs-title">artifactId</span>&gt;</span>
+            <span class="hljs-tag">&lt;<span class="hljs-title">version</span>&gt;</span>${shiro.version}<span class="hljs-tag">&lt;/<span class="hljs-title">version</span>&gt;</span>
+        <span class="hljs-tag">&lt;/<span class="hljs-title">dependency</span>&gt;</span>
+        <span class="hljs-comment">&lt;!-- shiro end--&gt;</span>
+        <span class="hljs-comment">&lt;!-- velocity start--&gt;</span>
+        <span class="hljs-tag">&lt;<span class="hljs-title">dependency</span>&gt;</span>
+            <span class="hljs-tag">&lt;<span class="hljs-title">groupId</span>&gt;</span>org.apache.velocity<span class="hljs-tag">&lt;/<span class="hljs-title">groupId</span>&gt;</span>
+            <span class="hljs-tag">&lt;<span class="hljs-title">artifactId</span>&gt;</span>velocity<span class="hljs-tag">&lt;/<span class="hljs-title">artifactId</span>&gt;</span>
+            <span class="hljs-tag">&lt;<span class="hljs-title">version</span>&gt;</span>1.6<span class="hljs-tag">&lt;/<span class="hljs-title">version</span>&gt;</span>
+        <span class="hljs-tag">&lt;/<span class="hljs-title">dependency</span>&gt;</span>
+        <span class="hljs-tag">&lt;<span class="hljs-title">dependency</span>&gt;</span>
+            <span class="hljs-tag">&lt;<span class="hljs-title">groupId</span>&gt;</span>org.apache.velocity<span class="hljs-tag">&lt;/<span class="hljs-title">groupId</span>&gt;</span>
+            <span class="hljs-tag">&lt;<span class="hljs-title">artifactId</span>&gt;</span>velocity-tools<span class="hljs-tag">&lt;/<span class="hljs-title">artifactId</span>&gt;</span>
+            <span class="hljs-tag">&lt;<span class="hljs-title">version</span>&gt;</span>2.0<span class="hljs-tag">&lt;/<span class="hljs-title">version</span>&gt;</span>
+        <span class="hljs-tag">&lt;/<span class="hljs-title">dependency</span>&gt;</span>
+        <span class="hljs-comment">&lt;!-- velocity end--&gt;</span>
+        <span class="hljs-comment">&lt;!-- lucene全文搜素引擎 start--&gt;</span>
+        <span class="hljs-tag">&lt;<span class="hljs-title">dependency</span>&gt;</span>
+            <span class="hljs-tag">&lt;<span class="hljs-title">groupId</span>&gt;</span>org.apache.lucene<span class="hljs-tag">&lt;/<span class="hljs-title">groupId</span>&gt;</span>
+            <span class="hljs-tag">&lt;<span class="hljs-title">artifactId</span>&gt;</span>lucene-core<span class="hljs-tag">&lt;/<span class="hljs-title">artifactId</span>&gt;</span>
+            <span class="hljs-tag">&lt;<span class="hljs-title">version</span>&gt;</span>${lucene.version}<span class="hljs-tag">&lt;/<span class="hljs-title">version</span>&gt;</span>
+        <span class="hljs-tag">&lt;/<span class="hljs-title">dependency</span>&gt;</span>
+        <span class="hljs-tag">&lt;<span class="hljs-title">dependency</span>&gt;</span>
+            <span class="hljs-tag">&lt;<span class="hljs-title">groupId</span>&gt;</span>org.apache.lucene<span class="hljs-tag">&lt;/<span class="hljs-title">groupId</span>&gt;</span>
+            <span class="hljs-tag">&lt;<span class="hljs-title">artifactId</span>&gt;</span>lucene-analyzers-common<span class="hljs-tag">&lt;/<span class="hljs-title">artifactId</span>&gt;</span>
+            <span class="hljs-tag">&lt;<span class="hljs-title">version</span>&gt;</span>${lucene.version}<span class="hljs-tag">&lt;/<span class="hljs-title">version</span>&gt;</span>
+        <span class="hljs-tag">&lt;/<span class="hljs-title">dependency</span>&gt;</span>
+        <span class="hljs-tag">&lt;<span class="hljs-title">dependency</span>&gt;</span>
+            <span class="hljs-tag">&lt;<span class="hljs-title">groupId</span>&gt;</span>org.apache.lucene<span class="hljs-tag">&lt;/<span class="hljs-title">groupId</span>&gt;</span>
+            <span class="hljs-tag">&lt;<span class="hljs-title">artifactId</span>&gt;</span>lucene-queryparser<span class="hljs-tag">&lt;/<span class="hljs-title">artifactId</span>&gt;</span>
+            <span class="hljs-tag">&lt;<span class="hljs-title">version</span>&gt;</span>${lucene.version}<span class="hljs-tag">&lt;/<span class="hljs-title">version</span>&gt;</span>
+        <span class="hljs-tag">&lt;/<span class="hljs-title">dependency</span>&gt;</span>
+        <span class="hljs-tag">&lt;<span class="hljs-title">dependency</span>&gt;</span>
+            <span class="hljs-tag">&lt;<span class="hljs-title">groupId</span>&gt;</span>org.apache.lucene<span class="hljs-tag">&lt;/<span class="hljs-title">groupId</span>&gt;</span>
+            <span class="hljs-tag">&lt;<span class="hljs-title">artifactId</span>&gt;</span>lucene-memory<span class="hljs-tag">&lt;/<span class="hljs-title">artifactId</span>&gt;</span>
+            <span class="hljs-tag">&lt;<span class="hljs-title">version</span>&gt;</span>${lucene.version}<span class="hljs-tag">&lt;/<span class="hljs-title">version</span>&gt;</span>
+        <span class="hljs-tag">&lt;/<span class="hljs-title">dependency</span>&gt;</span>
+        <span class="hljs-tag">&lt;<span class="hljs-title">dependency</span>&gt;</span>
+            <span class="hljs-tag">&lt;<span class="hljs-title">groupId</span>&gt;</span>org.apache.lucene<span class="hljs-tag">&lt;/<span class="hljs-title">groupId</span>&gt;</span>
+            <span class="hljs-tag">&lt;<span class="hljs-title">artifactId</span>&gt;</span>lucene-highlighter<span class="hljs-tag">&lt;/<span class="hljs-title">artifactId</span>&gt;</span>
+            <span class="hljs-tag">&lt;<span class="hljs-title">version</span>&gt;</span>${lucene.version}<span class="hljs-tag">&lt;/<span class="hljs-title">version</span>&gt;</span>
+        <span class="hljs-tag">&lt;/<span class="hljs-title">dependency</span>&gt;</span>
+        <span class="hljs-comment">&lt;!-- 注意IKAnalyzer没有maven坐标,请自行添加到本地仓库 --&gt;</span>
+        <span class="hljs-tag">&lt;<span class="hljs-title">dependency</span>&gt;</span>
+            <span class="hljs-tag">&lt;<span class="hljs-title">groupId</span>&gt;</span>org.wltea.analyzer<span class="hljs-tag">&lt;/<span class="hljs-title">groupId</span>&gt;</span>
+            <span class="hljs-tag">&lt;<span class="hljs-title">artifactId</span>&gt;</span>IKAnalyzer<span class="hljs-tag">&lt;/<span class="hljs-title">artifactId</span>&gt;</span>
+            <span class="hljs-tag">&lt;<span class="hljs-title">version</span>&gt;</span>2012FF_u1<span class="hljs-tag">&lt;/<span class="hljs-title">version</span>&gt;</span>
+            <span class="hljs-tag">&lt;<span class="hljs-title">scope</span>&gt;</span>system<span class="hljs-tag">&lt;/<span class="hljs-title">scope</span>&gt;</span>
+            <span class="hljs-tag">&lt;<span class="hljs-title">systemPath</span>&gt;</span>${basedir}/src/main/webapp/WEB-INF/lib/IKAnalyzer2012FF_u1.jar<span class="hljs-tag">&lt;/<span class="hljs-title">systemPath</span>&gt;</span>
+        <span class="hljs-tag">&lt;/<span class="hljs-title">dependency</span>&gt;</span>
+        <span class="hljs-comment">&lt;!-- lucene全文搜素引擎 end --&gt;</span>
+        <span class="hljs-comment">&lt;!-- log4j start--&gt;</span>
+        <span class="hljs-tag">&lt;<span class="hljs-title">dependency</span>&gt;</span>
+            <span class="hljs-tag">&lt;<span class="hljs-title">groupId</span>&gt;</span>log4j<span class="hljs-tag">&lt;/<span class="hljs-title">groupId</span>&gt;</span>
+            <span class="hljs-tag">&lt;<span class="hljs-title">artifactId</span>&gt;</span>log4j<span class="hljs-tag">&lt;/<span class="hljs-title">artifactId</span>&gt;</span>
+            <span class="hljs-tag">&lt;<span class="hljs-title">version</span>&gt;</span>${log4j.version}<span class="hljs-tag">&lt;/<span class="hljs-title">version</span>&gt;</span>
+        <span class="hljs-tag">&lt;/<span class="hljs-title">dependency</span>&gt;</span>
+        <span class="hljs-comment">&lt;!-- log4j end--&gt;</span>
+        <span class="hljs-comment">&lt;!-- json解析需要的jar start--&gt;</span>
+        <span class="hljs-tag">&lt;<span class="hljs-title">dependency</span>&gt;</span>
+            <span class="hljs-tag">&lt;<span class="hljs-title">groupId</span>&gt;</span>commons-beanutils<span class="hljs-tag">&lt;/<span class="hljs-title">groupId</span>&gt;</span>
+            <span class="hljs-tag">&lt;<span class="hljs-title">artifactId</span>&gt;</span>commons-beanutils<span class="hljs-tag">&lt;/<span class="hljs-title">artifactId</span>&gt;</span>
+            <span class="hljs-tag">&lt;<span class="hljs-title">version</span>&gt;</span>1.8.3<span class="hljs-tag">&lt;/<span class="hljs-title">version</span>&gt;</span>
+        <span class="hljs-tag">&lt;/<span class="hljs-title">dependency</span>&gt;</span>
+        <span class="hljs-tag">&lt;<span class="hljs-title">dependency</span>&gt;</span>
+            <span class="hljs-tag">&lt;<span class="hljs-title">groupId</span>&gt;</span>commons-collections<span class="hljs-tag">&lt;/<span class="hljs-title">groupId</span>&gt;</span>
+            <span class="hljs-tag">&lt;<span class="hljs-title">artifactId</span>&gt;</span>commons-collections<span class="hljs-tag">&lt;/<span class="hljs-title">artifactId</span>&gt;</span>
+            <span class="hljs-tag">&lt;<span class="hljs-title">version</span>&gt;</span>3.2.1<span class="hljs-tag">&lt;/<span class="hljs-title">version</span>&gt;</span>
+        <span class="hljs-tag">&lt;/<span class="hljs-title">dependency</span>&gt;</span>
+        <span class="hljs-tag">&lt;<span class="hljs-title">dependency</span>&gt;</span>
+            <span class="hljs-tag">&lt;<span class="hljs-title">groupId</span>&gt;</span>net.sf.ezmorph<span class="hljs-tag">&lt;/<span class="hljs-title">groupId</span>&gt;</span>
+            <span class="hljs-tag">&lt;<span class="hljs-title">artifactId</span>&gt;</span>ezmorph<span class="hljs-tag">&lt;/<span class="hljs-title">artifactId</span>&gt;</span>
+            <span class="hljs-tag">&lt;<span class="hljs-title">version</span>&gt;</span>1.0.6<span class="hljs-tag">&lt;/<span class="hljs-title">version</span>&gt;</span>
+        <span class="hljs-tag">&lt;/<span class="hljs-title">dependency</span>&gt;</span>
+        <span class="hljs-tag">&lt;<span class="hljs-title">dependency</span>&gt;</span>
+            <span class="hljs-tag">&lt;<span class="hljs-title">groupId</span>&gt;</span>commons-lang<span class="hljs-tag">&lt;/<span class="hljs-title">groupId</span>&gt;</span>
+            <span class="hljs-tag">&lt;<span class="hljs-title">artifactId</span>&gt;</span>commons-lang<span class="hljs-tag">&lt;/<span class="hljs-title">artifactId</span>&gt;</span>
+            <span class="hljs-tag">&lt;<span class="hljs-title">version</span>&gt;</span>2.5<span class="hljs-tag">&lt;/<span class="hljs-title">version</span>&gt;</span>
+        <span class="hljs-tag">&lt;/<span class="hljs-title">dependency</span>&gt;</span>
+        <span class="hljs-tag">&lt;<span class="hljs-title">dependency</span>&gt;</span>
+            <span class="hljs-tag">&lt;<span class="hljs-title">groupId</span>&gt;</span>commons-logging<span class="hljs-tag">&lt;/<span class="hljs-title">groupId</span>&gt;</span>
+            <span class="hljs-tag">&lt;<span class="hljs-title">artifactId</span>&gt;</span>commons-logging<span class="hljs-tag">&lt;/<span class="hljs-title">artifactId</span>&gt;</span>
+            <span class="hljs-tag">&lt;<span class="hljs-title">version</span>&gt;</span>1.2<span class="hljs-tag">&lt;/<span class="hljs-title">version</span>&gt;</span>
+        <span class="hljs-tag">&lt;/<span class="hljs-title">dependency</span>&gt;</span>
+        <span class="hljs-tag">&lt;<span class="hljs-title">dependency</span>&gt;</span>
+            <span class="hljs-tag">&lt;<span class="hljs-title">groupId</span>&gt;</span>net.sf.json-lib<span class="hljs-tag">&lt;/<span class="hljs-title">groupId</span>&gt;</span>
+            <span class="hljs-tag">&lt;<span class="hljs-title">artifactId</span>&gt;</span>json-lib<span class="hljs-tag">&lt;/<span class="hljs-title">artifactId</span>&gt;</span>
+            <span class="hljs-tag">&lt;<span class="hljs-title">version</span>&gt;</span>2.4<span class="hljs-tag">&lt;/<span class="hljs-title">version</span>&gt;</span>
+            <span class="hljs-tag">&lt;<span class="hljs-title">type</span>&gt;</span>jar<span class="hljs-tag">&lt;/<span class="hljs-title">type</span>&gt;</span>
+            <span class="hljs-tag">&lt;<span class="hljs-title">classifier</span>&gt;</span>jdk15<span class="hljs-tag">&lt;/<span class="hljs-title">classifier</span>&gt;</span>
+            <span class="hljs-tag">&lt;<span class="hljs-title">scope</span>&gt;</span>compile<span class="hljs-tag">&lt;/<span class="hljs-title">scope</span>&gt;</span>
+        <span class="hljs-tag">&lt;/<span class="hljs-title">dependency</span>&gt;</span>
+        <span class="hljs-comment">&lt;!-- json解析需要的jar end --&gt;</span>
+        <span class="hljs-comment">&lt;!-- poi start--&gt;</span>
+        <span class="hljs-tag">&lt;<span class="hljs-title">dependency</span>&gt;</span>
+            <span class="hljs-tag">&lt;<span class="hljs-title">groupId</span>&gt;</span>org.apache.poi<span class="hljs-tag">&lt;/<span class="hljs-title">groupId</span>&gt;</span>
+            <span class="hljs-tag">&lt;<span class="hljs-title">artifactId</span>&gt;</span>poi<span class="hljs-tag">&lt;/<span class="hljs-title">artifactId</span>&gt;</span>
+            <span class="hljs-tag">&lt;<span class="hljs-title">version</span>&gt;</span>${poi.version}<span class="hljs-tag">&lt;/<span class="hljs-title">version</span>&gt;</span>
+        <span class="hljs-tag">&lt;/<span class="hljs-title">dependency</span>&gt;</span>
+        <span class="hljs-comment">&lt;!-- poi end--&gt;</span>
+        <span class="hljs-comment">&lt;!-- email start--&gt;</span>
+        <span class="hljs-tag">&lt;<span class="hljs-title">dependency</span>&gt;</span>
+            <span class="hljs-tag">&lt;<span class="hljs-title">groupId</span>&gt;</span>com.sun.mail<span class="hljs-tag">&lt;/<span class="hljs-title">groupId</span>&gt;</span>
+            <span class="hljs-tag">&lt;<span class="hljs-title">artifactId</span>&gt;</span>javax.mail<span class="hljs-tag">&lt;/<span class="hljs-title">artifactId</span>&gt;</span>
+            <span class="hljs-tag">&lt;<span class="hljs-title">version</span>&gt;</span>1.5.6<span class="hljs-tag">&lt;/<span class="hljs-title">version</span>&gt;</span>
+        <span class="hljs-tag">&lt;/<span class="hljs-title">dependency</span>&gt;</span>
+        <span class="hljs-comment">&lt;!-- email end--&gt;</span>
+    <span class="hljs-tag">&lt;/<span class="hljs-title">dependencies</span>&gt;</span>
+    <span class="hljs-tag">&lt;<span class="hljs-title">build</span>&gt;</span>
+        <span class="hljs-tag">&lt;<span class="hljs-title">finalName</span>&gt;</span>jeeplatform-admin<span class="hljs-tag">&lt;/<span class="hljs-title">finalName</span>&gt;</span>
+    <span class="hljs-tag">&lt;/<span class="hljs-title">build</span>&gt;</span>
+<span class="hljs-tag">&lt;/<span class="hljs-title">project</span>&gt;</span>
+</code></pre>
+
+<p>设计好数据库，编写一个实体类： <br/>
+<img src="http://img.blog.csdn.net/20170820214806715?watermark/2/text/aHR0cDovL2Jsb2cuY3Nkbi5uZXQvdTAxNDQyNzM5MQ==/font/5a6L5L2T/fontsize/400/fill/I0JBQkFCMA==/dissolve/70/gravity/SouthEast" alt="这里写图片描述" title=""/></p>
+
+<pre class="prettyprint"><code class=" hljs java"><span class="hljs-keyword">package</span> org.muses.jeeplatform.model.entity;
+
+<span class="hljs-keyword">import</span> java.util.Date;
+<span class="hljs-keyword">import</span> java.util.Set;
+
+<span class="hljs-keyword">import</span> javax.persistence.CascadeType;
+<span class="hljs-keyword">import</span> javax.persistence.Column;
+<span class="hljs-keyword">import</span> javax.persistence.Entity;
+<span class="hljs-keyword">import</span> javax.persistence.FetchType;
+<span class="hljs-keyword">import</span> javax.persistence.GeneratedValue;
+<span class="hljs-keyword">import</span> javax.persistence.GenerationType;
+<span class="hljs-keyword">import</span> javax.persistence.Id;
+<span class="hljs-keyword">import</span> javax.persistence.JoinColumn;
+<span class="hljs-keyword">import</span> javax.persistence.JoinTable;
+<span class="hljs-keyword">import</span> javax.persistence.ManyToMany;
+<span class="hljs-keyword">import</span> javax.persistence.Table;
+<span class="hljs-keyword">import</span> javax.persistence.Temporal;
+<span class="hljs-keyword">import</span> javax.persistence.TemporalType;
+
+<span class="hljs-javadoc">/**
+ * 用户信息的实体类
+ *<span class="hljs-javadoctag"> @author</span> Nicky
+ */</span>
+<span class="hljs-annotation">@Entity</span>
+<span class="hljs-annotation">@Table</span>(name=<span class="hljs-string">"sys_user"</span>)
+<span class="hljs-keyword">public</span> <span class="hljs-class"><span class="hljs-keyword">class</span> <span class="hljs-title">User</span> {</span>
+
+    <span class="hljs-javadoc">/** 用户Id**/</span>
+    <span class="hljs-keyword">private</span> <span class="hljs-keyword">int</span> id;
+
+    <span class="hljs-javadoc">/** 用户名**/</span>
+    <span class="hljs-keyword">private</span> String username;
+
+    <span class="hljs-javadoc">/** 用户密码**/</span>
+    <span class="hljs-keyword">private</span> String password;
+
+    <span class="hljs-javadoc">/** 手机号**/</span>
+    <span class="hljs-keyword">private</span> <span class="hljs-keyword">int</span> phone;
+
+    <span class="hljs-javadoc">/** 性别**/</span>
+    <span class="hljs-keyword">private</span> String sex;
+
+    <span class="hljs-javadoc">/** 邮件**/</span>
+    <span class="hljs-keyword">private</span> String email;
+
+    <span class="hljs-javadoc">/** 备注**/</span>
+    <span class="hljs-keyword">private</span> String mark;
+
+    <span class="hljs-javadoc">/** 用户级别**/</span>
+    <span class="hljs-keyword">private</span> String rank;
+
+    <span class="hljs-javadoc">/** 最后一次时间**/</span>
+    <span class="hljs-keyword">private</span> Date lastLogin;
+
+    <span class="hljs-javadoc">/** 登录ip**/</span>
+    <span class="hljs-keyword">private</span> String loginIp;
+
+    <span class="hljs-javadoc">/** 图片路径**/</span>
+    <span class="hljs-keyword">private</span> String imageUrl;
+
+    <span class="hljs-javadoc">/** 注册时间**/</span>
+    <span class="hljs-keyword">private</span> Date regTime;
+
+    <span class="hljs-javadoc">/** 账号是否被锁定**/</span>
+    <span class="hljs-keyword">private</span> Boolean locked = Boolean.FALSE;
+
+    <span class="hljs-keyword">private</span> Set&lt;Role&gt; roles;        
+
+    <span class="hljs-annotation">@GeneratedValue</span>(strategy=GenerationType.IDENTITY)
+    <span class="hljs-annotation">@Id</span>
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">int</span> <span class="hljs-title">getId</span>() {
+        <span class="hljs-keyword">return</span> id;
+    }
+
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">void</span> <span class="hljs-title">setId</span>(<span class="hljs-keyword">int</span> id) {
+        <span class="hljs-keyword">this</span>.id = id;
+    }
+
+    <span class="hljs-annotation">@Column</span>(unique=<span class="hljs-keyword">true</span>,length=<span class="hljs-number">100</span>,nullable=<span class="hljs-keyword">false</span>)
+    <span class="hljs-keyword">public</span> String <span class="hljs-title">getUsername</span>() {
+        <span class="hljs-keyword">return</span> username;
+    }
+
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">void</span> <span class="hljs-title">setUsername</span>(String username) {
+        <span class="hljs-keyword">this</span>.username = username;
+    }
+
+    <span class="hljs-annotation">@Column</span>(length=<span class="hljs-number">100</span>,nullable=<span class="hljs-keyword">false</span>)
+    <span class="hljs-keyword">public</span> String <span class="hljs-title">getPassword</span>() {
+        <span class="hljs-keyword">return</span> password;
+    }
+
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">void</span> <span class="hljs-title">setPassword</span>(String password) {
+        <span class="hljs-keyword">this</span>.password = password;
+    }
+
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">int</span> <span class="hljs-title">getPhone</span>() {
+        <span class="hljs-keyword">return</span> phone;
+    }
+
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">void</span> <span class="hljs-title">setPhone</span>(<span class="hljs-keyword">int</span> phone) {
+        <span class="hljs-keyword">this</span>.phone = phone;
+    }
+
+    <span class="hljs-annotation">@Column</span>(length=<span class="hljs-number">6</span>)
+    <span class="hljs-keyword">public</span> String <span class="hljs-title">getSex</span>() {
+        <span class="hljs-keyword">return</span> sex;
+    }
+
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">void</span> <span class="hljs-title">setSex</span>(String sex) {
+        <span class="hljs-keyword">this</span>.sex = sex;
+    }
+
+    <span class="hljs-annotation">@Column</span>(length=<span class="hljs-number">100</span>)
+    <span class="hljs-keyword">public</span> String <span class="hljs-title">getEmail</span>() {
+        <span class="hljs-keyword">return</span> email;
+    }
+
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">void</span> <span class="hljs-title">setEmail</span>(String email) {
+        <span class="hljs-keyword">this</span>.email = email;
+    }
+
+    <span class="hljs-annotation">@Column</span>(length=<span class="hljs-number">30</span>)
+    <span class="hljs-keyword">public</span> String <span class="hljs-title">getMark</span>() {
+        <span class="hljs-keyword">return</span> mark;
+    }
+
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">void</span> <span class="hljs-title">setMark</span>(String mark) {
+        <span class="hljs-keyword">this</span>.mark = mark;
+    }
+
+    <span class="hljs-annotation">@Column</span>(length=<span class="hljs-number">10</span>)
+    <span class="hljs-keyword">public</span> String <span class="hljs-title">getRank</span>() {
+        <span class="hljs-keyword">return</span> rank;
+    }
+
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">void</span> <span class="hljs-title">setRank</span>(String rank) {
+        <span class="hljs-keyword">this</span>.rank = rank;
+    }
+
+    <span class="hljs-annotation">@Temporal</span>(TemporalType.DATE)
+    <span class="hljs-keyword">public</span> Date <span class="hljs-title">getLastLogin</span>() {
+        <span class="hljs-keyword">return</span> lastLogin;
+    }
+
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">void</span> <span class="hljs-title">setLastLogin</span>(Date lastLogin) {
+        <span class="hljs-keyword">this</span>.lastLogin = lastLogin;
+    }
+
+    <span class="hljs-annotation">@Column</span>(length=<span class="hljs-number">100</span>)
+    <span class="hljs-keyword">public</span> String <span class="hljs-title">getLoginIp</span>() {
+        <span class="hljs-keyword">return</span> loginIp;
+    }
+
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">void</span> <span class="hljs-title">setLoginIp</span>(String loginIp) {
+        <span class="hljs-keyword">this</span>.loginIp = loginIp;
+    }
+
+    <span class="hljs-annotation">@Column</span>(length=<span class="hljs-number">100</span>)
+    <span class="hljs-keyword">public</span> String <span class="hljs-title">getImageUrl</span>() {
+        <span class="hljs-keyword">return</span> imageUrl;
+    }
+
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">void</span> <span class="hljs-title">setImageUrl</span>(String imageUrl) {
+        <span class="hljs-keyword">this</span>.imageUrl = imageUrl;
+    }
+
+    <span class="hljs-annotation">@Temporal</span>(TemporalType.DATE)
+    <span class="hljs-annotation">@Column</span>(nullable=<span class="hljs-keyword">false</span>)
+    <span class="hljs-keyword">public</span> Date <span class="hljs-title">getRegTime</span>() {
+        <span class="hljs-keyword">return</span> regTime;
+    }
+
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">void</span> <span class="hljs-title">setRegTime</span>(Date regTime) {
+        <span class="hljs-keyword">this</span>.regTime = regTime;
+    }
+
+     <span class="hljs-keyword">public</span> Boolean <span class="hljs-title">getLocked</span>() {
+        <span class="hljs-keyword">return</span> locked;
+    }
+
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">void</span> <span class="hljs-title">setLocked</span>(Boolean locked) {
+        <span class="hljs-keyword">this</span>.locked = locked;
+    }
+
+}
+</code></pre>
+
+<p>编写接口实现Spring Data框架的PagingAndSortingRepository接口</p>
+
+<pre class="prettyprint"><code class=" hljs avrasm">package org<span class="hljs-preprocessor">.muses</span><span class="hljs-preprocessor">.jeeplatform</span><span class="hljs-preprocessor">.repository</span><span class="hljs-comment">;</span>
+
+import org<span class="hljs-preprocessor">.muses</span><span class="hljs-preprocessor">.jeeplatform</span><span class="hljs-preprocessor">.model</span><span class="hljs-preprocessor">.entity</span><span class="hljs-preprocessor">.User</span><span class="hljs-comment">;</span>
+import org<span class="hljs-preprocessor">.springframework</span><span class="hljs-preprocessor">.data</span><span class="hljs-preprocessor">.domain</span><span class="hljs-preprocessor">.Page</span><span class="hljs-comment">;</span>
+import org<span class="hljs-preprocessor">.springframework</span><span class="hljs-preprocessor">.data</span><span class="hljs-preprocessor">.domain</span><span class="hljs-preprocessor">.Pageable</span><span class="hljs-comment">;</span>
+import org<span class="hljs-preprocessor">.springframework</span><span class="hljs-preprocessor">.data</span><span class="hljs-preprocessor">.jpa</span><span class="hljs-preprocessor">.repository</span><span class="hljs-preprocessor">.JpaRepository</span><span class="hljs-comment">;</span>
+import org<span class="hljs-preprocessor">.springframework</span><span class="hljs-preprocessor">.data</span><span class="hljs-preprocessor">.jpa</span><span class="hljs-preprocessor">.repository</span><span class="hljs-preprocessor">.Query</span><span class="hljs-comment">;</span>
+import org<span class="hljs-preprocessor">.springframework</span><span class="hljs-preprocessor">.data</span><span class="hljs-preprocessor">.repository</span><span class="hljs-preprocessor">.PagingAndSortingRepository</span><span class="hljs-comment">;</span>
+import org<span class="hljs-preprocessor">.springframework</span><span class="hljs-preprocessor">.data</span><span class="hljs-preprocessor">.repository</span><span class="hljs-preprocessor">.query</span><span class="hljs-preprocessor">.Param</span><span class="hljs-comment">;</span>
+
+import java<span class="hljs-preprocessor">.util</span><span class="hljs-preprocessor">.Date</span><span class="hljs-comment">;</span>
+
+public interface UserRepository extends PagingAndSortingRepository&lt;User, Integer&gt; {
+
+    <span class="hljs-comment">/*User findByUsername(String username);
+
+    @Query("from User u where u.username=:username and u.password=:password")
+    User findByUsernameAndPassword(@Param("username") String username, @Param("password") String password);
+
+    @Query("from User u where u.id=:id")
+    User findById(@Param("id") int id);
+
+    @Query("from User u where date_format(u.lastLogin,'yyyy-MM-dd') between date_format((:startDate),'yyyy-MM-dd') and date_format((:endDate),'yyyy-MM-dd')")
+    Page&lt;User&gt; searchU(@Param("startDate")Date startDate,@Param("endDate")Date endDate, Pageable pageable);
+*/</span>
+}
+</code></pre>
+
+<p>业务类实现：</p>
+
+<pre class="prettyprint"><code class=" hljs java"><span class="hljs-keyword">package</span> org.muses.jeeplatform.service;
+
+<span class="hljs-keyword">import</span> java.util.*;
+
+<span class="hljs-keyword">import</span> org.muses.jeeplatform.model.entity.User;
+<span class="hljs-keyword">import</span> org.muses.jeeplatform.repository.UserRepository;
+<span class="hljs-keyword">import</span> org.springframework.beans.factory.annotation.Autowired;
+<span class="hljs-keyword">import</span> org.springframework.data.domain.Page;
+<span class="hljs-keyword">import</span> org.springframework.data.domain.PageRequest;
+<span class="hljs-keyword">import</span> org.springframework.data.domain.Sort;
+<span class="hljs-keyword">import</span> org.springframework.data.jpa.domain.Specification;
+<span class="hljs-keyword">import</span> org.springframework.stereotype.Service;
+<span class="hljs-keyword">import</span> org.springframework.transaction.annotation.Transactional;
+
+<span class="hljs-keyword">import</span> javax.persistence.criteria.CriteriaBuilder;
+<span class="hljs-keyword">import</span> javax.persistence.criteria.CriteriaQuery;
+
+<span class="hljs-javadoc">/**
+ *<span class="hljs-javadoctag"> @description</span> 用户信息管理的业务类
+ *<span class="hljs-javadoctag"> @author</span> Nicky 
+ *<span class="hljs-javadoctag"> @date</span> 2017年3月6日
+ */</span>
+<span class="hljs-annotation">@Service</span>
+<span class="hljs-keyword">public</span> <span class="hljs-class"><span class="hljs-keyword">class</span> <span class="hljs-title">UserService</span> {</span>
+
+    <span class="hljs-annotation">@Autowired</span>
+    UserRepository userRepository;
+
+    <span class="hljs-javadoc">/**
+     * 构建PageRequest对象
+     *<span class="hljs-javadoctag"> @param</span> num
+     *<span class="hljs-javadoctag"> @param</span> size
+     *<span class="hljs-javadoctag"> @param</span> asc
+     *<span class="hljs-javadoctag"> @param</span> string
+     *<span class="hljs-javadoctag"> @return</span>
+     */</span>
+    <span class="hljs-keyword">private</span> PageRequest <span class="hljs-title">buildPageRequest</span>(<span class="hljs-keyword">int</span> num, <span class="hljs-keyword">int</span> size, Sort.Direction asc,
+                                         String string) {
+        <span class="hljs-keyword">return</span> <span class="hljs-keyword">new</span> PageRequest(num-<span class="hljs-number">1</span>, size,<span class="hljs-keyword">null</span>,string);
+    }
+
+    <span class="hljs-javadoc">/**
+     * 获取所有的菜单信息并分页显示
+     *<span class="hljs-javadoctag"> @param</span> pageNo
+     *          当前页面数
+     *<span class="hljs-javadoctag"> @param</span> pageSize
+     *          每一页面的页数
+     *<span class="hljs-javadoctag"> @return</span>
+     */</span>
+    <span class="hljs-annotation">@Transactional</span>
+    <span class="hljs-keyword">public</span> Page&lt;User&gt; <span class="hljs-title">findAll</span>(<span class="hljs-keyword">int</span> pageNo, <span class="hljs-keyword">int</span> pageSize, Sort.Direction dir, String str){
+        PageRequest request = buildPageRequest(pageNo, pageSize, dir, str);
+        Page&lt;User&gt; users = userRepository.findAll(request);
+        <span class="hljs-keyword">return</span> users;
+    }
+}
+</code></pre>
+
+<p>控制类，采用SpringMVC框架，先编写一个baseController，实现一些通用功能的封装：</p>
+
+
+
+<pre class="prettyprint"><code class=" hljs java"><span class="hljs-keyword">package</span> org.muses.jeeplatform.web.controller;
+
+<span class="hljs-keyword">import</span> javax.servlet.http.HttpServletRequest;
+
+<span class="hljs-keyword">import</span> org.slf4j.Logger;
+<span class="hljs-keyword">import</span> org.slf4j.LoggerFactory;
+<span class="hljs-keyword">import</span> org.springframework.web.context.request.RequestContextHolder;
+<span class="hljs-keyword">import</span> org.springframework.web.context.request.ServletRequestAttributes;
+<span class="hljs-keyword">import</span> org.springframework.web.servlet.ModelAndView;
+
+<span class="hljs-keyword">public</span> <span class="hljs-class"><span class="hljs-keyword">class</span> <span class="hljs-title">BaseController</span> {</span>
+
+    Logger log = <span class="hljs-keyword">null</span>;
+
+    <span class="hljs-javadoc">/**
+     * 获取日志对象
+     *<span class="hljs-javadoctag"> @return</span>
+     */</span>
+    <span class="hljs-keyword">public</span> Logger <span class="hljs-title">getInstance</span>(){
+        <span class="hljs-keyword">if</span>(log == <span class="hljs-keyword">null</span>){
+            log = LoggerFactory.getLogger(BaseController.class);
+        }
+        <span class="hljs-keyword">return</span> log;
+    }
+
+    <span class="hljs-javadoc">/**
+     * 得到request对象
+     */</span>
+    <span class="hljs-keyword">public</span> HttpServletRequest <span class="hljs-title">getRequest</span>() {
+        HttpServletRequest request = ((ServletRequestAttributes)RequestContextHolder.getRequestAttributes()).getRequest();
+        <span class="hljs-keyword">return</span> request;
+    }
+
+    <span class="hljs-javadoc">/**
+     * 得到ModelAndView
+     */</span>
+    <span class="hljs-keyword">public</span> ModelAndView <span class="hljs-title">getModelAndView</span>(){
+        <span class="hljs-keyword">return</span> <span class="hljs-keyword">new</span> ModelAndView();
+    }
+
+}
+</code></pre>
+
+<p>控制类实现：</p>
+
+<pre class="prettyprint"><code class=" hljs avrasm">package org<span class="hljs-preprocessor">.muses</span><span class="hljs-preprocessor">.jeeplatform</span><span class="hljs-preprocessor">.web</span><span class="hljs-preprocessor">.controller</span><span class="hljs-comment">;</span>
+
+import net<span class="hljs-preprocessor">.sf</span><span class="hljs-preprocessor">.json</span><span class="hljs-preprocessor">.JSONArray</span><span class="hljs-comment">;</span>
+import net<span class="hljs-preprocessor">.sf</span><span class="hljs-preprocessor">.json</span><span class="hljs-preprocessor">.JSONObject</span><span class="hljs-comment">;</span>
+import net<span class="hljs-preprocessor">.sf</span><span class="hljs-preprocessor">.json</span><span class="hljs-preprocessor">.JsonConfig</span><span class="hljs-comment">;</span>
+import org<span class="hljs-preprocessor">.apache</span><span class="hljs-preprocessor">.commons</span><span class="hljs-preprocessor">.collections</span><span class="hljs-preprocessor">.map</span><span class="hljs-preprocessor">.HashedMap</span><span class="hljs-comment">;</span>
+import org<span class="hljs-preprocessor">.muses</span><span class="hljs-preprocessor">.jeeplatform</span><span class="hljs-preprocessor">.core</span><span class="hljs-preprocessor">.Constants</span><span class="hljs-comment">;</span>
+import org<span class="hljs-preprocessor">.muses</span><span class="hljs-preprocessor">.jeeplatform</span><span class="hljs-preprocessor">.core</span><span class="hljs-preprocessor">.ExcelViewWrite</span><span class="hljs-comment">;</span>
+import org<span class="hljs-preprocessor">.muses</span><span class="hljs-preprocessor">.jeeplatform</span><span class="hljs-preprocessor">.core</span><span class="hljs-preprocessor">.JavaEmailSender</span><span class="hljs-comment">;</span>
+import org<span class="hljs-preprocessor">.muses</span><span class="hljs-preprocessor">.jeeplatform</span><span class="hljs-preprocessor">.model</span><span class="hljs-preprocessor">.entity</span><span class="hljs-preprocessor">.User</span><span class="hljs-comment">;</span>
+import org<span class="hljs-preprocessor">.muses</span><span class="hljs-preprocessor">.jeeplatform</span><span class="hljs-preprocessor">.service</span><span class="hljs-preprocessor">.UserService</span><span class="hljs-comment">;</span>
+import org<span class="hljs-preprocessor">.muses</span><span class="hljs-preprocessor">.jeeplatform</span><span class="hljs-preprocessor">.utils</span><span class="hljs-preprocessor">.DateJsonValueProcessor</span><span class="hljs-comment">;</span>
+import org<span class="hljs-preprocessor">.muses</span><span class="hljs-preprocessor">.jeeplatform</span><span class="hljs-preprocessor">.utils</span><span class="hljs-preprocessor">.DateUtils</span><span class="hljs-comment">;</span>
+import org<span class="hljs-preprocessor">.springframework</span><span class="hljs-preprocessor">.beans</span><span class="hljs-preprocessor">.factory</span><span class="hljs-preprocessor">.annotation</span><span class="hljs-preprocessor">.Autowired</span><span class="hljs-comment">;</span>
+import org<span class="hljs-preprocessor">.springframework</span><span class="hljs-preprocessor">.data</span><span class="hljs-preprocessor">.domain</span><span class="hljs-preprocessor">.Page</span><span class="hljs-comment">;</span>
+import org<span class="hljs-preprocessor">.springframework</span><span class="hljs-preprocessor">.data</span><span class="hljs-preprocessor">.domain</span><span class="hljs-preprocessor">.Sort</span><span class="hljs-comment">;</span>
+import org<span class="hljs-preprocessor">.springframework</span><span class="hljs-preprocessor">.stereotype</span><span class="hljs-preprocessor">.Controller</span><span class="hljs-comment">;</span>
+import org<span class="hljs-preprocessor">.springframework</span><span class="hljs-preprocessor">.ui</span><span class="hljs-preprocessor">.Model</span><span class="hljs-comment">;</span>
+import org<span class="hljs-preprocessor">.springframework</span><span class="hljs-preprocessor">.web</span><span class="hljs-preprocessor">.bind</span><span class="hljs-preprocessor">.annotation</span><span class="hljs-preprocessor">.RequestMapping</span><span class="hljs-comment">;</span>
+import org<span class="hljs-preprocessor">.springframework</span><span class="hljs-preprocessor">.web</span><span class="hljs-preprocessor">.bind</span><span class="hljs-preprocessor">.annotation</span><span class="hljs-preprocessor">.RequestParam</span><span class="hljs-comment">;</span>
+import org<span class="hljs-preprocessor">.springframework</span><span class="hljs-preprocessor">.web</span><span class="hljs-preprocessor">.bind</span><span class="hljs-preprocessor">.annotation</span><span class="hljs-preprocessor">.ResponseBody</span><span class="hljs-comment">;</span>
+import org<span class="hljs-preprocessor">.springframework</span><span class="hljs-preprocessor">.web</span><span class="hljs-preprocessor">.servlet</span><span class="hljs-preprocessor">.ModelAndView</span><span class="hljs-comment">;</span>
+
+import javax<span class="hljs-preprocessor">.servlet</span><span class="hljs-preprocessor">.http</span><span class="hljs-preprocessor">.HttpServletRequest</span><span class="hljs-comment">;</span>
+import javax<span class="hljs-preprocessor">.servlet</span><span class="hljs-preprocessor">.http</span><span class="hljs-preprocessor">.HttpServletResponse</span><span class="hljs-comment">;</span>
+import java<span class="hljs-preprocessor">.io</span><span class="hljs-preprocessor">.PrintWriter</span><span class="hljs-comment">;</span>
+import java<span class="hljs-preprocessor">.util</span>.*<span class="hljs-comment">;</span>
+
+
+<span class="hljs-comment">/**
+ * Created by Nicky on 2017/7/29.
+ */</span>
+@RequestMapping(<span class="hljs-string">"/user"</span>)
+@Controller
+public class UserController extends BaseController{
+
+    @Autowired
+    UserService userService<span class="hljs-comment">;</span>
+
+    <span class="hljs-comment">/**
+     * 查询所有管理员信息并分页显示
+     * @param request
+     * @param response
+     * @param model
+     * @return
+     */</span>
+    @RequestMapping(value = <span class="hljs-string">"/queryAll"</span>,produces = <span class="hljs-string">"application/json;charset=UTF-8"</span>)
+    @ResponseBody
+    public ModelAndView findAll(HttpServletRequest request, HttpServletResponse response, Model model){
+        //当前页
+        String pageIndexStr = request<span class="hljs-preprocessor">.getParameter</span>(<span class="hljs-string">"pageIndex"</span>)<span class="hljs-comment">;</span>
+
+        //每一页的页数
+        int pageSize = Constants<span class="hljs-preprocessor">.PAGE</span>_SIZE<span class="hljs-comment">;</span>
+        ModelAndView mv = this<span class="hljs-preprocessor">.getModelAndView</span>()<span class="hljs-comment">;</span>
+        Page&lt;User&gt; userPage<span class="hljs-comment">;</span>
+
+        if(pageIndexStr==null||<span class="hljs-string">""</span><span class="hljs-preprocessor">.equals</span>(pageIndexStr)){
+            pageIndexStr = <span class="hljs-string">"0"</span><span class="hljs-comment">;</span>
+        }
+
+        int pageIndex = Integer<span class="hljs-preprocessor">.parseInt</span>(pageIndexStr)<span class="hljs-comment">;</span>
+
+        userPage = userService<span class="hljs-preprocessor">.findAll</span>(pageIndex+<span class="hljs-number">1</span>, pageSize, Sort<span class="hljs-preprocessor">.Direction</span><span class="hljs-preprocessor">.ASC</span>,<span class="hljs-string">"id"</span>)<span class="hljs-comment">;</span>
+        mv<span class="hljs-preprocessor">.addObject</span>(<span class="hljs-string">"totalCount"</span>,userPage<span class="hljs-preprocessor">.getTotalElements</span>())<span class="hljs-comment">;</span>
+        mv<span class="hljs-preprocessor">.addObject</span>(<span class="hljs-string">"pageIndex"</span>,pageIndex)<span class="hljs-comment">;</span>
+//        JsonConfig cfg = new JsonConfig()<span class="hljs-comment">;</span>
+//        cfg<span class="hljs-preprocessor">.setExcludes</span>(new String[]{<span class="hljs-string">"handler"</span>,<span class="hljs-string">"hibernateLazyInitializer"</span>})<span class="hljs-comment">;</span>
+        JsonConfig jcg = new JsonConfig()<span class="hljs-comment">;</span>
+        jcg<span class="hljs-preprocessor">.registerJsonValueProcessor</span>(Date<span class="hljs-preprocessor">.class</span>,
+                new DateJsonValueProcessor(<span class="hljs-string">"yyyy-mm-dd"</span>))<span class="hljs-comment">;</span>
+        JSONArray jsonArray = JSONArray<span class="hljs-preprocessor">.fromObject</span>(userPage<span class="hljs-preprocessor">.getContent</span>(),jcg)<span class="hljs-comment">;</span>
+        //System<span class="hljs-preprocessor">.out</span><span class="hljs-preprocessor">.println</span>(jsonArray<span class="hljs-preprocessor">.toString</span>())<span class="hljs-comment">;</span>
+        mv<span class="hljs-preprocessor">.addObject</span>(<span class="hljs-string">"users"</span>,jsonArray<span class="hljs-preprocessor">.toString</span>())<span class="hljs-comment">;</span>
+        mv<span class="hljs-preprocessor">.setViewName</span>(<span class="hljs-string">"admin/user/sys_user_list"</span>)<span class="hljs-comment">;</span>
+        return mv<span class="hljs-comment">;</span>
+    }
+
+
+}
+</code></pre>
+
+<p>【前端页面实现】 <br/>
+页面View实现，引用 jquery.pagination.js （分页js），跟pagination.css（分页样式css）。 <br/>
+可以去这里下载 <br/>
+<a href="http://www.cnblogs.com/knowledgesea/archive/2013/01/03/2841554.html" target="_blank">http://www.cnblogs.com/knowledgesea/archive/2013/01/03/2841554.html</a></p>
+
+<pre class="prettyprint"><code class=" hljs xml"><span class="vbscript">&lt;%@ page contentType=<span class="hljs-string">"text/html; charset=utf-8"</span> pageEncoding=<span class="hljs-string">"utf-8"</span>%&gt;</span>
+<span class="vbscript">&lt;%@ taglib prefix=<span class="hljs-string">"c"</span> uri=<span class="hljs-string">"http://java.sun.com/jsp/jstl/core"</span>%&gt;</span>
+<span class="vbscript">&lt;%@ taglib prefix=<span class="hljs-string">"fmt"</span> uri=<span class="hljs-string">"http://java.sun.com/jsp/jstl/fmt"</span>%&gt;</span>
+<span class="vbscript">&lt;%
+    <span class="hljs-built_in">String</span> path = <span class="hljs-built_in">request</span>.getContextPath();
+    <span class="hljs-built_in">String</span> basePath = <span class="hljs-built_in">request</span>.getScheme()+<span class="hljs-string">"://"</span>+<span class="hljs-built_in">request</span>.getServerName()+<span class="hljs-string">":"</span>+<span class="hljs-built_in">request</span>.getServerPort()+path+<span class="hljs-string">"/"</span>;
+%&gt;</span>
+<span class="hljs-doctype">&lt;!DOCTYPE html&gt;</span>
+<span class="hljs-tag">&lt;<span class="hljs-title">html</span> <span class="hljs-attribute">lang</span>=<span class="hljs-value">"zh-CN"</span>&gt;</span>
+<span class="hljs-tag">&lt;<span class="hljs-title">head</span>&gt;</span>
+    <span class="hljs-tag">&lt;<span class="hljs-title">base</span> <span class="hljs-attribute">href</span>=<span class="hljs-value">"&lt;%=basePath %&gt;"</span>&gt;</span>
+    <span class="hljs-tag">&lt;<span class="hljs-title">meta</span> <span class="hljs-attribute">charset</span>=<span class="hljs-value">"UTF-8"</span> /&gt;</span>
+    <span class="hljs-tag">&lt;<span class="hljs-title">meta</span> <span class="hljs-attribute">http-equiv</span>=<span class="hljs-value">"X-UA-Compatible"</span> <span class="hljs-attribute">content</span>=<span class="hljs-value">"IE=edge"</span>&gt;</span>
+    <span class="hljs-tag">&lt;<span class="hljs-title">meta</span> <span class="hljs-attribute">name</span>=<span class="hljs-value">"viewport"</span> <span class="hljs-attribute">content</span>=<span class="hljs-value">"width=device-width,initial-scale=1"</span>&gt;</span>
+    <span class="hljs-tag">&lt;<span class="hljs-title">title</span>&gt;</span>Insert title here<span class="hljs-tag">&lt;/<span class="hljs-title">title</span>&gt;</span>
+    <span class="hljs-comment">&lt;!-- bootstrap样式--&gt;</span>
+    <span class="hljs-tag">&lt;<span class="hljs-title">link</span> <span class="hljs-attribute">type</span>=<span class="hljs-value">"text/css"</span> <span class="hljs-attribute">rel</span>=<span class="hljs-value">"stylesheet"</span>
+          <span class="hljs-attribute">href</span>=<span class="hljs-value">"&lt;%=basePath%&gt;plugins/page/css/bootstrap-3.3.5.min.css"</span> /&gt;</span>
+    <span class="hljs-comment">&lt;!-- jquery.pagination所需CSS --&gt;</span>
+    <span class="hljs-tag">&lt;<span class="hljs-title">link</span> <span class="hljs-attribute">type</span>=<span class="hljs-value">"text/css"</span> <span class="hljs-attribute">rel</span>=<span class="hljs-value">"stylesheet"</span> <span class="hljs-attribute">href</span>=<span class="hljs-value">"&lt;%=basePath%&gt;plugins/page/css/pagination.css"</span> /&gt;</span>
+    <span class="hljs-tag">&lt;<span class="hljs-title">script</span> <span class="hljs-attribute">type</span>=<span class="hljs-value">"text/javascript"</span> <span class="hljs-attribute">src</span>=<span class="hljs-value">"&lt;%=basePath%&gt;plugins/page/js/jquery.min.js"</span>&gt;</span><span class="javascript"/><span class="hljs-tag">&lt;/<span class="hljs-title">script</span>&gt;</span>
+    <span class="hljs-comment">&lt;!-- jquery.pagination所需JS 注意必须放在jquery.js后面 --&gt;</span>
+    <span class="hljs-tag">&lt;<span class="hljs-title">script</span> <span class="hljs-attribute">type</span>=<span class="hljs-value">"text/javascript"</span> <span class="hljs-attribute">src</span>=<span class="hljs-value">"&lt;%=basePath%&gt;plugins/page/js/jquery.pagination.js"</span>&gt;</span><span class="javascript"/><span class="hljs-tag">&lt;/<span class="hljs-title">script</span>&gt;</span>
+    <span class="hljs-tag">&lt;<span class="hljs-title">script</span> <span class="hljs-attribute">type</span>=<span class="hljs-value">"text/javascript"</span>&gt;</span><span class="javascript">
+
+        <span class="hljs-comment">/** 分页操作，使用jquery.pagination插件 add by nicky 20170729 start **/</span>
+        <span class="hljs-comment">//当前页</span>
+        <span class="hljs-keyword">var</span> pageIndex = <span class="hljs-built_in">Number</span>(${pageIndex});
+
+        <span class="hljs-comment">//数据量</span>
+        <span class="hljs-keyword">var</span> totalCount = <span class="hljs-built_in">Number</span>(${totalCount});
+
+        $(document).ready(<span class="hljs-function"><span class="hljs-keyword">function</span> <span class="hljs-params">()</span> {</span>
+            <span class="hljs-comment">//加入分页的绑定</span>
+            $(<span class="hljs-string">"#Pagination"</span>).pagination(totalCount, {
+                callback : pageselectCallback,
+                prev_text : <span class="hljs-string">'&lt; 上一页'</span>,
+                next_text: <span class="hljs-string">'下一页 &gt;'</span>,
+                items_per_page : <span class="hljs-number">6</span>,
+                num_display_entries : <span class="hljs-number">6</span>,
+                current_page : pageIndex,
+                num_edge_entries : <span class="hljs-number">1</span>,
+                link_to: <span class="hljs-string">"user/queryAll?pageIndex=__id__"</span>  <span class="hljs-comment">//分页的js中会自动把"__id__"替换为当前的数。0</span>
+            });
+
+            <span class="hljs-keyword">var</span> html = <span class="hljs-string">""</span>;
+            <span class="hljs-keyword">var</span> data = ${users};
+            $.each(data,<span class="hljs-function"><span class="hljs-keyword">function</span><span class="hljs-params">(idx,obj)</span>{</span>
+                <span class="hljs-keyword">var</span> id = obj.id;
+                <span class="hljs-keyword">var</span> username = obj.username;
+                <span class="hljs-keyword">var</span> mark = obj.mark;
+                <span class="hljs-keyword">var</span> phone = obj.phone;
+                <span class="hljs-keyword">var</span> email = obj.email;
+                <span class="hljs-keyword">var</span> lastLogin = obj.lastLogin;
+                <span class="hljs-keyword">var</span> loginIp = obj.loginIp;
+
+                html += <span class="hljs-string">"&lt;tr&gt;&lt;td&gt;&lt;input type='checkbox' name='id' id='id' value="</span> + id + <span class="hljs-string">" /&gt;&lt;/td&gt;"</span> +
+                    <span class="hljs-string">"&lt;td&gt;"</span>+id+<span class="hljs-string">"&lt;/td&gt;"</span>+
+                    <span class="hljs-string">"&lt;td&gt;"</span>+username+<span class="hljs-string">"&lt;/td&gt;"</span>+
+                    <span class="hljs-string">"&lt;td&gt;"</span>+mark+<span class="hljs-string">"&lt;/td&gt;"</span>+
+                    <span class="hljs-string">"&lt;td&gt;"</span>+phone+<span class="hljs-string">"&lt;/td&gt;"</span>+
+                    <span class="hljs-string">"&lt;td&gt;"</span>+email+<span class="hljs-string">"&lt;/td&gt;"</span>+
+                    <span class="hljs-string">"&lt;td&gt;"</span>+lastLogin+<span class="hljs-string">"&lt;/td&gt;"</span>+
+                    <span class="hljs-string">"&lt;td&gt;"</span>+loginIp+<span class="hljs-string">"&lt;/td&gt;"</span>+
+                    <span class="hljs-string">"&lt;td&gt;&lt;a href='javascript:openEditDialog("</span>+id+<span class="hljs-string">");' class='bounceIn'&gt;配置角色&lt;/a&gt;"</span>+
+                    <span class="hljs-string">"&lt;/tr&gt;"</span>;
+            });
+            $(<span class="hljs-string">"#content"</span>).append(html);
+
+
+        });
+
+        <span class="hljs-comment">//这个事件是在翻页时候用的</span>
+        <span class="hljs-function"><span class="hljs-keyword">function</span> <span class="hljs-title">pageselectCallback</span><span class="hljs-params">(index, jq)</span> {</span>
+
+        }
+        <span class="hljs-comment">/** 分页操作，使用jquery.pagination插件 add by nicky 20170729 end **/</span>
+
+        <span class="hljs-comment">//checkbox的全选/反选</span>
+        <span class="hljs-keyword">var</span> isCheckAll = <span class="hljs-literal">false</span>;
+        <span class="hljs-function"><span class="hljs-keyword">function</span> <span class="hljs-title">doCheck</span><span class="hljs-params">()</span>{</span>
+            <span class="hljs-keyword">if</span>(isCheckAll){
+                $(<span class="hljs-string">"input[type='checkbox']"</span>).each(<span class="hljs-function"><span class="hljs-keyword">function</span><span class="hljs-params">()</span>{</span>
+                    <span class="hljs-keyword">this</span>.checked = <span class="hljs-literal">false</span>;
+                });
+                isCheckAll = <span class="hljs-literal">false</span>;
+            }<span class="hljs-keyword">else</span>{
+                $(<span class="hljs-string">"input[type='checkbox']"</span>).each(<span class="hljs-function"><span class="hljs-keyword">function</span><span class="hljs-params">()</span>{</span>
+                    <span class="hljs-keyword">this</span>.checked = <span class="hljs-literal">true</span>;
+                });
+                isCheckAll = <span class="hljs-literal">true</span>;
+            }
+        }
+
+
+
+    </span><span class="hljs-tag">&lt;/<span class="hljs-title">script</span>&gt;</span>
+<span class="hljs-tag">&lt;/<span class="hljs-title">head</span>&gt;</span>
+<span class="hljs-tag">&lt;<span class="hljs-title">body</span>&gt;</span>
+<span class="hljs-tag">&lt;<span class="hljs-title">br</span>&gt;</span>
+<span class="hljs-tag">&lt;<span class="hljs-title">div</span> <span class="hljs-attribute">class</span>=<span class="hljs-value">"container-fluid"</span>&gt;</span>
+    <span class="hljs-tag">&lt;<span class="hljs-title">div</span> <span class="hljs-attribute">class</span>=<span class="hljs-value">"row"</span>&gt;</span>
+        <span class="hljs-tag">&lt;<span class="hljs-title">div</span> <span class="hljs-attribute">class</span>=<span class="hljs-value">"col-xs-12 col-md-12"</span>&gt;</span>
+            <span class="hljs-tag">&lt;<span class="hljs-title">div</span> <span class="hljs-attribute">class</span>=<span class="hljs-value">"panel panel-default"</span>&gt;</span>
+                <span class="hljs-tag">&lt;<span class="hljs-title">div</span> <span class="hljs-attribute">class</span>=<span class="hljs-value">"panel-body"</span>&gt;</span>
+                    <span class="hljs-tag">&lt;<span class="hljs-title">form</span> <span class="hljs-attribute">class</span>=<span class="hljs-value">"form-inline"</span>&gt;</span>
+                        <span class="hljs-tag">&lt;<span class="hljs-title">input</span> <span class="hljs-attribute">type</span>=<span class="hljs-value">"button"</span> <span class="hljs-attribute">class</span>=<span class="hljs-value">"btn btn-default"</span> <span class="hljs-attribute">value</span>=<span class="hljs-value">"发送邮件"</span> <span class="hljs-attribute">onclick</span>=<span class="hljs-value">"sendEmail();"</span> /&gt;</span>
+                        <span class="hljs-tag">&lt;<span class="hljs-title">input</span> <span class="hljs-attribute">type</span>=<span class="hljs-value">"button"</span> <span class="hljs-attribute">class</span>=<span class="hljs-value">"btn btn-default"</span> <span class="hljs-attribute">value</span>=<span class="hljs-value">"发送短信"</span> <span class="hljs-attribute">onclick</span>=<span class="hljs-value">"sendSms();"</span> /&gt;</span>
+                        <span class="hljs-tag">&lt;<span class="hljs-title">input</span> <span class="hljs-attribute">type</span>=<span class="hljs-value">"button"</span> <span class="hljs-attribute">class</span>=<span class="hljs-value">"btn btn-default"</span> <span class="hljs-attribute">value</span>=<span class="hljs-value">"导出Excel表"</span> <span class="hljs-attribute">onclick</span>=<span class="hljs-value">"exportExcel();"</span> /&gt;</span>
+                        <span class="hljs-tag">&lt;<span class="hljs-title">br</span>&gt;</span><span class="hljs-tag">&lt;<span class="hljs-title">br</span>&gt;</span><span class="hljs-comment">&lt;!--
+                        &lt;input type="text" class="form-control" id="keyword" placeholder="请输入关键词"&gt;
+                        &amp;nbsp;&amp;nbsp;&amp;nbsp;&amp;nbsp;
+                        日期从&lt;input type="text" class="form-control" placeholder="请输入开始日期" value="${startdate }" id="startDate" name="startdate" onclick="WdatePicker({dateFmt:'yyyy-MM-dd' ,maxDate:'#F{$dp.$D(\'endDate\')}'});"/&gt;
+                        到&lt;input type="text" class="form-control" placeholder="请输入结束日期" value="${enddate }" id="endDate" name="enddate" onclick="WdatePicker({dateFmt:'yyyy-MM-dd' ,minDate:'#F{$dp.$D(\'startDate\')}'});" /&gt;&amp;nbsp;&amp;nbsp;&amp;nbsp;&amp;nbsp;
+                        &lt;input type="button" class="btn btn-default" value="Search" onclick="doSearch();"/&gt;--&gt;</span>
+                    <span class="hljs-tag">&lt;/<span class="hljs-title">form</span>&gt;</span>
+                    <span class="hljs-tag">&lt;<span class="hljs-title">table</span> <span class="hljs-attribute">class</span>=<span class="hljs-value">"table"</span> <span class="hljs-attribute">id</span>=<span class="hljs-value">"mTable"</span>&gt;</span>
+                        <span class="hljs-tag">&lt;<span class="hljs-title">thead</span>&gt;</span>
+                        <span class="hljs-tag">&lt;<span class="hljs-title">tr</span>&gt;</span>
+                            <span class="hljs-tag">&lt;<span class="hljs-title">th</span>&gt;</span><span class="hljs-tag">&lt;<span class="hljs-title">input</span> <span class="hljs-attribute">type</span>=<span class="hljs-value">"checkbox"</span> <span class="hljs-attribute">onclick</span>=<span class="hljs-value">"doCheck();"</span> /&gt;</span><span class="hljs-tag">&lt;/<span class="hljs-title">th</span>&gt;</span>
+                            <span class="hljs-tag">&lt;<span class="hljs-title">th</span>&gt;</span>序号<span class="hljs-tag">&lt;/<span class="hljs-title">th</span>&gt;</span>
+                            <span class="hljs-tag">&lt;<span class="hljs-title">th</span>&gt;</span>用户名<span class="hljs-tag">&lt;/<span class="hljs-title">th</span>&gt;</span>
+                            <span class="hljs-tag">&lt;<span class="hljs-title">th</span>&gt;</span>描述<span class="hljs-tag">&lt;/<span class="hljs-title">th</span>&gt;</span>
+                            <span class="hljs-tag">&lt;<span class="hljs-title">th</span>&gt;</span>手机<span class="hljs-tag">&lt;/<span class="hljs-title">th</span>&gt;</span>
+                            <span class="hljs-tag">&lt;<span class="hljs-title">th</span>&gt;</span>邮箱<span class="hljs-tag">&lt;/<span class="hljs-title">th</span>&gt;</span>
+                            <span class="hljs-tag">&lt;<span class="hljs-title">th</span>&gt;</span>最近登录<span class="hljs-tag">&lt;/<span class="hljs-title">th</span>&gt;</span>
+                            <span class="hljs-tag">&lt;<span class="hljs-title">th</span>&gt;</span>上次登录IP<span class="hljs-tag">&lt;/<span class="hljs-title">th</span>&gt;</span>
+                            <span class="hljs-tag">&lt;<span class="hljs-title">th</span>&gt;</span>操作<span class="hljs-tag">&lt;/<span class="hljs-title">th</span>&gt;</span>
+                        <span class="hljs-tag">&lt;/<span class="hljs-title">tr</span>&gt;</span>
+                        <span class="hljs-tag">&lt;/<span class="hljs-title">thead</span>&gt;</span>
+                        <span class="hljs-tag">&lt;<span class="hljs-title">tbody</span> <span class="hljs-attribute">id</span>=<span class="hljs-value">"content"</span>&gt;</span>
+
+                        <span class="hljs-tag">&lt;/<span class="hljs-title">tbody</span>&gt;</span>
+                    <span class="hljs-tag">&lt;/<span class="hljs-title">table</span>&gt;</span>
+                    <span class="hljs-tag">&lt;<span class="hljs-title">div</span> <span class="hljs-attribute">id</span>=<span class="hljs-value">"Pagination"</span> <span class="hljs-attribute">class</span>=<span class="hljs-value">"pagination"</span>&gt;</span><span class="hljs-tag">&lt;/<span class="hljs-title">div</span>&gt;</span>
+                    <span class="hljs-comment">&lt;!-- demo  --&gt;</span>
+                <span class="hljs-tag">&lt;/<span class="hljs-title">div</span>&gt;</span>
+            <span class="hljs-tag">&lt;/<span class="hljs-title">div</span>&gt;</span>
+        <span class="hljs-tag">&lt;/<span class="hljs-title">div</span>&gt;</span>
+    <span class="hljs-tag">&lt;/<span class="hljs-title">div</span>&gt;</span>
+<span class="hljs-tag">&lt;/<span class="hljs-title">div</span>&gt;</span>
+<span class="hljs-tag">&lt;/<span class="hljs-title">body</span>&gt;</span>
+<span class="hljs-tag">&lt;/<span class="hljs-title">html</span>&gt;</span></code></pre>
+
+<p>前端页面展示： <br/>
+<img src="http://img.blog.csdn.net/20170820214659857?watermark/2/text/aHR0cDovL2Jsb2cuY3Nkbi5uZXQvdTAxNDQyNzM5MQ==/font/5a6L5L2T/fontsize/400/fill/I0JBQkFCMA==/dissolve/70/gravity/SouthEast" alt="这里写图片描述" title=""/></p>
+
+<p>ok，本博客是基于一款正在开发中的github开源项目的，项目代码地址：<a href="https://github.com/u014427391/jeeplatform" target="_blank">https://github.com/u014427391/jeeplatform</a> <br/>
+欢迎star(收藏)或者可以下载去学习，不过还在开发…</p><link rel="stylesheet" href="http://static.blog.csdn.net/public/res-min/markdown_views.css?v=1.0"/></div><link rel="stylesheet" href="http://static.blog.csdn.net/public/res-min/markdown_views.css?v=1.0"/>&#13;
+            

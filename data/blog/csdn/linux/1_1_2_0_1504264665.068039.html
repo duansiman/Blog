@@ -1,0 +1,96 @@
+
+<p><span style="font-family: Verdana, Arial, Helvetica, sans-serif; font-size: 14px; line-height: 25px;">  </span></p><pre name="code" class="cpp"> unlink系统调用】   
+    
+功能描述： 
+从文件系统中删除一个名称。如果名称是文件的最后一个连接，并且没有其它进程将文件打开，名称对应的文件会实际被删除。 
+ 
+用法：  
+#include &lt;unistd.h&gt;
+
+int unlink(const char *pathname);
+
+
+参数：   
+pathname：指向需解除连接的文件名。  
+  
+    
+返回说明：   
+成功执行时，返回0。失败返回-1，errno被设为以下的某个值   
+EACCES：权能不足 
+EFAULT： 内存空间不可访问 
+EIO：发生输入输出错误
+EISDIR：pathname索引的是目录
+ELOOP ：路径解析的过程中存在太多的符号连接 
+ENAMETOOLONG：路径名超出可允许的长度 
+ENOENT：路径名部分内容表示的目录不存在，或者是悬浮的连接 
+ENOMEM： 核心内存不足 
+ENOTDIR：路径名的部分内容不是目录 
+EPERM ： 文件系统不支持文件或者目录的解除连接，也有可能是权限步允许
+EROFS    ：文件系统只读</pre><br />       <p></p><p><span style="font-family: Verdana, Arial, Helvetica, sans-serif; font-size: 14px; line-height: 25px;"><br /></span></p><p><span style="font-family: Verdana, Arial, Helvetica, sans-serif; font-size: 14px; line-height: 25px;">       </span><span style="font-family: Verdana, Arial, Helvetica, sans-serif; line-height: 25px;"><span style="font-size:18px;"><strong>每一个文件，都可以通过一个struct stat的结构体来获得文件信息，其中一个成员st_nlink代表文件的链接数。</strong></span></span></p><span style="font-size:18px;"><strong><span style="font-family: Verdana, Arial, Helvetica, sans-serif; line-height: 25px;">       当通过shell的touch命令或者在程序中open一个带有O_CREAT的不存在的文件时，文件的链接数为1。</span><br style="font-family: Verdana, Arial, Helvetica, sans-serif; line-height: 25px;" /><br style="font-family: Verdana, Arial, Helvetica, sans-serif; line-height: 25px;" /><span style="font-family: Verdana, Arial, Helvetica, sans-serif; line-height: 25px;">       通常open一个已存在的文件不会影响文件的链接数。open的作用只是使调用进程与文件之间建立一种访问关系，即open之后返回fd，调用进程可以通过fd来read 、write 、 ftruncate等等一系列对文件的操作。</span><br style="font-family: Verdana, Arial, Helvetica, sans-serif; line-height: 25px;" /><span style="font-family: Verdana, Arial, Helvetica, sans-serif; line-height: 25px;">       close()就是消除这种调用进程与文件之间的访问关系。自然，不会影响文件的链接数。在调用close时，内核会检查打开该文件的进程数，如果此数为0，进一步检查文件的链接数，如果这个数也为0，那么就删除文件内容。</span><br style="font-family: Verdana, Arial, Helvetica, sans-serif; line-height: 25px;" /><br style="font-family: Verdana, Arial, Helvetica, sans-serif; line-height: 25px;" /><span style="font-family: Verdana, Arial, Helvetica, sans-serif; line-height: 25px;">       link函数创建一个新目录项，并且增加一个链接数。</span><br style="font-family: Verdana, Arial, Helvetica, sans-serif; line-height: 25px;" /><span style="font-family: Verdana, Arial, Helvetica, sans-serif; line-height: 25px;">       unlink函数删除目录项，并且减少一个链接数。如果链接数达到0并且没有任何进程打开该文件，该文件内容才被真正删除。如果在unlilnk之前没有close，那么依旧可以访问文件内容。</span><br style="font-family: Verdana, Arial, Helvetica, sans-serif; line-height: 25px;" /><span style="font-family: Verdana, Arial, Helvetica, sans-serif; line-height: 25px;">  </span><br style="font-family: Verdana, Arial, Helvetica, sans-serif; line-height: 25px;" /><span style="font-family: Verdana, Arial, Helvetica, sans-serif; line-height: 25px;">       综上所诉，真正影响链接数的操作是link、unlink以及open的创建。</span><br style="font-family: Verdana, Arial, Helvetica, sans-serif; line-height: 25px;" /><span style="font-family: Verdana, Arial, Helvetica, sans-serif; line-height: 25px;">       删除文件内容的真正含义是文件的链接数为0，而这个操作的本质完成者是unlink。close能够实施删除文件内容的操作，必定是因为在close之前有一个unlink操作。</span><br style="font-family: Verdana, Arial, Helvetica, sans-serif; line-height: 25px;" /><br style="font-family: Verdana, Arial, Helvetica, sans-serif; line-height: 25px;" /></strong></span><p><span style="font-family: Verdana, Arial, Helvetica, sans-serif; line-height: 25px;"><span style="font-size:18px;"><strong>      举个例子简单说明：通过shell   touch test.txt</strong></span></span></p><p><span style="font-family: Verdana, Arial, Helvetica, sans-serif; font-size: 14px; line-height: 25px;"></span></p><pre name="code" class="cpp">1、stat("test.txt",&amp;buf);
+      printf("1.link=%d\n",buf.st_nlink);//未打开文件之前测试链接数
+
+ 2、fd=open("test.txt",O_RDONLY);//打开已存在文件test.txt
+      stat("test.txt",&amp;buf);
+      printf("2.link=%d\n",buf.st_nlink);//测试链接数
+
+ 3、close(fd);//关闭文件test.txt
+      stat("test.txt",&amp;buf);
+      printf("3.link=%d\n",buf.st_nlink);//测试链接数
+
+ 4、link("test.txt","test2.txt");//创建硬链接test2.txt
+       stat("test.txt",&amp;buf);
+       printf("4.link=%d\n",buf.st_nlink);//测试链接数
+
+ 5、unlink("test2.txt");//删除test2.txt
+      stat("test.txt",&amp;buf);
+      printf("5.link=%d\n",buf.st_nlink);//测试链接数
+
+6、重复步骤2  //重新打开test.txt
+
+7、unlink("test.txt");//删除test.txt
+     fstat(fd,&amp;buf);
+     printf("7.link=%d\n",buf.st_nlink);//测试链接数
+
+8、close(fd);//此步骤可以不显示写出，因为进程结束时，打开的文件自动被关闭。</pre><br /><span style="font-family: Verdana, Arial, Helvetica, sans-serif; line-height: 25px;"><span style="font-size:18px;"><strong>顺次执行以上8个步骤，结果如下：</strong></span></span><br /><p></p><p><span style="font-family: Verdana, Arial, Helvetica, sans-serif; font-size: 14px; line-height: 25px;"><span style="font-family: Verdana, Arial, Helvetica, sans-serif; font-size: 14px; line-height: 25px;"></span></span></p><pre name="code" class="cpp">1.link=1
+    2.link=1    //open不影响链接数
+    3.link=1    //close不影响链接数
+    4.link=2    //link之后链接数加1
+    5.link=1    //unlink后链接数减1
+    2.link=1    //重新打开  链接数不变
+    7.link=0    //unlink之后再减1，此处我们改用fstat函数而非stat，因为unlilnk已经删除文件名，所以不可以通过   文件名访问，但是fd仍然是打开着的，文件内容还没有被真正删除，依旧可以使用fd获得文件信息。
+   执行步骤8，文件内容被删除。。。。</pre><br /><span style="font-size:18px;"><strong>实例分析：</strong></span><p></p><p><span style="font-family: Verdana, Arial, Helvetica, sans-serif; font-size: 14px; line-height: 25px;"><span style="font-family: Verdana, Arial, Helvetica, sans-serif; font-size: 14px; line-height: 25px;"></span></span></p><pre name="code" class="cpp">#include&lt;stdio.h&gt;
+#include&lt;sys/types.h&gt;
+#include&lt;sys/stat.h&gt;
+#include&lt;fcntl.h&gt;
+#include&lt;unistd.h&gt;
+int main()
+{
+    int fd;
+    char buf[32];
+    struct stat buff;
+
+    if((fd=open("temp.txt",O_RDWR|O_CREAT|O_TRUNC,S_IRWXU))&lt;0){
+        printf("create file error!\n");
+    }
+    stat("temp.txt",&amp;buff);
+    printf("temp.link=%d\n",buff.st_nlink);
+    link("temp.txt","test.txt");
+    stat("test.txt",&amp;buff);
+    printf("after link the tem.link =%d\n",buff.st_nlink);
+    if(unlink("temp.txt")&lt;0){
+        printf("unlink error !\n");
+    }
+    stat("temp.txt",&amp;buff);
+    printf("after unlink tem.link=%d\n",buff.st_nlink);
+    if(write(fd,"temp",5)&lt;0){
+        printf("write wrror!\n");
+    }
+    if((lseek(fd,0,SEEK_SET))==-1){
+        printf("lseek error!\n");
+    }
+    if((read(fd,buf,5))&lt;0){
+        printf("read error!\n");
+    }
+    printf("%s\n",buf);
+    return 0;
+}</pre><br /><br /><p></p>   &#13;

@@ -1,0 +1,35 @@
+
+
+<h2>内核与用户程序通信</h2>&#13;
+<h3>netlink</h3>&#13;
+<h4>用户端使用<br />&#13;
+</h4>&#13;
+<p>    netlink被纳入socket操作的框架中，确切的说是在socket框架中设计的netlink通信接口。用户态创建、销毁socket的过程：<br />&#13;
+1、 用socket函数创建，socket(PF_NETLINK, SOCK_DGRAM, NETLINK_XXX)；第一个参数必须是PF_NETLINK或者AF_NETLINK，第二个参数用SOCK_DGRAM和SOCK_RAW都没问题，第三个参数就是netlink的协议号。<br />&#13;
+2、 用bind函数绑定自己的地址。<br />&#13;
+3、 用close关闭套接字。</p>&#13;
+<p>     那么这个请求时如何到达内核对应的消息处理函数呢？用户又应该如何组织所传输的数据呢？内核定义了数据结构：<br />&#13;
+</p>&#13;
+<p></p>&#13;
+<ol start="1" class="dp-cpp" style="margin:0px 0px 1px 45px!important; padding:0px; border:none; list-style-position:initial; background-color:rgb(255,255,255); color:rgb(92,92,92)">&#13;
+<li class="alt" style="margin:0px!important; padding:0px 3px 0px 10px!important; border-style:none none none solid; border-left-width:3px; border-left-color:rgb(108,226,108); list-style:decimal-leading-zero outside; color:inherit; line-height:17.600000381469727px">&#13;
+<span style="color:black; margin:0px; padding:0px; border:none; background-color:inherit"><span class="keyword" style="color:#06699; margin:0px; padding:0px; border:none; background-color:inherit; font-weight:bold">struct</span><span style="margin:0px; padding:0px; border:none; background-color:inherit"> tag_rcv_buf  </span></span></li><li style="margin:0px!important; padding:0px 3px 0px 10px!important; border-style:none none none solid; border-left-width:3px; border-left-color:rgb(108,226,108); list-style:decimal-leading-zero outside; background-color:rgb(248,248,248); line-height:17.600000381469727px">&#13;
+<span style="color:black; margin:0px; padding:0px; border:none; background-color:inherit">{  </span></li><li class="alt" style="margin:0px!important; padding:0px 3px 0px 10px!important; border-style:none none none solid; border-left-width:3px; border-left-color:rgb(108,226,108); list-style:decimal-leading-zero outside; color:inherit; line-height:17.600000381469727px">&#13;
+<span style="color:black; margin:0px; padding:0px; border:none; background-color:inherit">        <span class="keyword" style="color:#06699; margin:0px; padding:0px; border:none; background-color:inherit; font-weight:bold">struct</span><span style="margin:0px; padding:0px; border:none; background-color:inherit"> nlmsghdr hdr;            </span><span class="comment" style="color:#0820; margin:0px; padding:0px; border:none; background-color:inherit">//netlink的消息头</span><span style="margin:0px; padding:0px; border:none; background-color:inherit">  </span></span></li><li style="margin:0px!important; padding:0px 3px 0px 10px!important; border-style:none none none solid; border-left-width:3px; border-left-color:rgb(108,226,108); list-style:decimal-leading-zero outside; background-color:rgb(248,248,248); line-height:17.600000381469727px">&#13;
+<span style="color:black; margin:0px; padding:0px; border:none; background-color:inherit">        netlink_notify_s my_msg;        <span class="comment" style="color:#0820; margin:0px; padding:0px; border:none; background-color:inherit">//通信实体消息</span><span style="margin:0px; padding:0px; border:none; background-color:inherit">  </span></span></li><li class="alt" style="margin:0px!important; padding:0px 3px 0px 10px!important; border-style:none none none solid; border-left-width:3px; border-left-color:rgb(108,226,108); list-style:decimal-leading-zero outside; color:inherit; line-height:17.600000381469727px">&#13;
+<span style="color:black; margin:0px; padding:0px; border:none; background-color:inherit">}st_snd_buf; &#13;
+<br />&#13;
+</span></li></ol>&#13;
+<p></p>&#13;
+<p>    所有的netlink数据包实际上都是传送的这个结构体。消息头指出了传送的数据的类型和消息的长度。内核netlink系统根据这个找到对应的处理函数。消息实体是具体消息定义的格式，用户知道其要发送的消息所对应的格式定义（这个定义在内核的使用netlink的具体模块中），因此对应的解析函数也可以正确的解析出传输的数据。</p>&#13;
+<p>    发送和接收则是通过sendto和recvfrom完成（也可使用其他发送和接收函数）。如此使用socket的操作框架就可以完成用户空间与内核空间的通信。按照这个原理，实现内核线程之间的通信业不是难事，只是内核线程之间的通信更有很多方法，这个方法成本略高。</p>&#13;
+<h3>内核端实现</h3>&#13;
+<p>     <br />&#13;
+</p>&#13;
+<h3>proc</h3>&#13;
+<h3>设备节点的read write</h3>&#13;
+<h3>ioctrl</h3>&#13;
+<h3>系统调用</h3>&#13;
+<h3>内存映射map<br />&#13;
+</h3>&#13;
+   &#13;

@@ -1,0 +1,420 @@
+
+        <div class="markdown_views"><h1 id="spring-boot学习记录三整合mybatis">Spring Boot学习记录(三)–整合Mybatis</h1>
+
+<p>标签（空格分隔）： spring-boot</p>
+
+<hr />
+
+<p>控制器,视图解析器前面两篇都已弄好,这一篇学习持久层框架整合.</p>
+
+<hr />
+
+
+
+<h2 id="1数据源配置">1.数据源配置</h2>
+
+<p>数据源使用druid,maven引入相关依赖,包括spring-jdbc依赖,mysql依赖</p>
+
+
+
+<h3 id="1转换问题">1.转换问题</h3>
+
+<p>配置的过程要学会为什么这样配置,而不是只学会了配置.这里我们可以和以前的配置方式对比:</p>
+
+<p>以前版本</p>
+
+
+
+<pre class="prettyprint"><code class=" hljs xml">    <span class="hljs-comment">&lt;!--配置数据库连接池Druid--&gt;</span>
+    <span class="hljs-tag">&lt;<span class="hljs-title">bean</span> <span class="hljs-attribute">id</span>=<span class="hljs-value">"dataSource"</span> <span class="hljs-attribute">class</span>=<span class="hljs-value">"com.alibaba.druid.pool.DruidDataSource"</span> <span class="hljs-attribute">destroy-method</span>=<span class="hljs-value">"close"</span> <span class="hljs-attribute">init-method</span>=<span class="hljs-value">"init"</span>&gt;</span>
+        <span class="hljs-comment">&lt;!-- 数据库基本信息配置 --&gt;</span>
+        <span class="hljs-tag">&lt;<span class="hljs-title">property</span> <span class="hljs-attribute">name</span>=<span class="hljs-value">"url"</span> <span class="hljs-attribute">value</span>=<span class="hljs-value">"${jdbc.url}"</span> /&gt;</span>
+        <span class="hljs-tag">&lt;<span class="hljs-title">property</span> <span class="hljs-attribute">name</span>=<span class="hljs-value">"username"</span> <span class="hljs-attribute">value</span>=<span class="hljs-value">"${jdbc.username}"</span> /&gt;</span>
+        <span class="hljs-tag">&lt;<span class="hljs-title">property</span> <span class="hljs-attribute">name</span>=<span class="hljs-value">"password"</span> <span class="hljs-attribute">value</span>=<span class="hljs-value">"${jdbc.password}"</span> /&gt;</span>
+        <span class="hljs-tag">&lt;<span class="hljs-title">property</span> <span class="hljs-attribute">name</span>=<span class="hljs-value">"driverClassName"</span> <span class="hljs-attribute">value</span>=<span class="hljs-value">"${jdbc.driver}"</span> /&gt;</span>
+        <span class="hljs-tag">&lt;<span class="hljs-title">property</span> <span class="hljs-attribute">name</span>=<span class="hljs-value">"filters"</span> <span class="hljs-attribute">value</span>=<span class="hljs-value">"${filters}"</span> /&gt;</span>
+        <span class="hljs-comment">&lt;!-- 最大并发连接数 --&gt;</span>
+        <span class="hljs-tag">&lt;<span class="hljs-title">property</span> <span class="hljs-attribute">name</span>=<span class="hljs-value">"maxActive"</span> <span class="hljs-attribute">value</span>=<span class="hljs-value">"${maxActive}"</span> /&gt;</span>
+        <span class="hljs-comment">&lt;!-- 初始化连接数量 --&gt;</span>
+        <span class="hljs-tag">&lt;<span class="hljs-title">property</span> <span class="hljs-attribute">name</span>=<span class="hljs-value">"initialSize"</span> <span class="hljs-attribute">value</span>=<span class="hljs-value">"${initialSize}"</span> /&gt;</span>
+        <span class="hljs-comment">&lt;!-- 配置获取连接等待超时的时间 --&gt;</span>
+        <span class="hljs-tag">&lt;<span class="hljs-title">property</span> <span class="hljs-attribute">name</span>=<span class="hljs-value">"maxWait"</span> <span class="hljs-attribute">value</span>=<span class="hljs-value">"${maxWait}"</span> /&gt;</span>
+        <span class="hljs-comment">&lt;!-- 最小空闲连接数 --&gt;</span>
+        <span class="hljs-tag">&lt;<span class="hljs-title">property</span> <span class="hljs-attribute">name</span>=<span class="hljs-value">"minIdle"</span> <span class="hljs-attribute">value</span>=<span class="hljs-value">"${minIdle}"</span> /&gt;</span>
+        <span class="hljs-comment">&lt;!-- 配置间隔多久才进行一次检测，检测需要关闭的空闲连接，单位是毫秒 --&gt;</span>
+        <span class="hljs-tag">&lt;<span class="hljs-title">property</span> <span class="hljs-attribute">name</span>=<span class="hljs-value">"timeBetweenEvictionRunsMillis"</span> <span class="hljs-attribute">value</span>=<span class="hljs-value">"${timeBetweenEvictionRunsMillis}"</span> /&gt;</span>
+        <span class="hljs-comment">&lt;!-- 配置一个连接在池中最小生存的时间，单位是毫秒 --&gt;</span>
+        <span class="hljs-tag">&lt;<span class="hljs-title">property</span> <span class="hljs-attribute">name</span>=<span class="hljs-value">"minEvictableIdleTimeMillis"</span> <span class="hljs-attribute">value</span>=<span class="hljs-value">"${minEvictableIdleTimeMillis}"</span> /&gt;</span>
+        <span class="hljs-tag">&lt;<span class="hljs-title">property</span> <span class="hljs-attribute">name</span>=<span class="hljs-value">"validationQuery"</span> <span class="hljs-attribute">value</span>=<span class="hljs-value">"SELECT 1"</span> /&gt;</span>
+        <span class="hljs-tag">&lt;<span class="hljs-title">property</span> <span class="hljs-attribute">name</span>=<span class="hljs-value">"testWhileIdle"</span> <span class="hljs-attribute">value</span>=<span class="hljs-value">"${testWhileIdle}"</span> /&gt;</span>
+        <span class="hljs-tag">&lt;<span class="hljs-title">property</span> <span class="hljs-attribute">name</span>=<span class="hljs-value">"testOnBorrow"</span> <span class="hljs-attribute">value</span>=<span class="hljs-value">"${testOnBorrow}"</span> /&gt;</span>
+        <span class="hljs-tag">&lt;<span class="hljs-title">property</span> <span class="hljs-attribute">name</span>=<span class="hljs-value">"testOnReturn"</span> <span class="hljs-attribute">value</span>=<span class="hljs-value">"${testOnReturn}"</span> /&gt;</span>
+        <span class="hljs-tag">&lt;<span class="hljs-title">property</span> <span class="hljs-attribute">name</span>=<span class="hljs-value">"maxOpenPreparedStatements"</span> <span class="hljs-attribute">value</span>=<span class="hljs-value">"${maxOpenPreparedStatements}"</span> /&gt;</span>
+        <span class="hljs-comment">&lt;!-- 打开removeAbandoned功能 --&gt;</span>
+        <span class="hljs-tag">&lt;<span class="hljs-title">property</span> <span class="hljs-attribute">name</span>=<span class="hljs-value">"removeAbandoned"</span> <span class="hljs-attribute">value</span>=<span class="hljs-value">"${removeAbandoned}"</span> /&gt;</span>
+        <span class="hljs-comment">&lt;!-- 1800秒，也就是30分钟 --&gt;</span>
+        <span class="hljs-tag">&lt;<span class="hljs-title">property</span> <span class="hljs-attribute">name</span>=<span class="hljs-value">"removeAbandonedTimeout"</span> <span class="hljs-attribute">value</span>=<span class="hljs-value">"${removeAbandonedTimeout}"</span> /&gt;</span>
+        <span class="hljs-comment">&lt;!-- 关闭abanded连接时输出错误日志 --&gt;</span>
+        <span class="hljs-tag">&lt;<span class="hljs-title">property</span> <span class="hljs-attribute">name</span>=<span class="hljs-value">"logAbandoned"</span> <span class="hljs-attribute">value</span>=<span class="hljs-value">"${logAbandoned}"</span> /&gt;</span>
+    <span class="hljs-tag">&lt;/<span class="hljs-title">bean</span>&gt;</span></code></pre>
+
+<p>以前的版本无非是注入一个<code>com.alibaba.druid.pool.DruidDataSource</code>的bean,那么现在也这样做. <br />
+那么问题来了,<strong>在SpringBoot中怎么初始配置Bean</strong>?</p>
+
+
+
+<h3 id="2springboot中初始化一个bean">2.springboot中初始化一个Bean</h3>
+
+<p>随着问题的提出,就要思考,以前的版本是在xml中使用beans标签,在其里面配置bean,那么纯java代码怎么实现呢?带着问题去搜索很容易找到答案.</p>
+
+<p>答案就是使用<code>@Configuration</code>注解和<code>@Bean</code>,代码如下:当然搜资料过程中你会学习到其他的知识,并尝试使用</p>
+
+
+
+<pre class="prettyprint"><code class=" hljs java"><span class="hljs-keyword">import</span> com.alibaba.druid.pool.DruidDataSource;
+<span class="hljs-keyword">import</span> com.alibaba.druid.support.http.StatViewServlet;
+<span class="hljs-keyword">import</span> com.alibaba.druid.support.http.WebStatFilter;
+<span class="hljs-keyword">import</span> org.springframework.boot.web.servlet.FilterRegistrationBean;
+<span class="hljs-keyword">import</span> org.springframework.boot.web.servlet.ServletRegistrationBean;
+<span class="hljs-keyword">import</span> org.springframework.context.annotation.Bean;
+<span class="hljs-keyword">import</span> org.springframework.context.annotation.Configuration;
+<span class="hljs-keyword">import</span> org.springframework.context.annotation.Primary;
+
+<span class="hljs-keyword">import</span> java.sql.SQLException;
+
+<span class="hljs-javadoc">/**
+ *<span class="hljs-javadoctag"> @author</span> Niu Li
+ *<span class="hljs-javadoctag"> @date</span> 2016/8/12
+ */</span>
+<span class="hljs-annotation">@Configuration</span>
+<span class="hljs-keyword">public</span> <span class="hljs-class"><span class="hljs-keyword">class</span> <span class="hljs-title">DataSourcesConfig</span> {</span>
+    <span class="hljs-javadoc">/**
+     * druid初始化
+     *<span class="hljs-javadoctag"> @return</span>
+     *<span class="hljs-javadoctag"> @throws</span> SQLException
+     */</span>
+    <span class="hljs-annotation">@Primary</span> <span class="hljs-comment">//默认数据源</span>
+    <span class="hljs-annotation">@Bean</span>(name = <span class="hljs-string">"dataSource"</span>,destroyMethod = <span class="hljs-string">"close"</span>)
+    <span class="hljs-keyword">public</span> DruidDataSource <span class="hljs-title">Construction</span>() <span class="hljs-keyword">throws</span> SQLException {
+        DruidDataSource dataSource = <span class="hljs-keyword">new</span> DruidDataSource();
+        dataSource.setUrl(<span class="hljs-string">"jdbc:mysql://localhost:3306/springboot"</span>);
+        dataSource.setUsername(<span class="hljs-string">"root"</span>);
+        dataSource.setPassword(<span class="hljs-string">"1111111"</span>);
+        dataSource.setDriverClassName(<span class="hljs-string">"com.mysql.jdbc.Driver"</span>);
+        <span class="hljs-comment">//配置最大连接</span>
+        dataSource.setMaxActive(<span class="hljs-number">20</span>);
+        <span class="hljs-comment">//配置初始连接</span>
+        dataSource.setInitialSize(<span class="hljs-number">1</span>);
+        <span class="hljs-comment">//配置最小连接</span>
+        dataSource.setMinIdle(<span class="hljs-number">1</span>);
+        <span class="hljs-comment">//连接等待超时时间</span>
+        dataSource.setMaxWait(<span class="hljs-number">60000</span>);
+        <span class="hljs-comment">//间隔多久进行检测,关闭空闲连接</span>
+        dataSource.setTimeBetweenEvictionRunsMillis(<span class="hljs-number">60000</span>);
+        <span class="hljs-comment">//一个连接最小生存时间</span>
+        dataSource.setMinEvictableIdleTimeMillis(<span class="hljs-number">300000</span>);
+        <span class="hljs-comment">//用来检测是否有效的sql</span>
+        dataSource.setValidationQuery(<span class="hljs-string">"select 'x'"</span>);
+        dataSource.setTestWhileIdle(<span class="hljs-keyword">true</span>);
+        dataSource.setTestOnBorrow(<span class="hljs-keyword">false</span>);
+        dataSource.setTestOnReturn(<span class="hljs-keyword">false</span>);
+        <span class="hljs-comment">//打开PSCache,并指定每个连接的PSCache大小</span>
+        dataSource.setPoolPreparedStatements(<span class="hljs-keyword">true</span>);
+        dataSource.setMaxOpenPreparedStatements(<span class="hljs-number">20</span>);
+        <span class="hljs-comment">//配置sql监控的filter</span>
+        dataSource.setFilters(<span class="hljs-string">"stat,wall,log4j"</span>);
+        <span class="hljs-keyword">try</span> {
+            dataSource.init();
+        } <span class="hljs-keyword">catch</span> (SQLException e) {
+            <span class="hljs-keyword">throw</span> <span class="hljs-keyword">new</span> RuntimeException(<span class="hljs-string">"druid datasource init fail"</span>);
+        }
+        <span class="hljs-keyword">return</span> dataSource;
+    }
+}</code></pre>
+
+<p>配置后可以启动一下,日志中init成功的话即可. <br />
+<img src="http://img.blog.csdn.net/20160812221020001" alt="这里写图片描述" title="" /></p>
+
+<p>到这<strong>还有问题</strong>,就是druid最大的优势是有一套很完善的监控系统,那么怎么打开这个系统呢?,想想原来的代码:</p>
+
+
+
+<pre class="prettyprint"><code class=" hljs xml"> <span class="hljs-comment">&lt;!-- 连接池 启用Web监控统计功能   start--&gt;</span>
+  <span class="hljs-tag">&lt;<span class="hljs-title">filter</span>&gt;</span>
+    <span class="hljs-tag">&lt;<span class="hljs-title">filter-name</span>&gt;</span>DruidWebStatFilter<span class="hljs-tag">&lt;/<span class="hljs-title">filter-name</span>&gt;</span>
+    <span class="hljs-tag">&lt;<span class="hljs-title">filter-class</span>&gt;</span>com.alibaba.druid.support.http.WebStatFilter<span class="hljs-tag">&lt;/<span class="hljs-title">filter-class</span>&gt;</span>
+    <span class="hljs-tag">&lt;<span class="hljs-title">init-param</span>&gt;</span>
+      <span class="hljs-tag">&lt;<span class="hljs-title">param-name</span>&gt;</span>exclusions<span class="hljs-tag">&lt;/<span class="hljs-title">param-name</span>&gt;</span>
+      <span class="hljs-tag">&lt;<span class="hljs-title">param-value</span>&gt;</span>*.js,*.gif,*.jpg,*.png,*.css,*.ico,/font/*,/druid/*<span class="hljs-tag">&lt;/<span class="hljs-title">param-value</span>&gt;</span>
+    <span class="hljs-tag">&lt;/<span class="hljs-title">init-param</span>&gt;</span>
+  <span class="hljs-tag">&lt;/<span class="hljs-title">filter</span>&gt;</span>
+  <span class="hljs-tag">&lt;<span class="hljs-title">filter-mapping</span>&gt;</span>
+    <span class="hljs-tag">&lt;<span class="hljs-title">filter-name</span>&gt;</span>DruidWebStatFilter<span class="hljs-tag">&lt;/<span class="hljs-title">filter-name</span>&gt;</span>
+    <span class="hljs-tag">&lt;<span class="hljs-title">url-pattern</span>&gt;</span>/*<span class="hljs-tag">&lt;/<span class="hljs-title">url-pattern</span>&gt;</span>
+  <span class="hljs-tag">&lt;/<span class="hljs-title">filter-mapping</span>&gt;</span>
+  <span class="hljs-tag">&lt;<span class="hljs-title">servlet</span>&gt;</span>
+    <span class="hljs-tag">&lt;<span class="hljs-title">servlet-name</span>&gt;</span>DruidStatView<span class="hljs-tag">&lt;/<span class="hljs-title">servlet-name</span>&gt;</span>
+    <span class="hljs-tag">&lt;<span class="hljs-title">servlet-class</span>&gt;</span>com.alibaba.druid.support.http.StatViewServlet<span class="hljs-tag">&lt;/<span class="hljs-title">servlet-class</span>&gt;</span>
+  <span class="hljs-tag">&lt;/<span class="hljs-title">servlet</span>&gt;</span>
+  <span class="hljs-tag">&lt;<span class="hljs-title">servlet-mapping</span>&gt;</span>
+    <span class="hljs-tag">&lt;<span class="hljs-title">servlet-name</span>&gt;</span>DruidStatView<span class="hljs-tag">&lt;/<span class="hljs-title">servlet-name</span>&gt;</span>
+    <span class="hljs-comment">&lt;!--访问路径eg：http://localhost:8888/druid/index.html --&gt;</span>
+    <span class="hljs-tag">&lt;<span class="hljs-title">url-pattern</span>&gt;</span>/druid/*<span class="hljs-tag">&lt;/<span class="hljs-title">url-pattern</span>&gt;</span>
+  <span class="hljs-tag">&lt;/<span class="hljs-title">servlet-mapping</span>&gt;</span></code></pre>
+
+<p>那么问题来了,怎么在springboot中配置servlet和filter?</p>
+
+
+
+<h3 id="3配置servletfilter等">3.配置servlet,filter等</h3>
+
+<p>带着问题接着查资料,能够查到有两种方式配置.</p>
+
+<p>1.使用注解<strong>@WebFilter,@WebServlet,@WebListener</strong>注解配置,如下:</p>
+
+
+
+<pre class="prettyprint"><code class=" hljs java"><span class="hljs-javadoc">/**
+ * Druid的StatFilter
+ */</span>
+<span class="hljs-annotation">@WebFilter</span>(filterName=<span class="hljs-string">"druidWebStatFilter"</span>,urlPatterns=<span class="hljs-string">"/*"</span>,
+        initParams={
+                <span class="hljs-annotation">@WebInitParam</span>(name=<span class="hljs-string">"exclusions"</span>,value=<span class="hljs-string">"*.js,*.gif,*.jpg,*.bmp,*.png,*.css,*.ico,/druid/*"</span>)<span class="hljs-comment">// 忽略资源</span>
+        })
+<span class="hljs-keyword">public</span> <span class="hljs-class"><span class="hljs-keyword">class</span> <span class="hljs-title">DruidStatFilter</span> <span class="hljs-keyword">extends</span> <span class="hljs-title">WebStatFilter</span> {</span>
+
+}</code></pre>
+
+<p>使用这种配置的话,要开启springboot的servlet扫描功能,不然不会生效. <br />
+开启的话,在application启动类上加入<code>@ServletComponentScan</code>即可开启自动扫描.</p>
+
+<p>2.基于Bean的配置</p>
+
+<p>springboot提供了 <br />
+<code>ServletRegistrationBean</code>,<code>FilterRegistrationBean</code>,<code>ServletListenerRegistrationBean</code>三个类来注入servlet,filter,listener,用法如下:</p>
+
+
+
+<pre class="prettyprint"><code class=" hljs java"> <span class="hljs-javadoc">/**
+     * druid监控
+     *<span class="hljs-javadoctag"> @return</span>
+     */</span>
+    <span class="hljs-annotation">@Bean</span>
+    <span class="hljs-keyword">public</span> ServletRegistrationBean <span class="hljs-title">druidServlet</span>() {
+        ServletRegistrationBean reg = <span class="hljs-keyword">new</span> ServletRegistrationBean();
+        reg.setServlet(<span class="hljs-keyword">new</span> StatViewServlet());
+        reg.addUrlMappings(<span class="hljs-string">"/druid/*"</span>);
+        <span class="hljs-comment">//reg.addInitParameter("allow", "127.0.0.1");</span>
+        <span class="hljs-comment">//reg.addInitParameter("deny","");</span>
+        reg.addInitParameter(<span class="hljs-string">"loginUsername"</span>, <span class="hljs-string">"niuli"</span>);
+        reg.addInitParameter(<span class="hljs-string">"loginPassword"</span>, <span class="hljs-string">"123456"</span>);
+        <span class="hljs-keyword">return</span> reg;
+    }
+
+    <span class="hljs-javadoc">/**
+     * druid监控过滤
+     *<span class="hljs-javadoctag"> @return</span>
+     */</span>
+    <span class="hljs-annotation">@Bean</span>
+    <span class="hljs-keyword">public</span> FilterRegistrationBean <span class="hljs-title">filterRegistrationBean</span>() {
+        FilterRegistrationBean filterRegistrationBean = <span class="hljs-keyword">new</span> FilterRegistrationBean();
+        filterRegistrationBean.setFilter(<span class="hljs-keyword">new</span> WebStatFilter());
+        filterRegistrationBean.addUrlPatterns(<span class="hljs-string">"/*"</span>);
+        filterRegistrationBean.addInitParameter(<span class="hljs-string">"exclusions"</span>, <span class="hljs-string">"*.js,*.gif,*.jpg,*.png,*.css,*.ico,/druid/*"</span>);
+        <span class="hljs-keyword">return</span> filterRegistrationBean;
+    }</code></pre>
+
+<p>个人比较喜欢第二种,可以把他和数据源配置都放在一起,看起来还清晰很多.</p>
+
+<p>3.测试 <br />
+启动后直接访问,就能看到数据源配置了 <br />
+<img src="http://img.blog.csdn.net/20160812222304862" alt="这里写图片描述" title="" /></p>
+
+<hr />
+
+
+
+<h2 id="2整合mybatis">2.整合mybatis</h2>
+
+<p>maven引入包可以和以前一样,也可以直接引入<code>mybatis-spring-boot-starter</code>整合mybatis主要由以下几点:</p>
+
+<ul>
+<li>原本mybatis的配置xml怎么替代</li>
+<li>**mapper.xml怎么替代</li>
+<li>mapper代理接口怎么扫描</li>
+</ul>
+
+
+
+<h3 id="1注入sqlsessionfactory">1.注入SqlSessionFactory</h3>
+
+<p>仿照以前的mybatis整合spring方式,注入相关Bean,下面代码还加入了mybatis插件配置,并且注入事务管理器,方便service使用</p>
+
+
+
+<pre class="prettyprint"><code class=" hljs java"><span class="hljs-javadoc">/**
+ * mybatis配置类
+ *<span class="hljs-javadoctag"> @author</span> Niu Li
+ *<span class="hljs-javadoctag"> @date</span> 2016/8/12
+ */</span>
+<span class="hljs-annotation">@Configuration</span>
+<span class="hljs-annotation">@EnableTransactionManagement</span>
+<span class="hljs-keyword">public</span> <span class="hljs-class"><span class="hljs-keyword">class</span> <span class="hljs-title">MybatisConfig</span> <span class="hljs-keyword">implements</span> <span class="hljs-title">TransactionManagementConfigurer</span>{</span>
+    <span class="hljs-annotation">@Resource</span>(name = <span class="hljs-string">"dataSource"</span>)
+    DataSource dataSource;
+
+    <span class="hljs-javadoc">/**
+     * 可以通过这个类,详细配置mybatis
+     *<span class="hljs-javadoctag"> @return</span>
+     */</span>
+<span class="hljs-comment">//    @Bean</span>
+<span class="hljs-comment">//    public org.apache.ibatis.session.Configuration mybatisSetting(){</span>
+<span class="hljs-comment">//        org.apache.ibatis.session.Configuration configuration = new org.apache.ibatis.session.Configuration();</span>
+<span class="hljs-comment">//</span>
+<span class="hljs-comment">//        return null;</span>
+<span class="hljs-comment">//    }</span>
+
+    <span class="hljs-annotation">@Bean</span>(name = <span class="hljs-string">"sqlSessionFactory"</span>)
+    <span class="hljs-keyword">public</span> SqlSessionFactory <span class="hljs-title">sqlSessionFactoryBean</span>() {
+
+        SqlSessionFactoryBean bean = <span class="hljs-keyword">new</span> SqlSessionFactoryBean();
+        bean.setDataSource(dataSource);
+        bean.setTypeAliasesPackage(<span class="hljs-string">"cn.mrdear.entity"</span>);
+
+        <span class="hljs-comment">//分页插件,插件无非是设置mybatis的拦截器</span>
+        PageHelper pageHelper = <span class="hljs-keyword">new</span> PageHelper();
+        Properties properties = <span class="hljs-keyword">new</span> Properties();
+        properties.setProperty(<span class="hljs-string">"reasonable"</span>, <span class="hljs-string">"true"</span>);
+        properties.setProperty(<span class="hljs-string">"supportMethodsArguments"</span>, <span class="hljs-string">"true"</span>);
+        properties.setProperty(<span class="hljs-string">"returnPageInfo"</span>, <span class="hljs-string">"check"</span>);
+        properties.setProperty(<span class="hljs-string">"params"</span>, <span class="hljs-string">"count=countSql"</span>);
+        pageHelper.setProperties(properties);
+
+        <span class="hljs-comment">//添加插件</span>
+        bean.setPlugins(<span class="hljs-keyword">new</span> Interceptor[]{pageHelper});
+
+        <span class="hljs-comment">//添加XML目录</span>
+        ResourcePatternResolver resolver = <span class="hljs-keyword">new</span> PathMatchingResourcePatternResolver();
+        <span class="hljs-keyword">try</span> {
+            <span class="hljs-comment">//设置xml扫描路径</span>
+            bean.setMapperLocations(resolver.getResources(<span class="hljs-string">"classpath:mapper/*.xml"</span>));
+            <span class="hljs-keyword">return</span> bean.getObject();
+        } <span class="hljs-keyword">catch</span> (Exception e) {
+            <span class="hljs-keyword">throw</span> <span class="hljs-keyword">new</span> RuntimeException(<span class="hljs-string">"sqlSessionFactory init fail"</span>,e);
+        }
+    }
+
+    <span class="hljs-javadoc">/**
+     * 用于实际查询的sql工具,传统dao开发形式可以使用这个,基于mapper代理则不需要注入
+     *<span class="hljs-javadoctag"> @param</span> sqlSessionFactory
+     *<span class="hljs-javadoctag"> @return</span>
+     */</span>
+    <span class="hljs-annotation">@Bean</span>(name = <span class="hljs-string">"sqlSessionTemplate"</span>)
+    <span class="hljs-keyword">public</span> SqlSessionTemplate <span class="hljs-title">sqlSessionTemplate</span>(SqlSessionFactory sqlSessionFactory) {
+        <span class="hljs-keyword">return</span> <span class="hljs-keyword">new</span> SqlSessionTemplate(sqlSessionFactory);
+    }
+    <span class="hljs-javadoc">/**
+     * 事务管理,具体使用在service层加入@Transactional注解
+     */</span>
+    <span class="hljs-annotation">@Bean</span>(name = <span class="hljs-string">"transactionManager"</span>)
+    <span class="hljs-annotation">@Override</span>
+    <span class="hljs-keyword">public</span> PlatformTransactionManager <span class="hljs-title">annotationDrivenTransactionManager</span>() {
+        <span class="hljs-keyword">return</span> <span class="hljs-keyword">new</span> DataSourceTransactionManager(dataSource);
+    }
+}</code></pre>
+
+
+
+<h3 id="2编写mapperxml">2.编写mapper.xml</h3>
+
+<p>在resources下建立mapper目录,这里写法和以前一样.路径是上面你自己设置的目录</p>
+
+
+
+<pre class="prettyprint"><code class=" hljs xml"><span class="hljs-pi">&lt;?xml version="1.0" encoding="UTF-8" ?&gt;</span>
+<span class="hljs-doctype">&lt;!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd" &gt;</span>
+<span class="hljs-tag">&lt;<span class="hljs-title">mapper</span> <span class="hljs-attribute">namespace</span>=<span class="hljs-value">"cn.mrdear.mapper.UserMapper"</span>&gt;</span>
+    <span class="hljs-comment">&lt;!--根据id查询用户详情--&gt;</span>
+    <span class="hljs-tag">&lt;<span class="hljs-title">select</span> <span class="hljs-attribute">id</span>=<span class="hljs-value">"findById"</span> <span class="hljs-attribute">parameterType</span>=<span class="hljs-value">"int"</span> <span class="hljs-attribute">resultType</span>=<span class="hljs-value">"cn.mrdear.entity.User"</span>&gt;</span>
+        SELECT * FROM user WHERE id=#{id}
+    <span class="hljs-tag">&lt;/<span class="hljs-title">select</span>&gt;</span>
+<span class="hljs-tag">&lt;/<span class="hljs-title">mapper</span>&gt;</span></code></pre>
+
+
+
+<h3 id="3编写mapper接口">3.编写mapper接口</h3>
+
+<p>如果使用<code>mybatis-spring-boot-starter</code>,那么mapper接口扫描就可以使用<code>@Mapper</code>注解替代,mybatis会自动扫描,并把其当成mapper接口来对待.</p>
+
+
+
+<pre class="prettyprint"><code class=" hljs java"><span class="hljs-javadoc">/**
+ * UserMapper.xml代理
+ *<span class="hljs-javadoctag"> @author</span> Niu Li
+ *<span class="hljs-javadoctag"> @date</span> 2016/8/13
+ */</span>
+<span class="hljs-annotation">@Mapper</span>
+<span class="hljs-keyword">public</span> <span class="hljs-class"><span class="hljs-keyword">interface</span> <span class="hljs-title">UserMapper</span> {</span>
+    <span class="hljs-javadoc">/**
+     * 根据id查询用户
+     *<span class="hljs-javadoctag"> @param</span> id
+     *<span class="hljs-javadoctag"> @return</span>
+     */</span>
+    User findById(<span class="hljs-keyword">int</span> id);
+}</code></pre>
+
+
+
+<h3 id="4测试">4.测试</h3>
+
+<p>测试直接注入mapper接口,这里使用IDEA的话,可能会报错,IDEA认为UserMapper没有Bean标识,会提示找不到这个Bean,这个不影响代码,这只是IDEA帮你关联springBean的一种提示检测.</p>
+
+
+
+<pre class="prettyprint"><code class=" hljs java">    <span class="hljs-annotation">@Resource</span>
+    <span class="hljs-keyword">private</span> UserMapper userMapper;
+
+ <span class="hljs-annotation">@RequestMapping</span>(value = <span class="hljs-string">"/users"</span>,method = RequestMethod.GET)
+    <span class="hljs-keyword">public</span> @ResponseBody User <span class="hljs-title">testUserDao</span>(){
+        User user = userMapper.findById(<span class="hljs-number">1</span>);
+        <span class="hljs-keyword">return</span> user;
+    }</code></pre>
+
+<p><img src="http://img.blog.csdn.net/20160813120733163" alt="这里写图片描述" title="" /></p>
+
+
+
+<h3 id="5打印sql语句">5.打印sql语句</h3>
+
+<p>使用mapper接口代理的话,打印很简单,在application.properties中设置</p>
+
+<pre><code>logging.level.cn.mrdear.mapper = trace
+</code></pre>
+
+<p><img src="http://img.blog.csdn.net/20160813121053831" alt="这里写图片描述" title="" /></p>
+
+<p>至于使用DAO方式,就需要覆盖掉spring-boot默认设置的logger,自定义log.xml文件,然后配置mybatis的log实现器.</p>
+
+<hr />
+
+<p>到此算是简单配置完毕了,至于其他的相关配置,在后续开发中用到了再补充,这写的纯属为项目做的前言准备</p>
+
+<hr />
+
+<p>整合项目地址:</p>
+
+<p><a href="https://github.com/nl101531/JavaWEB">https://github.com/nl101531/JavaWEB</a></p></div>&#13;
+        <script type="text/javascript">&#13;
+            $(function () {&#13;
+                $('pre.prettyprint code').each(function () {&#13;
+                    var lines = $(this).text().split('\n').length;&#13;
+                    var $numbering = $('&lt;ul/&gt;').addClass('pre-numbering').hide();&#13;
+                    $(this).addClass('has-numbering').parent().append($numbering);&#13;
+                    for (i = 1; i &lt;= lines; i++) {&#13;
+                        $numbering.append($('&lt;li/&gt;').text(i));&#13;
+                    };&#13;
+                    $numbering.fadeIn(1700);&#13;
+                });&#13;
+            });&#13;
+        </script>&#13;
+   &#13;

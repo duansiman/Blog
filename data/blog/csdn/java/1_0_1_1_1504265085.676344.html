@@ -1,0 +1,151 @@
+
+
+<span style="font-family:KaiTi_GB2312; font-size:18px">    当今的各种框架：Hibernate、Struts、Spring等，包括EJB，都支持注解形式，注解相比XML配置而言确实更为简洁，先来说说关于注解"what is"的问题。</span>&#13;
+<h1><span style="font-family:KaiTi_GB2312; font-size:18px">注解</span></h1>&#13;
+<p><span style="font-family:KaiTi_GB2312; font-size:18px">    从形式上看，注解是类似注释，它为代码提供了一种新的标识方式，可以在编译器先定义、使用，等到运行时再去解析这些注解对应的含义。在JDK1.5中引入，现在的JDK已经把注解的地位提升到和二进制码相同，当然如果你稍微关注过注解，你应该知道注解解析过程的基础是反射原理。</span></p>&#13;
+<p><span style="font-family:KaiTi_GB2312; font-size:18px">    它为什么可以使用反射原理？对比类加载使用反射可知，</span><span style="font-family:KaiTi_GB2312; font-size:18px">虚拟机在加载class文件时，也会为注解分配空间并解析，最终还会为注解和对应的二进制码建立关联，这就为使用反射提供了基础。</span></p>&#13;
+<p><span style="font-family:KaiTi_GB2312; font-size:18px">    注解只是用于标注，并不会主动运行，也不会影响主代码的逻辑，仅仅起到辅助性的作用，但其对代码的说明能力，结合反射技术已经给了我们很大的想象空间。</span></p>&#13;
+<span style="font-family:KaiTi_GB2312; font-size:18px"><br />&#13;
+    从宏观上看，注解的执行共分为3部分：<br />&#13;
+</span>&#13;
+<ul>&#13;
+<li><span style="font-family:KaiTi_GB2312; font-size:18px">定义注解</span></li><li><span style="font-family:KaiTi_GB2312; font-size:18px">使用注解</span></li><li><span style="font-family:KaiTi_GB2312; font-size:18px">解析注解</span></li></ul>&#13;
+<h2><span style="font-family:KaiTi_GB2312; font-size:18px">    定义注解</span></h2>&#13;
+<p><span style="font-family:KaiTi_GB2312; font-size:18px">    说到定义注解需要先说一下元注解，即定义注解的注解，共有四种：</span><span style="font-family:KaiTi_GB2312; font-size:18px">@Retention @Target @Document @Inherited：</span></p>&#13;
+<p></p>&#13;
+<ul>&#13;
+<li><span style="font-family:KaiTi_GB2312; font-size:18px"><span style="font-family:KaiTi_GB2312; font-size:18px">@Retention：注解的生命时长：编译期、运行期……</span><br />&#13;
+</span></li><li><span style="font-family:KaiTi_GB2312; font-size:18px"><span style="font-family:KaiTi_GB2312; font-size:18px"><span style="font-family:KaiTi_GB2312; font-size:18px">@Target：应用位置:字段、方法、类……</span><br />&#13;
+</span></span></li><li><span style="font-family:KaiTi_GB2312; font-size:18px"><span style="font-family:KaiTi_GB2312; font-size:18px"><span style="font-family:KaiTi_GB2312; font-size:18px"><span style="font-family:KaiTi_GB2312; font-size:18px">@Documented：是否被包含在javadoc中</span><br />&#13;
+</span></span></span></li><li><span style="font-family:KaiTi_GB2312; font-size:18px"><span style="font-family:KaiTi_GB2312; font-size:18px"><span style="font-family:KaiTi_GB2312; font-size:18px"><span style="font-family:KaiTi_GB2312; font-size:18px"><span style="font-family:KaiTi_GB2312; font-size:18px">@Inherited：子类是否可以继承父类该注解</span></span></span></span></span></li></ul>&#13;
+<p></p>&#13;
+<p><span style="font-family:KaiTi_GB2312; font-size:18px"><span style="font-family:KaiTi_GB2312; font-size:18px">    有关这几个元注解的说明不再细说，有兴趣可以查看元注解的源码，位于</span><span style="font-family:KaiTi_GB2312; font-size:18px">java.lang.annotation下，另有部分注解位于javax.annotation下。</span></span></p>&#13;
+<h2><span style="font-family:KaiTi_GB2312; font-size:18px">    使用注解</span></h2>&#13;
+<p><span style="font-family:KaiTi_GB2312; font-size:18px">    使用注解的方式很常见也很简答，如@MyAnnotation(ElementType.RealNew)，将此注解加到类、字段、方法等上即表明此注解关联到该类的指定项上。</span></p>&#13;
+<h2><span style="font-family:KaiTi_GB2312; font-size:18px">    解析注解</span></h2>&#13;
+<p><span style="font-family:KaiTi_GB2312; font-size:18px">    这三步中，其实这是最后也是最关键的一步，上面定义、使用再好，没有一个专门解析注解的类，前面都是白写，解析注解实例会在下面说明，解析的核心步骤是：</span></p>&#13;
+<p></p>&#13;
+<ul>&#13;
+<li><span style="font-family:KaiTi_GB2312; font-size:18px">得到使用注解的类</span></li><li><span style="font-family:KaiTi_GB2312; font-size:18px">使用反射得到类中的字段、方法等</span></li><li><span style="font-family:KaiTi_GB2312; font-size:18px">得到使用了指定注解的方法、字段等，及其注解的值</span></li><li><span style="font-family:KaiTi_GB2312; font-size:18px">编写一个函数，根据注解类型及注解值进行指定操作</span></li></ul>&#13;
+<p></p>&#13;
+<h1><span style="font-family:KaiTi_GB2312; font-size:18px">实例</span></h1>&#13;
+<p><span style="font-family:KaiTi_GB2312; font-size:18px">    根据以上所说，编写了一个注解实例，实例内容为：当检测到House属性中有我们自定义的注解时，向House注入一个Dog。</span></p>&#13;
+<h2><span style="font-family:KaiTi_GB2312; font-size:18px">    文件说明</span></h2>&#13;
+<p></p>&#13;
+<ul>&#13;
+<li><span style="font-family:KaiTi_GB2312; font-size:18px">NewMePolicy：定义一个枚举，指定注解可以使用的参数</span></li><li><span style="font-family:KaiTi_GB2312; font-size:18px">NewMeAnnotation：定义一个注解<br />&#13;
+</span></li><li><span style="font-family:KaiTi_GB2312; font-size:18px">Dog:辅助使用注解的类</span></li><li><span style="font-family:KaiTi_GB2312; font-size:18px">House：使用我们自定义注解的类<br />&#13;
+</span></li><li><span style="font-family:KaiTi_GB2312; font-size:18px">TestAnnotation：解析注解的类<br />&#13;
+</span></li></ul>&#13;
+<p></p>&#13;
+<p></p>&#13;
+<h2><span style="font-family:KaiTi_GB2312; font-size:18px">    NewMePolicy</span></h2>&#13;
+<span style="font-family:KaiTi_GB2312; font-size:18px"></span><pre name="code" class="java">package annotation;
+
+public enum NewMePolicy {
+
+	//使用单例模式获取对象
+	Singleton,
+	//创建新对象
+	RealNew,
+	//忽视此注解
+	Ignore
+}
+</pre>&#13;
+<h2><span style="font-family:KaiTi_GB2312; font-size:18px">    NewMeAnnotation</span></h2>&#13;
+<div><span style="font-family:KaiTi_GB2312; font-size:18px"></span><pre name="code" class="java">package annotation;
+
+import java.lang.annotation.Documented;
+import java.lang.annotation.ElementType;
+import java.lang.annotation.Retention;
+import java.lang.annotation.RetentionPolicy;
+import java.lang.annotation.Target;
+
+@Documented
+@Retention(RetentionPolicy.RUNTIME)
+@Target(ElementType.FIELD)
+public @interface NewMeAnnotation {
+	NewMePolicy category();
+	public String className();
+}</pre></div>&#13;
+<h2><span style="font-family:KaiTi_GB2312; font-size:18px">    House</span></h2>&#13;
+<p></p>&#13;
+<pre name="code" class="java">package annotation;
+
+public class House {
+
+	@NewMeAnnotation(category=NewMePolicy.RealNew,className="annotation.Dog")
+	private Class&lt;?&gt; cat;
+	
+	private String other;
+        
+        // 省略getter和setter方法
+
+}</pre>&#13;
+<h2><span style="font-family:KaiTi_GB2312; font-size:18px">    TestAnnotation</span></h2>&#13;
+<p></p>&#13;
+<pre name="code" class="java">package annotation;
+
+import java.lang.annotation.Annotation;
+import java.lang.reflect.Field;
+import java.util.HashMap;
+
+public class TestAnnotation {
+
+	public static void main(String [] args) throws ClassNotFoundException, InstantiationException, IllegalAccessException
+	{
+		//定义一个临时的HashMap，用于保存所有涉及到的用户自定义类实例
+		HashMap&lt;String, Object&gt; temp=new HashMap&lt;String, Object&gt;();
+		//定义另外一个HashMap，用于保存处理过的用户自定义类实例
+		HashMap&lt;String, Object&gt; objMap=new HashMap&lt;String, Object&gt;();
+		//加载House类
+		Class&lt;?&gt; uaClass=Class.forName("annotation.House");
+		//利用反射得到其所有的属性
+		Field[] fields=uaClass.getDeclaredFields();
+		//遍历得到的属性
+		for (Field field:fields) {
+			//该字段是否使用了我们自定义的注解
+			boolean hasAnnotation=field.isAnnotationPresent((Class&lt;? extends Annotation&gt;) NewMeAnnotation.class);
+			if (hasAnnotation) {
+				//得到有NewMeAnnotation注解的字段
+				NewMeAnnotation annotations=field.getAnnotation(NewMeAnnotation.class);
+				//打印查看注解实例化的策略
+				System.out.println("注入的策略为: "+annotations.category());
+				//打印要注入的内容
+				System.out.println("注入的类为： "+annotations.className());
+				if (NewMePolicy.RealNew.equals(annotations.category())) {
+					//找到对应的类，实例化
+					Class&lt;?&gt; cat=Class.forName(annotations.className().toString());
+					House house= (House) uaClass.newInstance();
+					//将两个类的实例保存到temp中
+					temp.put(uaClass.toString(), house);
+					temp.put(Dog.class.toString(), cat);
+					//注入实例
+					house.setCat(cat);
+					//保存定义好的UseAnnotation实例
+					objMap.put(uaClass.toString(), house);
+				}
+				
+				System.out.println("类： "+uaClass+"已经完成初始化");
+			}
+			else {
+				System.out.println("字段:"+field+" 没有NewMeAnnotation注解!");
+			}
+		}
+	}
+}
+</pre>&#13;
+<h2><span style="font-family:KaiTi_GB2312; font-size:18px">    控制台输出</span></h2>&#13;
+<p><span style="font-family:KaiTi_GB2312; font-size:18px"></span></p>&#13;
+<pre name="code" class="java">注入的策略为: RealNew
+注入的类为： annotation.Dog
+类： class annotation.House已经完成初始化
+字段:private java.lang.String annotation.House.other 没有NewMeAnnotation注解!</pre>&#13;
+<p></p>&#13;
+<p><span style="font-family:KaiTi_GB2312; font-size:18px">    可以看到，我们可以使用反射获取到字段，及字段的注解，根据注解内容，我们可以动态的将注解规定的类Dog注入到House中，当然这个例子在解析的时候还不是很全，比如没有解析如果注解的category为singleton、Ignore时如何处理，但是作为一个解释注解的例子，我认为足够了。</span></p>&#13;
+<h1><span style="font-family:KaiTi_GB2312; font-size:18px">总结</span></h1>&#13;
+<p><span style="font-family:KaiTi_GB2312; font-size:18px">    这个注解的例子是使用setter将一个bean注入到另外一个bean中，有没有觉得有些眼熟，对Spring，稍后的文章会解释Spring是如何根据注解管理bean之间的关系。</span></p>&#13;
+<p></p>&#13;
+<p><br />&#13;
+</p>&#13;
+   &#13;

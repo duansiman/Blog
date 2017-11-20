@@ -1,0 +1,1611 @@
+
+        <div class="markdown_views"><blockquote>
+  <p class="cye-lm-tag">本文介绍了系统调用的一些实现细节。首先分析了系统调用的意义，它们与库函数和应用程序接口(API)有怎样的关系。然后，我们考察了Linux内核如何实现系统调用，以及执行系统调用的连锁反应：陷入内核，传递系统调用号和参数，执行正确的系统调用函数，并把返回值带回用户空间。最后讨论了如何增加系统调用，并提供了从用户空间访问系统调用的简单例子。 <br />
+  参考 <a href="http://www.cnblogs.com/wang_yb/archive/2012/09/17/2688263.html">《Linux内核设计与实现》读书笔记(五)- 系统调用</a></p>
+</blockquote>
+
+<h1 id="系统调用概述">系统调用概述</h1>
+
+<hr />
+
+<p class="cye-lm-tag">计算机系统的各种硬件资源是有限的，在现代多任务操作系统上同时运行的多个进程都需要访问这些资源，为了更好的管理这些资源进程是不允许直接操作的，所有对这些资源的访问都必须有操作系统控制。也就是说操作系统是使用这些资源的唯一入口，而这个入口就是操作系统提供的<strong>系统调用（System Call）</strong>。在linux中系统调用是用户空间访问内核的唯一手段，除异常和陷入外，他们是内核唯一的合法入口。</p>
+
+<p class="cye-lm-tag">一般情况下应用程序通过应用编程接口API，而不是直接通过系统调用来编程。在Unix世界，最流行的API是基于POSIX标准的。</p>
+
+<p class="cye-lm-tag">操作系统一般是通过中断从用户态切换到内核态。中断就是一个硬件或软件请求，要求CPU暂停当前的工作，去处理更重要的事情。比如，在x86机器上可以通过int指令进行软件中断，而在磁盘完成读写操作后会向CPU发起硬件中断。</p>
+
+<p class="cye-lm-tag">中断有两个重要的属性，中断号和中断处理程序。中断号用来标识不同的中断，不同的中断具有不同的中断处理程序。在操作系统内核中维护着一个中断向量表（Interrupt Vector Table），这个数组存储了所有中断处理程序的地址，而中断号就是相应中断在中断向量表中的偏移量。</p>
+
+<p class="cye-lm-tag">一般地，系统调用都是通过软件中断实现的，x86系统上的软件中断由int $0x80指令产生，而128号异常处理程序就是系统调用处理程序system_call()，它与硬件体系有关，在entry.S中用汇编写。接下来就来看一下Linux下系统调用具体的实现过程。</p>
+
+
+
+<h2 id="为什么需要系统调用">为什么需要系统调用</h2>
+
+<hr />
+
+<p class="cye-lm-tag">linux内核中设置了一组用于实现系统功能的子程序，称为系统调用。系统调用和普通库函数调用非常相似，只是系统调用由操作系统核心提供，运行于<strong>内核态</strong>，而普通的函数调用由函数库或用户自己提供，运行于<strong>用户态</strong>。</p>
+
+<p class="cye-lm-tag">一般的，进程是不能访问内核的。它不能访问内核所占内存空间也不能调用内核函数。CPU硬件决定了这些（这就是为什么它被称作<strong>“保护模式”</strong>（详细参见<a href="http://blog.csdn.net/gatieme/article/details/50646461">深入理解计算机系统-之-内存寻址（二）–存储保护机制（CPU实模式与保护模式）</a>））。</p>
+
+<p class="cye-lm-tag">为了和用户空间上运行的进程进行交互，内核提供了一组接口。透过该接口，应用程序可以访问硬件设备和其他操作系统资源。这组接口在应用程序和内核之间扮演了使者的角色，应用程序发送各种请求，而内核负责满足这些请求(或者让应用程序暂时搁置)。实际上提供这组接口主要是为了保证系统稳定可靠，避免应用程序肆意妄行，惹出大麻烦。</p>
+
+<p class="cye-lm-tag">系统调用在用户空间进程和硬件设备之间添加了一个中间层。该层主要作用有三个：</p>
+
+<ul>
+<li><p class="cye-lm-tag">它为用户空间提供了一种统一的硬件的抽象接口。比如当需要读些文件的时候，应用程序就可以不去管磁盘类型和介质，甚至不用去管文件所在的文件系统到底是哪种类型。</p></li>
+<li><p class="cye-lm-tag">系统调用保证了系统的稳定和安全。作为硬件设备和应用程序之间的中间人，内核可以基于权限和其他一些规则对需要进行的访问进行裁决。举例来说，这样可以避免应用程序不正确地使用硬件设备，窃取其他进程的资源，或做出其他什么危害系统的事情。</p></li>
+<li><p class="cye-lm-tag">每个进程都运行在虚拟系统中，而在用户空间和系统的其余部分提供这样一层公共接口，也是出于这种考虑。如果应用程序可以随意访问硬件而内核又对此一无所知的话，几乎就没法实现多任务和虚拟内存，当然也不可能实现良好的稳定性和安全性。在Linux中，系统调用是用户空间访问内核的惟一手段；除异常和中断外，它们是内核惟一的合法入口。</p></li>
+</ul>
+
+
+
+<h2 id="apiposixc库的区别与联系">API/POSIX/C库的区别与联系</h2>
+
+<hr />
+
+<p class="cye-lm-tag">一般情况下，应用程序通过应用编程接口(API)而不是直接通过系统调用来编程。这点很重要，因为应用程序使用的这种编程接口实际上并不需要和内核提供的系统调用一一对应。</p>
+
+<blockquote>
+  <p class="cye-lm-tag">一个API定义了一组应用程序使用的编程接口。它们可以实现成一个系统调用，也可以通过调用多个系统调用来实现，而完全不使用任何系统调用也不存在问题。实际上，API可以在各种不同的操作系统上实现，给应用程序提供完全相同的接口，而它们本身在这些系统上的实现却可能迥异。</p>
+</blockquote>
+
+<p class="cye-lm-tag">在Unix世界中，最流行的应用编程接口是基于POSIX标准的，其目标是提供一套大体上基于Unix的可移植操作系统标准。POSIX是说明API和系统调用之间关系的一个极好例子。在大多数Unix系统上，根据POSIX而定义的API函数和系统调用之间有着直接关系。</p>
+
+<p class="cye-lm-tag">Linux的系统调用像大多数Unix系统一样，作为C库的一部分提供如下图所示。C库实现了 Unix系统的主要API，包括标准C库函数和系统调用。所有的C程序都可以使用C库，而由于C语言本身的特点，其他语言也可以很方便地把它们封装起来使用。</p>
+
+<p class="cye-lm-tag">从程序员的角度看，系统调用无关紧要，他们只需要跟API打交道就可以了。相反，内核只跟系统调用打交道；库函数及应用程序是怎么使用系统调用不是内核所关心的。</p>
+
+<p class="cye-lm-tag">关于Unix的界面设计有一句通用的格言“提供机制而不是策略”。换句话说，Unix的系统调用抽象出了用于完成某种确定目的的函数。至干这些函数怎么用完全不需要内核去关心。区别对待机制(mechanism)和策略(policy)是Unix设计中的一大亮点。大部分的编程问题都可以被切割成两个部分:“需要提供什么功能”(机制)和“怎样实现这些功能”(策略)。</p>
+
+
+
+<h3 id="区别">区别</h3>
+
+<hr />
+
+<p class="cye-lm-tag">api是函数的定义，规定了这个函数的功能，跟内核无直接关系。而系统调用是通过中断向内核发请求，实现内核提供的某些服务。</p>
+
+
+
+<h3 id="联系">联系</h3>
+
+<hr />
+
+<p class="cye-lm-tag">一个api可能会需要一个或多个系统调用来完成特定功能。通俗点说就是如果这个api需要跟内核打交道就需要系统调用，否则不需要。 <br />
+程序员调用的是API（API函数），然后通过与系统调用共同完成函数的功能。 <br />
+因此，API是一个提供给应用程序的接口，一组函数，是与程序员进行直接交互的。 <br />
+系统调用则不与程序员进行交互的，它根据API函数，通过一个软中断机制向内核提交请求，以获取内核服务的接口。 <br />
+   并不是所有的API函数都一一对应一个系统调用，有时，一个API函数会需要几个系统调用来共同完成函数的功能，甚至还有一些API函数不需要调用相应的系统调用（因此它所完成的不是内核提供的服务）</p>
+
+
+
+<h1 id="系统调用的实现原理">系统调用的实现原理</h1>
+
+<hr />
+
+
+
+<h2 id="基本机制">基本机制</h2>
+
+<hr />
+
+<p class="cye-lm-tag">前文已经提到了Linux下的系统调用是通过0x80实现的，但是我们知道操作系统会有多个系统调用（Linux下有319个系统调用），而对于同一个中断号是如何处理多个不同的系统调用的？最简单的方式是对于不同的系统调用采用不同的中断号，但是中断号明显是一种稀缺资源，Linux显然不会这么做；还有一个问题就是系统调用是需要提供参数，并且具有返回值的，这些参数又是怎么传递的？也就是说，对于系统调用我们要搞清楚两点：</p>
+
+<ol>
+<li>系统调用的函数名称转换。</li>
+<li>系统调用的参数传递。</li>
+</ol>
+
+<p class="cye-lm-tag">首先看第一个问题。实际上，Linux中每个系统调用都有相应的系统调用号作为唯一的标识，内核维护一张系统调用表，sys_call_table，表中的元素是系统调用函数的起始地址，而系统调用号就是系统调用在调用表的偏移量。在x86上，系统调用号是通过eax寄存器传递给内核的。比如fork（）的实现：</p>
+
+<p class="cye-lm-tag">用户空间的程序无法直接执行内核代码。它们不能直接调用内核空间中的函数，因为内核驻留在受保护的地址空间上。如果进程可以直接在内核的地址空间上读写的话，系统安全就会失去控制。所以，应用程序应该以某种方式通知系统，告诉内核自己需要执行一个系统调用，希望系统切换到内核态，这样内核就可以代表应用程序来执行该系统调用了。</p>
+
+<p class="cye-lm-tag">通知内核的机制是靠软件中断实现的。首先，用户程序为系统调用设置参数。其中一个参数是系统调用编号。参数设置完成后，程序执行“系统调用”指令。x86系统上的软中断由int产生。这个指令会导致一个异常：产生一个事件，这个事件会致使处理器切换到内核态并跳转到一个新的地址，并开始执行那里的异常处理程序。此时的异常处理程序实际上就是系统调用处理程序。它与硬件体系结构紧密相关。</p>
+
+<p class="cye-lm-tag">新地址的指令会保存程序的状态，计算出应该调用哪个系统调用，调用内核中实现那个系统调用的函数，恢复用户程序状态，然后将控制权返还给用户程序。系统调用是设备驱动程序中定义的函数最终被调用的一种方式。</p>
+
+<p class="cye-lm-tag">从系统分析的角度，linux的系统调用涉及4个方面的问题。</p>
+
+
+
+<h2 id="响应函数sysxxx">响应函数<code>sys_xxx</code></h2>
+
+<hr />
+
+<p class="cye-lm-tag">响应函数名以“sys_”开头，后跟该系统调用的名字。</p>
+
+<blockquote>
+  <p class="cye-lm-tag">例如</p>
+  
+  <p class="cye-lm-tag">系统调用<code>fork()</code>的响应函数是<code>sys_fork()</code>(见<code>Kernel/fork.c</code>),</p>
+  
+  <p class="cye-lm-tag"><code>exit()</code>的响应函数是<code>sys_exit()</code>(见<code>kernel/fork.</code>)。</p>
+</blockquote>
+
+
+
+<h2 id="系统调用表与系统调用号-数组与下标">系统调用表与系统调用号-=&gt;数组与下标</h2>
+
+<hr />
+
+<p class="cye-lm-tag">文件<code>include/asm/unisted.h</code>为每个系统调用规定了唯一的编号。 <br />
+<img src="http://img.blog.csdn.net/20160302213023129" alt="系统调用号" title="" /></p>
+
+<blockquote>
+  <p class="cye-lm-tag">在我们系统中/usr/include/asm/unistd_32.h，可以通过find / -name unistd_32.h -print查找） <br />
+  而内核中的头文件路径不同的内核版本以及不同的发行版，文件的存储结构可能有所区别</p>
+  
+  <p class="cye-lm-tag"><img src="http://img.blog.csdn.net/20160302150738413" alt="linux-3.0" title="" /> <br />
+  <img src="http://img.blog.csdn.net/20160302135941480" alt="这里写图片描述" title="" /></p>
+  
+  <p class="cye-lm-tag"><img src="http://img.blog.csdn.net/20160302150802710" alt="linux-2.6" title="" /></p>
+  
+  <p class="cye-lm-tag"><img src="http://img.blog.csdn.net/20160302151133242" alt="这里写图片描述" title="" /></p>
+</blockquote>
+
+<p class="cye-lm-tag">假设用name表示系统调用的名称，那么系统调用号与系统调用响应函数的关系是：以系统调用号<code>_NR_name</code>作为下标，可找出系统调用表<code>sys_call_table</code>(见<code>arch/i386/kernel/entry.S</code>)中对应表项的内容，它正好是该系统调用的响应函数<code>sys_name</code>的入口地址。</p>
+
+<p class="cye-lm-tag">系统调用表<code>sys_call_table</code>记录了各<code>sys_name</code>函数在表中的位置，共190项。有了这张表，就很容易根据特定系统调用</p>
+
+<p class="cye-lm-tag"><img src="http://img.blog.csdn.net/20160302212621845" alt="sys_call_table" title="" /></p>
+
+<p class="cye-lm-tag">在表中的偏移量，找到对应的系统调用响应函数的入口地址。系统调用表共256项，余下的项是可供用户自己添加的系统调用空间。</p>
+
+<p class="cye-lm-tag">在Linux中，每个系统调用被赋予一个系统调用号。这样，通过这个独一无二的号就可以关联系统调用。当用户空间的进程执行一个系统调用的时候，这个系统调用号就被用来指明到底是要执行哪个系统调用。进程不会提及系统调用的名称。</p>
+
+<p class="cye-lm-tag">系统调用号相当关键，一旦分配就不能再有任何变更，否则编译好的应用程序就会崩溃。Linux有一个“未实现”系统调用<code>sys_ni_syscall()</code>，它除了返回一<code>ENOSYS</code>外不做任何其他工作，这个错误号就是专门针对无效的系统调用而设的。</p>
+
+<p class="cye-lm-tag">因为所有的系统调用陷入内核的方式都一样，所以仅仅是陷入内核空间是不够的。因此必须把系统调用号一并传给内核。在<code>x86</code>上，系统调用号是通过<code>eax</code>寄存器传递给内核的。在陷人内核之前，用户空间就把相应系统调用所对应的号放入<code>eax</code>中了。这样系统调用处理程序一旦运行，就可以从<code>eax</code>中得到数据。其他体系结构上的实现也都类似。</p>
+
+<p class="cye-lm-tag">内核记录了系统调用表中的所有已注册过的系统调用的列表，存储在<code>sys_call_table</code>中。它与体系结构有关，一般在<code>entry.s</code>中定义。这个表中为每一个有效的系统调用指定了惟一的系统调用号。<code>sys_call_table</code>是一张由指向实现各种系统调用的内核函数的函数指针组成的表： <br />
+<code>system_call()</code>函数通过将给定的系统调用号与<code>NR_syscalls</code>做比较来检查其有效性。如果它大于或者等于<code>NR syscalls</code>,该函数就返回一<code>ENOSYS</code>。否则，就执行相应的系统调用。 <br />
+<img src="http://img.blog.csdn.net/20160302214327744" alt="这里写图片描述" title="" /></p>
+
+
+
+<pre class="prettyprint"><code class=" hljs sql">      <span class="hljs-operator cye-lm-tag"><span class="hljs-keyword cye-lm-tag">call</span> *sys_ <span class="hljs-keyword cye-lm-tag">call</span>-<span class="hljs-keyword cye-lm-tag">table</span>(，%eax, <span class="hljs-number cye-lm-tag">4</span>)</span></code></pre>
+
+<blockquote>
+  <p class="cye-lm-tag">由于系统调用表中的表项是以32位(4字节)类型存放的，所以内核需要将给定的系统调用号乘以4，然后用所得的结果在该表中查询其位置</p>
+</blockquote>
+
+
+
+<h2 id="进程的系统调用命令转换为int-0x80中断的过程">进程的系统调用命令转换为INT 0x80中断的过程</h2>
+
+<hr />
+
+<p class="cye-lm-tag">宏定义<code>_syscallN()</code>见<code>include/asm/unisted.h</code>)用于系统调用的格式转换和参数的传递。N取0~5之间的整数。</p>
+
+<p class="cye-lm-tag">参数个数为N的系统调用由_syscallN()负责格式转换和参数传递。系统调用号放入EAX寄存器，启动INT 0x80后，规定返回值送EAX寄存器。</p>
+
+
+
+<h2 id="系统调用功能模块的初始化">系统调用功能模块的初始化</h2>
+
+<hr />
+
+<p class="cye-lm-tag">对系统调用的初始化也就是对<code>INT 0x80</code>的初始化。</p>
+
+<p class="cye-lm-tag">系统启动时，汇编子程序<code>setup_idt</code>(见<code>arch/i386/kernel/head.S</code>)准备了1张256项的idt表，由<code>start_kernel()</code>(见<code>init/main.c),trap_init()</code>(见<code>arch/i386/kernel/traps.c</code>)调用的C语言宏定义<code>set_system_gate(0x80,&amp;system_call)</code>(见<code>include/asm/system.h</code>)设置<code>0x80</code>号软中断的服务程序为 system_call(见<code>arch/i386/kernel/entry.S</code>), <code>system.call</code>就是所有系统调用的总入口。</p>
+
+
+
+<h2 id="内核如何为各种系统调用服务">内核如何为各种系统调用服务</h2>
+
+<hr />
+
+<p class="cye-lm-tag">当进程需要进行系统调用时，必须以C语言函数的形式写一句系统调用命令。该命令如果已在某个头文件中由相应的<code>_syscallN()</code>展开，则用户程序必须包含该文件。当进程执行到用户程序的系统调用命令时，实际上执行了由宏命令_syscallN()展开的函数。系统调用的参数 由各通用寄存器传递，然后执行INT 0x80，以内核态进入入口地址<code>system_call</code>。</p>
+
+
+
+<h2 id="retfromsyscall"><code>ret_from_sys_call</code></h2>
+
+<hr />
+
+<p class="cye-lm-tag">以<code>ret_from_sys_call</code>入口的汇编程序段在<code>linux</code>进程管理中起到了十分重要的作用。</p>
+
+<p class="cye-lm-tag">所有系统调用结束前以及大部分中断服务返回前，都会跳转至此处入口地址。 该段程序不仅仅为系统调用服务，它还处理中断嵌套、CPU调度、信号等事务。</p>
+
+
+
+<h2 id="内核如何为系统调用的参数传递参数">内核如何为系统调用的参数传递参数</h2>
+
+<hr />
+
+
+
+<h3 id="参数传递">参数传递</h3>
+
+<hr />
+
+<p class="cye-lm-tag">除了系统调用号以外，大部分系统调用都还需要一些外部的参数输人。所以，在发生异常的时候，应该把这些参数从用户空间传给内核。最简单的办法就是像传递系统调用号一样把这些参数也存放在寄存器里。在x86系统上，<code>ebx</code>, <code>ecx</code>, <code>edx</code>, <code>esi</code>和<code>edi</code>按照顺序存放前五个参数。需要六个或六个以上参数的情况不多见，此时，应该用一个单独的寄存器存放指向所有这些参数在用户空间地址的指针。</p>
+
+<p class="cye-lm-tag">给用户空间的返回值也通过寄存器传递。在x86系统上，它存放在eax寄存器中。接下来许多关于系统调用处理程序的描述都是针对x86版本的。但不用担心，所有体系结构的实现都很类似。</p>
+
+
+
+<h3 id="参数验证">参数验证</h3>
+
+<hr />
+
+<p class="cye-lm-tag">系统调用必须仔细检查它们所有的参数是否合法有效。举例来说，与文件I/O相关的系统调用必须检查文件描述符是否有效。与进程相关的函数必须检查提供的PID是否有效。必须检查每个参数，保证它们不但合法有效，而且正确。</p>
+
+<p class="cye-lm-tag">最重要的一种检查就是检查用户提供的指针是否有效。试想，如果一个进程可以给内核传递指针而又无须被检查，那么它就可以给出一个它根本就没有访问权限的指针，哄骗内核去为它拷贝本不允许它访问的数据，如原本属于其他进程的数据。在接收一个用户空间的指针之前，内核必须保证：</p>
+
+<ul>
+<li><p class="cye-lm-tag">指针指向的内存区域属于用户空间。进程决不能哄骗内核去读内核空间的数据。</p></li>
+<li><p class="cye-lm-tag">指针指向的内存区域在进程的地址空间里。进程决不能哄骗内核去读其他进程的数据。</p></li>
+<li><p class="cye-lm-tag">如果是读，该内存应被标记为可读。如果是写，该内存应被标记为可写。进程决不能绕过内存访问限制。</p></li>
+</ul>
+
+<p class="cye-lm-tag">内核提供了两个方法来完成必须的检查和内核空间与用户空间之间数据的来回拷贝。注意，内核无论何时都不能轻率地接受来自用户空间的指针!这两个方法中必须有一个被调用。为了向用户空间写入数据，内核提供了<code>copy_to_user()</code>，它需要三个参数。第一个参数是进程空间中的目的内存地址。第二个是内核空间内的源地址。最后一个参数是需要拷贝的数据长度(字节数)。</p>
+
+<p class="cye-lm-tag">为了从用户空间读取数据，内核提供了<code>copy_from_ user()</code>，它和<code>copy-to-User()</code>相似。该函数把第二个参数指定的位置上的数据拷贝到第一个参数指定的位置上，拷贝的数据长度由第三个参数决定。</p>
+
+<p class="cye-lm-tag">如果执行失败，这两个函数返回的都是没能完成拷贝的数据的字节数。如果成功，返回0。当出现上述错误时，系统调用返回标准-EFAULT。</p>
+
+<p class="cye-lm-tag">注意<code>copy_to_user()</code>和<code>copy_from_user()</code>都有可能引起阻塞。当包含用户数据的页被换出到硬盘上而不是在物理内存上的时候，这种情况就会发生。此时，进程就会休眠，直到缺页处理程序将该页从硬盘重新换回物理内存。</p>
+
+
+
+<h2 id="系统调用的返回值">系统调用的返回值</h2>
+
+<hr />
+
+<p class="cye-lm-tag">系统调用(在Linux中常称作syscalls)通常通过函数进行调用。它们通常都需要定义一个或几个参数(输入)而且可能产生一些副作用，例如写某个文件或向给定的指针拷贝数据等等。为防止和正常的返回值混淆，系统调用并不直接返回错误码，而是将错误码放入一个名为errno的全局变量中。通常用一个负的返回值来表明错误。返回一个0值通常表明成功。如果一个系统调用失败，你可以读出errno的值来确定问题所在。通过调用perror()库函数，可以把该变量翻译成用户可以理解的错误字符串。</p>
+
+<p class="cye-lm-tag"><code>errno</code>不同数值所代表的错误消息定义在<code>errno.h</code>中，你也可以通过命令”man 3 errno”来察看它们。需要注意的是，<code>errno</code>的值只在函数发生错误时设置，如果函数不发生错误，<code>errno</code>的值就无定义，并不会被置为0。另外，在处理<code>errno</code>前最好先把它的值存入另一个变量，因为在错误处理过程中，即使像<code>printf()</code>这样的函数出错时也会改变<code>errno</code>的值。</p>
+
+<p class="cye-lm-tag">当然，系统调用最终具有一种明确的操作。举例来说，如getpid()系统调用，根据定义它会返回当前进程的PID。内核中它的实现非常简单:</p>
+
+
+
+<pre class="prettyprint"><code class=" hljs cs">asmlinkage <span class="hljs-keyword cye-lm-tag">long</span> sys_ getpid(<span class="hljs-keyword cye-lm-tag">void</span>)
+{
+    <span class="hljs-keyword cye-lm-tag">return</span> current-&gt; tgid;
+}</code></pre>
+
+<p class="cye-lm-tag">上述的系统调用尽管非常简单，但我们还是可以从中发现两个特别之处。首先，注意函数声明中的asmlinkage限定词，这是一个小戏法，用于通知编译器仅从栈中提取该函数的参数。所有的系统调用都需要这个限定词。其次，注意系统调用get_pid()在内核中被定义成sys_ getpid。这是Linux中所有系统调用都应该遵守的命名规则。</p>
+
+
+
+<h1 id="访问系统调用">访问系统调用</h1>
+
+<hr />
+
+
+
+<h2 id="系统调用上下文">系统调用上下文</h2>
+
+<hr />
+
+<p class="cye-lm-tag">内核在执行系统调用的时候处于进程上下文。<code>current</code>指针指向当前任务，即引发系统调用的那个进程。</p>
+
+<p class="cye-lm-tag">在进程上下文中，内核可以休眠并且可以被抢占。这两点都很重要。首先，能够休眠说明系统调用可以使用内核提供的绝大部分功能。休眠的能力会给内核编程带来极大便利。在进程上下文中能够被抢占，其实表明，像用户空间内的进程一样，当前的进程同样可以被其他进程抢占。因为新的进程可以使用相同的系统调用，所以必须小心，保证该系统调用是可重人的。当然，这也是在对称多处理中必须同样关心的问题。</p>
+
+<p class="cye-lm-tag">当系统调用返回的时候，控制权仍然在<code>system_call()</code>中，它最终会负责切换到用户空间并让用户进程继续执行下去。</p>
+
+
+
+<h2 id="系统调用访问示例">系统调用访问示例</h2>
+
+<hr />
+
+<p class="cye-lm-tag">操作系统使用系统调用表将系统调用编号翻译为特定的系统调用。系统调用表包含有实现每个系统调用的函数的地址。例如，<code>read()</code> 系统调用函数名为<code>sys_read</code>。<code>read()</code>系统调用编号是 3，所以<code>sys_read()</code> 位于系统调用表的第四个条目中（因为系统调用起始编号为0）。从地址 <code>sys_call_table + (3 * word_size)</code> 读取数据，得到<code>sys_read()</code>的地址。</p>
+
+<p class="cye-lm-tag">找到正确的系统调用地址后，它将控制权转交给那个系统调用。我们来看定义<code>sys_read()</code>的位置，即<code>fs/read_write.c</code>文件。这个函数会找到关联到 fd 编号（传递给 read() 函数的）的文件结构体。那个结构体包含指向用来读取特定类型文件数据的函数的指针。进行一些检查后，它调用与文件相关的 read() 函数，来真正从文件中读取数据并返回。与文件相关的函数是在其他地方定义的 —— 比如套接字代码、文件系统代码，或者设备驱动程序代码。这是特定内核子系统最终与内核其他部分协作的一个方面。</p>
+
+<p class="cye-lm-tag">读取函数结束后，从<code>sys_read()</code>返回，它将控制权切换给 <code>ret_from_sys</code>。它会去检查那些在切换回用户空间之前需要完成的任务。如果没有需要做的事情，那么就恢复用户进程的状态，并将控制权交还给用户程序。</p>
+
+
+
+<h2 id="从用户空间直接访问系统调用">从用户空间直接访问系统调用</h2>
+
+<hr />
+
+<p class="cye-lm-tag">通常，系统调用靠C库支持。用户程序通过包含标准头文件并和C库链接，就可以使用系统调用(或者调用库函数，再由库函数实际调用)。但如果你仅仅写出系统调用，glibc库恐怕并不提供支持。值得庆幸的是，Linux本身提供了一组宏，用于直接对系统调用进行访问。它会设置好寄存器并调用陷人指令。这些宏是<code>_syscalln()</code>，其中n的范围从0到6。代表需要传递给系统调用的参数个数，这是由于该宏必须了解到底有多少参数按照什么次序压入寄存器。举个例子，open()系统调用的定义是:</p>
+
+
+
+<pre class="prettyprint"><code class=" hljs cs"><span class="hljs-keyword cye-lm-tag">long</span> open(<span class="hljs-keyword cye-lm-tag">const</span> <span class="hljs-keyword cye-lm-tag">char</span> *filename, <span class="hljs-keyword cye-lm-tag">int</span> flags, <span class="hljs-keyword cye-lm-tag">int</span> mode)</code></pre>
+
+<p class="cye-lm-tag">而不靠库支持，直接调用此系统调用的宏的形式为:</p>
+
+
+
+<pre class="prettyprint"><code class=" hljs cs"><span class="hljs-preprocessor cye-lm-tag">#<span class="hljs-keyword cye-lm-tag">define</span> NR_ open 5</span>
+syscall3(<span class="hljs-keyword cye-lm-tag">long</span>, open, <span class="hljs-keyword cye-lm-tag">const</span> <span class="hljs-keyword cye-lm-tag">char</span>*，filename, <span class="hljs-keyword cye-lm-tag">int</span>, flags, <span class="hljs-keyword cye-lm-tag">int</span>, mode)</code></pre>
+
+<p class="cye-lm-tag">这样，应用程序就可以直接使用<code>open()</code> <br />
+对于每个宏来说，都有2+ n个参数。 <br />
+第一个参数对应着系统调用的返回值类型。 <br />
+第二个参数是系统调用的名称。再以后是按照系统调用参数的顺序排列的每个参数的类型和名称。 <br />
+<code>_NR_ open</code>在<code>&lt;asm/unistd.h&gt;</code>中定义，是系统调用号。该宏会被扩展成为内嵌汇编的C函数。由汇编语言执行前一节所讨论的步骤，将系统调用号和参数压入寄存器并触发软中断来陷入内核。调用<code>open()</code>系统调用直接把上面的宏放置在应用程序中就可以了。</p>
+
+<p class="cye-lm-tag">让我们写一个宏来使用前面编写的foo()系统调用，然后再写出测试代码炫耀一下我们所做的努力。</p>
+
+
+
+<pre class="prettyprint"><code class=" hljs d">#define NR foo <span class="hljs-number cye-lm-tag">283</span>
+_sysca110(<span class="hljs-built_in cye-lm-tag">long</span>, foo)
+<span class="hljs-keyword cye-lm-tag">int</span> main()
+{
+<span class="hljs-built_in cye-lm-tag">long</span> stack size;
+stack_ size=foo();
+printf(<span class="hljs-string cye-lm-tag">"The kernel stack
+size is 81d/n"</span>，stack_ size);
+<span class="hljs-keyword cye-lm-tag">return</span>;
+}</code></pre>
+
+
+
+<h1 id="添加系统调用">添加系统调用</h1>
+
+<hr />
+
+
+
+<h2 id="通过修改内核源代码添加系统调用">通过修改内核源代码添加系统调用</h2>
+
+<hr />
+
+
+
+<h3 id="linux-26">linux-2.6.*</h3>
+
+<hr />
+
+<p class="cye-lm-tag">通过以上分析linux系统调用的过程，</p>
+
+<p class="cye-lm-tag">将自己的系统调用加到内核中就是一件容易的事情。下面介绍一个实际的系统调用，</p>
+
+<p class="cye-lm-tag">并把它加到内核中去。要增加的系统调用是：inttestsyscall()，其功能是在控制终端屏幕上显示hello world，</p>
+
+<p class="cye-lm-tag">执行成功后返回0。</p>
+
+
+
+<h4 id="编写int-testsyscall系统调用响应函数">编写int testsyscall()系统调用–响应函数</h4>
+
+<hr />
+
+<p class="cye-lm-tag">编写一个系统调用意味着要给内核增加1个函数，将新函数放入文件kernel/sys.c中。新函数代码如下：</p>
+
+
+
+<pre class="prettyprint"><code class=" hljs lua">asmlingkage sys_testsyscall()
+{ 
+    <span class="hljs-built_in cye-lm-tag">print</span>(<span class="hljs-string cye-lm-tag">"hello world\n"</span>);    
+    <span class="hljs-keyword cye-lm-tag">return</span> <span class="hljs-number cye-lm-tag">0</span>;
+ }</code></pre>
+
+
+
+<h4 id="添加系统调用号">添加系统调用号</h4>
+
+<hr />
+
+<p class="cye-lm-tag">编写了新的系统调用过程后，下一项任务是使内核的其余部分知道这一程序的存在，然后重建包含新的系统调用的内核。为了把新的函数连接到已有的内核中去， 需要编辑2个文件：</p>
+
+<p class="cye-lm-tag">1).inculde/asm/unistd.h在这个文件中加入</p>
+
+
+
+<pre class="prettyprint"><code class=" hljs vala"><span class="hljs-preprocessor cye-lm-tag">#define_NR_testsyscall 191</span></code></pre>
+
+
+
+<h4 id="系统调用表中添加对应项">系统调用表中添加对应项</h4>
+
+<hr />
+
+<p class="cye-lm-tag">2).are/i386/kernel/entry.s这个文件用来对指针数组初始化，在这个文件中增加一行：</p>
+
+
+
+<pre class="prettyprint"><code class=" hljs cs"> .<span class="hljs-keyword cye-lm-tag">long</span> SYMBOL_NAME(_sys_tsetsycall)</code></pre>
+
+<p class="cye-lm-tag">将<code>.rept NR_syscalls-190</code>改为<code>NR_SYSCALLS-191</code>,然后重新编译和运行新内核。</p>
+
+
+
+<h4 id="使用新的系统调用">使用新的系统调用</h4>
+
+<hr />
+
+<p class="cye-lm-tag">在保证的C语言库中没有新的系统调用的程序段，必须自己建立其代码如下</p>
+
+
+
+<pre class="prettyprint"><code class=" hljs vala"><span class="hljs-preprocessor cye-lm-tag">#inculde</span>
+
+_syscall0(<span class="hljs-keyword cye-lm-tag">int</span>,testsyscall)
+
+main()
+{
+    tsetsyscall();
+}</code></pre>
+
+<p class="cye-lm-tag">在这里使用了<code>_syscall0</code>宏指令，宏指令本身在程序中将扩展成名为<code>syscall()</code>的函数，它在<code>main()</code>函数内部加以调用。</p>
+
+<p class="cye-lm-tag">在<code>testsyscall()</code>函数中， 预处理程序产生所有必要的机器指令代码，包括用系统调用参数值加载相应的<code>cpu</code>寄存器， 然后执行<code>int 0x80</code>中断指令。</p>
+
+
+
+<h3 id="linux-3">linux-3.*</h3>
+
+<hr />
+
+<p class="cye-lm-tag">在linux-3.8.4/kernel/sys.c 文件末尾添加新的系统调用函数如：</p>
+
+
+
+<pre class="prettyprint"><code class=" hljs cs">asmlinkage <span class="hljs-keyword cye-lm-tag">int</span> sys_mycall(<span class="hljs-keyword cye-lm-tag">int</span> number)
+{    
+    printk(<span class="hljs-string cye-lm-tag">"这是我添加的第一个系统调用"</span>);    
+    <span class="hljs-keyword cye-lm-tag">return</span> number; }</code></pre>
+
+<p class="cye-lm-tag">在<code>arch/x86/syscall_32.tbl</code>下找到<code>unused 223</code>号调用然后替换如：</p>
+
+
+
+<pre class="prettyprint"><code class=" hljs ">223 i386 mycall sys_mycall</code></pre>
+
+<blockquote>
+  <p class="cye-lm-tag">如果是64位系统，在<code>arch/x86/syscalls/syscall_64.tbl</code>下找到<code>313</code>号系统调用，然后在其下面加上<code>314</code>号自己的中断如： <br />
+  `314 common mycall sys_mycall</p>
+</blockquote>
+
+
+
+<h2 id="利用内核模块添加系统调用">利用内核模块添加系统调用</h2>
+
+<hr />
+
+<pre><code>模块是内核的一部分，但是并没有被编译到内核里面去。它们被分别编译并连接成一组目标文件， 这些文件能被插入到正在运行的内核，或者从正在运行的内核中移走。内核模块至少必须有2个函数：
+</code></pre>
+
+<p class="cye-lm-tag"><code>init_module</code>和<code>cleanup_module</code>。</p>
+
+<p class="cye-lm-tag">第一个函数是在把模块插入内核时调用的;</p>
+
+<p class="cye-lm-tag">第二个函数则在删除该模块时调用。由于内核模块是内核的一部分，所以能访问所有内核资源。根据对linux系统调用机制的分析，</p>
+
+<p class="cye-lm-tag">如果要增加系统调用，可以编写自己的函数来实现，然后在sys_call_table表中增加一项，使该项中的指针指向自己编写的函数，</p>
+
+<p class="cye-lm-tag">就可以实现系统调用。下面用该方法实现在控制终端上打印“hello world” 的系统调用testsyscall()。</p>
+
+
+
+<h3 id="编写系统调用内核模块">编写系统调用内核模块</h3>
+
+<hr />
+
+
+
+<pre class="prettyprint"><code class=" hljs vala"><span class="hljs-preprocessor cye-lm-tag">#inculde(linux/kernel.h)</span>
+
+<span class="hljs-preprocessor cye-lm-tag">#inculde(linux/module.h)</span>
+
+<span class="hljs-preprocessor cye-lm-tag">#inculde(linux/modversions.h)</span>
+
+<span class="hljs-preprocessor cye-lm-tag">#inculde(linux/sched.h)</span>
+
+ #inculde(asm/uaccess.h)
+
+<span class="hljs-preprocessor cye-lm-tag">#define_NR_testsyscall 191</span>
+
+extern viod *sys_call+table[];
+
+asmlinkage <span class="hljs-keyword cye-lm-tag">int</span> testsyscall()
+
+{ 
+    printf(<span class="hljs-string cye-lm-tag">"hello world\n"</span>);
+
+    <span class="hljs-keyword cye-lm-tag">return</span> <span class="hljs-number cye-lm-tag">0</span>;
+
+}
+
+<span class="hljs-keyword cye-lm-tag">int</span> init_module()
+
+{ 
+    sys_call_table[_NR_tsetsyscall]=testsyscall;
+    printf(<span class="hljs-string cye-lm-tag">"system call testsyscall() loaded success\n"</span>);
+
+    <span class="hljs-keyword cye-lm-tag">return</span> <span class="hljs-number cye-lm-tag">0</span>;
+}
+
+<span class="hljs-keyword cye-lm-tag">void</span> cleanup_module()
+{
+
+}</code></pre>
+
+
+
+<h3 id="使用新的系统调用-1">使用新的系统调用</h3>
+
+
+
+<pre class="prettyprint"><code class=" hljs vala"><span class="hljs-preprocessor cye-lm-tag">#define_NR_testsyscall 191</span>
+
+_syscall0(<span class="hljs-keyword cye-lm-tag">int</span>,testsyscall)
+
+main()
+{
+    testsyscall();
+}</code></pre>
+
+
+
+<h1 id="内核linux系统调用的列表">内核Linux系统调用的列表</h1>
+
+<hr />
+
+<p class="cye-lm-tag">以下是Linux系统调用的一个列表，包含了大部分常用系统调用和由系统调用派生出的的函数。</p>
+
+
+
+<h2 id="进程控制">进程控制</h2>
+
+<hr />
+
+<table>
+<thead>
+<tr>
+  <th>系统调用</th>
+  <th align="center">描述</th>
+</tr>
+</thead>
+<tbody><tr>
+  <td>fork</td>
+  <td align="center">创建一个新进程</td>
+</tr>
+<tr>
+  <td>clone</td>
+  <td align="center">按指定条件创建子进程</td>
+</tr>
+<tr>
+  <td>execve</td>
+  <td align="center">运行可执行文件</td>
+</tr>
+<tr>
+  <td>exit</td>
+  <td align="center">中止进程</td>
+</tr>
+<tr>
+  <td>_exit</td>
+  <td align="center">立即中止当前进程</td>
+</tr>
+<tr>
+  <td>getdtablesize</td>
+  <td align="center">进程所能打开的最大文件数</td>
+</tr>
+<tr>
+  <td>getpgid</td>
+  <td align="center">获取指定进程组标识号</td>
+</tr>
+<tr>
+  <td>setpgid</td>
+  <td align="center">设置指定进程组标志号</td>
+</tr>
+<tr>
+  <td>getpgrp</td>
+  <td align="center">获取当前进程组标识号</td>
+</tr>
+<tr>
+  <td>setpgrp</td>
+  <td align="center">设置当前进程组标志号</td>
+</tr>
+<tr>
+  <td>getpid</td>
+  <td align="center">获取进程标识号</td>
+</tr>
+<tr>
+  <td>getppid</td>
+  <td align="center">获取父进程标识号</td>
+</tr>
+<tr>
+  <td>getpriority</td>
+  <td align="center">获取调度优先级</td>
+</tr>
+<tr>
+  <td>setpriority</td>
+  <td align="center">设置调度优先级</td>
+</tr>
+<tr>
+  <td>modify_ldt</td>
+  <td align="center">读写进程的本地描述表</td>
+</tr>
+<tr>
+  <td>nanosleep</td>
+  <td align="center">使进程睡眠指定的时间</td>
+</tr>
+<tr>
+  <td>nice</td>
+  <td align="center">改变分时进程的优先级</td>
+</tr>
+<tr>
+  <td>pause</td>
+  <td align="center">挂起进程，等待信号</td>
+</tr>
+<tr>
+  <td>personality</td>
+  <td align="center">设置进程运行域</td>
+</tr>
+<tr>
+  <td>prctl</td>
+  <td align="center">对进程进行特定操作</td>
+</tr>
+<tr>
+  <td>ptrace</td>
+  <td align="center">进程跟踪</td>
+</tr>
+<tr>
+  <td>sched_get_priority_max</td>
+  <td align="center">取得静态优先级的上限</td>
+</tr>
+<tr>
+  <td>sched_get_priority_min</td>
+  <td align="center">取得静态优先级的下限</td>
+</tr>
+<tr>
+  <td>sched_getparam</td>
+  <td align="center">取得进程的调度参数</td>
+</tr>
+<tr>
+  <td>sched_getscheduler</td>
+  <td align="center">取得指定进程的调度策略</td>
+</tr>
+<tr>
+  <td>sched_rr_get_interval</td>
+  <td align="center">取得按RR算法调度的实时进程的时间片长度</td>
+</tr>
+<tr>
+  <td>sched_setparam</td>
+  <td align="center">设置进程的调度参数</td>
+</tr>
+<tr>
+  <td>sched_setscheduler</td>
+  <td align="center">设置指定进程的调度策略和参数</td>
+</tr>
+<tr>
+  <td>sched_yield</td>
+  <td align="center">进程主动让出处理器,并将自己等候调度队列队尾</td>
+</tr>
+<tr>
+  <td>vfork</td>
+  <td align="center">创建一个子进程，以供执行新程序，常与execve等同时使用</td>
+</tr>
+<tr>
+  <td>wait</td>
+  <td align="center">等待子进程终止</td>
+</tr>
+<tr>
+  <td>wait3</td>
+  <td align="center">参见wait</td>
+</tr>
+<tr>
+  <td>waitpid</td>
+  <td align="center">等待指定子进程终止</td>
+</tr>
+<tr>
+  <td>wait4</td>
+  <td align="center">参见waitpid</td>
+</tr>
+<tr>
+  <td>capget</td>
+  <td align="center">获取进程权限</td>
+</tr>
+<tr>
+  <td>capset</td>
+  <td align="center">设置进程权限</td>
+</tr>
+<tr>
+  <td>getsid</td>
+  <td align="center">获取会晤标识号</td>
+</tr>
+<tr>
+  <td>setsid</td>
+  <td align="center">设置会晤标识号</td>
+</tr>
+</tbody></table>
+
+
+
+
+<h2 id="文件系统控制">文件系统控制</h2>
+
+<hr />
+
+
+
+<h3 id="文件读写操作">文件读写操作</h3>
+
+<hr />
+
+<table>
+<thead>
+<tr>
+  <th>系统调用</th>
+  <th align="center">描述</th>
+</tr>
+</thead>
+<tbody><tr>
+  <td>fcntl</td>
+  <td align="center">文件控制</td>
+</tr>
+<tr>
+  <td>open</td>
+  <td align="center">打开文件</td>
+</tr>
+<tr>
+  <td>creat</td>
+  <td align="center">创建新文件</td>
+</tr>
+<tr>
+  <td>close</td>
+  <td align="center">关闭文件描述字</td>
+</tr>
+<tr>
+  <td>read</td>
+  <td align="center">读文件</td>
+</tr>
+<tr>
+  <td>write</td>
+  <td align="center">写文件</td>
+</tr>
+<tr>
+  <td>readv</td>
+  <td align="center">从文件读入数据到缓冲数组中</td>
+</tr>
+<tr>
+  <td>writev</td>
+  <td align="center">将缓冲数组里的数据写入文件</td>
+</tr>
+<tr>
+  <td>pread</td>
+  <td align="center">对文件随机读</td>
+</tr>
+<tr>
+  <td>pwrite</td>
+  <td align="center">对文件随机写</td>
+</tr>
+<tr>
+  <td>lseek</td>
+  <td align="center">移动文件指针</td>
+</tr>
+<tr>
+  <td>_llseek</td>
+  <td align="center">在64位地址空间里移动文件指针</td>
+</tr>
+<tr>
+  <td>dup</td>
+  <td align="center">复制已打开的文件描述字</td>
+</tr>
+<tr>
+  <td>dup2</td>
+  <td align="center">按指定条件复制文件描述字</td>
+</tr>
+<tr>
+  <td>flock</td>
+  <td align="center">文件加/解锁</td>
+</tr>
+<tr>
+  <td>poll</td>
+  <td align="center">I/O多路转换</td>
+</tr>
+<tr>
+  <td>truncat</td>
+  <td align="center">e   截断文件</td>
+</tr>
+<tr>
+  <td>ftruncate</td>
+  <td align="center">参见truncate</td>
+</tr>
+<tr>
+  <td>vumask</td>
+  <td align="center">设置文件权限掩码</td>
+</tr>
+<tr>
+  <td>fsync</td>
+  <td align="center">把文件在内存中的部分写回磁盘</td>
+</tr>
+</tbody></table>
+
+
+
+
+<h3 id="文件系统操作">文件系统操作</h3>
+
+<hr />
+
+<table>
+<thead>
+<tr>
+  <th>系统调用</th>
+  <th align="center">描述</th>
+</tr>
+</thead>
+<tbody><tr>
+  <td>access</td>
+  <td align="center">确定文件的可存取性</td>
+</tr>
+<tr>
+  <td>chdir</td>
+  <td align="center">改变当前工作目录</td>
+</tr>
+<tr>
+  <td>fchdir</td>
+  <td align="center">参见chdir</td>
+</tr>
+<tr>
+  <td>chmod</td>
+  <td align="center">改变文件方式</td>
+</tr>
+<tr>
+  <td>fchmod</td>
+  <td align="center">参见chmod</td>
+</tr>
+<tr>
+  <td>chown</td>
+  <td align="center">改变文件的属主或用户组</td>
+</tr>
+<tr>
+  <td>fchown</td>
+  <td align="center">参见chown</td>
+</tr>
+<tr>
+  <td>lchown</td>
+  <td align="center">参见chown</td>
+</tr>
+<tr>
+  <td>chroot</td>
+  <td align="center">改变根目录</td>
+</tr>
+<tr>
+  <td>stat</td>
+  <td align="center">取文件状态信息</td>
+</tr>
+<tr>
+  <td>lstat</td>
+  <td align="center">参见stat</td>
+</tr>
+<tr>
+  <td>fstat</td>
+  <td align="center">参见stat</td>
+</tr>
+<tr>
+  <td>statfs</td>
+  <td align="center">取文件系统信息</td>
+</tr>
+<tr>
+  <td>fstatfs</td>
+  <td align="center">参见statfs</td>
+</tr>
+<tr>
+  <td>readdir</td>
+  <td align="center">读取目录项</td>
+</tr>
+<tr>
+  <td>getdents</td>
+  <td align="center">读取目录项</td>
+</tr>
+<tr>
+  <td>mkdir</td>
+  <td align="center">创建目录</td>
+</tr>
+<tr>
+  <td>mknod</td>
+  <td align="center">创建索引节点</td>
+</tr>
+<tr>
+  <td>rmdir</td>
+  <td align="center">删除目录</td>
+</tr>
+<tr>
+  <td>rename</td>
+  <td align="center">文件改名</td>
+</tr>
+<tr>
+  <td>link</td>
+  <td align="center">创建链接</td>
+</tr>
+<tr>
+  <td>symlink</td>
+  <td align="center">创建符号链接</td>
+</tr>
+<tr>
+  <td>unlink</td>
+  <td align="center">删除链接</td>
+</tr>
+<tr>
+  <td>readlink</td>
+  <td align="center">读符号链接的值</td>
+</tr>
+<tr>
+  <td>mount</td>
+  <td align="center">安装文件系统</td>
+</tr>
+<tr>
+  <td>umount</td>
+  <td align="center">卸下文件系统</td>
+</tr>
+<tr>
+  <td>ustat</td>
+  <td align="center">取文件系统信息</td>
+</tr>
+<tr>
+  <td>utime</td>
+  <td align="center">改变文件的访问修改时间</td>
+</tr>
+<tr>
+  <td>utimes</td>
+  <td align="center">参见utime</td>
+</tr>
+<tr>
+  <td>quotactl</td>
+  <td align="center">控制磁盘配额</td>
+</tr>
+</tbody></table>
+
+
+
+
+<h2 id="系统控制">系统控制</h2>
+
+<hr />
+
+<table>
+<thead>
+<tr>
+  <th>系统调用</th>
+  <th align="center">描述</th>
+</tr>
+</thead>
+<tbody><tr>
+  <td>ioctl</td>
+  <td align="center">I/O总控制函数</td>
+</tr>
+<tr>
+  <td>_sysctl</td>
+  <td align="center">读/写系统参数</td>
+</tr>
+<tr>
+  <td>acct</td>
+  <td align="center">启用或禁止进程记账</td>
+</tr>
+<tr>
+  <td>getrlimit</td>
+  <td align="center">获取系统资源上限</td>
+</tr>
+<tr>
+  <td>setrlimit</td>
+  <td align="center">设置系统资源上限</td>
+</tr>
+<tr>
+  <td>getrusage</td>
+  <td align="center">获取系统资源使用情况</td>
+</tr>
+<tr>
+  <td>uselib</td>
+  <td align="center">选择要使用的二进制函数库</td>
+</tr>
+<tr>
+  <td>ioperm</td>
+  <td align="center">设置端口I/O权限</td>
+</tr>
+<tr>
+  <td>iopl</td>
+  <td align="center">改变进程I/O权限级别</td>
+</tr>
+<tr>
+  <td>outb</td>
+  <td align="center">低级端口操作</td>
+</tr>
+<tr>
+  <td>reboot</td>
+  <td align="center">重新启动</td>
+</tr>
+<tr>
+  <td>swapon</td>
+  <td align="center">打开交换文件和设备</td>
+</tr>
+<tr>
+  <td>swapoff</td>
+  <td align="center">关闭交换文件和设备</td>
+</tr>
+<tr>
+  <td>bdflush</td>
+  <td align="center">控制bdflush守护进程</td>
+</tr>
+<tr>
+  <td>sysfs</td>
+  <td align="center">取核心支持的文件系统类型</td>
+</tr>
+<tr>
+  <td>sysinfo</td>
+  <td align="center">取得系统信息</td>
+</tr>
+<tr>
+  <td>adjtimex</td>
+  <td align="center">调整系统时钟</td>
+</tr>
+<tr>
+  <td>alarm</td>
+  <td align="center">设置进程的闹钟</td>
+</tr>
+<tr>
+  <td>getitimer</td>
+  <td align="center">获取计时器值</td>
+</tr>
+<tr>
+  <td>setitimer</td>
+  <td align="center">设置计时器值</td>
+</tr>
+<tr>
+  <td>gettimeofday</td>
+  <td align="center">取时间和时区</td>
+</tr>
+<tr>
+  <td>settimeofday</td>
+  <td align="center">设置时间和时区</td>
+</tr>
+<tr>
+  <td>stime</td>
+  <td align="center">设置系统日期和时间</td>
+</tr>
+<tr>
+  <td>time</td>
+  <td align="center">取得系统时间</td>
+</tr>
+<tr>
+  <td>times</td>
+  <td align="center">取进程运行时间</td>
+</tr>
+<tr>
+  <td>uname</td>
+  <td align="center">获取当前UNIX系统的名称、版本和主机等信息</td>
+</tr>
+<tr>
+  <td>vhangup</td>
+  <td align="center">挂起当前终端</td>
+</tr>
+<tr>
+  <td>nfsservctl</td>
+  <td align="center">对NFS守护进程进行控制</td>
+</tr>
+<tr>
+  <td>vm86</td>
+  <td align="center">进入模拟8086模式</td>
+</tr>
+<tr>
+  <td>create_module</td>
+  <td align="center">创建可装载的模块项</td>
+</tr>
+<tr>
+  <td>delete_module</td>
+  <td align="center">删除可装载的模块项</td>
+</tr>
+<tr>
+  <td>init_module</td>
+  <td align="center">初始化模块</td>
+</tr>
+<tr>
+  <td>query_module</td>
+  <td align="center">查询模块信息</td>
+</tr>
+<tr>
+  <td>*get_kernel_syms</td>
+  <td align="center">取得核心符号,已被query_module代替</td>
+</tr>
+</tbody></table>
+
+
+<h2 id="内存管理">内存管理</h2>
+
+<hr />
+
+<table>
+<thead>
+<tr>
+  <th>系统调用</th>
+  <th align="center">描述</th>
+</tr>
+</thead>
+<tbody><tr>
+  <td>brk</td>
+  <td align="center">改变数据段空间的分配</td>
+</tr>
+<tr>
+  <td>sbrk</td>
+  <td align="center">参见brk</td>
+</tr>
+<tr>
+  <td>mlock</td>
+  <td align="center">内存页面加锁</td>
+</tr>
+<tr>
+  <td>munlock</td>
+  <td align="center">内存页面解锁</td>
+</tr>
+<tr>
+  <td>mlockall</td>
+  <td align="center">调用进程所有内存页面加锁</td>
+</tr>
+<tr>
+  <td>munlockall</td>
+  <td align="center">调用进程所有内存页面解锁</td>
+</tr>
+<tr>
+  <td>mmap</td>
+  <td align="center">映射虚拟内存页</td>
+</tr>
+<tr>
+  <td>munmap</td>
+  <td align="center">去除内存页映射</td>
+</tr>
+<tr>
+  <td>mremap</td>
+  <td align="center">重新映射虚拟内存地址</td>
+</tr>
+<tr>
+  <td>msync</td>
+  <td align="center">将映射内存中的数据写回磁盘</td>
+</tr>
+<tr>
+  <td>mprotect</td>
+  <td align="center">设置内存映像保护</td>
+</tr>
+<tr>
+  <td>getpagesize</td>
+  <td align="center">获取页面大小</td>
+</tr>
+<tr>
+  <td>sync</td>
+  <td align="center">将内存缓冲区数据写回硬盘</td>
+</tr>
+<tr>
+  <td>cacheflush</td>
+  <td align="center">将指定缓冲区中的内容写回磁盘</td>
+</tr>
+</tbody></table>
+
+
+
+
+<h2 id="网络管理">网络管理</h2>
+
+<hr />
+
+<table>
+<thead>
+<tr>
+  <th>系统调用</th>
+  <th align="center">描述</th>
+</tr>
+</thead>
+<tbody><tr>
+  <td>getdomainname</td>
+  <td align="center">取域名</td>
+</tr>
+<tr>
+  <td>setdomainname</td>
+  <td align="center">设置域名</td>
+</tr>
+<tr>
+  <td>gethostid</td>
+  <td align="center">获取主机标识号</td>
+</tr>
+<tr>
+  <td>sethostid</td>
+  <td align="center">设置主机标识号</td>
+</tr>
+<tr>
+  <td>gethostname</td>
+  <td align="center">获取本主机名称</td>
+</tr>
+<tr>
+  <td>sethostname</td>
+  <td align="center">设置主机名称</td>
+</tr>
+</tbody></table>
+
+
+
+
+<h2 id="socket控制">socket控制</h2>
+
+<hr />
+
+<table>
+<thead>
+<tr>
+  <th>系统调用</th>
+  <th align="center">描述</th>
+</tr>
+</thead>
+<tbody><tr>
+  <td>socketcall</td>
+  <td align="center">socket系统调用</td>
+</tr>
+<tr>
+  <td>socket</td>
+  <td align="center">建立socket</td>
+</tr>
+<tr>
+  <td>bind</td>
+  <td align="center">绑定socket到端口</td>
+</tr>
+<tr>
+  <td>connect</td>
+  <td align="center">连接远程主机</td>
+</tr>
+<tr>
+  <td>accept</td>
+  <td align="center">响应socket连接请求</td>
+</tr>
+<tr>
+  <td>send</td>
+  <td align="center">通过socket发送信息</td>
+</tr>
+<tr>
+  <td>sendto</td>
+  <td align="center">发送UDP信息</td>
+</tr>
+<tr>
+  <td>sendmsg</td>
+  <td align="center">参见send</td>
+</tr>
+<tr>
+  <td>recv</td>
+  <td align="center">通过socket接收信息</td>
+</tr>
+<tr>
+  <td>recvfrom</td>
+  <td align="center">接收UDP信息</td>
+</tr>
+<tr>
+  <td>recvmsg</td>
+  <td align="center">参见recv</td>
+</tr>
+<tr>
+  <td>listen</td>
+  <td align="center">监听socket端口</td>
+</tr>
+<tr>
+  <td>select</td>
+  <td align="center">对多路同步I/O进行轮询</td>
+</tr>
+<tr>
+  <td>shutdown</td>
+  <td align="center">关闭socket上的连接</td>
+</tr>
+<tr>
+  <td>getsockname</td>
+  <td align="center">取得本地socket名字</td>
+</tr>
+<tr>
+  <td>getpeername</td>
+  <td align="center">获取通信对方的socket名字</td>
+</tr>
+<tr>
+  <td>getsockopt</td>
+  <td align="center">取端口设置</td>
+</tr>
+<tr>
+  <td>setsockopt</td>
+  <td align="center">设置端口参数</td>
+</tr>
+<tr>
+  <td>sendfile</td>
+  <td align="center">在文件或端口间传输数据</td>
+</tr>
+<tr>
+  <td>socketpair</td>
+  <td align="center">创建一对已联接的无名socket</td>
+</tr>
+</tbody></table>
+
+
+
+
+<h2 id="用户管理">用户管理</h2>
+
+<hr />
+
+<table>
+<thead>
+<tr>
+  <th>系统调用</th>
+  <th align="center">描述</th>
+</tr>
+</thead>
+<tbody><tr>
+  <td>getuid</td>
+  <td align="center">获取用户标识号</td>
+</tr>
+<tr>
+  <td>setuid</td>
+  <td align="center">设置用户标志号</td>
+</tr>
+<tr>
+  <td>getgid</td>
+  <td align="center">获取组标识号</td>
+</tr>
+<tr>
+  <td>setgid</td>
+  <td align="center">设置组标志号</td>
+</tr>
+<tr>
+  <td>getegid</td>
+  <td align="center">获取有效组标识号</td>
+</tr>
+<tr>
+  <td>setegid</td>
+  <td align="center">设置有效组标识号</td>
+</tr>
+<tr>
+  <td>geteuid</td>
+  <td align="center">获取有效用户标识号</td>
+</tr>
+<tr>
+  <td>seteuid</td>
+  <td align="center">设置有效用户标识号</td>
+</tr>
+<tr>
+  <td>setregid</td>
+  <td align="center">分别设置真实和有效的的组标识号</td>
+</tr>
+<tr>
+  <td>setreuid</td>
+  <td align="center">分别设置真实和有效的用户标识号</td>
+</tr>
+<tr>
+  <td>getresgid</td>
+  <td align="center">分别获取真实的,有效的和保存过的组标识号</td>
+</tr>
+<tr>
+  <td>setresgid</td>
+  <td align="center">分别设置真实的,有效的和保存过的组标识号</td>
+</tr>
+<tr>
+  <td>getresuid</td>
+  <td align="center">分别获取真实的,有效的和保存过的用户标识号</td>
+</tr>
+<tr>
+  <td>setresuid</td>
+  <td align="center">分别设置真实的,有效的和保存过的用户标识号</td>
+</tr>
+<tr>
+  <td>setfsgid</td>
+  <td align="center">设置文件系统检查时使用的组标识号</td>
+</tr>
+<tr>
+  <td>setfsuid</td>
+  <td align="center">设置文件系统检查时使用的用户标识号</td>
+</tr>
+<tr>
+  <td>getgroups</td>
+  <td align="center">获取后补组标志清单</td>
+</tr>
+<tr>
+  <td>setgroups</td>
+  <td align="center">设置后补组标志清单</td>
+</tr>
+</tbody></table>
+
+
+
+
+<h2 id="进程间通信">进程间通信</h2>
+
+<hr />
+
+<table>
+<thead>
+<tr>
+  <th>系统调用</th>
+  <th align="center">描述</th>
+</tr>
+</thead>
+<tbody><tr>
+  <td>ipc</td>
+  <td align="center">进程间通信总控制调用</td>
+</tr>
+</tbody></table>
+
+
+
+
+<h3 id="信号">信号</h3>
+
+<hr />
+
+<table>
+<thead>
+<tr>
+  <th>系统调用</th>
+  <th align="center">描述</th>
+</tr>
+</thead>
+<tbody><tr>
+  <td>sigaction</td>
+  <td align="center">设置对指定信号的处理方法</td>
+</tr>
+<tr>
+  <td>sigprocmask</td>
+  <td align="center">根据参数对信号集中的信号执行阻塞/解除阻塞等操作</td>
+</tr>
+<tr>
+  <td>sigpending</td>
+  <td align="center">为指定的被阻塞信号设置队列</td>
+</tr>
+<tr>
+  <td>sigsuspend</td>
+  <td align="center">挂起进程等待特定信号</td>
+</tr>
+<tr>
+  <td>signal</td>
+  <td align="center">参见signal</td>
+</tr>
+<tr>
+  <td>kill</td>
+  <td align="center">向进程或进程组发信号</td>
+</tr>
+<tr>
+  <td>*sigblock</td>
+  <td align="center">向被阻塞信号掩码中添加信号,已被sigprocmask代替</td>
+</tr>
+<tr>
+  <td>*siggetmask</td>
+  <td align="center">取得现有阻塞信号掩码,已被sigprocmask代替</td>
+</tr>
+<tr>
+  <td>*sigsetmask</td>
+  <td align="center">用给定信号掩码替换现有阻塞信号掩码,已被sigprocmask代替</td>
+</tr>
+<tr>
+  <td>*sigmask</td>
+  <td align="center">将给定的信号转化为掩码,已被sigprocmask代替</td>
+</tr>
+<tr>
+  <td>*sigpause</td>
+  <td align="center">作用同sigsuspend,已被sigsuspend代替</td>
+</tr>
+<tr>
+  <td>sigvec</td>
+  <td align="center">为兼容BSD而设的信号处理函数,作用类似sigaction</td>
+</tr>
+<tr>
+  <td>ssetmask</td>
+  <td align="center">ANSI C的信号处理函数,作用类似sigaction</td>
+</tr>
+</tbody></table>
+
+
+
+
+<h3 id="消息">消息</h3>
+
+<hr />
+
+<table>
+<thead>
+<tr>
+  <th>系统调用</th>
+  <th align="center">描述</th>
+</tr>
+</thead>
+<tbody><tr>
+  <td>msgctl</td>
+  <td align="center">消息控制操作</td>
+</tr>
+<tr>
+  <td>msgget</td>
+  <td align="center">获取消息队列</td>
+</tr>
+<tr>
+  <td>msgsnd</td>
+  <td align="center">发消息</td>
+</tr>
+<tr>
+  <td>msgrcv</td>
+  <td align="center">取消息</td>
+</tr>
+</tbody></table>
+
+
+
+
+<h3 id="管道">管道</h3>
+
+<hr />
+
+<table>
+<thead>
+<tr>
+  <th>系统调用</th>
+  <th align="center">描述</th>
+</tr>
+</thead>
+<tbody><tr>
+  <td>pipe</td>
+  <td align="center">创建管道</td>
+</tr>
+</tbody></table>
+
+
+
+
+<h3 id="信号量">信号量</h3>
+
+<hr />
+
+<table>
+<thead>
+<tr>
+  <th>系统调用</th>
+  <th align="center">描述</th>
+</tr>
+</thead>
+<tbody><tr>
+  <td>semctl</td>
+  <td align="center">信号量控制</td>
+</tr>
+<tr>
+  <td>semget</td>
+  <td align="center">获取一组信号量</td>
+</tr>
+<tr>
+  <td>semop</td>
+  <td align="center">信号量操作</td>
+</tr>
+</tbody></table>
+
+
+
+
+<h3 id="共享内存">共享内存</h3>
+
+<hr />
+
+<table>
+<thead>
+<tr>
+  <th>系统调用</th>
+  <th align="center">描述</th>
+</tr>
+</thead>
+<tbody><tr>
+  <td>shmctl</td>
+  <td align="center">控制共享内存</td>
+</tr>
+<tr>
+  <td>shmget</td>
+  <td align="center">获取共享内存</td>
+</tr>
+<tr>
+  <td>shmat</td>
+  <td align="center">连接共享内存</td>
+</tr>
+<tr>
+  <td>shmdt</td>
+  <td align="center">拆卸共享内存</td>
+</tr>
+</tbody></table></div>&#13;
+        <script type="text/javascript">&#13;
+            $(function () {&#13;
+                $('pre.prettyprint code').each(function () {&#13;
+                    var lines = $(this).text().split('\n').length;&#13;
+                    var $numbering = $('&lt;ul/&gt;').addClass('pre-numbering').hide();&#13;
+                    $(this).addClass('has-numbering').parent().append($numbering);&#13;
+                    for (i = 1; i &lt;= lines; i++) {&#13;
+                        $numbering.append($('&lt;li/&gt;').text(i));&#13;
+                    };&#13;
+                    $numbering.fadeIn(1700);&#13;
+                });&#13;
+            });&#13;
+        </script>&#13;
+   &#13;

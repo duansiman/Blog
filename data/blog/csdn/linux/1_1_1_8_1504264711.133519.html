@@ -1,0 +1,236 @@
+
+
+<div style="text-align:center"><strong><span style="font-size:18px">mini2440驱动分析之触摸屏</span></strong></div>&#13;
+<p>        mini2440触摸屏驱动对应的文件为mini2440_ts.c，他是作为输入设备注册到内核的，功能实现是通过输入子系统来完成的，现在分析触摸屏的实现。以后再分析输入子系统。</p>&#13;
+<p><span style="font-size:16px">一.  分析一个驱动首先看它的模块初始化函数，下面是mini2440_ts.c的模块初始化函数：</span></p>&#13;
+static struct clk<span style="white-space:pre"> </span>*adc_clock;  //这个时钟结构体代表时钟<br />&#13;
+<pre name="code" class="cpp">static int __init s3c2410ts_init(void)
+{
+	struct input_dev *input_dev;
+
+
+	adc_clock = clk_get(NULL, "adc");
+        //获得时钟结构体，clk_get函数根据时钟名称返回一个相应的时钟结构体，具体实现arch/arm/common/clkdev.c中,这里先不讨论
+	if (!adc_clock) {
+		printk(KERN_ERR "failed to get adc clock source\n");
+		return -ENOENT;
+	}
+	clk_enable(adc_clock);
+        //内核默认adc时钟是禁止的，这样为了降低功耗
+	base_addr=ioremap(S3C2410_PA_ADC,0x20);
+        //ioremap函数将物理地址，重新映射成虚拟地址，在ldd3中介绍过这个函数
+	if (base_addr == NULL) {
+		printk(KERN_ERR "Failed to remap register block\n");
+		return -ENOMEM;
+	}
+
+	/* Configure GPIOs */
+	s3c2410_ts_connect();
+        //设置触摸屏接口引脚，这个函数将连接触摸屏的引脚GPG12，GPG13，GPG14，GPG15都设置成触摸屏功能模式
+	iowrite32(S3C2410_ADCCON_PRSCEN | S3C2410_ADCCON_PRSCVL(0xFF),\
+		     base_addr+S3C2410_ADCCON);
+        //设置AD转换速率 = PCLK/（presvl+1）
+	iowrite32(0xffff,  base_addr+S3C2410_ADCDLY);
+        //设置中断发出间隔，当触摸屏按下时，不断发出INT_TC中断，这个就是设置中断发出的间隔
+	iowrite32(WAIT4INT(0), base_addr+S3C2410_ADCTSC);
+        //设置触摸屏模式为等待中断模式，并且是按下中断
+
+
+	/* Initialise input stuff */
+	input_dev = input_allocate_device();
+        //分配并初始化一个input_dev结构，这个是input设备基本的设备结构
+	if (!input_dev) {
+		printk(KERN_ERR "Unable to allocate the input device !!\n");
+		return -ENOMEM;
+	}
+
+	dev = input_dev;
+	dev-&gt;evbit[0] = BIT(EV_SYN) | BIT(EV_KEY) | BIT(EV_ABS);  
+        //设置结构支持的事件类型，触摸屏要支持EV_SYN（所有输入设备都支持的），EV_KEY（按键），EV_ABS（绝对坐标值） 
+	dev-&gt;keybit[BITS_TO_LONGS(BTN_TOUCH)] = BIT(BTN_TOUCH);
+        //设置按键事件类型支持的编码BTN_TOUCH
+	input_set_abs_params(dev, ABS_X, 0, 0x3FF, 0, 0);
+        //设置绝对坐标值事件类型支持的编码 ABS_X 值的范围 0～0x3ff，这个是因为ad转换的数据存放在ADCDAT0或ADCDAT1的0～9位，最大值不会超过0x3ff
+	input_set_abs_params(dev, ABS_Y, 0, 0x3FF, 0, 0);
+        //设置绝对坐标值事件类型支持的编码 ABS_Y 值的范围 0～0x3ff
+	input_set_abs_params(dev, ABS_PRESSURE, 0, 1, 0, 0);
+        //设置绝对坐标值事件类型支持的编码 ABS_PRESSURE 值的范围 0～1 也就是按下与放开
+	dev-&gt;name = s3c2410ts_name;
+
+	dev-&gt;id.bustype = BUS_RS232;
+	dev-&gt;id.vendor = 0xDEAD;
+	dev-&gt;id.product = 0xBEEF;
+	dev-&gt;id.version = S3C2410TSVERSION;
+        //这三个对于输入子系统寻找合适的事件处理器时很重要，但是输入子系统有一个evdev事件处理器，匹配所有的输入设备，触摸屏驱动就是用的这个
+        //所以这个初始化在这里就不重要了
+
+
+	/* Get irqs */
+	if (request_irq(IRQ_ADC, stylus_action, IRQF_SHARED|IRQF_SAMPLE_RANDOM,
+		"s3c2410_action", dev)) {
+		printk(KERN_ERR "s3c2410_ts.c: Could not allocate ts IRQ_ADC !\n");
+		iounmap(base_addr);
+		return -EIO;
+	}
+	if (request_irq(IRQ_TC, stylus_updown, IRQF_SAMPLE_RANDOM,
+			"s3c2410_action", dev)) {
+		printk(KERN_ERR "s3c2410_ts.c: Could not allocate ts IRQ_TC !\n");
+		iounmap(base_addr);
+		return -EIO;
+	}
+        //注册两个中断处理例程，一个是AD完成中断处理stylus_action，一个是触摸屏按下中断处理stylus_updown
+        //关于IRQ_ADC注册成共享中断，因为系统的mini2440_adc模块也用了这个中断信号线
+	printk(KERN_INFO "%s successfully loaded\n", s3c2410ts_name);
+
+
+	/* All went ok, so register to the input system */
+	input_register_device(dev);
+        //将触摸屏输入设备注册到输入子系统核心
+	return 0;
+}</pre>&#13;
+<p>        现在触摸屏已经注册到了输入子系统核心，触摸屏硬件已经处于等待中断的模式。当按下触摸屏时，会出发按下中断，进而调用stylus_updown函数进行中断处理，下面分析这个函数</p>&#13;
+<p><span style="font-size:16px">二.  stylus_updown 触摸屏按下松开中断处理函数</span></p>&#13;
+<pre name="code" class="cpp">static irqreturn_t stylus_updown(int irq, void *dev_id)
+{
+	unsigned long data0;
+	unsigned long data1;
+	int updown;
+
+	if (down_trylock(&amp;ADC_LOCK) == 0) {
+		OwnADC = 1;
+		data0 = ioread32(base_addr+S3C2410_ADCDAT0);
+		data1 = ioread32(base_addr+S3C2410_ADCDAT1);
+/*
+ * ADCDAT0 ADCDAT1 寄存器的位15 表示触摸屏是否按下，0 表示被按下 1 没有按下
+ * S3C2410_ADCDAT0_UPDOWN 为 （1&lt;&lt;15）
+ * 以下是判断触摸屏是否真正按下
+ */
+		updown = (!(data0 &amp; S3C2410_ADCDAT0_UPDOWN)) &amp;&amp; (!(data1 &amp; S3C2410_ADCDAT0_UPDOWN));
+                //如果ADCDAT0 ADCDAT1的第十五位都是0，那么表示触摸屏真正按下 updown = 1
+		if (updown) {
+			touch_timer_fire(0); //启动AD转换
+		} else {
+			OwnADC = 0;
+			up(&amp;ADC_LOCK);
+		}
+	}
+
+	return IRQ_HANDLED;
+}</pre>       这个中断处理例程，通过读取ADCAT0， ADCDAT1的值，并且利用他们的第15位来判断是否真正按下，如果是调用touch_timer_fire启动AD转换，如果不是释放adc信号量，下面分析touch_timer_fire函数：&#13;
+<p><span style="font-size:16px">三.  touch_timer_fire 函数分析</span></p>&#13;
+<pre name="code" class="cpp">static void touch_timer_fire(unsigned long data)
+{
+  	unsigned long data0;
+  	unsigned long data1;
+	int updown;
+
+  	data0 = ioread32(base_addr+S3C2410_ADCDAT0);
+  	data1 = ioread32(base_addr+S3C2410_ADCDAT1);
+/*
+ * 再次判断是否按下
+ */
+ 	updown = (!(data0 &amp; S3C2410_ADCDAT0_UPDOWN)) &amp;&amp; (!(data1 &amp; S3C2410_ADCDAT0_UPDOWN));
+
+ 	if (updown) {   //如果真正按下
+ 		if (count != 0) {  //这个count用来表示AD的转换次数，多转换几次以确保数据准确，AD已经转换完成
+			long tmp;
+                                                                                                 
+			tmp = xp;
+			xp = yp;
+			yp = tmp;
+                   // 这里交换数据因为是因为mini2440GUI系统是竖屏，和这个转换的是相反的，所以要交换一下                                                                         
+                        xp &gt;&gt;= 2;  //这里右移了两位暂时不知到是为什么
+                        yp &gt;&gt;= 2;
+
+ 			input_report_abs(dev, ABS_X, xp);  //向输入子系统报告事件 这里是X轴坐标值
+ 			input_report_abs(dev, ABS_Y, yp);  //Y坐标值
+
+ 			input_report_key(dev, BTN_TOUCH, 1);  //触摸屏触摸事件
+ 			input_report_abs(dev, ABS_PRESSURE, 1); //触摸屏按下事件
+ 			input_sync(dev);
+ 		}
+                //当按下触摸屏后先执行这里的代码或者已经完成AD转换了也会执行这里
+ 		xp = 0;
+ 		yp = 0;
+ 		count = 0;
+                //连续x/y坐标转换模式
+ 		iowrite32(S3C2410_ADCTSC_PULL_UP_DISABLE | AUTOPST, base_addr+S3C2410_ADCTSC);
+                // 启动转换
+ 		iowrite32(ioread32(base_addr+S3C2410_ADCCON) | S3C2410_ADCCON_ENABLE_START, base_addr+S3C2410_ADCCON);
+                //现在AD转换已经开始了，转换结束的时候就会进入AD转换完成中断处理程序stylus_action
+ 	} else {  //触摸屏松开
+ 		count = 0;
+                //触摸屏松开的时候只是报告触摸以及按下事件
+ 		input_report_key(dev, BTN_TOUCH, 0);
+ 		input_report_abs(dev, ABS_PRESSURE, 0);
+ 		input_sync(dev);
+
+ 		iowrite32(WAIT4INT(0), base_addr+S3C2410_ADCTSC); //设置等待中断模式，检测按下中断
+		if (OwnADC) {
+			OwnADC = 0;
+			up(&amp;ADC_LOCK);
+		}
+ 	}
+}</pre>       这个函数在触摸屏按下中断处理程序中是作为普通函数调用的，但是它还是内核定时器服务函数<br />&#13;
+<pre name="code" class="cpp">static struct timer_list touch_timer = TIMER_INITIALIZER(touch_timer_fire, 0, 0);</pre><span style="font-size:16px">四. AD转换完成中断处理程序stylus_action</span><br />&#13;
+<pre name="code" class="cpp">static irqreturn_t stylus_action(int irq, void *dev_id)
+{
+	unsigned long data0;
+	unsigned long data1;
+
+
+	if (OwnADC) {
+		data0 = ioread32(base_addr+S3C2410_ADCDAT0);
+		data1 = ioread32(base_addr+S3C2410_ADCDAT1);
+
+
+		xp += data0 &amp; S3C2410_ADCDAT0_XPDATA_MASK;
+		yp += data1 &amp; S3C2410_ADCDAT1_YPDATA_MASK;
+		count++;
+
+	       if (count &lt; (1&lt;&lt;2)) { //如果count小于4，那么重新进行AD转换，说明一次按下要进行四次AD转换
+			iowrite32(S3C2410_ADCTSC_PULL_UP_DISABLE | AUTOPST, base_addr+S3C2410_ADCTSC);
+			iowrite32(ioread32(base_addr+S3C2410_ADCCON) | S3C2410_ADCCON_ENABLE_START, base_addr+S3C2410_ADCCON);
+		} else {
+                        //如果已经转换了四次，那么重新设置定时器，定时一个时钟滴答，当一个时钟滴答到是又会判断是否按下，如果这时松开的话，那么这次按下就是不确定按下，也就是抖动
+                        //这个定时器就是为了防止触摸屏抖动而设置的
+			mod_timer(&amp;touch_timer, jiffies+1);
+                        //设置触摸屏为等待中断模式，但是等待的是松开中断
+			iowrite32(WAIT4INT(1), base_addr+S3C2410_ADCTSC);
+		}
+	}
+
+	return IRQ_HANDLED;
+}</pre><span style="font-size:16px">五. 总结一下触摸屏驱动是如果工作的</span><br />&#13;
+ 1. 用户按下触摸屏进入中断处理程序stylus_updown，这个函数处理如下<br />&#13;
+    （1）判断是否按下，如果是调用touch_timer_fire，如果不是那么说明现在松开了<br />&#13;
+    （2）touch_timer_fire处理如下： 判断是否按下<br />&#13;
+        &lt;1&gt;确实按下了，那先判断count是否为0，如果为0那么说明还没有进行AD转换，启动ad转换，转换完成进入中断处理程序stylus_action <br />&#13;
+        &lt;2&gt;确实按下了，判断的count不是0，说明ad转换完成了，进行x/y坐标的事件报告，并报告触摸屏事件。这个才是一次正确的按下<br />&#13;
+        &lt;3&gt;触摸屏这时松开了，那么只报告触摸屏事件，并设置触摸屏为等待按下中断的模式<br />&#13;
+ 2.  stylus_action 函数处理过程，首先读取转换数据，然后判断count是否小于4<br />&#13;
+    （1）count小于4 那么再次启动转换<br />&#13;
+    （2）count不小于4，然后重新设置定时器，延时时间为一个时钟滴答，设置触摸屏为等待中断模式，等待松开中断<br />&#13;
+ 3 . 在定时器事件到达之前松开触摸屏，会进入stylus_updown，这个函数判断触摸屏松开了，释放信号量不会报告任何事件<br />&#13;
+   如果定时器时间到执行touch_timer_fire，就会判断真正按下，而这时count不为0，报告触摸屏事件，报告x/y坐标<br />&#13;
+ 4. 这里的定时器是为了防止抖动而设置的，所以按下操作至少要保持一个时钟滴答加四次ad转换的时间。<br />&#13;
+<p> 5. 我认为还有一个问题就是在第三步执行touch_timer_fire的时候松开触摸屏，因为现在触摸屏处于检测松开中断的时候，就会进入stylus_updown，这时判断触摸屏松开，释放了ADC信号量，然后从中断返回，继续执行touch_timer_fire，这种情况下会在没有信号量的时候操作ad，这是潜在的并发条件。(后来证明这种猜测是错误的，因为代码释放信号亮的前提是重新获得信号量，而这里不会获得信号量，看来我低估了写驱动人的水平！！！)</p>&#13;
+<p> 6. 为了直观的了解触摸屏的工作过程，我画了一个流程图来说明</p>&#13;
+<p style="text-align:center"><img src="http://img.my.csdn.net/uploads/201209/09/1347178506_2128.png" alt="" /><br />&#13;
+</p>&#13;
+<p>图片说明：</p>&#13;
+<p>    1. 第一个红色的松开事件，是在AD转换了四次，定时器到时后，向输入子系统报告x/y坐标的时候发生的，因为触摸屏处于检测松开中断的状态，所以会进入按下松开中断，从而判断松开，释放信号量，中断返回，继续中断前的程序运行，这里过后还操作了ad的寄存器，但是已经不拥有AD的信号量了，我认为这里引入了潜在的并发。</p>&#13;
+<p>    2. 第二个红色的松开事件，是在AD转换了四次，但是定时器没有到时的时候发生的，同样进入按下松开中断，中断处理程序判断没有按下，释放信号量，中断返回。</p>&#13;
+<p>    3. 第三个红色的松开事件，是在按下触摸屏后马上放开时或者启动ad转换的时候发生的，前者概率很小，因为间隔时间太短。主要是后者，这也有两种情况，一种是已经报告完x.y轴坐标的，这个类似情况2。一种是已经确认按下了，然后松开了，这种情况ad也正常转换四次，在设置触摸屏等待中断后（这样这个设置就没有作用了，因为已经松开了），定时器中断到时调用touch_timer_fire，然后进入白色框框里面。这里可以看出定时器除了防止触摸屏抖动外，还有一种功能就是，在第三种情况下，使触摸屏进入正常检测按下中断的状态。</p>&#13;
+<p><span style="font-size:16px">六. 关于两个宏</span></p>&#13;
+<p>1. WAIT4INT(x)</p>&#13;
+<p>    #define WAIT4INT(x)  (((x)&lt;&lt;8) | \</p>&#13;
+<span style="white-space:pre"></span>    S3C2410_ADCTSC_YM_SEN | S3C2410_ADCTSC_YP_SEN | S3C2410_ADCTSC_XP_SEN | \<br />&#13;
+<span style="white-space:pre"></span>    S3C2410_ADCTSC_XY_PST(3))<br />&#13;
+        这个宏是设置，ADCTSC寄存器的。设置为等待中断模式，这个寄存器的第八位，表示检测哪类中断，如果是0 检测按下中断，也就是WAIT4INT(0)检测按下中断。如果是1检测松开中断<br />&#13;
+<p>2.  AUTOPST</p>&#13;
+<p>    #define AUTOPST<span style="white-space:pre"> </span>    (S3C2410_ADCTSC_YM_SEN | S3C2410_ADCTSC_YP_SEN | S3C2410_ADCTSC_XP_SEN | \</p>&#13;
+<span style="white-space:pre"></span>    S3C2410_ADCTSC_AUTO_PST | S3C2410_ADCTSC_XY_PST(0))<br />&#13;
+        这个是设置ADCTSC寄存器的，设置AD转换方式为连续的x/y轴转换方式。<br />&#13;
+<br />&#13;
+   &#13;

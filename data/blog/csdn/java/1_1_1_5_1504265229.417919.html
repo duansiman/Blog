@@ -1,0 +1,563 @@
+
+
+<h1>Spring MVC + mybatis实现的注册登录</h1>&#13;
+<h2>前期准备：</h2>&#13;
+<div>       <span style="font-size:14px">    如下图所示，准备好所需要的包，</span></div>&#13;
+<div><span style="font-size:14px"><img src="http://img.blog.csdn.net/20160722193506868?watermark/2/text/aHR0cDovL2Jsb2cuY3Nkbi5uZXQv/font/5a6L5L2T/fontsize/400/fill/I0JBQkFCMA==/dissolve/70/gravity/Center" alt="" />新建工程，导入所需要的包，在web.xml中配置好所需要的，如下，<br />&#13;
+</span></div>&#13;
+<div><span style="font-size:14px"></span><pre code_snippet_id="1778711" snippet_file_name="blog_20160722_1_976470" name="code" class="html">&lt;?xml version="1.0" encoding="UTF-8"?&gt;
+&lt;web-app version="2.4" xmlns="http://java.sun.com/xml/ns/j2ee"    
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance  
+    http://www.springmodules.org/schema/cache/springmodules-cache.xsd 
+    http://www.springmodules.org/schema/cache/springmodules-ehcache.xsd"    
+    xsi:schemaLocation="http://java.sun.com/xml/ns/j2ee      
+    http://java.sun.com/xml/ns/j2ee/web-app_2_4.xsd          
+     "&gt;
+&lt;filter&gt;
+	&lt;filter-name&gt;encoding&lt;/filter-name&gt;
+	&lt;filter-class&gt;org.springframework.web.filter.CharacterEncodingFilter&lt;/filter-class&gt;
+	&lt;init-param&gt;
+		&lt;param-name&gt;encoding&lt;/param-name&gt;
+		&lt;param-value&gt;UTF-8&lt;/param-value&gt;
+	&lt;/init-param&gt;
+&lt;/filter&gt;
+	&lt;filter-mapping&gt;
+		&lt;filter-name&gt;encoding&lt;/filter-name&gt;
+		&lt;url-pattern&gt;*.action&lt;/url-pattern&gt;
+	&lt;/filter-mapping&gt;
+	&lt;!-- 前端控制器 --&gt;
+&lt;servlet&gt;
+	&lt;servlet-name&gt;spring&lt;/servlet-name&gt;
+	&lt;servlet-class&gt;org.springframework.web.servlet.DispatcherServlet&lt;/servlet-class&gt;
+	&lt;!-- 在tomcat启动时初始化servlet的优先级，这个数字只能整数，正整数才会初始化servlet --&gt;
+	&lt;load-on-startup&gt;1&lt;/load-on-startup&gt;
+	&lt;init-param&gt;
+		&lt;param-name&gt;contextConfigLocation&lt;/param-name&gt;
+		&lt;param-value&gt;/WEB-INF/config/spring.xml&lt;/param-value&gt;
+	&lt;/init-param&gt;
+&lt;/servlet&gt;
+&lt;servlet-mapping&gt;
+	&lt;servlet-name&gt;spring&lt;/servlet-name&gt;
+	&lt;url-pattern&gt;*.action&lt;/url-pattern&gt;
+&lt;/servlet-mapping&gt;
+	&lt;welcome-file-list&gt;
+		&lt;welcome-file&gt;index.jsp&lt;/welcome-file&gt;
+	&lt;/welcome-file-list&gt;
+&lt;/web-app&gt;</pre><br />&#13;
+配置好如下文件spring.xml，</div>&#13;
+<div><span style="font-size:14px"></span><pre code_snippet_id="1778711" snippet_file_name="blog_20160722_2_9482753" name="code" class="html">&lt;?xml version="1.0" encoding="UTF-8"?&gt;
+&lt;beans xmlns="http://www.springframework.org/schema/beans"
+	xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:context="http://www.springframework.org/schema/context"
+	xmlns:aop="http://www.springframework.org/schema/aop" xmlns:util="http://www.springframework.org/schema/util"
+	xmlns:cache="http://www.springframework.org/schema/cache" xmlns:tx="http://www.springframework.org/schema/tx"
+	xmlns:mvc="http://www.springframework.org/schema/mvc"
+	xsi:schemaLocation="http://www.springframework.org/schema/beans
+                     http://www.springframework.org/schema/beans/spring-beans-3.2.xsd
+                     http://www.springframework.org/schema/context
+                     http://www.springframework.org/schema/context/spring-context-3.2.xsd
+                     http://www.springframework.org/schema/aop
+                     http://www.springframework.org/schema/aop/spring-aop-3.2.xsd
+                     http://www.springframework.org/schema/util
+                     http://www.springframework.org/schema/util/spring-util-3.2.xsd
+                     http://www.springframework.org/schema/cache
+                     http://www.springframework.org/schema/cache/spring-cache-3.2.xsd
+                     http://www.springframework.org/schema/tx
+                     http://www.springframework.org/schema/tx/spring-tx-3.2.xsd
+                     http://www.springframework.org/schema/mvc
+                     http://www.springframework.org/schema/mvc/spring-mvc-3.2.xsd"&gt;
+
+	&lt;!-- 启用注解 --&gt;
+	&lt;context:annotation-config&gt;&lt;/context:annotation-config&gt;
+	
+	&lt;!-- 加载注解 --&gt;
+	&lt;context:component-scan base-package="com.register"&gt;&lt;/context:component-scan&gt;
+	
+	&lt;!-- 导入数据库配置文件 --&gt;
+	&lt;util:properties id="myproperties" location="/WEB-INF/config/jdbc.properties"&gt;
+	&lt;/util:properties&gt;
+	&lt;!-- 创建数据库连接池 --&gt;
+	&lt;bean id="ds" class="com.mchange.v2.c3p0.ComboPooledDataSource"&gt;
+		&lt;!-- 定义数据库连接的参数 --&gt;
+		&lt;property name="driverClass" value="#{myproperties.driver}"&gt;&lt;/property&gt;
+		&lt;property name="jdbcUrl" value="#{myproperties.url}"&gt;&lt;/property&gt;
+		&lt;property name="user" value="#{myproperties.username}"&gt;&lt;/property&gt;
+		&lt;property name="password" value="#{myproperties.password}"&gt;&lt;/property&gt;
+		&lt;!-- 数据库连接池的两个属性 --&gt;
+		&lt;property name="initialPoolSize" value="3"&gt;&lt;/property&gt;
+		&lt;property name="maxPoolSize" value="20"&gt;&lt;/property&gt;
+	&lt;/bean&gt;
+	&lt;!-- 替代mybatis的配置文件用来执行mysql语句 --&gt;
+	&lt;bean id="sqlSessionFactory" class="org.mybatis.spring.SqlSessionFactoryBean"&gt;
+	  &lt;property name="dataSource" ref="ds" /&gt;
+	  &lt;!-- 定义映射文件路径 --&gt;
+	  &lt;property name="mapperLocations" value="classpath:com/register/dao/*.xml"&gt;&lt;/property&gt;
+	&lt;/bean&gt;
+	
+	&lt;!-- sqlSession中的bean --&gt;
+	&lt;bean id="sqlSession" class="org.mybatis.spring.SqlSessionTemplate"&gt; 
+		&lt;constructor-arg index="0" ref="sqlSessionFactory"&gt;&lt;/constructor-arg&gt;
+	&lt;/bean&gt;
+	&lt;!-- 开启mvc注解 --&gt;
+	&lt;mvc:annotation-driven&gt;&lt;/mvc:annotation-driven&gt;
+	
+&lt;/beans&gt;</pre><br />&#13;
+配置好数据库信息，</div>&#13;
+<div><span style="font-size:14px"></span><pre code_snippet_id="1778711" snippet_file_name="blog_20160722_3_7116202" name="code" class="html">driver=com.mysql.jdbc.Driver
+url=jdbc:mysql://localhost:3306/cheshangbao?useUnicode=true&amp;characterEncoding=utf8&amp;autoReconnect=true&amp;useOldAliasMetadataBehavior=true
+username=root
+password=admin</pre>另外，还有所需要的操作数据库的语句，</div>&#13;
+<div><span style="font-size:14px"><br />&#13;
+</span><pre code_snippet_id="1778711" snippet_file_name="blog_20160722_4_5306058" name="code" class="html">&lt;?xml version="1.0" encoding="UTF-8" ?&gt;
+&lt;!DOCTYPE mapper
+PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+"http://mybatis.org/dtd/mybatis-3-mapper.dtd"&gt;
+&lt;!-- sql 映射文件  --&gt;
+
+&lt;mapper namespace="com.register.dao"&gt;
+
+	&lt;!-- 用户注册的判断 --&gt;
+	&lt;insert id="addUser" parameterType="map"&gt;
+		insert into user_login (phone_mobile,login_password,register_time,user_code) values(#{phone_mobile},#{login_password},#{register_time},#{user_code})
+	&lt;/insert&gt;
+	
+	&lt;!-- 用户名唯一性的判断 --&gt;
+	&lt;select id="judgeUser" parameterType="String" resultType="com.register.vo.User"&gt;
+		select phone_mobile from user_login where phone_mobile=#{phone_mobile}
+	&lt;/select&gt;
+	
+	&lt;!-- 用户登录的判断返回一个user给service处理 --&gt;
+	&lt;select id="userLogin" parameterType="map" resultType="com.register.vo.User"&gt;
+		select phone_mobile,login_password from user_login where phone_mobile=#{phone_mobile} and login_password=#{login_password}
+	&lt;/select&gt;
+&lt;/mapper&gt;</pre>&#13;
+<h2><span style="font-size:14px">前端准备工作，</span></h2>&#13;
+<span style="font-size:14px">          我做的一个简单的注册登录的页面，在页面中对表单进行了第一层的判断，然后在后端又写了第二层验证。</span></div>&#13;
+<div><span style="font-size:14px">登陆页面如下，</span></div>&#13;
+<div><span style="font-size:14px"></span><pre code_snippet_id="1778711" snippet_file_name="blog_20160722_5_9035812" name="code" class="html">&lt;!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN"&gt;
+&lt;html&gt;
+  &lt;head&gt;
+    &lt;base href="&lt;%=basePath%&gt;"&gt;
+    
+    &lt;title&gt;用户登录&lt;/title&gt;
+	&lt;meta http-equiv="pragma" content="no-cache"&gt;
+	&lt;meta http-equiv="cache-control" content="no-cache"&gt;
+	&lt;meta http-equiv="expires" content="0"&gt;    
+	&lt;meta http-equiv="keywords" content="keyword1,keyword2,keyword3"&gt;
+	  &lt;link rel="stylesheet" href="assets/css/style.css"&gt; 
+  &lt;/head&gt;
+  &lt;script type="text/javascript" src="&lt;%=basePath%&gt;/js/jquery-1.8.3.js"&gt;&lt;/script&gt;
+  &lt;script src="&lt;%=basePath%&gt;/js/My97DatePicker/WdatePicker.js" &gt;&lt;/script&gt; 
+  &lt;script type="text/javascript"&gt;
+// 用户名合法性的判断
+  $(function(){
+		$("#phone_number").blur(function(){
+				var phone = $("#phone_number").val();
+				var len = $("#phone_number").val().length;
+				if(len==0||phone==null){
+							$("#userNameError").html("手机号不能为空！");
+							$("#loginFrm").attr("onsubmit","return false");
+							}
+					});
+			});
+			
+// 密码合法性的判断
+  	$(function(){
+		$("#pwd").blur(function(){
+			var len = $("#pwd").val().length;
+			if(len==0){
+				$("#pwdError").html("密码不能为空！");
+				$("#loginFrm").attr("onsubmit","return false");
+				}
+			})
+  	  	})
+  	  
+  	  function check(){  
+  	     fr=document.form1;  
+  	     if(fr.phone_mobile.value==""){  
+  	        fr.phone_mobile.focus();  
+  	        return false;  
+  	     }  
+  	     if((fr.login_password.value!="")){  
+  	             fr.pwd1.focus();  
+  	             return false;  
+  	     }
+  	       fr.submit();
+  	     }
+  &lt;/script&gt;
+  &lt;body&gt;
+    &lt;div class="page-container"&gt;
+            &lt;h1&gt;登录&lt;/h1&gt;
+            &lt;form name="form1" id="loginFrm" action="userLogin.action" method="post" onsubmit=""&gt;
+              手机号:&lt;input type="text" name="phone_mobile" id="phone_number"&gt;&lt;span style="color: red;" id="userNameError"&gt;&lt;/span&gt;&lt;br&gt;
+            密    码:&lt;input type="password" name="login_password" id="pwd" &gt;&lt;span style="color: red;" id="pwdError"&gt;&lt;/span&gt;
+                &lt;button type="submit" class="submit_button" onclick="return check()"&gt;登录&lt;/button&gt;
+            &lt;/form&gt;
+			&lt;br&gt;&lt;br&gt;&lt;br&gt;
+			&lt;h2&gt;&lt;a href="pages/register.jsp"&gt;注册&lt;/a&gt;&lt;/h2&gt;
+        &lt;/div&gt;
+  &lt;/body&gt;
+&lt;/html&gt;
+</pre><br />&#13;
+以下是注册界面，</div>&#13;
+<div><span style="font-size:14px"></span><pre code_snippet_id="1778711" snippet_file_name="blog_20160722_6_8272444" name="code" class="html">&lt;!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN"&gt;
+&lt;html&gt;
+  &lt;head&gt;
+    &lt;base href="&lt;%=basePath%&gt;"&gt;
+    
+    &lt;title&gt;用户注册&lt;/title&gt;
+	&lt;meta http-equiv="pragma" content="no-cache"&gt;
+	&lt;meta http-equiv="cache-control" content="no-cache"&gt;
+	&lt;meta http-equiv="expires" content="0"&gt;    
+	&lt;meta http-equiv="keywords" content="keyword1,keyword2,keyword3"&gt;
+	&lt;meta http-equiv="description" content="This is my page"&gt;
+	&lt;link rel="stylesheet" href="assets/css/style.css"&gt; 
+	&lt;!--
+	&lt;link rel="stylesheet" type="text/css" href="styles.css"&gt;
+	--&gt;
+  &lt;/head&gt;
+   &lt;script type="text/javascript" src="&lt;%=basePath%&gt;/js/jquery-1.8.3.js"&gt;&lt;/script&gt;
+  &lt;script src="&lt;%=basePath%&gt;/js/My97DatePicker/WdatePicker.js" &gt;&lt;/script&gt;
+  &lt;script type="text/javascript"&gt;
+// 用户名合法性的判断
+  $(function(){
+		$("#phone_number").blur(function(){
+				var phone = $("#phone_number").val();
+				var len = $("#phone_number").val().length;
+				$.getJSON("userJudge.action",{"phone_mobile":phone},function(data){
+						if(data!=null){
+							alert("手机号已注册，青重新输入！！");
+							$("#userNameError").html("手机号已注册！");
+							$("#regFrm").attr("onsubmit","return false");
+							
+						}else if(len==0||phone==null){
+							$("#userNameError").html("手机号不能为空！");
+							$("#regFrm").attr("onsubmit","return false");
+							}
+						else if (!checkContactNumber()) { 
+							  $("#userNameError").html("不符合手机号格式！");
+							  $("#regFrm").attr("onsubmit","return false");
+							} 
+						else{
+							$("#userNameError").html("恭喜！手机号可用！")
+							$("#regFrm").attr("onsubmit","return true");
+								}
+					});
+			});
+	  	});
+// 密码合法性的判断
+  	$(function(){
+		$("#pwd").blur(function(){
+			var len = $("#pwd").val().length;
+			if(len==0){
+				$("#pwdError").html("密码不能为空！");
+				$("#regFrm").attr("onsubmit","return false");
+				}
+			if(len&gt;0&amp;&amp;len&lt;6){
+				$("#pwdError").html("密码位数最少为6位！");
+				$("#regFrm").attr("onsubmit","return false");
+				}
+			if(len&gt;=6){
+				$("#pwdError").html("密码格式正确！");
+				$("#regFrm").attr("onsubmit","return true");
+				}
+			})
+  	  	})
+// 确认两次密码
+	$(function(){
+		$("#conpwd").blur(function(){
+		var oldpwd = $("#pwd").val();
+		var conpwd = $("#conpwd").val();
+		var number = $("#conpwd").val().length;
+		if(number == 0){
+			$("#pwdError").html("密码不能为空！");
+			$("#regFrm").attr("onsubmit","return false");
+		}
+		else if(oldpwd!=conpwd){
+				$("#conpwdError").html("两次密码不一致！");
+				$("#regFrm").attr("onsubmit","return false");
+			}else{
+				$("#conpwdError").html("密码符合！");
+				$("#regFrm").attr("onsubmit","return true");
+			}
+		})
+	})
+	function check(){  
+ 	     fr=document.reg;  
+ 	     if(fr.phone_mobile.value==""){  
+ 	        fr.phone_mobile.focus();  
+ 	        return false;  
+ 	     }  
+ 	     if((fr.login_password.value=="")){  
+ 	             fr.login_password.focus(); 
+ 	             return false;  
+ 	     }
+ 	    if((fr.login_password2.value=="")){  
+             fr.login_password2.focus(); 
+             return false;  
+     }
+ 	       fr.submit();
+ 	     }
+    function checkContactNumber() {  
+        var mobile = $.trim($("#phone_number").val());  
+        var isMobile = /^(((13[0-9]{1})|(15[0-9]{1})|(18[0-9]{1})|(17[0-9]{1})|(14[0-9]{1}))+\d{8})$/;  
+            if (!isMobile.exec(mobile) &amp;&amp; mobile.length != 11) {  
+                $("#phone_number").focus();  
+                return false;  
+            }  
+        return true;  
+        }  
+  &lt;/script&gt;
+  &lt;body&gt;
+    &lt;!-- &lt;form id="regFrm" action="userReg.action" method="post" onsubmit=""&gt;
+    	用户名：&lt;input type="text" name="userName" id="uname"&gt;&lt;span style="color: red;" id="userNameError"&gt;&lt;/span&gt;&lt;br/&gt;
+    	密码：&lt;input type="password" name="password" id="pwd"&gt;&lt;span style="color: red;" id="pwdError"&gt;&lt;/span&gt;&lt;br/&gt;
+    	确认密码：&lt;input type="password" id="conpwd"&gt;&lt;span style="color: red;" id="conpwdError"&gt;&lt;/span&gt;&lt;br/&gt;
+    	生日&lt;input type="text" name="birthday" onClick="WdatePicker()" class="Wdate"&gt;&lt;br/&gt;
+    	&lt;input type="submit" value="注册"&gt;
+    &lt;/form&gt; --&gt;
+    &lt;div class="page-container"&gt;
+            &lt;h1&gt;用户注册&lt;/h1&gt;
+          &lt;!--   &lt;form id="regFrm" action="userReg.action" method="post" onsubmit=""&gt;
+              用户名:&lt;input type="text" name="userName" class="username" &gt;
+            密    码:&lt;input type="password" name="password" class="password" &gt;
+                &lt;button type="submit" class="submit_button"&gt;登录&lt;/button&gt; --&gt;
+                &lt;form name="reg" id="regFrm" action="userReg.action" method="post" onsubmit=""&gt;
+                手机号：&lt;input type="text" name="phone_mobile" id="phone_number"&gt;&lt;span style="color: red;" id="userNameError"&gt;&lt;/span&gt;&lt;br/&gt;
+    	密码：&lt;input type="password" name="login_password" id="pwd"&gt;&lt;span style="color: red;" id="pwdError"&gt;&lt;/span&gt;&lt;br/&gt;
+    	确认密码：&lt;input type="password" name="login_password2" id="conpwd"&gt;&lt;span style="color: red;" id="conpwdError"&gt;&lt;/span&gt;&lt;br/&gt;
+    	 &lt;button type="submit" class="submit_button" onclick="return check()"&gt;注册&lt;/button&gt;
+            &lt;/form&gt;
+        &lt;/div&gt;
+  &lt;/body&gt;
+&lt;/html&gt;
+</pre><br />&#13;
+页面中对手机号进行了验证，而且能够与后台进行交互，判断数据库中是否已有此手机号，页面所需的js文件和css配置会在以下给出，</div>&#13;
+<h2><span style="font-size:14px">进入正题</span></h2>&#13;
+<div><span style="font-size:14px">数据库中包含用户手机号，用户密码，以及注册信息，和生成的唯一识别码，</span></div>&#13;
+<div><span style="font-size:14px">以下是用户的实体类，</span></div>&#13;
+<div><span style="font-size:14px"></span><pre code_snippet_id="1778711" snippet_file_name="blog_20160722_7_2733330" name="code" class="java">package com.register.vo;
+
+import java.util.Date;
+
+public class User {
+private int id;
+private String phone_mobile;//用户手机号
+private String login_password;//用户登录密码
+private Date register_time;//用户注册日期
+private String user_code;//用户唯一识别ID
+
+public User(int id, String phone_mobile, String login_password, Date register_time,
+		String user_code) {
+	super();
+	this.id = id;
+	this.phone_mobile = phone_mobile;
+	this.login_password = login_password;
+	this.register_time = register_time;
+	this.user_code = user_code;
+}
+
+public User(String phone_mobile, String login_password, Date register_time, String user_code) {
+	super();
+	this.phone_mobile = phone_mobile;
+	this.login_password = login_password;
+	this.register_time = register_time;
+	this.user_code = user_code;
+}
+public User() {
+}
+
+public int getId() {
+	return id;
+}
+//对用户数据进行封装
+public void setId(int id) {
+	this.id = id;
+}
+
+public String getPhone_mobile() {
+	return phone_mobile;
+}
+
+public void setPhone_mobile(String phone_mobile) {
+	this.phone_mobile = phone_mobile;
+}
+
+public String getLogin_password() {
+	return login_password;
+}
+
+public void setLogin_password(String login_password) {
+	this.login_password = login_password;
+}
+
+public Date getRegister_time() {
+	return register_time;
+}
+
+public void setRegister_time(Date register_time) {
+	this.register_time = register_time;
+}
+
+public String getUser_code() {
+	return user_code;
+}
+
+public void setUser_code(String user_code) {
+	this.user_code = user_code;
+}
+
+}
+</pre><br />&#13;
+下面这一步是比较重要的一步，Controller类，</div>&#13;
+<div><span style="font-size:14px">如下所示，</span></div>&#13;
+<div><span style="font-size:14px"></span><pre code_snippet_id="1778711" snippet_file_name="blog_20160722_8_923187" name="code" class="java"> package com.register.controller;
+import java.net.InetAddress;
+import java.net.UnknownHostException;
+import java.text.DateFormat;
+import java.text.SimpleDateFormat;
+import java.util.Date;
+import java.util.HashMap;
+import java.util.Map;
+import java.util.UUID;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
+
+import javax.script.ScriptEngine;
+import javax.script.ScriptEngineManager;
+import javax.script.ScriptException;
+import javax.servlet.http.HttpServletRequest;
+import javax.servlet.http.HttpSession;
+
+import org.apache.ibatis.session.SqlSession;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Controller;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.ResponseBody;
+
+import com.register.service.UserService;
+import com.register.vo.User;
+
+
+//让控制器成为一个bean
+@Controller
+//这个控制器是接受user_reg页面传过来的参数去操作数据库
+public class UserController {
+	@Autowired
+	private SqlSession sqlSession;
+	@Autowired
+	private UserService us;
+	@Autowired
+	private HttpServletRequest req;
+	@RequestMapping("/userReg.action")
+	//jsp页面通过userReg.action找到这个方法
+	public String userReg(User user){
+		Map&lt;String,Object&gt; map = new HashMap&lt;String, Object&gt;();
+		map.put("phone_mobile", user.getPhone_mobile());
+		map.put("login_password", user.getLogin_password());
+               
+		//判断页面传回的数据要求
+		Pattern pattern = Pattern.compile("^((13[0-9])|(15[^4,\\D])|(18[01236789]))\\d{8}$");
+	     Matcher matcher = pattern.matcher(user.getPhone_mobile());
+		if(user.getPhone_mobile()==null || user.getLogin_password()==null || !matcher.matches()){
+			return "index.jsp";
+		}
+		
+		//获取当前注册时间
+		Date date = new Date();
+		DateFormat df = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
+		map.put("register_time", df.format(date));
+		
+		//生成唯一识别码
+		 String s = UUID.randomUUID().toString(); 
+    	 String user_code =  s.substring(0,8)+s.substring(9,13)+s.substring(14,18)+s.substring(19,23)+s.substring(24); 
+    	 map.put("user_code", user_code);
+    	 
+    	 //将数据添加到数据库中
+		int a = sqlSession.insert("com.register.dao.addUser",map);
+		
+		req.setAttribute("phone_mobile", user.getPhone_mobile());
+		req.setAttribute("login_password", user.getLogin_password());
+		return "pages/register_success.jsp";
+	}
+
+
+	//处理用户名唯一性的判断                                                                     
+	@RequestMapping("/userJudge.action")
+	@ResponseBody
+	public User userJudge(String phone_mobile) {
+		User u = sqlSession.selectOne("com.register.dao.judgeUser",phone_mobile);
+		System.out.println(u.getPhone_mobile());
+		return u;
+	}
+	
+	//用户登录的判断
+	@RequestMapping("/userLogin.action")
+	public String userLogin(String phone_mobile,String login_password){
+		//对页面传回的值进行二次判断
+		 Pattern pattern = Pattern.compile("^((13[0-9])|(15[^4,\\D])|(18[01236789]))\\d{8}$");
+	     Matcher matcher = pattern.matcher(phone_mobile);
+		if(phone_mobile==null || login_password==null || !matcher.matches()){
+			return "pages/user-login-no.jsp";
+		}
+		
+		User u = us.userLogin(phone_mobile, login_password);
+		
+		//查到用户了，执行登录成功的操作
+		if(u!=null){
+			req.getSession().setAttribute("u", u);
+			return "pages/user-login-ok.jsp";
+		}else{
+			return "pages/user-login-no.jsp";
+		}
+	}
+	//用户退出销毁session 跳转到登录页
+	@RequestMapping("/userExit.action")
+	public String userExit(HttpSession session){
+		session.invalidate();
+		return "index.jsp";
+	}
+}
+</pre><br />&#13;
+UserService类，</div>&#13;
+<div><span style="font-size:14px"></span><pre code_snippet_id="1778711" snippet_file_name="blog_20160722_9_8523615" name="code" class="java">package com.register.service;
+
+import java.util.HashMap;
+import java.util.Map;
+
+import org.apache.ibatis.session.SqlSession;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Service;
+
+import com.register.vo.User;
+
+
+@Service
+public class UserService {
+	@Autowired
+	private SqlSession sqlSession;
+	public User userLogin(String phone_mobile,String login_password){
+		Map&lt;String,Object&gt; map = new HashMap&lt;String, Object&gt;();
+		map.put("phone_mobile",phone_mobile);
+		map.put("login_password", login_password);
+		User u = sqlSession.selectOne("com.register.dao.userLogin",map);
+		return u;
+	}
+}
+</pre><br />&#13;
+注入测试类，</div>&#13;
+<div><span style="font-size:14px"></span><pre code_snippet_id="1778711" snippet_file_name="blog_20160722_10_7793267" name="code" class="java">package com.register.util;
+
+import org.springframework.stereotype.Controller;
+
+@Controller
+public class TestUtil {
+	public void a(){
+		System.out.println("注入成功！");
+	}
+
+}
+</pre><br />&#13;
+OK，到这里已经基本差不多了，但是这里边所给的代码并不完整，为了方便大家相互交流学习，这是源码以及数据库文件，</div>&#13;
+<div><span style="font-size:14px">链接：http://pan.baidu.com/s/1geEOshX 密码：bx9q，想要参考源码的可以自己下载。<br />&#13;
+</span></div>&#13;
+   &#13;

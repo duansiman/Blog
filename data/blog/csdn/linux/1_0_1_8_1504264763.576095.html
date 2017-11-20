@@ -1,0 +1,272 @@
+
+                <div class="markdown_views"><h2 id="listen函数">listen()函数</h2>
+
+<pre class="prettyprint"><code class=" hljs perl">功能
+用于面向连接服务器，表明愿意接收连接
+<span class="hljs-comment">#include &lt;sys/socket.h&gt;</span>
+函数原型
+<span class="hljs-keyword">int</span> <span class="hljs-keyword">listen</span>(<span class="hljs-keyword">int</span> <span class="hljs-keyword">s</span>, <span class="hljs-keyword">int</span> backlog);
+参数说明
+sockfd：调用<span class="hljs-keyword">socket</span>返回的文件描述符
+backlog：<span class="hljs-keyword">accept</span>()应答之前，允许在进入队列中等待的连接数目，出错时返回-<span class="hljs-number">1</span>
+返回值
+成功时，返回<span class="hljs-number">0</span>
+失败时，返回-<span class="hljs-number">1</span>
+说明
+在使用<span class="hljs-keyword">listen</span>()之前，需要调用<span class="hljs-keyword">bind</span>()绑定到需要的端口，否则系统内核将会监听一个随机端口
+</code></pre>
+
+<h2 id="accept函数">accept()函数</h2>
+
+<pre class="prettyprint"><code class=" hljs perl">功能
+建立套接字连接，处理单个连接请求（如发送/接收数据）
+<span class="hljs-comment">#include &lt;sys/socket.h&gt;</span>
+函数原型
+<span class="hljs-keyword">int</span> <span class="hljs-keyword">accept</span>(<span class="hljs-keyword">int</span> sockfd, struct void<span class="hljs-variable">*addr</span>, socklen_t <span class="hljs-variable">*addrlen</span>);
+参数说明
+sockfd：正在监听端口的套接字文件描述符
+addr：指向本地数据结构sockaddr_in的指针
+调用<span class="hljs-keyword">connect</span>()的信息将存储在该结构中
+addrlen：设置为sizeof(struct sockaddr_in)
+返回值
+成功时，返回一个<span class="hljs-keyword">socket</span> 端口
+失败时，返回-<span class="hljs-number">1</span>
+</code></pre>
+
+
+
+<pre class="prettyprint"><code class=" hljs cpp"><span class="hljs-keyword">int</span> main() {
+    <span class="hljs-keyword">int</span> sockfd, client_fd;
+    <span class="hljs-keyword">struct</span> sockaddr_in remote_addr;　<span class="hljs-comment">/* 客户端地址信息 */</span>   
+     ……
+    <span class="hljs-keyword">while</span>(<span class="hljs-number">1</span>) { 
+        sin_size = <span class="hljs-keyword">sizeof</span>(<span class="hljs-keyword">struct</span> sockaddr_in); 
+        <span class="hljs-keyword">if</span> ((client_fd = accept(sockfd, (<span class="hljs-keyword">struct</span> sockaddr *)        &amp;remote_addr, &amp;sin_size)) == -<span class="hljs-number">1</span>){ 
+            perror(<span class="hljs-string">"accept"</span>); <span class="hljs-keyword">continue</span>; 
+        } 
+        <span class="hljs-built_in">printf</span>(<span class="hljs-string">"from %s\n"</span>, inet_ntoa(remote_addr.sin_addr)); 
+        ……
+    }   
+    ……
+} 
+</code></pre>
+
+
+
+<h2 id="send函数">send()函数</h2>
+
+<pre class="prettyprint"><code class=" hljs vala">功能
+通过socket发送数据
+<span class="hljs-preprocessor">#include &lt;sys/types.h&gt;</span>
+<span class="hljs-preprocessor">#include &lt;sys/socket.h&gt;</span>
+函数原型
+ssize_t send(<span class="hljs-keyword">int</span> sockfd, <span class="hljs-keyword">const</span> <span class="hljs-keyword">void</span> *buf, size_t len, <span class="hljs-keyword">int</span> flags);
+参数说明
+sockfd：发送数据的套接字描述符
+buf：指向发送数据的指针
+len：数据长度 
+flags：一般设置为<span class="hljs-number">0</span>
+返回值
+成功时，返回实际发送的数据的字节数
+失败时，返回-<span class="hljs-number">1</span>
+</code></pre>
+
+
+
+<h2 id="recv函数">recv()函数</h2>
+
+<pre class="prettyprint"><code class=" hljs vala">功能
+通过socket接收数据
+<span class="hljs-preprocessor">#include &lt;sys/types.h&gt;</span>
+<span class="hljs-preprocessor">#include &lt;sys/socket.h&gt;</span>
+函数原型
+ssize_t recv(<span class="hljs-keyword">int</span> sockfd, <span class="hljs-keyword">void</span> *buf, size_t len, <span class="hljs-keyword">int</span> flags);
+参数说明
+sockfd：要读的SOCKET描述符 
+buf：要读的信息的缓冲区
+len：缓冲的最大长度  
+flags：一般设置为<span class="hljs-number">0</span>
+返回值
+成功时，返回实际接收到的数据的字节数
+失败时，返回-<span class="hljs-number">1</span>
+</code></pre>
+
+<pre class="prettyprint"><code class=" hljs erlang"><span class="hljs-variable">MSG_DONTROUTE</span>
+<span class="hljs-function"><span class="hljs-title">send</span><span class="hljs-params">()</span>的使用标志，不查找路由表，表示目的主机在本地网络
+MSG_OOB
+接收或者发送带外数据
+MSG_PEEK
+<span class="hljs-title">recv</span><span class="hljs-params">()</span>的使用标志，查看数据但不从系统缓冲区移走数据
+MSG_WAITALL
+<span class="hljs-title">recv</span><span class="hljs-params">()</span>的使用标志，等待所有数据，阻塞式接收，直到满足条件或发生错误
+读到指定字节时，正常返回，返回值等于<span class="hljs-title">len</span>
+读到文件尾，正常返回，返回值小于<span class="hljs-title">len</span>
+操作错误时，返回-1
+</span></code></pre>
+
+
+
+<h2 id="带外数据">带外数据</h2>
+
+<p>传输层协议使用带外数据(out-of-band, OOB)来发送一些重要数据 <br/>
+若通信一方有重要数据需要通知对方时，协议能将这些数据快速地发送到对方 <br/>
+为发送这些数据，协议一般不使用与普通数据相同的通道，而是使用另外的通道 <br/>
+Linux套接字机制支持低层协议发送/接收带外数据，但TCP协议没有真正意义上的带外数据 <br/>
+为发送重要协议，TCP提供紧急模式机制 <br/>
+TCP协议在数据段中设置URG位，表示进入紧急模式 <br/>
+接收方可以对紧急模式采取特殊的处理 <br/>
+这种方式数据不容易被阻塞，且可通过在服务器端程序里捕捉SIGURG信号来及时接收数据 <br/>
+TCP协议每次只能发送和接收一个字节带外数据</p>
+
+<h2 id="tcp发送带外数据的处理机制">TCP发送带外数据的处理机制</h2>
+
+<p>TCP总将最后一个字节当作OOB数据，其余当作普通字节 <br/>
+不管通过带MSG_OOB标志的sendXXXX()函数发送多少字节OOB数据，发送端只将最后一个字节当作OOB数据 <br/>
+接收端也只能收到一个字节的OOB数据 <br/>
+举例：send(sendfd, “ABC”, 3, MSG_OOB) <br/>
+TCP将紧急模式URG 置位 <br/>
+紧急指针定位第三个字节(“C”) <br/>
+前两个字节(“AB”)当作普通字节发送</p>
+
+<p>TCP提供两种处理模式 <br/>
+非OOBINLINE 模式：套接字的默认模式 <br/>
+将OOB字节与普通字节分开存放， OOB字节存放在一个OOB缓冲区中 <br/>
+OOBINLINE 模式： <br/>
+OOB字节和普通字节一起存放 <br/>
+recvXXXX函数在MSG_OOB模式下，将在OOB缓冲区中寻找数据 <br/>
+如果发送端没发送OOB字节，它返回错误 <br/>
+如果发送端发送了OOB字节 <br/>
+对于非OOBINLINE 模式，返回1字节的OOB数据 <br/>
+对于OOBINLINE 模式，返回错误，因为OOB字节没有放到OOB缓冲区中 </p>
+
+<h2 id="sendto函数">sendto()函数</h2>
+
+<pre class="prettyprint"><code class=" hljs cpp">功能
+用于数据报套接字的通信
+<span class="hljs-preprocessor">#include &lt;sys/types.h&gt;</span>
+<span class="hljs-preprocessor">#include &lt;sys/socket.h&gt;</span>
+函数原型
+<span class="hljs-keyword">int</span> sendto(<span class="hljs-keyword">int</span> sockfd, <span class="hljs-keyword">const</span> <span class="hljs-keyword">void</span> *msg, <span class="hljs-keyword">int</span> len, <span class="hljs-keyword">unsigned</span> <span class="hljs-keyword">int</span> flags, <span class="hljs-keyword">const</span> <span class="hljs-keyword">struct</span> sockaddr *to, <span class="hljs-keyword">int</span> tolen); 
+参数说明
+to：目地机的IP地址和端口号信息
+tolen：常被赋值为<span class="hljs-keyword">sizeof</span> (<span class="hljs-keyword">struct</span> sockaddr) 
+返回值
+成功时，返回实际发送的数据的字节数
+失败时，返回-<span class="hljs-number">1</span>
+</code></pre>
+
+
+
+<h2 id="recvfrom函数">recvfrom()函数</h2>
+
+<pre class="prettyprint"><code class=" hljs cpp">功能
+用于数据报套接字的通信
+<span class="hljs-preprocessor">#include &lt;sys/types.h&gt;</span>
+<span class="hljs-preprocessor">#include &lt;sys/socket.h&gt;</span>
+函数原型
+<span class="hljs-keyword">int</span> recvfrom(<span class="hljs-keyword">int</span> sockfd,<span class="hljs-keyword">void</span> *buf, <span class="hljs-keyword">int</span> len, <span class="hljs-keyword">unsigned</span> <span class="hljs-keyword">int</span> flags, <span class="hljs-keyword">struct</span> sockaddr *from, <span class="hljs-keyword">int</span> *fromlen); 
+参数说明
+from：保存源机的IP地址及端口号
+fromlen：常常被赋值为<span class="hljs-keyword">sizeof</span> (<span class="hljs-keyword">struct</span> sockaddr) 
+返回值
+成功时，返回实际接收到的数据的字节数
+失败时，返回-<span class="hljs-number">1</span>
+</code></pre>
+
+
+
+<h2 id="write函数">write()函数</h2>
+
+
+
+<pre class="prettyprint"><code class=" hljs cs">函数原型
+ssize_t write(<span class="hljs-keyword">int</span> fd, <span class="hljs-keyword">const</span> <span class="hljs-keyword">void</span> *buf, size_t nbytes) 
+功能
+将buf中的nbytes字节内容写入文件描述符fd
+返回值
+成功时返回写的字节数
+失败时返回-<span class="hljs-number">1</span>，并设置errno变量
+说明
+返回值大于<span class="hljs-number">0</span>，表示写入部分或全部数据
+返回值小于<span class="hljs-number">0</span>，表示出现错误
+如果错误为EINTR ，表示在写的时候出现中断错误
+如果为EPIPE，表示网络连接出现问题
+</code></pre>
+
+
+
+<h2 id="read函数">read()函数</h2>
+
+
+
+<pre class="prettyprint"><code class=" hljs perl">函数原型
+ssize_t <span class="hljs-keyword">read</span>(<span class="hljs-keyword">int</span> fd, void <span class="hljs-variable">*buf</span>, size_t nbyte)
+功能
+从fd中读取内容
+返回值
+读成功时，返回实际所读的字节数
+如果返回的值是<span class="hljs-number">0</span> 表示已经读到文件的结束,
+出错时，返回值小于<span class="hljs-number">0</span>
+如果错误为EINTR，说明读是由中断引起的
+如果是ECONNREST表示网络连接出了问题
+</code></pre>
+
+
+
+<h2 id="closeshutdown函数">close()/shutdown()函数</h2>
+
+<pre class="prettyprint"><code class=" hljs perl">功能
+关闭通讯
+函数原型
+<span class="hljs-keyword">int</span> <span class="hljs-keyword">close</span>(<span class="hljs-keyword">int</span> sockfd);
+<span class="hljs-keyword">int</span> <span class="hljs-keyword">shutdown</span>(<span class="hljs-keyword">int</span> sockfd, <span class="hljs-keyword">int</span> how);
+参数说明
+sockfd：要关闭的套接字描述符 
+how：
+<span class="hljs-number">0</span> ：不允许接收
+<span class="hljs-number">1</span> ：不允许发送
+<span class="hljs-number">2</span> ：不允许发送和接收(和<span class="hljs-keyword">close</span>() 一样)
+返回值
+成功时，返回<span class="hljs-number">0</span>
+失败时，返回-<span class="hljs-number">1</span>
+</code></pre>
+
+
+
+<h2 id="getpeernamegethostname函数">getpeername()/gethostname()函数</h2>
+
+<pre class="prettyprint"><code class=" hljs cs"><span class="hljs-keyword">int</span> getpeername(<span class="hljs-keyword">int</span> sockfd, <span class="hljs-keyword">struct</span> sockaddr* addr, <span class="hljs-keyword">int</span>* addrlen);
+获取socket连接另一端的主机信息
+sockfd：是连接的数据流套接口文件描述符
+addr：保存另一端主机信息
+addrlen：设置为<span class="hljs-keyword">sizeof</span>(<span class="hljs-keyword">struct</span> sockaddr)
+<span class="hljs-keyword">int</span> gethostname(<span class="hljs-keyword">char</span> *hostname, size_t size);
+返回程序正在运行的计算机的名字
+返回值
+如果成功，返回<span class="hljs-number">0</span>
+如果失败，返回-<span class="hljs-number">1</span> </code></pre>
+
+
+
+<h2 id="ip地址与域名的获取">IP地址与域名的获取</h2>
+
+
+
+<pre class="prettyprint"><code class=" hljs vala">函数原型
+<span class="hljs-preprocessor">#include &lt;netdb.h&gt;</span>
+<span class="hljs-keyword">struct</span> hostent *gethostbyname(<span class="hljs-keyword">const</span> <span class="hljs-keyword">char</span> *name);
+<span class="hljs-keyword">struct</span> hostent *gethostbyaddr(<span class="hljs-keyword">const</span> <span class="hljs-keyword">char</span> *addr, size_t len, <span class="hljs-keyword">int</span> type);
+</code></pre>
+
+
+
+<pre class="prettyprint"><code class=" hljs cs"><span class="hljs-keyword">struct</span> hostent{
+  <span class="hljs-keyword">char</span> *h_name;                 <span class="hljs-comment">/*主机的正式名称*/</span>
+  <span class="hljs-keyword">char</span> **h_aliases;             <span class="hljs-comment">/*主机的别名*/</span>
+  <span class="hljs-keyword">int</span> h_addrtype;               <span class="hljs-comment">/*主机的地址类型  　AF_INET */</span>
+  <span class="hljs-keyword">int</span> h_length;                 <span class="hljs-comment">/*主机的地址长度  对于IP4 是4字节32位*/</span>
+  <span class="hljs-keyword">char</span> **h_addr_list;           <span class="hljs-comment">/*主机的IP地址列表*/</span>
+  <span class="hljs-preprocessor">#<span class="hljs-keyword">define</span> h_addr  h_addr_list[0]  /*主机的第一个IP地址  */</span>
+};
+</code></pre><link rel="stylesheet" href="http://static.blog.csdn.net/public/res-min/markdown_views.css?v=1.0"/></div><link rel="stylesheet" href="http://static.blog.csdn.net/public/res-min/markdown_views.css?v=1.0"/>&#13;
+            

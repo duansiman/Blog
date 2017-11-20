@@ -1,0 +1,127 @@
+
+
+<p>假设系统的一个文本框中，允许用户输入字符串表达式如"<strong>5除 2 乘3模4乘6</strong>"，要求系统能够按照Java的整数乘除运算规则，计算出表达式结果，如12。</p>&#13;
+<p>假设系统的一个文本框中，允许用户输入字符串表达式如“<strong>list 姓名 年龄 学号 sortby 学号</strong>”， 要求系统能够从数据库中提取学生信息并按照学号排序。</p>&#13;
+<p>当应用程序中频繁使用<span style="color:#ff0000">某种文本形式的句子</span>(不管是用户输入的还是从文件中读取的)时，我们需要为定义字符串表达式的<strong><span style="color:#ff0000">语言</span></strong>设计一个<strong>解释器(interpreter)</strong>。</p>&#13;
+<p>在实际的应用程序开发中，编写一个解释器的机会较少，而且编写复杂的解释器需要学习《编译原理》。</p>&#13;
+<p>因而yqj2065认为解释器模式(Interpreter Pattern) 是所有设计模式中最难学习的。但是，如果你大致了解了《编译原理》方面的知识，则学习解释器模式的难度系数，从7颗星直接降到4星。所以，下一节的内容难度也就4星。</p>&#13;
+<h3>7.1.1 乘法解释器</h3>&#13;
+<p></p>&#13;
+<p>介绍解释器模式的例子，通常解释某种简单的表达式语言，如<strong>加减法解释器、乘除法解释器或布尔运算解释器</strong>。例如用户输入字符串"5除 2 乘3模4乘6"，程序可以按照整数int乘除运算规则，计算出表达式结果如12。</p>&#13;
+<p>注：简化起见，先<u>不考虑优先级和括号</u>的使用。另外，程序中实际上处理"5 / 2 * 3 % 4 * 6"字符串。</p>&#13;
+<p>对于简单的字符串表达式的解释，其实不需要太多词法分析方面的知识。为了集中注意力，我们将<span style="color:#FF0000"><strong>表达式语言</strong></span>简化到脑残的程度。</p>&#13;
+<p></p>&#13;
+<ul>&#13;
+<li>乘除法表达式由数字和操作符'*'，'/'，'%'构成。</li><li>数字是表达式，用操作符连接两个数字是表达式，递归地，用操作符连接两个表达式是表达式。所以，258，2*5，2*5/6都是合法的表达式。</li><li><del>简单起见，表达式语言要求数字和操作符之间必须有至少一个空格。因此使用代码 <strong><span style="color:#ff0000">String[] tokens= statement.split("\\s+");</span></strong></del><br />&#13;
+可以容易地将用户输入的字符串分割成表达式语言的最小单元——终结符(terminal)。</li></ul>&#13;
+<p></p>&#13;
+<p>解释器模式(Interpreter Pattern)的核心是解释表达式，接口Expr代表/封装表达式，Expr封装了一个interpret()方法，对本表达式(Expr实例)进行解释(计算) 并返回计算的结果。</p>&#13;
+<p>数字Digit是表达式，所以Digit是Expr的子类型；用操作符连接两个数字是表达式，以Op表示这种表达式，而MulOp、ModOP和DivOP分别表示乘、模、除表达式。</p>&#13;
+<p><br />&#13;
+</p>&#13;
+<p></p>&#13;
+<pre name="code" class="java">例程 7 3封装文法
+package intent.interpreter.calculator;
+public interface Expr{
+	public int interpret();
+}
+
+package intent.interpreter.calculator;
+public abstract class Op implements Expr{
+	protected Expr left，right;//	
+	public Op(Expr left，Expr right)	{
+		this.left=left;		this.right=right;
+	}
+}
+
+package intent.interpreter.calculator;
+public class MulOp extends Op{
+	public MulOp(Expr left，Expr right)	{
+		super(left，right);
+	}	
+	@Override public int interpret()	{
+		return super.left.interpret() * super.right.interpret();
+	}
+}
+
+package intent.interpreter.calculator;
+public class Digit implements Expr{
+	private int value;	
+	public Digit(int value)	{
+		this.value=value;
+	}		
+	@Override public int interpret()	{
+		return this.value;
+	}
+}
+</pre><br />&#13;
+<br />&#13;
+<p></p>&#13;
+<pre></pre>&#13;
+<div style="text-align:center"><img src="http://img.blog.csdn.net/20140916010330079?watermark/2/text/aHR0cDovL2Jsb2cuY3Nkbi5uZXQveXFqMjA2NQ==/font/5a6L5L2T/fontsize/400/fill/I0JBQkFCMA==/dissolve/70/gravity/SouthEast" alt="" /></div>&#13;
+<p></p>&#13;
+<p>单纯看Expr与Digit和Op的类图，和<strong><span style="color:#ff0000">组合模式、装饰模式</span></strong>完全一样的结构。区别和内在联系后面讨论。</p>&#13;
+<p>现在，各个零部件都有了，但是整个"5 / 2 * 3 % 4 * 6"字符串还需要形成一个表达式。一个简洁的实现是使用<span style="color:#FF0000"><strong>栈</strong></span>构造语法树。</p>&#13;
+<p></p>&#13;
+<pre name="code" class="java">例程 7 4构造语法树
+package intent.interpreter.calculator;
+import java.util.*;
+public class Calculator{
+    private Expr expr;    
+    public void build(String statement){
+                statement = statement.replace(" ", "");
+        statement = statement.replace("*", " * ").replace("/", " / ").replace("%", " % ");
+        String[] tokens=statement.split("\\s+");
+   
+        Expr left=null,right=null;
+        Stack&lt;Expr&gt; stack=new Stack&lt;&gt;();    	
+        for(int i=0;i&lt;tokens.length;i++){	
+            if(tokens[i].equals("*")){
+                left= stack.pop(); 
+                right=new Digit(tokens[++i]); 
+                stack.push(new MulOp(left,right));
+            } else if(tokens[i].equals("/")){
+                left= stack.pop();
+                right=new Digit(tokens[++i]); 
+                stack.push(new DivOp(left,right));    			
+            }else if(tokens[i].equals("%")){
+                left= stack.pop();
+                right=new Digit(tokens[++i]); 
+                stack.push(new ModOp(left,right));   			
+            }else {
+                stack.push(new Digit(tokens[i]));
+            }
+        }
+        this.expr=(Expr)stack.pop();
+    }
+
+    public int compute(){
+        return expr.interpret();
+    }
+}
+
+public class Client{
+	public static void main(String args[])	{	    	
+		String statement = "6 / 2 * 3 % 4 * 6";	
+		statement = "62 / 3";	
+		Calculator calculator = new Calculator();
+		calculator.build(statement);		
+		int result = calculator.compute();		
+		System.out.println(statement + " = " + result);	
+	}
+	public static void test()	{
+	    Expr e = new DivOp(new Digit(62)，new Digit(3));
+	    int result = e.interpret();
+		System.out.println(" 62 / 3 = " + result);	
+	}
+}
+</pre>&#13;
+<p></p>&#13;
+<p>[设计模式]中的解释器模式并未解释如何创建一个抽象的语法树。</p>&#13;
+<p>Calculator的方法<strong><span style="color:#ff0000">build(String statement)</span></strong>将参数statement解析并构造一个Expr实例。</p>&#13;
+也可以直接由Client直接定义Expr实例，如test()代码所示，并执行其interpret()。这样<strong><span style="color:#ff0000">纯手工</span></strong>的玩意，看上去蛮有趣和亲切的——因为傻傻的。&#13;
+<p>Expr e = <strong>new </strong>DivOp ( <strong>new </strong>Digit(62)，<strong>new </strong>Digit(3 ) );</p>&#13;
+<p><a target="_blank" href="http://blog.csdn.net/yqj2065/article/details/8592375" style="text-align:center"><img src="http://img.blog.csdn.net/20140919170809965?watermark/2/text/aHR0cDovL2Jsb2cuY3Nkbi5uZXQveXFqMjA2NQ==/font/5a6L5L2T/fontsize/400/fill/I0JBQkFCMA==/dissolve/70/gravity/SouthEast" alt="" /></a><br />&#13;
+<br />&#13;
+</p>&#13;
+   &#13;

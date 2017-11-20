@@ -1,0 +1,145 @@
+
+        <div class="markdown_views"><p><strong>1.进程优先级内核表示</strong> <br />
+进程的优先级的nice值在-20~+19之间。0~139表示内部优先级，0~99的范围专供实时进程使用。nice值在[-20,+19]映射到100~139之间。如下图所示。 <br />
+<img src="http://img.blog.csdn.net/20170820140449420?watermark/2/text/aHR0cDovL2Jsb2cuY3Nkbi5uZXQvcXFfMjExMjcxNTE=/font/5a6L5L2T/fontsize/400/fill/I0JBQkFCMA==/dissolve/70/gravity/SouthEast" alt="这里写图片描述" title="" /> <br />
+进程优先级宏在不同形式间转换：</p>
+
+
+
+<pre class="prettyprint"><code class=" hljs cs"><span class="hljs-comment">/*  从用户优先级的nice值和静态优先级的转换 */</span>
+<span class="hljs-preprocessor">#<span class="hljs-keyword">define</span> NICE_TO_PRIO(nice)  (MAX_RT_PRIO + (nice) + 20)</span>
+<span class="hljs-preprocessor">#<span class="hljs-keyword">define</span> PRIO_TO_NICE(prio)  ((prio) - MAX_RT_PRIO - 20)</span>
+<span class="hljs-preprocessor">#<span class="hljs-keyword">define</span> TASK_NICE(p)        PRIO_TO_NICE((p)-&gt;static_prio)</span>
+
+<span class="hljs-comment">/* 用户优先级根据调度参数转变到最佳共作级别 */</span>
+<span class="hljs-preprocessor">#<span class="hljs-keyword">define</span> USER_PRIO(p)        ((p)-MAX_RT_PRIO)</span>
+<span class="hljs-preprocessor">#<span class="hljs-keyword">define</span> TASK_USER_PRIO(p)   USER_PRIO((p)-&gt;static_prio)</span>
+<span class="hljs-preprocessor">#<span class="hljs-keyword">define</span> MAX_USER_PRIO       (USER_PRIO(MAX_PRIO))</span></code></pre>
+
+<p>2.进程优先级的计算 <br />
+static是计算的起点，假定已经设置成功。 <br />
+则计算当前进程优先级，p-&gt;prio = effective_prio(p);</p>
+
+
+
+<pre class="prettyprint"><code class=" hljs lasso">    static int effective_prio(struct task_struct <span class="hljs-subst">*</span>p)
+{
+    p<span class="hljs-subst">-&gt;</span>normal_prio <span class="hljs-subst">=</span> normal_prio(p);
+    <span class="hljs-comment">/*
+     * 如果是实时进程或已经提高到实时优先级，则保持优先级不变。
+     * 否则返回普通优先级
+     */</span>
+     <span class="hljs-keyword">if</span> (<span class="hljs-subst">!</span>rt_prio(p<span class="hljs-subst">-&gt;</span>prio))
+        <span class="hljs-keyword">return</span> p<span class="hljs-subst">-&gt;</span>normal_prio;
+     <span class="hljs-keyword">return</span> p<span class="hljs-subst">-&gt;</span>prio;
+}</code></pre>
+
+
+
+<pre class="prettyprint"><code class=" hljs objectivec">普通进程优先级计算的实现：
+<span class="hljs-keyword">static</span> <span class="hljs-keyword">inline</span> <span class="hljs-keyword">int</span> normal_prio(<span class="hljs-keyword">struct</span> task_struct *p)
+{
+    <span class="hljs-keyword">int</span> prio;
+
+    <span class="hljs-keyword">if</span> (task_has_rt_policy(p))
+        prio = MAX_RT_PRIO-<span class="hljs-number">1</span> - p-&gt;rt_priority;
+    <span class="hljs-keyword">else</span>
+        prio = __normal_prio(p);
+    <span class="hljs-keyword">return</span> prio;
+}</code></pre>
+
+<p>普通进程的优先级只是返回了静态优先级而已。</p>
+
+
+
+<pre class="prettyprint"><code class=" hljs objectivec"><span class="hljs-keyword">static</span> <span class="hljs-keyword">inline</span> <span class="hljs-keyword">int</span> __normal_prio(<span class="hljs-keyword">struct</span> task_struct *p)
+{
+    <span class="hljs-keyword">return</span> p-&gt;static_prio;
+}</code></pre>
+
+<p>下面表格对上述的实现做了总结， 对各种类型的进程计算优先级。</p>
+
+<p><img src="http://img.blog.csdn.net/20170820141043445?watermark/2/text/aHR0cDovL2Jsb2cuY3Nkbi5uZXQvcXFfMjExMjcxNTE=/font/5a6L5L2T/fontsize/400/fill/I0JBQkFCMA==/dissolve/70/gravity/SouthEast" alt="这里写图片描述" title="" /> <br />
+<strong>注意</strong>：在进程支出子进程时，子进程的静态优先级继承自父进程。子进程的动态优先级则设置为父进程的普通父进程，这确保了实时互斥量引起的优先级提高不会传递给子进程。 <br />
+<strong>3．计算负荷权重</strong> <br />
+    进程的重要性由优先级和task_struct-&gt;se.load的负荷权重。set_load_weight负责根据进程类型及其静态优先级计算负荷权重。</p>
+
+
+
+<pre class="prettyprint"><code class=" hljs avrasm">其实现过程如下:
+     static void set_load_weight(struct task_struct *p)
+{
+    if (task_has_rt_policy(p)) {
+        p-&gt;se<span class="hljs-preprocessor">.load</span><span class="hljs-preprocessor">.weight</span> = prio_to_weight[<span class="hljs-number">0</span>] * <span class="hljs-number">2</span><span class="hljs-comment">;</span>
+        p-&gt;se<span class="hljs-preprocessor">.load</span><span class="hljs-preprocessor">.inv</span>_weight = prio_to_wmult[<span class="hljs-number">0</span>] &gt;&gt; <span class="hljs-number">1</span><span class="hljs-comment">;</span>
+        return<span class="hljs-comment">;</span>
+    }
+
+    <span class="hljs-comment">/*
+     * SCHED_IDLE tasks get minimal weight:
+     */</span>
+    if (p-&gt;policy == SCHED_IDLE) {
+        p-&gt;se<span class="hljs-preprocessor">.load</span><span class="hljs-preprocessor">.weight</span> = WEIGHT_IDLEPRIO<span class="hljs-comment">;</span>
+        p-&gt;se<span class="hljs-preprocessor">.load</span><span class="hljs-preprocessor">.inv</span>_weight = WMULT_IDLEPRIO<span class="hljs-comment">;</span>
+        return<span class="hljs-comment">;</span>
+    }
+
+    p-&gt;se<span class="hljs-preprocessor">.load</span><span class="hljs-preprocessor">.weight</span> = prio_to_weight[p-&gt;static_prio - MAX_RT_PRIO]<span class="hljs-comment">;</span>
+    p-&gt;se<span class="hljs-preprocessor">.load</span><span class="hljs-preprocessor">.inv</span>_weight = prio_to_wmult[p-&gt;static_prio - MAX_RT_PRIO]<span class="hljs-comment">;</span>
+}</code></pre>
+
+<p>负荷权重包含在数据结构load_weight中：</p>
+
+
+
+<pre class="prettyprint"><code class=" hljs objectivec">&lt;sched<span class="hljs-variable">.h</span>&gt;
+<span class="hljs-keyword">struct</span> load_weight {
+<span class="hljs-keyword">unsigned</span> <span class="hljs-keyword">long</span> weight, inv_weight;
+};</code></pre>
+
+<pre><code>一般进程每降低一个nice值，则看获得10%的CPU时间。内核将优先级转换为权重值，下面是这个转换表。
+</code></pre>
+
+<pre class="prettyprint"><code class=" hljs cs">    <span class="hljs-keyword">static</span> <span class="hljs-keyword">const</span> <span class="hljs-keyword">int</span> prio_to_weight[<span class="hljs-number">40</span>] = {
+ <span class="hljs-comment">/* -20 */</span>     <span class="hljs-number">88761</span>,     <span class="hljs-number">71755</span>,     <span class="hljs-number">56483</span>,     <span class="hljs-number">46273</span>,     <span class="hljs-number">36291</span>,
+ <span class="hljs-comment">/* -15 */</span>     <span class="hljs-number">29154</span>,     <span class="hljs-number">23254</span>,     <span class="hljs-number">18705</span>,     <span class="hljs-number">14949</span>,     <span class="hljs-number">11916</span>,
+ <span class="hljs-comment">/* -10 */</span>      <span class="hljs-number">9548</span>,      <span class="hljs-number">7620</span>,      <span class="hljs-number">6100</span>,      <span class="hljs-number">4904</span>,      <span class="hljs-number">3906</span>,
+ <span class="hljs-comment">/*  -5 */</span>      <span class="hljs-number">3121</span>,      <span class="hljs-number">2501</span>,      <span class="hljs-number">1991</span>,      <span class="hljs-number">1586</span>,      <span class="hljs-number">1277</span>,
+ <span class="hljs-comment">/*   0 */</span>      <span class="hljs-number">1024</span>,       <span class="hljs-number">820</span>,       <span class="hljs-number">655</span>,       <span class="hljs-number">526</span>,       <span class="hljs-number">423</span>,
+ <span class="hljs-comment">/*   5 */</span>       <span class="hljs-number">335</span>,       <span class="hljs-number">272</span>,       <span class="hljs-number">215</span>,       <span class="hljs-number">172</span>,       <span class="hljs-number">137</span>,
+ <span class="hljs-comment">/*  10 */</span>       <span class="hljs-number">110</span>,        <span class="hljs-number">87</span>,        <span class="hljs-number">70</span>,        <span class="hljs-number">56</span>,        <span class="hljs-number">45</span>,
+ <span class="hljs-comment">/*  15 */</span>        <span class="hljs-number">36</span>,        <span class="hljs-number">29</span>,        <span class="hljs-number">23</span>,        <span class="hljs-number">18</span>,        <span class="hljs-number">15</span>,
+};</code></pre>
+
+<p>不仅进程，就绪队列也关联到了一个负载权重。在进程被加载进就绪队列时，内核会调用inc_nr_running，还将进程的权重添加到就绪队列的权重中。</p>
+
+
+
+<pre class="prettyprint"><code class=" hljs objectivec"><span class="hljs-keyword">static</span> <span class="hljs-keyword">inline</span> <span class="hljs-keyword">void</span> update_load_add(<span class="hljs-keyword">struct</span> load_weight *lw, <span class="hljs-keyword">unsigned</span> <span class="hljs-keyword">long</span> inc)
+{
+    lw-&gt;weight += inc;
+}
+
+<span class="hljs-keyword">static</span> <span class="hljs-keyword">inline</span> <span class="hljs-keyword">void</span> update_load_sub(<span class="hljs-keyword">struct</span> load_weight *lw, <span class="hljs-keyword">unsigned</span> <span class="hljs-keyword">long</span> dec)
+{
+    lw-&gt;weight -= dec;
+}
+<span class="hljs-keyword">static</span> <span class="hljs-keyword">void</span> inc_nr_running(<span class="hljs-keyword">struct</span> task_struct *p, <span class="hljs-keyword">struct</span> rq *rq)
+{
+    rq-&gt;nr_running++;
+    inc_load(rq, p);
+}</code></pre></div>&#13;
+        <script type="text/javascript">&#13;
+            $(function () {&#13;
+                $('pre.prettyprint code').each(function () {&#13;
+                    var lines = $(this).text().split('\n').length;&#13;
+                    var $numbering = $('&lt;ul/&gt;').addClass('pre-numbering').hide();&#13;
+                    $(this).addClass('has-numbering').parent().append($numbering);&#13;
+                    for (i = 1; i &lt;= lines; i++) {&#13;
+                        $numbering.append($('&lt;li/&gt;').text(i));&#13;
+                    };&#13;
+                    $numbering.fadeIn(1700);&#13;
+                });&#13;
+            });&#13;
+        </script>&#13;
+   &#13;

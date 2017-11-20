@@ -1,0 +1,103 @@
+
+
+<p>导出内核符号模板代码，验证小实例：</p>&#13;
+<p></p>&#13;
+<pre>/**
+*Copyright (c) 2013.TianYuan
+*All rights reserved.
+*
+*文件名称: Esdexp.c
+*文件标识: 导出内核符号，此文件中的函数模块被Esdimp.c调用
+*
+*当前版本：1.0
+*作者：wuyq 
+*
+*取代版本：xxx
+*原作者：xxx
+*完成日期：2013-11-18
+*/
+#include &lt;linux/init.h&gt;
+#include &lt;linux/module.h&gt;
+
+//声明内核模块的许可权，如果不声明LISCENSE,模块加载时将收到内核被污染（kernel tainted）的警告
+MODULE_LICENSE("GPL");
+
+int esdexp_mult(int x, int y)
+{
+	printk("enter esdexp_mult!\n");
+	return (x*y);
+}
+
+int esdexp_divd(int x, int y)
+{
+	printk("enter esdexp_divd!\n");
+	return (x/y);
+}
+
+/*导出内核符号,定义的函数可以被其他函数调用*/
+EXPORT_SYMBOL(esdexp_mult);
+EXPORT_SYMBOL(esdexp_divd);</pre>&#13;
+<br />&#13;
+<pre>/**
+*Copyright (c) 2013.TianYuan
+*All rights reserved.
+*
+*文件名称: Esdimp.c
+*文件标识: 验证Esdexp.c中的模块
+*
+*当前版本：1.0
+*作者：wuyq 
+*
+*取代版本：xxx
+*原作者：xxx
+*完成日期：2013-11-18
+*/
+#include &lt;linux/init.h&gt;
+#include &lt;linux/module.h&gt;
+/*两个ko文件， 安装应该有顺序的 modprob*/
+
+//声明内核模块的许可权，如果不声明LISCENSE,模块加载时将收到内核被污染（kernel tainted）的警告
+MODULE_LICENSE("GPL");
+
+extern int esdexp_mult(int ,int );
+extern int esdexp_divd(int ,int );
+
+static int __init esdimp_init(void)
+{
+	int result = 0;
+	/*编译器、代码可移植性、健壮性 */
+	printk("enter esdimp_init!\n");
+/*局部变量分配在栈内存中，赋初值。默认不一定为0*/	
+/*局部变量应该放在函数内，可执行代码之前。且赋初值。即：函数开头，否则会有警告信息。*/
+	result = esdexp_mult(10, 17);
+	printk("result = %d\n", result);
+	return 0;
+}
+
+static void __exit esdimp_exit(void)
+{
+	int result = 0;
+	printk("enter esdimp_exit!\n");
+	result = esdexp_mult(1000, 60);
+	printk("result = %d\n", result);
+}
+
+module_init(esdimp_init);
+module_exit(esdimp_exit);
+</pre>&#13;
+<br />&#13;
+<pre>KERNELDIR ?=/root/Desktop/work/ldd3/linux-2.6.31_TX2440A
+PWD := $(shell pwd)
+obj-m += Esdimp.o Esdexp.o
+#obj-m += Esdexp.o
+
+default:
+	$(MAKE) -C $(KERNELDIR) M=$(PWD) modules
+
+clean:
+	@rm -f *.o *.ord* *.sy* *.mod.* *.ko
+</pre>&#13;
+<br />&#13;
+<br />&#13;
+<p></p>&#13;
+   &#13;

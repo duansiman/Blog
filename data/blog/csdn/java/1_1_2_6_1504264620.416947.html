@@ -1,0 +1,97 @@
+
+
+<p>上课时yqj2065要求：<strong><span style="font-size:18px">除了JDK等框架或工具中的类，自己编写的类不得使用new创建对象(Test除外)</span></strong>。</p>&#13;
+<p></p>&#13;
+<p>★工具类God是抽象依赖原则的使能工具。</p>&#13;
+<h2>God的使用</h2>&#13;
+<p>为了方便使用，学习Java设计模式或面向对象设计使用的工具， 打包为<strong><span style="color:#ff0000">yqj2065.jar</span></strong>。</p>&#13;
+<p>下载地址： http://download.csdn.net/download/yqj2065/9830149</p>&#13;
+<p>1.God的getPath()将提示默认的属性配置文件的<strong><span style="color:#ff0000">存放路径</span></strong>。将该包添加到你的项目的()库中之后，可以编写</p>&#13;
+<p><span style="font-size:18px">import yqj2065.util.God;<br />&#13;
+import yqj2065.util.Print;</span><br />&#13;
+<br />&#13;
+<br />&#13;
+    public static void main(String[] args) {<br />&#13;
+        Print.pln(God.getPath());//<br />&#13;
+        testGod();        <br />&#13;
+    }<br />&#13;
+在输出的路径下，创建<strong><span style="color:#ff0000">my.properties</span></strong>。</p>&#13;
+<p>例如，</p>&#13;
+<p>BlueJ中为默认包目录，</p>&#13;
+<p>netbeans 中为&lt;项目文件夹&gt;\build\classes，</p>&#13;
+<p>其他环境自己搞定。</p>&#13;
+<p>2.my.properties内容：如果你需要创建init.Server对象，编写键值对后保存配置文件<br />&#13;
+<span style="background-color:rgb(204,255,255)">#本属性配置文件代表从数据库、属性配置文件或XML文件中获得字符串的各种技术。<br />&#13;
+#本文件用于多个程序，使用前要检查本文件是否进行了必要的修改。<br />&#13;
+#注意：键必须映射类全名。<br />&#13;
+IServerrrr = init.Server</span></p>&#13;
+<p><br />&#13;
+3.然后测试God。注意<strong>向下造型</strong><br />&#13;
+    public static void testGod() {<br />&#13;
+        IServer s = (IServer) God.create("<span style="background-color:rgb(204,255,255)">IServerrrr</span>");<br />&#13;
+        s.doSth();<br />&#13;
+    }<br />&#13;
+如果实验室环境没有安装Java7，请使用<strong><span style="color:#ff0000">God6</span></strong>替代God。<br />&#13;
+</p>&#13;
+<p></p>&#13;
+<hr />&#13;
+<p></p>&#13;
+<h2>1.属性配置文件</h2>&#13;
+<p>属性配置文件是一种简单的、易解析的文件格式。该.properties文件是一个文本文件，仅包含两种语法。</p>&#13;
+<ul>&#13;
+<li>前面加有#号的行是注释；</li><li>以“键=值”的方式定义一个属性的配置信息。键值前后的空格在解析时候会被忽略；键不可以换行，值换行用“\”表示。</li></ul>&#13;
+<p>为了避免用java.util.Properties读取中文内容的配置文件时发生<strong><span style="font-size:18px">中文乱码</span></strong>的现象，请用UTF格式保存.properties文件。一个简单的办法是<span style="font-size:14px; color:rgb(204,0,0)">对.properties文件进行“另存为”，在“编码”列表框中选择UTF-8</span>。</p>&#13;
+<p><img alt="尴尬" src="http://static.blog.csdn.net/xheditor/xheditor_emot/default/awkward.gif" />一个同学发现，属性配置文件保存为UTF-8，其中文件的<strong><span style="color:#ff0000">第一行，如果是键-值对</span></strong>，God无法正确处理。原因正在调查中，</p>&#13;
+<p>你可以在第一行写注释，或者用回车使它为空白行。</p>&#13;
+<h2>2. God</h2>&#13;
+<p>使用JDK中的<strong>java.util.Properties</strong>类能够方便地处理<strong>属性配置文件</strong>。</p>&#13;
+<p>God类getValue(String path,String key)方法从path指定的属性配置文件中，读取key的值，它是God类的核心，但是对于学习设计模式而言无关紧要。</p>&#13;
+<p>重载的create ()方法是<span style="color:#ff0000"><strong>静态工厂</strong></span>。如create(String key)将从my.properties文件中读取key键映射的类全名，并创建其对象。</p>&#13;
+<p>注意：create方法的返回值类型为Object，使用时客户代码需要自行将其<span style="color:#ff0000"><strong>向下造型</strong></span>为适当的类型。</p>&#13;
+<p>原来我让同学们在自己做的项目中，复制粘贴源代码，好像麻烦多多。现在打包为<strong><span style="color:rgb(255,0,0)"><span style="color:rgb(255,0,0)"><strong>yqj2065.jar</strong></span></span></strong>。</p>&#13;
+<pre code_snippet_id="2365011" snippet_file_name="blog_20170430_1_5831072" class="java" name="code">package tool; //package yqj2065.util;
+import java.io.*;
+import java.util.Properties;
+public class God{
+    public static String getValue(String path,String key){
+        Properties props = new Properties();
+        try {
+            InputStream is = God.class.getClassLoader().getResourceAsStream(path)  ;       
+            try{
+                InputStreamReader isr = new InputStreamReader(is,"UTF-8");
+                props.load(isr);//从流中加载properties文件信息
+            }catch (java.io.FileNotFoundException e) { e.printStackTrace();}
+        }catch (java.io.IOException e) {     	    e.printStackTrace();
+        }
+        return props.getProperty(key);
+    }
+    
+    public static Object create(){        
+        return create("my.properties","typeName");
+    }
+    public static Object create(String key){        
+        return create("my.properties",key);
+    }
+    public static Object create(String path,String key){
+        String typeName = getValue(path,key);
+        Object obj=null;
+        if(typeName!=null){
+            try {
+                obj = Class.forName(typeName).newInstance();
+            } catch (InstantiationException e) {	e.printStackTrace();
+            } catch (IllegalAccessException e) {	e.printStackTrace();
+            } catch (ClassNotFoundException e) {	e.printStackTrace();
+            }
+        }
+        return obj;
+    }    
+}
+</pre>&#13;
+<p><br />&#13;
+<span style="color:rgb(51,51,51); font-family:Arial; font-size:14px; line-height:26px">个人比较喜欢.Net平台的Windsor，Spring中的类名太长了。 </span></p>&#13;
+<p style="line-height:26px; font-family:Arial; color:rgb(51,51,51); font-size:14px">&#13;
+<a target="_blank" href="http://blog.csdn.net/yqj2065/article/details/8592375" style="text-align:center"><img alt="" src="http://img.blog.csdn.net/20140919170809965?watermark/2/text/aHR0cDovL2Jsb2cuY3Nkbi5uZXQveXFqMjA2NQ==/font/5a6L5L2T/fontsize/400/fill/I0JBQkFCMA==/dissolve/70/gravity/SouthEast" /></a><br />&#13;
+</p>&#13;
+<p style="line-height:26px; font-family:Arial; color:rgb(51,51,51); font-size:14px">&#13;
+最后编辑时间：2017.5.26</p>&#13;
+   &#13;

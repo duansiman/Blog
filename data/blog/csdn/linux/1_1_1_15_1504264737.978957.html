@@ -1,0 +1,128 @@
+
+<p style="padding-top: 0px; padding-bottom: 0px; margin-top: 0px; margin-bottom: 0px; clear: both; height: auto; overflow: hidden; font-family: &#x5B8B;&#x4F53;, 'Arial Narrow', arial, serif; line-height: 28px;"><span style="padding: 0px; margin: 0px; font-family: Arial; line-height: 26px;"><span style="font-size:18px;"><strong>TSS 全称为task state segment，是指在操作系统进程管理的过程中，进程切换时的任务现场信息。 　　</strong></span></span></p><p style="padding-top: 0px; padding-bottom: 0px; margin-top: 0px; margin-bottom: 0px; clear: both; height: auto; overflow: hidden; font-family: Arial; line-height: 26px;"><span style="padding: 0px; margin: 0px;"><span style="font-size:18px;"><strong>      X86体系从硬件上支持任务间的切换。为此目的，它增设了一个新段：任务状态段(TSS)，它和数据段、代码段一样也是一种段，记录了任务的状态信息。　　</strong></span></span></p><p style="padding-top: 0px; padding-bottom: 0px; margin-top: 0px; margin-bottom: 0px; clear: both; height: auto; overflow: hidden; font-family: Arial; line-height: 26px;"><span style="padding: 0px; margin: 0px;"><span style="font-size:18px;"><strong>      与其它段一样，TSS也有描述它的结构：TSS描述符表，它记录了一个TSS的信息，同时还有一个TR寄存器，它指向当前任务的TSS。任务切换的时候，CPU会将原寄存器的内容写出到相应的TSS，同时将新TSS的内容填到寄存器中，这样就实现了任务的切换。</strong></span></span></p><p style="padding-top: 0px; padding-bottom: 0px; margin-top: 0px; margin-bottom: 0px; clear: both; height: auto; overflow: hidden; font-family: Arial; line-height: 26px;"><span style="padding: 0px; margin: 0px;"><span style="font-size:18px;"><strong>      TSS在任务切换过程中起着重要作用，通过它实现任务的挂起和恢复。所谓任务切换是指挂起当前正在执行的任务，恢复或启动执行另一个任务。Linux任务切换是通过switch_to这个宏来实现的，它利用长跳指令，当长跳指令的操作数是TSS描述符的时候，就会引起CPU的任务的切换，此时，CPU将所有寄存器的状态保存到当前任务寄存器TR所指向的TSS段中，然后利用长跳指令的操作数(TSS描述符)找到新任务的TSS段，并将其中的内容填写到各个寄存器中，最后，将新任务的TSS选择符更新到TR中。这样系统就开始运行新切换的任务了。由此可见，通过在TSS中保存任务现场各寄存器状态的完整映象，实现了任务的切换。 task_struct中的tss成员就是记录TSS段内容的。当进程被切换前，该进程用tss_struct保存处理器的所有寄存器的当前值。当进程重新执行时，CPU利用tss恢复寄存器状</strong></span></span></p><p style="padding-top: 0px; padding-bottom: 0px; margin-top: 0px; margin-bottom: 0px; clear: both; height: auto; overflow: hidden; font-family: Arial; line-height: 26px;"><span style="padding: 0px; margin: 0px;"><span style="font-size:18px;"><strong><br /></strong></span></span></p><p style="padding-top: 0px; padding-bottom: 0px; margin-top: 0px; margin-bottom: 0px; clear: both; height: auto; overflow: hidden; font-family: Arial; line-height: 26px;"><span style="padding: 0px; margin: 0px;"><span style="font-size:18px;"><strong></strong></span></span></p><h2 style="font-family: verdana, arial, sans-serif; color: rgb(153, 153, 102); text-transform: uppercase; margin-top: 8px; line-height: 19px;"><span style="font-size:18px;">就绪态和运行态之间的切换</span></h2><span style="font-size:18px;"><strong><span style="color: rgb(51, 51, 51); font-family: verdana, arial, sans-serif; line-height: 19px;">    当前占用CPU的进程，只有调用了schedule()函数，才会由运行态转变为就绪态，schedule()函数选择状态为TASK_RUNNING的进程，</span><br style="color: rgb(51, 51, 51); font-family: verdana, arial, sans-serif; line-height: 19px;" /><span style="color: rgb(51, 51, 51); font-family: verdana, arial, sans-serif; line-height: 19px;">    然后调用switch函数，将cpu切换到所选定的进程。</span><br style="color: rgb(51, 51, 51); font-family: verdana, arial, sans-serif; line-height: 19px;" /><span style="color: rgb(51, 51, 51); font-family: verdana, arial, sans-serif; line-height: 19px;">   schedule()函数可能会在以下三种情况下调用:</span><br style="color: rgb(51, 51, 51); font-family: verdana, arial, sans-serif; line-height: 19px;" /><span style="color: rgb(51, 51, 51); font-family: verdana, arial, sans-serif; line-height: 19px;"> </span><span style="font-family: verdana, arial, sans-serif; line-height: 19px; color: rgb(0, 0, 255);">  (1) 用户态时发生时钟中断<br /></span><span style="color: rgb(51, 51, 51); font-family: verdana, arial, sans-serif; line-height: 19px;">         </span><br style="color: rgb(51, 51, 51); font-family: verdana, arial, sans-serif; line-height: 19px;" /><span style="color: rgb(51, 51, 51); font-family: verdana, arial, sans-serif; line-height: 19px;">       如果当前进程是用户态进程，并且当前进程的时间片用完，那么中断处理函数do_timer()就会调用schedule()函数，</span><br style="color: rgb(51, 51, 51); font-family: verdana, arial, sans-serif; line-height: 19px;" /><span style="color: rgb(51, 51, 51); font-family: verdana, arial, sans-serif; line-height: 19px;">      这相当于用户态的进程被抢断了。</span><br style="color: rgb(51, 51, 51); font-family: verdana, arial, sans-serif; line-height: 19px;" /><span style="color: rgb(51, 51, 51); font-family: verdana, arial, sans-serif; line-height: 19px;">      如果当前的进程属于内核态进程，那么该进程是不会被抢占的。schedule() 函数不是系统调用，用户程序不能直接调用，</span><br style="color: rgb(51, 51, 51); font-family: verdana, arial, sans-serif; line-height: 19px;" /><span style="color: rgb(51, 51, 51); font-family: verdana, arial, sans-serif; line-height: 19px;">     但是放在时间中断函数中，就能够调用。所以在时间中断中调用schedule()是必要的，这样就保证用户进程不会永久地占有CPU。</span><br style="color: rgb(51, 51, 51); font-family: verdana, arial, sans-serif; line-height: 19px;" /><span style="color: rgb(51, 51, 51); font-family: verdana, arial, sans-serif; line-height: 19px;">    </span><br style="color: rgb(51, 51, 51); font-family: verdana, arial, sans-serif; line-height: 19px;" /><span style="font-family: verdana, arial, sans-serif; line-height: 19px; color: rgb(0, 0, 255);">   (2)系统调用时，相应的sys_xxxx()函数返回之后。<br /></span><span style="color: rgb(51, 51, 51); font-family: verdana, arial, sans-serif; line-height: 19px;">         这种情况是为了处理运行在内核态的进程，应用程序一般是通过系统调用进入内核态，因此，linux系统调用处理函数在结束的时候，</span><br style="color: rgb(51, 51, 51); font-family: verdana, arial, sans-serif; line-height: 19px;" /><span style="color: rgb(51, 51, 51); font-family: verdana, arial, sans-serif; line-height: 19px;">         int 0x80 中断函数会检查当前进程的时间片和状态，如果时间片用完或者进程的状态不为RUNNING ，就会调用schedule()函数。</span><br style="color: rgb(51, 51, 51); font-family: verdana, arial, sans-serif; line-height: 19px;" /><span style="color: rgb(51, 51, 51); font-family: verdana, arial, sans-serif; line-height: 19px;">        由此可见，如果系统的某个系统调用处理函数或者中断处理异常永远不退出，那么整个系统就会死锁，任何进程都无法运行。</span><br style="color: rgb(51, 51, 51); font-family: verdana, arial, sans-serif; line-height: 19px;" /><span style="font-family: verdana, arial, sans-serif; line-height: 19px; color: rgb(0, 0, 255);">   (3)在睡眠函数内<br /></span><span style="color: rgb(51, 51, 51); font-family: verdana, arial, sans-serif; line-height: 19px;">       当进程等待的资源还不可用的时候，它就进入了睡眠状态，并且调用schedule()函数再次调用CPU。</span></strong></span><br /><p></p><p style="padding-top: 0px; padding-bottom: 0px; margin-top: 0px; margin-bottom: 0px; clear: both; height: auto; overflow: hidden; font-family: Arial; line-height: 26px;"><span style="padding: 0px; margin: 0px;"><span style="font-size:18px;"><strong><span style="color: rgb(51, 51, 51); font-family: verdana, arial, sans-serif;font-size:14px; line-height: 19px;"></span></strong></span></span></p><pre name="code" class="cpp">#define switch_to(n) {\
+// __tmp用来构造ljmp的操作数。该操作数由4字节偏移和2字节选择符组成。当选择符
+// 是TSS选择符时，指令忽略4字节偏移。
+// __tmp.a存放的是偏移，__tmp.b的低2字节存放TSS选择符。高两字节为0。
+// ljmp跳转到TSS段选择符会造成任务切换到TSS选择符对应的进程。
+// ljmp指令格式是 ljmp 16位段选择符：32位偏移，但如果操作数在内存中，顺序正好相反。
+
+// %0    内存地址    __tmp.a的地址，用来放偏移
+// %1    内存地址    __tmp.b的地址，用来放TSS选择符
+// %2    edx            任务号为n的TSS选择符
+// %3    ecx            task[n]
+struct {long a,b;} __tmp; \
+__asm__("cmpl %%ecx,current\n\t" \    // 如果要切换的任务是当前任务
+    "je 1f\n\t" \                    // 直接退出
+    "movw %%dx,%1\n\t" \            // 把TSS选择符放入__tmp.b中
+    "xchgl %%ecx,current\n\t" \        // 让current指向新进程的task_struct
+    "ljmp *%0\n\t" \                // 任务切换在这里发生，CPU会搞定一切
+    "cmpl %%ecx,last_task_used_math\n\t" \    // 除进程第一次被调度外，以后进程从就绪
+                                        // 态返回运行态后，都从这里开始运行。因
+                                        // 而返回到的是内核运行态。
+    "jne 1f\n\t" \
+    "clts\n" \
+    "1:" \
+    ::"m" (*&amp;__tmp.a),"m" (*&amp;__tmp.b), \
+    "d" (_TSS(n)),"c" ((long) task[n])); \
+}
+</pre><br /><span style="color: rgb(51, 51, 51); font-family: verdana, arial, sans-serif; line-height: 19px;"><span style="font-size:18px;"><strong>进程调度函数</strong></span></span><br /><p></p><p style="padding-top: 0px; padding-bottom: 0px; margin-top: 0px; margin-bottom: 0px; clear: both; height: auto; overflow: hidden; font-family: Arial; line-height: 26px;"><span style="padding: 0px; margin: 0px;"><span style="font-size:18px;"><strong><span style="color: rgb(51, 51, 51); font-family: verdana, arial, sans-serif;font-size:14px; line-height: 19px;"><span style="color: rgb(51, 51, 51); font-family: verdana, arial, sans-serif;font-size:14px; line-height: 19px;"></span></span></strong></span></span></p><pre name="code" class="cpp">/****************************************************************************/
+/* 功能：进程调度。                                                            */
+/*         先对alarm和信号进行处理，如果某个进程处于可中断睡眠状态，并且收    */
+/*         到信号，则把进程状态改成可运行。之后在处可运行状态的进程中挑选一个    */
+/*         并用switch_to()切换到那个进程                                        */
+/* 参数：（无）                                                                */
+/* 返回：（无）                                                                */
+/****************************************************************************/
+void schedule(void)
+{
+    int i,next,c;
+    struct task_struct ** p;
+
+/* check alarm, wake up any interruptible tasks that have got a signal */
+// 首先处理alarm信号，唤醒所有收到信号的可中断睡眠进程
+    for(p = &amp;LAST_TASK ; p &gt; &amp;FIRST_TASK ; --p)
+        if (*p) {
+            // 如果进程设置了alarm，并且alarm已经到时间了
+            if ((*p)-&gt;alarm &amp;&amp; (*p)-&gt;alarm &lt; jiffies) {
+                    // 向该进程发送SIGALRM信号
+                    (*p)-&gt;signal |= (1&lt;&lt;(SIGALRM-1));
+                    (*p)-&gt;alarm = 0;    // 清除alarm
+                }
+//可屏蔽信号位图BLOCKABLE定义在sched.c第24行，(~(_S(SIGKILL) | _S(SIGSTOP)))
+// 说明SIGKILL和SIGSTOP是不能被屏蔽的。
+// 可屏蔽信号位图 &amp; 当前进程屏蔽的信号位图 = 当前进程实际屏蔽的信号位图
+// 当前进程收到的信号位图 &amp; ~当前进程实际屏蔽的信号位图 
+//                            = 当前进程收到的允许相应的信号位图
+// 如果当前进程收到允许相应的信号，并且当前进程处于可中断睡眠态
+// 则把状态改成运行态，参与下面的选择过程
+            if (((*p)-&gt;signal &amp; ~(_BLOCKABLE &amp; (*p)-&gt;blocked)) &amp;&amp;
+            (*p)-&gt;state==TASK_INTERRUPTIBLE)
+                (*p)-&gt;state=TASK_RUNNING;
+        }
+
+/* this is the scheduler proper: */
+// 下面是进程调度的主要部分
+    while (1) {
+        c = -1;
+        next = 0;
+        i = NR_TASKS;
+        p = &amp;task[NR_TASKS];
+        while (--i) {        // 遍历整个task[]数组
+            if (!*--p)        // 跳过task[]中的空项
+                continue;
+            // 寻找剩余时间片最长的可运行进程，
+//  c记录目前找到的最长时间片
+// next记录目前最长时间片进程的任务号
+            if ((*p)-&gt;state == TASK_RUNNING &amp;&amp; (*p)-&gt;counter &gt; c)
+                c = (*p)-&gt;counter, next = i;
+        }
+    // 如果有进程时间片没有用完c一定大于0。这时退出循环，执行 switch_to任务切换
+        if (c) break;
+    // 到这里说明所有可运行进程的时间片都用完了，则利用任务优先级重新分配时间片。
+    // 这里需要重新设置所有任务的时间片，而不光是可运行任务的时间片。
+    // 利用公式：counter = counter/2 + priority
+        for(p = &amp;LAST_TASK ; p &gt; &amp;FIRST_TASK ; --p)
+            if (*p)
+                (*p)-&gt;counter = ((*p)-&gt;counter &gt;&gt; 1) +
+                        (*p)-&gt;priority;
+    // 整个设置时间片过程结束后，重新进入进程选择过程
+    }
+    // 当的上面的循环退出时，说明找到了可以切换的任务
+    switch_to(next);
+}</pre><br /><span style="color: rgb(51, 51, 51); font-family: verdana, arial, sans-serif;font-size:14px; line-height: 19px;">  </span><span style="font-size:18px;"><strong><span style="color: rgb(51, 51, 51); font-family: verdana, arial, sans-serif; line-height: 19px;">2   运行态和睡眠态之间的转化</span><br style="color: rgb(51, 51, 51); font-family: verdana, arial, sans-serif; line-height: 19px;" /><span style="color: rgb(51, 51, 51); font-family: verdana, arial, sans-serif; line-height: 19px;">          当进程等待资源或者事件的时候，就进入了睡眠状态，有两种不同的睡眠状态，   不可中断睡眠状态和可中断睡眠状态。</span><br style="color: rgb(51, 51, 51); font-family: verdana, arial, sans-serif; line-height: 19px;" /><span style="color: rgb(51, 51, 51); font-family: verdana, arial, sans-serif; line-height: 19px;">          处于可中断睡眠状态的进程，不光可以由wake_up 唤醒，还可以由信号唤醒，在schedule()函数中，会把处于可中断睡眠状态的并且接收到信号的</span><br style="color: rgb(51, 51, 51); font-family: verdana, arial, sans-serif; line-height: 19px;" /><span style="color: rgb(51, 51, 51); font-family: verdana, arial, sans-serif; line-height: 19px;">        进程变为运行状态。linux0.11的可中断睡眠状态可以由以下三中函数进入:</span><br style="color: rgb(51, 51, 51); font-family: verdana, arial, sans-serif; line-height: 19px;" /><span style="color: rgb(51, 51, 51); font-family: verdana, arial, sans-serif; line-height: 19px;">       (1)调用interruptiable_sleep_on()函数、</span><br style="color: rgb(51, 51, 51); font-family: verdana, arial, sans-serif; line-height: 19px;" /><span style="color: rgb(51, 51, 51); font-family: verdana, arial, sans-serif; line-height: 19px;">       (2)调用sys_pause()函数。</span><br style="color: rgb(51, 51, 51); font-family: verdana, arial, sans-serif; line-height: 19px;" /><span style="color: rgb(51, 51, 51); font-family: verdana, arial, sans-serif; line-height: 19px;">       (3)调用sys_waitpid()函数。</span><br style="color: rgb(51, 51, 51); font-family: verdana, arial, sans-serif; line-height: 19px;" /><br style="color: rgb(51, 51, 51); font-family: verdana, arial, sans-serif; line-height: 19px;" /><span style="color: rgb(51, 51, 51); font-family: verdana, arial, sans-serif; line-height: 19px;">    进程要进入不可中断睡眠状态，必须调用sleep_on()函数。进程调用wake_up()函数，将处于不可中断状态的进程唤醒。</span></strong></span><br /><p></p><p style="padding-top: 0px; padding-bottom: 0px; margin-top: 0px; margin-bottom: 0px; clear: both; height: auto; overflow: hidden; font-family: Arial; line-height: 26px;"><span style="padding: 0px; margin: 0px;"><span style="font-size:18px;"><span style="font-weight: bold;"><span style="color: rgb(51, 51, 51); font-family: verdana, arial, sans-serif;font-size:14px; line-height: 19px;"><span style="color: rgb(51, 51, 51); font-family: verdana, arial, sans-serif;font-size:14px; line-height: 19px;"><span style="color: rgb(51, 51, 51); font-family: verdana, arial, sans-serif;font-size:14px; line-height: 19px;"></span></span></span></span></span></span></p><pre name="code" class="cpp">/****************************************************************************/
+/* 功能：当前进程进入不可中断睡眠态，挂起在等待队列上                        */
+/* 参数：p 等待队列头                                                        */
+/* 返回：（无）                                                                */
+/****************************************************************************/
+void sleep_on(struct task_struct **p)
+{
+    struct task_struct *tmp;        // tmp用来指向等待队列上的下一个进程
+
+    if (!p)            // 无效指针，退出
+        return;
+    if (current == &amp;(init_task.task))    // 进程0不能睡眠
+        panic("task[0] trying to sleep");
+    tmp = *p;            // 下面两句把当前进程放到等待队列头，等待队列是以堆栈方式
+    *p = current;        //    管理的。后到的进程等在前面
+    current-&gt;state = TASK_UNINTERRUPTIBLE;    // 进程进入不可中断睡眠状态
+    schedule();        // 进程放弃CPU使用权，重新调度进程
+// 当前进程被wake_up()唤醒后，从这里开始运行。
+// 既然等待的资源可以用了，就应该唤醒等待队列上的所有进程，让它们再次争夺
+// 资源的使用权。这里让队列里的下一个进程也进入运行态。这样当这个进程运行
+// 时，它又会唤醒下下个进程。最终唤醒所有进程。
+    if (tmp)    
+        tmp-&gt;state=0;
+}
+</pre><span style="font-size:18px;"><strong><br /><span style="color: rgb(51, 51, 51); font-family: verdana, arial, sans-serif; line-height: 19px;">以下是唤醒函数 </span></strong></span><br /><p></p><p style="padding-top: 0px; padding-bottom: 0px; margin-top: 0px; margin-bottom: 0px; clear: both; height: auto; overflow: hidden; font-family: Arial; line-height: 26px;"><span style="padding: 0px; margin: 0px;"><span style="font-size:18px;"><span style="font-weight: bold;"><span style="color: rgb(51, 51, 51); font-family: verdana, arial, sans-serif;font-size:14px; line-height: 19px;"><span style="color: rgb(51, 51, 51); font-family: verdana, arial, sans-serif;font-size:14px; line-height: 19px;"><span style="color: rgb(51, 51, 51); font-family: verdana, arial, sans-serif;font-size:14px; line-height: 19px;"><span style="color: rgb(51, 51, 51); font-family: verdana, arial, sans-serif;font-size:14px; line-height: 19px;"></span></span></span></span></span></span></span></p><pre name="code" class="cpp">/****************************************************************************/
+/* 功能：唤醒等待队列上的头一个进程                                            */
+/* 参数：p 等待队列头                                                        */
+/* 返回：（无）                                                                */
+/****************************************************************************/
+void wake_up(struct task_struct **p)
+{
+    if (p &amp;&amp; *p) {
+        (**p).state=0;        // 把队列上的第一个进程设为运行态
+        *p=NULL;        // 把队列头指针清空，这样失去了都其他等待进程的跟踪。
+                        //  一般情况下这些进程迟早会得到运行。
+    }
+}</pre><br /><br /><p></p>   &#13;

@@ -1,0 +1,137 @@
+
+                
+<p><span style="font-family:Comic Sans MS">     java.net包主要用于进行网络处理、Socket通信、Cookie、URI等网络通信解决方案。</span></p>&#13;
+<p><span style="font-family:Comic Sans MS"><span style="font-family:'Comic Sans MS'">     </span>今天主要抛块砖，对于网络编程这块内容进行一个简单的认知性总结。很浅显，网络编程大牛可绕过。</span></p>&#13;
+<p><span style="font-family:Comic Sans MS; color:#ff0000">一、创建Socket客户端连接到服务器</span></p>&#13;
+<p><span style="font-family:Comic Sans MS"/></p>&#13;
+<pre code_snippet_id="1685297" snippet_file_name="blog_20160516_1_8075984" name="code" class="html">try (Socket s=new Socket(host,port){
+			InputStream inStream=s.getInputStream();
+			Scanner in=new Scanner(inStream);
+			while(in.hasNextLine())
+			{
+				String line=in.nextLine();
+				System.out.println(line);
+			}</pre><span style="background-color:rgb(255,204,153)">1、创建一个Socket对象，传入主机名/ip,和端口号。</span>&#13;
+<p/>&#13;
+<p><span style="font-family:Comic Sans MS; background-color:rgb(255,204,153)">2、获取客户端的输入信息，进行扫描，将数据输出。</span></p>&#13;
+<p><span style="font-family:Comic Sans MS"><span style="color:#ff0000">执行过程;</span><br/>&#13;
+</span><span style="font-family:'Comic Sans MS'; background-color:rgb(255,204,153)">1、执行new Socket初始化，调用<span style="font-family:'Comic Sans MS'">套接字构造器,</span>打开一个套接字，启动程序内外的通信。传入<span style="font-family:'Comic Sans MS'">主机和端口</span>（String host，int port） </span></p>&#13;
+<p><span style="font-family:'Comic Sans MS'; background-color:rgb(255,204,153)">2、getinputStream（返回一个inputStream对象）、getoutput 从套接字读取数据流，以及写出的数据流，可进行扫描输出等后续操作，这个就看具体业务需求。</span></p>&#13;
+<p><span style="font-family:Comic Sans MS">      但是这种直接传入host 和port 的方式，<span style="font-family:'Comic Sans MS'">对于一般Socket初始化，如果连接失败则会一直阻塞，直到连接到host为止。所以一般采用先建立一个无连接的套接字，再设置一个超时时间，如果在给定时间没有相应，则返回。</span></span></p>&#13;
+<p><span style="font-family:Comic Sans MS"><span style="font-family:'Comic Sans MS'"/></span></p>&#13;
+<pre code_snippet_id="1685297" snippet_file_name="blog_20160516_2_3866270" name="code" class="html">                Socket s=new Socket();
+		s.connect(new InetSocketAddress(host,post),timeout);</pre><span style="font-family:'Comic Sans MS'">      <span style="font-family:'Comic Sans MS'">java隐藏了建立网络连接、发送数据的复杂过程，使得</span>Socket类非常简单易用。</span>&#13;
+<p/>&#13;
+<p><span style="font-family:Comic Sans MS; color:#ff0000">二、实现服务器</span></p>&#13;
+<p><span style="font-family:Comic Sans MS">       <span style="font-family:'Comic Sans MS'">客户端ok了，就可以创建一个简单的服务器，向客户端发送消息，启动后等待客户端连接到端口。</span></span></p>&#13;
+<p><span style="font-family:Comic Sans MS"><span style="font-family:'Comic Sans MS'"/></span></p>&#13;
+<pre code_snippet_id="1685297" snippet_file_name="blog_20160516_3_835410" name="code" class="html">       //建立Socket服务器
+        try(ServerSocket s=new ServerSocket(1209))
+        {
+            try(Socket incoming=s.accept())//
+            {
+                InputStream inStream=incoming.getInputStream();
+                OutputStream outStream=incoming.getOutputStream();
+                try(Scanner in=new Scanner(inStream))
+                {
+                    PrintWriter out=new PrintWriter(outStream,true);
+                    out.println("hello ,I'm Max");
+                    
+                    //将服务器输出返回给客户端作为输入
+                    boolean done=false;
+                    while(!done &amp;&amp; in.hasNextLine())
+                    {
+                        String line=in.nextLine();
+                        out.println("client:"+line);
+                        if(line.trim().equals("h"))
+                            done=true;
+                    }
+                }
+            }</pre>       <span style="background-color:rgb(255,204,153)">SocketServer的accept方法作用在于告诉程序不停地等待直到有客户端连接到这个端口，有连接返回一个已经建立好的sock对象。然后可以根据这个socket对象获取它的输入输出流。服务器发送给服务器端的所有信息都会成会客户端获取的数据。</span>&#13;
+<p/>&#13;
+<p><span style="font-family:'Comic Sans MS'"><span style="color:#ff0000">测试验证：</span></span></p>&#13;
+<span style="font-family:Comic Sans MS">       首先打开telnet 功能，一个windows自带的用于远程连接功能。程序-window功能-选择telnet客户端。打开之后就支持在命令符窗口执行telnet命令。<br/>&#13;
+<span style="background-color:rgb(153,255,153)">什么是Telnet？<br/>&#13;
+　　对于Telnet的认识，不同的人持有不同的观点，可以把Telnet当成一种通信协议，但是对于入侵者而言，Telnet只是一种远程登录的工具。一旦入侵者与远程主机建立了      Telnet连接，入侵者便可以使用目标主机上的软、硬件资源，而入侵者的本地机只相当于一个只有键盘和显示器的终端而已。<br/>&#13;
+为什么需要telnet？<br/>&#13;
+　　telnet就是查看某个端口是否可访问。我们在搞开发的时候，经常要用的端口就是 8080。那么你可以启动服务器，用telnet 去查看这个端口是否可用。</span><br/>&#13;
+详参见<a target="_blank" href="http://www.zolsky.com/read/best/6/314.htm">telnet 命令使用方法详解，telnet命令怎么用？</a><br/>&#13;
+</span>&#13;
+<p><span style="font-family:Comic Sans MS; background-color:rgb(255,204,153)">1、输入 telnet 127.0.0.1 1209  连接到创建好的服务器 ，如果连接失败，会提示拒绝连接。</span></p>&#13;
+<p><span style="font-family:Comic Sans MS; background-color:rgb(255,204,153)">2、连接成功后，进入telnet界面会输出程序中的Im Max 字符</span></p>&#13;
+<p><span style="font-family:Comic Sans MS; background-color:rgb(255,204,153)">3、回车，client后输入h，关闭连接。</span></p>&#13;
+<span style="font-family:Comic Sans MS"><img src="http://img.blog.csdn.net/20160516113930502?watermark/2/text/aHR0cDovL2Jsb2cuY3Nkbi5uZXQv/font/5a6L5L2T/fontsize/400/fill/I0JBQkFCMA==/dissolve/70/gravity/Center" alt=""/><br/>&#13;
+<span style="color:#ff0000">三、多客户端支持</span><br/>&#13;
+</span>&#13;
+<p><span style="font-family:Comic Sans MS">      当打开两个客户端，一个输出了数据，一个并没有。所以上边的服务器还仅限于对单客户端访问。利用多线程，稍微改造一下。</span></p>&#13;
+<p><span style="font-family:Comic Sans MS"/></p>&#13;
+<pre code_snippet_id="1685297" snippet_file_name="blog_20160516_4_1849166" name="code" class="html">	  class ThreadedEchoHandler implements Runnable
+	  {
+	     
+	     public ThreadedEchoHandler(Socket i)
+	     {
+	        incoming = i;
+	    }
+	
+	    public void run()
+	    {
+	        try
+	       {
+	          try
+	          {
+	             InputStream inStream = incoming.getInputStream();
+	             OutputStream outStream = incoming.getOutputStream();
+	
+	             Scanner in = new Scanner(inStream);
+	             PrintWriter out = new PrintWriter(outStream, true );
+	
+	              out.println( "Hello!I m Max" );
+	
+	             boolean done = false;
+	             while (!done &amp;&amp; in.hasNextLine())
+	             {
+	                String line = in.nextLine();
+	                out.println("client: " + line);
+	                if (line.trim().equals("h"))
+	                   done = true;
+	              }
+	          }
+	          finally
+	          {
+	             incoming.close();
+	          }
+	       }catch(Exception e)
+	        {
+	    	   e.printStackTrace();
+	        }
+
+	    }	
+	    private Socket incoming;
+	 }
+
+	public static void main(String[] args) throws IOException {
+		//建立Socket服务器
+		try
+		{
+			int i=1;
+			ServerSocket s=new ServerSocket(1209);
+			while(true)
+			{
+				 Socket incoming=s.accept();
+				 Runnable r = new ThreadedEchoHandler(incoming);
+				 Thread t = new Thread(r);
+				 t.start();
+				 i++;
+			}
+			
+		}catch(Exception e)
+        {
+    	   e.printStackTrace();
+        }
+	}</pre>         跟二中服务端的不同就在于创建了一个多线程类，用于执行不同的客户端访问任务。&#13;
+<p/>&#13;
+<p><span style="font-family:Comic Sans MS">四、总结</span></p>&#13;
+<p><span style="font-family:Comic Sans MS">        Socket编程主要应用于网络通信，P2P通信中应用，在这方面基本笔者属于0开发经验，本文也纯属扫盲级应用。java web的开发中也对这方面有所应用，不过是封装好的，对一般开发不可见。</span></p>&#13;
+<p><span style="font-family:'Comic Sans MS'">        另外，在维护一个数据传输项目中，有设计到Socket编程，当时是组内一个c++大牛写了一套实现，用于对大量数据进行接收、过滤，传送给上层服务。哎，反正，应该还比较重要，有时间可以研究一下。</span></p>&#13;
+<link rel="stylesheet" href="http://static.blog.csdn.net/public/res-min/markdown_views.css?v=1.0"/>&#13;
+            

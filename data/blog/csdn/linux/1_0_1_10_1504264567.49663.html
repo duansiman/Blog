@@ -1,0 +1,293 @@
+
+
+<strong><u>设备读操作</u></strong><br />&#13;
+<p>如果该操作为空，将使得read系统调用返回负EINVAL失败，正常返回实际读取的字节数</p>&#13;
+<p><strong>ssize_t (*read)(struct file *filp, char __user *buf, size_t  count, lofft *f_pos);</strong><br />&#13;
+<span style="white-space:pre"></span>filp:待操作的设备文件file结构体指针<br />&#13;
+<span style="white-space:pre"></span>buf:待写入所读取数据的用户空间缓冲区指针<br />&#13;
+<span style="white-space:pre"></span>count:待读取数据字节数<br />&#13;
+<span style="white-space:pre"></span>f_pos:待读取数据文件位置，读取完成后根据实际读取字节数重新定位<br />&#13;
+<span style="white-space:pre"></span>返回：成功实际读取的字节数，失败返回负值<br />&#13;
+</p>&#13;
+<p><img src="http://img.blog.csdn.net/20131230101056796" alt="" /><br />&#13;
+</p>&#13;
+<p><strong><u>设备写操作</u></strong><br />&#13;
+如果该操作为空，将使得write系统调用返回负EINVAL失败，正常返回实际写入的字节数<br />&#13;
+<strong>ssize_t (*write)(struct file *filp, const char __user *buf, size_t count, loff_t *f_pos);</strong></p>&#13;
+<p>filp:待操作的设备文件file结构体指针<br />&#13;
+<span style="white-space:pre"></span>buf:待写入所读取数据的用户空间缓冲区指针<br />&#13;
+<span style="white-space:pre"></span>count:待读取数据字节数<br />&#13;
+<span style="white-space:pre"></span>f_pos:待读取数据文件位置，写入完成后根据实际写入字节数重新定位<br />&#13;
+<span style="white-space:pre"></span>返回：成功实际写入的字节数，失败返回负值<br />&#13;
+</p>&#13;
+<p><img src="http://img.blog.csdn.net/20131230101856203" alt="" /><br />&#13;
+</p>&#13;
+<p>内核为驱动程序提供在内核空间和用户空间传递数据的方法<br />&#13;
+定义在arch/arm/include/asm/uaccess.h中<br />&#13;
+用户空间--&gt;内核空间<br />&#13;
+copy_from_user函数<br />&#13;
+<strong>unsigned long copy_from_user(void *to, const void *from, unsigned long n);</strong><br />&#13;
+<span style="white-space:pre"></span>to:目标地址（内核空间）<br />&#13;
+<span style="white-space:pre"></span>from:源地址（用户空间）<br />&#13;
+<span style="white-space:pre"></span>n:将要拷贝数据的字节数<br />&#13;
+<span style="white-space:pre"></span>返回：成功返回0，失败返回没有拷贝成功的数据字节数<br />&#13;
+get_user宏<br />&#13;
+<strong>int get_user(data, ptr);</strong><br />&#13;
+<span style="white-space:pre"></span>data:可以是字节、半字、字、双字类型的内核变量<br />&#13;
+<span style="white-space:pre"></span>ptr:用户空间内存指针<br />&#13;
+<span style="white-space:pre"></span>返回：成功返回0，失败返回非0<br />&#13;
+</p>&#13;
+<p>-----------------------------------------------------------------------------------------------</p>&#13;
+<p>内核空间--&gt;用户空间<br />&#13;
+copy_to_user函数<br />&#13;
+<strong>unsigned long copy_to_user(void *to, const void *from, unsigned long n)</strong><br />&#13;
+<span style="white-space:pre"></span>to:目标地址（用户空间）<br />&#13;
+<span style="white-space:pre"></span>from:源地址（内核空间）<br />&#13;
+<span style="white-space:pre"></span>n:将要拷贝数据的字节数<br />&#13;
+<span style="white-space:pre"></span>返回：成功返回0，失败返回没有拷贝成功的数据字节数<br />&#13;
+put_user宏：<br />&#13;
+<strong>int put_user(data, prt）</strong><br />&#13;
+<span style="white-space:pre"></span>data:可以是字节、半字、字、双字类型的内核变量<br />&#13;
+<span style="white-space:pre"></span>ptr:用户空间内存指针<br />&#13;
+<span style="white-space:pre"></span>返回：成功返回0， 失败返回非0<br />&#13;
+</p>&#13;
+<p></p>&#13;
+<pre code_snippet_id="134099" snippet_file_name="blog_20131230_1_4998442" name="code" class="objc">/**
+*Copyright (c) 2013.TianYuan
+*All rights reserved.
+*
+*文件名称: char_device_driver08.c
+*文件标识: copy_to_user 、copy_from_user函数的使用
+*
+*当前版本：1.0
+*作者：wuyq 
+*
+*取代版本：xxx
+*原作者：xxx
+*完成日期：2013-11-28
+*/
+#include &lt;linux/init.h&gt;
+#include &lt;linux/module.h&gt;
+#include &lt;linux/fs.h&gt;
+#include &lt;linux/cdev.h&gt;
+#include &lt;linux/device.h&gt;
+#include &lt;linux/slab.h&gt;
+#include &lt;asm/uaccess.h&gt;
+
+
+MODULE_LICENSE("GPL");
+#define CDD_MAJOR	200//cat /proc/devices找一个尚未使用的
+#define CDD_MINOR	0
+#define CDD_COUNT	10
+dev_t dev = 0;
+u32 cdd_major = 0;
+u32 cdd_minor = 0;
+
+struct class *dev_class = NULL;
+#define BUF_SIZE	100
+struct cdd_cdev{
+	struct cdev cdev;
+	struct device *dev_device;
+	u8 led;
+	
+	char kbuf[BUF_SIZE];
+};
+
+struct cdd_cdev *cdd_cdevp = NULL;
+
+int cdd_open(struct inode* inode, struct file *filp)
+{
+	struct cdd_cdev *pcdevp = NULL;
+	printk("enter cdd_open!\n");
+	
+	pcdevp = container_of(inode-&gt;i_cdev, struct cdd_cdev, cdev);
+	printk("led = %d\n", pcdevp-&gt;led);
+	
+	filp-&gt;private_data = pcdevp;
+	
+	return 0;
+}
+
+int cdd_read(struct file *filp, char __user *buf, size_t count, loff_t *offset)
+{
+	int ret = 0;
+	
+	struct cdd_cdev *cdevp = filp-&gt;private_data;
+	printk("enter cdd_read!\n");
+	ret = copy_to_user(buf, cdevp-&gt;kbuf, count);
+	printk("kernel kbuf content:%s\n", cdevp-&gt;kbuf);
+	return ret;
+}
+
+int cdd_write(struct file *filp, const char __user *buf, size_t count, loff_t *offset)
+{
+	int ret = 0;
+	struct cdd_cdev *cdevp = filp-&gt;private_data;	
+	printk("enter cdd_write!\n");
+	
+	ret = copy_from_user(cdevp-&gt;kbuf, buf, count);
+	
+	return ret;
+}
+
+int cdd_ioctl(struct inode *inode, struct file *filp, unsigned int cmd, unsigned long data)
+{
+	printk("enter cdd_ioctl!\n");
+	return 0;
+}
+
+int cdd_release(struct inode *inode, struct file *filp)
+{
+	printk("enter cdd_release!\n");
+	return 0;
+}
+
+struct file_operations cdd_fops = {
+	.owner = THIS_MODULE,
+	.open = cdd_open,
+	.read = cdd_read,
+	.write = cdd_write,
+	.ioctl = cdd_ioctl,
+	.release = cdd_release,
+	};
+
+int __init cdd_init(void)
+{
+	int ret = 0;
+	int i = 0;
+	
+	if(cdd_major){
+		dev = MKDEV(CDD_MAJOR, CDD_MINOR);//生成设备号
+		//注册设备号;1、要注册的起始设备号2、连续注册的设备号个数3、名字
+		ret = register_chrdev_region(dev, CDD_COUNT, "cdd_demo");
+	}else{
+		// 动态分配设备号
+		ret = alloc_chrdev_region(&amp;dev, cdd_minor, CDD_COUNT, "cdd_demo02");
+	}
+	
+	if(ret &lt; 0){
+		printk("register_chrdev_region failed!\n");
+		goto failure_register_chrdev;
+	}
+	//获取主设备号
+	cdd_major = MAJOR(dev);
+	printk("cdd_major = %d\n", cdd_major);
+	
+	cdd_cdevp = kzalloc(sizeof(struct cdd_cdev)*CDD_COUNT, GFP_KERNEL);
+	if(IS_ERR(cdd_cdevp)){
+		printk("kzalloc failed!\n");
+		goto failure_kzalloc;
+	}
+	/*创建设备类*/
+	dev_class = class_create(THIS_MODULE, "cdd_class");
+	if(IS_ERR(dev_class)){
+		printk("class_create failed!\n");
+		goto failure_dev_class;
+	}
+	for(i=0; i&lt;CDD_COUNT; i++){
+		/*初始化cdev*/
+		cdev_init(&amp;(cdd_cdevp[i].cdev), &amp;cdd_fops);
+		/*添加cdev到内核*/
+		cdev_add(&amp;(cdd_cdevp[i].cdev), dev+i, 1);
+		/* “/dev/xxx” */
+		device_create(dev_class, NULL, dev+i, NULL, "cdd%d", i);
+		
+		cdd_cdevp[i].led = i;
+		
+	}
+	
+	return 0;
+failure_dev_class:
+	kfree(cdd_cdevp);
+failure_kzalloc:
+	unregister_chrdev_region(dev, CDD_COUNT);
+failure_register_chrdev:
+	return ret;
+}
+
+void __exit cdd_exit(void)
+{
+/*逆序消除*/
+	int i = 0;
+	for(; i &lt; CDD_COUNT; i++){
+		device_destroy(dev_class, dev+i);
+		cdev_del(&amp;(cdd_cdevp[i].cdev));
+		//cdev_del(&amp;((cdd_cdevp+i)-&gt;cdev));
+	}
+	class_destroy(dev_class);
+	kfree(cdd_cdevp);
+	unregister_chrdev_region(dev, CDD_COUNT);
+	
+}	
+
+module_init(cdd_init);
+module_exit(cdd_exit);
+</pre><br />&#13;
+<pre code_snippet_id="134099" snippet_file_name="blog_20131230_2_5281850" name="code" class="objc">/**
+*Copyright (c) 2013.TianYuan
+*All rights reserved.
+*
+*文件名称: char_device_driver08_test.c
+*文件标识: 测试程序：测试内核空间的copy_to_user、copy_frome_user
+*	执行：先./char_device_driver08_test	再cat /dev/cdd0 cat /dev/cdd5观察两者的区别
+*当前版本：1.0
+*作者：wuyq 
+*
+*取代版本：xxx
+*原作者：xxx
+*完成日期：2013-11-28
+*/
+#include &lt;stdio.h&gt;
+#include &lt;fcntl.h&gt;
+#include &lt;stdlib.h&gt;
+/*手工创建设备节点文件
+mknod /dev/cdd c 248 0
+*/
+int fd = 0;
+char rbuf[100];
+char wbuf[100] = "nihao!\n";
+
+
+int main()
+{
+	char ch;
+	
+	fd = open("/dev/cdd5", O_RDWR);
+	if(fd &lt; 0){
+		printf("open failed!\n");
+		return -1;
+	}
+	printf("open successed fd = %d\n", fd);
+	while(1)
+	{
+		printf("starting to test /dev/cdd...\n");
+		ch = getchar();
+		getchar();//取走回车
+		if(ch == 'q'){
+			break;
+		}
+		switch(ch){
+			case 'r':
+				read(fd, rbuf, 100);
+				printf("user space from kernel: %s\n", rbuf);
+				break;
+			case 'w':
+				write(fd, wbuf, 100);
+				break;
+			case 'o':
+				ioctl(fd, 0, 0);
+				break;
+			default:
+				break;
+		}
+		sleep(1);
+	}
+	
+	close(fd);
+	return 0;
+}</pre><br />&#13;
+<br />&#13;
+<p></p>&#13;
+<p><br />&#13;
+</p>&#13;
+   &#13;

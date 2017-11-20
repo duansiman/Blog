@@ -1,0 +1,81 @@
+
+        <div class="markdown_views"><p>by falcon <a href="mailto:wuzhangjin@gmail.com">wuzhangjin@gmail.com</a> of <a href="http://tinylab.org">TinyLab.org</a> <br />
+2014/01/22</p>
+
+<p><strong>最初发表：<a href="http://tinylab.org">泰晓科技 – 聚焦嵌入式 Linux，追本溯源，见微知著！</a></strong> <br />
+<strong>原文链接：<a href="http://tinylab.org/linux-kernel-section-mismatch-details/">Linux内核Section Mismatch详解</a></strong> <br />
+<strong>评论说明：为更好地聚合大家的讨论，请到上面原文的评论区回复。</strong></p>
+
+<hr />
+
+<h3 id="section-mismatch简介">Section Mismatch简介</h3>
+
+<p>Section Mismatch是非常严重的Bug，可能会导致无法预测的内存访问问题，建议谨慎对待，如果添加的驱动中有类似Warning，可能需要密切关注并解决掉。</p>
+
+<p>下面就该问题的检测、原因、解决思路以及最新前沿进行分析。</p>
+
+
+
+<h3 id="section-mismatch的检测">Section Mismatch的检测</h3>
+
+
+
+<pre class="prettyprint"><code class=" hljs fix"><span class="hljs-attribute">CONFIG_DEBUG_SECTION_MISMATCH</span>=<span class="hljs-string">y</span></code></pre>
+
+<p>打开上述选项，内核就会调用<code>modpost</code>检测类似问题。</p>
+
+
+
+<h3 id="section-mismatch的原因">Section Mismatch的原因</h3>
+
+<p>Linux为了减少不必要的内存消耗，对于一些仅仅在内核初始化时使用的资源（包括函数和变量等），会放在init sections中，这些init sections会在内核初始化完成以后被内核Free掉。除此之外，考虑到不同模块或者子系统的差异，它们的代码和数据也会放在各自的Section中，交叉的引用也可能出现潜在的问题。</p>
+
+<p>如果一个Section引用了另外一个Section中的变量，就会出现Section Mismatch警告。如果是一个运行时函数引用了一个Init Section段中的函数，那么问题就出现了。</p>
+
+<p>当Linux内核启动完成后，Init Section占用的内存已经被Free掉，如果这部分内存被其他的设备申请，写进了不可预知的内容，那么系统就会存在不可预知的风险，也许有些时候会很幸运，这部分内存从来都没有被其他设备引用，所以，即使编译时看到了Warning，系统也没有崩溃，但是炸弹放在枕头边，很危险，早点搬走为好。</p>
+
+
+
+<h3 id="section-mismatch的解决">Section Mismatch的解决</h3>
+
+<p>有几种情况：</p>
+
+<ul>
+<li>如果运行时函数引用了Init Section中的函数或者变量</li>
+</ul>
+
+<p>如果该运行时函数是必须要在运行时用到的，不能放到Init Section中，那么就把Init Section中的函数的<code>__init*</code>标记去掉，否则给前者加上相应的Init声明。</p>
+
+<p>相关的init标记请参考：include/linux/init.h</p>
+
+<ul>
+<li>如果不同的Section之间存在交叉引用，这个交叉引用是安全的，则用<code>__ref</code>标记让Section Mismatch Detector(modpost)忽略相关检查</li>
+</ul>
+
+<p>比如在cpu hotplug中，<code>__cpuinit</code>不会放在Init section中，在运行时访问是安全的，如果有一个外部函数（无<code>__cpuinit</code>标记）访问了用<code>__cpuinit</code>标记的函数，这个时候就存在交叉引用。因为这种访问是安全的，所以可以让内核忽略对它的检测，用<code>__ref</code>标记该函数即可。</p>
+
+
+
+<h3 id="section-mismatch的近况">Section Mismatch的近况</h3>
+
+<p>在最新的ARM内核中，引入了一个智能检测，该检测是针对Free掉的内存被运行时函数访问的情况，前面的分析提到类似的情况会导致无法预测的风险，而该智能检测则会明确地报告出具体的问题。</p>
+
+<p>该检测的原理是把所有Init Section的内存区域在内核初始化时把这些内存区域初始化为0xe7fddef0 (an undefined instruction (ARM) or a branch to an undefined instruction (Thumb))，如果运行时函数非法访问到了这些区域，会触发一个undef instruction的异常并打印相应的回调，从而辅助开发人员更快地解决相关问题。</p>
+
+<p>当然，这并不意味着我们不需要解决编译时的Warning，把问题Delay到运行时解决是更耗费精力的，应该在编码或者编译等早期开发过程中就解决掉，这样会提高开发效率，这个思路对其他的问题同样适用。</p>
+
+<p>这部分的代码请参考：arch/arm/mm/init.c: poison_init_mem()</p></div>&#13;
+        <script type="text/javascript">&#13;
+            $(function () {&#13;
+                $('pre.prettyprint code').each(function () {&#13;
+                    var lines = $(this).text().split('\n').length;&#13;
+                    var $numbering = $('&lt;ul/&gt;').addClass('pre-numbering').hide();&#13;
+                    $(this).addClass('has-numbering').parent().append($numbering);&#13;
+                    for (i = 1; i &lt;= lines; i++) {&#13;
+                        $numbering.append($('&lt;li/&gt;').text(i));&#13;
+                    };&#13;
+                    $numbering.fadeIn(1700);&#13;
+                });&#13;
+            });&#13;
+        </script>&#13;
+   &#13;

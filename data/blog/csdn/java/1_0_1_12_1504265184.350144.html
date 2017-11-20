@@ -1,0 +1,552 @@
+
+        <div class="markdown_views"><p><strong>摘要：</strong></p>
+
+<p>　　虽然我们一般都是通过学习MVC框架而结缘OGNL，但它并没有与MVC框架紧紧耦合在一起，而是一个以独立的库文件出现的一种功能强大的表达式语言，也是字符串与Java对象之间沟通的桥梁。特别地，正因为它的独立性，使得我们可以十分方便地利用它构建我们自己的框架。在充分理解和掌握 <font color="DarkGreen"><b>OGNL 三要素</b></font> 后，我们就可以通过简单一致的语法去存取Java对象树中的任意属性、调用Java对象树的方法并自动实现必要的类型转化。本文首先概述了Ognl的前世今生，并结合具体实例和源码阐述了OGNL的实质和OGNL三要素，介绍了对Java对象属性值的访问，静态、实例和构造方法的调用，对容器的访问以及对集合的操作等五个方面的介绍，奠定了学习OGNL的基础。</p>
+
+<hr />
+
+<p><strong>版权声明：</strong></p>
+
+<p><a href="http://my.csdn.net/justloveyou_">本文原创作者</a>：<a href="http://my.csdn.net/justloveyou_">书呆子Rico</a> <br />
+<a href="http://blog.csdn.net/justloveyou_/">作者博客地址</a>：<a href="http://blog.csdn.net/justloveyou_/">http://blog.csdn.net/justloveyou_/</a></p>
+
+<hr />
+
+<p><strong>友情提示：</strong></p>
+
+<p>　　为了更好地了解 OGNL，笔者将以两篇博客的篇幅来介绍OGNL：<a href="http://blog.csdn.net/justloveyou_/article/details/68957129">《与MVC框架解耦的OGNL：前世今生及其基本用法》</a> 和 <a href="http://blog.csdn.net/justloveyou_/article/details/68961271">《再述OGNL：在Struts2中的应用》</a>。其中，在本文(<a href="http://blog.csdn.net/justloveyou_/article/details/68957129">《与MVC框架解耦的OGNL：前世今生及其基本用法》</a>)中，我们首先介绍了OGNL的前世今生，并结合具体实例和源码阐述了OGNL的实质、OGNL三要素和用法语法。在此基础上，本篇的姊妹篇《再述OGNL：在Struts2中的应用》详尽地介绍了OGNL的在Struts2中的应用。</p>
+
+<hr />
+
+
+
+<h2 id="一-ognl-概述">一. OGNL 概述</h2>
+
+<p><font color="red">1、OGNL的前世今生</font></p>
+
+<p>　　WebWork是建立在称为XWork的Command模式框架之上的强大的基于Web的MVC框架。关于WebWork我们大多数人可能不太熟悉，最多只是有一种在哪里见过的感觉，但是我一提Struts2，估计大家就能想起来了。众所周知，Struts2是Struts的下一代产品，是在Struts1和WebWork的技术基础上进行了合并的全新框架。需要特别注意的是，全新的Struts2的体系结构与Struts1差别巨大，因为Struts2是以WebWork为核心的，继承了更多的WebWork血统。</p>
+
+<p>　　实际上，WebWork 已经完全从Web层脱离出来的一个非常优秀的框架，其提供了很多核心的、Struts2还在使用的功能，包括前端拦截器（interceptor）、运行时表单属性验证、类型转换、IoC（Inversion of Control）容器等，其中就有我们今天的主角，强大的表达式语言 —— <font color="DarkGreen"><b>OGNL(Object Graph Notation Language)</b></font>。</p>
+
+<hr />
+
+<p><font color="red">2、OGNL 带给我们的实惠</font></p>
+
+<p>　　OGNL 是 Object Graph Navigation Language 的缩写，全称为 <font color="blue">对象图导航语言</font>，是一种功能强大的<font color="red"><b> 表达式语言</b></font>。<font color="blue"><b>它通过简单一致的语法，可以存取Java对象树中的任意属性、调用Java对象树的方法，并能够自动实现必要的类型转化。</b></font>更形象地说，<font color="DarkGreen"><b>如果我们把OGNL表达式看做是一个带有语义的字符串，那么OGNL无疑是这个语义字符串与Java对象之间沟通的桥梁。</b></font></p>
+
+<p>　　我们知道，在我们使用 MVC 架构模式进行开发Web应用时，数据往往需要在各层之间进行流转。由于数据在不同层次中的表现形式不尽相同，所以这种流转会很麻烦，特别是在Controller与View之间进行流转。实际上，<font color="blue"><font color="red"><b>数据在Controller层与View层之间流转的真正痛点就在于：</b></font>数据在View层(视图页面)的表现形式是一个扁平的、不带任何数据类型的字符串，而在Controller层（Java世界）完全可以表现为一个具有丰富数据结构和数据类型的Java对象，正是由于这种数据表现形式的差异，导致我们手工执行这种转换将是一项非常复杂、低效的工作。</font>正因为如此，为了更好地解决数据在不同层之间的数据流转问题，作为一个优秀成熟的框架，Struts2 集成了 WebWork 中的 OGNL 来帮助我们解决个问题。因此，当我们在使用Struts2时，会发现OGNL充斥在前后台数据传递与存储的方方面面，也给我们带来了极大的方便。</p>
+
+<hr />
+
+<p>　　Ps:更多关于<font color="red"><b> MVC框架数据流转问题与OGNL在Web中的魅力 </b></font>等内容请读者移步本文的姊妹篇<a href="http://blog.csdn.net/justloveyou_/article/details/68961271">《再述OGNL：在Struts2中的应用》</a>。</p>
+
+<hr />
+
+<p><font color="red">3、小结</font></p>
+
+<p>　　<font color="DarkGreen"><b>OGNL是模板语言的一个重要补充，对表现层技术而言是一次里程碑式的进步。</b></font>在我们常见的视图组件，包括 Jsp 2.0，Velocity，Jelly 等，虽然都有类似的功能，比如，在 Jsp 2.0 中我们可以使用其提供的 EL 表达式完成类似的功能。但是，<font color="red"><b>OGNL比它们要完善的多得多，而且以一个独立的库文件出现，十分方便我们构建自己的框架。</b></font></p>
+
+<hr />
+
+
+
+<h2 id="二-ognl-深度解读从一个例子说起">二. OGNL 深度解读：从一个例子说起</h2>
+
+<p>　　我们在上文已经提到，OGNL 以一个独立的库文件出现，十分方便我们构建自己的框架。那么，我们首先新建一个Java Project，然后从Struts2的相关依赖包中导入<font color="red"><b> ognl-x.x.xx.jar </b></font>(本人使用的struts-2.1.6中的ognl-2.6.11.jar)，搭建完毕后项目结构如下：</p>
+
+<p>　　　　　　　　　　　　　　　　<img src="http://static.zybuluo.com/Rico123/fhi98ngmm37wzg66leqt9b4z/Image%204.png" alt="Image 4.png-8.8kB" title="" /></p>
+
+<p>　　Ps:若读者不知如何重现笔者获取OGNL的jar包的过程，请笔者移步我的博文<a href="http://blog.csdn.net/justloveyou_/article/details/55002006">《Struts2 实战：从 登录Demo 看 Struts2 应用开发》</a>去详细了解其获取过程，此不赘述。另外，由于OGNL是Apache开源项目的子项目，所以我们可以从 <a href="http://commons.apache.org/proper/commons-ognl/">Apache Commons</a> 下载OGNL的jar包。</p>
+
+<hr />
+
+<p><font color="blue">1、OGNL应用实例</font></p>
+
+<p>　　上述的Java Project包含两个JavaBean类和一个OGNL测试类，我们将围绕这个Project展开对OGNL的介绍。我们先看一下该Project中各个类的源码：</p>
+
+<hr />
+
+<p><strong>(1). 两个JavaBean</strong></p>
+
+
+
+<pre class="prettyprint"><code class="language-java hljs "><span class="hljs-keyword">package</span> cn.tju.edu.rico.test;
+
+<span class="hljs-keyword">import</span> java.util.HashSet;
+<span class="hljs-keyword">import</span> java.util.Set;
+
+<span class="hljs-comment">// Java Bean : Student</span>
+<span class="hljs-keyword">public</span> <span class="hljs-class"><span class="hljs-keyword">class</span> <span class="hljs-title">Student</span> {</span>
+
+    <span class="hljs-keyword">private</span> College College;  
+
+    <span class="hljs-keyword">private</span> String name;  
+    <span class="hljs-keyword">private</span> String gentle;  
+    <span class="hljs-keyword">private</span> <span class="hljs-keyword">double</span> height;
+    <span class="hljs-keyword">private</span> <span class="hljs-keyword">int</span> age; 
+
+    <span class="hljs-comment">// 无参构造器</span>
+    <span class="hljs-keyword">public</span> <span class="hljs-title">Student</span>() {  
+    }  
+
+    <span class="hljs-keyword">public</span> <span class="hljs-title">Student</span>(String name, <span class="hljs-keyword">int</span> age, <span class="hljs-keyword">double</span> height) {
+        <span class="hljs-keyword">super</span>();
+        <span class="hljs-keyword">this</span>.name = name;
+        <span class="hljs-keyword">this</span>.height = height;
+        <span class="hljs-keyword">this</span>.age = age;
+    }
+
+    <span class="hljs-comment">//getter &amp; setter</span>
+    <span class="hljs-keyword">public</span> College <span class="hljs-title">getCollege</span>() {  
+        <span class="hljs-keyword">return</span> College;  
+    }  
+
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">void</span> <span class="hljs-title">setCollege</span>(College College) {  
+        <span class="hljs-keyword">this</span>.College = College;  
+    }  
+
+    <span class="hljs-keyword">public</span> String <span class="hljs-title">getName</span>() {  
+        <span class="hljs-keyword">return</span> name;  
+    }  
+
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">void</span> <span class="hljs-title">setName</span>(String name) {  
+        <span class="hljs-keyword">this</span>.name = name;  
+    }
+
+    <span class="hljs-keyword">public</span> String <span class="hljs-title">getGentle</span>() {
+        <span class="hljs-keyword">return</span> gentle;
+    }
+
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">void</span> <span class="hljs-title">setGentle</span>(String gentle) {
+        <span class="hljs-keyword">this</span>.gentle = gentle;
+    }
+
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">double</span> <span class="hljs-title">getHeight</span>() {
+        <span class="hljs-keyword">return</span> height;
+    }
+
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">void</span> <span class="hljs-title">setHeight</span>(<span class="hljs-keyword">double</span> height) {
+        <span class="hljs-keyword">this</span>.height = height;
+    }
+
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">int</span> <span class="hljs-title">getAge</span>() {
+        <span class="hljs-keyword">return</span> age;
+    }
+
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">void</span> <span class="hljs-title">setAge</span>(<span class="hljs-keyword">int</span> age) {
+        <span class="hljs-keyword">this</span>.age = age;
+    }
+
+    <span class="hljs-annotation">@Override</span>
+    <span class="hljs-keyword">public</span> String <span class="hljs-title">toString</span>() {
+        <span class="hljs-keyword">return</span> <span class="hljs-string">"Student [name="</span> + name + <span class="hljs-string">", height="</span> + height + <span class="hljs-string">", age="</span> + age
+                + <span class="hljs-string">"]"</span>;
+    } 
+}
+
+
+
+<span class="hljs-comment">// Java Bean : College</span>
+class College {
+
+    <span class="hljs-keyword">private</span> String name;  
+
+    <span class="hljs-keyword">private</span> Set&lt;Student&gt; Students = <span class="hljs-keyword">new</span> HashSet&lt;Student&gt;();  
+
+    <span class="hljs-comment">// 无参构造器</span>
+    <span class="hljs-keyword">public</span> <span class="hljs-title">College</span>() {  
+    }  
+
+    <span class="hljs-comment">//getter &amp; setter</span>
+    <span class="hljs-keyword">public</span> String <span class="hljs-title">getName</span>() {  
+        <span class="hljs-keyword">return</span> name;  
+    }  
+
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">void</span> <span class="hljs-title">setName</span>(String name) {  
+        <span class="hljs-keyword">this</span>.name = name;  
+    }  
+
+    <span class="hljs-keyword">public</span> Set&lt;Student&gt; <span class="hljs-title">getStudents</span>() {  
+        <span class="hljs-keyword">return</span> Students;  
+    }  
+
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">void</span> <span class="hljs-title">setStudents</span>(Set&lt;Student&gt; Students) {  
+        <span class="hljs-keyword">this</span>.Students = Students;  
+    }  
+}</code></pre>
+
+<hr />
+
+<p><strong>(2). OGNL测试类</strong></p>
+
+
+
+<pre class="prettyprint"><code class="language-java hljs "><span class="hljs-keyword">package</span> cn.tju.edu.rico.test;
+
+<span class="hljs-keyword">import</span> ognl.Ognl;
+<span class="hljs-keyword">import</span> ognl.OgnlContext;
+<span class="hljs-keyword">import</span> ognl.OgnlException;
+
+<span class="hljs-keyword">public</span> <span class="hljs-class"><span class="hljs-keyword">class</span> <span class="hljs-title">OGNLTest</span> {</span>
+
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">static</span> <span class="hljs-keyword">void</span> <span class="hljs-title">main</span>(String[] args) <span class="hljs-keyword">throws</span> OgnlException {
+
+        <span class="hljs-comment">// 新建一个学校对象</span>
+        College college = <span class="hljs-keyword">new</span> College();
+        college.setName(<span class="hljs-string">"TJU"</span>);
+
+        <span class="hljs-comment">// 新建一个学生对象</span>
+        Student stu = <span class="hljs-keyword">new</span> Student();
+        stu.setName(<span class="hljs-string">"Rico"</span>);
+
+        <span class="hljs-comment">// 构建一个OgnlContext对象 ,并将上述学校、学生对象放入Ognl上下文环境(本质是一个Map)中</span>
+        OgnlContext context = <span class="hljs-keyword">new</span> OgnlContext();
+        context.put(<span class="hljs-string">"college"</span>, college);
+        context.put(<span class="hljs-string">"stu"</span>, stu);
+
+        <span class="hljs-comment">// 将学生设置为根对象</span>
+        context.setRoot(stu);
+
+        <span class="hljs-comment">// 构建Ognl表达式的树状表示</span>
+        Object expression1 = Ognl.parseExpression(<span class="hljs-string">"#college.name"</span>);
+        Object expression2 = Ognl.parseExpression(<span class="hljs-string">"name"</span>);
+        Object expression3 = Ognl.parseExpression(<span class="hljs-string">"#stu.name"</span>);
+
+        <span class="hljs-comment">// 根据Ognl表达式给Java对象设置值,将TJU改为NEU</span>
+        Ognl.setValue(expression1, context, context.getRoot(), <span class="hljs-string">"NEU"</span>);
+
+        <span class="hljs-comment">// 根据Ognl表达式获取Java对象的(属性)值</span>
+        Object collegeName = Ognl.getValue(expression1, context,
+                context.getRoot());
+        Object stuName2 = Ognl
+                .getValue(expression2, context, context.getRoot());
+        Object stuName3 = Ognl
+                .getValue(expression3, context, context.getRoot());
+
+        System.out.println(collegeName);
+        System.out.println(stuName2);
+        System.out.println(stuName3);
+    }
+}<span class="hljs-comment">/* Output: 
+        NEU
+        Rico
+        Rico
+ */</span><span class="hljs-comment">//:~</span></code></pre>
+
+<hr />
+
+<p>　　上面的输出结果对我们来说一点也不意外，因为在Struts2中，我们常常使用上述方式访问Stack Context(Action Context)及其根对象Value Stack。根据这个例子我们也能够看出，<font color="blue"><font color="red"><b>所谓的对象图导航语言本质上就是通过 类似”放置到OgnlContext中的名字.属性名字” 的方式去获取对应对象的属性值。</b></font>特别的是，对于根对象的属性的访问，我们只需直接利用属性名字访问即可，因为根对象只有一个，OGNL会默认从OgnlContext中的根对象中去寻找；而对于普通对象的属性的访问，我们使用类似”#放置到OgnlContext中的名字.属性名字”的方式去访问，这时OGNL在解析表达式的时候发现表达式开头带有”#”，就会去普通对象中去寻找。</font>当然，使用这种方式也可以访问根对象的属性，但是若在访问普通对象时不加前缀“#”，将会抛出 ognl.OgnlException。</p>
+
+<hr />
+
+<p><font color="red">2、OGNL 三要素</font></p>
+
+<p>　　事实上，<font color="DarkGreen"><b>OGNL表达式的计算是围绕OGNL上下文(OgnlContext)进行的，而OGNL上下文实际上就是一个Map对象。</b></font>我们从上述的例子可以看出，无论是setValue方法还是getValue方法，它们均包含三个核心参数，即 <font color="red"><b>tree(OGNL表达式)</b></font>,  <font color="red"><b>context(Ognl上下文)</b></font>,  <font color="red"><b>root(Ognl上下文的根对象)</b></font>，我们将其称之为 <font color="DarkGreen"><b>OGNL的三要素</b></font>，因为 OGNL 的操作实际上就是围绕着这三个参数而进行的。这三者的关系如下图所示：</p>
+
+<p>　　　　　　　　　　　　<img src="http://img.blog.csdn.net/20170403093433836?watermark/2/text/aHR0cDovL2Jsb2cuY3Nkbi5uZXQvanVzdGxvdmV5b3Vf/font/5a6L5L2T/fontsize/400/fill/I0JBQkFCMA==/dissolve/70/gravity/SouthEast" alt="这里写图片描述" title="" /></p>
+
+<hr />
+
+<p><strong>(1).表达式（Expression）</strong></p>
+
+<p>　　<font color="red"><b>表达式是整个OGNL的核心，所有的OGNL操作都是对表达式解析后进行的。</b></font>准确的来说，表达式表达了此OGNL操作的语义，即表明了此OGNL操作<font color="DarkGreen"><b>“要干什么”</b></font>。</p>
+
+<hr />
+
+<p><strong>(2).上下文环境（Context）</strong></p>
+
+<p>　　我们在上文提到，所有的OGNL操作都是在一个特定的环境中进行的，这个环境就是OGNL的上下文环境（OGNL Context）。更直白地说，<font color="DarkGreen"><b>OGNL上下文为OGNL表达式的提供了具体的运行环境。</b></font>需要指出的是，我们完全可以像操作Map那样将一些数据设置到OGNL Context中，以便我们通过OGNL访问。准确的来说，Context为OGNL表达式提供了具体环境，为OGNL操作<font color="DarkGreen"><b>“提供支持”</b></font>。</p>
+
+<hr />
+
+<p><strong>(3).根对象（Root Object）</strong></p>
+
+<p>　　根对象是OGNL Context中的一员，并且整个OGNL Context最多只允许有一个根对象。也就是说，OGNL Context中共有两类对象，即<font color="red"><b> 根对象 </b></font>和<font color="red"><b> 普通对象 </b></font>，它们的差异具体表现在访问方式上，我们针对根对象的存取操作的表达式不需要增加任何前缀（下文会具体提到）。<font color="DarkGreen"><b>根对象从侧面指明了OGNL操作所针对的对象类别，也就是说，在表达式规定了“干什么”之后，根对象指明了我们到底“对谁干”（根对象还是普通对象）。</b></font></p>
+
+<hr />
+
+<p><font color="blue">3、OGNL源码解读</font></p>
+
+<p>　　在上述的例子中，无论是setValue方法还是getValue方法，都是ognl.Ognl类提供的两个静态方法。事实上，在OGNL中，我们最常用到的两个类是<font color="DarkGreen"><b> ognl.Ognl </b></font>与<font color="DarkGreen"><b> ognl.OgnlContext </b></font>。<font color="red"><b>ognl.Ognl类是一个抽象类，并提供了一系列用于解析和解释执行Ognl表达式的方法，而抽象类则是专门用来继承的；</b></font><font color="red"><b>ognl.OgnlContext类则为Ognl表达式提供了一个执行环境，这个类实现了Map接口，所以允许我们通过使用Map的put(key,value)方法向OgnlContext添加各种类型的对象。</b></font>需要注意的是，<font color="blue">在OgnlContext中一共有两种对象，第一种是根对象，根对象在整个OgnlContext中有且最多只能有一个，我们可以通过调用OgnlContext.setRoot(obj)设置根对象。另外一种就是普通对象，它的个数不受限制。它们最重要的一个区别是在对象属性的获取方式上，前者可直接访问，后者需使用类似”#放置到OgnlContext中的名字.属性名字”的方式去访问</font> 。下面给出了ognl.Ognl 与 ognl.OgnlContext 的声明方式，关于它们更多的细节本文不在赘述，读者若想进一步了解，请自行阅读源码。</p>
+
+
+
+<pre class="prettyprint"><code class="language-java hljs "><span class="hljs-comment">// Ognl 是一个抽象类，而抽象类则是专门用来继承的</span>
+<span class="hljs-keyword">public</span> <span class="hljs-keyword">abstract</span> <span class="hljs-class"><span class="hljs-keyword">class</span> <span class="hljs-title">Ognl</span> {</span>
+    ...
+}</code></pre>
+
+
+
+<pre class="prettyprint"><code class="language-java hljs "><span class="hljs-comment">// OgnlContext 是一个Map</span>
+<span class="hljs-keyword">public</span> <span class="hljs-class"><span class="hljs-keyword">class</span> <span class="hljs-title">OgnlContext</span> <span class="hljs-keyword">extends</span> <span class="hljs-title">Object</span> <span class="hljs-keyword">implements</span> <span class="hljs-title">Map</span> {</span>
+    ...
+}</code></pre>
+
+<hr />
+
+<p>　　Ps:关于<font color="red"><b> 抽象类的深层次表述 </b></font>请读者移步我的博文<a href="http://blog.csdn.net/justloveyou_/article/details/52944564">《Java 的抽象特性：抽象类与接口深度解析》</a>。</p>
+
+<hr />
+
+<p><font color="blue">4、小结</font></p>
+
+<p>　　到此为止，我相信通过上面的例子和表述，我们对Ognl表达式有了一个更深入的了解和认识。此外，我们知道对于普通对象的属性的访问，我们只能使用类似”#放置到OgnlContext中的名字.属性名字”的方式去访问，而对于根对象的属性的访问，我们可以通过以下两种方式去访问：</p>
+
+<ul>
+<li><p><font color="blue">直接利用属性名字访问；</font> </p></li>
+<li><p><font color="blue">类似”#放置到OgnlContext中的名字.属性名字”的方式去访问；</font>  <br />
+　 <br />
+　　 <br />
+下文我们将着重讲述Ognl的基本用法，抛开MVC框架单独了解它的用法便于我们进一步理解Ognl在Struts2中的使用方式。</p></li>
+</ul>
+
+<hr />
+
+
+
+<h2 id="三-使用-ognl-去访问方法">三. 使用 OGNL 去访问方法</h2>
+
+<p>　　我们除了利用Ognl表达式访问对象的属性，还可以使用它来访问方法。当然，对于方法的访问，又可以分为 <font color="blue"><b>对静态方法的访问</b></font>、<font color="blue"><b>对实例方法的访问</b></font> 和 <font color="blue"><b>对构造方法的访问</b></font>，我们先看下面的例子：</p>
+
+
+
+<pre class="prettyprint"><code class="language-java hljs "><span class="hljs-keyword">package</span> cn.tju.edu.rico.test;
+
+<span class="hljs-keyword">import</span> ognl.Ognl;
+<span class="hljs-keyword">import</span> ognl.OgnlContext;
+<span class="hljs-keyword">import</span> ognl.OgnlException;
+
+<span class="hljs-keyword">public</span> <span class="hljs-class"><span class="hljs-keyword">class</span> <span class="hljs-title">OGNLTest2</span> {</span>
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">static</span> <span class="hljs-keyword">void</span> <span class="hljs-title">main</span>(String[] args) <span class="hljs-keyword">throws</span> OgnlException {
+
+        <span class="hljs-comment">// 新建一个学校对象</span>
+        College college = <span class="hljs-keyword">new</span> College();
+        college.setName(<span class="hljs-string">"NEU"</span>);
+
+        <span class="hljs-comment">// 新建一个学生对象</span>
+        Student stu = <span class="hljs-keyword">new</span> Student();
+        stu.setName(<span class="hljs-string">"Livia"</span>);
+        stu.setCollege(college);
+        stu.setGentle(<span class="hljs-string">"boy"</span>);
+
+        <span class="hljs-comment">// 构建一个OgnlContext对象,并将上述学校和学生对象放入Ognl上下文环境中</span>
+        OgnlContext context = <span class="hljs-keyword">new</span> OgnlContext();
+        context.put(<span class="hljs-string">"college"</span>, college);
+        context.put(<span class="hljs-string">"stu"</span>, stu);
+
+        <span class="hljs-comment">// 将学生对象设置为根对象</span>
+        context.setRoot(stu);
+
+        <span class="hljs-comment">// 访问实例方法</span>
+        Object expression1 = Ognl.parseExpression(<span class="hljs-string">"getGentle()"</span>);
+        Object length1 = Ognl.getValue(expression1, context, context.getRoot());
+        Object expression2 = Ognl.parseExpression(<span class="hljs-string">"#college.name.length()"</span>);
+        Object length2 = Ognl.getValue(expression2, context, context.getRoot());
+        System.out.println(length1);
+        System.out.println(length2);
+
+        <span class="hljs-comment">// 访问静态方法</span>
+        Object expression3 = Ognl.parseExpression(<span class="hljs-string">"@java.lang.Math@max(2,4)"</span>);
+        Object length3 = Ognl.getValue(expression3, context, context.getRoot());
+        Object expression4 = Ognl
+                .parseExpression(<span class="hljs-string">"@java.lang.String@valueOf(name.length())"</span>);
+        Object length4 = Ognl.getValue(expression4, context, context.getRoot());
+        System.out.println(length3);
+        System.out.println(length4);
+
+        <span class="hljs-comment">// 访问构造方法：通过Ognl表达式构建一个LinkedList对象，注意使用全类名</span>
+        Object expression5 = Ognl.parseExpression(<span class="hljs-string">"new java.util.LinkedList()"</span>);
+        List list = (List)Ognl.getValue(expression5, context, context.getRoot());
+        list.add(<span class="hljs-string">"list"</span>);
+        list.add(<span class="hljs-string">"rico"</span>); 
+        System.out.println(list);
+    }
+}<span class="hljs-comment">/* Output: 
+        boy
+        3
+        4
+        5
+        [list, rico]
+ */</span><span class="hljs-comment">//:~</span></code></pre>
+
+<hr />
+
+
+
+<h2 id="四-使用-ognl-去访问容器对象">四. 使用 OGNL 去访问容器对象</h2>
+
+<p>　　　我们还可以利用Ognl表达式访问容器对象，包括数组，List，Set，Map等，看下面的例子：</p>
+
+
+
+<pre class="prettyprint"><code class="language-java hljs "><span class="hljs-keyword">package</span> cn.tju.edu.rico.test;
+
+<span class="hljs-keyword">import</span> java.util.ArrayList;
+<span class="hljs-keyword">import</span> java.util.HashMap;
+<span class="hljs-keyword">import</span> java.util.List;
+<span class="hljs-keyword">import</span> java.util.Map;
+
+<span class="hljs-keyword">import</span> ognl.Ognl;
+<span class="hljs-keyword">import</span> ognl.OgnlContext;
+<span class="hljs-keyword">import</span> ognl.OgnlException;
+
+<span class="hljs-keyword">public</span> <span class="hljs-class"><span class="hljs-keyword">class</span> <span class="hljs-title">OGNLTest3</span> {</span>
+
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">static</span> <span class="hljs-keyword">void</span> <span class="hljs-title">main</span>(String[] args) <span class="hljs-keyword">throws</span> OgnlException {
+
+        OgnlContext context = <span class="hljs-keyword">new</span> OgnlContext();
+
+        <span class="hljs-comment">// 处理数组类型</span>
+        String[] strs = <span class="hljs-keyword">new</span> String[] { <span class="hljs-string">"a"</span>, <span class="hljs-string">"b"</span>, <span class="hljs-string">"c"</span> };
+        context.put(<span class="hljs-string">"strs"</span>, strs);
+        System.out.println(Ognl.getValue(<span class="hljs-string">"#strs[2]"</span>, context, context.getRoot()));
+
+        <span class="hljs-comment">// 处理List类型</span>
+        List&lt;String&gt; words = <span class="hljs-keyword">new</span> ArrayList&lt;String&gt;();
+        words.add(<span class="hljs-string">"rico"</span>);
+        words.add(<span class="hljs-string">"livia"</span>);
+        words.add(<span class="hljs-string">"neu"</span>);
+        context.put(<span class="hljs-string">"words"</span>, words);
+        System.out.println(Ognl.getValue(<span class="hljs-string">"#words[0]"</span>, context,context.getRoot()));
+
+
+        <span class="hljs-comment">// 处理Map类型</span>
+        Map&lt;String,String&gt; map = <span class="hljs-keyword">new</span> HashMap&lt;String,String&gt;();
+        map.put(<span class="hljs-string">"ad"</span>, <span class="hljs-string">"d"</span>);
+        map.put(<span class="hljs-string">"Rico"</span>, <span class="hljs-string">"China"</span>);
+        map.put(<span class="hljs-string">"campus"</span>, <span class="hljs-string">"neu"</span>);
+        context.put(<span class="hljs-string">"map"</span>, map);
+        System.out.println(Ognl.getValue(<span class="hljs-string">"#map['Rico']"</span>,context, context.getRoot()));
+
+
+
+        <span class="hljs-comment">// 处理Set类型:由于Set的无序性，所以不能通过这种访问Set（只能迭代输出）,会抛出 ognl.NoSuchPropertyException;</span>
+        Set&lt;String&gt; set = <span class="hljs-keyword">new</span> HashSet&lt;String&gt;();
+        set.add(<span class="hljs-string">"rico"</span>);
+        set.add(<span class="hljs-string">"livia"</span>);
+        set.add(<span class="hljs-string">"neu"</span>);
+        context.put(<span class="hljs-string">"set"</span>, set);
+        System.out.println(Ognl.getValue(<span class="hljs-string">"#set[2]"</span>, context, context.getRoot()));
+    }
+}<span class="hljs-comment">/* Output: 
+        c
+        rico
+        China
+        Exception in thread "main" ognl.NoSuchPropertyException: java.util.HashSet.2
+ */</span><span class="hljs-comment">//:~</span></code></pre>
+
+<p>　　由于Set是无序的且没有索引，所以我们只能对其进行迭代输出。Struts2 提供了一组逻辑控制标签，其中就有iterator，它可以完美完成这件事情。关于Struts2 的逻辑控制标签的叙述详见本文的姊妹篇《再述OGNL：在Struts2中的应用》。</p>
+
+<p>　　由于HashSet就是通过HashMap实现的，所以更多关于<font color="red"><b> HashSet的了解，</b></font>读者可以参考我的博文<a href="http://blog.csdn.net/justloveyou_/article/details/62893086">《Map 综述（一）：彻头彻尾理解 HashMap》</a>。</p>
+
+<hr />
+
+
+
+<h2 id="五-使用-ognl-对容器进行操作">五. 使用 OGNL 对容器进行操作</h2>
+
+<p>　　我们还可以利用Ognl表达式对容器对象作一些操作，比如<font color="DarkGreen"><b> 过滤</b></font> 和 <font color="DarkGreen"><b>投影</b></font>。<font color="blue">过滤指的是将原集合中不符合条件的对象过滤掉，然后将满足条件的对象，构建一个新的集合对象返回，Ognl过滤表达式的写法是：collection.{?|^|$   expression}；投影指的是将原集合中所有对象的某个属性抽取出来，单独构成一个新的集合对象返回，基础语法为 ：collection.{expression}。</font>特别需要注意的是，<font color="red"><b>无论是过滤操作还是投影操作，它们的操作对象和操作结果都是一个容器。</b></font></p>
+
+
+
+<pre class="prettyprint"><code class="language-java hljs "><span class="hljs-keyword">package</span> cn.tju.edu.rico.test;
+
+<span class="hljs-keyword">import</span> java.util.ArrayList;
+<span class="hljs-keyword">import</span> java.util.Collections;
+<span class="hljs-keyword">import</span> java.util.List;
+
+<span class="hljs-keyword">import</span> ognl.Ognl;
+<span class="hljs-keyword">import</span> ognl.OgnlContext;
+<span class="hljs-keyword">import</span> ognl.OgnlException;
+
+<span class="hljs-keyword">public</span> <span class="hljs-class"><span class="hljs-keyword">class</span> <span class="hljs-title">OGNLTest4</span> {</span>
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">static</span> <span class="hljs-keyword">void</span> <span class="hljs-title">main</span>(String[] args) <span class="hljs-keyword">throws</span> OgnlException {  
+
+        Student s1 = <span class="hljs-keyword">new</span> Student(<span class="hljs-string">"Tom"</span>, <span class="hljs-number">22</span>, <span class="hljs-number">170.3</span>);  
+        Student s2 = <span class="hljs-keyword">new</span> Student(<span class="hljs-string">"Jack"</span>, <span class="hljs-number">21</span>, <span class="hljs-number">176.2</span>);  
+        Student s3 = <span class="hljs-keyword">new</span> Student(<span class="hljs-string">"Tomas"</span>, <span class="hljs-number">23</span>, <span class="hljs-number">180.1</span>);  
+        Student s4 = <span class="hljs-keyword">new</span> Student(<span class="hljs-string">"Lucy"</span>, <span class="hljs-number">20</span>, <span class="hljs-number">163.3</span>);  
+
+        List&lt;Student&gt; stus = <span class="hljs-keyword">new</span> ArrayList&lt;Student&gt;();  
+        Collections.addAll(stus, s1, s2, s3, s4);  
+
+        <span class="hljs-comment">// 新建OgnlContext对象  </span>
+        OgnlContext context = <span class="hljs-keyword">new</span> OgnlContext();  
+        context.put(<span class="hljs-string">"stus"</span>, stus);  
+
+        <span class="hljs-comment">// 过滤（filtering）,collection.{? expression}  </span>
+        <span class="hljs-comment">// 利用过滤获取身高在175以上的所有学生集合  </span>
+        <span class="hljs-comment">// 输出结果：[Student [name=Jack, age=21, height=176.2], Student [name=Tomas, age=23, height=180.1]]  </span>
+        System.out.println(Ognl.getValue(<span class="hljs-string">"#stus.{? #this.height &gt; 175.0}"</span>, context, context.getRoot()));  
+
+        <span class="hljs-comment">// 过滤（filtering）,collection.{^ expression}  </span>
+        <span class="hljs-comment">// 利用过滤获取身高在175以上的所有学生集合中第一个元素  </span>
+        <span class="hljs-comment">// 输出结果：[Student [name=Jack, age=21, height=176.2]]  </span>
+        System.out.println(Ognl.getValue(<span class="hljs-string">"#stus.{^ #this.height &gt; 175.0}"</span>, context, context.getRoot()));  
+
+        <span class="hljs-comment">// 过滤（filtering）,collection.{$ expression}  </span>
+        <span class="hljs-comment">// 利用过滤获取身高在175以上的所有学生集合的最后一个元素  </span>
+        <span class="hljs-comment">// 输出结果：[Student [name=Tomas, age=23, height=180.1]]  </span>
+        System.out.println(Ognl.getValue(<span class="hljs-string">"#stus.{$ #this.height &gt; 175.0}"</span>, context, context.getRoot()));  
+
+        <span class="hljs-comment">// 投影（projection）, collection. {expression}  </span>
+        <span class="hljs-comment">// 获取集合中的所有学生的姓名  </span>
+        <span class="hljs-comment">// 输出结果：[Tom, Jack, Tomas, Lucy]  </span>
+        System.out.println(Ognl.getValue(<span class="hljs-string">"#stus.{name}"</span>, context, context.getRoot()));  
+    }  
+}<span class="hljs-comment">/* Output: 
+        [Student [name=Jack, height=176.2, age=21], Student [name=Tomas, height=180.1, age=23]]
+        [Student [name=Jack, height=176.2, age=21]]
+        [Student [name=Tomas, height=180.1, age=23]]
+        [Tom, Jack, Tomas, Lucy]
+ */</span><span class="hljs-comment">//:~</span></code></pre>
+
+<hr />
+
+
+
+<h2 id="六-总结">六. 总结</h2>
+
+<p>　　虽然我们一般都是通过学习MVC框架而结缘OGNL，但它并没有与MVC框架紧紧耦合在一起，而是一个以独立的库文件出现的一种功能强大的表达式语言，也是字符串与Java对象之间沟通的桥梁。特别地，正因为它的独立性，使得我们可以十分方便地利用它构建我们自己的框架。在充分理解和掌握 <font color="DarkGreen"><b>OGNL 三要素</b></font> 后，我们就可以通过简单一致的语法去存取Java对象树中的任意属性、调用Java对象树的方法并自动实现必要的类型转化。本文首先概述了Ognl的前世今生，并结合具体实例和源码阐述了OGNL的实质和OGNL三要素，介绍了对Java对象属性值的访问，静态、实例和构造方法的调用，对容器的访问以及对集合的操作等五个方面的介绍，奠定了学习OGNL的基础。</p>
+
+<hr />
+
+
+
+<h2 id="七-更多">七. 更多</h2>
+
+<p>　　更多关于<font color="red"><b> MVC框架数据流转问题与OGNL在Web中的魅力 </b></font>等内容请读者移步本文的姊妹篇<a href="http://blog.csdn.net/justloveyou_/article/details/68961271">《再述OGNL：在Struts2中的应用》</a>。</p>
+
+<p>　　更多关于<font color="red"><b> Struts2的概述及其与Struts1.x差异 </b></font>请读者移步我的博文<a href="http://blog.csdn.net/justloveyou_/article/details/69365627">《 Struts1与Struts2的区别和对比（深度好文）》</a>。</p>
+
+<p>　　更多关于<font color="red"><b> 抽象类的深层次表述 </b></font>请读者移步我的博文<a href="http://blog.csdn.net/justloveyou_/article/details/52944564">《Java 的抽象特性：抽象类与接口深度解析》</a>。</p>
+
+<p>　　由于HashSet就是通过HashMap实现的，所以更多关于<font color="red"><b> HashSet的了解，</b></font>读者可以参考我的博文<a href="http://blog.csdn.net/justloveyou_/article/details/62893086">《Map 综述（一）：彻头彻尾理解 HashMap》</a>。</p>
+
+<p>　　更多关于Struts2的的介绍请见我的专栏<a href="http://blog.csdn.net/column/details/14810.html">《Java Web 成神之路》</a>。本专栏全面记录了Java Web开发相关知识，不但包括对http, servlet,session等基础知识的讲解，还包括对流行框架(SSM,SpringMVC等)、中间件(Redis等)等进阶知识的深入分析。笔者将持续跟进最新Web技术，期望对大家能够起到抛砖引玉的效果。</p>
+
+<hr />
+
+<blockquote>
+  <h2 id="引用">引用</h2>
+  
+  <p><a href="http://blog.csdn.net/yu102655/article/details/52179695">OGNL表达式语言详解</a> <br />
+  <a href="http://blog.csdn.net/tjcyjd/article/details/6850203">Struts2中的OGNL详解</a> <br />
+  <a href="http://blog.csdn.net/resigshy/article/details/7560573">ognl概念和原理详解</a> <br />
+  <a href="http://blog.csdn.net/zzjjiandan/article/details/17786955">ognl 详解</a></p>
+</blockquote></div>&#13;
+        <script type="text/javascript">&#13;
+            $(function () {&#13;
+                $('pre.prettyprint code').each(function () {&#13;
+                    var lines = $(this).text().split('\n').length;&#13;
+                    var $numbering = $('&lt;ul/&gt;').addClass('pre-numbering').hide();&#13;
+                    $(this).addClass('has-numbering').parent().append($numbering);&#13;
+                    for (i = 1; i &lt;= lines; i++) {&#13;
+                        $numbering.append($('&lt;li/&gt;').text(i));&#13;
+                    };&#13;
+                    $numbering.fadeIn(1700);&#13;
+                });&#13;
+            });&#13;
+        </script>&#13;
+   &#13;

@@ -1,0 +1,392 @@
+
+
+<h1><span style="font-family:Microsoft YaHei; font-size:18px">架构师入门笔记一 初识线程关键字</span></h1>&#13;
+<p><span style="font-family:Microsoft YaHei; font-size:18px">本章主要介绍线程的关键字 synchronized，<span style="font-family:&quot;Microsoft YaHei&quot;; font-size:18px">volatile  的含义，使用方法和使用场景，以及注意事项。下一章介绍线程的队列知识。</span></span></p>&#13;
+<p><span style="font-family:Microsoft YaHei; font-size:18px">首先要了解线程安全概念：当多个线程访问某一个类（对象或方法）时，这个对象始终都能表现出正确的行为，那么这个类（对象或方法）就是线程安全的。</span></p>&#13;
+<h2><span style="font-family:Microsoft YaHei; font-size:18px">关键字 synchronized</span></h2>&#13;
+<p><span style="font-family:Microsoft YaHei; font-size:18px">synchronized 可以在任意对象及方法上加锁，而加锁的这段代码称为"互斥区"或"临界区"</span></p>&#13;
+<p><span style="font-family:Microsoft YaHei; font-size:18px">工作原理：</span><span style="font-family:&quot;Microsoft YaHei&quot;; font-size:18px">一个线程想要执行synchronized修饰的方法里的代码，首先要</span></p>&#13;
+<p><span style="font-family:&quot;Microsoft YaHei&quot;; font-size:18px">step1 尝试获得锁</span></p>&#13;
+<p><span style="font-family:Microsoft YaHei; font-size:18px">step2 如果拿到锁，执行synchronized代码体内容</span></p>&#13;
+<p><span style="font-family:Microsoft YaHei; font-size:18px">step3 如果拿不到锁，这个线程就会不断的尝试获得这把锁，直到拿到为止，而且是多个线程同时去竞争这把锁。</span></p>&#13;
+<p><span style="font-family:Microsoft YaHei; font-size:18px">注*（线程多了也就是会出现锁竞争的问题，<span style="font-family:&quot;Microsoft YaHei&quot;; font-size:18px">多个线程执行的顺序</span><span style="font-family:&quot;Microsoft YaHei&quot;; font-size:18px">是按照CPU分配的先后顺序而定的，而并非代码执行的先后顺序</span>）</span></p>&#13;
+<p><span style="font-family:Microsoft YaHei; font-size:18px">如何使用：</span></p>&#13;
+<p><span style="font-family:Microsoft YaHei"><span style="font-size:18px">synchronized 重入：</span></span></p>&#13;
+<p><span style="font-family:Microsoft YaHei"><span style="font-size:18px">在使用synchronized时，当一个线程得到了一个对象的锁后，再次请求此对象时是可以再次得到该对象的锁。<br />&#13;
+</span></span></p>&#13;
+<p><span style="font-family:Microsoft YaHei"><span style="font-size:18px"></span></span></p>&#13;
+<pre code_snippet_id="2517442" snippet_file_name="blog_20170804_1_6867291" name="code" class="java">public class MySyncReentrant {
+	
+	/**
+	 * 重入调用
+	 */
+	private synchronized void method1() {
+		System.out.println("^^^^^^^^^^^^^method1");
+		method2();
+	}
+	
+	private synchronized void method2() {
+		System.out.println("-----------------------method2");
+		method3();
+	}
+	
+	private synchronized void method3() {
+		System.out.println("********************method3");
+	}
+
+	public static void main(String[] args) {
+		final MySyncReentrant mySyncReentrant = new MySyncReentrant();
+		Thread thread = new Thread(new Runnable() {
+			@Override
+			public void run() {
+				mySyncReentrant.method1();
+			}
+		}, "reentrant");
+		thread.start();
+		
+		Thread thread2 = new Thread(new Runnable() {
+			@Override
+			public void run() {
+				SunClass sunClass = new SunClass();
+				sunClass.sunMethod();
+			}
+		});
+		thread2.start();
+	}
+	/**
+	 * 有父子继承关系的类，如果都使用了synchronized关键字，也是线程安全的。
+	 */
+	static class FatherClass {
+		public synchronized void fatherMethod(){
+			System.out.println("fatherMethod....");
+		}
+	}
+	
+	static class SunClass extends FatherClass{
+		public synchronized void sunMethod() {
+			System.out.println("sunMethod....");
+			this.fatherMethod();
+		}
+	}
+	
+}</pre><br />&#13;
+<p></p>&#13;
+<p><span style="font-family:Microsoft YaHei"><span style="font-size:18px"></span></span></p>&#13;
+<p><span style="font-family:&quot;Microsoft YaHei&quot;"><span style="font-size:18px">synchronized 代码块：</span></span></p>&#13;
+<p><span style="font-family:&quot;Microsoft YaHei&quot;"><span style="font-size:18px">有时候如果直接将synchronized 修饰在方法上是不合理的，如果该方法执行需要很长时间，线程之间等待的时间就会很长，所以将synchronized 修饰在代码块上是可以优化执行时间。（这也叫减少锁的粒度）</span></span></p>&#13;
+<p><span style="font-family:&quot;Microsoft YaHei&quot;; font-size:18px">synchronized (this){} ， 可以是this（对象锁） class（类锁） Object lock = new Object(); 任何对象锁。</span></p>&#13;
+<p><span style="font-family:&quot;Microsoft YaHei&quot;; font-size:18px"></span></p>&#13;
+<pre code_snippet_id="2517442" snippet_file_name="blog_20170804_2_2123782" name="code" class="java">import java.util.concurrent.atomic.AtomicInteger;
+
+public class CodeBlockLock {
+	
+	// 对象锁
+	private void thisLock () {
+		synchronized (this) {
+			System.out.println("this 对象锁!");
+		}
+	}
+	
+	// 类锁
+	private void classLock () {
+		synchronized (CodeBlockLock.class) {
+			System.out.println("class 类锁!");
+		}
+	}
+	
+	// 任何对象锁
+	private Object lock = new Object();
+	private void objectLock () {
+		synchronized (lock) {
+			System.out.println("object 任何对象锁!");
+		}
+	}
+	
+	// 字符串锁，注意String常量池的缓存功能
+	private void stringLock () {
+		synchronized ("string") { // new String("string")
+			try {
+				for(int i = 0; i &lt; 3; i++) {
+					System.out.println("thread : " + Thread.currentThread().getName() + " stringLock !");
+					Thread.sleep(1000);		
+				}
+			} catch (InterruptedException e) {
+				e.printStackTrace();
+			}
+		}
+	}
+	
+	// 字符串锁改变
+	private String strLock = "lock";
+	private void changeStrLock () {
+		synchronized (strLock) {
+			try {
+				System.out.println("thread : " + Thread.currentThread().getName() + " changeLock start !");
+				strLock = "changeLock";
+				Thread.sleep(5000);
+				System.out.println("thread : " + Thread.currentThread().getName() + " changeLock end !");
+			} catch (InterruptedException e) {
+				e.printStackTrace();
+			}
+		}
+	}
+	
+	public static void main(String[] args) {
+		final CodeBlockLock codeBlockLock = new CodeBlockLock();
+		Thread thread1 = new Thread(new Runnable() {
+			@Override
+			public void run() {
+				codeBlockLock.thisLock();
+			}
+		});
+		Thread thread2 = new Thread(new Runnable() {
+			@Override
+			public void run() {
+				codeBlockLock.classLock();
+			}
+		});
+		Thread thread3 = new Thread(new Runnable() {
+			@Override
+			public void run() {
+				codeBlockLock.objectLock();
+			}
+		});
+		thread1.start();
+		thread2.start();
+		thread3.start();
+		
+		// 如果字符串锁，用new String("string") t4，t5线程是可以获取锁的，如果直接使用"string" ，若锁不释放，t5线程一直处理等待中
+		Thread thread4 = new Thread(new Runnable() {
+			@Override
+			public void run() {
+				codeBlockLock.stringLock();
+			}
+		}, "t4");
+		Thread thread5 = new Thread(new Runnable() {
+			@Override
+			public void run() {
+				codeBlockLock.stringLock();
+			}
+		}, "t5");
+		thread4.start();
+		thread5.start();
+		
+		try {
+			Thread.sleep(10000);
+		} catch (InterruptedException e) {
+			e.printStackTrace();
+		}
+		
+		// 字符串变了，锁也会改变，导致t7线程在t6线程未结束后变开始执行,但一个对象的属性变了，不影响这个对象的锁。
+		Thread thread6 = new Thread(new Runnable() {
+			@Override
+			public void run() {
+				codeBlockLock.changeStrLock();
+			}
+		}, "t6");
+		Thread thread7 = new Thread(new Runnable() {
+			@Override
+			public void run() {
+				codeBlockLock.changeStrLock();
+			}
+		}, "t7");
+		thread6.start();
+		thread7.start();
+	}
+
+}
+</pre>&#13;
+<p></p>&#13;
+<p><span style="font-size:18px">运行结果：</span></p>&#13;
+<p><span style="font-family:&quot;Microsoft YaHei&quot;; font-size:18px"></span></p>&#13;
+<pre code_snippet_id="2517442" snippet_file_name="blog_20170804_3_5329365" name="code" class="java">this 对象锁!
+class 类锁!
+object 任何对象锁!
+thread : t4 stringLock !
+thread : t4 stringLock !
+thread : t4 stringLock !
+thread : t5 stringLock !
+thread : t5 stringLock !
+thread : t5 stringLock !
+thread : t6 changeLock start !
+thread : t7 changeLock start !
+thread : t6 changeLock end !
+thread : t7 changeLock end !</pre>&#13;
+<p></p>&#13;
+<p><span style="font-size:18px">注* 给String的常量加锁，容易会出现死循环的情况。 加锁的字符串变了，锁也会变。一个对象的属性变了，不影响这个对象的锁。<span style="font-family:&quot;Microsoft YaHei&quot;">static + synchronized 一起使用 是类级别的锁</span></span></p>&#13;
+<p><span style="font-family:&quot;Microsoft YaHei&quot;; font-size:18px"><br />&#13;
+</span></p>&#13;
+<p><span style="font-family:&quot;Microsoft YaHei&quot;"><span style="font-size:18px">同步与异步：</span></span></p>&#13;
+<p><span style="font-family:&quot;Microsoft YaHei&quot;"><span style="font-size:18px">同步的概念就是共享，其目标就是为了线程安全（线程安全的两个特性：原子性和可见性），A线程获取对象的锁，若B线程想要执行synchronized方法，就需要等待，这就是同步。</span></span></p>&#13;
+<p><span style="font-family:&quot;Microsoft YaHei&quot;"><span style="font-size:18px">异步的概念就是独立，A线程获取对象的锁，若B线程想要执行非synchronized方法，是无需等待的，这就是异步。可以参考ajax请求。</span></span></p>&#13;
+<p><span style="font-family:&quot;Microsoft YaHei&quot;"><span style="font-size:18px"></span></span></p>&#13;
+<pre code_snippet_id="2517442" snippet_file_name="blog_20170804_4_6059713" name="code" class="java">public class SyncAndAsyn {
+	
+	private synchronized void syncMethod() {
+		try {
+			System.out.println(Thread.currentThread().getName() + " synchronized method!");
+			Thread.sleep(4000);
+		} catch (InterruptedException e) {
+			e.printStackTrace();
+		}
+	}
+	
+	// 若次方法也加上了 synchronized，就必须等待t1线程执行完后，t2才能调用
+	private void asynMethod() {
+		System.out.println(Thread.currentThread().getName() + " asynchronized method!");
+	}
+	
+	public static void main(String[] args) {
+		final SyncAndAsyn syncAndAsyn = new SyncAndAsyn();
+		
+		Thread thread1 = new Thread(new Runnable() {
+			@Override
+			public void run() {
+				syncAndAsyn.syncMethod();
+			}
+		}, "t1");
+		Thread thread2 = new Thread(new Runnable() {
+			@Override
+			public void run() {
+				syncAndAsyn.asynMethod();
+			}
+		}, "t2");
+		thread1.start();
+		thread2.start();
+	}
+
+}</pre>&#13;
+<p></p>&#13;
+<p><span style="font-family:Microsoft YaHei"><span style="font-size:18px"><span style="font-family:&quot;Microsoft YaHei&quot;; font-size:18px">synchronized 异常：</span><br />&#13;
+</span></span></p>&#13;
+<p><span style="font-family:Microsoft YaHei"><span style="font-size:18px">synchronized 遇到异常后，自动释放锁，让其他线程调用。如果第一个线程在执行任务时，因为异常导致业务逻辑未能正常执行。后续的线程执行的任务也都是异常的。所以在编写代码时一定要考虑周全</span></span></p>&#13;
+<p><span style="font-family:Microsoft YaHei"><span style="font-size:18px"><br />&#13;
+</span></span></p>&#13;
+<h2><span style="font-family:Microsoft YaHei; font-size:18px">关键字 <span style="font-family:&quot;Microsoft YaHei&quot;; font-size:18px">volatile</span></span></h2>&#13;
+<p><span style="font-family:Microsoft YaHei; font-size:18px">volatile关键字不具备synchronized关键字的原子性（同步）其</span><span style="font-size:18px; font-family:&quot;Microsoft YaHei&quot;">主要作用就是使变量在多个线程中可见。</span></p>&#13;
+<p><span style="font-size:18px; font-family:&quot;Microsoft YaHei&quot;">原理图：</span></p>&#13;
+<p><span style="font-family:Microsoft YaHei"><span style="font-size:18px"><img src="http://img.blog.csdn.net/20170804112309598" alt="" /><br />&#13;
+</span></span></p>&#13;
+<p><span style="font-family:Microsoft YaHei; font-size:18px">在java中，每一个线程都会有一块工作内存区，其中存放着所有线程</span><span style="font-family:&quot;Microsoft YaHei&quot;; font-size:18px">共享的主内存中的变量值的拷贝。当线程执行时，他在自己的工</span><span style="font-family:&quot;Microsoft YaHei&quot;; font-size:18px">作</span><span style="font-family:&quot;Microsoft YaHei&quot;; font-size:18px">内</span><span style="font-family:&quot;Microsoft YaHei&quot;; font-size:18px">存</span><span style="font-family:&quot;Microsoft YaHei&quot;; font-size:18px">区</span><span style="font-family:&quot;Microsoft YaHei&quot;; font-size:18px">中操作这些变量。为了存取一个共享的变量，一个线程通常先获</span><span style="font-family:&quot;Microsoft YaHei&quot;; font-size:18px">取锁定并去清除它的内存工作区，把这些共享变量从所有线程的共享</span><span style="font-family:&quot;Microsoft YaHei&quot;; font-size:18px">内存区中正确的装入到他自己的所在的工作内存区中，当线程解锁时</span><span style="font-family:&quot;Microsoft YaHei&quot;"><span style="font-size:18px">保证该工作内存区中变量的值写回到共享内存中。而</span><span style="font-family:微软雅黑"><span style="font-size:18px">volatile</span></span><span style="font-family:微软雅黑"><span style="font-size:18px">的作用就是强制线程到主内存（共享内存）里面去读取变量</span><span style="font-family:微软雅黑"><span style="font-size:18px">，而不去线程工作内存区里面读，从而实现了多个线程间的变量可见。<span style="font-family:微软雅黑">也就是满足线程安全的可见性。</span></span></span></span></span></p>&#13;
+<p><span style="font-family:&quot;Microsoft YaHei&quot;"><span style="font-family:微软雅黑"><span style="font-family:微软雅黑"><span style="font-size:18px"><span style="font-family:微软雅黑">可见性：（被volatile修饰的变量，线程执行引擎是直接从主内存中读取变量的值）</span></span></span></span></span></p>&#13;
+<p><span style="font-family:&quot;Microsoft YaHei&quot;"><span style="font-family:微软雅黑"><span style="font-family:微软雅黑"><span style="font-size:18px"><span style="font-family:微软雅黑"></span></span></span></span></span></p>&#13;
+<pre code_snippet_id="2517442" snippet_file_name="blog_20170804_5_5918009" name="code" class="java">public class VolatileThread extends Thread{
+	
+	// 如果不加 volatile，会导致 "thread end !" 一直没有打印，
+	private volatile boolean flag = true;
+	
+	@Override
+	public void run() {
+		System.out.println("thread start !");
+		while (flag) {
+		}
+		System.out.println("thread end !");
+	}
+
+	public static void main(String[] args) {
+		VolatileThread thread = new VolatileThread();
+		thread.start();
+		try { // 等线程启动了，再设置值
+			Thread.sleep(1000);
+		} catch (InterruptedException e) {
+			e.printStackTrace();
+		}
+		thread.setFlag(false);
+		System.out.println("flag : " + thread.isFlag());
+	}
+	
+	public boolean isFlag() {
+		return flag;
+	}
+
+	public void setFlag(boolean flag) {
+		this.flag = flag;
+	}
+
+}
+</pre>&#13;
+<p></p>&#13;
+<p><span style="font-family:&quot;Microsoft YaHei&quot;"><span style="font-family:微软雅黑"><span style="font-family:微软雅黑"><span style="font-size:18px"><span style="font-family:微软雅黑"><br />&#13;
+</span></span></span></span></span></p>&#13;
+<span style="font-size:18px">volatile 不具备原子性：（多线程之间不是同步的，存在线程安全，从下面的例子中可以得知：如果是同步的，最后一次打印绝对是1000*10 。为了弥补这个问题，可以考虑使用atomic类的系类对象）</span><br />&#13;
+<pre code_snippet_id="2517442" snippet_file_name="blog_20170804_6_9713019" name="code" class="java">import java.util.concurrent.atomic.AtomicInteger;
+
+/**
+ * volatile关键字不具备synchronized关键字的原子性（同步）
+ */
+public class VolatileNoAtomic extends Thread{
+	// 多次执行程序，会发现最后打印的结果不是1000的整数倍.中途打印不是1000的整数倍，可能是因为System.out打印的延迟造成的
+//	private static volatile int count; 
+	private static AtomicInteger count = new AtomicInteger(0); // 不会出现以上的情况
+	private static void addCount(){
+		for (int i = 0; i &lt; 1000; i++) {
+//			count++ ;
+			count.incrementAndGet();
+		}
+		System.out.println(count);
+	}
+	
+	public void run(){
+		addCount();
+	}
+	
+	public static void main(String[] args) {
+		VolatileNoAtomic[] arr = new VolatileNoAtomic[10];
+		for (int i = 0; i &lt; 10; i++) {
+			arr[i] = new VolatileNoAtomic();
+		}
+		// 执行10个线程
+		for (int i = 0; i &lt; 10; i++) {
+			arr[i].start();
+		}
+	}
+	
+}</pre><br />&#13;
+<span style="font-size:18px">但atomic 并非完美，它也只能保证自己方法是原子性，若要保证多次操作也是原子性，就需要asynchronized的帮忙：（若不用asynchronized修饰，打印的结果中会出现非10倍数的信息，需多次执行才能模拟出来）</span>&#13;
+<p><span style="font-family:&quot;Microsoft YaHei&quot;"><span style="font-family:微软雅黑"><span style="font-family:微软雅黑"><span style="font-size:18px"><span style="font-family:微软雅黑"></span></span></span></span></span></p>&#13;
+<pre code_snippet_id="2517442" snippet_file_name="blog_20170804_7_6506653" name="code" class="java">import java.util.ArrayList;
+import java.util.List;
+import java.util.concurrent.atomic.AtomicInteger;
+
+public class AtomicUse {
+
+	private static AtomicInteger count = new AtomicInteger(0);
+	
+	//多个addAndGet在一个方法内是非原子性的，需要加synchronized进行修饰，保证4个addAndGet整体原子性 .
+	/**synchronized*/
+	public  int multiAdd(){
+			try {
+				Thread.sleep(100);
+			} catch (InterruptedException e) {
+				e.printStackTrace();
+			}
+			count.addAndGet(1);
+			count.addAndGet(2);
+			count.addAndGet(3);
+			count.addAndGet(4); //+10
+			return count.get();
+	}
+	
+	public static void main(String[] args) {
+		final AtomicUse au = new AtomicUse();
+		List&lt;Thread&gt; ts = new ArrayList&lt;Thread&gt;();
+		for (int i = 0; i &lt; 100; i++) {
+			ts.add(new Thread(new Runnable() {
+				@Override
+				public void run() {
+					System.out.println(au.multiAdd());
+				}
+			})); // 添加100个线程
+		}
+		for(Thread t : ts){
+			t.start();
+		}
+		
+	}
+}</pre><br />&#13;
+<br />&#13;
+<p></p>&#13;
+<p><span style="font-family:&quot;Microsoft YaHei&quot;"><span style="font-family:微软雅黑"><span style="font-family:微软雅黑"><span style="font-size:18px"><span style="font-family:微软雅黑"><br />&#13;
+</span></span></span></span></span></p>&#13;
+<p><span style="font-family:Microsoft YaHei; font-size:18px">以上便是初识线程关键字的内容，方便自己以后查阅，也希望对读者有些帮助。</span></p>&#13;
+   &#13;

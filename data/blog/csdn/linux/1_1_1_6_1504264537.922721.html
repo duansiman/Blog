@@ -1,0 +1,486 @@
+
+<p><span style="font-size:18px;"><strong>这一章介绍的主题是--高级文件 I/O</strong></span></p><p><span style="font-size:18px;"><span style="background-color: rgb(255, 255, 0);"><strong><img alt="微笑" src="http://static.blog.csdn.net/xheditor/xheditor_emot/default/smile.gif" />一. 分散--聚集I/O</strong></span></span></p><p><span style="font-size:18px;"><strong>分散聚集I/O是一种进行输入和输出的方法。通过此方法，单一系统调用可以将缓冲区向量写入单一数据流，或者将单一数据流读取到缓冲区向量。这个类型的I/O之所以会有此名称，是因为数据会被分散至或聚集自特定的缓冲区向量。这种方式的输入和输出又称为<span style="background-color: rgb(255, 0, 0);">向量I/O</span>。相比较之下，第二章的标准读取和写入系统调用所提供的是<span style="background-color: rgb(255, 0, 0);">线性I/O</span>。</strong></span></p><p><span style="font-size:18px;"><strong>这里有两个函数实现了一对采用分散--聚集I/O机制的系统调用。</strong></span></p><p><span style="font-size:18px;"><strong><span style="font-family: Arial; line-height: 25.98958396911621px;">名称:： </span><wbr style="font-family: Arial; line-height: 25.98958396911621px;"><span style="font-family: Arial; line-height: 25.98958396911621px;"><span style="color:#ff0000;">readv/writev</span></span><br style="font-family: Arial; line-height: 25.98958396911621px;" /><span style="font-family: Arial; line-height: 25.98958396911621px;">功能：散布读/聚集写</span><br /></wbr></strong></span></p><p><span style="font-family: Arial; line-height: 25.98958396911621px;"><span style="font-size:18px;"><strong></strong></span></span></p><pre name="code" class="cpp">用法：#include &lt;sys/uio.h&gt;
+函数原形：
+ ssize_t readv(int filedes,const struct iovec*iov,int iovcnt);
+ ssize_t writev(int filedes,const struct iovec*iov,int iovcnt);
+参数：
+filedes    文件描述符
+
+iov      指向iovec结构数组的一个指针。
+
+iovcnt    数组元素的个数</pre><br /><p></p><p style="font-family: Arial; line-height: 25.98958396911621px;"><span style="font-size:18px;"><strong>返回值：<br /> <wbr>若成功则返回已读、写的字节数，若出错则返回-1<br />readv和writev函数用于在一次函数调用中读、写多个非连续缓冲区。有时也将这两个函数成为散布读和聚集写。</wbr></strong></span></p><p style="font-family: Arial; line-height: 25.98958396911621px;"><span style="font-size:18px;"><strong> <wbr> <wbr> <wbr> <wbr> <wbr> <wbr>这两个函数的第二个参数是指向iovec结构数组的一个指针：</wbr></wbr></wbr></wbr></wbr></wbr></strong></span></p><pre name="code" class="cpp">struct iovec{
+
+             void *iov_base;
+
+             size_t iov_len;
+
+      };</pre><br /><p style="font-family: Arial; line-height: 25.98958396911621px;"><span style="font-size:18px;"><strong>writev以顺序iov[0]至iov[iovcnt-1]从缓冲区中聚集输出数据。writev返回输出的字节总数，通常，它应等于所有缓冲区长度之和。</strong></span></p><p style="font-family: Arial; line-height: 25.98958396911621px;"><span style="font-size:18px;"><strong> <wbr> <wbr> <wbr> <wbr> <wbr> <wbr>readv则将读入的数据按上述同样顺序散布读到缓冲区中。readv总是先填满一个缓冲区，然后再填写下一个。readv返回读到的总字节数。如果遇到文件结尾，已无数据可读，则返回0。</wbr></wbr></wbr></wbr></wbr></wbr></strong></span></p><span style="font-size:18px;"><strong>下面给出一个实现的例子说明函数的用法：</strong></span><p><span style="font-family: Arial; line-height: 25.98958396911621px;"><span style="font-size:18px;"><strong></strong></span></span></p><pre name="code" class="cpp">#include &lt;stdio.h&gt;
+#include &lt;fcntl.h&gt;
+#include &lt;string.h&gt;
+#include &lt;unistd.h&gt;
+#include &lt;sys/types.h&gt;
+#include &lt;sys/stat.h&gt;
+#include &lt;sys/uio.h&gt;
+
+int main(){
+int fd = open("test", O_RDWR);
+
+char *buf[] = {"abcdefg\n",
+"abcdefgh\n",
+"abcdefghi\n"};
+
+struct iovec iov[3];
+
+int i, nr, j;
+
+for(i = 0; i &lt; 3; i++){
+iov[i].iov_base = buf[i];
+iov[i].iov_len = strlen(buf[i]+1);
+}
+
+ftruncate(fd, 0);
+
+nr = writev(fd, iov, 3);
+
+close(fd);
+
+fd = open("test", O_RDWR);
+
+char a[10], b[11], c[12];
+
+iov[0].iov_base = a;
+iov[0].iov_len = sizeof(a);
+iov[1].iov_base = b;
+iov[1].iov_len = sizeof(b);
+iov[2].iov_base = c;
+iov[2].iov_len = sizeof(c);
+
+nr = readv(fd, iov, 3);
+
+printf("%d %d\n", (int)iov[0].iov_base, (int)a);
+
+for(i = 0; i &lt; 3; i++){
+printf("%s", (char*)iov[i].iov_base);
+}
+
+close(fd);
+
+return 0;
+}</pre><br /><span style="color:#ff0000;"><span style="font-size:18px;"><strong>说明：</strong></span></span><p></p><p><span style="font-family: Arial; line-height: 25.98958396911621px;"><span style="font-size:18px;"><strong>和多次的线性I/O相比，向量I/O不仅减少了系统调用的次数，而且可以经过内核的优化提供性能的改善。一个进程可以执行单次向量操作不会与另一个进程的操作交叉在一起的风险。内核动态分配内部数据结构表示每个区段，但是如果小于8的话，内核会在它使用的堆栈上为段创建一个小型的数组，大小为8，这时就不需要动态分配了。</strong></span><br /></span></p><p><span style="font-family: Arial; line-height: 25.98958396911621px;"><span style="font-size:18px;"><strong>实现：</strong></span></span></p><p><span style="font-family: Arial; line-height: 25.98958396911621px;"><span style="font-size:18px;"><strong>readv()和writev()的简单实现可以在用户空间中以一个简单的循环来完成，它看起来可能会是这样：</strong></span></span></p><p><span style="font-family: Arial; line-height: 25.98958396911621px;"></span></p><pre name="code" class="cpp" style="font-weight: bold; font-size: 18px;">#include&lt;unistd.h&gt;
+#include&lt;sys/uio.h&gt;
+ssize_t naive_writev(int fd , const struct iovec *iov , int count)
+{
+ssize_t ret = 0;
+int i;
+for(i = 0; i &lt; count; i++){
+ssize_t nr;
+nr = write(fd, iov[i].iov_base, iov[i].iov_len);
+if(nr == -1){
+ret == -1;
+break;
+}
+ret += nr;
+}
+return ret;
+}</pre><span style="font-size:18px;"><strong><br /></strong></span><p><span style="font-size:18px;"><strong>事实上，Linux内核内部所有I/O均采用向量的方式，尽管read()和write()被实现成向量I/O，但是向量只有一个段，所以，仍是线性的实现原理。</strong></span></p><p><span style="font-size:18px;"><strong><br /></strong></span></p><p><span style="font-size:18px;"><span style="background-color: rgb(255, 255, 0);"><strong><img alt="微笑" src="http://static.blog.csdn.net/xheditor/xheditor_emot/default/smile.gif" />二.将文件映射至内存---内存映射</strong></span></span></p><p><span style="font-size:18px;"><span style="background-color: rgb(255, 255, 0);"><strong>首先原理图如下：</strong></span></span></p><p style="text-align: center;"><span style="font-size:18px;"><span style="background-color: rgb(255, 255, 0);"><strong><img src="http://img.blog.csdn.net/20130608093515687" alt="" /><br /></strong></span></span></p><p><span style="font-family: 宋体, Arial; line-height: 26px;"><span style="font-size:18px;"><strong>Linux提供了内存映射函数mmap, 它把文件内容映射到一段内存上(准确说是虚拟内存上), 通过对这段内存的读取和修改, 实现对文件的读取和修改, 先来看一下mmap的函数声明:</strong></span></span><br /></p><p><span style="font-family: 宋体, Arial; line-height: 26px;"></span></p><pre name="code" class="cpp" style="color: rgb(102, 102, 102); font-weight: bold;font-size:14px;">头文件:
+&lt;unistd.h&gt;
+&lt;sys/mman.h&gt;
+原型: void *mmap(void *addr, size_t length, int prot, int flags, int fd, off_t offsize);
+返回值: 成功则返回映射区起始地址, 失败则返回MAP_FAILED(-1).
+参数:
+addr: 指定映射的起始地址, 通常设为NULL, 由系统指定.
+length: 将文件的多大长度映射到内存.
+prot: 映射区的保护方式, 可以是:
+PROT_EXEC: 映射区可被执行.
+PROT_READ: 映射区可被读取.
+PROT_WRITE: 映射区可被写入.
+PROT_NONE: 映射区不能存取.
+flags: 映射区的特性, 可以是:
+MAP_SHARED: 对映射区域的写入数据会复制回文件, 且允许其他映射该文件的进程共享.
+MAP_PRIVATE: 对映射区域的写入操作会产生一个映射的复制(copy-on-write), 对此区域所做的修改不会写回原文件.
+此外还有其他几个flags不很常用, 具体查看linux C函数说明.
+fd: 由open返回的文件描述符, 代表要映射的文件.
+offset: 以文件开始处的偏移量, 必须是分页大小的整数倍, 通常为0, 表示从文件头开始映射.
+    下面说一下内存映射的步骤:
+用open系统调用打开文件, 并返回描述符fd.
+用mmap建立内存映射, 并返回映射首地址指针start.
+对映射(文件)进行各种操作, 显示(printf), 修改(sprintf).
+用munmap(void *start, size_t lenght)关闭内存映射.
+用close系统调用关闭文件fd.</pre><br /><p></p><p style="word-wrap: break-word; margin-top: 5px; margin-bottom: 5px; padding-top: 0px; padding-bottom: 0px; font-family: &#x5B8B;&#x4F53;, Arial; line-height: 26px;"><span style="word-wrap: break-word;"><span style="font-size:18px;color:#3333ff;"><strong>注意事项:</strong></span></span></p><p style="word-wrap: break-word; margin-top: 5px; margin-bottom: 5px; padding-top: 0px; padding-bottom: 0px; font-family: &#x5B8B;&#x4F53;, Arial; line-height: 26px;"><span style="word-wrap: break-word;"><span style="font-size:18px;color:#3333ff;"><strong>在修改映射的文件时, 只能在原长度上修改, 不能增加文件长度, 因为内存是已经分配好的.</strong></span></span></p><span style="font-size:18px;"><strong>接下来讲讲几个用到的函数和示例程序</strong></span><p><span style="font-family: 宋体, Arial; line-height: 26px;"></span></p><p><span style="font-size:18px;"><strong>内存映射文件<span style="font-family:Times New Roman;">(mmap)</span></strong></span></p><p><span style="font-size:18px;"><strong>内存映射文件是利用虚拟内存把文件映射到进程的地址空间中去，在此之后进程操作文</strong></span></p><p><span style="font-size:18px;"><strong>件，就像操作进程空间里的地址一样了，比如使用<span style="font-family:Times New Roman;">memcpy</span>等内存操作的函数。这种方法能</strong></span></p><p><span style="font-size:18px;"><strong>够很好的应用在需要频繁处理一个文件或者是一个大文件的场合，这种方式处理<span style="font-family:Times New Roman;">IO</span>效率比</strong></span></p><p><span style="font-size:18px;"><strong>普通<span style="font-family:Times New Roman;">IO</span>效率要高。另外，<span style="font-family:Times New Roman;">UNIX</span>把它做为内存共享来设计的。</strong></span></p><p></p><p><span style="font-size:18px;"><strong><span style="font-family:Times New Roman;">UNIX</span>中，头文件<span style="font-family:Times New Roman;">&lt;sys/mman.h&gt;</span>中有与此相关的函数定义。<span style="font-family:Times New Roman;">mman==super man :)</span>。</strong></span></p><p></p><p><span style="font-size:18px;"><strong><span style="font-family:Times New Roman;">1、</span>创建一个内存映射区域</strong></span></p><p><span style="font-family: 'Times New Roman';"><span style="font-size:18px;"><strong>void *mmap(void *addr, size_t len, int prot, int flag, int filedes, off_t off);</strong></span></span></p><table cellpadding="0" cellspacing="0" border="1"><tbody><tr><td valign="top"><p></p><span style="font-size:18px;"><strong><br /></strong></span></td><td valign="top"><p></p><span style="font-size:18px;"><strong><br /></strong></span></td></tr><tr><td valign="top"><p><span style="font-family:Times New Roman;"><span style="font-size:18px;"><strong>addr</strong></span></span></p></td><td valign="top"><p><span style="font-size:18px;"><strong>映射区首地址，你想自己定义的时候使用。一般使用<span style="font-family:Times New Roman;">NULL</span>，然后系统自动分配一个合适地址。</strong></span></p></td></tr><tr><td valign="top"><p><span style="font-family:Times New Roman;"><span style="font-size:18px;"><strong>len</strong></span></span></p></td><td valign="top"><p><span style="font-size:18px;"><strong>映射的长度，<span style="font-family:Times New Roman;"> </span>单位<span style="font-family:Times New Roman;">byte</span></strong></span></p></td></tr><tr><td valign="top"><p><span style="font-family:Times New Roman;"><span style="font-size:18px;"><strong>prot</strong></span></span></p></td><td valign="top"><p><span style="font-size:18px;"><strong>说明映射区访问属性：读、写、执行、不可访问</strong></span></p><p><span style="font-size:18px;"><strong>可<span style="font-family:Times New Roman;">                    PROT_READ,PROT_WRITE,PROT_EXEC,PROT_NONE</span></strong></span></p><p><span style="font-size:18px;"><strong>不能超越它所映射的文件的权限</strong></span></p></td></tr><tr><td valign="top"><p><span style="font-family:Times New Roman;"><span style="font-size:18px;"><strong>flag</strong></span></span></p></td><td valign="top"><p><span style="font-size:18px;"><strong><span style="font-family:Times New Roman;">MAP_SHARED </span>这个标志说明文件映射是共享的，也就是说进程改变了内存映射，也就会影响到文件。</strong></span></p><p><span style="font-size:18px;"><strong><span style="font-family:Times New Roman;">MAP_PRIVATE </span>这个标志说明文件映射不共享，打开文件映射的进程只能改变的是这个文件的一个副本。</strong></span></p></td></tr><tr><td valign="top"><p><span style="font-family:Times New Roman;"><span style="font-size:18px;"><strong>filedes</strong></span></span></p></td><td valign="top"><p><span style="font-size:18px;"><strong>文件描述符号</strong></span></p></td></tr><tr><td valign="top"><p><span style="font-family:Times New Roman;"><span style="font-size:18px;"><strong>off</strong></span></span></p></td><td valign="top"><p><span style="font-size:18px;"><strong>隐射位置的偏移量，设置为<span style="font-family:Times New Roman;">0</span>的话，就映射文件的<span style="font-family:Times New Roman;">0-len</span>个字节</strong></span></p></td></tr><tr><td valign="top"><p><span style="font-size:18px;"><strong>返回</strong></span></p></td><td valign="top"><p><span style="font-size:18px;"><strong>映射区域的首地址</strong></span></p></td></tr></tbody></table><span style="font-size:18px;"><strong><span style="font-family:Times New Roman;"></span></strong></span><p></p><p><span style="font-size:18px;"><strong>2、取消文件映射</strong></span></p><p><span style="font-size:18px;"><strong>int munmap(caddr_t addr,size_t len);</strong></span></p><table cellpadding="0" cellspacing="0" border="1"><tbody><tr><td valign="top"><p></p><span style="font-size:18px;"><strong><br /></strong></span></td><td valign="top"><p></p><span style="font-size:18px;"><strong><br /></strong></span></td></tr><tr><td valign="top"><p><span style="font-family:Times New Roman;"><span style="font-size:18px;"><strong>addr</strong></span></span></p></td><td valign="top"><p><span style="font-size:18px;"><strong>内存隐射的地址。<span style="font-family:Times New Roman;">mmap</span>返回的地址。</strong></span></p></td></tr><tr><td valign="top"><p><span style="font-family:Times New Roman;"><span style="font-size:18px;"><strong>len</strong></span></span></p></td><td valign="top"><p><span style="font-size:18px;"><strong>隐射的字节数。</strong></span></p></td></tr><tr><td valign="top"><p><span style="font-size:18px;"><strong>返回</strong></span></p></td><td valign="top"><p><span style="font-size:18px;"><strong>成果<span style="font-family:Times New Roman;">0</span>，失败负</strong></span></p></td></tr></tbody></table><p><span style="font-size:18px;"><strong>使用MAP_PRIVATE的映射改变将不被写回文件。</strong></span></p><p><span style="font-size:18px;"><strong>3、内存映射和文件的同步</strong></span></p><p><span style="font-size:18px;"><strong>int msync(void *addr, size_t len,int flags);</strong></span></p><table cellpadding="0" cellspacing="0" border="1"><tbody><tr><td valign="top"><p></p><span style="font-size:18px;"><strong><br /></strong></span></td><td valign="top"><p></p><span style="font-size:18px;"><strong><br /></strong></span></td></tr><tr><td valign="top"><p><span style="font-family:Times New Roman;"><span style="font-size:18px;"><strong>addr</strong></span></span></p></td><td valign="top"><p><span style="font-size:18px;"><strong>内存映射地址</strong></span></p></td></tr><tr><td valign="top"><p><span style="font-family:Times New Roman;"><span style="font-size:18px;"><strong>len</strong></span></span></p></td><td valign="top"><p><span style="font-size:18px;"><strong>长度</strong></span></p></td></tr><tr><td valign="top"><p><span style="font-family:Times New Roman;"><span style="font-size:18px;"><strong>flags</strong></span></span></p></td><td valign="top"><p><span style="font-size:18px;"><strong><span style="font-family:Times New Roman;">MS_ASYNC,MS_SYNC,MS_INVALIDATE</span>。</strong></span></p><p><span style="font-size:18px;"><strong><span style="font-family:Times New Roman;">MS_ASYNC</span>，异步写，调用后就返回不等待写完，<span style="font-family:Times New Roman;">MS_SYNC</span>则等待写完才返回。</strong></span></p><p><span style="font-size:18px;"><strong><span style="font-family:Times New Roman;">MS_INVALIDATE</span>，写完之后，内存映射中与文件不同的数据将无效，取而代之的是文件中的数据。</strong></span></p></td></tr><tr><td valign="top"><p><span style="font-size:18px;"><strong>返回</strong></span></p></td><td valign="top"><p><span style="font-size:18px;"><strong>成功<span style="font-family:Times New Roman;">0</span>，失败负</strong></span></p><div><span style="font-size:18px;"><strong><br /></strong></span></div></td></tr></tbody></table><span style="font-size:18px;"><strong><br /></strong></span><p><span style="font-family: 宋体, Arial; line-height: 26px;"><span style="font-size:18px;"><strong>获取页面大小的函数--sysconf()</strong></span></span></p><p><span style="font-family: 宋体, Arial; line-height: 26px;"></span></p><pre name="code" class="cpp" style="color: rgb(102, 102, 102); font-weight: bold;font-size:14px;">/*
+NAME
+       sysconf - Get configuration information at runtime
+
+SYNOPSIS
+       #include &lt;unistd.h&gt;
+
+       long sysconf(int name);
+ */
+#include &lt;stdio.h&gt;
+#include &lt;unistd.h&gt;
+
+int main(int argc, char *argv[])
+{
+    printf ("The pagesize: %ld\n", sysconf(_SC_PAGESIZE));
+    printf ("The number of pages: %ld\n", sysconf(_SC_PHYS_PAGES));
+    printf ("The number of available pages: %ld\n", sysconf(_SC_AVPHYS_PAGES));
+    printf ("The number of processors: %ld\n", sysconf(_SC_NPROCESSORS_CONF));
+    printf ("The number of processors online: %ld\n", sysconf(_SC_NPROCESSORS_ONLN));
+    printf ("The memory size: %lld MB\n", (long long)sysconf(_SC_PAGESIZE) * (long long)sysconf(_SC_PHYS_PAGES) / (1024*1024) );
+    printf ("The number of files max opened:: %ld\n", sysconf(_SC_OPEN_MAX));
+    printf("The number of ticks per second: %ld\n", sysconf(_SC_CLK_TCK));
+    printf ("The max length of host name: %ld\n", sysconf(_SC_HOST_NAME_MAX));
+    printf ("The max length of login name: %ld\n", sysconf(_SC_LOGIN_NAME_MAX));
+    return 0;
+}
+/* man sysconf */</pre><br /><span style="font-size:18px;"><strong>实例程序1 --C语言程序</strong></span><p></p><p><span style="font-family: 宋体, Arial; line-height: 26px;"></span></p><pre name="code" class="cpp" style="color: rgb(102, 102, 102); font-weight: bold;font-size:14px;">#include &lt;sys/types.h&gt;
+#include &lt;sys/stat.h&gt;
+#include &lt;fcntl.h&gt;
+#include &lt;stdio.h&gt;
+#include &lt;sys/mman.h&gt;
+#include &lt;string.h&gt;
+#include &lt;errno.h&gt;
+#include &lt;unistd.h&gt;
+
+/*
+   void *mmap(void *start, size_t length, int prot, int flags,int fd, off_t offset);
+//该函数把一个文件或一个posix共享内存区对象映射到调用进程的进程。
+1.start:一般可以为NULL;
+2.length:映射的字节大小;
+3.prot:对映射存储的权限访问(PROT_NONE:不可访问;PROT_READ:可读;
+PROT_WRITE:可写;PROT_EXEC:可执行);
+4.flags:MAP_FIXED、MAP_SHARED(对内存的操作同样影响文件)、MAP_PRIVATE
+5.文件描述附
+6.要偏移的位置(SEEK_SET、SEEK_CUR、SEEK_END)
+
+int munmap(void *start, size_t length);
+//该函数用于取消映射
+ */
+
+#define FILENAME1 "./lhw1"
+#define FILENAME2 "./lhw2"
+#define OPEN_FLAG O_RDWR|O_CREAT
+#define OPEN_MODE 00777
+#define FILE_SIZE 4096*4
+
+static int my_mmap(int dst, int src)
+{
+	int ret = -1;
+	void* add_src = NULL;
+	void* add_dst = NULL;
+	struct stat buf = {0};
+
+	//获取打开文件的详细信息（主要要取得读文件的大小）
+	ret = fstat(src, &amp;buf);
+	if(-1 == ret)
+	{
+		perror("fstat failed: ");
+		goto _OUT;
+	}
+	//映射源文件的存储区
+	add_src = mmap(NULL, buf.st_size, PROT_READ, MAP_SHARED, src, SEEK_SET);
+	if(NULL == add_src)
+	{
+		perror("mmap src failed: ");
+		goto _OUT;
+	}
+
+	//lseek dst（制造文件空洞，使其有一定大小，没有大小会出错)
+	ret = lseek(dst, buf.st_size, SEEK_SET);
+	if(-1 == ret)
+	{
+		perror("lseek dst faile: ");
+		goto _OUT;
+	}
+	//write dst
+	ret = write(dst, "w", 1);
+	if(-1 == ret)
+	{
+		perror("write dst faile: ");
+		goto _OUT;
+	}
+
+	//映射目标文件的存储区
+	add_dst = mmap(NULL, buf.st_size, PROT_WRITE, MAP_SHARED, dst, SEEK_SET);
+	if(NULL == add_dst)
+	{
+		perror("mmap src failed: ");
+		goto _OUT;
+	}
+
+	//memcpy 将源文件内存add_src的内容拷贝到目标文件add_dst，通过内存共享
+	memcpy(add_dst, add_src, buf.st_size);
+	
+	//取消映射
+	ret = munmap(add_src, buf.st_size);
+	if(-1 == ret)
+	{
+		perror("munmap src faile: ");
+		goto _OUT;
+	}
+	ret = munmap(add_dst, buf.st_size);
+	if(-1 == ret)
+	{
+		perror("munmap dst faile: ");
+		goto _OUT;
+	}
+
+_OUT:
+	return ret;
+}
+
+int main(void)
+{
+	int ret = -1;
+	int fd1 = -1;
+	int fd2 = -1;
+
+	//open fd1
+	fd1 = open(FILENAME1, OPEN_FLAG, OPEN_MODE);
+	if(-1 == (ret = fd1))
+	{
+		perror("open fd1 failed: ");
+		goto _OUT;
+	}
+	//write fd1
+	ret = write(fd1, "howaylee", sizeof("howaylee"));
+	if(-1 == ret)
+	{
+		perror("write failed: ");
+		goto _OUT;
+	}
+	//open fd2
+	fd2 = open(FILENAME2, OPEN_FLAG, OPEN_MODE);
+	if(-1 == (ret = fd2))
+	{
+		perror("open fd2 failed: ");
+		goto _OUT;
+	}
+	//mmap
+	my_mmap(fd2, fd1);
+
+_OUT:	
+	return ret;
+}
+
+
+
+</pre><br /><span style="font-size:18px;"><strong>实例程序2 --C++程序</strong></span><p></p><p><span style="font-family: 宋体, Arial; line-height: 26px;"><span style="font-family: Arial; line-height: 25.98958396911621px;"><span style="font-size:18px;"><strong>memmap.h</strong></span></span></span></p><p><span style="font-family: 宋体, Arial; line-height: 26px;"><span style="font-family: Arial; line-height: 25.98958396911621px;"></span></span></p><pre name="code" class="cpp" style="color: rgb(102, 102, 102); font-weight: bold; font-size: 14.44444465637207px;">#ifndef MEMMAP_H  
+#define MEMMAP_H  
+#include &lt;stdio.h&gt;  
+  
+class MemMap  
+{  
+public:  
+    MemMap();  
+    ~MemMap();  
+  
+    bool Map(const char* szFileName);  
+    void UnMap();  
+  
+    const    void* GetData() const { return m_pData; }  
+    size_t         GetSize() const { return m_uSize; }  
+  
+private:  
+    void*     m_pData;  
+    size_t    m_uSize;  
+    int       m_nFile;  
+};  
+#endif  </pre><br /><span style="font-family: Arial; line-height: 25.98958396911621px;"><span style="font-size:18px;"><strong>memmap.C</strong></span></span><br /><p></p><p><span style="font-family: 宋体, Arial; line-height: 26px;"><span style="font-family: Arial; line-height: 25.98958396911621px;"><span style="font-family: Arial; line-height: 25.98958396911621px;"></span></span></span></p><pre name="code" class="cpp" style="color: rgb(102, 102, 102); font-weight: bold; font-size: 14.44444465637207px;">#include "memmap.h"  
+#include &lt;unistd.h&gt;  
+#include &lt;fcntl.h&gt;  
+#include &lt;sys/mman.h&gt;  
+  
+  
+MemMap::MemMap() : m_pData(0), m_uSize(0), m_nFile(0)  
+{  
+}  
+  
+MemMap::~MemMap()  
+{  
+    UnMap();  
+}  
+  
+bool MemMap::Map(const char* szFileName)  
+{  
+    UnMap();  
+    m_nFile = open(szFileName, O_RDONLY);  
+    if (m_nFile &lt; 0)   
+    {   
+        m_nFile = 0;  
+        return false;   
+    }  
+  
+    struct stat status;  
+    fstat(m_nFile, &amp;status);  
+  
+    m_uSize = status.st_size;  
+    m_pData = mmap(0, m_uSize, PROT_READ, MAP_SHARED, m_nFile, 0);  
+    if (MAP_FAILED != m_pData) { return true;}  
+  
+    close(m_nFile);  
+    m_pData = NULL;  
+    m_nFile = 0;  
+    m_uSize = 0;  
+    return false;  
+}  
+  
+void MemMap::UnMap()  
+{  
+    if(m_pData)  
+    {  
+        munmap(m_pData, m_uSize);  
+        m_pData = NULL;  
+    }  
+  
+    if(m_nFile)  
+    {  
+        close(m_nFile);  
+        m_nFile = 0;  
+    }  
+  
+    m_uSize = 0;  
+}  </pre><br /><span style="font-family: Arial; line-height: 25.98958396911621px;"><span style="font-size:18px;"><strong>memmain.C</strong></span></span><br /><p></p><p><span style="font-size:18px;"><span style="font-weight: bold;"><span style="color: rgb(102, 102, 102); font-family: 宋体, Arial;font-size:14px; line-height: 26px;"><span style="font-family: Arial; font-size: 14.44444465637207px; line-height: 25.98958396911621px;"><span style="font-family: Arial; font-size: 14.44444465637207px; line-height: 25.98958396911621px;"><span style="font-family: Arial; font-size: 14.44444465637207px; line-height: 25.98958396911621px;"></span></span></span></span></span></span></p><pre name="code" class="cpp">#include "memmap.h"  
+  
+int main()  
+{  
+    const char* szFileName = "1.txt";  
+    const char* szFileNew  = "2.txt";  
+    MemMap mm;  
+    bool bFailed = !mm.Map(szFileName);  
+    if(bFailed) { return -1; }  
+  
+    size_t uFileSize  = mm.GetSize();  
+    const char* pData = (char*)mm.GetData();  
+    if(uFileSize &lt;=0 || NULL == pData) { return -2; }  
+  
+    FILE*  pNewFile  = fopen(szFileNew, "w");  
+    fwrite(pData, sizeof(char), uFileSize, pNewFile);  
+    fclose(pNewFile);  
+    pNewFile = NULL;  
+  
+    return 0;  
+}  </pre><br /><p><span style="font-size:18px;"><span style="background-color: rgb(255, 255, 0);"><strong><img alt="微笑" src="http://static.blog.csdn.net/xheditor/xheditor_emot/default/smile.gif" />三.同步，同步化  异步，异步化</strong></span></span></p><p></p><p style="font-family: Arial; line-height: 26px;"><span style="font-size:18px;"><strong>在Unix系统中会大量使用“同步化”(synchronized)，“异步化”(nonsynchronized)，“同步”(synchronous)，以及“异步”(asynchronous)等令人混淆的术语。</strong></span></p><p style="font-family: Arial; line-height: 26px;"><span style="font-size:18px;"><strong>     现结合Unix中读取和写入操作来分别介绍这四种术语的具体含义：</strong></span></p><p style="font-family: Arial; line-height: 26px;"><span style="font-size:18px;"><strong>同步(synchronous)写操作：调用进程会等到所要写入的数据(至少)被存入内核的缓冲区后(用户进程的写操作一般都是数据从用户缓冲区复制到内核缓冲区，然后由内核缓冲区刷新的磁盘文件中)，系统调用才会返回。</strong></span></p><p style="font-family: Arial; line-height: 26px;"><span style="font-size:18px;"><strong> </strong></span></p><p style="font-family: Arial; line-height: 26px;"><span style="font-size:18px;"><strong>异步(asynchronous)写操作：调用进程会在用户缓冲区中还有数据也就是数据离开用户空间之前先返回，它不会等待真正的写任务完成后再返回，实际上该系统调用就是只是将对应的写操作排入请求队列中等待稍后处理，稍后的处理由系统来调度的，再与调用进程是没有关系的，进程只要一返回，之后的写入操作就和调用进程无关。所以在这种情况下，必须要有一种机制来判断排入队列的操作是否真的完成了以及实际完成的结果。</strong></span></p><p style="font-family: Arial; line-height: 26px;"><span style="font-size:18px;"><strong> </strong></span></p><p style="font-family: Arial; line-height: 26px;"><span style="font-size:18px;"><strong>相比较于同步操作，同步化(synchronized)操作有较多的限制，但是更为安全，同步化写入操作会将最终要写入的数据刷新到磁盘的文件中，以确保磁盘上的数据与相应的内核缓冲区里面的数据始终是同步的。</strong></span></p><p style="font-family: Arial; line-height: 26px;"><span style="font-size:18px;"><strong>而同步化读取操作总是会返回数据的最新副本，而且假设它来自磁盘。</strong></span></p><p style="font-family: Arial; line-height: 26px;"><span style="font-size:18px;"><strong> </strong></span></p><p style="font-family: Arial; line-height: 26px;"><span style="font-size:18px;"><strong>总之，“同步”与“异步”等术语用于指出I/O操作在返回之前是否需要等待某个事件(例如数据的存储)，而“同步化”与“异步化”等术语用于指定必须要发生何种事件(例如将数据写入到磁盘)。</strong></span></p><p style="font-family: Arial; line-height: 26px;"><span style="font-size:18px;"><strong> </strong></span></p><p style="font-family: Arial; line-height: 26px;"><span style="font-size:18px;"><strong>在一般情况下(也就是默认情况下)，Unix的写入操作是同步的进行，但是异步化，而读取操作则是同步的进行且同步化，而对于写入操作而言，上述提到的四种组合都是可以搭配的，现来讨论下这四种方式与写入操作的搭配组合：</strong></span></p><p style="font-family: Arial; line-height: 26px;"><span style="font-size:18px;"><strong> </strong></span></p><p style="font-family: Arial; line-height: 26px;"><span style="font-size:18px;color:#ff0000;"><strong>同步的同步化：写入操作会等到数据被刷新到磁盘后才返回，如果在打开文件时指定了O_SYNC标志，便会表现这种行为。</strong></span></p><p style="font-family: Arial; line-height: 26px;"><span style="font-size:18px;color:#ff0000;"><strong>同步的异步化：写入操作会等到数据被存入到内核缓冲区后才返回，这也是通常的行为模式。</strong></span></p><p style="font-family: Arial; line-height: 26px;"><span style="font-size:18px;color:#ff0000;"><strong>异步的同步化：写入操作只在写入请求被排入队列后就返回。等到该写入操作执行时，数据会保证写入到磁盘中。</strong></span></p><p style="font-family: Arial; line-height: 26px;"><span style="font-size:18px;color:#ff0000;"><strong>异步的异步化：写入操作只在写入请求被排入队列后就返回，等到该写入操作执行时，数据会保证至少存入到内核缓冲区。</strong></span></p><p style="font-family: Arial; line-height: 26px;"><span style="font-size:18px;"><strong> </strong></span></p><p style="font-family: Arial; line-height: 26px;"><span style="font-size:18px;"><strong>对于读操作重要的一点是：读操作始终都是同步化的，保证读取操作总是会返回磁盘上的最新的数据副本，读取旧数据毫无意义，但是读取操作可以是同步的也可以是异步的。</strong></span></p><p style="font-family: Arial; line-height: 26px;"><span style="font-size:18px;"><strong> </strong></span></p><p style="font-family: Arial; line-height: 26px;"><span style="font-size:18px;color:#ff0000;"><strong>同步的同步化：读取操作会在最新的数据被存入到应用程序的用户缓冲区后返回，这也是读取操作的通常行为模式。</strong></span></p><p style="font-family: Arial; line-height: 26px;"><span style="font-size:18px;color:#ff0000;"><strong>异步的同步化：读取操作会在读取请求被排入到队列后返回，但是当读取操作实际被执行时会返回最新的数据。</strong></span></p><p><br /></p><p><span style="font-size:18px;"><span style="background-color: rgb(255, 255, 0);"><img alt="微笑" src="http://static.blog.csdn.net/xheditor/xheditor_emot/default/smile.gif" />四.优化I/O性能</span></span></p><p><span style="font-size:18px;"><span style="background-color: rgb(255, 255, 255);"><strong>用户空间应用程序所能访问的信息与内核不同。在I/O调度程序内部的最底层，这些请求已经根据物理磁盘块被指定。排序它们并不难，但是在用户空间中，这些请求会根据文件和偏移量被指定。用户空间应用程序必须探索合适的信息，并且对文件系统的布局（layout）作出有根据的猜测。</strong></span></span></p><p><span style="font-size:18px;"><span style="background-color: rgb(255, 255, 255);"><strong>由于目的是针对特定文件的一串I/O请求确定有利于查找的顺序，用户空间应用程序有一下三种排序方式可供选择：</strong></span></span></p><p><span style="font-size:18px;color:#ff0000;"><span style="background-color: rgb(255, 255, 255);"><strong>1.完整路径</strong></span></span></p><p><span style="font-size:18px;color:#009900;"><span style="background-color: rgb(255, 255, 255);"><strong>2.inode编号</strong></span></span></p><p><span style="font-size:18px;color:#3333ff;"><span style="background-color: rgb(255, 255, 255);"><strong>3.文件的物理磁盘块</strong></span></span></p><p><span style="font-size:18px;"><span style="background-color: rgb(255, 255, 255);"><strong>下面将对这三种方式进行详细的讲解</strong></span></span></p><p><span style="font-size:18px;"><span style="background-color: rgb(255, 255, 255);"><strong><br /></strong></span></span></p><p><span style="font-size:18px;color:#ff0000;"><span style="background-color: rgb(255, 255, 255);"><strong>完整路径</strong></span></span></p><p><span style="font-size:18px;"><span style="background-color: rgb(255, 255, 255);"><strong>按路径名称排序是最简单且接近按块排序的一种方式。由于多数文件系统使用的是布局算法，所以每个目录中的文件在磁盘上往往是相邻的。</strong></span></span></p><p><span style="font-size:18px;"><span style="background-color: rgb(255, 255, 255);"><strong>因此，按路径排序大致接近于文件在磁盘上的物理位置。</strong></span></span></p><p><span style="font-size:18px;"><span style="background-color: rgb(255, 255, 255);"><strong><br /></strong></span></span></p><p><span style="font-size:18px;color:#009900;"><strong>inode编号</strong></span></p><p><span style="font-size:18px;"><strong>假设存在以下关系：</strong></span></p><p><span style="font-size:18px;"><strong>文件 i 的 inode 编号 &lt; 文件 j 的 inode 编号</strong></span></p><p><span style="font-size:18px;"><strong>则按 inode 排序会优于按路径排序。这意味着，在一般情况下： </strong></span></p><p><span style="font-size:18px;"><strong>文件 i 的 物理块 &lt; 文件 j 的 物理块<br /></strong></span></p><p><span style="font-size:18px;"><strong>为了取得inode编号，可以使用stat() 系统调用。由于每个I/O请求所涉及的文件都会关联到一个inode，所以这些请求可以按照inode编号以从小到大的方式排序。</strong></span></p><p><span style="font-size:18px;"><strong><br /></strong></span></p><p><span style="font-size:18px;"><span style="background-color: rgb(204, 51, 204);"><strong>下面给出一个简单的程序，它会输出特定文件的inode编号：</strong></span></span></p><p><span style="font-size:18px;"><span style="background-color: rgb(204, 51, 204);"></span></span></p><pre name="code" class="cpp">#inlcude&lt;stdio.h&gt;
+#include&lt;stdlib.h&gt;
+#include&lt;fcntl.h&gt;
+#include&lt;sys/types.h&gt;
+#include&lt;sys/stat.h&gt;
+/*
+*get_inode---返回与特定文件描述符相关联的文件的inode，
+*执行失败时返回-1
+*/
+int get_inode(int fd)
+{
+struct stat buf;
+int ret;
+ret = fstat (fd , &amp;buf);
+if(ret &lt; 0){
+perror("fstat");
+return -1;
+}
+return buf.st_ino;
+}
+int main(int argc , char *argv[]){
+int fd , inode;
+if(argc &lt; 2){
+fprintf(stderr , "usage: %s &lt;file&gt;\n",argv[0]);
+return 1;
+}
+fd = open(argv[1],O_RDONLY);
+if(fd &lt; 0){
+perror("open");
+return 1;
+}
+inode = get_inode(fd);
+printf("%d\n",inode);
+return 0;
+}</pre><p></p><p><span style="font-size:18px;"><strong><br /></strong></span></p><p><span style="font-size:18px;color:#3333ff;"><span style="background-color: rgb(255, 255, 255);"><strong>文件的物理磁盘块</strong></span></span></p><p><span style="font-size:18px;"><strong>设计你自己的电梯算法，最好的方法当然是按物理磁盘块排序。正如稍早所做的讨论，每个文件会被划分成数个逻辑块，而逻辑块是一个文件系统的最小配置单元。一个逻辑块的大小与文件系统有关，每个逻辑块会映射至单一的物理块。因此，我们可以在一个文件中找出逻辑块的书目，确定它们映射至哪些物理块，并根据此结果进行排序。</strong></span></p><p><span style="font-size:18px;"><strong>内核提供了一个方法让我们可以从一个文件的逻辑块数目取得物理磁盘块。此工作可通过ioctl()系统调用的FIAMAP命令来完成：</strong></span></p><p></p><pre name="code" class="cpp">ret = ioctl(fd, FIBMAP, &amp;block);
+if(ret &lt; 0)
+perror("ioctl");</pre><br /><span style="font-size:18px;"><strong>其中，fd是特定文件的文件描述符，而block就是逻辑块（我们想取得它的物理块）。执行成功时，返回并将block替换成物理块编号。所传入的逻辑块具有zero-indexed和file-relative的特性。也就是说，如果一个文件由8个逻辑块组成，则有效值为0———7.</strong></span><p></p><p><span style="font-size:18px;"><strong>要找出逻辑块与物理块的映射关系需要两个步骤。首先，我们必须确定所指定的文件有所少个块。此工作可以由stat（）系统调用来完成。其次，我们必须针对每个逻辑块送出ioctl（）请求，以便找出相应的物理块。</strong></span></p><p><span style="font-size:18px;"><strong><br /></strong></span></p><p><span style="font-size:18px;"><span style="background-color: rgb(204, 51, 204);"><strong>下面给出一个程序，只需要输入文件名即可获得文件的物理块。</strong></span></span></p><p><span style="font-size:18px;"><span style="background-color: rgb(204, 51, 204);"></span></span></p><pre name="code" class="cpp">#include&lt;stdio.h&gt;
+#include&lt;stdlib.h&gt;
+#include&lt;fcntl.h&gt;
+#include&lt;sys/types.h&gt;
+#include&lt;sys/stat.h&gt;
+#include&lt;sys/ioctl.h&gt;
+#include&lt;linux/fs.h&gt;
+/*
+*get_block--替与特定 fd 相关联的文件返回
+*映射至 logical_block 的物理块
+*/
+int get_block(int fd, int logical_block)
+{
+int ret;
+ret = ioctl(fd, FIBMAP, &amp;logical_block);
+if(ret &lt; 0){
+perror("ioctl");
+return -1;
+}
+return logical_block;
+}
+
+/*
+*get_nr_blocks--返回与fd相关联的文件所耗用的逻辑块的数目
+*/
+int get_nr_blocks(int fd)
+{
+struct stat buf;
+int ret;
+ret = fstat(fd, &amp;buf);
+if(ret &lt; 0){
+perror("fstat");
+return -1;
+}
+return buf.st_blocks;
+}
+
+/*
+*print_blocks--替与fd相关联的文件所耗用的每个逻辑块
+*在标准输出中输出如下信息：
+*“（logical block, physical block）”
+*/
+
+void print_blocks(int fd)
+{
+int nr_blocks, i;
+nr_blocks = get_nr_blocks(fd);
+if(nr_blocks &lt; 0){
+fprintf(stderr,"get_nr_blocks failed!\n");
+return;
+}
+if(nr_blocks == 0){
+printf("no allocated blocks\n");
+return;
+}else if(nr_blocks ==1)
+printf("1 block\n\n");
+else
+printf("%d blocks\n\n",nr_blocks);
+
+for(i = 0 ; i &lt; nr_blocks; i++){
+int phys_block;
+phys_block = get_block(fd, i);
+if(phys_block &lt; 0){
+fprintf(stderr, "get_block failed!\n");
+return;
+}
+if(!phys_block)
+continue;
+
+printf("(%u , %u)",i, phys_block);
+}
+putchar("\n");
+}
+
+int main(int argc, char *argv[])
+{
+int fd;
+if(argc &lt; 2){
+fprintf(stderr,"usage: %s &lt;file&gt;\n",argv[0]);
+return 1;
+}
+fd = open(argv[1], O_RDONLY);
+if(fd &lt; 0){
+perror("open");
+return 1;
+}
+print_blocks(fd);
+return 0;
+}</pre><br /><p></p><p><span style="font-size:18px;"><strong>因为文件往往是连续的，所以很难按照每个逻辑块来排序我们的I/O请求，比较有意义的做法是按照所指定文件的第一个逻辑块的位置来排序。于是就不需要用到 get_nr_blocks()，而且我们的应用程序会根据：</strong></span></p><p><span style="font-size:18px;"><strong>get_block(fd ,0);</strong></span></p><p><span style="font-size:18px;"><strong>的返回值进行排序。</strong></span></p><p><span style="font-size:18px;"><strong>此方法非常接近理想的顺序，然而，因为这个方法需要用到root权限，所以对许多人来说似乎有点不切实际。</strong></span></p><p></p><p></p>   &#13;

@@ -1,0 +1,133 @@
+
+
+<p></p>&#13;
+<pre code_snippet_id="2562392" snippet_file_name="blog_20170903_1_8856039" name="code" class="cpp"></pre>半同步复制只是一个插件，一个动态加载的插件怎么实现事务处理线程等待、停下来呢？<p></p><p>这个插件只是个实现体，在MySQL源码中还是需要支撑这个实现体的框架。即在代码的某些位置，加入一些桩observer，在执行到这些桩的时候，如果有插件在这些observer中注册了实现体，就这执行这些实现体，否则什么也不执行。</p><p>RUN_HOOK就是这些桩的调用接口：</p><p></p><pre code_snippet_id="2562392" snippet_file_name="blog_20170903_1_8856039" name="code" class="cpp">#define RUN_HOOK(group, hook, args)  (group ##_delegate-&gt;is_empty() ? 0 : group ##_delegate-&gt;hook args)</pre>以RUN_HOOK(binlog_relay_io, thread_start, (thd, mi))为例：&#13;
+<p></p>&#13;
+<p>binlog_relay_io_delegate-&gt;thread_start(thd,mi)是RUN_HOOK转换后的调用。</p>&#13;
+<p></p>&#13;
+<pre code_snippet_id="2562392" snippet_file_name="blog_20170903_3_5933863" name="code" class="cpp">int Binlog_relay_IO_delegate::thread_start(THD *thd, Master_info *mi)
+{
+  Binlog_relay_IO_param param;
+  init_param(&amp;param, mi);
+  int ret= 0;
+  FOREACH_OBSERVER(ret, thread_start, thd, (¶m));
+  return ret;
+}</pre>关键在FOREACH_OBSERVER这个宏定义：&#13;
+<p></p>&#13;
+<p></p>&#13;
+<pre code_snippet_id="2562392" snippet_file_name="blog_20170903_4_9140229" name="code" class="html">#define FOREACH_OBSERVER(r, f, thd, args) \
+...
+for (; info; info= iter++){ 
+    if (((Observer *)info-&gt;observer)-&gt;f &amp;&amp; ((Observer *)info-&gt;observer)-&gt;f args){
+        ...
+    }
+}
+...</pre><span style="color:rgb(102,102,102); font-family:&#x5B8B;&#x4F53;,Arial; font-size:16px; line-height:26px">到这里就很清楚了，此处用了观察者模式，最终回调typedef Binlog_relay_IO_observer Observer<span style="color:rgb(102,102,102); font-family:宋体,Arial; font-size:16px; line-height:26px">的thread_start.<span style="color:rgb(102,102,102); font-family:宋体,Arial; font-size:16px; line-height:26px">初始化的时候Binlog_relay_IO_observer是以插件的形式通过register_binlog_relay_io_observer函数注册到观察者list里面，所以最终实现io的功能是在plugin/semisync实现.</span></span></span>&#13;
+<p></p>&#13;
+<pre code_snippet_id="2562392" snippet_file_name="blog_20170903_5_361729" name="code" class="cpp">replication.h
+/**
+   Observes and extends the service of slave IO thread.
+*/
+typedef struct Binlog_relay_IO_observer {
+  uint32 len;
+
+  /**
+     This callback is called when slave IO thread starts
+
+     @param param Observer common parameter
+
+     @retval 0 Sucess
+     @retval 1 Failure
+  */
+  int (*thread_start)(Binlog_relay_IO_param *param);
+
+  /**
+     This callback is called when slave IO thread stops
+
+     @param param Observer common parameter
+
+     @retval 0 Sucess
+     @retval 1 Failure
+  */
+  int (*thread_stop)(Binlog_relay_IO_param *param);
+
+  /**
+     This callback is called before slave requesting binlog transmission from master
+
+     This is called before slave issuing BINLOG_DUMP command to master
+     to request binlog.
+
+     @param param Observer common parameter
+     @param flags binlog dump flags
+
+     @retval 0 Sucess
+     @retval 1 Failure
+  */
+  int (*before_request_transmit)(Binlog_relay_IO_param *param, uint32 flags);
+
+  /**
+     This callback is called after read an event packet from master
+
+     @param param Observer common parameter
+     @param packet The event packet read from master
+     @param len Length of the event packet read from master
+     @param event_buf The event packet return after process
+     @param event_len The length of event packet return after process
+
+     @retval 0 Sucess
+     @retval 1 Failure
+  */
+  int (*after_read_event)(Binlog_relay_IO_param *param,
+                          const char *packet, unsigned long len,
+                          const char **event_buf, unsigned long *event_len);
+
+  /**
+     This callback is called after written an event packet to relay log
+
+     @param param Observer common parameter
+     @param event_buf Event packet written to relay log
+     @param event_len Length of the event packet written to relay log
+     @param flags flags for relay log
+
+     @retval 0 Sucess
+     @retval 1 Failure
+  */
+  int (*after_queue_event)(Binlog_relay_IO_param *param,
+                           const char *event_buf, unsigned long event_len,
+                           uint32 flags);
+
+  /**
+     This callback is called after reset slave relay log IO status
+     
+     @param param Observer common parameter
+
+     @retval 0 Sucess
+     @retval 1 Failure
+  */
+  int (*after_reset_slave)(Binlog_relay_IO_param *param);
+} Binlog_relay_IO_observer;</pre>声明：&#13;
+<p></p>&#13;
+<p></p>&#13;
+<pre code_snippet_id="2562392" snippet_file_name="blog_20170903_6_6043330" name="code" class="cpp">semisync_slave_plugin.cc：：
+Binlog_relay_IO_observer relay_io_observer = {
+  sizeof(Binlog_relay_IO_observer), // len
+
+  repl_semi_slave_io_start,	// start
+  repl_semi_slave_io_end,	// stop
+  repl_semi_slave_request_dump,	// request_transmit
+  repl_semi_slave_read_event,	// after_read_event
+  repl_semi_slave_queue_event,	// after_queue_event
+  repl_semi_reset_slave,	// reset
+};
+</pre>&#13;
+<p></p>&#13;
+<p>即<span style="background-color:rgb(240,240,240)">thread_start指向的是函数repl_semi_slave_io_start函数。至此run_hook调用结束。</span></p>&#13;
+<br />&#13;
+<p><span style="color:rgb(102,102,102); font-family:宋体,Arial; font-size:16px; line-height:26px"><span style="color:rgb(102,102,102); font-family:宋体,Arial; font-size:16px; line-height:26px"><span style="color:rgb(102,102,102); font-family:宋体,Arial; font-size:16px; line-height:26px"><br />&#13;
+</span></span></span></p>&#13;
+<p><span style="font-family:宋体,Arial; color:#666666"><span style="font-size:16px; line-height:26px"><br />&#13;
+</span></span><br />&#13;
+<br />&#13;
+<br />&#13;
+</p>&#13;
+   &#13;

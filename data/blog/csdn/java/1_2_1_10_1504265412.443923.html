@@ -1,0 +1,344 @@
+
+                <div class="markdown_views"><p/><div class="toc">
+<ul>
+<li><ul>
+<li><a href="http://blog.csdn.net/u014427391/article/details/70890506#druid" target="_blank">Druid</a></li>
+<li><a href="http://blog.csdn.net/u014427391/article/details/70890506#spring-boot" target="_blank">Spring Boot</a></li>
+<li><a href="http://blog.csdn.net/u014427391/article/details/70890506#spring-boot使用druid监控" target="_blank">Spring Boot使用Druid监控</a><ul>
+<li><a href="http://blog.csdn.net/u014427391/article/details/70890506#maven配置" target="_blank">maven配置</a></li>
+<li><a href="http://blog.csdn.net/u014427391/article/details/70890506#applicationproperties配置" target="_blank">applicationproperties配置</a></li>
+<li><a href="http://blog.csdn.net/u014427391/article/details/70890506#方式一原生的servlet和filter方式" target="_blank">方式一原生的servlet和filter方式</a></li>
+<li><a href="http://blog.csdn.net/u014427391/article/details/70890506#方式二使用代码注册servlet和filter" target="_blank">方式二使用代码注册Servlet和Filter</a></li>
+<li><a href="http://blog.csdn.net/u014427391/article/details/70890506#项目监控" target="_blank">项目监控</a></li>
+</ul>
+</li>
+</ul>
+</li>
+</ul>
+</div>
+
+
+
+
+<h2 id="druid">Druid</h2>
+
+<p>Druid：一款为监控而生的数据库连接池框架，整个项目由数据库连接池、插件框架和SQL解析器组成。 <br/>
+        Druid功能介于PowerDrill和Dremel之间，它几乎实现了Dremel的所有功能，并且从PowerDrill吸收一些有趣的数据格式。Druid允许以类似Dremel和PowerDrill的方式进行单表查询，同时还增加了一些新特性，如为局部嵌套数据结构提供列式存储格式、为快速过滤做索引、实时摄取和查询、高容错的分布式体系架构等。</p>
+
+
+
+<h2 id="spring-boot">Spring Boot</h2>
+
+<p>spring框架作为JavaEE框架领域的一款重要的开源框架，在企业应用开发中有着很重要的作用，同时Spring框架及其子框架很多，所以知识量很广。  <br/>
+Spring Boot：一款Spring框架的子框架，也可以叫微框架，是2014年推出的一款使Spring框架开发变得容易的框架。学过Spring框架的都知识，Spring框架难以避免地需要配置不少XMl，而使用Spring Boot框架的话，就可以使用注解开发，极大地简化基于Spring框架的开发。Spring Boot充分利用了JavaConfig的配置模式以及“约定优于配置”的理念，能够极大的简化基于Spring MVC的Web应用和REST服务开发。  <br/>
+然后本博客介绍基于IDEA编辑器的Spring Boot项目创建和部署。</p>
+
+
+
+<h2 id="spring-boot使用druid监控">Spring Boot使用Druid监控</h2>
+
+
+
+<h3 id="maven配置">maven配置</h3>
+
+<p>要配置spring Boot实现一个Demo的话，只要加入spring-boot-starter（核心模块）和spring-boot-starter-web（因为这个一个Web项目），可以参考我的配置，这里使用了Spring Boot热部署，需要去github上搜索jar：springloaded-1.2.4.RELEASE.jar，然后下载放在项目的lib文件夹里，可以参考我的配置</p>
+
+
+
+<pre class="prettyprint"><code class=" hljs xml"><span class="hljs-tag">&lt;<span class="hljs-title">project</span> <span class="hljs-attribute">xmlns</span>=<span class="hljs-value">"http://maven.apache.org/POM/4.0.0"</span> <span class="hljs-attribute">xmlns:xsi</span>=<span class="hljs-value">"http://www.w3.org/2001/XMLSchema-instance"</span>
+  <span class="hljs-attribute">xsi:schemaLocation</span>=<span class="hljs-value">"http://maven.apache.org/POM/4.0.0 http://maven.apache.org/maven-v4_0_0.xsd"</span>&gt;</span>
+  <span class="hljs-tag">&lt;<span class="hljs-title">modelVersion</span>&gt;</span>4.0.0<span class="hljs-tag">&lt;/<span class="hljs-title">modelVersion</span>&gt;</span>
+  <span class="hljs-tag">&lt;<span class="hljs-title">groupId</span>&gt;</span>com.example<span class="hljs-tag">&lt;/<span class="hljs-title">groupId</span>&gt;</span>
+  <span class="hljs-tag">&lt;<span class="hljs-title">artifactId</span>&gt;</span>demo<span class="hljs-tag">&lt;/<span class="hljs-title">artifactId</span>&gt;</span>
+  <span class="hljs-tag">&lt;<span class="hljs-title">packaging</span>&gt;</span>war<span class="hljs-tag">&lt;/<span class="hljs-title">packaging</span>&gt;</span>
+  <span class="hljs-tag">&lt;<span class="hljs-title">version</span>&gt;</span>1.0-SNAPSHOT<span class="hljs-tag">&lt;/<span class="hljs-title">version</span>&gt;</span>
+  <span class="hljs-tag">&lt;<span class="hljs-title">name</span>&gt;</span>demo Maven Webapp<span class="hljs-tag">&lt;/<span class="hljs-title">name</span>&gt;</span>
+
+  <span class="hljs-tag">&lt;<span class="hljs-title">properties</span>&gt;</span>
+    <span class="hljs-tag">&lt;<span class="hljs-title">project.build.sourceEncoding</span>&gt;</span>UTF-8<span class="hljs-tag">&lt;/<span class="hljs-title">project.build.sourceEncoding</span>&gt;</span>
+    <span class="hljs-tag">&lt;<span class="hljs-title">java.version</span>&gt;</span>1.8<span class="hljs-tag">&lt;/<span class="hljs-title">java.version</span>&gt;</span>
+    <span class="hljs-tag">&lt;<span class="hljs-title">druid.version</span>&gt;</span>1.0.24<span class="hljs-tag">&lt;/<span class="hljs-title">druid.version</span>&gt;</span>
+    <span class="hljs-tag">&lt;<span class="hljs-title">mysql.version</span>&gt;</span>5.1.27<span class="hljs-tag">&lt;/<span class="hljs-title">mysql.version</span>&gt;</span>
+    <span class="hljs-tag">&lt;<span class="hljs-title">spring-boot-admin.version</span>&gt;</span>1.4.5<span class="hljs-tag">&lt;/<span class="hljs-title">spring-boot-admin.version</span>&gt;</span>
+  <span class="hljs-tag">&lt;/<span class="hljs-title">properties</span>&gt;</span>
+
+  <span class="hljs-tag">&lt;<span class="hljs-title">parent</span>&gt;</span>
+    <span class="hljs-tag">&lt;<span class="hljs-title">groupId</span>&gt;</span>org.springframework.boot<span class="hljs-tag">&lt;/<span class="hljs-title">groupId</span>&gt;</span>
+    <span class="hljs-tag">&lt;<span class="hljs-title">artifactId</span>&gt;</span>spring-boot-starter-parent<span class="hljs-tag">&lt;/<span class="hljs-title">artifactId</span>&gt;</span>
+    <span class="hljs-tag">&lt;<span class="hljs-title">version</span>&gt;</span>1.5.1.RELEASE<span class="hljs-tag">&lt;/<span class="hljs-title">version</span>&gt;</span>
+    <span class="hljs-tag">&lt;<span class="hljs-title">relativePath</span>/&gt;</span>
+  <span class="hljs-tag">&lt;/<span class="hljs-title">parent</span>&gt;</span>
+
+  <span class="hljs-tag">&lt;<span class="hljs-title">dependencies</span>&gt;</span>
+    <span class="hljs-tag">&lt;<span class="hljs-title">dependency</span>&gt;</span>
+      <span class="hljs-tag">&lt;<span class="hljs-title">groupId</span>&gt;</span>junit<span class="hljs-tag">&lt;/<span class="hljs-title">groupId</span>&gt;</span>
+      <span class="hljs-tag">&lt;<span class="hljs-title">artifactId</span>&gt;</span>junit<span class="hljs-tag">&lt;/<span class="hljs-title">artifactId</span>&gt;</span>
+      <span class="hljs-tag">&lt;<span class="hljs-title">version</span>&gt;</span>3.8.1<span class="hljs-tag">&lt;/<span class="hljs-title">version</span>&gt;</span>
+      <span class="hljs-tag">&lt;<span class="hljs-title">scope</span>&gt;</span>test<span class="hljs-tag">&lt;/<span class="hljs-title">scope</span>&gt;</span>
+    <span class="hljs-tag">&lt;/<span class="hljs-title">dependency</span>&gt;</span>
+
+    <span class="hljs-tag">&lt;<span class="hljs-title">dependency</span>&gt;</span>
+      <span class="hljs-tag">&lt;<span class="hljs-title">groupId</span>&gt;</span>org.springframework.boot<span class="hljs-tag">&lt;/<span class="hljs-title">groupId</span>&gt;</span>
+      <span class="hljs-tag">&lt;<span class="hljs-title">artifactId</span>&gt;</span>spring-boot-starter-web<span class="hljs-tag">&lt;/<span class="hljs-title">artifactId</span>&gt;</span>
+    <span class="hljs-tag">&lt;/<span class="hljs-title">dependency</span>&gt;</span>
+
+    <span class="hljs-tag">&lt;<span class="hljs-title">dependency</span>&gt;</span>
+      <span class="hljs-tag">&lt;<span class="hljs-title">groupId</span>&gt;</span>org.springframework.boot<span class="hljs-tag">&lt;/<span class="hljs-title">groupId</span>&gt;</span>
+      <span class="hljs-tag">&lt;<span class="hljs-title">artifactId</span>&gt;</span>spring-boot-starter-actuator<span class="hljs-tag">&lt;/<span class="hljs-title">artifactId</span>&gt;</span>
+    <span class="hljs-tag">&lt;/<span class="hljs-title">dependency</span>&gt;</span>
+
+    <span class="hljs-tag">&lt;<span class="hljs-title">dependency</span>&gt;</span>
+      <span class="hljs-tag">&lt;<span class="hljs-title">groupId</span>&gt;</span>org.springframework.boot<span class="hljs-tag">&lt;/<span class="hljs-title">groupId</span>&gt;</span>
+      <span class="hljs-tag">&lt;<span class="hljs-title">artifactId</span>&gt;</span>spring-boot-starter-test<span class="hljs-tag">&lt;/<span class="hljs-title">artifactId</span>&gt;</span>
+      <span class="hljs-tag">&lt;<span class="hljs-title">scope</span>&gt;</span>test<span class="hljs-tag">&lt;/<span class="hljs-title">scope</span>&gt;</span>
+    <span class="hljs-tag">&lt;/<span class="hljs-title">dependency</span>&gt;</span>
+
+    <span class="hljs-tag">&lt;<span class="hljs-title">dependency</span>&gt;</span>
+      <span class="hljs-tag">&lt;<span class="hljs-title">groupId</span>&gt;</span>de.codecentric<span class="hljs-tag">&lt;/<span class="hljs-title">groupId</span>&gt;</span>
+      <span class="hljs-tag">&lt;<span class="hljs-title">artifactId</span>&gt;</span>spring-boot-admin-starter-client<span class="hljs-tag">&lt;/<span class="hljs-title">artifactId</span>&gt;</span>
+      <span class="hljs-tag">&lt;<span class="hljs-title">version</span>&gt;</span>${spring-boot-admin.version}<span class="hljs-tag">&lt;/<span class="hljs-title">version</span>&gt;</span>
+    <span class="hljs-tag">&lt;/<span class="hljs-title">dependency</span>&gt;</span>
+
+    <span class="hljs-tag">&lt;<span class="hljs-title">dependency</span>&gt;</span>
+      <span class="hljs-tag">&lt;<span class="hljs-title">groupId</span>&gt;</span>org.springframework.boot<span class="hljs-tag">&lt;/<span class="hljs-title">groupId</span>&gt;</span>
+      <span class="hljs-tag">&lt;<span class="hljs-title">artifactId</span>&gt;</span>spring-boot-starter<span class="hljs-tag">&lt;/<span class="hljs-title">artifactId</span>&gt;</span>
+    <span class="hljs-tag">&lt;/<span class="hljs-title">dependency</span>&gt;</span>
+
+    <span class="hljs-tag">&lt;<span class="hljs-title">dependency</span>&gt;</span>
+      <span class="hljs-tag">&lt;<span class="hljs-title">groupId</span>&gt;</span>com.alibaba<span class="hljs-tag">&lt;/<span class="hljs-title">groupId</span>&gt;</span>
+      <span class="hljs-tag">&lt;<span class="hljs-title">artifactId</span>&gt;</span>druid<span class="hljs-tag">&lt;/<span class="hljs-title">artifactId</span>&gt;</span>
+      <span class="hljs-tag">&lt;<span class="hljs-title">version</span>&gt;</span>${druid.version}<span class="hljs-tag">&lt;/<span class="hljs-title">version</span>&gt;</span>
+    <span class="hljs-tag">&lt;/<span class="hljs-title">dependency</span>&gt;</span>
+
+    <span class="hljs-tag">&lt;<span class="hljs-title">dependency</span>&gt;</span>
+      <span class="hljs-tag">&lt;<span class="hljs-title">groupId</span>&gt;</span>mysql<span class="hljs-tag">&lt;/<span class="hljs-title">groupId</span>&gt;</span>
+      <span class="hljs-tag">&lt;<span class="hljs-title">artifactId</span>&gt;</span>mysql-connector-java<span class="hljs-tag">&lt;/<span class="hljs-title">artifactId</span>&gt;</span>
+      <span class="hljs-tag">&lt;<span class="hljs-title">version</span>&gt;</span>${mysql.version}<span class="hljs-tag">&lt;/<span class="hljs-title">version</span>&gt;</span>
+    <span class="hljs-tag">&lt;/<span class="hljs-title">dependency</span>&gt;</span>
+
+  <span class="hljs-tag">&lt;/<span class="hljs-title">dependencies</span>&gt;</span>
+  <span class="hljs-tag">&lt;<span class="hljs-title">build</span>&gt;</span>
+    <span class="hljs-tag">&lt;<span class="hljs-title">plugins</span>&gt;</span>
+      <span class="hljs-tag">&lt;<span class="hljs-title">plugin</span>&gt;</span>
+        <span class="hljs-tag">&lt;<span class="hljs-title">groupId</span>&gt;</span>org.springframework.boot<span class="hljs-tag">&lt;/<span class="hljs-title">groupId</span>&gt;</span>
+        <span class="hljs-tag">&lt;<span class="hljs-title">artifactId</span>&gt;</span>spring-boot-maven-plugin<span class="hljs-tag">&lt;/<span class="hljs-title">artifactId</span>&gt;</span>
+      <span class="hljs-tag">&lt;/<span class="hljs-title">plugin</span>&gt;</span>
+      <span class="hljs-tag">&lt;<span class="hljs-title">plugin</span>&gt;</span>
+        <span class="hljs-tag">&lt;<span class="hljs-title">groupId</span>&gt;</span>org.springframework.boot<span class="hljs-tag">&lt;/<span class="hljs-title">groupId</span>&gt;</span>
+        <span class="hljs-tag">&lt;<span class="hljs-title">artifactId</span>&gt;</span>spring-boot-maven-plugin <span class="hljs-tag">&lt;/<span class="hljs-title">artifactId</span>&gt;</span>
+        <span class="hljs-tag">&lt;<span class="hljs-title">dependencies</span>&gt;</span>
+          <span class="hljs-comment">&lt;!--springloaded hot deploy --&gt;</span>
+          <span class="hljs-tag">&lt;<span class="hljs-title">dependency</span>&gt;</span>
+            <span class="hljs-tag">&lt;<span class="hljs-title">groupId</span>&gt;</span>org.springframework<span class="hljs-tag">&lt;/<span class="hljs-title">groupId</span>&gt;</span>
+            <span class="hljs-tag">&lt;<span class="hljs-title">artifactId</span>&gt;</span>springloaded<span class="hljs-tag">&lt;/<span class="hljs-title">artifactId</span>&gt;</span>
+            <span class="hljs-tag">&lt;<span class="hljs-title">systemPath</span>&gt;</span>${basedir}/src/main/webapp/WEB-INF/lib/springloaded-1.2.5.RELEASE.jar<span class="hljs-tag">&lt;/<span class="hljs-title">systemPath</span>&gt;</span>
+          <span class="hljs-tag">&lt;/<span class="hljs-title">dependency</span>&gt;</span>
+        <span class="hljs-tag">&lt;/<span class="hljs-title">dependencies</span>&gt;</span>
+        <span class="hljs-tag">&lt;<span class="hljs-title">executions</span>&gt;</span>
+          <span class="hljs-tag">&lt;<span class="hljs-title">execution</span>&gt;</span>
+            <span class="hljs-tag">&lt;<span class="hljs-title">goals</span>&gt;</span>
+              <span class="hljs-tag">&lt;<span class="hljs-title">goal</span>&gt;</span>repackage<span class="hljs-tag">&lt;/<span class="hljs-title">goal</span>&gt;</span>
+            <span class="hljs-tag">&lt;/<span class="hljs-title">goals</span>&gt;</span>
+            <span class="hljs-tag">&lt;<span class="hljs-title">configuration</span>&gt;</span>
+              <span class="hljs-tag">&lt;<span class="hljs-title">classifier</span>&gt;</span>exec<span class="hljs-tag">&lt;/<span class="hljs-title">classifier</span>&gt;</span>
+            <span class="hljs-tag">&lt;/<span class="hljs-title">configuration</span>&gt;</span>
+          <span class="hljs-tag">&lt;/<span class="hljs-title">execution</span>&gt;</span>
+        <span class="hljs-tag">&lt;/<span class="hljs-title">executions</span>&gt;</span>
+      <span class="hljs-tag">&lt;/<span class="hljs-title">plugin</span>&gt;</span>
+    <span class="hljs-tag">&lt;/<span class="hljs-title">plugins</span>&gt;</span>
+  <span class="hljs-tag">&lt;/<span class="hljs-title">build</span>&gt;</span>
+<span class="hljs-tag">&lt;/<span class="hljs-title">project</span>&gt;</span>
+</code></pre>
+
+
+
+<h3 id="applicationproperties配置">application.properties配置</h3>
+
+
+
+<pre class="prettyprint"><code class=" hljs avrasm">server<span class="hljs-preprocessor">.context</span>-path=/springbootdemo
+
+<span class="hljs-preprocessor">#数据库访问配置</span>
+spring<span class="hljs-preprocessor">.datasource</span><span class="hljs-preprocessor">.type</span>=<span class="hljs-keyword">com</span><span class="hljs-preprocessor">.alibaba</span><span class="hljs-preprocessor">.druid</span><span class="hljs-preprocessor">.pool</span><span class="hljs-preprocessor">.DruidDataSource</span>
+spring<span class="hljs-preprocessor">.datasource</span><span class="hljs-preprocessor">.driver</span>-class-name=<span class="hljs-keyword">com</span><span class="hljs-preprocessor">.mysql</span><span class="hljs-preprocessor">.jdbc</span><span class="hljs-preprocessor">.Driver</span>
+spring<span class="hljs-preprocessor">.datasource</span><span class="hljs-preprocessor">.url</span>=jdbc:mysql://localhost:<span class="hljs-number">3306</span>/myblog
+spring<span class="hljs-preprocessor">.datasource</span><span class="hljs-preprocessor">.username</span>=root
+spring<span class="hljs-preprocessor">.datasource</span><span class="hljs-preprocessor">.password</span>=root
+
+<span class="hljs-preprocessor">#数据源配置，初始化大小、最小、最大</span>
+spring<span class="hljs-preprocessor">.datasource</span><span class="hljs-preprocessor">.initialSize</span>=<span class="hljs-number">5</span>
+spring<span class="hljs-preprocessor">.datasource</span><span class="hljs-preprocessor">.minIdle</span>=<span class="hljs-number">5</span>
+spring<span class="hljs-preprocessor">.datasource</span><span class="hljs-preprocessor">.maxActive</span>=<span class="hljs-number">20</span>
+<span class="hljs-preprocessor">#连接等待超时时间</span>
+spring<span class="hljs-preprocessor">.datasource</span><span class="hljs-preprocessor">.maxWait</span>=<span class="hljs-number">60000</span>
+<span class="hljs-preprocessor">#配置隔多久进行一次检测(检测可以关闭的空闲连接)</span>
+spring<span class="hljs-preprocessor">.datasource</span><span class="hljs-preprocessor">.timeBetweenEvictionRunsMillis</span>=<span class="hljs-number">60000</span>
+<span class="hljs-preprocessor">#配置连接在池中的最小生存时间</span>
+spring<span class="hljs-preprocessor">.datasource</span><span class="hljs-preprocessor">.minEvictableIdleTimeMillis</span>=<span class="hljs-number">300000</span>
+spring<span class="hljs-preprocessor">.datasource</span><span class="hljs-preprocessor">.validationQuery</span>=SELECT <span class="hljs-number">1</span> FROM DUAL
+spring<span class="hljs-preprocessor">.datasource</span><span class="hljs-preprocessor">.testWhileIdle</span>=true
+spring<span class="hljs-preprocessor">.datasource</span><span class="hljs-preprocessor">.testOnBorrow</span>=false
+spring<span class="hljs-preprocessor">.datasource</span><span class="hljs-preprocessor">.testOnReturn</span>=false
+<span class="hljs-preprocessor"># 打开PSCache，并且指定每个连接上PSCache的大小</span>
+spring<span class="hljs-preprocessor">.datasource</span><span class="hljs-preprocessor">.poolPreparedStatements</span>=true
+spring<span class="hljs-preprocessor">.datasource</span><span class="hljs-preprocessor">.maxPoolPreparedStatementPerConnectionSize</span>=<span class="hljs-number">20</span>
+<span class="hljs-preprocessor"># 配置监控统计拦截的filters，去掉后监控界面sql无法统计，'wall'用于防火墙</span>
+spring<span class="hljs-preprocessor">.datasource</span><span class="hljs-preprocessor">.filters</span>=stat,wall,log4j
+<span class="hljs-preprocessor"># 通过connectProperties属性来打开mergeSql功能；慢SQL记录</span>
+spring<span class="hljs-preprocessor">.datasource</span><span class="hljs-preprocessor">.connectionProperties</span>=druid<span class="hljs-preprocessor">.stat</span><span class="hljs-preprocessor">.mergeSql</span>=true<span class="hljs-comment">;druid.stat.slowSqlMillis=5000</span></code></pre>
+
+
+
+<h3 id="方式一原生的servlet和filter方式">方式一原生的servlet和filter方式</h3>
+
+<p>编写Servlet类：</p>
+
+
+
+<pre class="prettyprint"><code class=" hljs java"><span class="hljs-keyword">package</span> com.example.web.servlet;
+
+<span class="hljs-keyword">import</span> com.alibaba.druid.support.http.StatViewServlet;
+
+<span class="hljs-keyword">import</span> javax.servlet.annotation.WebInitParam;
+<span class="hljs-keyword">import</span> javax.servlet.annotation.WebServlet;
+
+<span class="hljs-javadoc">/**
+ * Created by Administrator on 2017/4/28.
+ */</span>
+<span class="hljs-annotation">@WebServlet</span>(urlPatterns = <span class="hljs-string">"/druid/*"</span>,
+        initParams = {
+                <span class="hljs-annotation">@WebInitParam</span>(name = <span class="hljs-string">"allow"</span>, value = <span class="hljs-string">"192.168.10.25,127.0.0.1"</span>),<span class="hljs-comment">// IP白名单 (没有配置或者为空，则允许所有访问)</span>
+                <span class="hljs-annotation">@WebInitParam</span>(name = <span class="hljs-string">"deny"</span>, value = <span class="hljs-string">"192.168.1.73"</span>),<span class="hljs-comment">// IP黑名单 (存在共同时，deny优先于allow)</span>
+                <span class="hljs-annotation">@WebInitParam</span>(name = <span class="hljs-string">"loginUsername"</span>, value = <span class="hljs-string">"admin"</span>),<span class="hljs-comment">// 用户名</span>
+                <span class="hljs-annotation">@WebInitParam</span>(name = <span class="hljs-string">"loginPassword"</span>, value = <span class="hljs-string">"123"</span>),<span class="hljs-comment">// 密码</span>
+                <span class="hljs-annotation">@WebInitParam</span>(name = <span class="hljs-string">"resetEnable"</span>, value = <span class="hljs-string">"false"</span>)<span class="hljs-comment">// 禁用HTML页面上的“Reset All”功能)</span>
+        }
+)
+<span class="hljs-keyword">public</span> <span class="hljs-class"><span class="hljs-keyword">class</span> <span class="hljs-title">DruidStatViewServlet</span> <span class="hljs-keyword">extends</span> <span class="hljs-title">StatViewServlet</span>{</span>
+
+}
+</code></pre>
+
+<p>Filter类：</p>
+
+
+
+<pre class="prettyprint"><code class=" hljs java"><span class="hljs-keyword">package</span> com.example.web.filter;
+
+<span class="hljs-keyword">import</span> com.alibaba.druid.support.http.WebStatFilter;
+
+<span class="hljs-keyword">import</span> javax.servlet.annotation.WebFilter;
+<span class="hljs-keyword">import</span> javax.servlet.annotation.WebInitParam;
+
+<span class="hljs-javadoc">/**
+ * Created by Administrator on 2017/4/28.
+ */</span>
+<span class="hljs-annotation">@WebFilter</span>(filterName=<span class="hljs-string">"druidWebStatFilter"</span>,urlPatterns=<span class="hljs-string">"/*"</span>,
+        initParams={
+                <span class="hljs-annotation">@WebInitParam</span>(name=<span class="hljs-string">"exclusions"</span>,value=<span class="hljs-string">"*.js,*.gif,*.jpg,*.bmp,*.png,*.css,*.ico,/druid/*"</span>)<span class="hljs-comment">// 忽略资源</span>
+        }
+)
+<span class="hljs-keyword">public</span> <span class="hljs-class"><span class="hljs-keyword">class</span> <span class="hljs-title">DruidWebStatFilter</span> <span class="hljs-keyword">extends</span> <span class="hljs-title">WebStatFilter</span>{</span>
+
+}
+</code></pre>
+
+<p>然后，需要在Spring Boot启动类里设置Servlet自动扫描，不然会出现404页面找不到错误，使用@ServletComponentScan注解</p>
+
+
+
+<pre class="prettyprint"><code class=" hljs avrasm">package <span class="hljs-keyword">com</span><span class="hljs-comment">;</span>
+
+import org<span class="hljs-preprocessor">.springframework</span><span class="hljs-preprocessor">.boot</span><span class="hljs-preprocessor">.SpringApplication</span><span class="hljs-comment">;</span>
+import org<span class="hljs-preprocessor">.springframework</span><span class="hljs-preprocessor">.boot</span><span class="hljs-preprocessor">.autoconfigure</span><span class="hljs-preprocessor">.SpringBootApplication</span><span class="hljs-comment">;</span>
+import org<span class="hljs-preprocessor">.springframework</span><span class="hljs-preprocessor">.boot</span><span class="hljs-preprocessor">.builder</span><span class="hljs-preprocessor">.SpringApplicationBuilder</span><span class="hljs-comment">;</span>
+import org<span class="hljs-preprocessor">.springframework</span><span class="hljs-preprocessor">.boot</span><span class="hljs-preprocessor">.context</span><span class="hljs-preprocessor">.embedded</span><span class="hljs-preprocessor">.ConfigurableEmbeddedServletContainer</span><span class="hljs-comment">;</span>
+import org<span class="hljs-preprocessor">.springframework</span><span class="hljs-preprocessor">.boot</span><span class="hljs-preprocessor">.context</span><span class="hljs-preprocessor">.embedded</span><span class="hljs-preprocessor">.EmbeddedServletContainerCustomizer</span><span class="hljs-comment">;</span>
+import org<span class="hljs-preprocessor">.springframework</span><span class="hljs-preprocessor">.boot</span><span class="hljs-preprocessor">.web</span><span class="hljs-preprocessor">.servlet</span><span class="hljs-preprocessor">.ServletComponentScan</span><span class="hljs-comment">;</span>
+import org<span class="hljs-preprocessor">.springframework</span><span class="hljs-preprocessor">.boot</span><span class="hljs-preprocessor">.web</span><span class="hljs-preprocessor">.support</span><span class="hljs-preprocessor">.SpringBootServletInitializer</span><span class="hljs-comment">;</span>
+import org<span class="hljs-preprocessor">.springframework</span><span class="hljs-preprocessor">.scheduling</span><span class="hljs-preprocessor">.annotation</span><span class="hljs-preprocessor">.EnableAsync</span><span class="hljs-comment">;</span>
+
+@SpringBootApplication
+@ServletComponentScan
+@EnableAsync
+public class Application implements EmbeddedServletContainerCustomizer {
+
+    public static void main(String[] args) {
+        SpringApplication<span class="hljs-preprocessor">.run</span>(Application<span class="hljs-preprocessor">.class</span>, args)<span class="hljs-comment">;</span>
+    }
+
+    @Override
+    public void customize(ConfigurableEmbeddedServletContainer configurableEmbeddedServletContainer) {
+        configurableEmbeddedServletContainer<span class="hljs-preprocessor">.setPort</span>(<span class="hljs-number">8087</span>)<span class="hljs-comment">;</span>
+    }
+
+}
+</code></pre>
+
+
+
+<h3 id="方式二使用代码注册servlet和filter">方式二使用代码注册Servlet和Filter</h3>
+
+
+
+<pre class="prettyprint"><code class=" hljs java"><span class="hljs-keyword">package</span> com.example.config;
+
+<span class="hljs-keyword">import</span> com.alibaba.druid.support.http.StatViewServlet;
+<span class="hljs-keyword">import</span> com.alibaba.druid.support.http.WebStatFilter;
+<span class="hljs-keyword">import</span> org.springframework.boot.web.servlet.FilterRegistrationBean;
+<span class="hljs-keyword">import</span> org.springframework.boot.web.servlet.ServletRegistrationBean;
+<span class="hljs-keyword">import</span> org.springframework.context.annotation.Bean;
+<span class="hljs-keyword">import</span> org.springframework.context.annotation.Configuration;
+
+<span class="hljs-javadoc">/**
+ * Created by Administrator on 2017/4/28.
+ */</span>
+<span class="hljs-annotation">@Configuration</span>
+<span class="hljs-keyword">public</span> <span class="hljs-class"><span class="hljs-keyword">class</span> <span class="hljs-title">DruidConfiguration</span> {</span>
+
+    <span class="hljs-javadoc">/**
+     * 注册ServletRegistrationBean
+     *<span class="hljs-javadoctag"> @return</span>
+     */</span>
+    <span class="hljs-annotation">@Bean</span>
+    <span class="hljs-keyword">public</span> ServletRegistrationBean <span class="hljs-title">registrationBean</span>() {
+        ServletRegistrationBean bean = <span class="hljs-keyword">new</span> ServletRegistrationBean(<span class="hljs-keyword">new</span> StatViewServlet(), <span class="hljs-string">"/druid1/*"</span>);
+        <span class="hljs-javadoc">/** 初始化参数配置，initParams**/</span>
+        <span class="hljs-comment">//白名单</span>
+        bean.addInitParameter(<span class="hljs-string">"allow"</span>, <span class="hljs-string">"127.0.0.1"</span>);
+        <span class="hljs-comment">//IP黑名单 (存在共同时，deny优先于allow) : 如果满足deny的话提示:Sorry, you are not permitted to view this page.</span>
+        bean.addInitParameter(<span class="hljs-string">"deny"</span>, <span class="hljs-string">"192.168.1.73"</span>);
+        <span class="hljs-comment">//登录查看信息的账号密码.</span>
+        bean.addInitParameter(<span class="hljs-string">"loginUsername"</span>, <span class="hljs-string">"admin2"</span>);
+        bean.addInitParameter(<span class="hljs-string">"loginPassword"</span>, <span class="hljs-string">"123"</span>);
+        <span class="hljs-comment">//是否能够重置数据.</span>
+        bean.addInitParameter(<span class="hljs-string">"resetEnable"</span>, <span class="hljs-string">"false"</span>);
+        <span class="hljs-keyword">return</span> bean;
+    }
+
+    <span class="hljs-javadoc">/**
+     * 注册FilterRegistrationBean
+     *<span class="hljs-javadoctag"> @return</span>
+     */</span>
+    <span class="hljs-annotation">@Bean</span>
+    <span class="hljs-keyword">public</span> FilterRegistrationBean <span class="hljs-title">druidStatFilter</span>() {
+        FilterRegistrationBean bean = <span class="hljs-keyword">new</span> FilterRegistrationBean(<span class="hljs-keyword">new</span> WebStatFilter());
+        <span class="hljs-comment">//添加过滤规则.</span>
+        bean.addUrlPatterns(<span class="hljs-string">"/*"</span>);
+        <span class="hljs-comment">//添加不需要忽略的格式信息.</span>
+        bean.addInitParameter(<span class="hljs-string">"exclusions"</span>,<span class="hljs-string">"*.js,*.gif,*.jpg,*.png,*.css,*.ico,/druid2/*"</span>);
+        <span class="hljs-keyword">return</span> bean;
+    }
+
+}
+</code></pre>
+
+
+
+<h3 id="项目监控">项目监控</h3>
+
+<p>然后输入url访问，我的项目访问路径：<a href="http://localhost:8087/springbootdemo/druid/login.html" target="_blank">http://localhost:8087/springbootdemo/druid/login.html</a>，这个需要自己修改，我的Context配置为springbootdemo，端口配置为8087，这些可以参考我上一篇博客 <br/>
+<img src="http://img.blog.csdn.net/20170428110806925?watermark/2/text/aHR0cDovL2Jsb2cuY3Nkbi5uZXQvdTAxNDQyNzM5MQ==/font/5a6L5L2T/fontsize/400/fill/I0JBQkFCMA==/dissolve/70/gravity/SouthEast" alt="这里写图片描述" title=""/> <br/>
+通过平台进行监控 <br/>
+<img src="http://img.blog.csdn.net/20170428110824226?watermark/2/text/aHR0cDovL2Jsb2cuY3Nkbi5uZXQvdTAxNDQyNzM5MQ==/font/5a6L5L2T/fontsize/400/fill/I0JBQkFCMA==/dissolve/70/gravity/SouthEast" alt="这里写图片描述" title=""/></p><link rel="stylesheet" href="http://static.blog.csdn.net/public/res-min/markdown_views.css?v=1.0"/></div><link rel="stylesheet" href="http://static.blog.csdn.net/public/res-min/markdown_views.css?v=1.0"/>&#13;
+            

@@ -1,0 +1,126 @@
+
+        <div class="markdown_views"><h3 id="bytebuffer-在nio的作用">ByteBuffer 在NIO的作用</h3>
+
+<p>Java SE4 开始引入Java NIO,相比较于老的IO，更加依赖底层实现。引入通道(Channels)，选择器(selector)，缓冲(Buffers).都更加接近操作系统执行I/O的方式.所以速度更快。</p>
+
+<p>NIO 是非阻塞IO，非阻塞IO的实现是基于事件的，选择器定义了一个IO通道，程序继续运行。选择器上发生事件时，会唤醒选择器并执行相应动作。IO是阻塞IO,面向流操作，顺序读写，对于小文件序列化的读写有优势。nio是面向缓冲器，对数据的偏移支持比较好。</p>
+
+<p>本文提到的ByteBuffer就是缓冲器，负责与通道进行数据交换。缓冲器总共有ByteBuffer,CharBuffer,DoubleBuffer,FloatBuffer,IntBuffer,LongBuffer,ShortBuffer.</p>
+
+<h3 id="bytebuffer的重要属性">ByteBuffer的重要属性</h3>
+
+
+
+<h4 id="buffer-基类">Buffer 基类</h4>
+
+<p><strong>属性</strong> <br />
+缓冲器都继承了Buffer类，Buffer是一个固定大小的数据容器。除了存储内容之外，还有三个重要的属性。</p>
+
+<ul>
+<li><p>capacity buffer中元素总数</p></li>
+<li><p>position 写模式下就是下一个元素的index,读模式就是当前元素index</p></li>
+<li><p>limit 是不应该被读/写的第一个元素index。写模式时就是capacity,读模式则是下一个元素的index.如下图：图片来自<a href="http://javapapers.com/java/java-nio-buffer/">http://javapapers.com/java/java-nio-buffer/</a></p></li>
+</ul>
+
+<p><img src="http://img.blog.csdn.net/20160807115226240" alt="这里写图片描述" title="" /></p>
+
+<p><strong>方法</strong></p>
+
+<ul>
+<li>flip <br />
+一般是切换到读操作。或者是为写操作准备一个新的序列</li>
+</ul>
+
+<pre class="prettyprint"><code class=" hljs java">  <span class="hljs-keyword">public</span> <span class="hljs-keyword">final</span> Buffer <span class="hljs-title">flip</span>() {
+        limit = position;
+        position = <span class="hljs-number">0</span>;
+        mark = -<span class="hljs-number">1</span>;
+        <span class="hljs-keyword">return</span> <span class="hljs-keyword">this</span>;
+    }</code></pre>
+
+<p>eg.重复向一个ByteBuffer写数据的时候，赋值完毕，必须要flip.开始一个新的新序列，否则position会等于limit，返回空值</p>
+
+<pre class="prettyprint"><code class=" hljs java"><span class="hljs-keyword">public</span> <span class="hljs-keyword">static</span> <span class="hljs-keyword">void</span> <span class="hljs-title">main</span>(String[] args) {
+        <span class="hljs-keyword">byte</span>[] bytes1=<span class="hljs-keyword">new</span> <span class="hljs-keyword">byte</span>[]{<span class="hljs-number">1</span>, <span class="hljs-number">6</span>, <span class="hljs-number">3</span>};
+        ByteBuffer buffer =fromByteArray(bytes1);
+        System.out.println(buffer);
+        <span class="hljs-keyword">byte</span>[] bytes2 =<span class="hljs-keyword">new</span> <span class="hljs-keyword">byte</span>[]{<span class="hljs-number">1</span>,<span class="hljs-number">2</span>,<span class="hljs-number">3</span>};
+        ByteBuffer buffer2=fromByteArray(bytes2);
+        System.out.println(buffer2);
+    }
+
+    <span class="hljs-javadoc">/**
+     * If you are building up a ByteBuffer by repeatedly writing into it, and then want to give it away, you must remember to flip() it. 
+     * If we did not flip() it, the returned ByteBuffer would be empty because the position would be equal to the limit.
+     *<span class="hljs-javadoctag"> @param</span> bytes
+     *<span class="hljs-javadoctag"> @return</span>
+     */</span>
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">static</span> ByteBuffer <span class="hljs-title">fromByteArray</span>(<span class="hljs-keyword">byte</span>[] bytes) {
+        <span class="hljs-keyword">final</span> ByteBuffer ret = ByteBuffer.wrap(<span class="hljs-keyword">new</span> <span class="hljs-keyword">byte</span>[bytes.length]);
+
+        ret.put(bytes);
+        ret.flip();
+
+        <span class="hljs-keyword">return</span> ret;
+    } </code></pre>
+
+<ul>
+<li>rewind</li>
+</ul>
+
+<p>rewind倒回，将position 设置为0，重新读取</p>
+
+
+
+<pre class="prettyprint"><code class=" hljs java"> <span class="hljs-keyword">public</span> <span class="hljs-keyword">final</span> Buffer <span class="hljs-title">rewind</span>() {
+        position = <span class="hljs-number">0</span>;
+        mark = -<span class="hljs-number">1</span>;
+        <span class="hljs-keyword">return</span> <span class="hljs-keyword">this</span>;
+    }</code></pre>
+
+<ul>
+<li>clear <br />
+clear 并没有真正的清除数据，将position设置为0，limit设置为capacity.</li>
+</ul>
+
+
+
+<pre class="prettyprint"><code class=" hljs java">  <span class="hljs-keyword">public</span> <span class="hljs-keyword">final</span> Buffer <span class="hljs-title">clear</span>() {
+        position = <span class="hljs-number">0</span>;
+        limit = capacity;
+        mark = -<span class="hljs-number">1</span>;
+        <span class="hljs-keyword">return</span> <span class="hljs-keyword">this</span>;
+    }</code></pre>
+
+
+
+<h4 id="bytebuffer">ByteBuffer</h4>
+
+<p>ByteBuffer 相比较其他的缓冲器有些区别</p>
+
+<ul>
+<li><p>可以分配直接缓冲区 <br />
+直接缓冲区，JVM会尽可能的直接在此缓冲区执行本机IO操作。避免与中间缓冲区交互</p></li>
+<li><p>可以通过mapping将文件区域直接映射到内存来创建、</p></li>
+<li><p>访问二进制数据 </p></li>
+</ul>
+
+<h3 id="参考">参考</h3>
+
+<p><a href="http://www.javaworld.com/article/2078654/java-se/java-se-five-ways-to-maximize-java-nio-and-nio-2.html">http://www.javaworld.com/article/2078654/java-se/java-se-five-ways-to-maximize-java-nio-and-nio-2.html</a> <br />
+<a href="http://javapapers.com/java/java-nio-buffer/">http://javapapers.com/java/java-nio-buffer/</a> <br />
+<a href="https://docs.oracle.com/javase/7/docs/api/java/nio/package-summary.html#buffers">https://docs.oracle.com/javase/7/docs/api/java/nio/package-summary.html#buffers</a></p></div>&#13;
+        <script type="text/javascript">&#13;
+            $(function () {&#13;
+                $('pre.prettyprint code').each(function () {&#13;
+                    var lines = $(this).text().split('\n').length;&#13;
+                    var $numbering = $('&lt;ul/&gt;').addClass('pre-numbering').hide();&#13;
+                    $(this).addClass('has-numbering').parent().append($numbering);&#13;
+                    for (i = 1; i &lt;= lines; i++) {&#13;
+                        $numbering.append($('&lt;li/&gt;').text(i));&#13;
+                    };&#13;
+                    $numbering.fadeIn(1700);&#13;
+                });&#13;
+            });&#13;
+        </script>&#13;
+   &#13;
